@@ -24,4 +24,6 @@
 /config/master.key
 /config/database.yml
 
+.env
+
 .DS_Store
