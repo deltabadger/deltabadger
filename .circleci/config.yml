@@ -1,63 +1,45 @@
-# Ruby CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-ruby/ for more details
-#
+---
 version: 2
 jobs:
   build:
+    working_directory: ~/deltabadger
     docker:
-      # specify the version you desire here
-      - image: circleci/ruby:2.4.1-node-browsers
-
-      # Specify service dependencies here if necessary
-      # CircleCI maintains a library of pre-built images
-      # documented at https://circleci.com/docs/2.0/circleci-images/
-      # - image: circleci/postgres:9.4
-
-    working_directory: ~/repo
-
+      - image: circleci/ruby:2.6.3
+        environment:
+          PGHOST: localhost
+          PGUSER: deltabadger
+          RAILS_ENV: test
+      - image: postgres:9.5
+        environment:
+          POSTGRES_USER: deltabadger
+          POSTGRES_DB: deltabadger_test
+          POSTGRES_PASSWORD: ""
     steps:
       - checkout
 
-      # Download and cache dependencies
-      - restore_cache:
-          keys:
-            - v1-dependencies-{{ checksum "Gemfile.lock" }}
-            # fallback to using the latest cache if no exact match is found
-            - v1-dependencies-
+      # Restore Cached Dependencies
+      - type: cache-restore
+        name: Restore bundle cache
+        key: your-app-name-{{ checksum "Gemfile.lock" }}
 
-      - run:
-          name: install dependencies
-          command: |
-            bundle install --jobs=4 --retry=3 --path vendor/bundle
+      # Bundle install dependencies
+      - run: bundle install --path vendor/bundle
 
-      - save_cache:
-          paths:
-            - ./vendor/bundle
-          key: v1-dependencies-{{ checksum "Gemfile.lock" }}
+      # Cache Dependencies
+      - type: cache-save
+        name: Store bundle cache
+        key: deltabadger-{{ checksum "Gemfile.lock" }}
+        paths:
+          - vendor/bundle
 
-      # Database setup
-      - run: bundle exec rake db:create
-      - run: bundle exec rake db:schema:load
+      # Wait for DB
+      - run: dockerize -wait tcp://localhost:5432 -timeout 1m
 
-      # run tests!
-      - run:
-          name: run tests
-          command: |
-            mkdir /tmp/test-results
-            TEST_FILES="$(circleci tests glob "spec/**/*_spec.rb" | \
-              circleci tests split --split-by=timings)"
+      # Setup the environment
+      - run: cp ./config/database.yml.example ./config/database.yml
 
-            bundle exec rspec \
-              --format progress \
-              --format RspecJunitFormatter \
-              --out /tmp/test-results/rspec.xml \
-              --format progress \
-              $TEST_FILES
+      # Setup the database
+      - run: bundle exec rake db:setup
 
-      # collect reports
-      - store_test_results:
-          path: /tmp/test-results
-      - store_artifacts:
-          path: /tmp/test-results
-          destination: test-results
+      # Run the tests
+      - run: bundle exec rspec spec
