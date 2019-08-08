@@ -4,7 +4,7 @@ jobs:
   build:
     working_directory: ~/deltabadger
     docker:
-      - image: circleci/ruby:2.6.3
+      - image: circleci/ruby:2.6.3-node-browsers
         environment:
           PGHOST: localhost
           PGUSER: deltabadger
@@ -20,7 +20,7 @@ jobs:
       # Restore Cached Dependencies
       - type: cache-restore
         name: Restore bundle cache
-        key: your-app-name-{{ checksum "Gemfile.lock" }}
+        key: deltabadger-{{ checksum "Gemfile.lock" }}
 
       # Bundle install dependencies
       - run: bundle install --path vendor/bundle
@@ -39,7 +39,9 @@ jobs:
       - run: cp ./config/database.yml.example ./config/database.yml
 
       # Setup the database
-      - run: bundle exec rake db:setup
+      - run: bundle exec rake db:create
+      - run: bundle exec rake db:schema:load
 
-      # Run the tests
+      - run: bundle exec rubocop
+      - run: bundle exec bundle audit check --update
       - run: bundle exec rspec spec
