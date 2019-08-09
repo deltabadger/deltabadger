@@ -1,0 +1,2 @@
+rubocop
+bundle exec rspec spec
