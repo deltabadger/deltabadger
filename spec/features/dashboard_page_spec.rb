@@ -1,12 +1,19 @@
 require 'rails_helper'
 
-describe 'Opening home page', type: :feature do
-  it 'signs me in' do
-    sign_in_user
+describe 'Opening dashboard', type: :feature do
+  context 'with guest user' do
+    it 'redirects to sign in page' do
+      visit '/dashboard'
+      expect(page).to have_current_path('/users/sign_in')
+    end
+  end
 
-    visit '/'
-    expect(page).to have_current_path('/dashboard')
-    expect(page).to have_content 'Dashboard'
-    expect(page).to have_http_status(200)
+  context 'with signed in user' do
+    it 'opens page' do
+      sign_in_user
+
+      visit '/dashboard'
+      expect(page).to have_current_path('/dashboard')
+    end
   end
 end
