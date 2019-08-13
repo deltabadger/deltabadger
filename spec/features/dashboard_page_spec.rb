@@ -1,0 +1,19 @@
+require 'rails_helper'
+
+describe 'Opening dashboard', type: :feature do
+  context 'with guest user' do
+    it 'redirects to sign in page' do
+      visit '/dashboard'
+      expect(page).to have_current_path('/users/sign_in')
+    end
+  end
+
+  context 'with signed in user' do
+    it 'opens page' do
+      sign_in_user
+
+      visit '/dashboard'
+      expect(page).to have_current_path('/dashboard')
+    end
+  end
+end
