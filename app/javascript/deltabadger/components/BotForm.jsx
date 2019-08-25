@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 
+const userHasApiToken = () => {
+}
+
 const STEPS = [
   'closed_form',
   'pick_exchange',
@@ -47,7 +50,7 @@ const AddApiKey = ({ handleSubmit }) => {
   return(<h1>set api key</h1>)
 }
 
-const BotForm = props => {
+export const BotForm = props => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({exchangeId: null, api_key: null, bot_params: {}});
 
@@ -60,6 +63,7 @@ const BotForm = props => {
     setStep(step + 1)
   }
 
+  if (step == STEPS[step] && userHasApiToken()) { step += 1 }
   switch (STEPS[step]) {
     case 'closed_form':
       return <ClosedForm handleSubmit={() => setStep(step + 1)} />
@@ -71,10 +75,3 @@ const BotForm = props => {
       return <PickExchage handleSubmit={addApiKeyHandler}  />
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  ReactDOM.render(
-    <BotForm />,
-    document.getElementById('bot_form')
-  )
-})
