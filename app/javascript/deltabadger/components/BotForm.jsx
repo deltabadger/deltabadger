@@ -41,7 +41,26 @@ const PickExchage = ({ handleSubmit, exchanges }) => {
 }
 
 const AddApiKey = ({ handleSubmit }) => {
-  return(<h1>set api key</h1>)
+  const [key, setKey] = useState("");
+
+  const _handleSubmit = (evt) => {
+      evt.preventDefault();
+      alert(`Submitting  key ${key}`)
+  }
+
+  return (
+    <form onSubmit={_handleSubmit}>
+      <label>
+        Api-Key:
+        <input
+          type="text"
+          value={key}
+          onChange={e => setKey(e.target.value)}
+        />
+      </label>
+      <input type="submit" value="Submit" />
+    </form>
+  )
 }
 
 export const BotForm = props => {
