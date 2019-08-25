@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
+import API from '../lib/API'
 
 const userHasApiToken = () => {
 }
@@ -12,12 +13,6 @@ const STEPS = [
   'configure_bot',
 ]
 
-const getExchanges = () => ([
-  { id: 1, name: "Kraken" },
-  { id: 2, name: "Bitcos" },
-  { id: 3, name: "Luxmed" },
-])
-
 const ClosedForm = ({ handleSubmit }) => (
   <div>
     <button onClick={handleSubmit}>
@@ -26,8 +21,7 @@ const ClosedForm = ({ handleSubmit }) => (
   </div>
 )
 
-const PickExchage = ({ handleSubmit }) => {
-  const exchanges = getExchanges()
+const PickExchage = ({ handleSubmit, exchanges }) => {
   const ExchangeButton = ({ handleClick, exchange }) => (
     <button onClick={ () => handleClick(exchange.id) }>
       { exchange.name }
@@ -53,6 +47,13 @@ const AddApiKey = ({ handleSubmit }) => {
 export const BotForm = props => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({exchangeId: null, api_key: null, bot_params: {}});
+  const [exchanges, setExchanges] = useState([]);
+
+  useEffect(() => {
+    exchanges.length == 0 && API.getExchanges().then(data => {
+      setExchanges(data.data)
+    })
+  });
 
   const pickExchangeHandler = (id) => {
     setFormState({...form, exchangeId: id})
@@ -68,7 +69,7 @@ export const BotForm = props => {
     case 'closed_form':
       return <ClosedForm handleSubmit={() => setStep(step + 1)} />
     case 'pick_exchange':
-      return <PickExchage handleSubmit={pickExchangeHandler}  />
+      return <PickExchage handleSubmit={pickExchangeHandler} exchanges={exchanges} />
     case 'add_api_key':
       return <AddApiKey handleSubmit={addApiKeyHandler}  />
     case 'configure_bot':
