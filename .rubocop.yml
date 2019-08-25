@@ -10,6 +10,7 @@ AllCops:
     - 'spec/spec_helper.rb'
     - 'vendor/**/*'
     - 'tmp/**/*'
+    - 'node_modules/**/*'
 
 Style/Documentation:
   Enabled: false
