@@ -3,4 +3,5 @@ Rails.application.routes.draw do
   root to: 'home#index'
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard
+  resources :api_keys, only: [:create]
 end
