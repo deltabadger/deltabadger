@@ -1,7 +1,5 @@
 module Api
-  class ApiKeysController < ApplicationController
-    before_action :authenticate_user!
-
+  class ApiKeysController < Api::BaseController
     def create
       api_key = ApiKey.new(
         api_key_params.merge(user: current_user)

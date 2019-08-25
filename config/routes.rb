@@ -4,7 +4,8 @@ Rails.application.routes.draw do
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard
 
-  scope :api do
+  namespace :api do
     resources :api_keys, only: [:create]
+    resources :exchanges, only: [:index]
   end
 end
