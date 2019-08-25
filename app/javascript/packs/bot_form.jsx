@@ -15,31 +15,35 @@ const getExchanges = () => ([
   { id: 3, name: "Luxmed" },
 ])
 
-const ClosedForm = props => (
+const ClosedForm = ({ handleSubmit }) => (
   <div>
-    <button onClick={props.handleSubmit}>
+    <button onClick={handleSubmit}>
       Add bot
     </button>
   </div>
 )
 
-const PickExchage = props => {
+const PickExchage = ({ handleSubmit }) => {
   const exchanges = getExchanges()
-  const ExchangeButton = props => (
-    <button onClick={ () => props.handleClick(props.exchange.id) }>
-      { props.exchange.name }
+  const ExchangeButton = ({ handleClick, exchange }) => (
+    <button onClick={ () => handleClick(exchange.id) }>
+      { exchange.name }
     </button>
   )
 
   return (
     <div>
-      { exchanges.map(e => <ExchangeButton key={e.id} handleClick={props.handleSubmit} exchange={e} />) }
+      {
+        exchanges.map(e =>
+          <ExchangeButton key={e.id} handleClick={handleSubmit} exchange={e} />
+        )
+      }
     </div>
   )
 
 }
 
-const AddApiKey = props => {
+const AddApiKey = ({ handleSubmit }) => {
   return(<h1>set api key</h1>)
 }
 
