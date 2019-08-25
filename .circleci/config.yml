@@ -20,17 +20,30 @@ jobs:
       # Restore Cached Dependencies
       - type: cache-restore
         name: Restore bundle cache
-        key: deltabadger-{{ checksum "Gemfile.lock" }}
+        key: deltabadger-bundle-{{ checksum "Gemfile.lock" }}
+
+      - type: cache-restore
+        name: Restore yarn cache
+        key: deltabadger-yarn-{{ checksum "yarn.lock" }}
 
       # Bundle install dependencies
       - run: bundle install --path vendor/bundle
 
+      # Yarn install dependencies
+      - run: yarn install
+
       # Cache Dependencies
       - type: cache-save
         name: Store bundle cache
-        key: deltabadger-{{ checksum "Gemfile.lock" }}
+        key: deltabadger-bundle-{{ checksum "Gemfile.lock" }}
         paths:
           - vendor/bundle
+
+      - type: cache-save
+        name: Store yarn cache
+        key: deltabadger-yarn-{{ checksum "yarn.lock" }}
+        paths:
+          - ~/.yarn-cache
 
       # Wait for DB
       - run: dockerize -wait tcp://localhost:5432 -timeout 1m
