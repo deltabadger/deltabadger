@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 
-const STEPS = {
-  closed_form: { nextStep: 'pick_exchange' },
-  pick_exchange: { nextStep: 'add_api_key' },
-  add_api_key: { nextStep: 'configure_bot' },
-  configure_bot: { nextStep: null },
-}
+const STEPS = [
+  'closed_form',
+  'pick_exchange',
+  'add_api_key' ,
+  'configure_bot',
+]
 
 const getExchanges = () => ([
   { id: 1, name: "Kraken" },
@@ -17,7 +17,7 @@ const getExchanges = () => ([
 
 const ClosedForm = props => (
   <div>
-    <button onClick={props.nextStep}>
+    <button onClick={props.handleSubmit}>
       Add bot
     </button>
   </div>
@@ -44,34 +44,28 @@ const AddApiKey = props => {
 }
 
 const BotForm = props => {
-  const [step, setStep] = useState('closed_form');
+  const [step, setStep] = useState(0);
   const [form, setFormState] = useState({exchangeId: null, api_key: null, bot_params: {}});
 
   const pickExchangeHandler = (id) => {
     setFormState({...form, exchangeId: id})
-    setStep(STEPS[step].nextStep)
+    setStep(step + 1)
   }
 
   const addApiKeyHandler = () => {
-    setStep(STEPS[step].nextStep)
+    setStep(step + 1)
   }
 
-  switch (step) {
+  switch (STEPS[step]) {
     case 'closed_form':
-      return <ClosedForm
-        nextStep={() => setStep(STEPS[step].nextStep)}
-      />
-
+      return <ClosedForm handleSubmit={() => setStep(step + 1)} />
     case 'pick_exchange':
       return <PickExchage handleSubmit={pickExchangeHandler}  />
-
     case 'add_api_key':
       return <AddApiKey handleSubmit={addApiKeyHandler}  />
-
     case 'configure_bot':
       return <PickExchage handleSubmit={addApiKeyHandler}  />
   }
-
 }
 
 document.addEventListener('DOMContentLoaded', () => {
