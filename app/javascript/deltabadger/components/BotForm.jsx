@@ -67,15 +67,56 @@ const AddApiKey = ({ handleSubmit, errors }) => {
 }
 
 const ConfigureBot = ({ handleSubmit }) => {
+  const [type, setType] = useState("sell");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [interval, setInterval] = useState("month");
+
+  const _handleSubmit = (evt) => {
+      evt.preventDefault();
+      const botParams = { type, price, currency, interval}
+      handleSubmit(botParams);
+  }
+
   return (
-    <h1>Configure bot</h1>
+      <form onSubmit={_handleSubmit}>
+        <select value={type} onChange={e => setType(e.target.value)}>
+          <option value="sell">Sell</option>
+          <option value="buy">Buy</option>
+        </select>
+
+        for
+        <input
+          type="text"
+          value={price}
+          onChange={e => setPrice(e.target.value)}
+        />
+
+        <select value={currency} onChange={e => setCurrency(e.target.value)}>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select>
+        /
+        <select value={interval} onChange={e => setInterval(e.target.value)}>
+          <option value="month">month</option>
+          <option value="week">week</option>
+        </select>
+
+
+        <input type="submit" value="Submit" />
+      </form>
   )
 }
 
 
+const initialForm = {
+  exchangeId: null,
+  api_key: null,
+}
+
 export const BotForm = props => {
   const [step, setStep] = useState(0);
-  const [form, setFormState] = useState({exchangeId: null, api_key: null, bot_params: {}});
+  const [form, setFormState] = useState(initialForm);
   const [exchanges, setExchanges] = useState([]);
   const [errors, setErrors] = useState("");
 
@@ -107,6 +148,18 @@ export const BotForm = props => {
     })
   }
 
+  const configureBotHandler = (botParams) => {
+    const params = {...botParams, exchangeId: form.exchangeId}
+    API.createBot(params).then(response => {
+      console.log(params)
+      setErrors([])
+      setStep(0)
+      setForm(initialForm)
+    }).catch(() => {
+      setErrors("Invalid token")
+    })
+  }
+
   switch (STEPS[chooseStep(step)]) {
     case 'closed_form':
       return <ClosedForm handleSubmit={() => setStep(step + 1)} />
@@ -115,6 +168,6 @@ export const BotForm = props => {
     case 'add_api_key':
       return <AddApiKey handleSubmit={addApiKeyHandler} errors={errors}  />
     case 'configure_bot':
-      return <ConfigureBot handleSubmit={addApiKeyHandler}  />
+      return <ConfigureBot handleSubmit={configureBotHandler}  />
   }
 }

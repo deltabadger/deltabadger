@@ -31,6 +31,18 @@ const API = {
       key: params.key
     }
     return client.request({ url, data: { api_key: ApiKeyParams}, method: 'post' }).then(data => data.data);
+  },
+
+   createBot(params) {
+    const url = `${API_URL}/bots`;
+    const botParams= {
+      exchange_id: params.exchangeId,
+      type: params.type,
+      price: params.price,
+      currency: params.currency,
+      interval: params.interval,
+    }
+    return client.request({ url, data: { bot: botParams}, method: 'post' }).then(data => data.data);
   }
 };
 
