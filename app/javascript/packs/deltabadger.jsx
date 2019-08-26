@@ -1,12 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { BotForm } from '../deltabadger/components/BotForm'
+import { Dashboard } from '../deltabadger/components/Dashboard'
 
-if (document.getElementById('bot_form')) {
+if (document.getElementById('dashboard')) {
   document.addEventListener('DOMContentLoaded', () => {
     ReactDOM.render(
-      <BotForm />,
-      document.getElementById('bot_form')
+      <Dashboard />,
+      document.getElementById('dashboard')
     )
   })
 }

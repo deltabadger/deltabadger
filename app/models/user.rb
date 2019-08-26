@@ -4,4 +4,5 @@ class User < ApplicationRecord
 
   has_many :api_keys
   has_many :exchanges, through: :api_keys
+  has_many :bots
 end
