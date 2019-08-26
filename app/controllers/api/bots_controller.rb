@@ -1,7 +1,13 @@
 module Api
   class BotsController < Api::BaseController
     def index
-      render json: { data: Bot.all.select(:id, :state) }
+      present_bot = lambda do |bot|
+        { id: bot.id, settings: bot.settings, exchangeName: bot.exchange.name }
+      end
+
+      data = current_user.bots.includes(:exchange).all.map(&present_bot)
+
+      render json: { data: data }
     end
 
     def create
