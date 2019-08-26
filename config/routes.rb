@@ -7,5 +7,6 @@ Rails.application.routes.draw do
   namespace :api do
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
+    resources :bots, only: [:create, :index]
   end
 end
