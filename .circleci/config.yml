@@ -50,6 +50,7 @@ jobs:
 
       # Setup the environment
       - run: cp ./config/database.yml.example ./config/database.yml
+      - run: cp ./.env.example ./.env
 
       # Setup the database
       - run: bundle exec rake db:create
