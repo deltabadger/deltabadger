@@ -8,7 +8,6 @@
     = stylesheet_link_tag    'application', media: 'all', 'data-turbolinks-track': 'reload'
     = javascript_include_tag 'application', 'data-turbolinks-track': 'reload'
 
-    = javascript_pack_tag 'bot_form'
   %body
     = render 'layouts/navbar'
 
@@ -16,3 +15,5 @@
     %p.alert= alert
 
     = yield
+
+    = javascript_pack_tag 'deltabadger'

@@ -3,6 +3,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby '2.6.3'
 
+gem "attr_encrypted", "~> 3.1.0"
 gem 'bootsnap', '>= 1.1.0', require: false
 gem 'devise'
 gem 'dotenv-rails'
