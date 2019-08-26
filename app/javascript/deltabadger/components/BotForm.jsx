@@ -79,7 +79,14 @@ export const BotForm = props => {
   const [exchanges, setExchanges] = useState([]);
   const [errors, setErrors] = useState("");
 
-  console.log(errors)
+  const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
+
+  const chooseStep = step => {
+    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return step + 1 }
+
+    return step;
+  }
+
   useEffect(() => {
     exchanges.length == 0 && API.getExchanges().then(data => {
       setExchanges(data.data)
@@ -100,8 +107,7 @@ export const BotForm = props => {
     })
   }
 
-  if (step == STEPS[step] && userHasApiToken()) { step += 1 }
-  switch (STEPS[step]) {
+  switch (STEPS[chooseStep(step)]) {
     case 'closed_form':
       return <ClosedForm handleSubmit={() => setStep(step + 1)} />
     case 'pick_exchange':
