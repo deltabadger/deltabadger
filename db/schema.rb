@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2019_08_25_215208) do
+ActiveRecord::Schema.define(version: 2019_08_26_034314) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -24,6 +24,18 @@ ActiveRecord::Schema.define(version: 2019_08_25_215208) do
     t.datetime "updated_at", null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
+  end
+
+  create_table "bots", force: :cascade do |t|
+    t.bigint "exchange_id"
+    t.integer "status", default: 0, null: false
+    t.bigint "user_id"
+    t.jsonb "settings", default: "", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "bot_type"
+    t.index ["exchange_id"], name: "index_bots_on_exchange_id"
+    t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
   create_table "exchanges", force: :cascade do |t|
@@ -51,4 +63,6 @@ ActiveRecord::Schema.define(version: 2019_08_25_215208) do
 
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "bots", "exchanges"
+  add_foreign_key "bots", "users"
 end
