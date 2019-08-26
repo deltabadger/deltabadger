@@ -23,6 +23,15 @@ const API = {
     const url = `${API_URL}/exchanges`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
+
+  createApiKey(params) {
+    const url = `${API_URL}/api_keys`;
+    const ApiKeyParams = {
+      exchange_id: params.exchangeId,
+      key: params.key
+    }
+    return client.request({ url, data: { api_key: ApiKeyParams}, method: 'post' }).then(data => data.data);
+  }
 };
 
 export default API;

@@ -6,9 +6,9 @@ module Api
       )
 
       if api_key.save!
-        render json: true
+        render json: { data: true }, status: 201
       else
-        render json: false
+        render json: { data: false }, status: 422
       end
     end
 
