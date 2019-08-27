@@ -15,7 +15,7 @@ module Api
     private
 
     def api_key_params
-      params.require(:api_key).permit(:key, :exchange_id)
+      params.require(:api_key).permit(:key, :secret, :exchange_id)
     end
   end
 end
