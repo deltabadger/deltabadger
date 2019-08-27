@@ -1,10 +1,9 @@
 require 'rails_helper'
 
-describe 'Opening home page', type: :feature do
+describe 'Opening home page', type: :feature, js: true do
   it 'opens page' do
     visit '/'
     expect(page).to have_content 'Home page'
-    expect(page).to have_http_status(200)
   end
 
   context 'with signed in user' do
@@ -13,8 +12,7 @@ describe 'Opening home page', type: :feature do
 
       visit '/'
       expect(page).to have_current_path('/dashboard')
-      expect(page).to have_content 'Dashboard'
-      expect(page).to have_http_status(200)
+      expect(page).to have_content 'Add bot'
     end
   end
 end
