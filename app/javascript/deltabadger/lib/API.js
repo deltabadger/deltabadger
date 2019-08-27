@@ -33,7 +33,7 @@ const API = {
     return client.request({ url, data: { api_key: ApiKeyParams}, method: 'post' }).then(data => data.data);
   },
 
-   createBot(params) {
+  createBot(params) {
     const url = `${API_URL}/bots`;
     const botParams= {
       exchange_id: params.exchangeId,
@@ -43,7 +43,12 @@ const API = {
       interval: params.interval,
     }
     return client.request({ url, data: { bot: botParams}, method: 'post' }).then(data => data.data);
-  }
+  },
+
+  getBots() {
+    const url = `${API_URL}/bots`;
+    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+  },
 };
 
 export default API;

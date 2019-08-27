@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-describe 'Opening dashboard', type: :feature do
+describe 'Opening dashboard', type: :feature, js: true do
   context 'with guest user' do
     it 'redirects to sign in page' do
       visit '/dashboard'

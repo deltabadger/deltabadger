@@ -114,7 +114,7 @@ const initialForm = {
   api_key: null,
 }
 
-export const BotForm = props => {
+export const BotForm = ({ callbackAfterCreation }) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState(initialForm);
   const [exchanges, setExchanges] = useState([]);
@@ -154,6 +154,7 @@ export const BotForm = props => {
       console.log(params)
       setErrors([])
       setStep(0)
+      callbackAfterCreation()
       setForm(initialForm)
     }).catch(() => {
       setErrors("Invalid token")
