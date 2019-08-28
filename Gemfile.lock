@@ -1,3 +1,10 @@
+GIT
+  remote: https://github.com/jonatack/kraken_ruby_client
+  revision: b58e562ead71c2b6e1291ca0faa05acaaa5fad27
+  specs:
+    kraken_ruby_client (0.0.1)
+      curb (~> 0.9)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -80,6 +87,7 @@ GEM
     coderay (1.1.2)
     concurrent-ruby (1.1.5)
     crass (1.0.4)
+    curb (0.9.10)
     devise (4.6.2)
       bcrypt (~> 3.0)
       orm_adapter (~> 0.1)
@@ -319,6 +327,7 @@ DEPENDENCIES
   guard-rubocop
   haml-rails (~> 2.0)
   jbuilder (~> 2.5)
+  kraken_ruby_client!
   letter_opener
   listen (>= 3.0.5, < 3.2)
   pg (>= 0.18, < 2.0)
