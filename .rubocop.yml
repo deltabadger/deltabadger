@@ -18,6 +18,9 @@ Style/Documentation:
 Style/FrozenStringLiteralComment:
   Enabled: false
 
+Style/NegatedIf:
+  Enabled: false
+
 Metrics/MethodLength:
   Max: 20
 
