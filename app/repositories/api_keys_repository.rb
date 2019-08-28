@@ -1,0 +1,2 @@
+class ApiKeysRepository < BaseRepository
+end
