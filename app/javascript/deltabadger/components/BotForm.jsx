@@ -3,9 +3,6 @@ import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 import API from '../lib/API'
 
-const userHasApiToken = () => {
-}
-
 const STEPS = [
   'closed_form',
   'pick_exchange',
@@ -42,10 +39,11 @@ const PickExchage = ({ handleSubmit, exchanges }) => {
 
 const AddApiKey = ({ handleSubmit, errors }) => {
   const [key, setKey] = useState("");
+  const [secret, setSecret] = useState("");
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      handleSubmit(key)
+      handleSubmit(key, secret)
   }
 
   return (
@@ -53,11 +51,19 @@ const AddApiKey = ({ handleSubmit, errors }) => {
       { errors }
       <form onSubmit={_handleSubmit}>
         <label>
-          Api-Key:
+          API Key:
           <input
             type="text"
             value={key}
             onChange={e => setKey(e.target.value)}
+          />
+        </label>
+        <label>
+          Secret API Key:
+          <input
+            type="text"
+            value={secret}
+            onChange={e => setSecret(e.target.value)}
           />
         </label>
         <input type="submit" value="Submit" />
@@ -132,15 +138,15 @@ export const BotForm = ({ callbackAfterCreation }) => {
     exchanges.length == 0 && API.getExchanges().then(data => {
       setExchanges(data.data)
     })
-  });
+  }, []);
 
   const pickExchangeHandler = (id) => {
     setFormState({...form, exchangeId: id})
     setStep(step + 1)
   }
 
-  const addApiKeyHandler = (key) => {
-    API.createApiKey({ key, exchangeId: form.exchangeId }).then(response => {
+  const addApiKeyHandler = (key, secret) => {
+    API.createApiKey({ key, secret, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(step + 1)
     }).catch(() => {
@@ -151,10 +157,10 @@ export const BotForm = ({ callbackAfterCreation }) => {
   const configureBotHandler = (botParams) => {
     const params = {...botParams, exchangeId: form.exchangeId}
     API.createBot(params).then(response => {
+      callbackAfterCreation()
       console.log(params)
       setErrors([])
       setStep(0)
-      callbackAfterCreation()
       setForm(initialForm)
     }).catch(() => {
       setErrors("Invalid token")

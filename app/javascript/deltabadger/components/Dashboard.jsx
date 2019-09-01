@@ -21,7 +21,7 @@ export const Dashboard = () => {
     bots.length == 0 && API.getBots().then(data => {
       setBots(data.data)
     })
-  });
+  }, []);
 
   const callbackAfterCreation = () => {
     API.getBots().then(data => {
