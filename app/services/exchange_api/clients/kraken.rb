@@ -15,6 +15,12 @@ module ExchangeApi
 
         true
       end
+
+      def buy(_)
+        puts 'Buying things on Kraken!'
+
+        true
+      end
     end
   end
 end

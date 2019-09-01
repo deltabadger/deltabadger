@@ -26,6 +26,16 @@ module Api
       end
     end
 
+    def start
+      result = StartBot.call(params[:id])
+
+      if result.success?
+        render json: { data: true }, status: 200
+      else
+        render json: { data: false }, status: 422
+      end
+    end
+
     private
 
     def bot_params
