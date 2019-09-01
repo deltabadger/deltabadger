@@ -5,11 +5,16 @@ import API from '../lib/API'
 import { BotForm } from './BotForm'
 
 
-const Bot = ({ settings, exchangeName }) => {
+const Bot = ({ id, settings, status, exchangeName, handleStart, handleStop }) => {
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
+
+  const StartButton = () => (<button onClick={() => handleStart(id)}>Start</button>)
+  const StopButton = () => (<button onClick={() => handleStop(id)}>Stop</button>)
+
   return (
     <div>
       { description }
+      { status == 'working' ? <StopButton /> : <StartButton/> }
     </div>
   )
 }
@@ -17,22 +22,46 @@ const Bot = ({ settings, exchangeName }) => {
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
 
-  useEffect(() => {
-    bots.length == 0 && API.getBots().then(data => {
+  const loadBots = () => {
+    API.getBots().then(data => {
       setBots(data.data)
     })
+  }
+
+  useEffect(() => {
+    loadBots()
   }, []);
 
   const callbackAfterCreation = () => {
-    API.getBots().then(data => {
-      setBots(data.data)
+    loadBots()
+  }
+
+  const startBot = id => {
+    API.startBot(id).then(data => {
+      loadBots();
+    })
+  }
+
+  const stopBot = id => {
+    API.stopBot(id).then(data => {
+      loadBots();
     })
   }
 
   return (
     <div>
       <h1>Dashboard</h1>
-        { bots.map(b => <Bot key={b.id} settings={b.settings} exchangeName={b.exchangeName}/>) }
+      { bots.map(b =>
+        <Bot
+          id={b.id}
+          key={b.id}
+          status={b.status}
+          settings={b.settings}
+          exchangeName={b.exchangeName}
+          handleStop={stopBot}
+          handleStart={startBot}
+        />)
+      }
       <BotForm callbackAfterCreation={callbackAfterCreation} />
     </div>
   )

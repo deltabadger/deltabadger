@@ -12,5 +12,7 @@ class StartBot < BaseService
     bot = @bots_repository.find(bot_id)
     @schedule_transaction.call(bot)
     @bots_repository.update(bot.id, status: 'working')
+
+    Result::Success.new
   end
 end
