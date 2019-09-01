@@ -4,6 +4,10 @@ module ExchangeApi
       def validate_credentials
         false
       end
+
+      def buy
+        puts 'Buying on derbit'
+      end
     end
   end
 end

@@ -1,3 +1,5 @@
+require 'sidekiq/web'
+
 Rails.application.routes.draw do
   devise_for :users
   root to: 'home#index'
@@ -9,4 +11,6 @@ Rails.application.routes.draw do
     resources :exchanges, only: [:index]
     resources :bots, only: [:create, :index]
   end
+
+  mount ::Sidekiq::Web => '/sidekiq'
 end

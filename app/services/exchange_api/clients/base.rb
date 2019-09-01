@@ -4,6 +4,10 @@ module ExchangeApi
       def validate_credentials
         raise NotImplementedError
       end
+
+      def buy
+        raise NotImplementedError
+      end
     end
   end
 end
