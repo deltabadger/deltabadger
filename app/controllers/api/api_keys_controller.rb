@@ -1,11 +1,11 @@
 module Api
   class ApiKeysController < Api::BaseController
     def create
-      api_key = ApiKey.new(
+      result = AddApiKey.call(
         api_key_params.merge(user: current_user)
       )
 
-      if api_key.save!
+      if result.success?
         render json: { data: true }, status: 201
       else
         render json: { data: false }, status: 422
@@ -15,7 +15,7 @@ module Api
     private
 
     def api_key_params
-      params.require(:api_key).permit(:key, :exchange_id)
+      params.require(:api_key).permit(:key, :secret, :exchange_id)
     end
   end
 end
