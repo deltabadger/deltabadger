@@ -1,0 +1,31 @@
+class MakeTransaction < BaseService
+  def initialize(
+    exchange_api: ExchangeApi::Get.new,
+    schedule_transaction: ScheduleTransaction.new,
+    bots_repository: BotsRepository.new,
+    api_keys_repository: ApiKeysRepository.new
+  )
+
+    @get_exchange_api = exchange_api
+    @schedule_transaction = schedule_transaction
+    @bots_repository = bots_repository
+    @api_keys_repository = api_keys_repository
+  end
+
+  def call(bot_id)
+    bot = @bots_repository.find(bot_id)
+    api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
+    api = @get_exchange_api.call(api_key)
+
+    return false if !make_transaction?(bot)
+
+    api.buy(bot.settings)
+    @schedule_transaction.call(bot)
+  end
+
+  private
+
+  def make_transaction?(bot)
+    bot.working?
+  end
+end
