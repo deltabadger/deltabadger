@@ -106,6 +106,8 @@ const ConfigureBot = ({ handleSubmit }) => {
         <select value={interval} onChange={e => setInterval(e.target.value)}>
           <option value="month">month</option>
           <option value="week">week</option>
+          <option value="day">day</option>
+          <option value="minutes">15 minutes</option>
         </select>
 
 

@@ -2,7 +2,12 @@ module Api
   class BotsController < Api::BaseController
     def index
       present_bot = lambda do |bot|
-        { id: bot.id, settings: bot.settings, exchangeName: bot.exchange.name }
+        {
+          id: bot.id,
+          settings: bot.settings,
+          exchangeName: bot.exchange.name,
+          status: bot.status
+        }
       end
 
       data = current_user.bots.includes(:exchange).all.map(&present_bot)
@@ -21,6 +26,26 @@ module Api
 
       if bot.save
         render json: { data: true }, status: 201
+      else
+        render json: { data: false }, status: 422
+      end
+    end
+
+    def start
+      result = StartBot.call(params[:id])
+
+      if result.success?
+        render json: { data: true }, status: 200
+      else
+        render json: { data: false }, status: 422
+      end
+    end
+
+    def stop
+      result = StopBot.call(params[:id])
+
+      if result.success?
+        render json: { data: true }, status: 200
       else
         render json: { data: false }, status: 422
       end

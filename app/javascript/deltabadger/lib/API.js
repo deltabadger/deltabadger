@@ -50,6 +50,16 @@ const API = {
     const url = `${API_URL}/bots`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
+
+  startBot(botId) {
+    const url = `${API_URL}/bots/${botId}/start`;
+    return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
+  },
+
+  stopBot(botId) {
+    const url = `${API_URL}/bots/${botId}/stop`;
+    return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
+  },
 };
 
 export default API;
