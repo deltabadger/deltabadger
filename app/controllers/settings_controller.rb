@@ -38,6 +38,7 @@ class SettingsController < ApplicationController
 
     if api_key && !check_if_using(api_key, user)
       api_key.destroy!
+      redirect_to settings_path
     else
       render :index, locals: {
         user: current_user,
