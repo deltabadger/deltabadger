@@ -20,6 +20,16 @@ class SettingsController < ApplicationController
   end
 
   def update_email
+    user = current_user
+    if user.update_with_password(update_email_params)
+      bypass_sign_in(user)
+      redirect_to settings_path
+    else
+      render :index, locals: {
+        user: current_user,
+        api_keys: current_user.api_keys
+      }
+    end
   end
 
   def update_api_key
@@ -31,5 +41,9 @@ class SettingsController < ApplicationController
     params.require(:user).permit(
       :password, :password_confirmation, :current_password
     )
+  end
+
+  def update_email_params
+    params.require(:user).permit(:email, :current_password)
   end
 end
