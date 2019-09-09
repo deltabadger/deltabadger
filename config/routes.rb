@@ -19,7 +19,7 @@ Rails.application.routes.draw do
     get '/', action: :index
     patch 'update_password'
     patch 'update_email'
-    delete 'remove_api_key'
+    delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
   end
 
 
