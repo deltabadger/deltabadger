@@ -32,10 +32,25 @@ class SettingsController < ApplicationController
     end
   end
 
-  def update_api_key
+  def remove_api_key
+    user = current_user
+    api_key = user.api_keys.find(params[:id])
+
+    if api_key && !check_if_using(api_key, user)
+      api_key.destroy!
+    else
+      render :index, locals: {
+        user: current_user,
+        api_keys: current_user.api_keys
+      }
+    end
   end
 
   private
+
+  def check_if_using(api_key, user)
+    user.bots.map(&:exchange_id).include?(api_key.exchange_id)
+  end
 
   def update_password_params
     params.require(:user).permit(

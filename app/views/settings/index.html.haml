@@ -5,3 +5,7 @@
 %br/
 
 = render partial: 'update_email_form', locals: { user: user }
+
+Api Keys:
+%br
+= render partial: 'remove_api_key', collection: api_keys, as: :api_key
