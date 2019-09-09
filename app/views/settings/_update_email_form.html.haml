@@ -1,0 +1,16 @@
+Update email
+= form_for(user, url: settings_update_email_path) do |f|
+  .field
+    = f.label :email
+    %br/
+    = f.email_field :email, autofocus: true, autocomplete: "email"
+  - if user.pending_reconfirmation?
+    %div
+      Currently waiting confirmation for: #{user.unconfirmed_email}
+  .field
+    = f.label :current_password
+    %i (we need your current password to confirm your changes)
+    %br/
+    = f.password_field :current_password, autocomplete: "current-password"
+  .actions
+    = f.submit "Update email"
