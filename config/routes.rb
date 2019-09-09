@@ -15,5 +15,13 @@ Rails.application.routes.draw do
     end
   end
 
+  namespace :settings do
+    get '/', action: :index
+    patch 'update_password'
+    patch 'update_email'
+    patch 'update_api_token'
+  end
+
+
   mount ::Sidekiq::Web => '/sidekiq'
 end
