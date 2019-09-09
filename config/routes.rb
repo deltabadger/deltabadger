@@ -15,5 +15,13 @@ Rails.application.routes.draw do
     end
   end
 
+  namespace :settings do
+    get '/', action: :index
+    patch 'update_password'
+    patch 'update_email'
+    delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
+  end
+
+
   mount ::Sidekiq::Web => '/sidekiq'
 end
