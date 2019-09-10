@@ -13,9 +13,12 @@ module ExchangeApi
           api_key: api_key.key,
           api_secret: api_key.secret
         )
-
-      when 'Deribit'  then ExchangeApi::Clients::Deribit.new
-      when 'BitBay'   then ExchangeApi::Clients::Bitbay.new
+      when 'BitBay'
+        ExchangeApi::Clients::Bitbay.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
+        )
+      when 'Deribit' then ExchangeApi::Clients::Deribit.new
       end
     end
   end
