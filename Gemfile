@@ -15,6 +15,7 @@ gem 'rails', '~> 5.2.3'
 gem 'sass-rails', '~> 5.0'
 gem 'sidekiq'
 gem 'uglifier', '>= 1.3.0'
+gem 'unicorn'
 gem 'webpacker'
 gem 'kraken_ruby_client', git: 'https://github.com/jonatack/kraken_ruby_client'
 
