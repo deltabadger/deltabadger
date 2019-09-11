@@ -1,0 +1,24 @@
+.dropdown-menu-right {
+  right: 0;
+  left: auto;
+}
+.navbar {
+  background: $bgColor;
+  padding:    1em;
+}
+.navbar-brand {
+  font-family:    'Varela Round';
+  color:          $primary !important;
+  text-transform: lowercase;
+  font-size:      1.2em;
+  font-weight:    700;
+  line-height:    28px;
+  margin-left:    10px;
+  -webkit-font-smoothing: antialiased;
+  img {
+    margin-right: 4px;
+  }
+}
+.db-navbar--loggedout {
+  background: #fff !important;
+}
