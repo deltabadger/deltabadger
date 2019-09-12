@@ -13,8 +13,49 @@ module ExchangeApi
         response.status == 200
       end
 
-      def buy
-        puts 'Buying on bitbay'
+      def buy(settings)
+        # currency = settings.fetch("currency")
+        puts "Buying on bitbay"
+        currency = 'PLN'
+        price = settings.fetch("price")
+
+        url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
+        body = {
+          offerType: 'SELL',
+          amount: nil,
+          price: price,
+          rate: nil,
+          postOnly: false,
+          mode: 'market',
+          fillOrKill: false
+        }.to_json
+
+        # response = Faraday.post(url, body, headers(body))
+        # response = JSON.parse('{\'status\':\'Ok\',\'completed\':true,\'offerId\':\'4688a6dd-d5ad-11e9-a4ac-0242ac11000b\',\'transactions\':[{\'amount\':\'0.0002\',\'rate\':\'40877.01\'}]}')
+        true
+      end
+
+      def sell(settings)
+        # currency = settings.fetch("currency")
+        currency = 'PLN'
+        price = settings.fetch("price")
+        puts "selling on bitbay"
+
+        url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
+        body = {
+          offerType: 'SELL',
+          amount: price,
+          price: nil,
+          rate: nil,
+          postOnly: false,
+          mode: 'market',
+          fillOrKill: false
+        }.to_json
+
+        # response = Faraday.post(url, body, headers(body))
+        # response = JSON.parse('{\'status\':\'Ok\',\'completed\':true,\'offerId\':\'4688a6dd-d5ad-11e9-a4ac-0242ac11000b\',\'transactions\':[{\'amount\':\'0.0002\',\'rate\':\'40877.01\'}]}')
+
+        true
       end
 
       private

@@ -5,8 +5,12 @@ module ExchangeApi
         false
       end
 
-      def buy
+      def buy(_)
         puts 'Buying on derbit'
+      end
+
+      def sell(_)
+        puts 'Selling on derbit'
       end
     end
   end

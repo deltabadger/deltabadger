@@ -8,6 +8,10 @@ module ExchangeApi
       def buy
         raise NotImplementedError
       end
+
+      def sell
+        raise NotImplementedError
+      end
     end
   end
 end

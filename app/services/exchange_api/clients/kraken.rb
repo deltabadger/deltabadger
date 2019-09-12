@@ -21,6 +21,12 @@ module ExchangeApi
 
         true
       end
+
+      def sell(_)
+        puts 'Selling things on Kraken!'
+
+        true
+      end
     end
   end
 end

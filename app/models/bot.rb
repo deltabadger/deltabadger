@@ -5,4 +5,12 @@ class Bot < ApplicationRecord
   STATES = %i[created working stopped].freeze
 
   enum status: [*STATES]
+
+  def buyer?
+    settings.fetch('type') == 'buy'
+  end
+
+  def seller?
+    !buyer?
+  end
 end
