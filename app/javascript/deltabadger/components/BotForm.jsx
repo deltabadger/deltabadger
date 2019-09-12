@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 import API from '../lib/API'
+import { PickExchage } from './BotForm/PickExchange';
 
 const STEPS = [
   'closed_form',
@@ -17,25 +18,6 @@ const ClosedForm = ({ handleSubmit }) => (
     </button>
   </div>
 )
-
-const PickExchage = ({ handleSubmit, exchanges }) => {
-  const ExchangeButton = ({ handleClick, exchange }) => (
-    <button onClick={ () => handleClick(exchange.id) }>
-      { exchange.name }
-    </button>
-  )
-
-  return (
-    <div>
-      {
-        exchanges.map(e =>
-          <ExchangeButton key={e.id} handleClick={handleSubmit} exchange={e} />
-        )
-      }
-    </div>
-  )
-
-}
 
 const AddApiKey = ({ handleSubmit, errors }) => {
   const [key, setKey] = useState("");
