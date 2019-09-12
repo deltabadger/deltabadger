@@ -9,15 +9,9 @@
   %body
     = render 'layouts/navbar'
 
-    %p.notice= notice
-    %p.alert= alert
+    = yield
 
-    .container-fluid
-      .row.db-main
-        .col.db-content
-          = yield
-
-    = javascript_pack_tag 'deltabadger'
+    = javascript_pack_tag 'guest'
 
     %script{:crossorigin => "anonymous", :defer => "defer", :integrity => "sha384-SlE991lGASHoBfWbelyBPLsUlwY1GwNDJo3jSJO04KZ33K2bwfV9YBauFfnzvynJ", :src => "https://use.fontawesome.com/releases/v5.0.8/js/all.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", :src => "https://code.jquery.com/jquery-3.2.1.slim.min.js"}
