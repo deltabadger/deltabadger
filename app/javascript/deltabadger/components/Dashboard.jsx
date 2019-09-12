@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 import API from '../lib/API'
 import { BotForm } from './BotForm'
+import { BotDetails } from './BotDetails'
 
 
 const Bot = ({ id, settings, status, exchangeName, handleStart, handleStop }) => {
@@ -49,7 +50,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div>
+    <div className="db-bots">
       <h1>Dashboard</h1>
       { bots.map(b =>
         <Bot
@@ -63,6 +64,7 @@ export const Dashboard = () => {
         />)
       }
       <BotForm callbackAfterCreation={callbackAfterCreation} />
+      <BotDetails />
     </div>
   )
 }
