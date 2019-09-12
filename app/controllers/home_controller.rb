@@ -3,6 +3,7 @@ class HomeController < ApplicationController
 
   def index
     redirect_to dashboard_path if user_signed_in?
+    render layout: 'guest'
   end
 
   def dashboard; end
