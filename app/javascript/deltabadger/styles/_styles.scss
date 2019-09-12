@@ -1,0 +1,142 @@
+$Color:        #aaa;
+$borderColorLight:   #dee2e6;
+$bgColorLight:       #eee;
+$textColorLight:     #666;
+$sidebarItemHeight:  56px;
+$sidebarItemPadding: 20px;
+
+$bgColor: $bgColorLight;
+$bgBot: white;
+
+html {
+  background: $bgColor !important;
+}
+body {
+  font-family: 'Roboto', sans-serif;
+}
+.dropdown-menu-right {
+  right: 0;
+  left: auto;
+}
+
+h1 {
+  font-family: 'Varela Round','Roboto';
+  font-weight: 100;
+  font-size:   3em;
+}
+.btn {
+  :not(:last-child) {
+    margin-right: .75em;
+  }
+  span {
+    line-height: 27px;
+    padding-left: 2px;
+  }
+}
+.row--intro {
+  height: 70vh;
+}
+
+.d-flex__vertical-align {
+  align-self: center;
+}
+.text-small {
+  font-size: 0.75em;
+}
+.progress--thin {
+  border-radius: 1.5px;
+  height:        3px;
+  overflow:      inherit;
+  .progress-bar {
+    border-radius: 1.5px;
+    height:        3px;
+  }
+}
+.progress--bot-setup {
+  position:   absolute;
+  bottom:     0;
+  width:      100%;
+}
+
+.db-menu-icon {
+  line-height: 10px;
+}
+
+.db-sidebar {
+  background:    $bgColorLight;
+  margin-left:   $grid-gutter-width/2 !important;
+  margin-bottom: $grid-gutter-width/2 !important;
+  border-radius: 4px;
+  max-width:     220px;
+}
+.db-main {
+  align-items: stretch;
+  height:      calc(100vh - 100px);
+  background: $bgColor;
+}
+.db-sidebar {
+  border: 1px solid #ddd;
+  margin:  0;
+  padding: 0;
+  height:  calc(100vh - 90px);
+  .nav-tabs {
+    border: 0;
+  }
+  .nav-link {
+    border: 0 !important;
+  }
+  .nav-item {
+    width: 100%;
+    border-width: 2px;
+    &:hover {
+      background-color: #e1e1e1;
+    }
+  }
+}
+
+.db-sidebar__item--last {
+  border: 0 !important;
+}
+
+.db-sidebar__footer {
+  position:    absolute;
+  bottom:      0;
+  margin:      0 $grid-gutter-width/2;
+  width:       calc(100% - #{$grid-gutter-width});
+  line-height: 40px;
+  border-top:  1px solid $borderColorLight;
+  color:       $textColorLight;
+}
+
+
+// db-anim-rotator
+
+.db-anim-rotator {
+  display: inline-block;
+  height: 1.5em;
+  position: relative;
+  width:3.05em;
+  font-weight: bold;
+  span {
+    width: 3.05em;
+    display: block;
+    height: 1em;
+    animation: rotator 6s linear 0s infinite;
+    position: absolute;
+    top: -17px;
+    opacity:0;
+  }
+}
+.db-anim-rotator--1 { animation-delay: 0s !important; }
+.db-anim-rotator--2 { animation-delay: 2s !important; }
+.db-anim-rotator--3 { animation-delay: 4s !important; }
+
+@keyframes rotator {
+  0%   {top: -21px; opacity: 0; }
+  30%  {top: -21px; opacity: 0; }
+  33%  {top:  7px;  opacity: 1; }
+  65%  {top:  7px;  opacity: 1; }
+  68%  {top:  35px; opacity: 0; }
+  99%  {top:  35px; opacity: 0; }
+  100% {top: -21px; opacity: 0; }
+}
