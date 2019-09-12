@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 import API from '../lib/API'
 import { PickExchage } from './BotForm/PickExchange';
+import { ConfigureBot } from './BotForm/ConfigureBot';
 
 const STEPS = [
   'closed_form',
@@ -54,49 +55,6 @@ const AddApiKey = ({ handleSubmit, errors }) => {
   )
 }
 
-const ConfigureBot = ({ handleSubmit }) => {
-  const [type, setType] = useState("sell");
-  const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [interval, setInterval] = useState("month");
-
-  const _handleSubmit = (evt) => {
-      evt.preventDefault();
-      const botParams = { type, price, currency, interval}
-      handleSubmit(botParams);
-  }
-
-  return (
-      <form onSubmit={_handleSubmit}>
-        <select value={type} onChange={e => setType(e.target.value)}>
-          <option value="sell">Sell</option>
-          <option value="buy">Buy</option>
-        </select>
-
-        for
-        <input
-          type="text"
-          value={price}
-          onChange={e => setPrice(e.target.value)}
-        />
-
-        <select value={currency} onChange={e => setCurrency(e.target.value)}>
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-        </select>
-        /
-        <select value={interval} onChange={e => setInterval(e.target.value)}>
-          <option value="month">month</option>
-          <option value="week">week</option>
-          <option value="day">day</option>
-          <option value="minutes">15 minutes</option>
-        </select>
-
-
-        <input type="submit" value="Submit" />
-      </form>
-  )
-}
 
 
 const initialForm = {
