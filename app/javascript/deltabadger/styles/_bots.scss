@@ -1,0 +1,178 @@
+// bots
+
+.db-bots {
+  align-items: stretch;
+  padding-bottom: $grid-gutter-width/2;
+  @include media-breakpoint-up(xl) {
+    height: calc(100vh - 72px);
+    width: 50%;
+  }
+}
+.db-bot-data {
+  .nav-item:first-child {
+    .nav-link.active {
+      position: relative;
+      &::before {
+        content: "";
+        display: block;
+        width: 10px;
+        height: 10px;
+        background: $bgBot;
+        bottom:-10px;
+        left: -1px;
+        position: absolute;
+        border-left: 1px solid #ddd;
+      }
+    }
+  }
+  .nav-link {
+    border-top-right-radius: $box-border-radius;
+    border-top-left-radius: $box-border-radius;
+  }
+  .tab-pane {
+    padding-top: 1em;
+    border-left:   1px solid #ddd;
+    border-right:  1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    background: $bgBot;
+    border-radius: $box-border-radius;
+  }
+  @include media-breakpoint-up(xl) {
+    position: absolute;
+    top: 0px;
+    right: $grid-gutter-width/2;
+    width: calc(50% - #{$grid-gutter-width});
+  }
+}
+
+.db-bots__item {
+  margin-bottom: $grid-gutter-width/2;
+}
+
+// bot
+
+.db-bot {
+  background: $bgBot;
+  border: 1px solid #ddd;
+  border-radius: $box-border-radius;
+  padding: $grid-gutter-width/2;
+}
+.db-bot--active {
+  @include media-breakpoint-down(lg) {
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius:  0;
+    border-bottom: 0;
+    margin-bottom: 0;
+    &+.db-bot-data {
+      background: $bgBot;
+      border-right: 1px solid #ddd;
+      border-left: 1px solid #ddd;
+      border-bottom-right-radius: $box-border-radius;
+      border-bottom-left-radius: $box-border-radius;
+      .nav, .tab-pane {
+        margin-left: -1px;
+        margin-right: -1px;
+        border-top-right-radius: 0;
+        border-top-left-radius: 0;
+      }
+    }
+  }
+}
+.db-bot--collapsed {
+  height: 75px;
+  overflow: hidden;
+}
+.db-bot__header {
+  position:       relative;
+  text-align:     center;
+  display:        flex;
+  border-radius:  $btn-border-radius;
+  flex-direction: row-reverse;
+  .btn {
+    border-radius: $btn-border-radius;
+    margin-left:   .5em;
+  }
+}
+.db-bot__infotext {
+  border-radius: $btn-border-radius;
+  line-height:    42px;
+  width:          100%;
+  pointer-events: none;
+  position:       relative;
+  text-align:     right;
+  margin-right:   5px;
+}
+.db-bot__infotext__left {
+  float: left;
+  text-transform:uppercase;
+  color: $yiq-text-dark;
+}
+.db-bot__infotext--setup {
+  text-align: center;
+}
+
+.db-bot-info__footer {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 $grid-gutter-width/2 $grid-gutter-width/2;
+  height: 38px;
+}
+.db-table {
+  margin: 15px;
+  width: calc(100% - 30px);
+}
+
+.btn--export-to-csv {
+  .material-icons {
+    top: 3px;
+    font-size: 23px;
+  }
+}
+
+
+// DCA bot
+
+.db-bot__exchanges {
+  padding: $grid-gutter-width/2;
+}
+
+.db-bot__exchanges__item {
+  height:          6em;
+  display:         flex;
+  justify-content: center;
+  align-items:     center;
+  background:      no-repeat center center;
+  background-size: 50%;
+  border-radius:   $btn-border-radius;
+  cursor:          pointer;
+  &:hover {
+    background-color: #fff;
+    filter:           brightness(.96);
+  }
+}
+.db-bot__exchanges__item--kraken   { background-image: url(../../images/kraken-logo.png); }
+.db-bot__exchanges__item--bitbay   { background-image: url(../../images/bitbay-logo.png); }
+.db-bot__exchanges__item--bybit    { background-image: url(../../images/bybit-logo.jpg); }
+.db-bot__exchanges__item--bitmex   { background-image: url(../../images/bitmex-logo.png); }
+.db-bot__exchanges__item--bitstamp { background-image: url(../../images/bitstamp-logo.png); }
+.db-bot__exchanges__item--deribit  { background-image: url(../../images/deribit-logo.png); background-size: 55%; }
+
+// bot dca1
+
+.db-bot--dca__config-free {
+  padding: 4em 0;
+  display: flex;
+  justify-content: center;
+  input {
+    text-align: right;
+    width: 80px !important;
+  }
+}
+
+.btn--reset {
+  align-self:flex-start;
+}
+
+.db-add-more-bots {
+  height: 40px;
+}

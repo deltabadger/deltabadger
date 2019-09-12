@@ -1,10 +1,1 @@
-%nav
-  = link_to('Deltabadger', root_path)
-  = link_to('Settings', settings_path)
-
-  %ul
-    - if user_signed_in?
-      %li= link_to('Logout', destroy_user_session_path, method: :delete)
-    - else
-      %li= link_to('Sign in', new_user_session_path)
-      %li= link_to('New Account', new_user_registration_path)
+= render partial: (current_user.nil? ? 'layouts/navbar/guest': 'layouts/navbar/signed_in')

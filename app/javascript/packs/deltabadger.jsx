@@ -2,6 +2,8 @@ import Rails from 'rails-ujs';
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { Dashboard } from '../deltabadger/components/Dashboard'
+import style from '../deltabadger/styles/main'
+require.context('../images', true)
 
 Rails.start();
 
