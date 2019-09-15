@@ -6,7 +6,8 @@ module Api
           id: bot.id,
           settings: bot.settings,
           exchangeName: bot.exchange.name,
-          status: bot.status
+          status: bot.status,
+          transactions: bot.transactions.select(:id, :amount, :rate)
         }
       end
 
