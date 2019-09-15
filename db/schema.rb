@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2019_08_27_221639) do
+ActiveRecord::Schema.define(version: 2019_09_15_212352) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -46,6 +46,19 @@ ActiveRecord::Schema.define(version: 2019_08_27_221639) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "transactions", force: :cascade do |t|
+    t.bigint "bot_id"
+    t.uuid "offer_id"
+    t.decimal "rate"
+    t.decimal "amount"
+    t.string "market"
+    t.integer "status"
+    t.integer "currency"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bot_id"], name: "index_transactions_on_bot_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
@@ -67,4 +80,5 @@ ActiveRecord::Schema.define(version: 2019_08_27_221639) do
   add_foreign_key "api_keys", "users"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "transactions", "bots"
 end

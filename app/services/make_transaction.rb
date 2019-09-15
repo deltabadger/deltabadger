@@ -28,11 +28,19 @@ class MakeTransaction < BaseService
   private
 
   def perform_action(api, bot)
-    if bot.buyer?
-      api.buy(bot.settings)
-    else
-      api.sell(bot.settings)
-    end
+    result = if bot.buyer?
+               api.buy(bot.settings)
+             else
+               api.sell(bot.settings)
+             end
+
+    @transactions_repository.create(
+      result.data.merge(
+        bot_id: bot.id,
+        currency: bot.currency,
+        status: result.success? ? :success : :failure
+      )
+    )
   end
 
   def make_transaction?(bot)
