@@ -3,21 +3,8 @@ import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 import API from '../lib/API'
 import { BotForm } from './BotForm'
-
-
-const Bot = ({ id, settings, status, exchangeName, handleStart, handleStop }) => {
-  const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
-
-  const StartButton = () => (<button onClick={() => handleStart(id)}>Start</button>)
-  const StopButton = () => (<button onClick={() => handleStop(id)}>Stop</button>)
-
-  return (
-    <div>
-      { description }
-      { status == 'working' ? <StopButton /> : <StartButton/> }
-    </div>
-  )
-}
+import { BotDetails } from './BotDetails'
+import { Bot } from './Bot'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
@@ -49,8 +36,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div>
-      <h1>Dashboard</h1>
+    <div className="db-bots">
       { bots.map(b =>
         <Bot
           id={b.id}
@@ -63,6 +49,7 @@ export const Dashboard = () => {
         />)
       }
       <BotForm callbackAfterCreation={callbackAfterCreation} />
+      <BotDetails />
     </div>
   )
 }
