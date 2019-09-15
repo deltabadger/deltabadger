@@ -1,3 +1,5 @@
+require 'result'
+
 module ExchangeApi
   module Clients
     class Base
