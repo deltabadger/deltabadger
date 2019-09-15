@@ -4,4 +4,8 @@ class Transaction < ApplicationRecord
   enum status: %i[success failure]
 
   validates :bot, presence: true
+
+  def get_errors
+    JSON.parse(error_messages)
+  end
 end
