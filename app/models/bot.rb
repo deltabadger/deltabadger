@@ -1,6 +1,7 @@
 class Bot < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
+  has_many :transactions
 
   STATES = %i[created working stopped].freeze
 
