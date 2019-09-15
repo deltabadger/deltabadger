@@ -10,4 +10,8 @@ class BaseRepository
   def update(id, params)
     model.update(id, params)
   end
+
+  def create(params)
+    model.create!(params)
+  end
 end

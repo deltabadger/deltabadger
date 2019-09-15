@@ -1,5 +1,5 @@
 class TransactionsRepository < BaseRepository
   def model
-    User
+    Transaction
   end
 end

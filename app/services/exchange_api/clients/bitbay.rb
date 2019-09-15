@@ -30,9 +30,15 @@ module ExchangeApi
           fillOrKill: false
         }.to_json
 
-        # response = Faraday.post(url, body, headers(body))
-        # response = JSON.parse('{\'status\':\'Ok\',\'completed\':true,\'offerId\':\'4688a6dd-d5ad-11e9-a4ac-0242ac11000b\',\'transactions\':[{\'amount\':\'0.0002\',\'rate\':\'40877.01\'}]}')
-        true
+        if data.fetch('status') == 'Ok'
+          Result::Success.new(
+            offer_id: response.fetch('offerId'),
+            rate: response.fetch('rate'),
+            amount: response.fetch('amount')
+          )
+        else
+          Result::Failure.new('Something went wrong!')
+        end
       end
 
       def sell(settings)
@@ -44,18 +50,36 @@ module ExchangeApi
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
         body = {
           offerType: 'SELL',
-          amount: price,
-          price: nil,
+          amount: nil,
+          price: price,
           rate: nil,
           postOnly: false,
           mode: 'market',
           fillOrKill: false
         }.to_json
 
-        # response = Faraday.post(url, body, headers(body))
-        # response = JSON.parse('{\'status\':\'Ok\',\'completed\':true,\'offerId\':\'4688a6dd-d5ad-11e9-a4ac-0242ac11000b\',\'transactions\':[{\'amount\':\'0.0002\',\'rate\':\'40877.01\'}]}')
+        response = JSON.parse(Faraday.post(url, body, headers(body)).body)
+
+        if data.fetch('status') == 'Ok'
+          Result::Success.new(
+            offer_id: response.fetch('offerId'),
+            rate: response.fetch('rate'),
+            amount: response.fetch('amount')
+          )
+        else
+          Result::Failure.new('Something went wrong!')
+        end
 
         true
+      end
+
+      def offers
+        url = 'https://api.bitbay.net/rest/trading/history/transactions'
+        params = {
+          'markets' => ['BTC-PLN'],
+          'nextPageCursor' => 'start'
+        }
+        Faraday.get(url, params, headers(''))
       end
 
       private

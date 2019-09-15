@@ -6,6 +6,10 @@ class Bot < ApplicationRecord
 
   enum status: [*STATES]
 
+  def currency
+    settings.fetch('currency')
+  end
+
   def buyer?
     settings.fetch('type') == 'buy'
   end
