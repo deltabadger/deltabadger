@@ -8,7 +8,9 @@ import { Bot } from './Bot'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
-  const [currentBot, setCurrentBot] = useState(undefined);
+  const [currentBotId, setCurrentBot] = useState(undefined);
+
+  const currentBot = bots.find(bot => bot.id === currentBotId)
 
   const loadBots = () => {
     API.getBots().then(data => {
@@ -48,10 +50,11 @@ export const Dashboard = () => {
           handleStop={stopBot}
           handleStart={startBot}
           handleClick={openBot}
-          open={b.id == currentBot}
+          open={b.id == currentBotId}
         />)
       }
       <BotForm callbackAfterCreation={callbackAfterCreation} />
+      { currentBot && <BotDetails bot={currentBot} /> }
     </div>
   )
 }

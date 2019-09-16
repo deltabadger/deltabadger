@@ -39,32 +39,8 @@ export const Bot = ({
       </div>
 
       <div className="row db-bot--dca__config-free">
-        <form className="form-inline">
-          <div className="form-group mr-2">
-            <select className="form-control" id="exampleFormControlSelect1" disabled>
-              <option>Buy</option>
-              <option>Sell</option>
-            </select>
-          </div>
-          <div className="form-group mr-2">for</div>
-          <input type="text" className="form-control mr-1" placeholder="10" disabled />
-            <div className="form-group mr-2">
-              <select className="form-control" id="exampleFormControlSelect1" disabled>
-                <option>USD</option>
-                <option>EUR</option>
-                <option>PLN</option>
-              </select>
-            </div>
-            <div className="form-group mr-2">/</div>
-            <div className="form-group mr-2">
-              <select className="form-control" id="exampleFormControlSelect1" disabled>
-                <option>Hour</option>
-                <option selected>Day</option>
-                <option>Week</option>
-              </select>
-            </div>
-          </form>
-        </div>
+        Cos super
       </div>
-      )
-      }
+    </div>
+  )
+}
