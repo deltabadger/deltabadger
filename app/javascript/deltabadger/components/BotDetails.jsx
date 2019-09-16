@@ -1,6 +1,6 @@
 import React from 'react'
 
-export const BotDetails = () => (
+export const BotDetails = bot => (
   <div className="db-bots__item db-bot-data">
     <ul className="nav nav-tabs" id="myTab" role="tablist">
       <li className="nav-item">
@@ -26,13 +26,15 @@ export const BotDetails = () => (
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th scope="row">11/11/19</th>
-              <td>Bitbay</td>
-              <td>Buy</td>
-              <td>0.00014</td>
-              <td>10293.00</td>
-            </tr>
+            { bot.transactions.map(t => (
+              <tr key={t.id} >
+                <th scope="row">{t.created_at}</th>
+                <td>{exchangeName}</td>
+                <td>{type}</td>
+                <td>{t.amount}</td>
+                <td>{t.amoun * t.rate}</td>
+              </tr>
+            ))}
             <tr>
               <th scope="row">11/11/19</th>
               <td>Bitbay</td>

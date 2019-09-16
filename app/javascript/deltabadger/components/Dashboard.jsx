@@ -8,6 +8,7 @@ import { Bot } from './Bot'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
+  const [currentBot, setCurrentBot] = useState(undefined);
 
   const loadBots = () => {
     API.getBots().then(data => {
@@ -19,9 +20,7 @@ export const Dashboard = () => {
     loadBots()
   }, []);
 
-  const callbackAfterCreation = () => {
-    loadBots()
-  }
+  const callbackAfterCreation = () => loadBots()
 
   const startBot = id => {
     API.startBot(id).then(data => {
@@ -35,21 +34,24 @@ export const Dashboard = () => {
     })
   }
 
+  const openBot = id => setCurrentBot(id)
+
   return (
     <div className="db-bots">
       { bots.map(b =>
         <Bot
           id={b.id}
-          key={b.id}
+          key={`${b.id}-${b.id == currentBot}`}
           status={b.status}
           settings={b.settings}
           exchangeName={b.exchangeName}
           handleStop={stopBot}
           handleStart={startBot}
+          handleClick={openBot}
+          open={b.id == currentBot}
         />)
       }
       <BotForm callbackAfterCreation={callbackAfterCreation} />
-      <BotDetails />
     </div>
   )
 }

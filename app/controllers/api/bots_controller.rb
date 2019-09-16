@@ -7,7 +7,7 @@ module Api
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           status: bot.status,
-          transactions: bot.transactions.select(:id, :amount, :rate)
+          transactions: bot.transactions.select(:id, :amount, :rate, :created_at)
         }
       end
 
