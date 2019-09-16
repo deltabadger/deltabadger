@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   namespace :api do
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
+    resources :transactions, only: [:index]
     resources :bots, only: [:create, :index] do
       post :stop, on: :member
       post :start, on: :member

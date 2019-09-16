@@ -55,8 +55,6 @@ const AddApiKey = ({ handleSubmit, errors }) => {
   )
 }
 
-
-
 const initialForm = {
   exchangeId: null,
   api_key: null,

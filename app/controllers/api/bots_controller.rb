@@ -1,13 +1,16 @@
 module Api
   class BotsController < Api::BaseController
     def index
+      present_transaction = lambda do |transaction|
+        Presenters::Api::Transaction.call(transaction)
+      end
       present_bot = lambda do |bot|
         {
           id: bot.id,
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           status: bot.status,
-          transactions: bot.transactions.select(:id, :amount, :rate, :created_at)
+          transactions: bot.transactions.map(&present_transaction)
         }
       end
 

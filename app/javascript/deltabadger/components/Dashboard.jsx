@@ -9,18 +9,17 @@ import { Bot } from './Bot'
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
   const [currentBotId, setCurrentBot] = useState(undefined);
-
   const currentBot = bots.find(bot => bot.id === currentBotId)
-
-  const loadBots = () => {
-    API.getBots().then(data => {
-      setBots(data.data.sort((a,b) => a.id - b.id))
-    })
-  }
 
   useEffect(() => {
     loadBots()
   }, []);
+
+  const loadBots = () => {
+    API.getBots().then(({ data }) => {
+      setBots(data.sort((a,b) => a.id - b.id))
+    })
+  }
 
   const callbackAfterCreation = () => loadBots()
 

@@ -35,7 +35,7 @@ export const BotDetails = ({ bot }) => {
                   <td>{bot.exchangeName}</td>
                   <td>{bot.settings.type}</td>
                   <td>{t.amount}</td>
-                  <td>{t.amoun * t.rate}</td>
+                  <td>{t.price}</td>
                 </tr>
               ))}
             </tbody>
