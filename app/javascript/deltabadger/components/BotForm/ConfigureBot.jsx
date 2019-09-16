@@ -15,7 +15,7 @@ export const ConfigureBot = ({ handleSubmit }) => {
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
       <div className="db-bot__header">
-        <div className="btn btn-success"><span>Start</span> <i className="fas fa-play"></i></div>
+        <div onClick={_handleSubmit} className="btn btn-success"><span>Start</span> <i className="fas fa-play"></i></div>
         <div className="db-bot__infotext">
           <div className="db-bot__infotext__left">
             Bitbay:BTCPLN EXchange name

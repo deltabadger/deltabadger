@@ -27,7 +27,7 @@ export const Bot = ({
         { status == 'working' ? <StopButton /> : <StartButton/> }
         <div className="db-bot__infotext text-danger">
           <div className="db-bot__infotext__left">
-            Kraken:BTCEUR
+            { exchangeName }
           </div>
           <div className="db-bot__infotext__right">
             Next sell in 25:14:18
