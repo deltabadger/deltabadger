@@ -1,9 +1,12 @@
 module Api
-  class TransactionsController < Api::BaseController
+  class TransactionsController < ApplicationController
     def csv
-      bot = BotsRepository.new.by_id_for_user(user, params[:id])
+      bot = BotsRepository.new.by_id_for_user(current_user, params[:bot_id])
       file = GenerateTransactionsCsv.call(bot)
-      send_file file, filename: file.name
+      filename =
+        "bot-#{bot.id}-transactions-#{Time.now.strftime('%F')}.csv"
+
+      send_data(file, filename: filename)
     end
   end
 end

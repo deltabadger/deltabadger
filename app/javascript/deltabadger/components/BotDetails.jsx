@@ -1,8 +1,6 @@
 import React from 'react'
 
 export const BotDetails = ({ bot }) => {
-  console.log(bot)
-
   return (
     <div className="db-bots__item db-bot-data">
       <ul className="nav nav-tabs" id="myTab" role="tablist">
@@ -41,7 +39,7 @@ export const BotDetails = ({ bot }) => {
             </tbody>
           </table>
           <div className="db-bot-info__footer">
-            <a href="#" className="btn btn-link btn--export-to-csv">Export to .csv <i className="fas fa-download ml-1"></i></a>
+            <a href={`/api/bots/${bot.id}/transactions_csv`} className="btn btn-link btn--export-to-csv">Export to .csv <i className="fas fa-download ml-1"></i></a>
           </div>
         </div>
         <div className="tab-pane" id="log"   role="tabpanel" aria-labelledby="log-tab">Log</div>
