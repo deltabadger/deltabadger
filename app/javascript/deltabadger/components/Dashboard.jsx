@@ -14,7 +14,7 @@ export const Dashboard = () => {
 
   const loadBots = () => {
     API.getBots().then(data => {
-      setBots(data.data)
+      setBots(data.data.sort((a,b) => a.id - b.id))
     })
   }
 
