@@ -9,7 +9,7 @@ export const Transactions = ({ bot }) => (
           <th scope="col">Exchange</th>
           <th scope="col">Action</th>
           <th scope="col">Amount(BTC)</th>
-          <th scope="col">Price(USD)</th>
+          <th scope="col">Price({bot.settings.currency})</th>
         </tr>
       </thead>
       <tbody>
@@ -18,8 +18,8 @@ export const Transactions = ({ bot }) => (
             <th scope="row">{t.created_at}</th>
             <td>{bot.exchangeName}</td>
             <td>{bot.settings.type}</td>
-            <td>{t.amount}</td>
-            <td>{t.price}</td>
+            <td>{t.amount || "N/A"}</td>
+            <td>{t.price || "N/A"}</td>
           </tr>
         ))}
       </tbody>
