@@ -7,7 +7,8 @@ module Presenters
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           status: bot.status,
-          transactions: bot.transactions.map(&method(:present_transaction))
+          transactions: bot.transactions.last(10).map(&method(:present_transaction)),
+          logs: bot.transactions.map(&method(:present_transaction_as_log))
         }
       end
 
@@ -15,6 +16,10 @@ module Presenters
 
       def present_transaction(transaction)
         Presenters::Api::Transaction.call(transaction)
+      end
+
+      def present_transaction_as_log(transaction)
+        Presenters::Api::Log.call(transaction)
       end
     end
   end

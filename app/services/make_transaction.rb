@@ -35,9 +35,11 @@ class MakeTransaction < BaseService
              end
 
     @transactions_repository.create(
-      bot_id: bot.id,
-      status: result.success? ? :success : :failure,
-      error_messages: result.errors.to_json
+      result.data.slice(:offer_id, :rate, :amount).merge(
+        bot_id: bot.id,
+        status: result.success? ? :success : :failure,
+        error_messages: result.errors.to_json
+      )
     )
   end
 

@@ -5,7 +5,7 @@ module Api
         Presenters::Api::Bot.call(bot)
       end
 
-      data = current_user.bots.includes(:exchange, :transactions).all.map(&present_bot)
+      data = BotsRepository.new.for_user(current_user).map(&present_bot)
 
       render json: { data: data }
     end

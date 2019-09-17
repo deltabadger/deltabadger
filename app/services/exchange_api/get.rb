@@ -7,9 +7,9 @@ module ExchangeApi
     def call(api_key)
       exchange = @exchanges_repository.find(api_key.exchange_id)
 
-      if Rails.env.development?
-        return ExchangeApi::Clients::Fake.new(exchange.name)
-      end
+      # if Rails.env.development?
+      #   return ExchangeApi::Clients::Fake.new(exchange.name)
+      # end
 
       case exchange.name
       when 'Kraken'

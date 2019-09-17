@@ -40,7 +40,7 @@ export const Bot = ({
 
       <div className="row db-bot--dca__config-free">
         Price: {settings.price}<br />
-        Currency: {settings.currency}
+        Currency: {settings.currency}<br />
         Type: {settings.type}
       </div>
     </div>
