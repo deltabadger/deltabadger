@@ -35,11 +35,9 @@ class MakeTransaction < BaseService
              end
 
     @transactions_repository.create(
-      result.data.merge(
-        bot_id: bot.id,
-        currency: bot.currency,
-        status: result.success? ? :success : :failure
-      )
+      bot_id: bot.id,
+      status: result.success? ? :success : :failure,
+      error_messages: result.errors.to_json
     )
   end
 

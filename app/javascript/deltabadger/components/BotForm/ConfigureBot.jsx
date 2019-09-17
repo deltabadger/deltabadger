@@ -60,6 +60,7 @@ export const ConfigureBot = ({ handleSubmit }) => {
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
+              <option value="PLN">PLN</option>
             </select>
           </div>
           <div className="form-group mr-2">/</div>
@@ -73,6 +74,7 @@ export const ConfigureBot = ({ handleSubmit }) => {
               <option value="hour">hour</option>
               <option value="day">day</option>
               <option value="week">week</option>
+              <option value="minutes">1 minutes</option>
             </select>
           </div>
         </form>

@@ -6,9 +6,17 @@ module Presenters
           id: transaction.id,
           rate: transaction.rate,
           amount: transaction.amount,
-          price: transaction.rate * transaction.amount,
+          price: price(transaction.rate, transaction.amount),
           created_at: transaction.created_at.strftime('%D')
         }
+      end
+
+      private
+
+      def price(rate, amount)
+        return nil if !(rate && amount)
+
+        rate * amount
       end
     end
   end

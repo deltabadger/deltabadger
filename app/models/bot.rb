@@ -11,6 +11,10 @@ class Bot < ApplicationRecord
     settings.fetch('currency')
   end
 
+  def price
+    settings.fetch('price')
+  end
+
   def buyer?
     settings.fetch('type') == 'buy'
   end
