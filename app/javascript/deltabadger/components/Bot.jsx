@@ -30,10 +30,10 @@ export const Bot = ({
             { exchangeName }
           </div>
           <div className="db-bot__infotext__right">
-            Next sell in 25:14:18
+            Next { settings.type } in 25:14:18
           </div>
           <div className="progress progress--thin progress--bot-setup">
-            <div className="progress-bar bg-danger" role="progressbar" style={{width: "22%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
+            <div className="progress-bar bg-danger" role="progressbar" style={{width: "10%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
         </div>
       </div>
