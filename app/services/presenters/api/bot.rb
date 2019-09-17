@@ -7,12 +7,16 @@ module Presenters
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           status: bot.status,
-          transactions: bot.transactions.last(10).map(&method(:present_transaction)),
+          transactions: transactions(bot.transactions),
           logs: bot.transactions.map(&method(:present_transaction_as_log))
         }
       end
 
       private
+
+      def transactions(transactions)
+        transactions.last(10).map(&method(:present_transaction))
+      end
 
       def present_transaction(transaction)
         Presenters::Api::Transaction.call(transaction)
