@@ -12,6 +12,7 @@ Rails.application.routes.draw do
     resources :bots, only: [:create, :index] do
       post :stop, on: :member
       post :start, on: :member
+      get :transactions_csv, to: 'transactions#csv'
     end
   end
 

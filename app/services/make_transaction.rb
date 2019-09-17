@@ -3,12 +3,14 @@ class MakeTransaction < BaseService
     exchange_api: ExchangeApi::Get.new,
     schedule_transaction: ScheduleTransaction.new,
     bots_repository: BotsRepository.new,
+    transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new
   )
 
     @get_exchange_api = exchange_api
     @schedule_transaction = schedule_transaction
     @bots_repository = bots_repository
+    @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
   end
 
@@ -19,11 +21,25 @@ class MakeTransaction < BaseService
 
     return false if !make_transaction?(bot)
 
-    api.buy(bot.settings)
+    perform_action(api, bot)
     @schedule_transaction.call(bot)
   end
 
   private
+
+  def perform_action(api, bot)
+    result = if bot.buyer?
+               api.buy(bot.settings)
+             else
+               api.sell(bot.settings)
+             end
+
+    @transactions_repository.create(
+      bot_id: bot.id,
+      status: result.success? ? :success : :failure,
+      error_messages: result.errors.to_json
+    )
+  end
 
   def make_transaction?(bot)
     bot.working?

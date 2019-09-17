@@ -15,7 +15,7 @@ export const ConfigureBot = ({ handleSubmit }) => {
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
       <div className="db-bot__header">
-        <div className="btn btn-success"><span>Start</span> <i className="fas fa-play"></i></div>
+        <div onClick={_handleSubmit} className="btn btn-success"><span>Start</span> <i className="fas fa-play"></i></div>
         <div className="db-bot__infotext">
           <div className="db-bot__infotext__left">
             Bitbay:BTCPLN EXchange name
@@ -60,6 +60,7 @@ export const ConfigureBot = ({ handleSubmit }) => {
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
+              <option value="PLN">PLN</option>
             </select>
           </div>
           <div className="form-group mr-2">/</div>
@@ -73,6 +74,7 @@ export const ConfigureBot = ({ handleSubmit }) => {
               <option value="hour">hour</option>
               <option value="day">day</option>
               <option value="week">week</option>
+              <option value="minutes">1 minutes</option>
             </select>
           </div>
         </form>

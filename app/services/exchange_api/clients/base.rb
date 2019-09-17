@@ -1,3 +1,5 @@
+require 'result'
+
 module ExchangeApi
   module Clients
     class Base
@@ -6,6 +8,10 @@ module ExchangeApi
       end
 
       def buy
+        raise NotImplementedError
+      end
+
+      def sell
         raise NotImplementedError
       end
     end

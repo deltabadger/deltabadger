@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 
-export const Bot = ({ id, settings, status, exchangeName, handleStart, handleStop, open }) => {
+export const Bot = ({
+  id,
+  settings,
+  status,
+  exchangeName,
+  handleStart,
+  handleStop,
+  handleClick,
+  open
+}) => {
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
 
   const StartButton = () => (
@@ -10,13 +19,15 @@ export const Bot = ({ id, settings, status, exchangeName, handleStart, handleSto
     <div onClick={() => handleStop(id)} className="btn btn-outline-primary"><span>Pause</span> <i className="fas fa-pause"></i></div>
   )
 
+  const botOpenClass = open ? '' : 'db-bot--collapsed'
+
   return (
-    <div className="db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running db-bot--collapsed">
+    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
         { status == 'working' ? <StopButton /> : <StartButton/> }
         <div className="db-bot__infotext text-danger">
           <div className="db-bot__infotext__left">
-            Kraken:BTCEUR
+            { exchangeName }
           </div>
           <div className="db-bot__infotext__right">
             Next sell in 25:14:18
@@ -25,6 +36,12 @@ export const Bot = ({ id, settings, status, exchangeName, handleStart, handleSto
             <div className="progress-bar bg-danger" role="progressbar" style={{width: "22%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
         </div>
+      </div>
+
+      <div className="row db-bot--dca__config-free">
+        Price: {settings.price}<br />
+        Currency: {settings.currency}
+        Type: {settings.type}
       </div>
     </div>
   )

@@ -1,18 +1,21 @@
 class StartBot < BaseService
   def initialize(
-    schedule_transaction: ScheduleTransaction.new,
+    make_transaction: MakeTransaction.new,
     bots_repository: BotsRepository.new
   )
 
-    @schedule_transaction = schedule_transaction
+    @make_transaction = make_transaction
     @bots_repository = bots_repository
   end
 
   def call(bot_id)
     bot = @bots_repository.find(bot_id)
-    @schedule_transaction.call(bot)
-    @bots_repository.update(bot.id, status: 'working')
-
-    Result::Success.new
+    ActiveRecord::Base.transaction do
+      @bots_repository.update(bot.id, status: 'working')
+      @make_transaction.call(bot.id)
+      Result::Success.new
+    end
+  rescue
+    Result::Failure.new
   end
 end
