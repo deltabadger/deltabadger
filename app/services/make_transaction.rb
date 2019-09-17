@@ -21,8 +21,11 @@ class MakeTransaction < BaseService
 
     return false if !make_transaction?(bot)
 
-    perform_action(api, bot)
-    @schedule_transaction.call(bot)
+    result = perform_action(api, bot)
+
+    @schedule_transaction.call(bot) if result.success?
+
+    result
   end
 
   private
@@ -50,6 +53,8 @@ class MakeTransaction < BaseService
              end
 
     @transactions_repository.create(transaction_params(result, bot))
+
+    result
   end
 
   def make_transaction?(bot)
