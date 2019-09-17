@@ -46,6 +46,7 @@ export const Dashboard = () => {
           status={b.status}
           settings={b.settings}
           exchangeName={b.exchangeName}
+          nextTransactionTimestamp={b.next_transaction_timestamp}
           handleStop={stopBot}
           handleStart={startBot}
           handleClick={openBot}

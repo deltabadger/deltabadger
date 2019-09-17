@@ -10,12 +10,11 @@ class StartBot < BaseService
 
   def call(bot_id)
     bot = @bots_repository.find(bot_id)
-    ActiveRecord::Base.transaction do
-      @bots_repository.update(bot.id, status: 'working')
-      @make_transaction.call(bot.id)
-      Result::Success.new
-    end
+    @bots_repository.update(bot.id, status: 'working')
+    @make_transaction.call(bot.id)
+    Result::Success.new
   rescue
+    @bots_repository.update(bot.id, status: 'stopped')
     Result::Failure.new
   end
 end

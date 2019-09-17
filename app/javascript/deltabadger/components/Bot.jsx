@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import moment from 'moment';
 
 export const Bot = ({
   id,
   settings,
   status,
   exchangeName,
+  nextTransactionTimestamp,
   handleStart,
   handleStop,
   handleClick,
@@ -21,17 +23,23 @@ export const Bot = ({
 
   const botOpenClass = open ? '' : 'db-bot--collapsed'
 
+  const duration = moment(nextTransactionTimestamp, '%X').fromNow();
+
+  const working = status == 'working'
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
-        { status == 'working' ? <StopButton /> : <StartButton/> }
+        { working ? <StopButton /> : <StartButton/> }
         <div className="db-bot__infotext text-danger">
           <div className="db-bot__infotext__left">
             { exchangeName }
           </div>
-          <div className="db-bot__infotext__right">
-            Next { settings.type } in 25:14:18
-          </div>
+          { working &&
+              <div className="db-bot__infotext__right">
+                Next { settings.type } {duration}
+              </div>
+          }
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar bg-danger" role="progressbar" style={{width: "10%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
