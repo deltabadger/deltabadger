@@ -27,6 +27,21 @@ class MakeTransaction < BaseService
 
   private
 
+  def transaction_params(result, bot)
+    if result.success?
+      result.data.slice(:offer_id, :rate, :amount).merge(
+        bot_id: bot.id,
+        status: :success
+      )
+    else
+      {
+        bot_id: bot.id,
+        status: :failure,
+        error_messages: result.errors
+      }
+    end
+  end
+
   def perform_action(api, bot)
     result = if bot.buyer?
                api.buy(bot.settings)
@@ -34,13 +49,7 @@ class MakeTransaction < BaseService
                api.sell(bot.settings)
              end
 
-    @transactions_repository.create(
-      result.data.slice(:offer_id, :rate, :amount).merge(
-        bot_id: bot.id,
-        status: result.success? ? :success : :failure,
-        error_messages: result.errors.to_json
-      )
-    )
+    @transactions_repository.create(transaction_params(result, bot))
   end
 
   def make_transaction?(bot)

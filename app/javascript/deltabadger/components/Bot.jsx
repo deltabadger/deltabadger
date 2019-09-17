@@ -23,7 +23,7 @@ export const Bot = ({
 
   const botOpenClass = open ? '' : 'db-bot--collapsed'
 
-  const duration = moment(nextTransactionTimestamp, '%X').fromNow();
+  const duration = nextTransactionTimestamp && moment(nextTransactionTimestamp, '%X').fromNow();
 
   const working = status == 'working'
 

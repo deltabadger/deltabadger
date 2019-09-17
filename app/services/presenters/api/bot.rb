@@ -19,6 +19,8 @@ module Presenters
       private
 
       def next_transaction_timestamp(bot)
+        return nil if !bot.transactions.exists?
+
         interval = @parse_interval.call(bot.settings)
         (bot.transactions.last.created_at + interval).to_i
       end
