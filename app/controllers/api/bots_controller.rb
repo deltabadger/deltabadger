@@ -1,20 +1,11 @@
 module Api
   class BotsController < Api::BaseController
     def index
-      present_transaction = lambda do |transaction|
-        Presenters::Api::Transaction.call(transaction)
-      end
       present_bot = lambda do |bot|
-        {
-          id: bot.id,
-          settings: bot.settings,
-          exchangeName: bot.exchange.name,
-          status: bot.status,
-          transactions: bot.transactions.map(&present_transaction)
-        }
+        Presenters::Api::Bot.call(bot)
       end
 
-      data = current_user.bots.includes(:exchange).all.map(&present_bot)
+      data = current_user.bots.includes(:exchange, :transactions).all.map(&present_bot)
 
       render json: { data: data }
     end
