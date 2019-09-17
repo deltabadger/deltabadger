@@ -11,10 +11,10 @@ class StartBot < BaseService
   def call(bot_id)
     bot = @bots_repository.find(bot_id)
     @bots_repository.update(bot.id, status: 'working')
-    @make_transaction.call(bot.id)
-    Result::Success.new
-  rescue
-    @bots_repository.update(bot.id, status: 'stopped')
-    Result::Failure.new
+    result = @make_transaction.call(bot.id)
+
+    @bots_repository.update(bot.id, status: 'stopped') if result.failure?
+
+    result
   end
 end

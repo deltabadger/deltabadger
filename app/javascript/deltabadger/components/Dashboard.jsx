@@ -26,13 +26,13 @@ export const Dashboard = () => {
   const startBot = id => {
     API.startBot(id).then(data => {
       loadBots();
-    })
+    }).catch(() => loadBots())
   }
 
   const stopBot = id => {
     API.stopBot(id).then(data => {
       loadBots();
-    })
+    }).catch(() => loadBots())
   }
 
   const openBot = id => setCurrentBot(id)

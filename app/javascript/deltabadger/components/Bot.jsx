@@ -33,7 +33,7 @@ export const Bot = ({
         { working ? <StopButton /> : <StartButton/> }
         <div className="db-bot__infotext text-danger">
           <div className="db-bot__infotext__left">
-            { exchangeName }
+            { exchangeName }:BTC-{settings.currency}
           </div>
           { working &&
               <div className="db-bot__infotext__right">
