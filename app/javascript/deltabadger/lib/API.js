@@ -60,6 +60,11 @@ const API = {
     const url = `${API_URL}/bots/${botId}/stop`;
     return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
   },
+
+   removeBot(botId) {
+    const url = `${API_URL}/bots/${botId}`;
+    return client.request({ url, params: {}, method: 'delete' }).then(data => data.data);
+  },
 };
 
 export default API;

@@ -36,6 +36,12 @@ export const Dashboard = () => {
     }).catch(() => loadBots())
   }
 
+  const removeBot = id => {
+    API.removeBot(id).then(data => {
+      loadBots();
+    }).catch(() => loadBots())
+  }
+
   const openBot = id => setCurrentBot(id)
 
   return (
@@ -50,6 +56,7 @@ export const Dashboard = () => {
           nextTransactionTimestamp={b.next_transaction_timestamp}
           handleStop={stopBot}
           handleStart={startBot}
+          handleRemove={removeBot}
           handleClick={openBot}
           open={b.id == currentBotId}
         />)

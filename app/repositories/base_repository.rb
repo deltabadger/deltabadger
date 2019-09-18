@@ -14,4 +14,8 @@ class BaseRepository
   def create(params)
     model.create!(params)
   end
+
+  def destroy(id)
+    model.destroy(id)
+  end
 end

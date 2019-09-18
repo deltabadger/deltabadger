@@ -9,6 +9,7 @@ export const Bot = ({
   nextTransactionTimestamp,
   handleStart,
   handleStop,
+  handleRemove,
   handleClick,
   open
 }) => {
@@ -19,6 +20,15 @@ export const Bot = ({
   )
   const StopButton = () => (
     <div onClick={() => handleStop(id)} className="btn btn-outline-primary"><span>Pause</span> <i className="fas fa-pause"></i></div>
+  )
+
+  const RemoveButton = () => (
+    <div
+      onClick={() => handleRemove(id)}
+      className="btn btn-link btn--reset"
+    >
+      Remove<i className="fas fa-redo ml-1"></i>
+    </div>
   )
 
   const botOpenClass = open ? '' : 'db-bot--collapsed'
@@ -95,6 +105,7 @@ export const Bot = ({
         </div>
       </form>
     </div>
+    <RemoveButton />
   </div>
   )
 }
