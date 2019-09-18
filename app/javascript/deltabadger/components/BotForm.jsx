@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import API from '../lib/API'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
+import { AddApiKey } from './BotForm/AddApiKey';
 
 const STEPS = [
   'closed_form',
@@ -19,41 +20,6 @@ const ClosedForm = ({ handleSubmit }) => (
     </button>
   </div>
 )
-
-const AddApiKey = ({ handleSubmit, errors }) => {
-  const [key, setKey] = useState("");
-  const [secret, setSecret] = useState("");
-
-  const _handleSubmit = (evt) => {
-      evt.preventDefault();
-      handleSubmit(key, secret)
-  }
-
-  return (
-    <div>
-      { errors }
-      <form onSubmit={_handleSubmit}>
-        <label>
-          API Key:
-          <input
-            type="text"
-            value={key}
-            onChange={e => setKey(e.target.value)}
-          />
-        </label>
-        <label>
-          Secret API Key:
-          <input
-            type="text"
-            value={secret}
-            onChange={e => setSecret(e.target.value)}
-          />
-        </label>
-        <input type="submit" value="Submit" />
-      </form>
-    </div>
-  )
-}
 
 const initialForm = {
   exchangeId: null,
