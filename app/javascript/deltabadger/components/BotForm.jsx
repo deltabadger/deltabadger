@@ -60,7 +60,7 @@ const initialForm = {
   api_key: null,
 }
 
-export const BotForm = ({ callbackAfterCreation }) => {
+export const BotForm = ({ open, callbackAfterCreation }) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState(initialForm);
   const [exchanges, setExchanges] = useState([]);
@@ -70,6 +70,7 @@ export const BotForm = ({ callbackAfterCreation }) => {
 
   const chooseStep = step => {
     if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return step + 1 }
+    if ((STEPS[step] == 'closed_form') && open) { return step + 1 }
 
     return step;
   }

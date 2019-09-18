@@ -5,6 +5,7 @@ import API from '../lib/API'
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
+import { isEmpty } from '../utils/array'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
@@ -53,7 +54,7 @@ export const Dashboard = () => {
           open={b.id == currentBotId}
         />)
       }
-      <BotForm callbackAfterCreation={callbackAfterCreation} />
+      <BotForm open={isEmpty(bots)} callbackAfterCreation={callbackAfterCreation} />
       { currentBot && <BotDetails bot={currentBot} /> }
     </div>
   )
