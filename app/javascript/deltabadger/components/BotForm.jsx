@@ -5,6 +5,7 @@ import API from '../lib/API'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
+import { ClosedForm } from './BotForm/ClosedForm';
 
 const STEPS = [
   'closed_form',
@@ -13,22 +14,9 @@ const STEPS = [
   'configure_bot',
 ]
 
-const ClosedForm = ({ handleSubmit }) => (
-  <div className="db-bots__item d-flex justify-content-center db-add-more-bots">
-    <button onClick={handleSubmit} className="btn btn-link">
-      Add new bot +
-    </button>
-  </div>
-)
-
-const initialForm = {
-  exchangeId: null,
-  api_key: null,
-}
-
 export const BotForm = ({ open, callbackAfterCreation }) => {
   const [step, setStep] = useState(0);
-  const [form, setFormState] = useState(initialForm);
+  const [form, setFormState] = useState({});
   const [exchanges, setExchanges] = useState([]);
   const [errors, setErrors] = useState("");
 
@@ -41,21 +29,26 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
     return step;
   }
 
-  useEffect(() => {
-    exchanges.length == 0 && API.getExchanges().then(data => {
+  const loadExchanges = () => {
+    API.getExchanges().then(data => {
       setExchanges(data.data)
     })
+  }
+
+  useEffect(() => {
+    loadExchanges()
   }, []);
 
   const pickExchangeHandler = (id) => {
     setFormState({...form, exchangeId: id})
-    setStep(step + 1)
+    setStep(2)
   }
 
   const addApiKeyHandler = (key, secret) => {
     API.createApiKey({ key, secret, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
-      setStep(step + 1)
+      setStep(3)
+      loadExchanges()
     }).catch(() => {
       setErrors("Invalid token")
     })
@@ -65,23 +58,43 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
     const params = {...botParams, exchangeId: form.exchangeId}
     API.createBot(params).then(response => {
       callbackAfterCreation()
-      console.log(params)
       setErrors([])
       setStep(0)
-      setForm(initialForm)
+      setFormState({})
     }).catch(() => {
       setErrors("Invalid token")
     })
   }
 
+  const resetFormToStep = (step) => {
+    return(() => {
+      setErrors([])
+      setFormState({})
+      setStep(step)
+    })
+  }
+
   switch (STEPS[chooseStep(step)]) {
     case 'closed_form':
-      return <ClosedForm handleSubmit={() => setStep(step + 1)} />
+      return <ClosedForm
+        handleSubmit={() => setStep(1)}
+      />
     case 'pick_exchange':
-      return <PickExchage handleSubmit={pickExchangeHandler} exchanges={exchanges} />
+      return <PickExchage
+        handleReset={resetFormToStep(0)}
+        handleSubmit={pickExchangeHandler}
+        exchanges={exchanges}
+      />
     case 'add_api_key':
-      return <AddApiKey handleSubmit={addApiKeyHandler} errors={errors}  />
+      return <AddApiKey
+        handleReset={resetFormToStep(1)}
+        handleSubmit={addApiKeyHandler}
+        errors={errors}
+      />
     case 'configure_bot':
-      return <ConfigureBot handleSubmit={configureBotHandler}  />
+      return <ConfigureBot
+        handleReset={resetFormToStep(1)}
+        handleSubmit={configureBotHandler}
+      />
   }
 }

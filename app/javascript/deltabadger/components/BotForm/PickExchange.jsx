@@ -6,8 +6,15 @@ const ExchangeButton = ({ handleClick, exchange }) => (
     </button>
   )
 
-
-export const PickExchage = ({ handleSubmit, exchanges }) => {
+export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
+  const CloseButton = () => (
+    <div
+      onClick={() => handleReset()}
+      className="btn btn-link btn--reset"
+    >
+      Close<i className="fas fa-redo ml-1"></i>
+    </div>
+  )
 
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange">
@@ -26,6 +33,7 @@ export const PickExchage = ({ handleSubmit, exchanges }) => {
           )
         }
       </div>
+      <CloseButton />
     </div>
   )
 }

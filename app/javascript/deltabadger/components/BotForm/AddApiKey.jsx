@@ -1,8 +1,17 @@
 import React, { useState } from 'react'
 
-export const AddApiKey = ({ handleSubmit, errors }) => {
+export const AddApiKey = ({ handleReset, handleSubmit, errors }) => {
   const [key, setKey] = useState("");
   const [secret, setSecret] = useState("");
+
+  const ResetButton = () => (
+    <div
+      onClick={() => handleReset()}
+      className="btn btn-link btn--reset"
+    >
+      Reset<i className="fas fa-redo ml-1"></i>
+    </div>
+  )
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
@@ -31,6 +40,7 @@ export const AddApiKey = ({ handleSubmit, errors }) => {
         </label>
         <input type="submit" value="Submit" />
       </form>
+      <ResetButton />
     </div>
   )
 }

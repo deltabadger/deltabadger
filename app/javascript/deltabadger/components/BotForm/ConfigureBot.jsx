@@ -1,10 +1,19 @@
 import React, { useState } from 'react'
 
-export const ConfigureBot = ({ handleSubmit }) => {
+export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   const [type, setType] = useState("sell");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [interval, setInterval] = useState("month");
+
+  const ResetButton = () => (
+    <div
+      onClick={() => handleReset()}
+      className="btn btn-link btn--reset"
+    >
+      Reset<i className="fas fa-redo ml-1"></i>
+    </div>
+  )
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
@@ -79,7 +88,8 @@ export const ConfigureBot = ({ handleSubmit }) => {
           </div>
         </form>
       </div>
-      <a href="#" className="btn btn-link btn--reset">Reset <i className="fas fa-redo ml-1"></i></a>
+
+      <ResetButton />
     </div>
   )
 }
