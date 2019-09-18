@@ -26,12 +26,14 @@ export const Bot = ({
   const duration = nextTransactionTimestamp && moment(nextTransactionTimestamp, '%X').fromNow();
 
   const working = status == 'working'
+  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
         { working ? <StopButton /> : <StartButton/> }
-        <div className="db-bot__infotext text-danger">
+        <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
           </div>
@@ -41,16 +43,58 @@ export const Bot = ({
               </div>
           }
           <div className="progress progress--thin progress--bot-setup">
-            <div className="progress-bar bg-danger" role="progressbar" style={{width: "10%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
+            <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: "10%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
         </div>
       </div>
 
       <div className="row db-bot--dca__config-free">
-        Price: {settings.price}<br />
-        Currency: {settings.currency}<br />
-        Type: {settings.type}
-      </div>
+        <form className="form-inline">
+          <div className="form-group mr-2">
+            <select
+              value={settings.type}
+              className="form-control"
+              id="exampleFormControlSelect1"
+              disabled={true}
+            >
+              <option value="buy">Buy</option>
+              <option value="sell">Sell</option>
+            </select>
+          </div>
+          <div className="form-group mr-2">for</div>
+          <input
+            type="text"
+            value={settings.price}
+            className="form-control mr-1"
+            disabled={true}
+          />
+
+        <div className="form-group mr-2">
+          <select
+            value={settings.currency}
+            className="form-control"
+            id="exampleFormControlSelect1"
+            disabled={true}
+          >
+            <option value="">{settings.currency}</option>
+          </select>
+        </div>
+        <div className="form-group mr-2">/</div>
+        <div className="form-group mr-2">
+          <select
+            value={settings.interval}
+            className="form-control"
+            id="exampleFormControlSelect1"
+            disabled={true}
+          >
+            <option value="hour">hour</option>
+            <option value="day">day</option>
+            <option value="week">week</option>
+            <option value="minutes">1 minutes</option>
+          </select>
+        </div>
+      </form>
     </div>
+  </div>
   )
 }
