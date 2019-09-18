@@ -1,20 +1,11 @@
 module Api
   class BotsController < Api::BaseController
     def index
-      present_transaction = lambda do |transaction|
-        Presenters::Api::Transaction.call(transaction)
-      end
       present_bot = lambda do |bot|
-        {
-          id: bot.id,
-          settings: bot.settings,
-          exchangeName: bot.exchange.name,
-          status: bot.status,
-          transactions: bot.transactions.map(&present_transaction)
-        }
+        Presenters::Api::Bot.call(bot)
       end
 
-      data = current_user.bots.includes(:exchange).all.map(&present_bot)
+      data = BotsRepository.new.for_user(current_user).map(&present_bot)
 
       render json: { data: data }
     end
@@ -52,6 +43,16 @@ module Api
         render json: { data: true }, status: 200
       else
         render json: { data: false }, status: 422
+      end
+    end
+
+    def destroy
+      result = RemoveBot.call(bot_id: params[:id], user: current_user)
+
+      if result.success?
+        render json: { data: true }, status: 200
+      else
+        render json: { errors: result.errors }, status: 422
       end
     end
 

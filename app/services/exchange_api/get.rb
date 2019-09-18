@@ -1,5 +1,7 @@
 module ExchangeApi
   class Get < BaseService
+    DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
+
     def initialize(exchanges_repository: ExchangesRepository.new)
       @exchanges_repository = exchanges_repository
     end
@@ -7,7 +9,7 @@ module ExchangeApi
     def call(api_key)
       exchange = @exchanges_repository.find(api_key.exchange_id)
 
-      if Rails.env.development?
+      if DISABLE_EXCHANGES_API
         return ExchangeApi::Clients::Fake.new(exchange.name)
       end
 

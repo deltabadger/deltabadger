@@ -3,6 +3,13 @@ class BotsRepository < BaseRepository
     user.bots.find(id)
   end
 
+  def for_user(user)
+    user
+      .bots
+      .includes(:exchange, :transactions)
+      .all
+  end
+
   def model
     Bot
   end

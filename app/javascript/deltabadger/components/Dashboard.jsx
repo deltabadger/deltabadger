@@ -5,6 +5,7 @@ import API from '../lib/API'
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
+import { isEmpty } from '../utils/array'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
@@ -26,13 +27,19 @@ export const Dashboard = () => {
   const startBot = id => {
     API.startBot(id).then(data => {
       loadBots();
-    })
+    }).catch(() => loadBots())
   }
 
   const stopBot = id => {
     API.stopBot(id).then(data => {
       loadBots();
-    })
+    }).catch(() => loadBots())
+  }
+
+  const removeBot = id => {
+    API.removeBot(id).then(data => {
+      loadBots();
+    }).catch(() => loadBots())
   }
 
   const openBot = id => setCurrentBot(id)
@@ -46,13 +53,15 @@ export const Dashboard = () => {
           status={b.status}
           settings={b.settings}
           exchangeName={b.exchangeName}
+          nextTransactionTimestamp={b.next_transaction_timestamp}
           handleStop={stopBot}
           handleStart={startBot}
+          handleRemove={removeBot}
           handleClick={openBot}
           open={b.id == currentBotId}
         />)
       }
-      <BotForm callbackAfterCreation={callbackAfterCreation} />
+      <BotForm open={isEmpty(bots)} callbackAfterCreation={callbackAfterCreation} />
       { currentBot && <BotDetails bot={currentBot} /> }
     </div>
   )
