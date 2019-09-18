@@ -46,6 +46,16 @@ module Api
       end
     end
 
+    def destroy
+      result = RemoveBot.call(bot_id: params[:id], user: current_user)
+
+      if result.success?
+        render json: { data: true }, status: 200
+      else
+        render json: { errors: result.errors }, status: 422
+      end
+    end
+
     private
 
     def bot_params
