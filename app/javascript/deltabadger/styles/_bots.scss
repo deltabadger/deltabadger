@@ -150,12 +150,12 @@
     filter:           brightness(.96);
   }
 }
-.db-bot__exchanges__item--kraken   { background-image: url(../../images/kraken-logo.png); }
-.db-bot__exchanges__item--bitbay   { background-image: url(../../images/bitbay-logo.png); }
-.db-bot__exchanges__item--bybit    { background-image: url(../../images/bybit-logo.jpg); }
-.db-bot__exchanges__item--bitmex   { background-image: url(../../images/bitmex-logo.png); }
-.db-bot__exchanges__item--bitstamp { background-image: url(../../images/bitstamp-logo.png); }
-.db-bot__exchanges__item--deribit  { background-image: url(../../images/deribit-logo.png); background-size: 55%; }
+.db-bot__exchanges__item--kraken   { background-image: asset_url("./../images/kraken-logo.png"); }
+.db-bot__exchanges__item--bitbay   { background-image: asset_url("./../images/bitbay-logo.png"); }
+.db-bot__exchanges__item--bybit    { background-image: asset_urlurl("./../images/bybit-logo.jpg"); }
+.db-bot__exchanges__item--bitmex   { background-image: asset_url("./../images/bitmex-logo.png"); }
+.db-bot__exchanges__item--bitstamp { background-image: asset_url("./../images/bitstamp-logo.png"); }
+.db-bot__exchanges__item--deribit  { background-image: asset_url("./../images/deribit-logo.png"); background-size: 55%; }
 
 // bot dca1
 
