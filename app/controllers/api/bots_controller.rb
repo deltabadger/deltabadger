@@ -20,7 +20,7 @@ module Api
       )
 
       if bot.save
-        render json: { data: true }, status: 201
+        render json: { data: bot }, status: 201
       else
         render json: { data: false }, status: 422
       end
