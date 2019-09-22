@@ -57,7 +57,7 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
   const configureBotHandler = (botParams) => {
     const params = {...botParams, exchangeId: form.exchangeId}
     API.createBot(params).then(response => {
-      callbackAfterCreation()
+      callbackAfterCreation(response.data.id)
       setErrors([])
       setStep(0)
       setFormState({})
