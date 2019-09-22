@@ -1,0 +1,2 @@
+class BotAlertsMailer < ApplicationMailer
+end
