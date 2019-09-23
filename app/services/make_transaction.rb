@@ -4,7 +4,8 @@ class MakeTransaction < BaseService
     schedule_transaction: ScheduleTransaction.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
-    api_keys_repository: ApiKeysRepository.new
+    api_keys_repository: ApiKeysRepository.new,
+    notifications: Notifications::BotAlerts.new
   )
 
     @get_exchange_api = exchange_api
@@ -12,6 +13,7 @@ class MakeTransaction < BaseService
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
+    @notifications = notifications
   end
 
   def call(bot_id)
@@ -24,11 +26,29 @@ class MakeTransaction < BaseService
     result = perform_action(api, bot)
 
     @schedule_transaction.call(bot) if result.success?
-
+    if result.failure?
+      @notifications.error_occured(
+        bot: bot,
+        user: bot.user,
+        errors: result.errors
+      )
+    end
     result
   end
 
   private
+
+  def perform_action(api, bot)
+    result = if bot.buyer?
+               api.buy(bot.settings)
+             else
+               api.sell(bot.settings)
+             end
+
+    @transactions_repository.create(transaction_params(result, bot))
+
+    result
+  end
 
   def transaction_params(result, bot)
     if result.success?
@@ -43,18 +63,6 @@ class MakeTransaction < BaseService
         error_messages: result.errors
       }
     end
-  end
-
-  def perform_action(api, bot)
-    result = if bot.buyer?
-               api.buy(bot.settings)
-             else
-               api.sell(bot.settings)
-             end
-
-    @transactions_repository.create(transaction_params(result, bot))
-
-    result
   end
 
   def make_transaction?(bot)
