@@ -2,6 +2,7 @@ module ExchangeApi
   module Clients
     class Fake
       SUCCESS = true
+      # SUCCESS = false
 
       def initialize(exchange_name)
         @exchange_name = exchange_name
