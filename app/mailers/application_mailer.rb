@@ -1,4 +1,4 @@
 class ApplicationMailer < ActionMailer::Base
-  default from: 'from@deltabadger.com'
+  default from: ENV['NOTIFICATIONS_SENDER']
   layout 'mailer'
 end
