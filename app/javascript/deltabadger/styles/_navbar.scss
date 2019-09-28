@@ -3,7 +3,6 @@
   left: auto;
 }
 .navbar {
-  background: $bgColor;
   padding:    1em;
 }
 .navbar-brand {
@@ -20,5 +19,5 @@
   }
 }
 .db-navbar--loggedout {
-  background: #fff !important;
+  background: none !important;
 }

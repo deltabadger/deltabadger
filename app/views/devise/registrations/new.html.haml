@@ -1,21 +1,23 @@
-%h2 Sign up
-= form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
-  = render "devise/shared/error_messages", resource: resource
-  .field
-    = f.label :email
-    %br/
-    = f.email_field :email, autofocus: true, autocomplete: "email"
-  .field
-    = f.label :password
-    - if @minimum_password_length
-      %em
-        (#{@minimum_password_length} characters minimum)
-    %br/
-    = f.password_field :password, autocomplete: "new-password"
-  .field
-    = f.label :password_confirmation
-    %br/
-    = f.password_field :password_confirmation, autocomplete: "new-password"
-  .actions
-    = f.submit "Sign up"
-= render "devise/shared/links"
+.container
+  .modal-dialog
+    .modal-content
+      .modal-body
+        %h2.db-modal-title Sign up
+        = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
+          = render "devise/shared/error_messages", resource: resource
+          .form-group
+            = f.label :email
+            = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
+          .form-group
+            = f.label :password
+            - if @minimum_password_length
+              %em
+                (#{@minimum_password_length} characters minimum)
+            = f.password_field :password, autocomplete: "new-password", class: "form-control"
+          .form-group
+            = f.label :password_confirmation
+            = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control"
+          .form-group.db-form-group--main-btn
+            = f.submit "Sign up", class: "btn btn-primary btn-lg"
+        .text-center
+          = render "devise/shared/links"
