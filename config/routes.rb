@@ -1,7 +1,9 @@
 require 'sidekiq/web'
 
 Rails.application.routes.draw do
-  devise_for :users
+  devise_for :users, path_names: {
+  edit: ''
+}
   root to: 'home#index'
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard
