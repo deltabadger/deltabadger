@@ -1,9 +1,7 @@
 import React from 'react'
 
 const ExchangeButton = ({ handleClick, exchange }) => (
-    <button onClick={ () => handleClick(exchange.id) }>
-      <div className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}></div>
-    </button>
+    <div className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`} onClick={ () => handleClick(exchange.id) }></div>
   )
 
 export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
