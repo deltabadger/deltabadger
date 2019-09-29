@@ -1,14 +1,15 @@
 .container
-  .modal-dialog
-    .modal-content
-      .modal-body
-        %h2.db-modal-title Forgot your password?
-        = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f|
-          = render "devise/shared/error_messages", resource: resource
-          .form-group
-            = f.label :email
-            = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
-          .form-group.db-form-group--main-btn
-            = f.submit "Send me instructions", class: "btn btn-lg btn-primary"
-        .text-center
-          = render "devise/shared/links"
+  .db-modal-positioner
+    .modal-dialog
+      .modal-content
+        .modal-body
+          %h2.db-modal-title Forgot your password?
+          = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f|
+            = render "devise/shared/error_messages", resource: resource
+            .form-group
+              = f.label :email
+              = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
+            .form-group.db-form-group--main-btn
+              = f.submit "Send me instructions", class: "btn btn-lg btn-primary"
+          .text-center
+            = render "devise/shared/links"

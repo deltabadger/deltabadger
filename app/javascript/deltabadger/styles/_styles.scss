@@ -11,12 +11,28 @@ $navbarHeight:       72px;
 $introBoxHeight:     70vh;
 $introBoxMaxHeight:  870px;
 
+$fontText:           'Inconsolata', 'Roboto', sans-serif;
+$fontBrand:          'Inconsolata', 'Varela Round','Roboto', sans-serif;
+$fontHeader:         'Inconsolata', 'Roboto', sans-serif;
+$fontButton:         'Inconsolata', 'Varela Round','Roboto', sans-serif;
+
 html {
   background: $bgColor !important;
 }
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: $fontText;
   background: none;
+}
+h1,h2,h3,h4,h5,h6 {
+  font-family: $fontHeader;
+}
+h1 {
+  font-weight: 100;
+  font-size:   3em;
+}
+.btn {
+  font-family: $fontButton;
+  font-weight: bold;
 }
 
 .db-homepage-bg {
@@ -39,16 +55,9 @@ body {
   right: 0;
   left:  auto;
 }
-h1,h2,h3,h4,h5,h6 {
-  font-family: 'Varela Round','Roboto';
-}
-h1 {
-  font-weight: 100;
-  font-size:   3em;
-}
 .btn {
   :not(:last-child) {
-    margin-right: .75em;
+    margin-right: 1em;
   }
   span {
     line-height:  27px;
@@ -162,8 +171,19 @@ h1 {
 
 // modal
 
+.db-modal-positioner {
+  width:           100%;
+  height:          calc(100vh - #{$navbarHeight});
+  min-height:      548px;
+  max-height:      1000px;
+  justify-content: center;
+  align-items:     center;
+  display:         flex;
+
+}
+
 .db-modal-title {
-  text-align: center;
+  text-align:    center;
   margin-bottom: 2rem;
 }
 .db-form-group--main-btn {
