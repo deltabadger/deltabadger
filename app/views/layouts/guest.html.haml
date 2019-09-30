@@ -1,16 +1,19 @@
 !!!
 %html
   %head
-    %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}/
+    %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}
     %title Deltabadger
     = csrf_meta_tags
     = csp_meta_tag
 
-    %link{:href => "https://fonts.googleapis.com/css?family=Roboto:100,300,400,400i,500,700&display=swap", :rel => "stylesheet"}/
-    %link{:href => "https://fonts.googleapis.com/css?family=Varela+Round&display=swap", :rel => "stylesheet"}/
-    %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}/
+    %link{:href => "https://fonts.googleapis.com/css?family=Roboto:100,300,400,400i,500,700&display=swap", :rel => "stylesheet"}
+    %link{:href => "https://fonts.googleapis.com/css?family=Varela+Round&display=swap", :rel => "stylesheet"}
+    %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
+    %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Lato:300,400,400i,700,900|Nunito:200,300,400,400i,700&display=swap", :rel => "stylesheet"}
 
-  %body
+  %body.db--guest
+    .db-homepage-bg
+      .db-homepage-bg__image
     = render 'layouts/navbar'
 
     = yield
