@@ -10,6 +10,7 @@ $bgBot:              white;
 $navbarHeight:       72px;
 $introBoxHeight:     70vh;
 $introBoxMaxHeight:  870px;
+$introBoxMinHeight:  700px;
 
 $fontText:           'Inconsolata', 'Roboto', sans-serif;
 $fontBrand:          'Varela Round','Roboto', sans-serif;
@@ -41,6 +42,7 @@ h1 {
   width:           100vw;
   height:          calc(#{$introBoxHeight} + #{$navbarHeight});
   max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
+  min-height:      $introBoxMinHeight;
 }
 .db-homepage-bg__image {
   position:        absolute;
@@ -48,6 +50,7 @@ h1 {
   width:           50vw;
   height:          calc(#{$introBoxHeight} + #{$navbarHeight});
   max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
+  min-height:      $introBoxMinHeight;
   background:      url('./../../images/homepage01.jpg') bottom left;
   background-size: cover;
 }
@@ -67,6 +70,7 @@ h1 {
 .row--intro {
   height:     $introBoxHeight;
   max-height: $introBoxMaxHeight;
+  min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
 }
 .d-flex__vertical-align {
   align-self: center;
