@@ -4,17 +4,17 @@ $textColorLight:     #666;
 $sidebarItemHeight:  56px;
 $sidebarItemPadding: 20px;
 
-$bgColor: $bgColorLight;
-$bgBot: white;
+$bgColor:            $bgColorLight;
+$bgBot:              white;
 
 $navbarHeight:       72px;
 $introBoxHeight:     70vh;
 $introBoxMaxHeight:  870px;
 
 $fontText:           'Inconsolata', 'Roboto', sans-serif;
-$fontBrand:          'Inconsolata', 'Varela Round','Roboto', sans-serif;
-$fontHeader:         'Inconsolata', 'Roboto', sans-serif;
-$fontButton:         'Inconsolata', 'Varela Round','Roboto', sans-serif;
+$fontBrand:          $fontText; //'Varela Round','Roboto', sans-serif;
+$fontHeader:         $fontText;
+$fontButton:         $fontText;
 
 html {
   background: $bgColor !important;
@@ -173,7 +173,7 @@ h1 {
 
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - #{$navbarHeight});
+  height:          calc(100vh - 2*#{$navbarHeight});
   min-height:      548px;
   max-height:      1000px;
   justify-content: center;
