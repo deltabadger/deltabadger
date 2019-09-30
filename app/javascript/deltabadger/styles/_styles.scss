@@ -13,7 +13,7 @@ $introBoxMaxHeight:  870px;
 $introBoxMinHeight:  700px;
 
 $fontText:           'Inconsolata', 'Roboto', sans-serif;
-$fontBrand:          'Varela Round','Roboto', sans-serif;
+$fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
@@ -51,7 +51,7 @@ h1 {
   height:          calc(#{$introBoxHeight} + #{$navbarHeight});
   max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
   min-height:      $introBoxMinHeight;
-  background:      url('./../../images/homepage01.jpg') bottom left;
+  //background:      url('./../../images/homepage01.jpg') bottom left;
   background-size: cover;
 }
 .dropdown-menu-right {
@@ -171,6 +171,19 @@ h1 {
   68%  {top:  35px; opacity: 0; }
   99%  {top:  35px; opacity: 0; }
   100% {top: -21px; opacity: 0; }
+}
+
+// intro image
+
+.db-intro-image-container {
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+.db-intro-image {
+  width: 100%;
+  height: auto;
 }
 
 // modal
