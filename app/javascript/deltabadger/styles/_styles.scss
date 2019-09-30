@@ -12,8 +12,8 @@ $introBoxHeight:     70vh;
 $introBoxMaxHeight:  870px;
 
 $fontText:           'Inconsolata', 'Roboto', sans-serif;
-$fontBrand:          $fontText; //'Varela Round','Roboto', sans-serif;
-$fontHeader:         $fontText;
+$fontBrand:          'Varela Round','Roboto', sans-serif;
+$fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
 html {
@@ -28,7 +28,7 @@ h1,h2,h3,h4,h5,h6 {
 }
 h1 {
   font-weight: 100;
-  font-size:   3em;
+  font-size:   2.5em;
 }
 .btn {
   font-family: $fontButton;
@@ -173,7 +173,7 @@ h1 {
 
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - 2*#{$navbarHeight});
+  height:          calc(100vh - 2*  #{$navbarHeight});
   min-height:      548px;
   max-height:      1000px;
   justify-content: center;
