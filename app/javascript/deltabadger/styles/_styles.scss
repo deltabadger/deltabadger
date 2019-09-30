@@ -22,7 +22,7 @@ html {
 }
 body {
   font-family: $fontText;
-  background: none;
+  background:  none;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
@@ -34,6 +34,13 @@ h1 {
 .btn {
   font-family: $fontButton;
   font-weight: bold;
+  :not(:last-child) {
+    margin-right: .5em;
+  }
+  span {
+    line-height:  27px;
+    padding-left: 2px;
+  }
 }
 
 .db-homepage-bg {
@@ -57,15 +64,6 @@ h1 {
 .dropdown-menu-right {
   right: 0;
   left:  auto;
-}
-.btn {
-  :not(:last-child) {
-    margin-right: 1em;
-  }
-  span {
-    line-height:  27px;
-    padding-left: 2px;
-  }
 }
 .row--intro {
   height:     $introBoxHeight;
@@ -206,4 +204,14 @@ h1 {
 .db-form-group--main-btn {
   text-align: center;
   margin-top: 2rem;
+}
+.db-form-group--btn {
+  display: flex;
+  align-items: flex-end;
+  .btn {
+    width: 100%;
+  }
+}
+.db-form-group--fg-2 {
+  flex-grow: 3;
 }
