@@ -1,6 +1,15 @@
 require 'sidekiq/web'
 
 Rails.application.routes.draw do
+  namespace :admin do
+      resources :users
+      resources :api_keys
+      resources :bots
+      resources :exchanges
+      resources :transactions
+
+      root to: "users#index"
+    end
   devise_for :users, path_names: {
   edit: ''
 }
