@@ -20,4 +20,9 @@
 }
 .db-navbar--loggedout {
   background: none !important;
+  padding-right: 0;
+  padding-left: 0;
+  .navbar-brand {
+    margin-left: 0;
+  }
 }
