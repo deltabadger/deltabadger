@@ -83,6 +83,7 @@ h1 {
   .progress-bar {
     border-radius: 1.5px;
     height:        3px;
+    transition: all 1s ease-in-out;
   }
 }
 .progress--bot-setup {

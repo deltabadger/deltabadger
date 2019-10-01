@@ -56,6 +56,9 @@
   border: 1px solid #ddd;
   border-radius: $box-border-radius;
   padding: $grid-gutter-width/2;
+  .alert {
+    border-radius: 0;
+  }
 }
 .db-bot--active {
   @include media-breakpoint-down(lg) {
