@@ -9,12 +9,20 @@ import { isEmpty } from '../utils/array'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
+  const [subscription, setSubscription] = useState(undefined);
   const [currentBotId, setCurrentBot] = useState(undefined);
   const currentBot = bots.find(bot => bot.id === currentBotId)
 
   useEffect(() => {
+    checkSubscription()
     loadBots()
   }, []);
+
+  const checkSubscription = () => {
+    API.getSubscription().then(({data}) => {
+      setSubscription(data.subscription)
+    })
+  }
 
   const loadBots = (id) => {
     API.getBots().then(({ data }) => {
