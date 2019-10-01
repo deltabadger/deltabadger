@@ -4,8 +4,10 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
 
   STATES = %i[created working stopped].freeze
+  TYPES = %i[free].freeze
 
   enum status: [*STATES]
+  enum bot_type: [*TYPES]
 
   def currency
     settings.fetch('currency')

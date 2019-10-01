@@ -55,7 +55,7 @@ module Api
     def bot_params
       params
         .require(:bot)
-        .permit(:exchange_id, :type, :price, :currency, :interval)
+        .permit(:exchange_id, :type, :price, :currency, :interval, :bot_type)
     end
   end
 end

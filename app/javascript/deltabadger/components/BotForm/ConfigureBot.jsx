@@ -17,7 +17,7 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      const botParams = { type, price, currency, interval}
+      const botParams = { type, price, currency, interval, botType: 'free' }
       handleSubmit(botParams);
   }
 

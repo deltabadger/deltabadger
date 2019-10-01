@@ -2,7 +2,7 @@ module Api
   class SubscriptionsController < ApplicationController
     def check
       subscription = {
-        plan: 'free'
+        plan: 'unlimited'
       }
 
       render json: { data: subscription }, status: 200

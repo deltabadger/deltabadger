@@ -37,6 +37,7 @@ const API = {
   createBot(params) {
     const url = `${API_URL}/bots`;
     const botParams= {
+      bot_type: params.botType,
       exchange_id: params.exchangeId,
       type: params.type,
       price: params.price,
