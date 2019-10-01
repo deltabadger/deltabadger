@@ -4,35 +4,43 @@ $textColorLight:     #666;
 $sidebarItemHeight:  56px;
 $sidebarItemPadding: 20px;
 
-$bgColor: $bgColorLight;
-$bgBot: white;
+$bgColor:            $bgColorLight;
+$bgBot:              white;
 
 $navbarHeight:       72px;
 $introBoxHeight:     70vh;
 $introBoxMaxHeight:  870px;
+$introBoxMinHeight:  700px;
 
 $fontText:           'Inconsolata', 'Roboto', sans-serif;
-$fontBrand:          'Inconsolata', 'Varela Round','Roboto', sans-serif;
-$fontHeader:         'Inconsolata', 'Roboto', sans-serif;
-$fontButton:         'Inconsolata', 'Varela Round','Roboto', sans-serif;
+$fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
+$fontHeader:         $fontBrand;
+$fontButton:         $fontText;
 
 html {
   background: $bgColor !important;
 }
 body {
   font-family: $fontText;
-  background: none;
+  background:  none;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
 }
 h1 {
   font-weight: 100;
-  font-size:   3em;
+  font-size:   2.5em;
 }
 .btn {
   font-family: $fontButton;
   font-weight: bold;
+  :not(:last-child) {
+    margin-right: .5em;
+  }
+  span {
+    line-height:  27px;
+    padding-left: 2px;
+  }
 }
 
 .db-homepage-bg {
@@ -41,6 +49,7 @@ h1 {
   width:           100vw;
   height:          calc(#{$introBoxHeight} + #{$navbarHeight});
   max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
+  min-height:      $introBoxMinHeight;
 }
 .db-homepage-bg__image {
   position:        absolute;
@@ -48,25 +57,18 @@ h1 {
   width:           50vw;
   height:          calc(#{$introBoxHeight} + #{$navbarHeight});
   max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
-  background:      url('./../../images/homepage01.jpg') bottom left;
+  min-height:      $introBoxMinHeight;
+  //background:      url('./../../images/homepage01.jpg') bottom left;
   background-size: cover;
 }
 .dropdown-menu-right {
   right: 0;
   left:  auto;
 }
-.btn {
-  :not(:last-child) {
-    margin-right: 1em;
-  }
-  span {
-    line-height:  27px;
-    padding-left: 2px;
-  }
-}
 .row--intro {
   height:     $introBoxHeight;
   max-height: $introBoxMaxHeight;
+  min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
 }
 .d-flex__vertical-align {
   align-self: center;
@@ -81,6 +83,7 @@ h1 {
   .progress-bar {
     border-radius: 1.5px;
     height:        3px;
+    transition: all 1s ease-in-out;
   }
 }
 .progress--bot-setup {
@@ -169,11 +172,24 @@ h1 {
   100% {top: -21px; opacity: 0; }
 }
 
+// intro image
+
+.db-intro-image-container {
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+.db-intro-image {
+  width: 100%;
+  height: auto;
+}
+
 // modal
 
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - #{$navbarHeight});
+  height:          calc(100vh - 2*  #{$navbarHeight});
   min-height:      548px;
   max-height:      1000px;
   justify-content: center;
@@ -189,4 +205,14 @@ h1 {
 .db-form-group--main-btn {
   text-align: center;
   margin-top: 2rem;
+}
+.db-form-group--btn {
+  display: flex;
+  align-items: flex-end;
+  .btn {
+    width: 100%;
+  }
+}
+.db-form-group--fg-2 {
+  flex-grow: 3;
 }

@@ -24,16 +24,10 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className="btn btn-success"><span>Start</span> <i className="fas fa-play"></i></div>
-        <div className="db-bot__infotext">
-          <div className="db-bot__infotext__left">
-            Bitbay:BTCPLN EXchange name
-          </div>
-          <div className="db-bot__infotext__right">
-            Ready to go!
-          </div>
+        <div onClick={_handleSubmit} className="btn btn-success btn-disabled"><span>Start</span> <i className="fas fa-play"></i></div>
+        <div className="db-bot__infotext db-bot__infotext--setup">Configuration (3 of 3)
           <div className="progress progress--thin progress--bot-setup">
-            <div className="progress-bar bg-success" role="progressbar" style={{width: "0%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
+            <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
         </div>
       </div>

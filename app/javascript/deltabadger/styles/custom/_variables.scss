@@ -1,6 +1,12 @@
-$primary: #34495e; //#d35400;
+$primary: #3d6098; // #34495e; //#d35400;
 $grid-gutter-width: 30px;
-//$border-width: 1px;
-$btn-border-radius: 20px;
-$box-border-radius: 11px;
-$modal-inner-padding: 2em;
+$btn-border-width: 2px;
+$btn-border-radius:    30px;
+$btn-border-radius-lg: 30px;
+$btn-border-radius-sm: 30px;
+$box-border-radius:    11px;
+$modal-inner-padding:  2em;
+
+$input-btn-padding-x:    1rem !default;
+$input-btn-padding-x-sm: 0.75rem !default;
+$input-btn-padding-x-lg: 1.25rem !default;
