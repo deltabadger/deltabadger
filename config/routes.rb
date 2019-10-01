@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   get '/dashboard', to: 'home#dashboard', as: :dashboard
 
   namespace :api do
+    get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     resources :bots, only: [:create, :index, :destroy] do
