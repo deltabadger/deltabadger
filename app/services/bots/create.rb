@@ -14,7 +14,9 @@ module Bots
 
     def call(user, params)
       subscription_validation_result = @subscription_validator.call(user)
-      return result if subscription_validation_result.failure?
+      if subscription_validation_result.failure?
+        return subscription_validation_result
+      end
 
       bot_params = params.merge(user: user)
       type = params.fetch(:bot_type)
