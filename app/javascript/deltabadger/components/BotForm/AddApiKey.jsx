@@ -13,15 +13,17 @@ export const AddApiKey = ({ handleReset, handleSubmit, errors }) => {
     </div>
   )
 
+  const disableSubmit = key == '' || secret == ''
+
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      handleSubmit(key, secret)
+      !disableSubmit && handleSubmit(key, secret)
   }
 
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className="btn btn-primary"><span>Submit</span> <i className="fas fa-arrow-right"></i></div>
+        <div onClick={_handleSubmit} className={`btn btn-primary ${disableSubmit ? 'disabled' : ''}`}><span>Submit</span> <i className="fas fa-arrow-right"></i></div>
         <div className="db-bot__infotext db-bot__infotext--setup">Get API Key (2 of 3)
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "33%", ariaValuenow: "33", ariaValuemin: "0", ariaValuemax: "100"}}></div>
