@@ -82,7 +82,6 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
           </div>
         </form>
       </div>
-
       <ResetButton />
     </div>
   )
