@@ -33,30 +33,30 @@ export const AddApiKey = ({ handleReset, handleSubmit, errors }) => {
       </div>
       <div className="row db-bot__exchanges">
         { errors }
-        <form onSubmit={_handleSubmit} class="form-row w-100 mx-0 mt-4">
-          <div class="col form-group db-form-group--fg-2">
+        <form onSubmit={_handleSubmit} className="form-row w-100 mx-0 mt-4">
+          <div className="col form-group db-form-group--fg-2">
             <label>API Key:</label>
             <input
               type="text"
               value={key}
               onChange={e => setKey(e.target.value)}
-              class="form-control"
+              className="form-control"
             />
           </div>
-          <div class="col form-group db-form-group--fg-2">
+          <div className="col form-group db-form-group--fg-2">
             <label>Secret API Key:</label>
             <input
               type="text"
               value={secret}
               onChange={e => setSecret(e.target.value)}
-              class="form-control col"
+              className="form-control col"
             />
           </div>
         </form>
       </div>
-      <div class="row">
-        <div class="alert alert-warning mx-0 mb-3 col" role="alert">
-          <b class="alert-heading mb-2">How to get API keys:</b>
+      <div className="row">
+        <div className="alert alert-warning mx-0 mb-3 col" role="alert">
+          <b className="alert-heading mb-2">How to get API keys:</b>
           <hr/>
           <ol>
             <li>Login to Kraken</li>
