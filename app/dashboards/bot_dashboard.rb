@@ -16,7 +16,7 @@ class BotDashboard < Administrate::BaseDashboard
     settings: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
-    bot_type: Field::Number,
+    bot_type: Field::String.with_options(searchable: false),
   }.freeze
 
   # COLLECTION_ATTRIBUTES
