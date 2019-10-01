@@ -5,11 +5,11 @@ import API from '../lib/API'
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
-import { isEmpty } from '../utils/array'
+import { isEmpty, isNotEmpty } from '../utils/array'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
-  const [subscription, setSubscription] = useState(undefined);
+  const [subscription, setSubscription] = useState({plan: ''});
   const [currentBotId, setCurrentBot] = useState(undefined);
   const currentBot = bots.find(bot => bot.id === currentBotId)
 
@@ -57,7 +57,8 @@ export const Dashboard = () => {
     </div>
   )
 
-  const showUpgradeButton = subscription ? (subscription.plan == 'free' && bots.length == 1) : true
+  const showUpgradeButton = isNotEmpty(bots) && subscription.plan == 'free'
+  const showForm = isEmpty(bots) || subscription.plan != 'free'
 
   return (
     <div className="db-bots">
@@ -77,10 +78,8 @@ export const Dashboard = () => {
         />)
       }
 
-      { showUpgradeButton ?
-          <UpgradeButton /> : <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
-      }
-
+      { showForm && <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} /> }
+      { showUpgradeButton && <UpgradeButton /> }
       { currentBot && <BotDetails bot={currentBot} /> }
     </div>
   )

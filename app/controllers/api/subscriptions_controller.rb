@@ -1,5 +1,5 @@
 module Api
-  class SubscriptionsController < ApplicationController
+  class SubscriptionsController < Api::BaseController
     def check
       subscription = {
         plan: current_user.subscription

@@ -8,8 +8,13 @@ class User < ApplicationRecord
   has_many :subscriptions
 
   def subscription
-    return 'free' if subscriptions.last.end_time < Time.now
+    last_subscription = subscriptions.last
+    if last_subscription.nil? ||
+       (last_subscription && last_subscription.end_time < Time.now)
 
-    subscriptions.last.name
+      return 'free'
+    end
+
+    last_subscription.name
   end
 end
