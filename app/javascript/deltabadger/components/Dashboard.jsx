@@ -20,7 +20,7 @@ export const Dashboard = () => {
 
   const checkSubscription = () => {
     API.getSubscription().then(({data}) => {
-      setSubscription(data.subscription)
+      setSubscription(data)
     })
   }
 
@@ -51,6 +51,14 @@ export const Dashboard = () => {
 
   const openBot = id => setCurrentBot(id)
 
+  const UpgradeButton = () => (
+    <div>
+      Upgrade to unlimited account
+    </div>
+  )
+
+  const showUpgradeButton = subscription ? (subscription.plan == 'free' && bots.length == 1) : true
+
   return (
     <div className="db-bots">
       { bots.map(b =>
@@ -68,7 +76,11 @@ export const Dashboard = () => {
           open={b.id == currentBotId}
         />)
       }
-      <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
+
+      { showUpgradeButton ?
+          <UpgradeButton /> : <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
+      }
+
       { currentBot && <BotDetails bot={currentBot} /> }
     </div>
   )
