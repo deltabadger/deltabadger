@@ -11,6 +11,7 @@ class UserDashboard < Administrate::BaseDashboard
     api_keys: Field::HasMany,
     exchanges: Field::HasMany,
     bots: Field::HasMany,
+    subscriptions: Field::HasMany,
     id: Field::Number,
     email: Field::String,
     encrypted_password: Field::String,
@@ -34,7 +35,7 @@ class UserDashboard < Administrate::BaseDashboard
   api_keys
   exchanges
   bots
-  id
+  subscriptions
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -43,6 +44,7 @@ class UserDashboard < Administrate::BaseDashboard
   api_keys
   exchanges
   bots
+  subscriptions
   id
   email
   encrypted_password
@@ -64,6 +66,7 @@ class UserDashboard < Administrate::BaseDashboard
   api_keys
   exchanges
   bots
+  subscriptions
   email
   encrypted_password
   reset_password_token
