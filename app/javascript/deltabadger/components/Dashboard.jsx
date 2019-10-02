@@ -5,16 +5,24 @@ import API from '../lib/API'
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
-import { isEmpty } from '../utils/array'
+import { isEmpty, isNotEmpty } from '../utils/array'
 
 export const Dashboard = () => {
   const [bots, setBots] = useState([]);
+  const [subscription, setSubscription] = useState({plan: ''});
   const [currentBotId, setCurrentBot] = useState(undefined);
   const currentBot = bots.find(bot => bot.id === currentBotId)
 
   useEffect(() => {
+    checkSubscription()
     loadBots()
   }, []);
+
+  const checkSubscription = () => {
+    API.getSubscription().then(({data}) => {
+      setSubscription(data)
+    })
+  }
 
   const loadBots = (id) => {
     API.getBots().then(({ data }) => {
@@ -43,6 +51,25 @@ export const Dashboard = () => {
 
   const openBot = id => setCurrentBot(id)
 
+  const subscribeToUnlimited = () => {
+    API.subscribeToUnlimited().then(() => window.location.reload())
+  }
+
+  const UpgradeButton = () => (
+    <div className="db-bots__item d-flex justify-content-center db-add-more-bots">
+      <button onClick={subscribeToUnlimited} className="btn btn-link">
+        Upgrade to unlimited account
+      </button>
+    </div>
+  )
+
+  const showUpgradeButton =
+    isNotEmpty(bots) &&
+    subscription.plan == 'free' &&
+    subscription.upgrade_option
+
+  const showForm = isEmpty(bots) || subscription.plan != 'free'
+
   return (
     <div className="db-bots">
       { bots.map(b =>
@@ -60,7 +87,9 @@ export const Dashboard = () => {
           open={b.id == currentBotId}
         />)
       }
-      <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
+
+      { showForm && <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} /> }
+      { showUpgradeButton && <UpgradeButton /> }
       { currentBot && <BotDetails bot={currentBot} /> }
     </div>
   )

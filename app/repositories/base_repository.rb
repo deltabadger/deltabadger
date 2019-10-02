@@ -7,6 +7,10 @@ class BaseRepository
     model.find(id)
   end
 
+  def find_by(params)
+    model.find_by(params)
+  end
+
   def update(id, params)
     model.update(id, params)
   end

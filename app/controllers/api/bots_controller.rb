@@ -11,18 +11,12 @@ module Api
     end
 
     def create
-      bot_settings = bot_params.slice(:type, :price, :currency, :interval)
-      bot = Bot.new(
-        user: current_user,
-        exchange_id: bot_params.fetch(:exchange_id),
-        bot_type: 'free',
-        settings: bot_settings
-      )
+      result = Bots::Create.new.call(current_user, bot_params)
 
-      if bot.save
-        render json: { data: bot }, status: 201
+      if result.success?
+        render json: { data: result.data }, status: 201
       else
-        render json: { data: false }, status: 422
+        render json: { errors: result.errors }, status: 422
       end
     end
 
@@ -61,7 +55,7 @@ module Api
     def bot_params
       params
         .require(:bot)
-        .permit(:exchange_id, :type, :price, :currency, :interval)
+        .permit(:exchange_id, :type, :price, :currency, :interval, :bot_type)
     end
   end
 end

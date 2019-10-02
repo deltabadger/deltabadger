@@ -37,6 +37,7 @@ const API = {
   createBot(params) {
     const url = `${API_URL}/bots`;
     const botParams= {
+      bot_type: params.botType,
       exchange_id: params.exchangeId,
       type: params.type,
       price: params.price,
@@ -61,9 +62,19 @@ const API = {
     return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
   },
 
-   removeBot(botId) {
+  removeBot(botId) {
     const url = `${API_URL}/bots/${botId}`;
     return client.request({ url, params: {}, method: 'delete' }).then(data => data.data);
+  },
+
+   getSubscription() {
+    const url = `${API_URL}/subscriptions/check`;
+    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+  },
+
+  subscribeToUnlimited() {
+    const url = `${API_URL}/subscriptions/unlimited`;
+    return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
   },
 };
 

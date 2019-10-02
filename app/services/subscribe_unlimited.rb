@@ -1,0 +1,31 @@
+class SubscribeUnlimited < BaseService
+  ENABLED_SERVICE = ENV['ENABLE_UNLIMITED_PROMO'] == 'true'
+
+  def initialize(
+    subscriptions_repository: SubscriptionsRepository.new,
+    subscription_plans_repository: SubscriptionPlansRepository.new
+  )
+
+    @subscriptions_repository = subscriptions_repository
+    @subscription_plans_repository = subscription_plans_repository
+  end
+
+  def call(user)
+    return Result::Failure.new('Disabled') if !ENABLED_SERVICE
+    if user.subscription != 'free'
+      return Result::Failure.new('Already Subscribed')
+    end
+
+    subscription_plan =
+      @subscription_plans_repository
+      .find_by(name: 'unlimited')
+
+    @subscriptions_repository.create(
+      user_id: user.id,
+      subscription_plan_id: subscription_plan.id,
+      end_time: Time.now + 1.year
+    )
+
+    Result::Success.new
+  end
+end
