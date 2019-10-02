@@ -1,19 +1,13 @@
 module Bots
   class Create < BaseService
     def initialize(
-      subscription_validator: lambda do |user|
-        if user.bots.count.positive? && user.subscription == 'free'
-          Result::Failure.new
-        else
-          Result::Success.new
-        end
-      end
+      subscription_validator: -> { Result::Success.new }
     )
       @subscription_validator = subscription_validator
     end
 
     def call(user, params)
-      subscription_validation_result = @subscription_validator.call(user)
+      subscription_validation_result = @subscription_validator.call
       if subscription_validation_result.failure?
         return subscription_validation_result
       end
