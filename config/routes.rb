@@ -1,6 +1,15 @@
 require 'sidekiq/web'
 
 Rails.application.routes.draw do
+  namespace :admin do
+      resources :users
+      resources :api_keys
+      resources :bots
+      resources :exchanges
+      resources :transactions
+
+      root to: "users#index"
+    end
   devise_for :users, path_names: {
   edit: ''
 }
@@ -9,6 +18,8 @@ Rails.application.routes.draw do
   get '/dashboard', to: 'home#dashboard', as: :dashboard
 
   namespace :api do
+    get '/subscriptions/check', to: 'subscriptions#check'
+    post '/subscriptions/unlimited', to: 'subscriptions#unlimited'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     resources :bots, only: [:create, :index, :destroy] do
