@@ -1,4 +1,6 @@
 class SubscribeUnlimited < BaseService
+  ENABLE_SERVICE = ENV['ENABLE_UNLIMITED_PROMO'] == 'true'
+
   def initialize(
     subscriptions_repository: SubscriptionsRepository.new,
     subscription_plans_repository: SubscriptionPlansRepository.new
@@ -9,6 +11,7 @@ class SubscribeUnlimited < BaseService
   end
 
   def call(user)
+    return Result::Failure.new('Disabled') if !ENABLE_SERVICE
     if user.subscription != 'free'
       return Result::Failure.new('Already Subscribed')
     end

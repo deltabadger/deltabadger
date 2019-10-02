@@ -51,8 +51,12 @@ export const Dashboard = () => {
 
   const openBot = id => setCurrentBot(id)
 
+  const subscribeToUnlimited = () => {
+    API.subscribeToUnlimited().then(() => window.location.reload())
+  }
+
   const UpgradeButton = () => (
-    <div>
+    <div onClick={subscribeToUnlimited}>
       Upgrade to unlimited account
     </div>
   )

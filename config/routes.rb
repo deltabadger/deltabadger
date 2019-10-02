@@ -19,6 +19,7 @@ Rails.application.routes.draw do
 
   namespace :api do
     get '/subscriptions/check', to: 'subscriptions#check'
+    post '/subscriptions/unlimited', to: 'subscriptions#unlimited'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     resources :bots, only: [:create, :index, :destroy] do
