@@ -71,11 +71,6 @@ const API = {
     const url = `${API_URL}/subscriptions/check`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
-
-  subscribeToUnlimited() {
-    const url = `${API_URL}/subscriptions/unlimited`;
-    return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
-  },
 };
 
 export default API;

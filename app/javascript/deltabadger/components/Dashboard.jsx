@@ -51,15 +51,9 @@ export const Dashboard = () => {
 
   const openBot = id => setCurrentBot(id)
 
-  const subscribeToUnlimited = () => {
-    API.subscribeToUnlimited().then(() => window.location.reload())
-  }
-
   const UpgradeButton = () => (
-    <div className="db-bots__item d-flex justify-content-center db-add-more-bots">
-      <button onClick={subscribeToUnlimited} className="btn btn-link">
-        Upgrade to unlimited account
-      </button>
+    <div>
+      Upgrade to unlimited account
     </div>
   )
 
