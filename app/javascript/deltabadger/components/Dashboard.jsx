@@ -56,12 +56,18 @@ export const Dashboard = () => {
   }
 
   const UpgradeButton = () => (
-    <div onClick={subscribeToUnlimited}>
-      Upgrade to unlimited account
+    <div className="db-bots__item d-flex justify-content-center db-add-more-bots">
+      <button onClick={subscribeToUnlimited} className="btn btn-link">
+        Upgrade to unlimited account
+      </button>
     </div>
   )
 
-  const showUpgradeButton = isNotEmpty(bots) && subscription.plan == 'free'
+  const showUpgradeButton =
+    isNotEmpty(bots) &&
+    subscription.plan == 'free' &&
+    subscription.upgrade_option
+
   const showForm = isEmpty(bots) || subscription.plan != 'free'
 
   return (
