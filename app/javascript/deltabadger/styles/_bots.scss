@@ -29,11 +29,12 @@
     border-top-right-radius: $box-border-radius;
     border-top-left-radius: $box-border-radius;
   }
+  .nav-tabs {
+    border-bottom: 0;
+  }
   .tab-pane {
-    padding-top: 1em;
-    border-left:   1px solid #ddd;
-    border-right:  1px solid #ddd;
-    border-bottom: 1px solid #ddd;
+    padding-top:   1em;
+    border:   1px solid #ddd;
     background: $bgBot;
     border-radius: $box-border-radius;
   }
