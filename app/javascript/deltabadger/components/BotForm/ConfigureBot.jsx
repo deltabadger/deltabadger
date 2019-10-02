@@ -53,7 +53,6 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
             value={price}
             onChange={e => setPrice(e.target.value)}
             className="form-control mr-1"
-            placeholder="10"
           />
 
           <div className="form-group mr-2">
