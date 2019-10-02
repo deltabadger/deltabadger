@@ -15,16 +15,18 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
     </div>
   )
 
+  const disableSubmit = price.trim() == ''
+
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      const botParams = { type, price, currency, interval}
-      handleSubmit(botParams);
+      const botParams = { type, currency, interval, price: price.trim(), botType: 'free' }
+      !disableSubmit && handleSubmit(botParams);
   }
 
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className="btn btn-success btn-disabled"><span>Start</span> <i className="fas fa-play"></i></div>
+        <div onClick={_handleSubmit} className={`btn btn-success btn-disabled ${disableSubmit ? 'disabled' : ''}`}><span>Start</span> <i className="fas fa-play"></i></div>
         <div className="db-bot__infotext db-bot__infotext--setup">Configuration (3 of 3)
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>
@@ -82,7 +84,6 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
           </div>
         </form>
       </div>
-
       <ResetButton />
     </div>
   )
