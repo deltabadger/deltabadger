@@ -51,36 +51,20 @@ export const Dashboard = () => {
 
   const openBot = id => setCurrentBot(id)
 
-  const UpgradeButton = () => (
-    <div>
-      Upgrade to unlimited account
-    </div>
-  )
-
-  const showUpgradeButton = isNotEmpty(bots) && subscription.plan == 'free'
-  const showForm = isEmpty(bots) || subscription.plan != 'free'
-
   return (
     <div className="db-bots">
       { bots.map(b =>
         <Bot
-          id={b.id}
           key={`${b.id}-${b.id == currentBot}`}
-          status={b.status}
-          settings={b.settings}
-          exchangeName={b.exchangeName}
-          nextTransactionTimestamp={b.next_transaction_timestamp}
+          bot={b}
           handleStop={stopBot}
           handleStart={startBot}
           handleRemove={removeBot}
           handleClick={openBot}
           open={b.id == currentBotId}
-        />)
-      }
-
-      { showForm && <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} /> }
-      { showUpgradeButton && <UpgradeButton /> }
-      { currentBot && <BotDetails bot={currentBot} /> }
+        />
+      )}
+      <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
     </div>
   )
 }
