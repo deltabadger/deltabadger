@@ -4,9 +4,6 @@
       %a.navbar-brand{:href => root_path}
         %img.d-inline-block.align-top{:alt => "", :height => "30", :src => asset_pack_path("media/images/deltabadger-logo.png"), :width => "85"}/
         Deltabadger
-      %button.navbar-toggler{"aria-controls" => "navbarSupportedContent", "aria-expanded" => "false", "aria-label" => "Toggle navigation", "data-target" => "#navbarSupportedContent", "data-toggle" => "collapse", :type => "button"}
-        %span.navbar-toggler-icon
-      #navbarSupportedContent.collapse.navbar-collapse
-        %div.form-inline.my-2.my-lg-0.ml-auto
-          = link_to('Sign in', new_user_session_path, class: 'btn btn-link my-2 my-sm-0 mr-1')
-          = link_to('Create new account', new_user_registration_path, class: 'btn btn-success my-2 my-sm-0')
+      %div.form-inline.my-2.my-lg-0.ml-auto
+        = link_to('Sign in', new_user_session_path, class: 'btn btn-link my-2 my-sm-0 mr-1')
+        = link_to('Create new account', new_user_registration_path, class: 'btn btn-success my-2 my-sm-0')
