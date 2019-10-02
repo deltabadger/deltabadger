@@ -4,10 +4,7 @@
       %a.navbar-brand{:href => root_path}
         %img.d-inline-block.align-top{:alt => "", :height => "30", :src => asset_pack_path("media/images/deltabadger-logo.png"), :width => "85"}/
 
-      %button.navbar-toggler{"aria-controls" => "navbarSupportedContent", "aria-expanded" => "false", "aria-label" => "Toggle navigation", "data-target" => "#navbarSupportedContent", "data-toggle" => "collapse", :type => "button"}
-        %span.navbar-toggler-icon
-      #navbarSupportedContent.collapse.navbar-collapse
-        .ml-auto
-          %a.btn.btn-outline-primary.mr-2{:href => "#"} Update to Pro
-          = link_to('Settings', settings_path, class: 'btn btn-link')
-          = link_to('Log Out', destroy_user_session_path, method: :delete, class: 'btn btn-link')
+      .ml-auto
+        %a.btn.btn-outline-primary.mr-2{:href => "#"} Update to Pro
+        = link_to('Settings', settings_path, class: 'btn btn-link')
+        = link_to('Log Out', destroy_user_session_path, method: :delete, class: 'btn btn-link')
