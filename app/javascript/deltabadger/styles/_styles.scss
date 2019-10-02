@@ -58,7 +58,7 @@ h1 {
   height:          calc(#{$introBoxHeight} + #{$navbarHeight});
   max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
   min-height:      $introBoxMinHeight;
-  //background:      url('./../../images/homepage01.jpg') bottom left;
+  background:      url('./../../images/homepage01.jpg') bottom left;
   background-size: cover;
 }
 .dropdown-menu-right {
@@ -215,4 +215,13 @@ h1 {
 }
 .db-form-group--fg-2 {
   flex-grow: 3;
+}
+
+// settings
+
+.db-content__box {
+  background: white;
+  padding: 2em;
+  box-shadow: inset 0 0 1px rgba(0,0,0,.5);
+  border-radius: $box-border-radius;
 }
