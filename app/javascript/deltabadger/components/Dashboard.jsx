@@ -57,11 +57,7 @@ export const Dashboard = () => {
     </div>
   )
 
-  const showUpgradeButton =
-    isNotEmpty(bots) &&
-    subscription.plan == 'free' &&
-    subscription.upgrade_option
-
+  const showUpgradeButton = isNotEmpty(bots) && subscription.plan == 'free'
   const showForm = isEmpty(bots) || subscription.plan != 'free'
 
   return (
