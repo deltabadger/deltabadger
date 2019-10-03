@@ -1,9 +1,6 @@
-.dropdown-menu-right {
-  right: 0;
-  left: auto;
-}
-.navbar {
-  padding:    1em;
+.db-navbar {
+  background: rgba(255,255,255,0);
+  transition: 0.2s ease-out;
 }
 .navbar-brand {
   font-family:    $fontBrand;
@@ -18,22 +15,30 @@
     margin-right: 4px;
   }
 }
-.db-navbar {
-  background: rgba(255,255,255,0);
-  transition: 0.5s ease-out;
-}
-.db-navbar--scroll {
-  background: rgba(255,255,255,1);
-  box-shadow: 0 1px rgba(0,0,0,.1);
+.navbar {
+  transition: 0.2s ease-out;
+  background: none !important;
+  padding: 2.25rem 0;
+  .navbar-brand {
+    margin-left: 0;
+  }
 }
 
-.db-navbar--loggedout {
+.db--has-sticky-navbar {
+  .db-navbar {
+    background: rgba(255,255,255,1);
+    box-shadow: 0 1px rgba(0,0,0,.1);
+  }
+
   .navbar {
-    background: none !important;
-    padding-right: 0;
-    padding-left: 0;
-    .navbar-brand {
-      margin-left: 0;
-    }
+    padding: 1rem 0 !important;
+  }
+  .db-homepage-bg {
+    height:     calc(#{$introBoxHeight} + #{$navbarHeight});
+    max-height: calc(#{$introBoxMaxHeight} + #{$navbarHeight});
+  }
+  .db-homepage-bg__image {
+    height:     calc(#{$introBoxHeight} + #{$navbarHeight});
+    max-height: calc(#{$introBoxMaxHeight} + #{$navbarHeight});
   }
 }

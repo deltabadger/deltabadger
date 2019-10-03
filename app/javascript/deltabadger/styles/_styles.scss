@@ -8,6 +8,7 @@ $bgColor:            $bgColorLight;
 $bgBot:              white;
 
 $navbarHeight:       72px;
+$navbarExtraPadding: 1.25rem;
 $introBoxHeight:     70vh;
 $introBoxMaxHeight:  870px;
 $introBoxMinHeight:  700px;
@@ -47,23 +48,21 @@ h1 {
   background:      white;
   position:        absolute;
   width:           100vw;
-  height:          calc(#{$introBoxHeight} + #{$navbarHeight});
-  max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
+  height:          calc(#{$introBoxHeight} + #{$navbarHeight} + 2 * #{$navbarExtraPadding});
+  max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight} + 2 * #{$navbarExtraPadding});
   min-height:      $introBoxMinHeight;
+  transition: 0.3s ease-out;
 }
 .db-homepage-bg__image {
+  transition: 0.3s ease-out;
   position:        absolute;
   right:           0;
   width:           50vw;
-  height:          calc(#{$introBoxHeight} + #{$navbarHeight});
-  max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight});
+  height:          calc(#{$introBoxHeight} + #{$navbarHeight} + 2 * #{$navbarExtraPadding});
+  max-height:      calc(#{$introBoxMaxHeight} + #{$navbarHeight} + 2 * #{$navbarExtraPadding});
   min-height:      $introBoxMinHeight;
   background:      url('./../../images/homepage01.jpg') bottom left;
   background-size: cover;
-}
-.dropdown-menu-right {
-  right: 0;
-  left:  auto;
 }
 .row--intro {
   height:     $introBoxHeight;
@@ -104,7 +103,6 @@ h1 {
 .db-main {
   align-items: stretch;
   height:      calc(100vh - 100px);
-  background:  $bgColor;
 }
 .db-sidebar {
   border:  1px solid #ddd;
@@ -192,7 +190,7 @@ h1 {
 
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - 2*  #{$navbarHeight});
+  height:          calc(100vh - 2 * (#{$navbarHeight} + 2 * #{$navbarExtraPadding}));
   min-height:      548px;
   max-height:      1000px;
   justify-content: center;
@@ -225,6 +223,5 @@ h1 {
 .db-content__box {
   background: white;
   padding: 2em;
-  box-shadow: inset 0 0 1px rgba(0,0,0,.5);
   border-radius: $box-border-radius;
 }

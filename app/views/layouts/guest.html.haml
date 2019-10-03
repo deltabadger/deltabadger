@@ -9,7 +9,7 @@
     %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
 
-  %body.db--guest
+  %body.db--guest.db--loggedout
     .db-homepage-bg
       .db-homepage-bg__image
     = render 'layouts/navbar'
@@ -28,9 +28,9 @@
       $(window).scroll(function(){
         var wscroll = $(this).scrollTop();
         if(wscroll > 100){
-         $(".db-navbar").addClass("db-navbar--scroll");
+         $(".db--guest").addClass("db--has-sticky-navbar");
         }
         else{
-          $(".db-navbar").removeClass("db-navbar--scroll");
+          $(".db--guest").removeClass("db--has-sticky-navbar");
         }
       });
