@@ -16,22 +16,24 @@
   }
 }
 .navbar {
-  transition: 0.2s ease-out;
   background: none !important;
-  padding: 2.25rem 0;
   .navbar-brand {
     margin-left: 0;
   }
 }
-
+.db--loggedout {
+  .navbar {
+    transition: 0.2s ease-out;
+    padding: 2.25rem 0;
+  }
+}
 .db--has-sticky-navbar {
   .db-navbar {
     background: rgba(255,255,255,1);
     box-shadow: 0 1px rgba(0,0,0,.1);
   }
-
   .navbar {
-    padding: 1rem 0 !important;
+    padding: $navbar-padding-y 0 !important;
   }
   .db-homepage-bg {
     height:     calc(#{$introBoxHeight} + #{$navbarHeight});
