@@ -67,10 +67,15 @@ const API = {
     return client.request({ url, params: {}, method: 'delete' }).then(data => data.data);
   },
 
-   getSubscription() {
+  getSubscription() {
     const url = `${API_URL}/subscriptions/check`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
+
+  addSubscriber(email) {
+    const url = `/newsletter/add_email`;
+    return client.request({ url, params: { email }, method: 'post' }).then(data => data.data);
+  }
 };
 
 export default API;
