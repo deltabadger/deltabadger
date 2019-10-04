@@ -54,6 +54,7 @@ export const AddApiKey = ({ handleReset, handleSubmit, errors }) => {
           </div>
         </form>
       </div>
+      { /*
       <div className="row">
         <div className="alert alert-warning mx-0 mb-3 col" role="alert">
           <b className="alert-heading mb-2">How to get API keys:</b>
@@ -65,6 +66,7 @@ export const AddApiKey = ({ handleReset, handleSubmit, errors }) => {
           </ol>
         </div>
       </div>
+      */}
       <ResetButton />
     </div>
   )
