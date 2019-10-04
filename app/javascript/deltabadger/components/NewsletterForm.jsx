@@ -33,7 +33,7 @@ export const NewsletterForm = () => {
         </div>
       </div>
 
-      { resultInfo && resultInfo.map(text => <div>{text}</div>) }
+      { resultInfo && resultInfo.map((text, index) => <div key={index} >{text}</div>) }
     </div>
   )
 }
