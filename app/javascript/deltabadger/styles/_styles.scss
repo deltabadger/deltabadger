@@ -186,6 +186,12 @@ h1 {
   box-shadow: 0 0 20px rgba(0,0,0,.075);
 }
 
+@include media-breakpoint-down(md) {
+  .db-intro-image {
+    display: none;
+  }
+}
+
 // modal
 
 .db-modal-positioner {
