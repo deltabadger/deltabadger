@@ -20,6 +20,7 @@ gem 'uglifier', '>= 1.3.0'
 gem 'unicorn'
 gem 'webpacker'
 gem 'kraken_ruby_client', git: 'https://github.com/jonatack/kraken_ruby_client'
+gem 'sendinblue'
 
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
