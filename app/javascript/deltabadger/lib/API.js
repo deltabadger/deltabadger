@@ -74,7 +74,7 @@ const API = {
 
   addSubscriber(email) {
     const url = `/newsletter/add_email`;
-    return client.request({ url, params: { email }, method: 'post' }).then(data => data.data);
+    return client.request({ url, data: { email }, method: 'post' }).then(data => data.data);
   }
 };
 
