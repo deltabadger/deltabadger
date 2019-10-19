@@ -29,5 +29,9 @@ module Deltabadger
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    config.to_prepare do
+      Devise::Mailer.layout "devise_mailer"
+    end
   end
 end
