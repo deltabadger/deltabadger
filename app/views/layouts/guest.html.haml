@@ -10,8 +10,6 @@
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
 
   %body.db--guest.db--loggedout
-    .db-homepage-bg
-      .db-homepage-bg__image
     = render 'layouts/navbar'
 
     = yield
@@ -24,13 +22,13 @@
     %script{:crossorigin => "anonymous", :integrity => "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", :src => "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
 
-    :javascript
-      $(window).scroll(function(){
-        var wscroll = $(this).scrollTop();
-        if(wscroll > 100){
-         $(".db--guest").addClass("db--has-sticky-navbar");
-        }
-        else{
-          $(".db--guest").removeClass("db--has-sticky-navbar");
-        }
-      });
+    // :javascript
+    //   $(window).scroll(function(){
+    //     var wscroll = $(this).scrollTop();
+    //     if(wscroll > 100){
+    //      $(".db--guest").addClass("db--has-sticky-navbar");
+    //     }
+    //     else{
+    //       $(".db--guest").removeClass("db--has-sticky-navbar");
+    //     }
+    //   });

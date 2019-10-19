@@ -1,6 +1,27 @@
+.db--guest {
+  background: $primary;
+  .db-logo-svg-shape {
+    fill: rgba(255,255,255,.9);
+  }
+  .navbar-brand {
+    color: #fff !important;
+  }
+  .navbar,
+  .row--intro {
+    a {
+      color: #fff;
+    }
+    color: rgba(255,255,255,.9);
+  }
+}
+
+.db-logo-svg-shape {
+  fill: $primary;
+  shape-rendering: geometricprecision;
+}
+
 .db-navbar {
   background: rgba(255,255,255,0);
-  transition: 0.2s ease-out;
 }
 .navbar-brand {
   font-family:    $fontBrand;
@@ -11,7 +32,8 @@
   line-height:    28px;
   margin-left:    10px;
   -webkit-font-smoothing: antialiased;
-  img {
+  font-smoothing: antialiased;
+  svg {
     margin-right: 4px;
   }
 }
@@ -23,7 +45,6 @@
 }
 .db--loggedout {
   .navbar {
-    transition: 0.2s ease-out;
     padding: 2.25rem 0;
   }
 }
