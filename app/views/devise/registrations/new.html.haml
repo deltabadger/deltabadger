@@ -18,6 +18,23 @@
             .form-group
               = f.label :password_confirmation
               = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control"
+
+            -# TODO: add links
+            -# .form-group.form-group--checkboxes
+            -#   = f.check_box :terms_of_service
+            -#   = f.label :terms_of_service do
+            -#     I got acquainted and accept the
+            -#     = link_to 'Terms of Service', terms_of_service_path
+            -#     and
+            -#     = link_to 'Privacy Policy', privacy_policy_path
+            -#     of the service
+            -#
+            -# .form-group.form-group--checkboxes
+            -#   = f.check_box :marketing_agreement
+            -#   = f.label :marketing_agreement do
+            -#     I agree to receive information on new programs and special offers
+            -#     = link_to '(read more)', marketing_consent_path
+
             .form-group.db-form-group--main-btn
               = f.submit "Sign up", class: "btn btn-success btn-lg"
           .text-center
