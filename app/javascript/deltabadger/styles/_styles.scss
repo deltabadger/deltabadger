@@ -18,9 +18,6 @@ $fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
-html {
-  background: $bgColor !important;
-}
 body {
   font-family: $fontText;
   background:  none;
