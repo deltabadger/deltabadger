@@ -7,6 +7,8 @@ class User < ApplicationRecord
   has_many :bots
   has_many :subscriptions
 
+  validates :terms_of_service, acceptance: true
+
   def subscription
     last_subscription = subscriptions.last
     if last_subscription.nil? ||
