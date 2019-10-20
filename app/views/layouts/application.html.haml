@@ -1,5 +1,5 @@
 !!!
-%html{:lang => "en"}
+%html.db--application.db--loggedin{:lang => "en"}
   %head
     %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}
     %meta{:charset => "UTF-8"}
@@ -12,7 +12,7 @@
     = csrf_meta_tags
     = csp_meta_tag
 
-  %body.db--application.db--loggedin
+  %body
     = render 'layouts/navbar'
 
     .container
