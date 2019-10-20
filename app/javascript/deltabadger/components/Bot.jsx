@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import moment from 'moment';
 import { BotDetails } from './BotDetails';
 import { useInterval } from '../utils/interval';
+import { formatDuration } from '../utils/time';
 
 export const Bot = props => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = props.bot
   const { handleStart, handleStop, handleRemove, handleClick, open } = props
 
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
+  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
+  const working = status == 'working'
 
   const StartButton = () => (
     <div onClick={() => handleStart(id)} className="btn btn-success"><span>Start</span> <i className="material-icons">play_arrow</i></div>
@@ -40,13 +44,27 @@ export const Bot = props => {
     )
   }
 
-  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
+  const Timer = () => {
+    const [delay, setDelay] = useState(undefined)
 
-  const duration = nextTransactionTimestamp && moment(nextTransactionTimestamp, '%X').fromNow();
+    const calculateDelay = () => {
+      const now = new moment()
+      const date = nextTransactionTimestamp && new moment.unix(nextTransactionTimestamp)
 
-  const working = status == 'working'
-  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+      return nextTransactionTimestamp && moment.duration(date.diff(now))
+    }
 
+    useInterval(() => {
+      const delay = calculateDelay()
+      setDelay(delay)
+    }, 1000);
+
+    return (
+      <div className="db-bot__infotext__right">
+        Next { settings.type } { formatDuration(delay) }
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -57,10 +75,8 @@ export const Bot = props => {
             <div className="db-bot__infotext__left">
               { exchangeName }:BTC{settings.currency}
             </div>
-            { working &&
-                <div className="db-bot__infotext__right">
-                  Next { settings.type } {duration}
-                </div>
+            { working && nextTransactionTimestamp &&
+                <Timer />
             }
             <ProgressBar />
           </div>
