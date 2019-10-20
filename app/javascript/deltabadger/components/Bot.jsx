@@ -24,7 +24,7 @@ export const Bot = props => {
     </div>
   )
 
-  const botOpenClass = open ? '' : 'db-bot--collapsed'
+  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
 
   const duration = nextTransactionTimestamp && moment(nextTransactionTimestamp, '%X').fromNow();
 
@@ -100,8 +100,8 @@ export const Bot = props => {
         </form>
       </div>
       <RemoveButton />
-    { open && <BotDetails bot={props.bot} /> }
     </div>
+    { open && <BotDetails bot={props.bot} /> }
   </div>
   )
 }

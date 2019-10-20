@@ -1,7 +1,10 @@
 !!!
-%html
+%html.db--guest.db--loggedout{:lang => "en"}
   %head
     %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}
+    %meta{:charset => "UTF-8"}
+    %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
+    %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
     %title Deltabadger
     = csrf_meta_tags
     = csp_meta_tag
@@ -9,7 +12,7 @@
     %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
 
-  %body.db--guest.db--loggedout
+  %body
     = render 'layouts/navbar'
 
     = yield
