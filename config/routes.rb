@@ -2,20 +2,14 @@ require 'sidekiq/web'
 
 Rails.application.routes.draw do
   namespace :admin do
-      resources :users
-      resources :api_keys
-      resources :bots
-      resources :exchanges
-      resources :transactions
+    resources :users
+    resources :api_keys
+    resources :bots
+    resources :exchanges
+    resources :transactions
 
-      root to: "users#index"
-    end
-  devise_for :users, path_names: {
-  edit: ''
-}
-  root to: 'home#index'
-
-  get '/dashboard', to: 'home#dashboard', as: :dashboard
+    root to: "users#index"
+  end
 
   namespace :api do
     get '/subscriptions/check', to: 'subscriptions#check'
@@ -35,6 +29,14 @@ Rails.application.routes.draw do
     delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
   end
 
+  devise_for :users, path_names: {
+    edit: ''
+  }
+  root to: 'home#index'
+
+  get '/dashboard', to: 'home#dashboard', as: :dashboard
+  get '/terms_of_service', to: 'home#terms_of_service', as: :terms_of_service
+  get '/privacy_policy', to: 'home#privacy_policy', as: :privacy_policy
 
   mount ::Sidekiq::Web => '/sidekiq'
 end
