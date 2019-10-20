@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import moment from 'moment';
 import { BotDetails } from './BotDetails';
+import { useInterval } from '../utils/interval';
 
 export const Bot = props => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = props.bot
@@ -25,6 +26,20 @@ export const Bot = props => {
     </div>
   )
 
+  const ProgressBar = () => {
+    const [progress, setProgress] = useState(0)
+
+    useInterval(() => {
+      setProgress(progress + 1);
+    }, 1000);
+
+    return (
+      <div className="progress progress--thin progress--bot-setup">
+        <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: `${progress}%`, ariaValuenow: progress.toString(), ariaValuemin: "0", ariaValuemax: "100"}}></div>
+      </div>
+    )
+  }
+
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
 
   const duration = nextTransactionTimestamp && moment(nextTransactionTimestamp, '%X').fromNow();
@@ -47,9 +62,7 @@ export const Bot = props => {
                   Next { settings.type } {duration}
                 </div>
             }
-            <div className="progress progress--thin progress--bot-setup">
-              <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: "10%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
-            </div>
+            <ProgressBar />
           </div>
         </div>
 
