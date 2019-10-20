@@ -174,10 +174,9 @@ h1 {
 .db-modal-positioner {
   width:           100%;
   height:          calc(100vh - 2 * (#{$navbarHeight} + 2 * #{$navbarExtraPadding}));
-  min-height:      548px;
   max-height:      1000px;
   justify-content: center;
-  align-items:     center;
+  align-items:     flex-start;
   display:         flex;
 
 }

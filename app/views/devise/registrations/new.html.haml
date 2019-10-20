@@ -19,19 +19,19 @@
               = f.label :password_confirmation
               = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control"
 
-            .form-group.form-group--checkboxes
-              = f.check_box :terms_of_service
-              = f.label :terms_of_service do
-                I got acquainted and accept the
+            .form-check.mb-2
+              = f.check_box :terms_of_service, class: "form-check-input"
+              = f.label :terms_of_service, class: "form-check-label" do
+                I have read and agree to the
                 = link_to 'Terms of Service', terms_of_service_path
                 and
                 = link_to 'Privacy Policy', privacy_policy_path
-                of the service
+                of the service.
 
-            .form-group.form-group--checkboxes
-              = f.check_box :updates_agreement
-              = f.label :updates_agreement do
-                I agree to receive information on new features, and technical updates.
+            .form-check
+              = f.check_box :updates_agreement, class: "form-check-input"
+              = f.label :updates_agreement, class: "form-check-label" do
+                I agree to receive emails with information on new features, and technical updates.
 
             .form-group.db-form-group--main-btn
               = f.submit "Sign up", class: "btn btn-success btn-lg"
