@@ -20,6 +20,7 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
   const [exchanges, setExchanges] = useState([]);
   const [errors, setErrors] = useState("");
 
+  const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
   const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
 
   const chooseStep = step => {
@@ -87,6 +88,7 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
       />
     case 'add_api_key':
       return <AddApiKey
+        pickedExchangeName={pickedExchange.name}
         handleReset={resetFormToStep(1)}
         handleSubmit={addApiKeyHandler}
         errors={errors}
