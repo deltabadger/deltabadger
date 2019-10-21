@@ -6,6 +6,7 @@ import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
+import { Details } from './BotForm/Details';
 
 const STEPS = [
   'closed_form',
@@ -14,7 +15,12 @@ const STEPS = [
   'configure_bot',
 ]
 
-export const BotForm = ({ open, callbackAfterCreation, callbackAfterOpening }) => {
+export const BotForm = ({
+  open,
+  callbackAfterCreation,
+  callbackAfterOpening,
+  callbackAfterClosing
+}) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [exchanges, setExchanges] = useState([]);
@@ -29,6 +35,12 @@ export const BotForm = ({ open, callbackAfterCreation, callbackAfterOpening }) =
 
     return step;
   }
+
+  console.log('step', step)
+  console.log('form',form)
+  console.log('chhoseStep', chooseStep(step))
+  console.log('open', open)
+  console.log('##############################')
 
   const loadExchanges = () => {
     API.getExchanges().then(data => {
@@ -80,28 +92,40 @@ export const BotForm = ({ open, callbackAfterCreation, callbackAfterOpening }) =
     })
   }
 
-  switch (STEPS[chooseStep(step)]) {
-    case 'closed_form':
-      return <ClosedForm
-        handleSubmit={closedFormHandler}
-      />
-    case 'pick_exchange':
-      return <PickExchage
-        handleReset={resetFormToStep(0)}
-        handleSubmit={pickExchangeHandler}
-        exchanges={exchanges}
-      />
-    case 'add_api_key':
-      return <AddApiKey
-        pickedExchangeName={pickedExchange.name}
-        handleReset={resetFormToStep(1)}
-        handleSubmit={addApiKeyHandler}
-        errors={errors}
-      />
-    case 'configure_bot':
-      return <ConfigureBot
-        handleReset={resetFormToStep(1)}
-        handleSubmit={configureBotHandler}
-      />
-  }
+	const renderForm = () => {
+		switch (STEPS[chooseStep(step)]) {
+			case 'closed_form':
+				return <ClosedForm
+					handleSubmit={closedFormHandler}
+				/>
+			case 'pick_exchange':
+				return <PickExchage
+          handleReset={() => {
+            resetFormToStep(0)()
+            callbackAfterClosing()
+          }}
+					handleSubmit={pickExchangeHandler}
+					exchanges={exchanges}
+				/>
+			case 'add_api_key':
+				return <AddApiKey
+					pickedExchangeName={pickedExchange.name}
+					handleReset={resetFormToStep(1)}
+					handleSubmit={addApiKeyHandler}
+					errors={errors}
+				/>
+			case 'configure_bot':
+				return <ConfigureBot
+					handleReset={resetFormToStep(1)}
+					handleSubmit={configureBotHandler}
+				/>
+		}
+	}
+
+  return (
+    <div>
+      { renderForm() }
+      { step > 0 && <Details /> }
+    </div>
+    )
 }
