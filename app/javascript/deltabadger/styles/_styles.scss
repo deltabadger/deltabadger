@@ -38,13 +38,13 @@ h1 {
   }
   span {
     padding-left: 1px;
-    top: 1px;
-    position: relative;
+    top:          1px;
+    position:     relative;
   }
   .svg-inline--fa {
     vertical-align: text-bottom;
-    top: 1px;
-    position: relative;
+    top:            1px;
+    position:       relative;
   }
 }
 
@@ -147,8 +147,8 @@ h1 {
 @keyframes rotator {
   0%   {top: -21px; opacity: 0; }
   30%  {top: -21px; opacity: 0; }
-  33%  {top:  7px;  opacity: 1; }
-  65%  {top:  7px;  opacity: 1; }
+  33%  {top:   7px; opacity: 1; }
+  65%  {top:   7px; opacity: 1; }
   68%  {top:  35px; opacity: 0; }
   99%  {top:  35px; opacity: 0; }
   100% {top: -21px; opacity: 0; }
