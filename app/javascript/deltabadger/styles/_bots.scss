@@ -1,52 +1,59 @@
 // bots
 
 .db-bots {
-  align-items: stretch;
+  align-items:    stretch;
   padding-bottom: $grid-gutter-width/2;
   @include media-breakpoint-up(xl) {
     height: calc(100vh - 72px);
-    width: 50%;
+    width:  50%;
   }
 }
 .db-bot-data {
+  .tab-content {
+    z-index:  2;
+    position: relative;
+  }
   .nav-item {
     .nav-link {
       margin-right: 2px;
-      position: relative;
+      position:     relative;
       &:not(.active) {
         &:hover {
           background:   rgba(0,0,0,.05);
           border-color: transparent;
         }
       }
+      &.active {
+        z-index: 3;
+      }
     }
     &:first-child {
       .nav-link {
         &.active {
           &::before {
-            content: "";
-            display: block;
-            width: 10px;
-            height: 10px;
-            background: $bgBot;
-            bottom:-10px;
-            left: -1px;
-            position: absolute;
+            content:     "";
+            display:     block;
+            width:       10px;
+            height:      10px;
+            background:  $bgBot;
+            bottom:     -10px;
+            left:       -1px;
+            position:    absolute;
             border-left: 1px solid #ddd;
           }
         }
         &:not(.active) {
           &:hover {
             &::before {
-              content: "";
-              z-index: -1;
-              display: block;
-              width: 10px;
-              height: 10px;
+              content:    "";
+              z-index:   -1;
+              display:    block;
+              width:      10px;
+              height:     10px;
               background: rgba(0,0,0,.05);
-              bottom:-11px;
-              left: -1px;
-              position: absolute;
+              bottom:    -11px;
+              left:      -1px;
+              position:   absolute;
             }
           }
         }
