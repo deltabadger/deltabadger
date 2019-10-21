@@ -1,6 +1,13 @@
 require 'sidekiq/web'
 
 Rails.application.routes.draw do
+  namespace :settings do
+    get '/', action: :index
+    patch 'update_password'
+    patch 'update_email'
+    delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
+  end
+
   namespace :admin do
     resources :users
     resources :api_keys
@@ -20,13 +27,6 @@ Rails.application.routes.draw do
       post :start, on: :member
       get :transactions_csv, to: 'transactions#csv'
     end
-  end
-
-  namespace :settings do
-    get '/', action: :index
-    patch 'update_password'
-    patch 'update_email'
-    delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
   end
 
   devise_for :users, path_names: {

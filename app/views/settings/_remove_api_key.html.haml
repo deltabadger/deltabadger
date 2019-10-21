@@ -1,4 +1,4 @@
 = api_key.exchange_name
-%a{:href=> settings_remove_api_key_path(id: api_key.id), :method => :delete, data: { :confirm => 'Are you sure?' }}
+= link_to  settings_remove_api_key_path(id: api_key.id), :method => :delete, data: { :confirm => 'Are you sure?' }, :class => "button" do
   %span{:class => "fas fa-times-circle"}
 %br
