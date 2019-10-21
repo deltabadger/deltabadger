@@ -9,9 +9,10 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="btn btn-link btn--reset"
+      className="btn btn-outline-primary btn--reset"
     >
-      Reset<i className="fas fa-redo ml-1"></i>
+      <i className="fas fa-redo"></i>
+      <span>Reset</span>
     </div>
   )
 

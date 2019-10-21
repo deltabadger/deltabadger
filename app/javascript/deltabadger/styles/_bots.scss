@@ -202,7 +202,22 @@
 }
 
 .btn--reset {
-  align-self:flex-start;
+  text-decoration: none !important;
+  align-self: flex-start;
+  width:      42px;
+  height:     42px;
+  .svg-inline--fa {
+    width: 14px;
+  }
+  span {
+    transition: 0.25s;
+    opacity: 0;
+  }
+  &:hover {
+    span {
+      opacity: 1;
+    }
+  }
 }
 
 .db-add-more-bots {
