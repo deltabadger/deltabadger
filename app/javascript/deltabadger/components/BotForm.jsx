@@ -14,7 +14,7 @@ const STEPS = [
   'configure_bot',
 ]
 
-export const BotForm = ({ open, callbackAfterCreation }) => {
+export const BotForm = ({ open, callbackAfterCreation, callbackAfterOpening }) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [exchanges, setExchanges] = useState([]);
@@ -39,6 +39,11 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
   useEffect(() => {
     loadExchanges()
   }, []);
+
+  const closedFormHandler = () => {
+    setStep(1)
+    callbackAfterOpening()
+  }
 
   const pickExchangeHandler = (id) => {
     setFormState({...form, exchangeId: id})
@@ -78,7 +83,7 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
   switch (STEPS[chooseStep(step)]) {
     case 'closed_form':
       return <ClosedForm
-        handleSubmit={() => setStep(1)}
+        handleSubmit={closedFormHandler}
       />
     case 'pick_exchange':
       return <PickExchage

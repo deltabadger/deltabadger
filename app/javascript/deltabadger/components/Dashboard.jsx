@@ -51,6 +51,7 @@ export const Dashboard = () => {
   }
 
   const openBot = id => setCurrentBot(id)
+  const closeAllBots = () => openBot(undefined)
 
   return (
     <div className="db-bots">
@@ -65,7 +66,11 @@ export const Dashboard = () => {
           open={b.id == currentBotId}
         />
       )}
-      <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
+      <BotForm
+        open={isEmpty(bots)}
+        callbackAfterCreation={startBot}
+        callbackAfterOpening={closeAllBots}
+      />
     </div>
   )
 }
