@@ -11,6 +11,7 @@
 .db-bot-data {
   .nav-item {
     .nav-link {
+      margin-right: 2px;
       position: relative;
       &:not(.active) {
         &:hover {
@@ -83,7 +84,7 @@
   background: $bgBot;
   border: 1px solid #ddd;
   border-radius: $box-border-radius;
-  padding: $grid-gutter-width/2;
+  padding: $bot-gutter-width/2;
   .alert {
     border-radius: 0;
   }
@@ -146,7 +147,7 @@
 .db-bot-info__footer {
   display: flex;
   justify-content: space-between;
-  margin: 0 $grid-gutter-width/2 $grid-gutter-width/2;
+  margin: 0 $bot-gutter-width/2 $bot-gutter-width/2;
   height: 38px;
 }
 .db-table {
@@ -165,7 +166,7 @@
 // DCA bot
 
 .db-bot__exchanges {
-  padding: $grid-gutter-width/2;
+  padding: $bot-gutter-width/2;
 }
 
 .db-bot__exchanges__item {
@@ -175,7 +176,7 @@
   align-items:     center;
   background:      no-repeat center center;
   background-size: 50%;
-  border-radius:   $btn-border-radius;
+  border-radius:   $box-border-radius;
   cursor:          pointer;
   &:hover {
     background-color: #fff;
