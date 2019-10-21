@@ -9,19 +9,46 @@
   }
 }
 .db-bot-data {
-  .nav-item:first-child {
-    .nav-link.active {
+  .nav-item {
+    .nav-link {
       position: relative;
-      &::before {
-        content: "";
-        display: block;
-        width: 10px;
-        height: 10px;
-        background: $bgBot;
-        bottom:-10px;
-        left: -1px;
-        position: absolute;
-        border-left: 1px solid #ddd;
+      &:not(.active) {
+        &:hover {
+          background:   rgba(0,0,0,.05);
+          border-color: transparent;
+        }
+      }
+    }
+    &:first-child {
+      .nav-link {
+        &.active {
+          &::before {
+            content: "";
+            display: block;
+            width: 10px;
+            height: 10px;
+            background: $bgBot;
+            bottom:-10px;
+            left: -1px;
+            position: absolute;
+            border-left: 1px solid #ddd;
+          }
+        }
+        &:not(.active) {
+          &:hover {
+            &::before {
+              content: "";
+              z-index: -1;
+              display: block;
+              width: 10px;
+              height: 10px;
+              background: rgba(0,0,0,.05);
+              bottom:-11px;
+              left: -1px;
+              position: absolute;
+            }
+          }
+        }
       }
     }
   }
@@ -92,6 +119,7 @@
   display:        flex;
   border-radius:  $btn-border-radius;
   flex-direction: row-reverse;
+  padding-left:   10px;
   .btn {
     border-radius: $btn-border-radius;
     margin-left:   .5em;
