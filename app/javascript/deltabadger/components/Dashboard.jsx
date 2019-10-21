@@ -28,7 +28,7 @@ export const Dashboard = () => {
     API.getBots().then(({ data }) => {
       const sortedBots = data.sort((a,b) => a.id - b.id)
       setBots(sortedBots)
-      id ? openBot(id) : openBot(sortedBots[0].id)
+      id ? openBot(id) : (sortedBots[0] && openBot(sortedBots[0].id))
     })
   }
 
@@ -70,6 +70,7 @@ export const Dashboard = () => {
         open={isEmpty(bots)}
         callbackAfterCreation={startBot}
         callbackAfterOpening={closeAllBots}
+        callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
       />
     </div>
   )
