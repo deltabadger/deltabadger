@@ -1,15 +1,15 @@
 import React, { useState } from 'react'
 
 export const ConfigureBot = ({ handleReset, handleSubmit }) => {
-  const [type, setType] = useState("sell");
+  const [type, setType] = useState("buy");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
-  const [interval, setInterval] = useState("month");
+  const [interval, setInterval] = useState("hour");
 
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="btn btn-outline-primary btn--reset"
+      className="btn btn-link btn--reset"
     >
       <i className="fas fa-redo"></i>
       <span>Reset</span>
@@ -76,10 +76,11 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
               className="form-control"
               id="exampleFormControlSelect1"
             >
-              <option value="hour">hour</option>
-              <option value="day">day</option>
-              <option value="week">week</option>
-              <option value="minutes">1 minutes</option>
+              <option value="minute">Minute</option>
+              <option value="hour">Hour</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
             </select>
           </div>
         </form>

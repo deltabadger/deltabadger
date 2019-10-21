@@ -95,6 +95,11 @@
   .alert {
     border-radius: 0;
   }
+  .form-inline {
+    :last-child {
+      margin-right: 0 !important;
+    }
+  }
 }
 .db-bot--active {
   @include media-breakpoint-down(lg) {
@@ -128,19 +133,20 @@
   border-radius:  $btn-border-radius;
   flex-direction: row-reverse;
   padding-left:   10px;
+  padding-right:  10px;
   .btn {
     border-radius: $btn-border-radius;
-    margin-left:   .5em;
+    right:        -10px;
+    position:      relative;
   }
 }
 .db-bot__infotext {
-  border-radius: $btn-border-radius;
+  border-radius:  $btn-border-radius;
   line-height:    42px;
   width:          100%;
   pointer-events: none;
   position:       relative;
   text-align:     right;
-  margin-right:   5px;
 }
 .db-bot__infotext__left {
   float: left;
@@ -173,7 +179,7 @@
 // DCA bot
 
 .db-bot__exchanges {
-  padding: $bot-gutter-width/2;
+  padding: 18px;
 }
 
 .db-bot__exchanges__item {

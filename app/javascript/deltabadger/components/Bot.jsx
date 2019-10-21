@@ -92,10 +92,11 @@ export const Bot = props => {
               id="exampleFormControlSelect1"
               disabled={true}
             >
-              <option value="hour">hour</option>
-              <option value="day">day</option>
-              <option value="week">week</option>
-              <option value="minutes">1 minutes</option>
+              <option value="minute">Minute</option>
+              <option value="hour">Hour</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
             </select>
           </div>
         </form>
