@@ -17,7 +17,7 @@ export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange">
       <div className="db-bot__header">
-        <div className="db-bot__infotext db-bot__infotext--setup">Pick exchange (1 of 3)
+        <div className="db-bot__infotext db-bot__infotext--setup">Pick exchange
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "0%", ariaValuenow: "0", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>

@@ -26,8 +26,8 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn btn-success btn-disabled ${disableSubmit ? 'disabled' : ''}`}><span>Start</span> <i className="fas fa-play"></i></div>
-        <div className="db-bot__infotext db-bot__infotext--setup">Configuration (3 of 3)
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-success'}`}><span>Start</span> <i className="fas fa-play"></i></div>
+        <div className="db-bot__infotext db-bot__infotext--setup">Set the schedule
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>

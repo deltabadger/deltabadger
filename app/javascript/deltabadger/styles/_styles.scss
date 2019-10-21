@@ -18,6 +18,7 @@ $fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
+
 body {
   font-family: $fontText;
   background:  none;
@@ -36,8 +37,14 @@ h1 {
     margin-right: .5em;
   }
   span {
-    line-height:  27px;
-    padding-left: 2px;
+    padding-left: 1px;
+    top: 1px;
+    position: relative;
+  }
+  .svg-inline--fa {
+    vertical-align: text-bottom;
+    top: 1px;
+    position: relative;
   }
 }
 
