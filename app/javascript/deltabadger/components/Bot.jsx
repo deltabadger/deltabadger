@@ -20,7 +20,8 @@ export const Bot = props => {
       onClick={() => handleRemove(id)}
       className="btn btn-link btn--reset"
     >
-      Remove<i className="fas fa-redo ml-1"></i>
+      <i className="fas fa-redo"></i>
+      <span>Reset</span>
     </div>
   )
 
