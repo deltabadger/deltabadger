@@ -29,8 +29,8 @@ export const AddApiKey = ({
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn btn-primary ${disableSubmit ? 'disabled' : ''}`}><span>Submit</span> <i className="fas fa-arrow-right"></i></div>
-        <div className="db-bot__infotext db-bot__infotext--setup">Get API Key (2 of 3)
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-primary'}`}><i className="fas fa-arrow-right"></i></div>
+        <div className="db-bot__infotext db-bot__infotext--setup">Get API Key
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "33%", ariaValuenow: "33", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>

@@ -1,17 +1,18 @@
 import React, { useState } from 'react'
 
 export const ConfigureBot = ({ handleReset, handleSubmit }) => {
-  const [type, setType] = useState("sell");
+  const [type, setType] = useState("buy");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
-  const [interval, setInterval] = useState("month");
+  const [interval, setInterval] = useState("hour");
 
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
       className="btn btn-link btn--reset"
     >
-      Reset<i className="fas fa-redo ml-1"></i>
+      <i className="fas fa-redo"></i>
+      <span>Reset</span>
     </div>
   )
 
@@ -26,8 +27,8 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn btn-success btn-disabled ${disableSubmit ? 'disabled' : ''}`}><span>Start</span> <i className="fas fa-play"></i></div>
-        <div className="db-bot__infotext db-bot__infotext--setup">Configuration (3 of 3)
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-success'}`}><span>Start</span> <i className="fas fa-play"></i></div>
+        <div className="db-bot__infotext db-bot__infotext--setup">Set the schedule
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
@@ -75,10 +76,11 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
               className="form-control"
               id="exampleFormControlSelect1"
             >
-              <option value="hour">hour</option>
-              <option value="day">day</option>
-              <option value="week">week</option>
-              <option value="minutes">1 minutes</option>
+              <option value="minute">Minute</option>
+              <option value="hour">Hour</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
             </select>
           </div>
         </form>

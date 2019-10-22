@@ -1,27 +1,62 @@
 // bots
 
 .db-bots {
-  align-items: stretch;
+  align-items:    stretch;
   padding-bottom: $grid-gutter-width/2;
   @include media-breakpoint-up(xl) {
     height: calc(100vh - 72px);
-    width: 50%;
+    width:  50%;
   }
 }
 .db-bot-data {
-  .nav-item:first-child {
-    .nav-link.active {
-      position: relative;
-      &::before {
-        content: "";
-        display: block;
-        width: 10px;
-        height: 10px;
-        background: $bgBot;
-        bottom:-10px;
-        left: -1px;
-        position: absolute;
-        border-left: 1px solid #ddd;
+  .tab-content {
+    z-index:  2;
+    position: relative;
+  }
+  .nav-item {
+    .nav-link {
+      margin-right: 2px;
+      position:     relative;
+      &:not(.active) {
+        &:hover {
+          background:   rgba(0,0,0,.05);
+          border-color: transparent;
+        }
+      }
+      &.active {
+        z-index: 3;
+      }
+    }
+    &:first-child {
+      .nav-link {
+        &.active {
+          &::before {
+            content:     "";
+            display:     block;
+            width:       10px;
+            height:      10px;
+            background:  $bgBot;
+            bottom:     -10px;
+            left:       -1px;
+            position:    absolute;
+            border-left: 1px solid #ddd;
+          }
+        }
+        &:not(.active) {
+          &:hover {
+            &::before {
+              content:    "";
+              z-index:   -1;
+              display:    block;
+              width:      10px;
+              height:     10px;
+              background: rgba(0,0,0,.05);
+              bottom:    -11px;
+              left:      -1px;
+              position:   absolute;
+            }
+          }
+        }
       }
     }
   }
@@ -56,9 +91,14 @@
   background: $bgBot;
   border: 1px solid #ddd;
   border-radius: $box-border-radius;
-  padding: $grid-gutter-width/2;
+  padding: $bot-gutter-width/2;
   .alert {
     border-radius: 0;
+  }
+  .form-inline {
+    :last-child {
+      margin-right: 0 !important;
+    }
   }
 }
 .db-bot--active {
@@ -92,19 +132,21 @@
   display:        flex;
   border-radius:  $btn-border-radius;
   flex-direction: row-reverse;
+  padding-left:   10px;
+  padding-right:  10px;
   .btn {
     border-radius: $btn-border-radius;
-    margin-left:   .5em;
+    right:        -10px;
+    position:      relative;
   }
 }
 .db-bot__infotext {
-  border-radius: $btn-border-radius;
+  border-radius:  $btn-border-radius;
   line-height:    42px;
   width:          100%;
   pointer-events: none;
   position:       relative;
   text-align:     right;
-  margin-right:   5px;
 }
 .db-bot__infotext__left {
   float: left;
@@ -118,7 +160,7 @@
 .db-bot-info__footer {
   display: flex;
   justify-content: space-between;
-  margin: 0 $grid-gutter-width/2 $grid-gutter-width/2;
+  margin: 0 $bot-gutter-width/2 $bot-gutter-width/2;
   height: 38px;
 }
 .db-table {
@@ -137,7 +179,7 @@
 // DCA bot
 
 .db-bot__exchanges {
-  padding: $grid-gutter-width/2;
+  padding: 18px;
 }
 
 .db-bot__exchanges__item {
@@ -147,7 +189,7 @@
   align-items:     center;
   background:      no-repeat center center;
   background-size: 50%;
-  border-radius:   $btn-border-radius;
+  border-radius:   $box-border-radius;
   cursor:          pointer;
   &:hover {
     background-color: #fff;
@@ -174,7 +216,22 @@
 }
 
 .btn--reset {
-  align-self:flex-start;
+  text-decoration: none !important;
+  align-self: flex-start;
+  width:      42px;
+  height:     42px;
+  .svg-inline--fa {
+    width: 14px;
+  }
+  span {
+    transition: 0.25s;
+    opacity: 0;
+  }
+  &:hover {
+    span {
+      opacity: 1;
+    }
+  }
 }
 
 .db-add-more-bots {

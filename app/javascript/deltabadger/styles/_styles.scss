@@ -18,6 +18,7 @@ $fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
+
 body {
   font-family: $fontText;
   background:  none;
@@ -36,8 +37,14 @@ h1 {
     margin-right: .5em;
   }
   span {
-    line-height:  27px;
-    padding-left: 2px;
+    padding-left: 1px;
+    top:          1px;
+    position:     relative;
+  }
+  .svg-inline--fa {
+    vertical-align: text-bottom;
+    top:            1px;
+    position:       relative;
   }
 }
 
@@ -140,8 +147,8 @@ h1 {
 @keyframes rotator {
   0%   {top: -21px; opacity: 0; }
   30%  {top: -21px; opacity: 0; }
-  33%  {top:  7px;  opacity: 1; }
-  65%  {top:  7px;  opacity: 1; }
+  33%  {top:   7px; opacity: 1; }
+  65%  {top:   7px; opacity: 1; }
   68%  {top:  35px; opacity: 0; }
   99%  {top:  35px; opacity: 0; }
   100% {top: -21px; opacity: 0; }
@@ -174,10 +181,9 @@ h1 {
 .db-modal-positioner {
   width:           100%;
   height:          calc(100vh - 2 * (#{$navbarHeight} + 2 * #{$navbarExtraPadding}));
-  min-height:      548px;
   max-height:      1000px;
   justify-content: center;
-  align-items:     center;
+  align-items:     flex-start;
   display:         flex;
 
 }
