@@ -165,7 +165,7 @@ h1 {
 .db-intro-image {
   width:         100%;
   height:        auto;
-  border-radius: 10px;
+  border-radius: $box-border-radius;
   border:        1px solid rgba(0,0,0,.1);
   box-shadow:    0 0 20px rgba(0,0,0,.075);
 }
