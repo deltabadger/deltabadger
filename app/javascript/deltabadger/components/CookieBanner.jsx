@@ -5,16 +5,13 @@ export const CookieBanner = () => {
   return (
     <CookieConsent
       location="bottom"
-      buttonText="Sure man!!"
+      buttonText="I understand."
       cookieName="CookieConsentDeltabadger"
-      style={{ background: "#2B373B" }}
-      buttonStyle={{ color: "#4e503b", fontSize: "13px" }}
+      style={{}}
+      buttonStyle={{}}
       expires={150}
     >
-      This website uses cookies to enhance the user experience.{" "}
-      <span style={{ fontSize: "10px" }}>
-        This bit of text is smaller :O
-      </span>
+      <span className="cookie_text">This website uses cookies to enhance the user experience.{" "}</span>
     </CookieConsent>
   )
 }
