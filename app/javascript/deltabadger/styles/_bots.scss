@@ -172,9 +172,15 @@
 }
 
 .btn--export-to-csv {
+  text-decoration: none !important;
   .material-icons {
     top:       3px;
     font-size: 23px;
+  }
+  &:hover {
+    span {
+      text-decoration: underline !important;
+    }
   }
 }
 
@@ -223,10 +229,8 @@
   align-self:      flex-start;
   width:           42px;
   height:          42px;
-  .svg-inline--fa {
-    width: 14px;
-  }
   span {
+    margin-left: 7px;
     transition: 0.25s;
     opacity:    0;
   }

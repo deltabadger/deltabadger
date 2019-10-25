@@ -31,6 +31,7 @@ h1 {
   font-size:   2.5em;
 }
 .btn {
+  display: inline-flex;
   font-family: $fontButton;
   font-weight: bold;
   :not(:last-child) {
@@ -41,11 +42,10 @@ h1 {
     top:          1px;
     position:     relative;
   }
-  .svg-inline--fa {
-    vertical-align: text-bottom;
-    top:            5px;
-    right:         -1px;
-    position:       relative;
+  .material-icons {
+    align-self: center;
+    margin-right: -.2085em;
+    margin-left:  -.2085em;
   }
 }
 
@@ -215,6 +215,10 @@ h1 {
   padding:       2em;
   border-radius: $box-border-radius;
   border:        1px solid #ddd;
+}
+.db-remove-api-key {
+  position: relative;
+  top: 6px;
 }
 
 // Cookie

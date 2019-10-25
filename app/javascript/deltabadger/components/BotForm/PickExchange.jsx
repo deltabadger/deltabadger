@@ -10,7 +10,7 @@ export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
       onClick={() => handleReset()}
       className="btn btn-link btn--reset"
     >
-      <i className="fas fa-redo"></i>
+      <i className="material-icons">close</i>
       <span>Close</span>
     </div>
   )

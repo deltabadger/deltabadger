@@ -9,10 +9,10 @@ export const Bot = props => {
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
 
   const StartButton = () => (
-    <div onClick={() => handleStart(id)} className="btn btn-success"><span>Start</span> <i className="fas fa-play"></i></div>
+    <div onClick={() => handleStart(id)} className="btn btn-success"><span>Start</span> <i className="material-icons">play_arrow</i></div>
   )
   const StopButton = () => (
-    <div onClick={() => handleStop(id)} className="btn btn-outline-primary"><span>Pause</span> <i className="fas fa-pause"></i></div>
+    <div onClick={() => handleStop(id)} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons">pause</i></div>
   )
 
   const RemoveButton = () => (
@@ -20,7 +20,7 @@ export const Bot = props => {
       onClick={() => handleRemove(id)}
       className="btn btn-link btn--reset"
     >
-      <i className="fas fa-redo"></i>
+    <i className="material-icons">settings_backup_restore</i>
       <span>Reset</span>
     </div>
   )
