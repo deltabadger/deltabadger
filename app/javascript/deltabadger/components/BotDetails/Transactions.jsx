@@ -2,7 +2,8 @@ import React from 'react'
 
 export const Transactions = ({ bot }) => (
   <div className="tab-pane show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
-    <table className="table table-sm db-table db-table--tx">
+
+    <table className="table table-borderless table-sm db-table db-table--tx">
       <thead>
         <tr>
           <th scope="col">Date</th>

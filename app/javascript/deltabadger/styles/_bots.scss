@@ -7,6 +7,9 @@
     height: calc(100vh - 72px);
     width:  50%;
   }
+  .btn {
+    display: flex;
+  }
 }
 .db-bot-data {
   .tab-content {
@@ -62,22 +65,22 @@
   }
   .nav-link {
     border-top-right-radius: $box-border-radius;
-    border-top-left-radius: $box-border-radius;
+    border-top-left-radius:  $box-border-radius;
   }
   .nav-tabs {
     border-bottom: 0;
   }
   .tab-pane {
     padding-top:   1em;
-    border:   1px solid #ddd;
-    background: $bgBot;
+    border:        1px solid #ddd;
+    background:    $bgBot;
     border-radius: $box-border-radius;
   }
   @include media-breakpoint-up(xl) {
     position: absolute;
-    top: 0px;
-    right: $grid-gutter-width/2;
-    width: calc(50% - #{$grid-gutter-width});
+    top:      0px;
+    right:    $grid-gutter-width/2;
+    width:    calc(50% - #{$grid-gutter-width});
   }
 }
 
@@ -88,10 +91,10 @@
 // bot
 
 .db-bot {
-  background: $bgBot;
-  border: 1px solid #ddd;
+  background:    $bgBot;
+  border:        1px solid #ddd;
   border-radius: $box-border-radius;
-  padding: $bot-gutter-width/2;
+  padding:       $bot-gutter-width/2;
   .alert {
     border-radius: 0;
   }
@@ -105,19 +108,19 @@
   @include media-breakpoint-down(lg) {
     border-bottom-right-radius: 0;
     border-bottom-left-radius:  0;
-    border-bottom: 0;
-    margin-bottom: 0;
+    border-bottom:              0;
+    margin-bottom:              0;
     &+.db-bot-data {
-      background: $bgBot;
-      border-right: 1px solid #ddd;
-      border-left: 1px solid #ddd;
+      background:                 $bgBot;
+      border-right:               1px solid #ddd;
+      border-left:                1px solid #ddd;
       border-bottom-right-radius: $box-border-radius;
-      border-bottom-left-radius: $box-border-radius;
+      border-bottom-left-radius:  $box-border-radius;
       .nav, .tab-pane {
-        margin-left: -1px;
-        margin-right: -1px;
+        margin-left:            -1px;
+        margin-right:           -1px;
         border-top-right-radius: 0;
-        border-top-left-radius: 0;
+        border-top-left-radius:  0;
       }
     }
   }
@@ -149,28 +152,28 @@
   text-align:     right;
 }
 .db-bot__infotext__left {
-  float: left;
-  text-transform:uppercase;
-  color: $yiq-text-dark;
+  float:          left;
+  text-transform: uppercase;
+  color:          $yiq-text-dark;
 }
 .db-bot__infotext--setup {
   text-align: center;
 }
 
 .db-bot-info__footer {
-  display: flex;
+  display:         flex;
   justify-content: space-between;
-  margin: 0 $bot-gutter-width/2 $bot-gutter-width/2;
-  height: 38px;
+  margin:          0 $bot-gutter-width/2 $bot-gutter-width/2;
+  height:          38px;
 }
 .db-table {
   margin: 15px;
-  width: calc(100% - 30px);
+  width:  calc(100% - 30px);
 }
 
 .btn--export-to-csv {
   .material-icons {
-    top: 3px;
+    top:       3px;
     font-size: 23px;
   }
 }
@@ -206,26 +209,26 @@
 // bot dca1
 
 .db-bot--dca__config-free {
-  padding: 4em 0;
-  display: flex;
+  padding:         4em 0;
+  display:         flex;
   justify-content: center;
   input {
     text-align: right;
-    width: 80px !important;
+    width:      80px !important;
   }
 }
 
 .btn--reset {
   text-decoration: none !important;
-  align-self: flex-start;
-  width:      42px;
-  height:     42px;
+  align-self:      flex-start;
+  width:           42px;
+  height:          42px;
   .svg-inline--fa {
     width: 14px;
   }
   span {
     transition: 0.25s;
-    opacity: 0;
+    opacity:    0;
   }
   &:hover {
     span {
