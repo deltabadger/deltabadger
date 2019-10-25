@@ -37,13 +37,14 @@ h1 {
     margin-right: .5em;
   }
   span {
-    padding-left: 1px;
+    padding-left: 2px;
     top:          1px;
     position:     relative;
   }
   .svg-inline--fa {
     vertical-align: text-bottom;
-    top:            1px;
+    top:            5px;
+    right:         -1px;
     position:       relative;
   }
 }
