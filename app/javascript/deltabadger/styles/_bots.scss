@@ -167,8 +167,9 @@
   height:          38px;
 }
 .db-table {
-  margin: 15px;
-  width:  calc(100% - 30px);
+  th, td {
+    padding: .5rem .5rem .5rem 1rem;
+  }
 }
 
 .btn--export-to-csv {
