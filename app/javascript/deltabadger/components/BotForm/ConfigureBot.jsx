@@ -11,7 +11,7 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
       onClick={() => handleReset()}
       className="btn btn-link btn--reset"
     >
-      <i className="material-icons">settings_backup_restore</i>
+      <i className="material-icons">sync</i>
       <span>Reset</span>
     </div>
   )
