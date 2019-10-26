@@ -20,7 +20,7 @@ export const Bot = props => {
       onClick={() => handleRemove(id)}
       className="btn btn-link btn--reset"
     >
-    <i className="material-icons">settings_backup_restore</i>
+    <i className="material-icons">sync</i>
       <span>Reset</span>
     </div>
   )

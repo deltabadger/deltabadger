@@ -201,16 +201,36 @@
   border-radius:   $box-border-radius;
   cursor:          pointer;
   &:hover {
-    background-color: #fff;
-    filter:           brightness(.96);
+    background-color: $primary;
   }
 }
-.db-bot__exchanges__item--kraken   { background-image: url("./../../images/kraken-logo.png"); }
-.db-bot__exchanges__item--bitbay   { background-image: url("./../../images/bitbay-logo.png"); }
-.db-bot__exchanges__item--bybit    { background-image: url("./../../images/bybit-logo.jpg"); }
-.db-bot__exchanges__item--bitmex   { background-image: url("./../../images/bitmex-logo.png"); }
-.db-bot__exchanges__item--bitstamp { background-image: url("./../../images/bitstamp-logo.png"); }
-.db-bot__exchanges__item--deribit  { background-image: url("./../../images/deribit-logo.png"); background-size: 55%; }
+.db-bot__exchanges__item--kraken   {
+  background-image: url("./../../images/kraken.svg");
+  &:hover {
+    background-image: url("./../../images/kraken-white.svg");
+  }
+}
+.db-bot__exchanges__item--bitbay   {
+  background-image: url("./../../images/bitbay.svg");
+  &:hover {
+    background-image: url("./../../images/bitbay-white.svg");
+  }
+}
+.db-bot__exchanges__item--bybit    {
+  background-image: url("./../../images/bybit-logo.jpg");
+}
+.db-bot__exchanges__item--bitmex   {
+  background-image: url("./../../images/bitmex-logo.png");
+}
+.db-bot__exchanges__item--bitstamp {
+  background-image: url("./../../images/bitstamp-logo.png");
+}
+.db-bot__exchanges__item--deribit  {
+  background-image: url("./../../images/deribit.svg");
+  &:hover {
+    background-image: url("./../../images/deribit-white.svg");
+  }
+}
 
 // bot dca1
 

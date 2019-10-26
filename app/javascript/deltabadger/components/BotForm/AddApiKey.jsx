@@ -15,7 +15,7 @@ export const AddApiKey = ({
       onClick={() => handleReset()}
       className="btn btn-link btn--reset"
     >
-      Reset <i className="material-icons ml-1">settings_backup_restore</i>
+      Reset <i className="material-icons ml-1">sync</i>
     </div>
   )
 
