@@ -22,20 +22,7 @@
         .col.db-content
           = yield
 
-      %footer.db-footer
-        &copy;
-        = Time.current.year
-        Deltabadger
-        |
-        %a(href="") About
-        |
-        %a(href="") Privacy Policy
-        |
-        %a(href="") Terms & Condition
-        |
-        %a(href="https://twitter.com/deltabadger_official") Twitter
-        |
-        %a(href="") Contact
+      = render 'layouts/footer'
 
     #cookie_consent
 
