@@ -38,6 +38,9 @@ Rails.application.routes.draw do
   get '/dashboard', to: 'home#dashboard', as: :dashboard
   get '/terms_of_service', to: 'home#terms_of_service', as: :terms_of_service
   get '/privacy_policy', to: 'home#privacy_policy', as: :privacy_policy
+  get '/cookie_policy', to: 'home#cookie_policy', as: :cookie_policy
+  get '/contact', to: 'home#contact', as: :contact
+  get '/about', to: 'home#about', as: :about
 
   mount ::Sidekiq::Web => '/sidekiq'
 end
