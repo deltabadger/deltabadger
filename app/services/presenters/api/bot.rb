@@ -14,16 +14,7 @@ module Presenters
           transactions: transactions(bot.transactions),
           logs: logs(bot.transactions),
           next_transaction_timestamp: next_transaction_timestamp(bot),
-          stats: {
-            bought: '122 BTC',
-            spent: '$133',
-            avaragePrice: '$12',
-            currentValue: '$10000',
-            profitLoss: {
-              positive: false,
-              value: '+$273.70 (+17%)'
-            }
-          }
+          stats: present_stats(bot)
         }
       end
 
@@ -42,6 +33,10 @@ module Presenters
 
       def logs(logs)
         logs.last(10).map(&method(:present_transaction_as_log))
+      end
+
+      def present_stats(bot)
+        Presenters::Api::Stats.call(bot: bot, transactions: bot.transactions)
       end
 
       def present_transaction(transaction)
