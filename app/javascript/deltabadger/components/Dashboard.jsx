@@ -40,7 +40,7 @@ export const Dashboard = () => {
 
   const stopBot = id => {
     API.stopBot(id).then(data => {
-      loadBots();
+      loadBots(id);
     }).catch(() => loadBots())
   }
 
