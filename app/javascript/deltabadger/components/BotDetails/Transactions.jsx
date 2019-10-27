@@ -1,32 +1,35 @@
 import React from 'react'
 
-export const Transactions = ({ bot }) => (
-  <div className="tab-pane show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
-
+const Stats = ({ bought, avaragePrice, spent, currentValue, profitLoss = {} }) => (
     <table className="table table-borderless db-table">
       <tbody>
         <tr>
           <td scope="col">Bought:</td>
-          <th scope="col">0.2123 BTC</th>
+          <th scope="col">{ bought }</th>
         </tr>
         <tr>
           <td scope="col">Average price:</td>
-          <th scope="col">$7,584.22</th>
+          <th scope="col">{ avaragePrice }</th>
         </tr>
         <tr>
           <td scope="col">Spent:</td>
-          <th scope="col">$1,610.00</th>
+          <th scope="col">{ spent }</th>
         </tr>
         <tr>
           <td scope="col">Current value:</td>
-          <th scope="col">$1,883.70</th>
+          <th scope="col">{ currentValue }</th>
         </tr>
         <tr>
           <td scope="col">Profit/Loss:</td>
-          <th scope="col" className="text-success">+$273.70 (+17%)</th>
+          <th scope="col" className={`text-${profitLoss.positive ? 'success' : 'danger'}`}>{ profitLoss.value }</th>
         </tr>
       </tbody>
     </table>
+)
+
+export const Transactions = ({ bot }) => (
+  <div className="tab-pane show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
+    <Stats {...bot.stats} />
 
     <div className="simple-chart-placeholder"></div>
 
