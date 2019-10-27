@@ -6,6 +6,7 @@ import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
+import { Details } from './BotForm/Details';
 
 const STEPS = [
   'closed_form',
@@ -14,7 +15,13 @@ const STEPS = [
   'configure_bot',
 ]
 
-export const BotForm = ({ open, callbackAfterCreation }) => {
+export const BotForm = ({
+  open,
+  currentBot,
+  callbackAfterCreation,
+  callbackAfterOpening,
+  callbackAfterClosing
+}) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [exchanges, setExchanges] = useState([]);
@@ -39,6 +46,19 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
   useEffect(() => {
     loadExchanges()
   }, []);
+
+  useEffect(() => {
+    if (currentBot) {
+      setStep(0)
+      setErrors([])
+      setFormState({})
+    }
+  }, [currentBot])
+
+  const closedFormHandler = () => {
+    setStep(1)
+    callbackAfterOpening()
+  }
 
   const pickExchangeHandler = (id) => {
     setFormState({...form, exchangeId: id})
@@ -67,6 +87,7 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
     })
   }
 
+  // TODO: Fix this!, you can't reset all form, check this!
   const resetFormToStep = (step) => {
     return(() => {
       setErrors([])
@@ -75,28 +96,40 @@ export const BotForm = ({ open, callbackAfterCreation }) => {
     })
   }
 
-  switch (STEPS[chooseStep(step)]) {
-    case 'closed_form':
-      return <ClosedForm
-        handleSubmit={() => setStep(1)}
-      />
-    case 'pick_exchange':
-      return <PickExchage
-        handleReset={resetFormToStep(0)}
-        handleSubmit={pickExchangeHandler}
-        exchanges={exchanges}
-      />
-    case 'add_api_key':
-      return <AddApiKey
-        pickedExchangeName={pickedExchange.name}
-        handleReset={resetFormToStep(1)}
-        handleSubmit={addApiKeyHandler}
-        errors={errors}
-      />
-    case 'configure_bot':
-      return <ConfigureBot
-        handleReset={resetFormToStep(1)}
-        handleSubmit={configureBotHandler}
-      />
-  }
+	const renderForm = () => {
+		switch (STEPS[chooseStep(step)]) {
+			case 'closed_form':
+				return <ClosedForm
+					handleSubmit={closedFormHandler}
+				/>
+			case 'pick_exchange':
+				return <PickExchage
+          handleReset={() => {
+            setStep(0)
+            callbackAfterClosing()
+          }}
+					handleSubmit={pickExchangeHandler}
+					exchanges={exchanges}
+				/>
+			case 'add_api_key':
+				return <AddApiKey
+					pickedExchangeName={pickedExchange.name}
+					handleReset={resetFormToStep(1)}
+					handleSubmit={addApiKeyHandler}
+					errors={errors}
+				/>
+			case 'configure_bot':
+				return <ConfigureBot
+					handleReset={resetFormToStep(1)}
+					handleSubmit={configureBotHandler}
+				/>
+		}
+	}
+
+  return (
+    <div>
+      { renderForm() }
+      { step > 0 && <Details /> }
+    </div>
+    )
 }
