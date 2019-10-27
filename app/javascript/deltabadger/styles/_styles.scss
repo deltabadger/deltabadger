@@ -18,6 +18,8 @@ $fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
+$footerHeight:       50px;
+
 
 body {
   font-family: $fontText;
@@ -34,6 +36,7 @@ h1 {
   display: inline-flex;
   font-family: $fontButton;
   font-weight: bold;
+  cursor: pointer;
   :not(:last-child) {
     margin-right: .5em;
   }
@@ -219,6 +222,15 @@ h1 {
 .db-remove-api-key {
   position: relative;
   top: 6px;
+}
+
+// footer
+
+.db-footer {
+  position: absolute;
+  z-index: 1;
+  bottom: 0;
+
 }
 
 // Cookie

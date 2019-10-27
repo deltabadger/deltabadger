@@ -1,14 +1,11 @@
 // bots
 
 .db-bots {
-  align-items:    stretch;
   padding-bottom: $grid-gutter-width/2;
   @include media-breakpoint-up(xl) {
     height: calc(100vh - 72px);
+    padding-bottom: $footerHeight;
     width:  50%;
-  }
-  .btn {
-    display: flex;
   }
 }
 .db-bot-data {
