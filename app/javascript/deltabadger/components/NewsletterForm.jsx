@@ -6,6 +6,7 @@ export const NewsletterForm = () => {
   const [resultInfo, setResultInfo] = useState(undefined);
 
   const disableSubmit = email == ''
+  const successResult = resultInfo && resultInfo[0] == "Success"
 
   const handleSubmit = (evt) => {
     evt.preventDefault();
@@ -31,9 +32,8 @@ export const NewsletterForm = () => {
         <div onClick={handleSubmit} className={`btn btn-success ${disableSubmit ? 'disabled' : ''}` }>
           Keep me in the loop!
         </div>
+        { resultInfo && resultInfo.map((text, index) => <b key={index} className={`ml-4 ${successResult ? 'text-success' : 'text-danger'}` }>{text}.</b>) }
       </div>
-
-      { resultInfo && resultInfo.map((text, index) => <div key={index} >{text}</div>) }
     </div>
   )
 }
