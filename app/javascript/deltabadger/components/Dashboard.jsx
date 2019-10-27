@@ -68,6 +68,7 @@ export const Dashboard = () => {
       )}
       <BotForm
         open={isEmpty(bots)}
+        currentBot={currentBot}
         callbackAfterCreation={startBot}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
