@@ -4,6 +4,7 @@ module Presenters
       def initialize(parse_interval: ParseInterval.new)
         @parse_interval = parse_interval
       end
+
       def call(bot)
         {
           id: bot.id,
@@ -12,7 +13,17 @@ module Presenters
           status: bot.status,
           transactions: transactions(bot.transactions),
           logs: logs(bot.transactions),
-          next_transaction_timestamp: next_transaction_timestamp(bot)
+          next_transaction_timestamp: next_transaction_timestamp(bot),
+          stats: {
+            bought: '122 BTC',
+            spent: '$133',
+            avaragePrice: '$12',
+            currentValue: '$10000',
+            profitLoss: {
+              positive: false,
+              value: '+$273.70 (+17%)'
+            }
+          }
         }
       end
 
