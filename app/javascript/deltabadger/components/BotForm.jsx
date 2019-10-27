@@ -17,6 +17,7 @@ const STEPS = [
 
 export const BotForm = ({
   open,
+  currentBot,
   callbackAfterCreation,
   callbackAfterOpening,
   callbackAfterClosing
@@ -36,12 +37,6 @@ export const BotForm = ({
     return step;
   }
 
-  console.log('step', step)
-  console.log('form',form)
-  console.log('chhoseStep', chooseStep(step))
-  console.log('open', open)
-  console.log('##############################')
-
   const loadExchanges = () => {
     API.getExchanges().then(data => {
       setExchanges(data.data)
@@ -51,6 +46,14 @@ export const BotForm = ({
   useEffect(() => {
     loadExchanges()
   }, []);
+
+  useEffect(() => {
+    if (currentBot) {
+      setStep(0)
+      setErrors([])
+      setFormState({})
+    }
+  }, [currentBot])
 
   const closedFormHandler = () => {
     setStep(1)
@@ -84,6 +87,7 @@ export const BotForm = ({
     })
   }
 
+  // TODO: Fix this!, you can't reset all form, check this!
   const resetFormToStep = (step) => {
     return(() => {
       setErrors([])
@@ -101,7 +105,7 @@ export const BotForm = ({
 			case 'pick_exchange':
 				return <PickExchage
           handleReset={() => {
-            resetFormToStep(0)()
+            setStep(0)
             callbackAfterClosing()
           }}
 					handleSubmit={pickExchangeHandler}
