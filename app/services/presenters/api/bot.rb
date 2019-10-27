@@ -4,6 +4,7 @@ module Presenters
       def initialize(parse_interval: ParseInterval.new)
         @parse_interval = parse_interval
       end
+
       def call(bot)
         {
           id: bot.id,
@@ -12,7 +13,8 @@ module Presenters
           status: bot.status,
           transactions: transactions(bot.transactions),
           logs: logs(bot.transactions),
-          next_transaction_timestamp: next_transaction_timestamp(bot)
+          next_transaction_timestamp: next_transaction_timestamp(bot),
+          stats: present_stats(bot)
         }
       end
 
@@ -31,6 +33,10 @@ module Presenters
 
       def logs(logs)
         logs.last(10).map(&method(:present_transaction_as_log))
+      end
+
+      def present_stats(bot)
+        Presenters::Api::Stats.call(bot: bot, transactions: bot.transactions)
       end
 
       def present_transaction(transaction)

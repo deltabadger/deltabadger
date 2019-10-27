@@ -1,6 +1,7 @@
 class BaseRepository
   def save(object)
     object.save!
+    object.reload
   end
 
   def find(id)

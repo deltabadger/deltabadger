@@ -18,8 +18,8 @@ module ExchangeApi
         if SUCCESS
           Result::Success.new(
             offer_id: SecureRandom.uuid,
-            rate: 20.123,
-            amount: 30.2
+            rate: rand,
+            amount: rand(30)
           )
         else
           Result::Failure.new('Something went wrong!')
@@ -32,8 +32,8 @@ module ExchangeApi
         if SUCCESS
           Result::Success.new(
             offer_id: SecureRandom.uuid,
-            rate: 20.123,
-            amount: 30.2
+            rate: rand,
+            amount: rand(30)
           )
         else
           Result::Failure.new('Something went wrong!')

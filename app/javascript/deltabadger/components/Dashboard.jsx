@@ -26,8 +26,9 @@ export const Dashboard = () => {
 
   const loadBots = (id) => {
     API.getBots().then(({ data }) => {
-      setBots(data.sort((a,b) => a.id - b.id))
-      id && openBot(id)
+      const sortedBots = data.sort((a,b) => a.id - b.id)
+      setBots(sortedBots)
+      id ? openBot(id) : (sortedBots[0] && openBot(sortedBots[0].id))
     })
   }
 
@@ -39,7 +40,7 @@ export const Dashboard = () => {
 
   const stopBot = id => {
     API.stopBot(id).then(data => {
-      loadBots();
+      loadBots(id);
     }).catch(() => loadBots())
   }
 
@@ -50,6 +51,7 @@ export const Dashboard = () => {
   }
 
   const openBot = id => setCurrentBot(id)
+  const closeAllBots = () => openBot(undefined)
 
   return (
     <div className="db-bots">
@@ -64,7 +66,13 @@ export const Dashboard = () => {
           open={b.id == currentBotId}
         />
       )}
-      <BotForm open={isEmpty(bots)} callbackAfterCreation={startBot} />
+      <BotForm
+        open={isEmpty(bots)}
+        currentBot={currentBot}
+        callbackAfterCreation={startBot}
+        callbackAfterOpening={closeAllBots}
+        callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
+      />
     </div>
   )
 }

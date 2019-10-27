@@ -8,4 +8,8 @@ class Transaction < ApplicationRecord
   def get_errors
     JSON.parse(error_messages)
   end
+
+  def price
+    amount * rate
+  end
 end
