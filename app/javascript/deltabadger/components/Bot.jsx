@@ -32,22 +32,18 @@ export const Bot = props => {
   )
 
   const ProgressBar = () => {
-    const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
-    const now  = new moment()
-    const nowTimestamp = now.unix()
-    const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
+    const [progress, setProgress] = useState(0)
 
+    if (working) {
+      useInterval(() => {
+        const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
+        const now  = new moment()
+        const nowTimestamp = now.unix()
+        const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
 
-    const [progress, setProgress] = useState(calc)
-
-    useInterval(() => {
-      const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
-      const now  = new moment()
-      const nowTimestamp = now.unix()
-      const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
-
-      setProgress(calc);
-    }, 1000);
+        setProgress(calc)
+      }, 1000);
+    }
 
     return (
       <div className="progress progress--thin progress--bot-setup">
