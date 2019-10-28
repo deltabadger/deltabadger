@@ -3,6 +3,7 @@ import moment from 'moment';
 import { BotDetails } from './BotDetails';
 import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
+import { Spinner } from './Spinner';
 
 export const Bot = props => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = props.bot
@@ -25,7 +26,7 @@ export const Bot = props => {
       onClick={() => handleRemove(id)}
       className="btn btn-link btn--reset"
     >
-    <i className="material-icons">sync</i>
+      <i className="material-icons">sync</i>
       <span>Reset</span>
     </div>
   )
@@ -59,9 +60,13 @@ export const Bot = props => {
       setDelay(delay)
     }, 1000);
 
+    if (!delay) {
+      return (<Spinner />)
+    }
+
     return (
       <div className="db-bot__infotext__right">
-        Next { settings.type } { formatDuration(delay) }
+        Next { settings.type } in { formatDuration(delay) }
       </div>
     )
   }
@@ -75,9 +80,7 @@ export const Bot = props => {
             <div className="db-bot__infotext__left">
               { exchangeName }:BTC{settings.currency}
             </div>
-            { working && nextTransactionTimestamp &&
-                <Timer />
-            }
+            { working && nextTransactionTimestamp && <Timer /> }
             <ProgressBar />
           </div>
         </div>

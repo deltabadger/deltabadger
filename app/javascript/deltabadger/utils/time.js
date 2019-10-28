@@ -1,23 +1,28 @@
 export const formatDuration = (duration) => {
   if (!duration) { return false }
 
+  const months = duration.months()
+  const days = duration.days()
+  const hours = duration.hours()
+  const minutes = duration.minutes()
+  const seconds = duration.seconds()
+
   const data = [
-    { name: 'm', number: duration.months() },
-    { name: 'w', number: duration.weeks() },
-    { name: 'd', number: duration.days() },
-    { name: 'h', number: duration.hours() },
-    { name: 'm', number: duration.minutes() },
-    { name: 's', number: duration.seconds() }
+    { name: 'm', number: months },
+    { name: 'd', number: days },
+    { name: 'h', number: hours },
+    { name: 'm', number: minutes },
+    { name: 's', number: seconds }
   ]
 
   const buildFormattedDuration = (formattedDuration, el) => {
-    if (el.number > 1) {
-      return formattedDuration+ " " + `${String(el.number).padStart(2, '0')}${el.name}`
+    if (el.number && el.number > 1) {
+      // return formattedDuration + " " + `${String(el.number).padStart(2, '0')}${el.name}`
+      return formattedDuration + " " + `${String(el.number)}${el.name}`
     } else {
-      formattedDuration
+      return formattedDuration
     }
   }
 
-  debugger
   return data.reduce(buildFormattedDuration, "")
 }
