@@ -13,8 +13,8 @@ module Presenters
           status: bot.status,
           transactions: transactions(bot.transactions),
           logs: logs(bot.transactions),
-          next_transaction_timestamp: next_transaction_timestamp(bot),
-          stats: present_stats(bot)
+          stats: present_stats(bot),
+          nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
 
