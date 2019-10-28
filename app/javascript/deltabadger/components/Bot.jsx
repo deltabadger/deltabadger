@@ -7,7 +7,7 @@ import { Spinner } from './Spinner';
 
 export const Bot = props => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = props.bot
-  const { handleStart, handleStop, handleRemove, handleClick, open } = props
+  const { handleStart, handleStop, handleRemove, handleClick, open, reload } = props
 
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
   const colorClass = settings.type == 'buy' ? 'success' : 'danger'
@@ -32,10 +32,21 @@ export const Bot = props => {
   )
 
   const ProgressBar = () => {
-    const [progress, setProgress] = useState(0)
+    const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
+    const now  = new moment()
+    const nowTimestamp = now.unix()
+    const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
+
+
+    const [progress, setProgress] = useState(calc)
 
     useInterval(() => {
-      setProgress(progress + 1);
+      const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
+      const now  = new moment()
+      const nowTimestamp = now.unix()
+      const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
+
+      setProgress(calc);
     }, 1000);
 
     return (
@@ -60,7 +71,7 @@ export const Bot = props => {
       setDelay(delay)
     }, 1000);
 
-    if (!delay) {
+    if (!delay || !formatDuration(delay) || !nextTransactionTimestamp) {
       return (<Spinner />)
     }
 

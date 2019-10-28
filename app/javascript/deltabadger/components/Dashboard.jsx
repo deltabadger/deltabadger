@@ -59,6 +59,7 @@ export const Dashboard = () => {
         <Bot
           key={`${b.id}-${b.id == currentBot}`}
           bot={b}
+          reload={() => { loadBots(currentBotId) }}
           handleStop={stopBot}
           handleStart={startBot}
           handleRemove={removeBot}
