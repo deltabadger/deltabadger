@@ -1,4 +1,5 @@
 import React from 'react'
+import { Chart } from './Chart';
 
 const Stats = ({ bought, avaragePrice, spent, currentValue, profitLoss = {} }) => (
     <table className="table table-borderless db-table">
@@ -31,7 +32,7 @@ export const Transactions = ({ bot }) => (
   <div className="tab-pane show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
     <Stats {...bot.stats} />
 
-    <div className="simple-chart-placeholder"></div>
+    <Chart transactions={bot.transactions} />
 
     <table className="table table-borderless table-striped db-table db-table--tx">
       <thead>
