@@ -32,7 +32,7 @@ export const Transactions = ({ bot }) => (
   <div className="tab-pane show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
     <Stats {...bot.stats} />
 
-    <Chart transactions={bot.transactions} />
+    <Chart data={bot.charts.PortfolioValueOverTime} />
 
     <table className="table table-borderless table-striped db-table db-table--tx">
       <thead>
