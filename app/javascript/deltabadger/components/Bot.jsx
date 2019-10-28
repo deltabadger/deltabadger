@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import moment from 'moment';
 import { BotDetails } from './BotDetails';
+import { useInterval } from '../utils/interval';
+import { formatDuration } from '../utils/time';
+import { Spinner } from './Spinner';
 
 export const Bot = props => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = props.bot
-  const { handleStart, handleStop, handleRemove, handleClick, open } = props
+  const { handleStart, handleStop, handleRemove, handleClick, open, reload } = props
 
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
+  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
+  const working = status == 'working'
 
   const StartButton = () => (
     <div onClick={() => handleStart(id)} className="btn btn-success"><span>Start</span> <i className="material-icons">play_arrow</i></div>
@@ -20,18 +26,57 @@ export const Bot = props => {
       onClick={() => handleRemove(id)}
       className="btn btn-link btn--reset"
     >
-    <i className="material-icons">sync</i>
+      <i className="material-icons">sync</i>
       <span>Reset</span>
     </div>
   )
 
-  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
+  const ProgressBar = () => {
+    const [progress, setProgress] = useState(0)
 
-  const duration = nextTransactionTimestamp && moment(nextTransactionTimestamp, '%X').fromNow();
+    if (working) {
+      useInterval(() => {
+        const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
+        const now  = new moment()
+        const nowTimestamp = now.unix()
+        const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
 
-  const working = status == 'working'
-  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+        setProgress(calc)
+      }, 1000);
+    }
 
+    return (
+      <div className="progress progress--thin progress--bot-setup">
+        <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: `${progress}%`, ariaValuenow: progress.toString(), ariaValuemin: "0", ariaValuemax: "100"}}></div>
+      </div>
+    )
+  }
+
+  const Timer = () => {
+    const [delay, setDelay] = useState(undefined)
+
+    const calculateDelay = () => {
+      const now = new moment()
+      const date = nextTransactionTimestamp && new moment.unix(nextTransactionTimestamp)
+
+      return nextTransactionTimestamp && moment.duration(date.diff(now))
+    }
+
+    useInterval(() => {
+      const delay = calculateDelay()
+      setDelay(delay)
+    }, 1000);
+
+    if (!delay || !formatDuration(delay) || !nextTransactionTimestamp) {
+      return (<Spinner />)
+    }
+
+    return (
+      <div className="db-bot__infotext__right">
+        Next { settings.type } in { formatDuration(delay) }
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -42,14 +87,8 @@ export const Bot = props => {
             <div className="db-bot__infotext__left">
               { exchangeName }:BTC{settings.currency}
             </div>
-            { working &&
-                <div className="db-bot__infotext__right">
-                  Next { settings.type } {duration}
-                </div>
-            }
-            <div className="progress progress--thin progress--bot-setup">
-              <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: "10%", ariaValuenow: "25", ariaValuemin: "0", ariaValuemax: "100"}}></div>
-            </div>
+            { working && nextTransactionTimestamp && <Timer /> }
+            <ProgressBar />
           </div>
         </div>
 
