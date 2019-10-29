@@ -1,6 +1,6 @@
 .container
   .row.row--intro
-    .col-lg-6.d-flex__vertical-align
+    .col-lg-6.d-flex__vertical-align.mr-4
       %h1.mb-4 The smartest way<br>to buy Bitcoin
       %p
         Stop guessing when to get in and automate small purchases
@@ -11,7 +11,7 @@
       %p
         %b
           %i Dollar-cost averaging
-        (DCA) is a well known strategy of passive investing. When you buy Bitcoin for the same amount of money at fixed intervals, you buy more when the price is lower, and less when the price is higer. You get a fair average price avoiding stress of jumping in at the wrong moment. Now, you can automate the process. Set, start and forget. The bot will be buying pieces as small as $5 according to your desired schedule, at the exchange of your choice.
+        (DCA) is a well-known strategy of passive investing. When you buy Bitcoin for the same amount of money at fixed intervals, you buy more when the price is lower and less when the price is higher. You get a fair average price avoiding the stress of jumping in at the wrong moment. Now, you can automate the process. Set, start, and forget. The bot will be buying pieces as small as $5 according to your desired schedule, at the exchange of your choice.
       %p
         The basic version is
         %b.text-success free
@@ -21,12 +21,20 @@
         %i.material-icons arrow_forward
     .col.db-intro-image-container
       %img.db-intro-image{:src => asset_pack_path("media/images/bot.png")}
+  .row.db-supported-exchanges
+    .col-12
+      %h4.text-white.mb-4 Supported exchanges:
+    .col-12
+      %img.db-supported-exchange{:src => asset_pack_path("media/images/bitbay-white.svg")}
+      %img.db-supported-exchange{:src => asset_pack_path("media/images/bitstamp-white.svg")}
+      %img.db-supported-exchange{:src => asset_pack_path("media/images/deribit-white.svg")}
+      %img.db-supported-exchange{:src => asset_pack_path("media/images/kraken-white.svg")}
 .container
-  .row.row--intro.row--intro
+  .row.row--intro.row--newsletter.mb-4
     .col-lg-6.d-flex__vertical-align
       %h1.mb-4
         Wait… it's more!
-      %p We're working on a unique set of tools for traders and investors focused on risk management and option trading. Stay in touch if you're interested.
+      %p We're working on a unique set of tools for investors and traders focused on risk management. Stay in touch if you're interested.
 
       #newsletter
         .col

@@ -51,11 +51,14 @@ h1 {
     margin-left:  -.2085em;
   }
 }
-
 .row--intro {
   height:     $introBoxHeight;
   max-height: $introBoxMaxHeight;
   min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
+}
+.row--newsletter {
+  height:     $introBoxHeight - 10vh;
+  max-height: $introBoxMaxHeight - 40px;
 }
 .d-flex__vertical-align {
   align-self: center;
@@ -138,7 +141,7 @@ h1 {
     width:     3.05em;
     display:   block;
     height:    1em;
-    animation: rotator 6s linear 0s infinite;
+    animation: homepageTextShift 6s linear 0s infinite;
     position:  absolute;
     top:      -17px;
     opacity:   0;
@@ -148,7 +151,7 @@ h1 {
 .db-anim-rotator--2 { animation-delay: 2s !important; }
 .db-anim-rotator--3 { animation-delay: 4s !important; }
 
-@keyframes rotator {
+@keyframes homepageTextShift {
   0%   {top: -21px; opacity: 0; }
   30%  {top: -21px; opacity: 0; }
   33%  {top:   7px; opacity: 1; }
@@ -227,10 +230,35 @@ h1 {
 // footer
 
 .db-footer {
-  position: absolute;
-  z-index: 1;
-  bottom: 0;
-
+  padding-bottom: 10rem;
+  a {
+    color: white;
+    text-decoration: underline;
+    display: block;
+    &.db-social-link {
+      text-decoration: none;
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+      span {
+        text-decoration: underline;
+      }
+    }
+  }
+}
+.db-footer__tagline {
+  position: relative;
+  text-indent: 20px;
+  &::before {
+    content: "";
+    display: block;
+    background: white;
+    position: absolute;
+    width: 4px;
+    height: 100%;
+    border-radius: 2px;
+  }
 }
 
 // Cookie
@@ -260,4 +288,15 @@ h1 {
     padding: 5px 15px 5px 20px !important;
     border-radius: 20px !important;
   }
+}
+
+// Supported exchanges
+
+.db-supported-exchanges {
+  text-align: center;
+}
+
+.db-supported-exchange {
+  width: 200px;
+  padding: 40px;
 }
