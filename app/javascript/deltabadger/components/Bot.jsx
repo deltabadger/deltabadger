@@ -141,8 +141,8 @@ export const Bot = props => {
         </form>
       </div>
       <RemoveButton />
+      </div>
+      { open && <BotDetails bot={props.bot} /> }
     </div>
-    { open && <BotDetails bot={props.bot} /> }
-  </div>
   )
 }
