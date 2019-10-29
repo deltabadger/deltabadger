@@ -1,6 +1,6 @@
 module Charts
   class PortfolioValueOverTime < BaseService
-    def call(bot)
+    def call(bot) # rubocop:disable Metrics/MethodLength
       query = <<~SQL
         with data as (
           select
@@ -31,7 +31,9 @@ module Charts
       total_invested = response.map { |el| el.fetch('total_invested') }
       value = response.map { |el| el.fetch('current_value') }
 
-      date.zip(total_invested, value)
+      output = date.zip(total_invested, value)
+
+      Result::Success.new(output)
     end
   end
 end

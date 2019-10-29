@@ -1,15 +1,10 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Line } from 'react-chartjs-2';
+import API from '../../lib/API';
+import { Spinner } from '../Spinner';
+import { isEmpty } from '../../utils/array'
 
-export const Chart = ({data}) => {
-  const labels = data.map(el => el[0])
-  const totalInvested = data.map(el => el[1])
-  const currentValue = data.map(el => el[2])
-
-  const chartData = {
-    labels: labels,
-    datasets: [
-      {
+const TOTAL_INVESTED_CONFIG = {
         label: 'total invested',
         fill: false,
         lineTension: 0.1,
@@ -28,9 +23,9 @@ export const Chart = ({data}) => {
         pointHoverBorderWidth: 2,
         pointRadius: 1,
         pointHitRadius: 10,
-        data: totalInvested
-      },
-      {
+}
+
+const VALUE_OVER_TIME_CONFIG = {
         label: 'current value',
         fill: false,
         lineTension: 0.1,
@@ -49,8 +44,32 @@ export const Chart = ({data}) => {
         pointHoverBorderWidth: 2,
         pointRadius: 1,
         pointHitRadius: 10,
-        data: currentValue
-      }
+}
+
+export const Chart = ({bot}) => {
+  const [data, setData] = useState([])
+
+  const loadData = (id) => {
+    API.getChartData(bot.id).then(({ data }) => {
+      setData(data)
+    })
+  }
+
+  useEffect(() => {
+    loadData()
+  }, []);
+
+  if (isEmpty(data)) { return (<Spinner />) }
+
+  const labels = data.map(el => el[0])
+  const totalInvested = data.map(el => el[1])
+  const currentValue = data.map(el => el[2])
+
+  const chartData = {
+    labels: labels,
+    datasets: [
+      {...TOTAL_INVESTED_CONFIG, data: totalInvested },
+      {...VALUE_OVER_TIME_CONFIG, data: currentValue }
     ]
   }
 

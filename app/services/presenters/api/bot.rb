@@ -14,10 +14,7 @@ module Presenters
           transactions: transactions(bot.transactions),
           logs: logs(bot.transactions),
           stats: present_stats(bot),
-          nextTransactionTimestamp: next_transaction_timestamp(bot),
-          charts: {
-            PortfolioValueOverTime: Charts::PortfolioValueOverTime.call(bot)
-          }
+          nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
 

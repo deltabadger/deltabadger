@@ -27,6 +27,7 @@ Rails.application.routes.draw do
       post :stop, on: :member
       post :start, on: :member
       get :transactions_csv, to: 'transactions#csv'
+      get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
     end
   end
 
