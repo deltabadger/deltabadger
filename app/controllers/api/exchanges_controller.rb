@@ -7,7 +7,7 @@ module Api
           .merge(owned.include?(exchange) ? { owned: true } : { owned: false })
       end
 
-      render json: { data: Exchange.all.map(&build_data) }
+      render json: { data: ExchangesRepository.new.all.map(&build_data) }
     end
   end
 end
