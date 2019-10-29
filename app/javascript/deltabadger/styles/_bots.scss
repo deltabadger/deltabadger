@@ -1,5 +1,9 @@
 // bots
 
+#dashboard {
+  position: relative;
+}
+
 .db-bots {
   padding-bottom: $grid-gutter-width/2;
   @include media-breakpoint-up(xl) {
@@ -78,6 +82,7 @@
     top:      0px;
     right:    $grid-gutter-width/2;
     width:    calc(50% - #{$grid-gutter-width});
+    margin-bottom: 50px !important;
   }
 }
 
