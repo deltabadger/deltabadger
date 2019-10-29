@@ -10,7 +10,7 @@ module Presenters
           bought: "#{transactions_amount_sum} BTC",
           spent: "$#{transactions_price_sum}".slice(0, 8),
           avaragePrice: "$#{avarage_price}".slice(0, 8),
-          currentValue: '$10000',
+          currentValue: bot.transactions.last.rate,
           profitLoss: {
             positive: [true, false].sample,
             value: '+$273.70 (+17%)'
