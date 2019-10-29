@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import moment from 'moment';
 import { Line } from 'react-chartjs-2';
 import API from '../../lib/API';
 import { Spinner } from '../Spinner';
@@ -61,7 +62,7 @@ export const Chart = ({bot}) => {
 
   if (isEmpty(data)) { return (<Spinner />) }
 
-  const labels = data.map(el => el[0])
+  const labels = data.map(el => el[0]).map(el => moment(el).format("MM-DD-YYYY"))
   const totalInvested = data.map(el => el[1])
   const currentValue = data.map(el => el[2])
 
