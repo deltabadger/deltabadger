@@ -211,6 +211,29 @@ h1 {
   flex-grow: 3;
 }
 
+// page
+
+.db-page {
+  li {
+    margin-top: 1em;
+  }
+  ol {
+    counter-reset: item;
+    & > li {
+      counter-increment: item;
+    }
+    & ol {
+      & > li {
+        display: block;
+        &:before {
+          content: counters(item, ".") ". ";
+          margin-left: -40px;
+        }
+      }
+    }
+  }
+}
+
 // settings
 
 .db-content__box {
