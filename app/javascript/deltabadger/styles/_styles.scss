@@ -285,6 +285,26 @@ h1 {
   }
 }
 
+// Contact
+
+.db-woowoo {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  span{
+    &:first-child {
+      &:after {
+        content: ".com";
+      }
+    }
+    &:not(:first-child) {
+      &:after {
+        content: "a";
+      }
+    }
+  }
+}
+
 // Cookie
 
 #cookie_consent {
