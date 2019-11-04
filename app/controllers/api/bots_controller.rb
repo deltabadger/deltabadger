@@ -1,11 +1,8 @@
 module Api
   class BotsController < Api::BaseController
     def index
-      present_bot = lambda do |bot|
-        Presenters::Api::Bot.call(bot)
-      end
-
-      data = BotsRepository.new.for_user(current_user).map(&present_bot)
+      data =
+        BotsRepository.new.for_user(current_user).map(&method(:present_bot))
 
       render json: { data: data }
     end
@@ -22,21 +19,23 @@ module Api
 
     def start
       result = StartBot.call(params[:id])
+      data = present_bot(result.data)
 
       if result.success?
-        render json: { data: true }, status: 200
+        render json: { data: data }, status: 200
       else
-        render json: { data: false }, status: 422
+        render json: { data: result.errors }, status: 422
       end
     end
 
     def stop
       result = StopBot.call(params[:id])
+      data = present_bot(result.data)
 
       if result.success?
-        render json: { data: true }, status: 200
+        render json: { data: data }, status: 200
       else
-        render json: { data: false }, status: 422
+        render json: { data: result.errors }, status: 422
       end
     end
 
@@ -51,6 +50,10 @@ module Api
     end
 
     private
+
+    def present_bot(bot)
+      Presenters::Api::Bot.call(bot)
+    end
 
     def bot_params
       params
