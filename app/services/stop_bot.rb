@@ -13,6 +13,7 @@ class StopBot < BaseService
     @unschedule_transactions.call(bot)
     @bots_repository.update(bot.id, status: 'stopped')
 
-    Result::Success.new
+    bot.reload
+    Result::Success.new(bot)
   end
 end

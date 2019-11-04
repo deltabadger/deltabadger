@@ -32,22 +32,32 @@ export const Dashboard = () => {
     })
   }
 
-  const startBot = id => {
-    API.startBot(id).then(data => {
-      loadBots(id);
-    }).catch(() => loadBots())
-  }
-
-  const stopBot = id => {
-    API.stopBot(id).then(data => {
-      loadBots(id);
-    }).catch(() => loadBots())
-  }
-
   const removeBot = id => {
     API.removeBot(id).then(data => {
       loadBots();
     }).catch(() => loadBots())
+  }
+
+  const buildBotsList = (botsToRender, b) => {
+    botsToRender.push(
+      <Bot
+        key={`${b.id}-${b.id == currentBot}`}
+        bot={b}
+        reload={() => { loadBots(currentBotId) }}
+        handleStop={openBot}
+        handleStart={openBot}
+        handleRemove={removeBot}
+        handleClick={openBot}
+        open={b.id == currentBotId}
+      />
+    )
+
+    console.log(b)
+    if (b.id == currentBotId) botsToRender.push(
+      <BotDetails key={`${b.id}-details${b.id == currentBot}`} bot={b}/>
+    )
+
+    return botsToRender
   }
 
   const openBot = id => setCurrentBot(id)
@@ -55,22 +65,11 @@ export const Dashboard = () => {
 
   return (
     <div className="db-bots">
-      { bots.map(b =>
-        <Bot
-          key={`${b.id}-${b.id == currentBot}`}
-          bot={b}
-          reload={() => { loadBots(currentBotId) }}
-          handleStop={stopBot}
-          handleStart={startBot}
-          handleRemove={removeBot}
-          handleClick={openBot}
-          open={b.id == currentBotId}
-        />
-      )}
+      { bots.reduce(buildBotsList, []) }
       <BotForm
         open={isEmpty(bots)}
         currentBot={currentBot}
-        callbackAfterCreation={startBot}
+        callbackAfterCreation={() => {}}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
       />
