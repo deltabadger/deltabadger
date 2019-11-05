@@ -27,6 +27,7 @@ Rails.application.routes.draw do
       post :stop, on: :member
       post :start, on: :member
       get :transactions_csv, to: 'transactions#csv'
+      get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
     end
   end
 
@@ -41,6 +42,7 @@ Rails.application.routes.draw do
   get '/cookie_policy', to: 'home#cookie_policy', as: :cookie_policy
   get '/contact', to: 'home#contact', as: :contact
   get '/about', to: 'home#about', as: :about
+  get '/referral_program', to: 'home#referral_program', as: :referral_program
 
   mount ::Sidekiq::Web => '/sidekiq'
 end

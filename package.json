@@ -6,10 +6,12 @@
     "@rails/webpacker": "^4.0.7",
     "axios": "^0.19.0",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
+    "chart.js": "^2.9.1",
     "moment": "^2.24.0",
     "prop-types": "^15.7.2",
     "rails-ujs": "^5.2.3",
     "react": "^16.9.0",
+    "react-chartjs-2": "^2.8.0",
     "react-cookie-consent": "^2.5.0",
     "react-dom": "^16.9.0",
     "resolve-url-loader": "^3.1.0"
