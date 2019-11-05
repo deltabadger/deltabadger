@@ -51,7 +51,7 @@ export const Bot = props => {
 
     if (working) {
       useInterval(() => {
-        const lastTransactionTimestamp = [...props.bot.transactions].pop().created_at_timestamp
+        const lastTransactionTimestamp = ([...props.bot.transactions].pop() || {}).created_at_timestamp
         const now  = new moment()
         const nowTimestamp = now.unix()
         const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100

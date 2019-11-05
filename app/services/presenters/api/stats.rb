@@ -1,15 +1,15 @@
 module Presenters
   module Api
     class Stats < BaseService
-      def initialize()
-      end
       def call(bot:, transactions:)
+        return {} if transactions.empty?
+
         transactions_price_sum = transactions.sum(&:price)
         transactions_amount_sum = transactions.sum(&:amount)
         avarage_price = transactions_price_sum / transactions.length
-        total_invested = transactions.sum("rate * amount")
+        total_invested = transactions.sum('rate * amount')
         current_value = 12
-        total_portfolio_value = transactions.sum("amount") * current_value
+        total_portfolio_value = transactions.sum('amount') * current_value
         profit_loss = total_portfolio_value - total_invested
 
         {
