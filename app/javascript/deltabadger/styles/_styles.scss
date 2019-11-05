@@ -152,13 +152,14 @@ h1 {
 .db-anim-rotator--3 { animation-delay: 4s !important; }
 
 @keyframes homepageTextShift {
-  0%   {top: -21px; opacity: 0; }
-  30%  {top: -21px; opacity: 0; }
-  33%  {top:   7px; opacity: 1; }
-  65%  {top:   7px; opacity: 1; }
-  68%  {top:  35px; opacity: 0; }
-  99%  {top:  35px; opacity: 0; }
-  100% {top: -21px; opacity: 0; }
+  0%   {top: -21px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  30%  {top: -21px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  33%  {top:   7px; opacity: 1; text-shadow: 0 0 5px #fff; }
+  36%  {top:   7px; opacity: 1; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  65%  {top:   7px; opacity: 1; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  68%  {top:  35px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  99%  {top:  35px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  100% {top: -21px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
 }
 
 // intro image
