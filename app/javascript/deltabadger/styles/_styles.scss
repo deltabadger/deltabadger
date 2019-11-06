@@ -81,6 +81,21 @@ h1 {
   bottom:   0;
   width:    100%;
 }
+.db--guest {
+  .container {
+    @include media-breakpoint-down(xs) {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+  .navbar-brand {
+    span {
+      @include media-breakpoint-down(xs) {
+        display: none;
+      }
+    }
+  }
+}
 .db-menu-icon {
   line-height: 10px;
 }
@@ -243,7 +258,9 @@ h1 {
 
 .db-content__box {
   background:    white;
-  padding:       2em;
+  padding:       2rem;
+  margin-left:  .5rem;
+  margin-right: .5rem;
   border-radius: $box-border-radius;
   border:        1px solid #ddd;
 }
@@ -254,7 +271,11 @@ h1 {
 
 // footer
 
-.db-footer {
+.db-footer--signed-in {
+  padding: 1.5rem .5rem 2rem;
+}
+
+.db-footer--homepage {
   padding-bottom: 10rem;
   a {
     color: white;
