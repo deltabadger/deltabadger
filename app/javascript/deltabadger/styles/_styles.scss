@@ -234,6 +234,10 @@ h1 {
 
 .db-page {
   margin-bottom: 120px;
+  a {
+    color: white;
+    text-decoration: underline;
+  }
   li {
     margin-top: 1em;
   }
@@ -250,6 +254,21 @@ h1 {
           margin-left: -40px;
         }
       }
+    }
+  }
+  .blockquote {
+    padding: 1em 1em .25em 1.1em;
+    font-style: italic;
+    position: relative;
+    &::before {
+      content: "”";
+      font-size: 6em;
+      font-style: normal;
+      position: absolute;
+      top:0;
+      left:-.05em;
+      line-height: .9;
+      opacity: .2;
     }
   }
 }
