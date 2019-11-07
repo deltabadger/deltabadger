@@ -99,6 +99,7 @@
   border:        1px solid #ddd;
   border-radius: $box-border-radius;
   padding:       $bot-gutter-width/2;
+  transition:    all 250ms ease-in-out;
   .alert {
     border-radius: 0;
   }
