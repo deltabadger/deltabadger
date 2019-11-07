@@ -4,6 +4,7 @@ import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 import API from '../lib/API';
+import { StartButton, StopButton, RemoveButton } from './buttons'
 
 export const Bot = props => {
   const [bot, setBot] = useState(props.bot)
@@ -28,23 +29,6 @@ export const Bot = props => {
       handleStop(bot.id)
     })
   }
-
-  const StartButton = () => (
-    <div onClick={() => _handleStart(id)} className="btn btn-success"><span>Start</span> <i className="material-icons">play_arrow</i></div>
-  )
-  const StopButton = () => (
-    <div onClick={() => _handleStop(id)} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons">pause</i></div>
-  )
-
-  const RemoveButton = () => (
-    <div
-      onClick={() => handleRemove(id)}
-      className="btn btn-link btn--reset"
-    >
-      <i className="material-icons">sync</i>
-      <span>Reset</span>
-    </div>
-  )
 
   const ProgressBar = () => {
     const [progress, setProgress] = useState(0)
@@ -96,7 +80,7 @@ export const Bot = props => {
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
-        { working ? <StopButton /> : <StartButton/> }
+        { working ? <StopButton onClick={() => _handleStop(id)} /> : <StartButton onClick={() => _handleStart(id)}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
@@ -154,7 +138,7 @@ export const Bot = props => {
         </div>
       </form>
     </div>
-    <RemoveButton />
+    <RemoveButton onClick={() => handleRemove(id)} />
   </div>
   )
 }
