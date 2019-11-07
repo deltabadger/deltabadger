@@ -2,7 +2,7 @@ module Bots
   module Free
     class Validator < BaseService
       def call(bot)
-        bot.valid? ? Result::Success.new : Result::Failure(bot.errors)
+        bot.valid? ? Result::Success.new : Result::Failure.new(*bot.errors)
       end
     end
   end

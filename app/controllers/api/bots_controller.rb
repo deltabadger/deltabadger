@@ -8,10 +8,21 @@ module Api
     end
 
     def create
-      result = Bots::Create.new.call(current_user, bot_params)
+      result = Bots::Create.call(current_user, bot_create_params)
 
       if result.success?
         render json: { data: result.data }, status: 201
+      else
+        render json: { errors: result.errors }, status: 422
+      end
+    end
+
+    def update
+      result = Bots::Update.call(current_user, bot_update_params)
+      data = present_bot(result.data)
+
+      if result.success?
+        render json: { data: data }, status: 201
       else
         render json: { errors: result.errors }, status: 422
       end
@@ -55,10 +66,25 @@ module Api
       Presenters::Api::Bot.call(bot)
     end
 
-    def bot_params
+    BOT_PARAMS = %i[
+      exchange_id
+      type
+      price
+      currency
+      interval
+      bot_type
+    ].freeze
+
+    def bot_create_params
       params
         .require(:bot)
-        .permit(:exchange_id, :type, :price, :currency, :interval, :bot_type)
+        .permit(*BOT_PARAMS)
+    end
+
+    def bot_update_params
+      params
+        .require(:bot)
+        .permit(:interval, :price).merge(id: params[:id])
     end
   end
 end

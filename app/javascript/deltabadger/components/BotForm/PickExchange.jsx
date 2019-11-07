@@ -1,20 +1,7 @@
 import React from 'react'
-
-const ExchangeButton = ({ handleClick, exchange }) => (
-    <div className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`} onClick={ () => handleClick(exchange.id) }></div>
-  )
+import { ExchangeButton, CloseButton } from '../buttons';
 
 export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
-  const CloseButton = () => (
-    <div
-      onClick={() => handleReset()}
-      className="btn btn-link btn--reset"
-    >
-      <i className="material-icons">close</i>
-      <span>Close</span>
-    </div>
-  )
-
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange">
       <div className="db-bot__header">
@@ -32,7 +19,7 @@ export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
           )
         }
       </div>
-      <CloseButton />
+      <CloseButton onClick={handleReset} />
     </div>
   )
 }

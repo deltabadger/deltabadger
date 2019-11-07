@@ -18,7 +18,7 @@ module Bots
       when 'free'
         Bots::CreateBot.new(
           bot_validator: Bots::Free::Validator.new,
-          format_params: Bots::Free::FormatParams.new
+          format_params: Bots::Free::FormatParams::Create.new
         ).call(bot_params)
       else
         Result::Failure.new('Invalid bot type')
