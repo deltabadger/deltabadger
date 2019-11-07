@@ -124,7 +124,7 @@ export const Bot = props => {
             type="text"
             value={settings.price}
             className="form-control mr-1"
-            disabled={true}
+            disabled={working ? true : false}
           />
 
         <div className="form-group mr-2">
@@ -143,7 +143,7 @@ export const Bot = props => {
             value={settings.interval}
             className="form-control"
             id="exampleFormControlSelect1"
-            disabled={true}
+            disabled={working ? true : false}
           >
             <option value="minute">Minute</option>
             <option value="hour">Hour</option>
