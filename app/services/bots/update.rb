@@ -2,7 +2,7 @@ module Bots
   class Update < BaseService
     def initialize(
       bot_validator: Bots::Free::Validator.new,
-      format_params: Bots::Free::FormatParams.new,
+      format_params: Bots::Free::FormatParams::Update.new,
       bots_repository: BotsRepository.new
     )
       @bots_repository = bots_repository
@@ -15,7 +15,7 @@ module Bots
 
       settings_params =
         @format_params
-        .call(bot_params.merge(user: user))
+        .call(bot, bot_params.merge(user: user))
         .slice(:settings)
 
       bot.assign_attributes(settings_params)
