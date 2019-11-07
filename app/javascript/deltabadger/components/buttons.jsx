@@ -22,20 +22,23 @@ export const RemoveButton = ({onClick}) => {
 
   return(
     <div>
-    <div
-      onClick={() => setOpen(true) }
-      className="btn btn-link btn--reset"
-    >
-      <i className="material-icons">sync</i>
-      <span>Reset</span>
-    </div>
-
-    { isOpen &&
-      <div> MODAL
-      <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-primary">Remove!!!!!</div>
-      <div onClick={() => {setOpen(false)}} className="btn btn-primary">CloseModal</div>
+      <div
+        onClick={() => setOpen(true) }
+        className="btn btn-link btn--reset"
+      >
+        <i className="material-icons">sync</i>
+        <span>Reset</span>
       </div>
-    }
+
+      { isOpen &&
+        <div className="db-bot__modal">
+          <div className="db-bot__modal__content">
+            <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
+            <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary mr-2">Cancel</div>
+            <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-danger">Remove completely</div>
+          </div>
+        </div>
+      }
     </div>
   )
 }
