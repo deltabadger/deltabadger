@@ -52,7 +52,6 @@ export const Dashboard = () => {
       />
     )
 
-    console.log(b)
     if (b.id == currentBotId) botsToRender.push(
       <BotDetails key={`${b.id}-details${b.id == currentBot}`} bot={b}/>
     )

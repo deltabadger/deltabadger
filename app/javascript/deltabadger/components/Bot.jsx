@@ -9,8 +9,11 @@ import { StartButton, StopButton, RemoveButton } from './buttons'
 export const Bot = props => {
   const [bot, setBot] = useState(props.bot)
 
+  const { handleStart, handleStop, handleRemove, handleClick, open } = props
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
-  const { handleStart, handleStop, handleRemove, handleClick, open, reload } = props
+
+  const [price, setPrice] = useState(settings.price);
+  const [interval, setInterval] = useState(settings.interval);
 
   const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
   const colorClass = settings.type == 'buy' ? 'success' : 'danger'
@@ -30,14 +33,25 @@ export const Bot = props => {
     })
   }
 
-  const ProgressBar = () => {
+  const disableSubmit = price.trim() == ''
+
+  const _handleSubmit = (evt) => {
+    if (disableSubmit) return undefined
+
+    const botParams = { interval, id: bot.id, price: price.trim() }
+    API.updateBot(botParams).then(({data: bot}) => {
+      _handleStart(bot.id)
+    })
+  }
+
+  const ProgressBar = ({bot}) => {
     const [progress, setProgress] = useState(0)
 
     if (working) {
       useInterval(() => {
-        const lastTransactionTimestamp = ([...props.bot.transactions].pop() || {}).created_at_timestamp
         const now  = new moment()
         const nowTimestamp = now.unix()
+        const lastTransactionTimestamp = ([...bot.transactions].pop() || {}).created_at_timestamp
         const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
 
         setProgress(calc)
@@ -51,42 +65,45 @@ export const Bot = props => {
     )
   }
 
-  const Timer = memo(() => {
+  const Timer = ({bot}) => {
     const [delay, setDelay] = useState(undefined)
 
     const calculateDelay = () => {
       const now = new moment()
-      const date = nextTransactionTimestamp && new moment.unix(nextTransactionTimestamp)
+      const date = bot.nextTransactionTimestamp && new moment.unix(bot.nextTransactionTimestamp)
 
-      return nextTransactionTimestamp && moment.duration(date.diff(now))
+      return bot.nextTransactionTimestamp && moment.duration(date.diff(now))
     }
 
-    useInterval(() => {
-      const delay = calculateDelay()
-      setDelay(delay)
-    }, 1000);
+    if (working) {
+      useInterval(() => {
 
-    if (!delay || !formatDuration(delay) || !nextTransactionTimestamp) {
-      return (<Spinner />)
+        const delay = calculateDelay()
+        setDelay(delay)
+      }, 1000);
+
+      if (!delay || !bot.nextTransactionTimestamp) {
+        return (<Spinner />)
+      }
+
+      return (
+        <div className="db-bot__infotext__right">
+          Next { settings.type } in { formatDuration(delay) }
+        </div>
+      )
     }
-
-    return (
-      <div className="db-bot__infotext__right">
-        Next { settings.type } in { formatDuration(delay) }
-      </div>
-    )
-  })
+  }
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
-        { working ? <StopButton onClick={() => _handleStop(id)} /> : <StartButton onClick={() => _handleStart(id)}/> }
+        { working ? <StopButton onClick={() => _handleStop(id)} /> : <StartButton onClick={() => _handleSubmit(id)}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
           </div>
-          { working && nextTransactionTimestamp && <Timer /> }
-          <ProgressBar />
+          { working && nextTransactionTimestamp && <Timer bot={bot} /> }
+          <ProgressBar bot={bot} />
         </div>
       </div>
 
@@ -106,7 +123,8 @@ export const Bot = props => {
           <div className="form-group mr-2">for</div>
           <input
             type="text"
-            value={settings.price}
+            value={price}
+            onChange={e => setPrice(e.target.value)}
             className="form-control mr-1"
             disabled={working ? true : false}
           />
@@ -124,8 +142,9 @@ export const Bot = props => {
         <div className="form-group mr-2">/</div>
         <div className="form-group mr-2">
           <select
-            value={settings.interval}
+            value={interval}
             className="form-control"
+            onChange={e => setInterval(e.target.value)}
             id="exampleFormControlSelect1"
             disabled={working ? true : false}
           >

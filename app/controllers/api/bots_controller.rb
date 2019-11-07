@@ -19,9 +19,10 @@ module Api
 
     def update
       result = Bots::Update.call(current_user, bot_update_params)
+      data = present_bot(result.data)
 
       if result.success?
-        render json: { data: result.data }, status: 201
+        render json: { data: data }, status: 201
       else
         render json: { errors: result.errors }, status: 422
       end
@@ -83,7 +84,7 @@ module Api
     def bot_update_params
       params
         .require(:bot)
-        .permit(:interval, :price)
+        .permit(:interval, :price).merge(id: params[:id])
     end
   end
 end
