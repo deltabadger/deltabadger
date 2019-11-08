@@ -6,6 +6,8 @@ class HomeController < ApplicationController
     cookie_policy
     contact
     about
+    pricing
+
   ].freeze
 
   before_action :authenticate_user!, except: PUBLIC_PAGES
