@@ -52,7 +52,7 @@ export const Bot = props => {
         const now  = new moment()
         const nowTimestamp = now.unix()
         const lastTransactionTimestamp = ([...bot.transactions].pop() || {}).created_at_timestamp
-        const calc = ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
+        const calc = ((nowTimestamp - lastTransactionTimestamp)/(bot.nextTransactionTimestamp - lastTransactionTimestamp)) * 100
 
         setProgress(calc)
       }, 1000);
