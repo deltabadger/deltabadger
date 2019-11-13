@@ -38,6 +38,12 @@ export const Dashboard = () => {
     }).catch(() => loadBots())
   }
 
+  const startBot = id => {
+    API.startBot(id).then(data => {
+      loadBots(id);
+    }).catch(() => loadBots())
+  }
+
   const buildBotsList = (botsToRender, b) => {
     botsToRender.push(
       <Bot
@@ -68,7 +74,7 @@ export const Dashboard = () => {
       <BotForm
         open={isEmpty(bots)}
         currentBot={currentBot}
-        callbackAfterCreation={() => {}}
+        callbackAfterCreation={startBot}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
       />
