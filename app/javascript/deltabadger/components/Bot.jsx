@@ -6,6 +6,7 @@ import { Spinner } from './Spinner';
 import API from '../lib/API';
 import { StartButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
+import { ProgressBar } from './ProgressBar';
 
 export const Bot = props => {
   const [bot, setBot] = useState(props.bot)
@@ -45,26 +46,6 @@ export const Bot = props => {
     })
   }
 
-  const ProgressBar = ({bot}) => {
-    const [progress, setProgress] = useState(0)
-
-    if (working) {
-      useInterval(() => {
-        const now  = new moment()
-        const nowTimestamp = now.unix()
-        const lastTransactionTimestamp = ([...bot.transactions].pop() || {}).created_at_timestamp
-        const calc = ((nowTimestamp - lastTransactionTimestamp)/(bot.nextTransactionTimestamp - lastTransactionTimestamp)) * 100
-
-        setProgress(calc)
-      }, 1000);
-    }
-
-    return (
-      <div className="progress progress--thin progress--bot-setup">
-        <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: `${progress}%`, ariaValuenow: progress.toString(), ariaValuemin: "0", ariaValuemax: "100"}}></div>
-      </div>
-    )
-  }
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
