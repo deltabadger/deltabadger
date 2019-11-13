@@ -23,7 +23,7 @@ Rails.application.routes.draw do
     get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
-    resources :bots, only: [:create, :index, :destroy, :update] do
+    resources :bots, except: [:new, :edit] do
       post :stop, on: :member
       post :start, on: :member
       get :transactions_csv, to: 'transactions#csv'
