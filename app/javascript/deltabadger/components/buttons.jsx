@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 export const StartButton = ({onClick}) => (
   <div onClick={onClick} className="btn btn-success"><span>Start</span> <i className="material-icons">play_arrow</i></div>
@@ -7,18 +7,23 @@ export const StopButton = ({onClick}) => (
   <div onClick={onClick} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons">pause</i></div>
 )
 
-// export const RemoveButton = ({onClick}) => (
-//   <div
-//     onClick={onClick}
-//     className="btn btn-link btn--reset"
-//   >
-//     <i className="material-icons">sync</i>
-//     <span>Reset</span>
-//   </div>
-// )
-
 export const RemoveButton = ({onClick}) => {
   const [isOpen, setOpen] = useState(false)
+  const node = useRef()
+
+  const handleClickOutside = e => {
+    if (node.current && node.current.contains(e.target)) {
+      return;
+    }
+    setOpen(false)
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return(
     <div>
@@ -31,7 +36,7 @@ export const RemoveButton = ({onClick}) => {
       </div>
 
       { isOpen &&
-        <div className="db-bot__modal">
+        <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
             <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
             <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary mr-2">Cancel</div>
@@ -42,35 +47,6 @@ export const RemoveButton = ({onClick}) => {
     </div>
   )
 }
-
-// export const RemoveButton = ({onClick}) => (
-//   <div>
-//     <div className="btn btn-link btn--reset" data-toggle="modal" data-target="#exampleModal" >
-//       <i className="material-icons">sync</i>
-//       <span>Reset</span>
-//     </div>
-
-//     <div className="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-//       <div className="modal-dialog" role="document">
-//         <div className="modal-content">
-//           <div className="modal-header">
-//             <h5 className="modal-title" id="exampleModalLabel">Modal title</h5>
-//             <button type="button" className="close" data-dismiss="modal" aria-label="Close">
-//               <span aria-hidden="true">&times;</span>
-//             </button>
-//           </div>
-//           <div className="modal-body">
-//             ...
-//           </div>
-//           <div className="modal-footer">
-//             <button type="button" className="btn btn-secondary" data-dismiss="modal">Close</button>
-//             <button onClick={onClick} type="button" className="btn btn-primary" data-dismiss="modal">Save changes</button>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   </div>
-// )
 
 export const CloseButton = ({onClick}) => (
   <div
