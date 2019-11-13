@@ -110,7 +110,7 @@ export const Bot = props => {
         </div>
       </form>
     </div>
-    <RemoveButton onClick={() => handleRemove(id)} />
+    <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
   </div>
   )
 }
