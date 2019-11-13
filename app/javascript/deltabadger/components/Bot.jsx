@@ -1,3 +1,4 @@
+import debounce from 'debounce'
 import React, { useState, useEffect, memo } from 'react';
 import moment from 'moment';
 import { useInterval } from '../utils/interval';
@@ -46,6 +47,12 @@ export const Bot = props => {
     })
   }
 
+  const reloadBot = debounce(() => {
+    API.getBot(bot.id).then(({data: bot}) => {
+      console.log("reloadbot")
+      setBot(bot)
+    })
+  }, 5000)
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
@@ -55,7 +62,7 @@ export const Bot = props => {
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
           </div>
-          { working && nextTransactionTimestamp && <Timer bot={bot} /> }
+          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reloadBot} /> }
           <ProgressBar bot={bot} />
         </div>
       </div>
