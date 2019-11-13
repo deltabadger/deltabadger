@@ -5,6 +5,7 @@ import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 import API from '../lib/API';
 import { StartButton, StopButton, RemoveButton } from './buttons'
+import { Timer } from './Timer';
 
 export const Bot = props => {
   const [bot, setBot] = useState(props.bot)
@@ -63,35 +64,6 @@ export const Bot = props => {
         <div className={`progress-bar bg-${colorClass}`} role="progressbar" style={{width: `${progress}%`, ariaValuenow: progress.toString(), ariaValuemin: "0", ariaValuemax: "100"}}></div>
       </div>
     )
-  }
-
-  const Timer = ({bot}) => {
-    const [delay, setDelay] = useState(undefined)
-
-    const calculateDelay = () => {
-      const now = new moment()
-      const date = bot.nextTransactionTimestamp && new moment.unix(bot.nextTransactionTimestamp)
-
-      return bot.nextTransactionTimestamp && moment.duration(date.diff(now))
-    }
-
-    if (working) {
-      useInterval(() => {
-
-        const delay = calculateDelay()
-        setDelay(delay)
-      }, 1000);
-
-      if (!delay || !bot.nextTransactionTimestamp) {
-        return (<Spinner />)
-      }
-
-      return (
-        <div className="db-bot__infotext__right">
-          Next { settings.type } in { formatDuration(delay) }
-        </div>
-      )
-    }
   }
 
   return (
