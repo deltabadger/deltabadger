@@ -182,6 +182,7 @@
 }
 
 .btn--export-to-csv {
+  padding-left: 0;
   text-decoration: none !important;
   .material-icons {
     top:       3px;
@@ -282,4 +283,10 @@
       opacity: 1;
     }
   }
+}
+
+// chart
+
+.db-chart-container {
+  margin: 10px;
 }
