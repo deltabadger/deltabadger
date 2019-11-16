@@ -22,6 +22,12 @@
   height: 40px;
 }
 .db-bot-data {
+  .db-spinner-positioner {
+    display: flex;
+    justify-content: center;
+    padding: 20px 40px 40px;
+    margin-bottom: 20px;
+  }
   @include media-breakpoint-up(xl) {
     grid-column-start: 2;
     grid-row-start: 1;
@@ -288,5 +294,6 @@
 // chart
 
 .db-chart-container {
-  margin: 10px;
+  margin: 25px 10px;
+  max-width: 100%;
 }
