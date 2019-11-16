@@ -75,7 +75,7 @@ export const Chart = ({bot}) => {
   }
 
   return (
-    <div>
+    <div className="db-chart-container">
       <Line data={chartData} />
     </div>
   )
