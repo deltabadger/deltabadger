@@ -54,6 +54,24 @@ export const Bot = props => {
     })
   }, 5000)
 
+  const reloadBot2 = (currentBot) => {
+    API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+      // console.log('currentBot')
+      // console.log(currentBot.nextTransactionTimestamp)
+      // console.log('reloadedBot')
+      // console.log(reloadedBot.nextTransactionTimestamp)
+      if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
+        // console.log('setting bot')
+        setBot(reloadedBot)
+      } else {
+        setTimeout(() => {
+        // console.log('pulling one more time')
+          reloadBot2(reloadedBot)
+        }, 2000)
+      }
+    })
+  }
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
@@ -62,7 +80,7 @@ export const Bot = props => {
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
           </div>
-          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reloadBot} /> }
+          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reloadBot2} /> }
           <ProgressBar bot={bot} />
         </div>
       </div>
