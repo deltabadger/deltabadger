@@ -18,6 +18,11 @@ export const Dashboard = () => {
     loadBots()
   }, []);
 
+  const updateBot = (bot) => {
+    const newBots = bots.map(b => b.id == bot.id ? bot : b)
+    setBots(newBots)
+  }
+
   const checkSubscription = () => {
     API.getSubscription().then(({data}) => {
       setSubscription(data)
@@ -39,9 +44,35 @@ export const Dashboard = () => {
   }
 
   const startBot = id => {
-    API.startBot(id).then(data => {
-      loadBots(id);
+    API.startBot(id).then(({data: bot}) => {
+      updateBot(bot)
+      openBot(id)
     }).catch(() => loadBots())
+  }
+
+  const stopBot = id => {
+    API.stopBot(id).then(({data: bot}) => {
+      updateBot(bot)
+      openBot(id)
+    })
+  }
+
+  const reloadBot = (currentBot) => {
+    API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+      if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
+        updateBot(reloadedBot)
+      } else {
+        setTimeout(() => {
+          reloadBot(reloadedBot)
+        }, 2000)
+      }
+    })
+  }
+
+  const editBot = (botParams) => {
+    API.updateBot(botParams).then(({data: bot}) => {
+      startBot(bot.id)
+    })
   }
 
   const buildBotsList = (botsToRender, b) => {
@@ -49,10 +80,11 @@ export const Dashboard = () => {
       <Bot
         key={`${b.id}-${b.id == currentBot}`}
         bot={b}
-        reload={() => { loadBots(currentBotId) }}
-        handleStop={openBot}
-        handleStart={openBot}
+        reload={reloadBot}
+        handleStop={stopBot}
+        handleStart={startBot}
         handleRemove={removeBot}
+        handleEdit={editBot}
         handleClick={openBot}
         open={b.id == currentBotId}
       />
@@ -74,7 +106,7 @@ export const Dashboard = () => {
       <BotForm
         open={isEmpty(bots)}
         currentBot={currentBot}
-        callbackAfterCreation={startBot}
+        callbackAfterCreation={(id) => {loadBots(id)}}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
       />

@@ -10,9 +10,7 @@ import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 
 export const Bot = props => {
-  const [bot, setBot] = useState(props.bot)
-
-  const { handleStart, handleStop, handleRemove, handleClick, open } = props
+  const { bot, handleStart, handleStop, handleRemove, handleClick, handleEdit, reload, open } = props
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [price, setPrice] = useState(settings.price);
@@ -23,64 +21,26 @@ export const Bot = props => {
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
   const working = status == 'working'
 
-  const _handleStart = (id) => {
-    API.startBot(id).then(({data: bot}) => {
-      setBot(bot)
-      handleStart(bot.id)
-    })
-  }
-  const _handleStop = (id) => {
-    API.stopBot(id).then(({data: bot}) => {
-      setBot(bot)
-      handleStop(bot.id)
-    })
-  }
-
   const disableSubmit = price.trim() == ''
 
   const _handleSubmit = (evt) => {
     if (disableSubmit) return undefined
 
     const botParams = { interval, id: bot.id, price: price.trim() }
-    API.updateBot(botParams).then(({data: bot}) => {
-      _handleStart(bot.id)
-    })
+    handleEdit(botParams)
   }
 
-  const reloadBot = debounce(() => {
-    API.getBot(bot.id).then(({data: bot}) => {
-      console.log("reloadbot")
-      setBot(bot)
-    })
-  }, 5000)
-
-  const reloadBot2 = (currentBot) => {
-    API.getBot(currentBot.id).then(({data: reloadedBot}) => {
-      // console.log('currentBot')
-      // console.log(currentBot.nextTransactionTimestamp)
-      // console.log('reloadedBot')
-      // console.log(reloadedBot.nextTransactionTimestamp)
-      if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
-        // console.log('setting bot')
-        setBot(reloadedBot)
-      } else {
-        setTimeout(() => {
-        // console.log('pulling one more time')
-          reloadBot2(reloadedBot)
-        }, 2000)
-      }
-    })
-  }
+  // useEffect(() => {}, [JSON.stringify(bot)])
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
-        { working ? <StopButton onClick={() => _handleStop(id)} /> : <StartButton onClick={() => _handleSubmit(id)}/> }
+        { working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={() => _handleSubmit(id)}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
           </div>
-          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reloadBot2} /> }
+          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
           <ProgressBar bot={bot} />
         </div>
       </div>
