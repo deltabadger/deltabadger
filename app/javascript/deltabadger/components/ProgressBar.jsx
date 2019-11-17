@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import moment from 'moment';
 import { useInterval } from '../utils/interval';
 
@@ -20,8 +20,9 @@ export const ProgressBar = ({bot}) => {
   const calculateProgress = () => {
     const now  = new moment()
     const nowTimestamp = now.unix()
-    const lastTransactionTimestamp = ([...transactions].pop() || {}).created_at_timestamp
-    return ((nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)) * 100
+    const lastTransactionTimestamp = ([...transactions].shift() || {}).created_at_timestamp
+    const prog = (nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)
+    return (prog) * 100
   }
 
   useInterval(() => {

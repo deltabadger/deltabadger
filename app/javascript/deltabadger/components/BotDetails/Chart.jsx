@@ -56,6 +56,8 @@ export const Chart = ({bot}) => {
     })
   }
 
+  useEffect(() => {}, [JSON.stringify(bot)]);
+
   useEffect(() => {
     loadData()
   }, []);
