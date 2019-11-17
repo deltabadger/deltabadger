@@ -13,23 +13,25 @@ module ExchangeApi
         response.status == 200
       end
 
+      def current_price(settings)
+        url =
+          "https://bitbay.net/API/Public/BTC#{settings.fetch('currency')}/ticker.json"
+        response = JSON.parse(Faraday.get(url, {}, headers('')).body)
+
+        bid = response.fetch('bid').to_f
+        ask = response.fetch('ask').to_f
+
+        (bid + ask) / 2
+      end
+
       def buy(settings)
-        puts "Buying on bitbay"
+        puts 'Buying on bitbay'
         make_order('BUY', settings)
       end
 
       def sell(settings)
-        puts "selling on bitbay"
+        puts 'selling on bitbay'
         make_order('SELL', settings)
-      end
-
-      def offers
-        url = 'https://api.bitbay.net/rest/trading/history/transactions'
-        params = {
-          'markets' => ['BTC-PLN'],
-          'nextPageCursor' => 'start'
-        }
-        Faraday.get(url, params, headers(''))
       end
 
       private

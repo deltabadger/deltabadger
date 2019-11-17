@@ -12,6 +12,10 @@ module ExchangeApi
         true
       end
 
+      def current_value
+        100
+      end
+
       def buy(_)
         puts "Fake: Buying things on #{@exchange_name}!"
 
