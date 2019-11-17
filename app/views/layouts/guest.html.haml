@@ -13,12 +13,12 @@
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
     %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
 
-  %body
+  %body.db-guest-template
     = render 'layouts/navbar'
 
     = yield
 
-    = render 'layouts/footer'
+    = render 'layouts/footer/guest'
 
     #cookie_consent
 
