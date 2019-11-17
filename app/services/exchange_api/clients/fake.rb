@@ -1,6 +1,6 @@
 module ExchangeApi
   module Clients
-    class Fake
+    class Fake < ExchangeApi::Clients::Base
       SUCCESS = true
       # SUCCESS = false
 
@@ -12,7 +12,7 @@ module ExchangeApi
         true
       end
 
-      def current_value
+      def current_price(_)
         100
       end
 
