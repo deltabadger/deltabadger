@@ -33,6 +33,8 @@ module Presenters
 
         interval = @parse_interval.call(bot.settings)
         (bot.transactions.last.created_at + interval).to_i
+      rescue
+        nil
       end
 
       def transactions(bot)
