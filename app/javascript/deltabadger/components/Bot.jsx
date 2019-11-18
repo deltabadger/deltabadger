@@ -30,7 +30,7 @@ export const Bot = props => {
     handleEdit(botParams)
   }
 
-  // useEffect(() => {}, [JSON.stringify(bot)])
+  useEffect(() => {}, [JSON.stringify(bot)])
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
