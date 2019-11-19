@@ -56,12 +56,6 @@ export const Chart = ({bot}) => {
     })
   }
 
-  useEffect(() => {}, [JSON.stringify(bot)]);
-
-  useEffect(() => {
-    loadData()
-  }, []);
-
   if (isEmpty(data)) { return (<Spinner />) }
 
   const labels = data.map(el => el[0]).map(el => moment(el).format("MM-DD-YYYY"))

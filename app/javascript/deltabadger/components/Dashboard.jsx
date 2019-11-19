@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { connect } from 'react-redux';
 import ReactDOM from 'react-dom'
 import PropTypes from 'prop-types'
 import API from '../lib/API'
@@ -6,75 +7,35 @@ import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
 import { isEmpty, isNotEmpty } from '../utils/array'
+import {
+  reloadBot,
+  startBot,
+  stopBot,
+  removeBot,
+  editBot,
+  openBot,
+  closeAllBots,
+  loadBots
+} from '../bot_actions'
 
-export const Dashboard = () => {
-  const [bots, setBots] = useState([]);
-  const [subscription, setSubscription] = useState({plan: ''});
-  const [currentBotId, setCurrentBot] = useState(undefined);
-  const currentBot = bots.find(bot => bot.id === currentBotId)
+const DashboardTemplate = ({
+  bots = [],
+  currentBot,
+  reloadBot,
+  startBot,
+  stopBot,
+  removeBot,
+  editBot,
+  openBot,
+  closeAllBots,
+  loadBots
+}) => {
 
   useEffect(() => {
-    checkSubscription()
-    loadBots()
-  }, []);
+    loadBots(true)
+  }, [])
 
-  const updateBot = (bot) => {
-    const newBots = bots.map(b => b.id == bot.id ? bot : b)
-    setBots(newBots)
-  }
-
-  const checkSubscription = () => {
-    API.getSubscription().then(({data}) => {
-      setSubscription(data)
-    })
-  }
-
-  const loadBots = (id) => {
-    API.getBots().then(({ data }) => {
-      const sortedBots = data.sort((a,b) => a.id - b.id)
-      setBots(sortedBots)
-      id ? openBot(id) : (sortedBots[0] && openBot(sortedBots[0].id))
-    })
-  }
-
-  const removeBot = id => {
-    API.removeBot(id).then(data => {
-      loadBots();
-    }).catch(() => loadBots())
-  }
-
-  const startBot = id => {
-    API.startBot(id).then(({data: bot}) => {
-      updateBot(bot)
-      openBot(id)
-    }).catch(() => loadBots())
-  }
-
-  const stopBot = id => {
-    API.stopBot(id).then(({data: bot}) => {
-      updateBot(bot)
-      openBot(id)
-    })
-  }
-
-  const reloadBot = (currentBot) => {
-    API.getBot(currentBot.id).then(({data: reloadedBot}) => {
-      if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
-        updateBot(reloadedBot)
-      } else {
-        setTimeout(() => {
-          reloadBot(reloadedBot)
-        }, 2000)
-      }
-    })
-  }
-
-  const editBot = (botParams) => {
-    API.updateBot(botParams).then(({data: bot}) => {
-      startBot(bot.id)
-    })
-  }
-
+  console.log(currentBot)
   const buildBotsList = (botsToRender, b) => {
     botsToRender.push(
       <Bot
@@ -86,19 +47,16 @@ export const Dashboard = () => {
         handleRemove={removeBot}
         handleEdit={editBot}
         handleClick={openBot}
-        open={b.id == currentBotId}
+        open={currentBot && (b.id == currentBot.id)}
       />
     )
 
-    if (b.id == currentBotId) botsToRender.push(
+    if (currentBot && (b.id == currentBot.id)) botsToRender.push(
       <BotDetails key={`${b.id}-details${b.id == currentBot}`} bot={b}/>
     )
 
     return botsToRender
   }
-
-  const openBot = id => setCurrentBot(id)
-  const closeAllBots = () => openBot(undefined)
 
   return (
     <div className="db-bots">
@@ -117,3 +75,20 @@ export const Dashboard = () => {
   )
 }
 
+const mapStateToProps = (state) => ({
+  bots: state.bots,
+  currentBot: state.bots.find(bot => bot.id === state.currentBotId)
+})
+
+const mapDispatchToProps = ({
+  loadBots: loadBots,
+  reloadBot: reloadBot,
+  startBot: startBot,
+  stopBot: stopBot,
+  removeBot: removeBot,
+  editBot: editBot,
+  openBot: openBot,
+  closeAllBots: closeAllBots
+})
+
+export const Dashboard = connect(mapStateToProps, mapDispatchToProps)(DashboardTemplate)
