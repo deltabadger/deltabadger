@@ -23,7 +23,6 @@ export const Timer = ({bot, callback}) => {
     const calculatedDelay = calculateDelay()
     if(timeout && !pending) {
       setPending(true)
-      console.log("calling callback :D")
       if (bot) { callback(bot) }
     }
     setDelay(calculatedDelay)

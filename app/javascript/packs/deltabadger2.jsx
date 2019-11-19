@@ -4,15 +4,22 @@ import ReactDOM from 'react-dom';
 import { Dashboard } from '../deltabadger/components/Dashboard';
 import style from '../deltabadger/styles/main.scss';
 import { CookieBanner } from '../deltabadger/components/CookieBanner';
+import { Provider } from 'react-redux'
+import { configureStore } from '../deltabadger/Store'
+import { reducer } from '../deltabadger/reducer'
 
 require.context('../images', true)
 
 Rails.start();
 
+const store = configureStore(reducer)
+
 if (document.getElementById('dashboard')) {
   document.addEventListener('DOMContentLoaded', () => {
     ReactDOM.render(
-      <Dashboard />,
+      <Provider store={store}>
+        <Dashboard />
+      </Provider>,
       document.getElementById('dashboard')
     )
   })
