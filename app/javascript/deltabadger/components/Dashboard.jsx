@@ -44,9 +44,7 @@ const DashboardTemplate = ({
         reload={reloadBot}
         handleStop={stopBot}
         handleStart={startBot}
-        handleRemove={(id) => {
-          removeBot(id).then(() => openBot(bots[0].id))
-        }}
+        handleRemove={removeBot}
         handleEdit={editBot}
         handleClick={openBot}
         open={currentBot && (b.id == currentBot.id)}

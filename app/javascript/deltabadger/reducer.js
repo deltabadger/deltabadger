@@ -22,7 +22,7 @@ export const reducer = (state = initialState, action) => {
 
     case 'REMOVE_BOT': {
       const newBots = state.bots.filter(b => b.id != action.payload)
-      return { ...state, bots: newBots };
+      return { ...state, bots: newBots, currentBotId: newBots[0] && newBots[0].id };
     }
 
     default:
