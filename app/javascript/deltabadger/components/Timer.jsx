@@ -23,7 +23,10 @@ export const Timer = ({bot, callback}) => {
     const calculatedDelay = calculateDelay()
     if(timeout && !pending) {
       setPending(true)
-      if (bot) { callback(bot) }
+      if (bot) {
+        console.log('odpalam callback')
+        callback(bot)
+      }
     }
     setDelay(calculatedDelay)
   }, 1000);
