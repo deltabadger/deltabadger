@@ -27,6 +27,7 @@ class MakeTransaction < BaseService
 
     @schedule_transaction.call(bot) if result.success?
     if result.failure?
+      bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.error_occured(
         bot: bot,
         user: bot.user,

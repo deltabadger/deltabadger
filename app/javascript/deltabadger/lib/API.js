@@ -62,6 +62,11 @@ const API = {
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
 
+  getBot(id) {
+    const url = `${API_URL}/bots/${id}`;
+    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+  },
+
   startBot(botId) {
     const url = `${API_URL}/bots/${botId}/start`;
     return client.request({ url, params: {}, method: 'post' }).then(data => data.data);

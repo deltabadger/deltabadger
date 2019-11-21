@@ -127,9 +127,9 @@ export const BotForm = ({
 	}
 
   return (
-    <div>
+    <>
       { renderForm() }
       { step > 0 && <Details /> }
-    </div>
+    </>
     )
 }

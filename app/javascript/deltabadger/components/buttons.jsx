@@ -7,7 +7,7 @@ export const StopButton = ({onClick}) => (
   <div onClick={onClick} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons">pause</i></div>
 )
 
-export const RemoveButton = ({onClick}) => {
+export const RemoveButton = ({onClick, disabled}) => {
   const [isOpen, setOpen] = useState(false)
   const node = useRef()
 
@@ -29,7 +29,7 @@ export const RemoveButton = ({onClick}) => {
     <div>
       <div
         onClick={() => setOpen(true) }
-        className="btn btn-link btn--reset"
+        className={`btn btn-link btn--reset ${disabled ? 'disabled' : ''}`}
       >
         <i className="material-icons">sync</i>
         <span>Reset</span>

@@ -1,19 +1,27 @@
 module Presenters
   module Api
     class Bot < BaseService
-      def initialize(parse_interval: ParseInterval.new)
+      def initialize(
+        parse_interval: ParseInterval.new,
+        transactions_repository: TransactionsRepository.new
+      )
+
         @parse_interval = parse_interval
+        @transactions_repository = transactions_repository
       end
 
       def call(bot)
+        transactions = @transactions_repository.successful_for_bot(bot, limit: 10)
+        logs = @transactions_repository.for_bot(bot, limit: 10)
+
         {
           id: bot.id,
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           status: bot.status,
-          transactions: transactions(bot.transactions),
-          logs: logs(bot.transactions),
-          stats: present_stats(bot),
+          transactions: transactions.map(&method(:present_transaction)),
+          logs: logs.map(&method(:present_log)),
+          stats: present_stats(bot, transactions),
           nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
@@ -25,25 +33,31 @@ module Presenters
 
         interval = @parse_interval.call(bot.settings)
         (bot.transactions.last.created_at + interval).to_i
+      rescue
+        nil
       end
 
-      def transactions(transactions)
-        transactions.last(10).map(&method(:present_transaction))
+      def transactions(bot)
+        @transactions_repository
+          .successful_for_bot(bot, limit: 10)
+          .map(&method(:present_transaction))
       end
 
-      def logs(logs)
-        logs.last(10).map(&method(:present_transaction_as_log))
+      def logs(bot)
+        @transactions_repository
+          .for_bot(bot, limit: 10)
+          .map(&method(:present_transaction_as_log))
       end
 
-      def present_stats(bot)
-        Presenters::Api::Stats.call(bot: bot, transactions: bot.transactions)
+      def present_stats(bot, transactions)
+        Presenters::Api::Stats.call(bot: bot, transactions: transactions)
       end
 
       def present_transaction(transaction)
         Presenters::Api::Transaction.call(transaction)
       end
 
-      def present_transaction_as_log(transaction)
+      def present_log(transaction)
         Presenters::Api::Log.call(transaction)
       end
     end

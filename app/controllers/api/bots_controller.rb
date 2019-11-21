@@ -7,6 +7,13 @@ module Api
       render json: { data: data }
     end
 
+    def show
+      bot = BotsRepository.new.by_id_for_user(current_user, params[:id])
+      data = present_bot(bot)
+
+      render json: { data: data }
+    end
+
     def create
       result = Bots::Create.call(current_user, bot_create_params)
 
