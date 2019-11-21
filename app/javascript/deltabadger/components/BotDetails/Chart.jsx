@@ -50,6 +50,10 @@ const VALUE_OVER_TIME_CONFIG = {
 export const Chart = ({bot}) => {
   const [data, setData] = useState([])
 
+  useEffect(() => {
+    loadData()
+  }, [bot.nextTransactionTimestamp])
+
   const loadData = (id) => {
     API.getChartData(bot.id).then(({ data }) => {
       setData(data)
