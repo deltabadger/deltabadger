@@ -8,11 +8,7 @@ import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
 import { isEmpty, isNotEmpty } from '../utils/array'
 import {
-  reloadBot,
   startBot,
-  stopBot,
-  removeBot,
-  editBot,
   openBot,
   closeAllBots,
   loadBots
@@ -21,11 +17,7 @@ import {
 const DashboardTemplate = ({
   bots = [],
   currentBot,
-  reloadBot,
   startBot,
-  stopBot,
-  removeBot,
-  editBot,
   openBot,
   closeAllBots,
   loadBots
@@ -41,12 +33,6 @@ const DashboardTemplate = ({
       <Bot
         key={`${b.id}-${b.id == currentBot}`}
         bot={b}
-        reload={reloadBot}
-        handleStop={stopBot}
-        handleStart={startBot}
-        handleRemove={removeBot}
-        handleEdit={editBot}
-        handleClick={openBot}
         open={currentBot && (b.id == currentBot.id)}
       />
     )
@@ -81,11 +67,7 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = ({
   loadBots: loadBots,
-  reloadBot: reloadBot,
   startBot: startBot,
-  stopBot: stopBot,
-  removeBot: removeBot,
-  editBot: editBot,
   openBot: openBot,
   closeAllBots: closeAllBots
 })
