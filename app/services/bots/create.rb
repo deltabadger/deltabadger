@@ -17,7 +17,7 @@ module Bots
       case type
       when 'free'
         Bots::CreateBot.new(
-          bot_validator: Bots::Free::Validator.new,
+          bot_validator: Bots::Free::Validators::Create.new,
           format_params: Bots::Free::FormatParams::Create.new
         ).call(bot_params)
       else
