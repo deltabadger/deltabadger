@@ -5,7 +5,8 @@ class MakeTransaction < BaseService
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
-    notifications: Notifications::BotAlerts.new
+    notifications: Notifications::BotAlerts.new,
+    validate_limit: Bots::Free::Validators::Limit.new
   )
 
     @get_exchange_api = exchange_api
@@ -14,25 +15,36 @@ class MakeTransaction < BaseService
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
     @notifications = notifications
+    @validate_limit = validate_limit
   end
 
   def call(bot_id)
     bot = @bots_repository.find(bot_id)
+    return Result::Failure.new if !make_transaction?(bot)
+
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
     api = @get_exchange_api.call(api_key)
 
-    return false if !make_transaction?(bot)
-
     result = perform_action(api, bot)
 
-    @schedule_transaction.call(bot) if result.success?
     if result.failure?
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.error_occured(
         bot: bot,
-        user: bot.user,
         errors: result.errors
       )
+    end
+
+    validate_limit_result = @validate_limit.call(bot.user)
+    if validate_limit_result.failure?
+      bot = @bots_repository.update(bot.id, status: 'stopped')
+      @notifications.limit_reached(bot: bot)
+
+      return Result::Failure.new(validate_limit_result.errors)
+    end
+
+    if [result, validate_limit_result].all?(&:success?)
+      @schedule_transaction.call(bot)
     end
     result
   end
