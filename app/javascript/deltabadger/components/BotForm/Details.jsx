@@ -9,7 +9,7 @@ export const Details = ({ bot }) => {
         </li>
       </ul>
       <div className="tab-content" id="botFormInfo">
-        <div className="tab-pane pl-3 pr-3" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
+        <div className="tab-pane show active pl-3 pr-3" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
           <p>Info</p>
         </div>
       </div>
