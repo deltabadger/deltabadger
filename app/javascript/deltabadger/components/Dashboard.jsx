@@ -65,8 +65,7 @@ const DashboardTemplate = ({
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {
-          loadBots(id)
-          startBot(id)
+          loadBots(id).then(() => startBot(id))
         }}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
