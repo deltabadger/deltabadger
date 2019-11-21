@@ -44,7 +44,9 @@ const DashboardTemplate = ({
         reload={reloadBot}
         handleStop={stopBot}
         handleStart={startBot}
-        handleRemove={removeBot}
+        handleRemove={(id) => {
+          removeBot(id).then(() => openBot(bots[0].id))
+        }}
         handleEdit={editBot}
         handleClick={openBot}
         open={currentBot && (b.id == currentBot.id)}
@@ -65,7 +67,7 @@ const DashboardTemplate = ({
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {
-          loadBots(id).then(() => startBot(id))
+          loadBots().then(() => startBot(id))
         }}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}

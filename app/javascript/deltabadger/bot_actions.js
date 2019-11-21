@@ -33,8 +33,8 @@ export const loadBots = (openFirstBot = false) => dispatch => {
   })
 }
 
-export const removeBot = id => dispatch => {
-  API.removeBot(id).then(data => {
+export const removeBot = id => (dispatch) => {
+  return API.removeBot(id).then(data => {
     dispatch(botRemoved(id));
   })
 }
@@ -53,16 +53,22 @@ export const stopBot = (id) => dispatch => {
 }
 
 export const reloadBot = (currentBot) => dispatch => {
-  // API.getBot(currentBot.id).then(({data: reloadedBot}) => {
-  //   if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
-  //     updateBot(reloadedBot)
-  //   } else {
-  //     setTimeout(() => {
-  //       reloadBot(reloadedBot)
-  //     }, 2000)
-  //   }
-  // })
+  API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+      dispatch(botReloaded(reloadedBot))
+  })
 }
+
+// export const reloadBot = (currentBot) => dispatch => {
+//   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+//     if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
+//       dispatch(botReloaded(reloadedBot))
+//     } else {
+//       setTimeout(() => {
+//         dispatch(reloadBot(currentBot))
+//       }, 2000)
+//     }
+//   })
+// }
 
 export const editBot = botParams => dispatch => {
   API.updateBot(botParams).then(({data: bot}) => {
