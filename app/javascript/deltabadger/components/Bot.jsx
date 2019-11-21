@@ -1,6 +1,6 @@
-import debounce from 'debounce'
 import React, { useState, useEffect, memo } from 'react';
 import moment from 'moment';
+import { connect } from 'react-redux';
 import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
@@ -8,9 +8,25 @@ import API from '../lib/API';
 import { StartButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
+import {
+  reloadBot,
+  startBot,
+  stopBot,
+  removeBot,
+  editBot,
+  openBot,
+} from '../bot_actions'
 
-export const Bot = props => {
-  const { bot, handleStart, handleStop, handleRemove, handleClick, handleEdit, reload, open } = props
+const BotTemplate = ({
+  bot,
+  handleStart,
+  handleStop,
+  handleRemove,
+  handleClick,
+  handleEdit,
+  reload,
+  open
+}) => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [price, setPrice] = useState(settings.price);
@@ -99,3 +115,18 @@ export const Bot = props => {
   </div>
   )
 }
+
+const mapStateToProps = (state) => ({
+  bots: state.bots,
+  currentBot: state.bots.find(bot => bot.id === state.currentBotId)
+})
+
+const mapDispatchToProps = ({
+  reload: reloadBot,
+  handleStart: startBot,
+  handleStop: stopBot,
+  handleRemove: removeBot,
+  handleEdit: editBot,
+  handleClick: openBot,
+})
+export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
