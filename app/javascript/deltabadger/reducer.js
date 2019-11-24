@@ -1,6 +1,7 @@
 const initialState = {
   bots: [],
   currentBotId: undefined,
+  isPending: {}
 };
 
 export const reducer = (state = initialState, action) => {
@@ -17,12 +18,17 @@ export const reducer = (state = initialState, action) => {
     case 'BOT_RELOADED': {
       const editedBot = action.payload
       const newBots = state.bots.map((b) => (b.id == editedBot.id) ? editedBot : b)
-      return { ...state, bots: newBots };
+      console.log('test', ({...state.isPending, [editedBot.id]: false}))
+      return { ...state, bots: newBots, isPending: ({...state.isPending, [editedBot.id]: false}) };
     }
 
     case 'REMOVE_BOT': {
       const newBots = state.bots.filter(b => b.id != action.payload)
       return { ...state, bots: newBots, currentBotId: newBots[0] && newBots[0].id };
+    }
+
+    case 'SET_PENDING': {
+      return {...state, isPending: ({...state.isPending, ...action.payload})}
     }
 
     default:

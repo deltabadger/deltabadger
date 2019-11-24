@@ -19,6 +19,7 @@ import {
 
 const BotTemplate = ({
   bot,
+  isPending,
   handleStart,
   handleStop,
   handleRemove,
@@ -46,7 +47,12 @@ const BotTemplate = ({
     handleEdit(botParams)
   }
 
-  useEffect(() => {}, [JSON.stringify(bot)])
+ // useEffect(() => {}, [JSON.stringify(bot)])
+
+  const handleReload = (bot, callback) => {
+    reload(bot)
+    callback()
+  }
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
@@ -56,7 +62,7 @@ const BotTemplate = ({
           <div className="db-bot__infotext__left">
             { exchangeName }:BTC{settings.currency}
           </div>
-          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
+          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} isPending={isPending}/> }
           <ProgressBar bot={bot} />
         </div>
       </div>
@@ -116,10 +122,22 @@ const BotTemplate = ({
   )
 }
 
-const mapStateToProps = (state) => ({
-  bots: state.bots,
-  currentBot: state.bots.find(bot => bot.id === state.currentBotId)
-})
+const isCurrentBotPending = (bot, pending) => {
+  if(!bot) {
+    return false;
+  }
+
+  return pending[bot.id];
+}
+
+const mapStateToProps = (state) => {
+  const currentBot = state.bots.find(bot => bot.id === state.currentBotId)
+  return {
+    bots: state.bots,
+    currentBot: currentBot,
+    isPending: isCurrentBotPending(currentBot, state.isPending)
+  }
+}
 
 const mapDispatchToProps = ({
   reload: reloadBot,

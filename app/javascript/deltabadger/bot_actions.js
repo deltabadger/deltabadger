@@ -24,6 +24,8 @@ const botRemoved = (id) => ({
   payload: id
 })
 
+const setIsPending = (pending) => ({ type: 'SET_PENDING', payload: pending})
+
 export const loadBots = (openFirstBot = false) => dispatch => {
   return API.getBots().then(({ data }) => {
     const sortedBots = data.sort((a,b) => a.id - b.id)
@@ -52,23 +54,23 @@ export const stopBot = (id) => dispatch => {
   })
 }
 
+
+let timeout = (callback) => setTimeout(() => {
+      callback()
+    }, 2000)
+
+
 export const reloadBot = (currentBot) => dispatch => {
-  API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+  console.log('curretn',currentBot)
+   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+    if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
+      clearTimeout(timeout)
       dispatch(botReloaded(reloadedBot))
+    } else {
+      timeout(() => reloadBot(currentBot))
+    }
   })
 }
-
-// export const reloadBot = (currentBot) => dispatch => {
-//   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
-//     if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
-//       dispatch(botReloaded(reloadedBot))
-//     } else {
-//       setTimeout(() => {
-//         dispatch(reloadBot(currentBot))
-//       }, 2000)
-//     }
-//   })
-// }
 
 export const editBot = botParams => dispatch => {
   API.updateBot(botParams).then(({data: bot}) => {

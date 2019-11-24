@@ -4,27 +4,32 @@ import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
-export const Timer = ({bot, callback}) => {
+
+ const calculateDelay = (nextTransactionTimestamp) => {
+    const now = new moment()
+    const date = new moment.unix(nextTransactionTimestamp)
+
+    return moment.duration(date.diff(now))
+  }
+
+export const Timer = ({bot, callback, isPending}) => {
+  let i = 0;
   const { settings, status, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
   const working = status == 'working'
-
-  const calculateDelay = () => {
-    const now = new moment()
-    const date = nextTransactionTimestamp && new moment.unix(nextTransactionTimestamp)
-
-    return nextTransactionTimestamp && moment.duration(date.diff(now))
-  }
+ 
 
   const [delay, setDelay] = useState(calculateDelay())
   const [pending, setPending] = useState(false)
   const timeout = delay.seconds() < 0
 
   useInterval(() => {
-    const calculatedDelay = calculateDelay()
-    if(timeout && !pending) {
-      setPending(true)
+    console.log(timeout)
+    const calculatedDelay = calculateDelay(nextTransactionTimestamp)
+
+    if(timeout && !isPending && i == 0) {
       if (bot) {
         console.log('odpalam callback')
+         i = i + 1;
         callback(bot)
       }
     }
