@@ -18,6 +18,10 @@ class User < ApplicationRecord
     subscription.name
   end
 
+  def credits
+    subscription.credits
+  end
+
   private
 
   def add_subscription
