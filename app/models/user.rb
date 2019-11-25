@@ -1,4 +1,5 @@
 class User < ApplicationRecord
+  after_create :add_subscription
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
@@ -10,13 +11,20 @@ class User < ApplicationRecord
   validates :terms_of_service, acceptance: true
 
   def subscription
-    last_subscription = subscriptions.last
-    if last_subscription.nil? ||
-       (last_subscription && last_subscription.end_time < Time.now)
+    subscriptions.last
+  end
 
-      return 'free'
-    end
+  def subscription_name
+    subscription.name
+  end
 
-    last_subscription.name
+  private
+
+  def add_subscription
+    subscriptions << Subscription.new(
+      subscription_plan: SubscriptionPlan.find_by(name: 'free'),
+      end_time: created_at + 1.year,
+      credits: 1000
+    )
   end
 end
