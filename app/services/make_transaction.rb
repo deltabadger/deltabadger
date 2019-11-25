@@ -40,7 +40,7 @@ class MakeTransaction < BaseService
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.limit_reached(bot: bot)
 
-      return Result::Failure.new(validate_limit_result.errors)
+      return validate_limit_result
     end
 
     if [result, validate_limit_result].all?(&:success?)
