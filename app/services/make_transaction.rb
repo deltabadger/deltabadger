@@ -6,7 +6,8 @@ class MakeTransaction < BaseService
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
-    validate_limit: Bots::Free::Validators::Limit.new
+    validate_limit: Bots::Free::Validators::Limit.new,
+    subtract_credits: SubtractCredits.new
   )
 
     @get_exchange_api = exchange_api
@@ -16,6 +17,7 @@ class MakeTransaction < BaseService
     @api_keys_repository = api_keys_repository
     @notifications = notifications
     @validate_limit = validate_limit
+    @subtract_credits = subtract_credits
   end
 
   def call(bot_id)
@@ -59,6 +61,11 @@ class MakeTransaction < BaseService
              end
 
     @transactions_repository.create(transaction_params(result, bot))
+
+    if result.success?
+      @subtract_credits.call(bot)
+      bot.reload
+    end
 
     result
   end

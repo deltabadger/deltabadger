@@ -10,7 +10,8 @@ module Notifications
 
     def limit_reached(bot:)
       BotAlertsMailer.with(
-        bot: bot
+        bot: bot,
+        user: bot.user
       ).limit_reached.deliver_later
     end
   end
