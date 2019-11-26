@@ -16,6 +16,7 @@ import {
 
 const DashboardTemplate = ({
   bots = [],
+  errors = {},
   currentBot,
   startBot,
   openBot,
@@ -34,6 +35,7 @@ const DashboardTemplate = ({
         key={`${b.id}-${b.id == currentBot}`}
         bot={b}
         open={currentBot && (b.id == currentBot.id)}
+        errors={errors[b.id]}
       />
     )
 
@@ -60,9 +62,18 @@ const DashboardTemplate = ({
   )
 }
 
+const botErrors = (bot, errors) => {
+  if(!bot) {
+    return [];
+  }
+
+  return errors[bot.id];
+}
+
 const mapStateToProps = (state) => ({
   bots: state.bots,
-  currentBot: state.bots.find(bot => bot.id === state.currentBotId)
+  currentBot: state.bots.find(bot => bot.id === state.currentBotId),
+  errors: state.errors
 })
 
 const mapDispatchToProps = ({
