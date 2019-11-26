@@ -1,7 +1,8 @@
 const initialState = {
   bots: [],
   currentBotId: undefined,
-  isPending: {}
+  isPending: {},
+  errors: {}
 };
 
 export const reducer = (state = initialState, action) => {
@@ -27,8 +28,8 @@ export const reducer = (state = initialState, action) => {
       return { ...state, bots: newBots, currentBotId: newBots[0] && newBots[0].id };
     }
 
-    case 'SET_PENDING': {
-      return {...state, isPending: ({...state.isPending, ...action.payload})}
+    case 'SET_ERRORS': {
+      return {...state, errors: ({...state.errors, ...action.payload})}
     }
 
     default:
