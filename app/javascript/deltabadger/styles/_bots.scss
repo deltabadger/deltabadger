@@ -7,7 +7,7 @@
 .db-bots {
   display: grid;
   grid-auto-rows: max-content;
-  padding: 0 $grid-gutter-width/4;
+  column-gap: $grid-gutter-width/2;
   @include media-breakpoint-up(xl) {
     grid-template-columns: 50%;
   }
@@ -15,8 +15,6 @@
 .db-bots__item {
   grid-column-start: 1;
   margin-bottom: $grid-gutter-width/2;
-  margin-left:   $grid-gutter-width/4;
-  margin-right:  $grid-gutter-width/4;
 }
 .db-add-more-bots {
   height: 40px;
