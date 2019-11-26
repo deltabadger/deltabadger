@@ -47,8 +47,8 @@ export const startBot = (id) => dispatch => {
     dispatch(cleanErrors(bot.id))
     dispatch(botReloaded(bot))
     dispatch(openBot(bot.id))
-  }).catch(({data}) => {
-    dispatch(setErrors(bot, data.errors))
+  }).catch((data) => {
+    dispatch(setErrors(data.response.data))
   })
 }
 
