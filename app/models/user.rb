@@ -22,6 +22,10 @@ class User < ApplicationRecord
     subscription.credits
   end
 
+  def limit_reached?
+    credits <= 0
+  end
+
   private
 
   def add_subscription
