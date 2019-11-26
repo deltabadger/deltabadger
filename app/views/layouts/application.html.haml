@@ -10,13 +10,12 @@
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
     %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
 
-
     = csrf_meta_tags
     = csp_meta_tag
 
   %body
-    = render 'layouts/limit_reached'
     = render 'layouts/navbar'
+    = render 'layouts/limit_reached'
     = render 'layouts/devise_messages'
 
     .container

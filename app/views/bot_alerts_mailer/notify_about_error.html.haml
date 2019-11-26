@@ -1,10 +1,6 @@
-!!!
-%html
-  %head
-    %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}/
-  %body
-    %h1
-      Something went wrong while processing transaction, #{@user.email}
-    %p
-      For bot: #{@bot.inspect}
-      Errors: #{@erros.inspect}
+%p
+  Something went wrong while processing transaction, #{@user.email}.
+%p
+  All error are visible in the bot log:textile
+%p
+  Errors: #{@erros.inspect}

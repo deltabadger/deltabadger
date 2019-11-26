@@ -385,3 +385,15 @@ h1 {
   width: 200px;
   padding: 40px;
 }
+
+// limit reached
+
+.db-alert--flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  .btn {
+    position: relative;
+    right:-10px;
+  }
+}
