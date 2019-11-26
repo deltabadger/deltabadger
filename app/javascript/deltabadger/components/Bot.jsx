@@ -47,6 +47,9 @@ const BotTemplate = ({
     handleEdit(botParams)
   }
 
+  const Errors = ({ errors }) => (
+ _)
+
  // useEffect(() => {}, [JSON.stringify(bot)])
 
   const handleReload = (bot, callback) => {
@@ -130,12 +133,21 @@ const isCurrentBotPending = (bot, pending) => {
   return pending[bot.id];
 }
 
+const botErrors = (bot, errors) => {
+  if(!bot) {
+    return [];
+  }
+
+  return errors[bot.id];
+}
+
 const mapStateToProps = (state) => {
   const currentBot = state.bots.find(bot => bot.id === state.currentBotId)
   return {
     bots: state.bots,
     currentBot: currentBot,
-    isPending: isCurrentBotPending(currentBot, state.isPending)
+    isPending: isCurrentBotPending(currentBot, state.isPending),
+    errors: botErrors(currentBot, state.errors)
   }
 }
 
