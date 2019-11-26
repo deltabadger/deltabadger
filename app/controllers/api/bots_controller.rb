@@ -26,9 +26,9 @@ module Api
 
     def update
       result = Bots::Update.call(current_user, bot_update_params)
-      data = present_bot(result.data)
 
       if result.success?
+        data = present_bot(result.data)
         render json: { data: data }, status: 201
       else
         render json: { errors: result.errors }, status: 422
