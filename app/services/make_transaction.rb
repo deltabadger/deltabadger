@@ -7,6 +7,7 @@ class MakeTransaction < BaseService
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
     validate_limit: Bots::Free::Validators::Limit.new,
+    validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
     subtract_credits: SubtractCredits.new
   )
 
@@ -17,6 +18,7 @@ class MakeTransaction < BaseService
     @api_keys_repository = api_keys_repository
     @notifications = notifications
     @validate_limit = validate_limit
+    @validate_almost_limit = validate_almost_limit
     @subtract_credits = subtract_credits
   end
 
@@ -43,6 +45,8 @@ class MakeTransaction < BaseService
       @notifications.limit_reached(bot: bot)
 
       return validate_limit_result
+    else
+      @notifications.limit_almost_reached(bot: bot) if @validate_almost_limit.call(bot.user).failure?
     end
 
     if [result, validate_limit_result].all?(&:success?)
