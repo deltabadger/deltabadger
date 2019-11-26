@@ -26,34 +26,34 @@ module Api
 
     def update
       result = Bots::Update.call(current_user, bot_update_params)
-      data = present_bot(result.data)
 
       if result.success?
+        data = present_bot(result.data)
         render json: { data: data }, status: 201
       else
-        render json: { errors: result.errors }, status: 422
+        render json: { id: params[:id], errors: result.errors }, status: 422
       end
     end
 
     def start
       result = StartBot.call(params[:id])
-      data = present_bot(result.data)
 
       if result.success?
+        data = present_bot(result.data)
         render json: { data: data }, status: 200
       else
-        render json: { data: result.errors }, status: 422
+        render json: { id: params[:id], errors: result.errors }, status: 422
       end
     end
 
     def stop
       result = StopBot.call(params[:id])
-      data = present_bot(result.data)
 
       if result.success?
+        data = present_bot(result.data)
         render json: { data: data }, status: 200
       else
-        render json: { data: result.errors }, status: 422
+        render json: { id: params[:id], errors: result.errors }, status: 422
       end
     end
 
@@ -63,7 +63,7 @@ module Api
       if result.success?
         render json: { data: true }, status: 200
       else
-        render json: { errors: result.errors }, status: 422
+        render json: { id: params[:id], errors: result.errors }, status: 422
       end
     end
 

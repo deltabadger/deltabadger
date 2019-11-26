@@ -6,4 +6,18 @@ class BotAlertsMailer < ApplicationMailer
 
     mail(to: @user.email, subject: 'Something went wrong!')
   end
+
+  def limit_reached
+    @user = params[:user]
+    @bot = params[:bot]
+
+    mail(to: @user.email, subject: 'Limit reached')
+  end
+
+  def limit_almost_reached
+    @user = params[:user]
+    @bot = params[:bot]
+
+    mail(to: @user.email, subject: 'Limit almost reached')
+  end
 end

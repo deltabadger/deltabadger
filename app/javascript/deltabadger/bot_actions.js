@@ -24,6 +24,9 @@ const botRemoved = (id) => ({
   payload: id
 })
 
+const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: errors}})
+const cleanErrors = (id) => ({ type: 'SET_ERRORS', payload: {[id]: []}})
+
 export const loadBots = (openFirstBot = false) => dispatch => {
   return API.getBots().then(({ data }) => {
     const sortedBots = data.sort((a,b) => a.id - b.id)
@@ -41,8 +44,11 @@ export const removeBot = id => (dispatch) => {
 
 export const startBot = (id) => dispatch => {
   API.startBot(id).then(({data: bot}) => {
+    dispatch(cleanErrors(bot.id))
     dispatch(botReloaded(bot))
     dispatch(openBot(bot.id))
+  }).catch((data) => {
+    dispatch(setErrors(data.response.data))
   })
 }
 
@@ -52,26 +58,29 @@ export const stopBot = (id) => dispatch => {
   })
 }
 
+
+let timeout = (callback) => setTimeout(() => {
+  callback()
+}, 2000)
+
+
 export const reloadBot = (currentBot) => dispatch => {
+  console.log('curretn',currentBot)
   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
+    if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
+      clearTimeout(timeout)
       dispatch(botReloaded(reloadedBot))
+    } else {
+      timeout(() => reloadBot(currentBot))
+    }
   })
 }
 
-// export const reloadBot = (currentBot) => dispatch => {
-//   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
-//     if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
-//       dispatch(botReloaded(reloadedBot))
-//     } else {
-//       setTimeout(() => {
-//         dispatch(reloadBot(currentBot))
-//       }, 2000)
-//     }
-//   })
-// }
-
 export const editBot = botParams => dispatch => {
   API.updateBot(botParams).then(({data: bot}) => {
+    dispatch(cleanErrors(bot.id))
     dispatch(startBot(bot.id))
+  }).catch((data) => {
+    dispatch(setErrors(data.response.data))
   })
 }

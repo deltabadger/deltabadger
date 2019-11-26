@@ -1,7 +1,7 @@
 module Bots
   class Update < BaseService
     def initialize(
-      bot_validator: Bots::Free::Validator.new,
+      bot_validator: Bots::Free::Validators::Update.new,
       format_params: Bots::Free::FormatParams::Update.new,
       bots_repository: BotsRepository.new
     )
