@@ -70,3 +70,6 @@ html {
     max-height: calc(#{$introBoxMaxHeight} + #{$navbarHeight});
   }
 }
+.db-icon-verified {
+  cursor: default;
+}

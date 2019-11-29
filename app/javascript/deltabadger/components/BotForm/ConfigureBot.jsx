@@ -9,10 +9,10 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="btn btn-link btn--reset"
+      className="btn btn-link btn--reset btn--reset-back"
     >
-      <i className="material-icons">sync</i>
-      <span>Reset</span>
+      <i className="material-icons-round">arrow_back</i>
+      <span>Back</span>
     </div>
   )
 
@@ -25,9 +25,9 @@ export const ConfigureBot = ({ handleReset, handleSubmit }) => {
   }
 
   return (
-    <div className="db-bots__item db-bot db-bot--dca db-bot--ready">
+    <div className="db-bots__item db-bot db-bot--dca db-bot--ready db-bot--active">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-success'}`}>{disableSubmit ? '' : <span>Start</span> }<i className="material-icons">{disableSubmit ? 'more_horiz' : 'play_arrow'}</i></div>
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-success'}`}>{disableSubmit ? '' : <span>Start</span> }<i className="material-icons-round">{disableSubmit ? 'more_horiz' : 'play_arrow'}</i></div>
         <div className="db-bot__infotext db-bot__infotext--setup">Set the schedule
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>

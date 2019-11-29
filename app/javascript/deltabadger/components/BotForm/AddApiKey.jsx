@@ -13,9 +13,10 @@ export const AddApiKey = ({
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="btn btn-link btn--reset"
+      className="btn btn-link btn--reset btn--reset-back"
     >
-      Reset <i className="material-icons ml-1">sync</i>
+      <i className="material-icons-round">arrow_back</i>
+      <span>Back</span>
     </div>
   )
 
@@ -27,9 +28,9 @@ export const AddApiKey = ({
   }
 
   return (
-    <div className="db-bots__item db-bot db-bot--get-apikey">
+    <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-primary'}`}><i className="material-icons">arrow_forward</i></div>
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-primary'}`}><i className="material-icons-round">arrow_forward</i></div>
         <div className="db-bot__infotext db-bot__infotext--setup">Get API Key
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "33%", ariaValuenow: "33", ariaValuemin: "0", ariaValuemax: "100"}}></div>
@@ -37,9 +38,9 @@ export const AddApiKey = ({
         </div>
 
       </div>
-      <div className="row db-bot__exchanges">
+      <div className="row db-bot__apikey-form">
         { errors }
-        <form onSubmit={_handleSubmit} className="form-row w-100 mx-0 mt-4">
+        <form onSubmit={_handleSubmit} className="form-row w-100">
           <div className="col form-group db-form-group--fg-2">
             <label>API Key:</label>
             <input

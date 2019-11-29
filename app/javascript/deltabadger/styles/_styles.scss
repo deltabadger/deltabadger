@@ -40,12 +40,7 @@ h1 {
   :not(:last-child) {
     margin-right: .5em;
   }
-  span {
-    padding-left: 2px;
-    top:          1px;
-    position:     relative;
-  }
-  .material-icons {
+  .material-icons-round {
     align-self: center;
     margin-right: -.2085em;
     margin-left:  -.2085em;
@@ -278,8 +273,6 @@ h1 {
 .db-content__box {
   background:    white;
   padding:       2rem;
-  margin-left:  .5rem;
-  margin-right: .5rem;
   border-radius: $box-border-radius;
   border:        1px solid #ddd;
 }
@@ -387,7 +380,9 @@ h1 {
 }
 
 // limit reached
-
+.alert {
+  padding: 15px 25px;
+}
 .db-alert--flex {
   display: flex;
   justify-content: space-between;

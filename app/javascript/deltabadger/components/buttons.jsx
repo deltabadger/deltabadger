@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 
 export const StartButton = ({onClick}) => (
-  <div onClick={onClick} className="btn btn-success"><span>Start</span> <i className="material-icons">play_arrow</i></div>
+  <div onClick={onClick} className="btn btn-success"><span>Start</span> <i className="material-icons-round">play_arrow</i></div>
 )
 export const StopButton = ({onClick}) => (
-  <div onClick={onClick} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons">pause</i></div>
+  <div onClick={onClick} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons-round">pause</i></div>
 )
 
 export const RemoveButton = ({onClick, disabled}) => {
@@ -29,10 +29,10 @@ export const RemoveButton = ({onClick, disabled}) => {
     <div>
       <div
         onClick={() => setOpen(true) }
-        className={`btn btn-link btn--reset ${disabled ? 'disabled' : ''}`}
+        className={`btn btn-link btn--reset text-secondary ${disabled ? 'disabled' : ''}`}
       >
-        <i className="material-icons">sync</i>
-        <span>Reset</span>
+        <i className="material-icons-round">delete</i>
+        <span>Delete</span>
       </div>
 
       { isOpen &&
@@ -53,8 +53,8 @@ export const CloseButton = ({onClick}) => (
     onClick={onClick}
     className="btn btn-link btn--reset"
   >
-    <i className="material-icons">close</i>
-    <span>Close</span>
+    <i className="material-icons-round">delete</i>
+    <span>Delete</span>
   </div>
 )
 
