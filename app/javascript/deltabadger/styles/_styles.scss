@@ -382,6 +382,9 @@ h1 {
 // limit reached
 .alert {
   padding: 15px 25px;
+  .close {
+    margin-left: 1em
+  }
 }
 .db-alert--flex {
   display: flex;
@@ -391,4 +394,7 @@ h1 {
     position: relative;
     right:-10px;
   }
+}
+.db-alert--welcome {
+
 }

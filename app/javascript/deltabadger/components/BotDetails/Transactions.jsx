@@ -55,7 +55,7 @@ export const Transactions = ({ bot }) => (
       </tbody>
     </table>
     <div className="db-bot-info__footer">
-      <a href={`/api/bots/${bot.id}/transactions_csv`} className="btn btn-link btn--export-to-csv"><span>Export to .csv</span> <i className="material-icons-round">import_export</i></a>
+      <a href={`/api/bots/${bot.id}/transactions_csv`} className="btn btn-link btn--export-to-csv"><i className="material-icons-round mr-1">play_for_work</i> <span>Download .csv file</span> </a>
     </div>
   </div>
 )
