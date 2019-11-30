@@ -15,23 +15,24 @@ module Presenters
 
         api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
         api = @get_exchange_api.call(api_key)
-        current_price = api.current_price(bot.settings)
+        current_price = api.current_price(bot.settings)*10
 
-        transactions_price_sum = transactions.sum(&:price)
         transactions_amount_sum = transactions.sum(&:amount)
+        transactions_price_sum  = transactions.sum(&:price)
         average_price = transactions_price_sum / transactions.length
-        total_invested = transactions.sum('rate * amount')
-        current_value =  current_price * transactions_amount_sum
+        total_invested = transactions_amount_sum * average_price
+        current_value  = transactions_amount_sum * current_price
         profit_loss = current_value - total_invested
+        profit_loss_percentage = (1 - current_value/total_invested)*100
 
         {
-          bought: "#{transactions_amount_sum} BTC",
-          spent: "$#{transactions_price_sum}".slice(0, 8),
-          averagePrice: "$#{average_price}".slice(0, 8),
-          currentValue: current_value,
+          bought: "#{transactions_amount_sum.floor(2)} BTC",
+          totalInvested: "#{total_invested.floor(2)} USD",
+          averagePrice: "#{average_price.floor(2)} USD",
+          currentValue: "#{current_value.floor(2)} USD",
           profitLoss: {
             positive: profit_loss.positive?,
-            value: "#{profit_loss.positive? ? '+' : '-'}#{profit_loss}".slice(0, 8)
+            value: "#{profit_loss.positive? ? '+' : '-'}#{profit_loss.floor(2).abs} USD (#{profit_loss.positive? ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
           }
         }
       end

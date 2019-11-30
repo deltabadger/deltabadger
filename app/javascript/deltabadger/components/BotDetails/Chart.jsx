@@ -27,7 +27,7 @@ const TOTAL_INVESTED_CONFIG = {
 }
 
 const VALUE_OVER_TIME_CONFIG = {
-        label: 'current value',
+        label: 'value',
         fill: false,
         lineTension: 0.1,
         backgroundColor: 'rgba(75,192,192,0.4)',

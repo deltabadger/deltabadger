@@ -1,7 +1,7 @@
 import React from 'react'
 import { Chart } from './Chart';
 
-const Stats = ({ bought, averagePrice, spent, currentValue, profitLoss = {} }) => (
+const Stats = ({ bought, averagePrice, totalInvested, currentValue, profitLoss = {} }) => (
     <table className="table table-borderless db-table">
       <tbody>
         <tr>
@@ -13,8 +13,8 @@ const Stats = ({ bought, averagePrice, spent, currentValue, profitLoss = {} }) =
           <th scope="col">{ averagePrice }</th>
         </tr>
         <tr>
-          <td scope="col">Spent:</td>
-          <th scope="col">{ spent }</th>
+          <td scope="col">Total invested:</td>
+          <th scope="col">{ totalInvested }</th>
         </tr>
         <tr>
           <td scope="col">Current value:</td>
