@@ -49,7 +49,7 @@ export const Transactions = ({ bot }) => (
             <td scope="row">{t.created_at}</td>
             <td>{bot.settings.type}</td>
             <td>{t.amount || "N/A"}</td>
-            <td>{t.price || "N/A"}</td>
+            <td>{parseFloat(t.price).toFixed(2) || "N/A"}</td>
           </tr>
         ))}
       </tbody>
