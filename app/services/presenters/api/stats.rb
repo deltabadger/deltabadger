@@ -19,7 +19,7 @@ module Presenters
 
         transactions_price_sum = transactions.sum(&:price)
         transactions_amount_sum = transactions.sum(&:amount)
-        avarage_price = transactions_price_sum / transactions.length
+        average_price = transactions_price_sum / transactions.length
         total_invested = transactions.sum('rate * amount')
         current_value =  current_price * transactions_amount_sum
         profit_loss = current_value - total_invested
@@ -27,7 +27,7 @@ module Presenters
         {
           bought: "#{transactions_amount_sum} BTC",
           spent: "$#{transactions_price_sum}".slice(0, 8),
-          avaragePrice: "$#{avarage_price}".slice(0, 8),
+          averagePrice: "$#{average_price}".slice(0, 8),
           currentValue: current_value,
           profitLoss: {
             positive: profit_loss.positive?,
