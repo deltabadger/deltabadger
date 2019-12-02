@@ -26,6 +26,10 @@ class User < ApplicationRecord
     credits <= 0
   end
 
+  def welcome_banner_showed?
+    welcome_banner_showed
+  end
+
   private
 
   def add_subscription

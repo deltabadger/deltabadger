@@ -10,7 +10,16 @@ class HomeController < ApplicationController
 
   ].freeze
 
-  before_action :authenticate_user!, except: PUBLIC_PAGES
+  before_action(
+    :authenticate_user!,
+    except: PUBLIC_PAGES
+  )
+  before_action(
+    :set_welcome_banner,
+    only: [:dashboard],
+    if: -> { !current_user.welcome_banner_showed? }
+  )
+
   layout 'guest', only: PUBLIC_PAGES
 
   def index
@@ -18,4 +27,9 @@ class HomeController < ApplicationController
   end
 
   def dashboard; end
+
+  def set_welcome_banner
+    @show_welcome_banner = true
+    current_user.update!(welcome_banner_showed: true)
+  end
 end
