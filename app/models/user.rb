@@ -23,11 +23,17 @@ class User < ApplicationRecord
   end
 
   def limit_reached?
+    return false if unlimited?
+
     credits <= 0
   end
 
   def welcome_banner_showed?
     welcome_banner_showed
+  end
+
+  def unlimited?
+    subscription_name == 'unlimited'
   end
 
   private

@@ -9,7 +9,7 @@ class SubscribeUnlimited < BaseService
   end
 
   def call(user)
-    if user.subscription != 'free'
+    if user.subscription_name != 'free'
       return Result::Failure.new('Already Subscribed')
     end
 
