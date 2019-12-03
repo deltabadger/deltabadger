@@ -11,7 +11,7 @@ module Presenters
       end
 
       def call(bot)
-        transactions = @transactions_repository.successful_for_bot(bot, limit: 10)
+        transactions = @transactions_repository.successful_for_bot(bot)
         logs = @transactions_repository.for_bot(bot, limit: 10)
 
         {
@@ -19,7 +19,7 @@ module Presenters
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           status: bot.status,
-          transactions: transactions.map(&method(:present_transaction)),
+          transactions: transactions.first(10).map(&method(:present_transaction)),
           logs: logs.map(&method(:present_log)),
           stats: present_stats(bot, transactions),
           nextTransactionTimestamp: next_transaction_timestamp(bot)
@@ -35,12 +35,6 @@ module Presenters
         (bot.transactions.last.created_at + interval).to_i
       rescue
         nil
-      end
-
-      def transactions(bot)
-        @transactions_repository
-          .successful_for_bot(bot, limit: 10)
-          .map(&method(:present_transaction))
       end
 
       def logs(bot)

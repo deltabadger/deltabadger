@@ -82,8 +82,8 @@ export const BotForm = ({
       setErrors([])
       setStep(0)
       setFormState({})
-    }).catch(() => {
-      setErrors("Invalid token")
+    }).catch((data) => {
+      setErrors(data.response.data.errors[0])
     })
   }
 
@@ -96,40 +96,41 @@ export const BotForm = ({
     })
   }
 
-	const renderForm = () => {
-		switch (STEPS[chooseStep(step)]) {
-			case 'closed_form':
-				return <ClosedForm
-					handleSubmit={closedFormHandler}
-				/>
-			case 'pick_exchange':
-				return <PickExchage
+  const renderForm = () => {
+    switch (STEPS[chooseStep(step)]) {
+      case 'closed_form':
+        return <ClosedForm
+          handleSubmit={closedFormHandler}
+        />
+      case 'pick_exchange':
+        return <PickExchage
           handleReset={() => {
             setStep(0)
             callbackAfterClosing()
           }}
-					handleSubmit={pickExchangeHandler}
-					exchanges={exchanges}
-				/>
-			case 'add_api_key':
-				return <AddApiKey
-					pickedExchangeName={pickedExchange.name}
-					handleReset={resetFormToStep(1)}
-					handleSubmit={addApiKeyHandler}
-					errors={errors}
-				/>
-			case 'configure_bot':
-				return <ConfigureBot
-					handleReset={resetFormToStep(1)}
-					handleSubmit={configureBotHandler}
-				/>
-		}
-	}
+          handleSubmit={pickExchangeHandler}
+          exchanges={exchanges}
+        />
+      case 'add_api_key':
+        return <AddApiKey
+          pickedExchangeName={pickedExchange.name}
+          handleReset={resetFormToStep(1)}
+          handleSubmit={addApiKeyHandler}
+          errors={errors}
+        />
+      case 'configure_bot':
+        return <ConfigureBot
+          handleReset={resetFormToStep(1)}
+          handleSubmit={configureBotHandler}
+          errors={errors}
+        />
+    }
+  }
 
   return (
     <>
-      { renderForm() }
-      { chooseStep(step) > 0 && <Details /> }
+    { renderForm() }
+    { chooseStep(step) > 0 && <Details /> }
     </>
-    )
+  )
 }

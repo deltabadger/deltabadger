@@ -4,6 +4,8 @@ class SubtractCredits < BaseService
   end
 
   def call(bot)
+    return nil if bot.user.unlimited?
+
     subscription = bot.user.subscription
     subtracted_credits = subscription.credits - bot.price.to_i
 
