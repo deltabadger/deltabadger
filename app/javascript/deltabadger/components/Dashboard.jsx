@@ -62,14 +62,6 @@ const DashboardTemplate = ({
   )
 }
 
-const botErrors = (bot, errors) => {
-  if(!bot) {
-    return [];
-  }
-
-  return errors[bot.id];
-}
-
 const mapStateToProps = (state) => ({
   bots: state.bots,
   currentBot: state.bots.find(bot => bot.id === state.currentBotId),
