@@ -9,7 +9,7 @@ module ExchangeApi
       end
 
       def validate_credentials
-        true
+        SUCCESS
       end
 
       def current_price(_)
