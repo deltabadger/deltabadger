@@ -7,6 +7,7 @@ class User < ApplicationRecord
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :subscriptions
+  has_many :payments
 
   validates :terms_of_service, acceptance: true
 
