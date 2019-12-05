@@ -1,7 +1,7 @@
 module Payments
   class Client < BaseService
-    # URL = ENV.fetch('PAYMENTS_URL', 'https://test.globee.com/payment-api/v1/')
-    URL = ENV.fetch('PAYMENTS_URL', 'https://globee.com/payment-api/v1/')
+    URL = ENV.fetch('PAYMENTS_URL', 'https://test.globee.com/payment-api/v1/')
+    # URL = ENV.fetch('PAYMENTS_URL', 'https://globee.com/payment-api/v1/')
     PUBLIC_API_KEY = ENV.fetch('PAYMENTS_API_KEY')
 
     def initialize(api_key: PUBLIC_API_KEY)
@@ -13,7 +13,7 @@ module Payments
       JSON.parse(Faraday.get(url, {}, headers).body)
     end
 
-    def create_invoice(params)
+    def create_payment(params)
       url = create_url('payment-request')
 
       response = JSON.parse(
@@ -28,10 +28,33 @@ module Payments
           status: data.fetch('status'),
           total: data.fetch('total'),
           email: data.fetch('customer').fetch('email'),
-          created_at: Time.parse(data.fetch('created_at'))
+          created_at: Time.parse(data.fetch('created_at')),
+          payment_url: data.fetch('redirect_url')
         )
       else
         Result::Failure.new(response.fetch('errors'))
+      end
+    end
+
+    def get_payment(id)
+      url = create_url("payment-request/#{id}")
+
+      response = JSON.parse(
+        Faraday.get(url, {}, headers).body
+      )
+      if response['success']
+        data = response.fetch('data')
+
+        Result::Success.new(
+          id: data.fetch('id'),
+          status: data.fetch('status'),
+          total: data.fetch('total'),
+          email: data.fetch('customer').fetch('email'),
+          created_at: Time.parse(data.fetch('created_at')),
+          payment_url: data.fetch('redirect_url')
+        )
+      else
+        Result::Failure.new([response.fetch('message')])
       end
     end
 
