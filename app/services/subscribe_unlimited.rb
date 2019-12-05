@@ -9,10 +9,6 @@ class SubscribeUnlimited < BaseService
   end
 
   def call(user)
-    if user.subscription_name != 'free'
-      return Result::Failure.new('Already Subscribed')
-    end
-
     subscription_plan =
       @subscription_plans_repository
       .find_by(name: 'unlimited')
@@ -20,7 +16,8 @@ class SubscribeUnlimited < BaseService
     @subscriptions_repository.create(
       user_id: user.id,
       subscription_plan_id: subscription_plan.id,
-      end_time: Time.now + 1.year
+      end_time: Time.now + 1.year,
+      credits: 1000
     )
 
     Result::Success.new

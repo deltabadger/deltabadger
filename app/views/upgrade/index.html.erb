@@ -1,0 +1,8 @@
+Upgrade!
+
+
+Cost: 10$
+<% errors.each do |error| %>
+  <%= error["message"] %>
+<% end %>
+<%= link_to "Pay now!", upgrade_pay_path, method: :post %>
