@@ -26,7 +26,7 @@ class HomeController < ApplicationController
     redirect_to dashboard_path if user_signed_in?
   end
 
-  def dashboard; end
+  private
 
   def set_welcome_banner
     @show_welcome_banner = true

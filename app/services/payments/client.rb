@@ -1,5 +1,7 @@
 module Payments
   class Client < BaseService
+    include Rails.application.routes.url_helpers
+
     URL = ENV.fetch('PAYMENTS_URL', 'https://test.globee.com/payment-api/v1/')
     # URL = ENV.fetch('PAYMENTS_URL', 'https://globee.com/payment-api/v1/')
     PUBLIC_API_KEY = ENV.fetch('PAYMENTS_API_KEY')
@@ -24,7 +26,7 @@ module Payments
         data = response.fetch('data')
 
         Result::Success.new(
-          id: data.fetch('id'),
+          payment_id: data.fetch('id'),
           status: data.fetch('status'),
           total: data.fetch('total'),
           email: data.fetch('customer').fetch('email'),
@@ -44,9 +46,8 @@ module Payments
       )
       if response['success']
         data = response.fetch('data')
-
         Result::Success.new(
-          id: data.fetch('id'),
+          payment_id: data.fetch('id'),
           status: data.fetch('status'),
           total: data.fetch('total'),
           email: data.fetch('customer').fetch('email'),
@@ -63,12 +64,15 @@ module Payments
     def body(params)
       price = params.fetch(:price)
       currency = params.fetch(:currency)
+      email = params.fetch(:email)
 
       {
         total: price,
         currency: currency,
-        callback_data: 'example data',
-        customer: { email: 'tomasz.balon@upsidelab.io' }
+        customer: { email: email },
+        success_url: upgrade_payment_success_url(host: 'localhost:3000'),
+        cancel_url: upgrade_payment_cancel_url(host: 'localhost:3000')
+
       }.to_json
     end
 

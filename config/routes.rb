@@ -3,9 +3,17 @@ require 'sidekiq/web'
 Rails.application.routes.draw do
   namespace :settings do
     get '/', action: :index
-    patch 'update_password'
-    patch 'update_email'
+    patch :update_password
+    patch :update_email
     delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
+  end
+
+  namespace :upgrade do
+    get '/', action: :index
+    post :pay
+    get :payment_success
+    get :payment_cancel
+    post :payment_callback
   end
 
   namespace :admin do
