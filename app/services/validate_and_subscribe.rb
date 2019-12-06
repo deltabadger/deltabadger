@@ -1,4 +1,4 @@
-class ValidateAndSubscibe < BaseService
+class ValidateAndSubscribe < BaseService
   def initialize(
     subscribe: SubscribeUnlimited.new,
     validate: ->(payment) { payment.paid? }

@@ -1,5 +1,6 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
+  protect_from_forgery :except => [:payment_callback]
 
   def index
     render :index, locals: { errors: [] }
@@ -28,10 +29,15 @@ class UpgradeController < ApplicationController
   end
 
   def payment_callback
-    payment = Payments::Update.call(params['data'])
-
-    ValidateAndSubscibe.call(payment)
+    payment = Payments::Update.call(callback_params)
+    ValidateAndSubscribe.call(payment)
 
     render json: {}
+  end
+
+  private
+
+  def callback_params
+    params.permit(:id, :custom_payment_id, :status)
   end
 end
