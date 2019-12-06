@@ -2,9 +2,9 @@ module Payments
   class Client < BaseService
     include Rails.application.routes.url_helpers
 
-    HOST = ENV.fetch('HOST')
-    URL = ENV.fetch('PAYMENTS_URL', 'https://test.globee.com/payment-api/v1/')
-    PUBLIC_API_KEY = ENV.fetch('PAYMENTS_API_KEY')
+    HOST            = ENV.fetch('PAYMENTS_CALLBACK_HOST')
+    URL             = ENV.fetch('PAYMENTS_URL')
+    PUBLIC_API_KEY  = ENV.fetch('PAYMENTS_API_KEY')
 
     def initialize(api_key: PUBLIC_API_KEY)
       @api_key = api_key
@@ -72,7 +72,7 @@ module Payments
         customer: { email: email },
         success_url: upgrade_payment_success_url(host: HOST),
         cancel_url: upgrade_payment_cancel_url(host: HOST),
-        ipn_url: upgrade_payment_callback_url(host: HOST)
+        ipn_url: upgrade_payment_callback_url(host: HOST) + '/'
       }.to_json
     end
 
