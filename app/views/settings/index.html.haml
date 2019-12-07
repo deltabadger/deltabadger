@@ -5,9 +5,9 @@
   .row
     .col
       = render partial: 'update_password_form', locals: { user: user }
+      = render partial: 'credits', locals: { user: user }
     .col
       = render partial: 'update_email_form', locals: { user: user }
-      = render partial: 'credits', locals: { user: user }
-
-      %h2.mt-5 Api Keys:
+      
+      %h2.mt-5 Api Keys
       = render partial: 'remove_api_key', collection: api_keys, as: :api_key
