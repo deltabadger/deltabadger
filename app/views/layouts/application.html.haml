@@ -5,13 +5,13 @@
     %meta{:charset => "UTF-8"}
     %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
     %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
+    = csrf_meta_tags
+    = csp_meta_tag
     %title Deltabadger
     %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
     %link{:href => "https://fonts.googleapis.com/css?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Two+Tone|Material+Icons+Round|Material+Icons+Sharp", :rel => "stylesheet"}
-
-    = csrf_meta_tags
-    = csp_meta_tag
+    = stylesheet_pack_tag 'deltabadger'
 
   %body
     = render 'layouts/navbar'
@@ -29,7 +29,6 @@
     = render partial: 'layouts/drift' if !Rails.env.development?
 
     = javascript_pack_tag 'deltabadger2'
-    = stylesheet_pack_tag 'deltabadger'
 
     %script{:crossorigin => "anonymous", :integrity => "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", :src => "https://code.jquery.com/jquery-3.2.1.slim.min.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", :src => "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"}

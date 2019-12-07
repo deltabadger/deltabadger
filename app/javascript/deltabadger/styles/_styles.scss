@@ -398,3 +398,55 @@ h1 {
 .db-alert--welcome {
 
 }
+
+// db-tooltip
+.db-has-tooltip {
+  position: relative;
+  &:hover {
+    .db-tooltip {
+      opacity: 1;
+      left: -230px;
+    }
+  }
+  &.db-icon-verified {
+    .db-tooltip {
+      width: 140px;
+      left: -130px;
+    }
+    &:hover {
+      .db-tooltip {
+      left: -140px;
+      }
+    }
+  }
+}
+.db-tooltip {
+  pointer-events: none;
+  opacity: 0;
+  transition: 250ms ease-in-out;
+  position: absolute;
+  background: white;
+  padding: 5px;
+  border-radius: $box-border-radius;
+  border: 1px solid #ddd;
+  left: -220px;
+  top: 0;
+  z-index: 10000;
+  width: 220px;
+  color: #444;
+  font-weight: normal;
+  &::before {
+    content: "";
+    border:1px solid transparent;
+    border-right-color: #ddd;
+    border-bottom-color: #ddd;
+    top: 12px;
+    display: block;
+    position: absolute;
+    right:-5px;
+    width: 10px;
+    height: 10px;
+    transform: rotate(-45deg);
+    background: white;
+  }
+}
