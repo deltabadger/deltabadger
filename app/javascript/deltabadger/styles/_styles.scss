@@ -42,9 +42,12 @@ h1 {
   }
   .material-icons-round {
     align-self: center;
-    margin-right: -.2085em;
-    margin-left:  -.2085em;
+    margin-right: -.25em;
+    margin-left:  -.25em;
   }
+}
+.btn-link {
+  transition: none;
 }
 .row--intro {
   height:     $introBoxHeight;
@@ -448,5 +451,27 @@ h1 {
     height: 10px;
     transform: rotate(-45deg);
     background: white;
+  }
+}
+
+// checkout
+
+.db-table--checkout {
+  td {
+    padding: .5rem 0;
+    text-align: right;
+    &:first-child {
+      text-align: left;
+    }
+  }
+
+}
+.db-globee-badge {
+  text-align: center;
+  color: #888;
+  img {
+    filter: grayscale(0);
+    height: 20px;
+    width: auto;
   }
 }
