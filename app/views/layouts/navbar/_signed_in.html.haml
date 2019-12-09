@@ -12,7 +12,7 @@
             %i.material-icons-round.ml-1 verified_user
             .db-tooltip 364 days left
         - else
-          %a.btn.btn-outline-primary.mr-2{:href => "#"}
+          %a.btn.btn-outline-primary.mr-2(href="#" data-toggle="modal" data-target="#upgradeModal")
             %span Upgrade
 
         %a.btn.btn-link{:href => root_path} Dashboard
