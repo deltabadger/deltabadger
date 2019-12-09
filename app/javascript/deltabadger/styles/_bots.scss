@@ -105,7 +105,6 @@
   border:        1px solid #ddd;
   border-radius: $box-border-radius;
   padding:       $bot-gutter-width/2;
-  transition:    all 250ms ease-in-out;
   .alert {
     border-radius: 0;
   }
@@ -152,7 +151,6 @@
     border-radius: $btn-border-radius;
     right:        -10px;
     position:      relative;
-    transition:    all 500ms ease-in-out !important;
   }
 }
 .db-bot__infotext {
@@ -289,7 +287,7 @@
   span {
     color:       $danger;
     margin-left: 7px;
-    transition:  0.25s;
+    
     opacity:     0;
   }
   &:hover {
