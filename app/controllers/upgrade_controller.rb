@@ -1,6 +1,6 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery :except => [:payment_callback]
+  protect_from_forgery except: [:payment_callback]
 
   def index
     render :index, locals: { errors: [] }
