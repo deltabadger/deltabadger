@@ -1,2 +1,3 @@
-%h2.mt-5 Current limits
-= user.unlimited? ? "365 days of Unlimited plan left." : user.credits <= 0 ? "No free credits left. Upgrade your plan to continue." : user.credits
+.db-settings-section
+  %h2 Current limits
+  = user.unlimited? ? "365 days of Unlimited plan left." : user.credits <= 0 ? "No free credits left. Upgrade your plan to continue." : user.credits

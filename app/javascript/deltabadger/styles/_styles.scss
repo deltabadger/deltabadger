@@ -279,9 +279,20 @@ h1 {
   border-radius: $box-border-radius;
   border:        1px solid #ddd;
 }
+.db-content__box--settings {
+  padding:       2rem 1.5rem 0;
+  .col-md {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
 .db-remove-api-key {
   position: relative;
   top: 6px;
+}
+
+.db-settings-section {
+  margin-bottom: 2.2rem;
 }
 
 // footer
@@ -476,3 +487,5 @@ h1 {
     width: auto;
   }
 }
+
+//

@@ -1,13 +1,14 @@
-%h2 Update email
-= form_for(user, url: settings_update_email_path) do |f|
-  .form-group
-    = f.label :email
-    = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
-  - if user.pending_reconfirmation?
-    %div
-      Currently waiting confirmation for: #{user.unconfirmed_email}
-  .form-group
-    = f.label :current_password, "Current password (for confirmation)"
-    = f.password_field :current_password, autocomplete: "current-password", class: "form-control"
-  .form-group
-    = f.submit "Update email", class: "btn btn-primary"
+.db-settings-section
+  %h2 Update email
+  = form_for(user, url: settings_update_email_path) do |f|
+    .form-group
+      = f.label :email
+      = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
+    - if user.pending_reconfirmation?
+      %div
+        Currently waiting confirmation for: #{user.unconfirmed_email}
+    .form-group
+      = f.label :current_password, "Current password (for confirmation)"
+      = f.password_field :current_password, autocomplete: "current-password", class: "form-control"
+    .form-group
+      = f.submit "Update email", class: "btn btn-primary"
