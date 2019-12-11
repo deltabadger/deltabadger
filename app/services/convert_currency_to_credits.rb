@@ -5,7 +5,6 @@ class ConvertCurrencyToCredits < BaseService
 
   def call(amount:, currency:)
     conversion_rate = CONVERSION_RATES.fetch(currency.to_sym, 1)
-    byebug
     amount * conversion_rate
   end
 end
