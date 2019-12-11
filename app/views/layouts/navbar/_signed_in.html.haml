@@ -10,7 +10,7 @@
           .btn.text-success.db-icon-verified.mr-2.db-has-tooltip
             Unlimited
             %i.material-icons-round.ml-1 verified_user
-            .db-tooltip 364 days left
+            .db-tooltip= "#{(current_user.subscription.end_time.to_date - Date.today).to_i} days left"
         - else
           %a.btn.btn-outline-primary.mr-2(href="#" data-toggle="modal" data-target="#upgradeModal")
             %span Upgrade
