@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2019_12_02_014142) do
+ActiveRecord::Schema.define(version: 2019_12_12_133134) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -46,6 +46,21 @@ ActiveRecord::Schema.define(version: 2019_12_02_014142) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "payments", force: :cascade do |t|
+    t.string "payment_id"
+    t.integer "status"
+    t.decimal "total"
+    t.integer "currency"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "first_name"
+    t.string "last_name"
+    t.date "birth_date"
+    t.boolean "eu"
+    t.index ["user_id"], name: "index_payments_on_user_id"
+  end
+
   create_table "subscribers", force: :cascade do |t|
     t.string "email", null: false
     t.datetime "created_at", null: false
@@ -65,7 +80,8 @@ ActiveRecord::Schema.define(version: 2019_12_02_014142) do
     t.datetime "end_time"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "credits"
+    t.decimal "credits"
+    t.boolean "limit_almost_reached_sent", default: false
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
