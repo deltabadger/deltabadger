@@ -1,0 +1,51 @@
+- errors.each do |error|
+  = error
+
+.modal-dialog(role="document")
+  .modal-content
+    .modal-body
+      %h2.db-modal-title Upgrade
+      %table.table.db-table--checkout
+        %tbody.table-borderless
+          %tr
+            %td(scope="col") Annual Unlimited upgrade
+            %td(scope="col")
+            %td(scope="col") $10
+        %tfoot
+          %tr
+            %td(scope="col")
+            %td(scope="col")
+              %b Sum:
+            %td(scope="col")
+              %b $10
+      = form_for payment, url: upgrade_pay_path do |f|
+        %h4 Billing information
+        .form-group
+          %label(for="first_name") Name
+          = f.text_field :first_name, class: 'form-control'
+
+        .form-group
+          %label(for="last_name") Surname
+          = f.text_field :last_name, class: 'form-control'
+
+        .form-group
+          %label{:for => "example-date-input"} Birth date
+          = f.date_field :birth_date, class: 'example-data-input form-control'
+
+        .form-group
+          %label Country
+          %br
+          .form-check.form-check-inline
+            = f.radio_button :eu, true, checked: payment.eu || true, class: 'form-check-input'
+            = f.label :eu, "EU", class: 'form-check-label'
+          .form-check.form-check-inline
+            = f.radio_button :eu, false, class: 'form-check-input'
+            = f.label :eu, "Other", class: 'form-check-label'
+
+        .form-group.db-form-group--main-btn
+          %button.btn.btn-success.btn-lg{type: 'submit'}
+            %span.mr-2 Checkout
+            %i.material-icons-round arrow_forward
+        .db-globee-badge
+          %small Payment with
+          %img{:src => asset_pack_path("media/images/globee.png")}

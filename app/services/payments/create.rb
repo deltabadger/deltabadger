@@ -5,27 +5,36 @@ module Payments
 
     def initialize(
       client: Payments::Client.new,
-      payments_repository: PaymentsRepository.new
+      payments_repository: PaymentsRepository.new,
+      payment_validator: Payments::Validators::Create.new
     )
 
       @client = client
       @payments_repository = payments_repository
+      @payment_validator = payment_validator
     end
 
-    def call(user)
-      payment = @client.create_payment(
+    def call(params)
+      payment = Payment.new(params)
+      validation_result = @payment_validator.call(payment)
+
+      return validation_result if validation_result.failure?
+
+      user = params.fetch(:user)
+      payment_result = @client.create_payment(
         price: COST,
         currency: CURRENCY,
         email: user.email
       )
 
-      if payment.success?
+      if payment_result.success?
         @payments_repository.create(
-          payment.data.slice(:payment_id, :status, :total)
-          .merge(currency: CURRENCY, user: user)
+          payment_result.data.slice(:payment_id, :status, :total)
+          .merge(currency: CURRENCY).merge(params)
         )
       end
-      payment
+
+      payment_result
     end
   end
 end
