@@ -3,6 +3,10 @@ class ApplicationController < ActionController::Base
 
   protected
 
+  def current_user
+    UserDecorator.new(super)
+  end
+
   def configure_permitted_parameters
     devise_parameter_sanitizer
       .permit(:sign_up, keys: %i[terms_of_service updates_agreement])

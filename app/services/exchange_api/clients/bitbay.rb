@@ -2,9 +2,10 @@
 module ExchangeApi
   module Clients
     class Bitbay < ExchangeApi::Clients::Base
-      def initialize(api_key:, api_secret:)
+      def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Bitbay.new)
         @api_key = api_key
         @api_secret = api_secret
+        @map_errors = map_errors
       end
 
       def validate_credentials
@@ -63,7 +64,9 @@ module ExchangeApi
             amount: response.fetch('transactions').first.fetch('amount')
           )
         else
-          Result::Failure.new(*response.fetch('errors'))
+          Result::Failure.new(
+            *@map_errors.call(response.fetch('errors'))
+          )
         end
       end
 
