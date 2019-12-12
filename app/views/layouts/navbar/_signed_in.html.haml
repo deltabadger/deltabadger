@@ -10,9 +10,9 @@
           .btn.text-success.db-icon-verified.mr-2.db-has-tooltip
             Unlimited
             %i.material-icons-round.ml-1 verified_user
-            .db-tooltip 364 days left
+            .db-tooltip= "#{ current_user.plan_days_left } days left"
         - else
-          %a.btn.btn-outline-primary.mr-2(href="#" data-toggle="modal" data-target="#upgradeModal")
+          %a.btn.btn-outline-primary.mr-2{:href => upgrade_path}
             %span Upgrade
 
         %a.btn.btn-link{:href => root_path} Dashboard

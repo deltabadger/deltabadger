@@ -7,11 +7,19 @@ class User < ApplicationRecord
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :subscriptions
+  has_many :payments
 
   validates :terms_of_service, acceptance: true
 
   def subscription
-    subscriptions.last
+    current_subscription = subscriptions.last
+
+    if current_subscription.nil? || current_subscription.end_time < Time.now
+      add_subscription
+      subscription
+    else
+      current_subscription
+    end
   end
 
   def subscription_name
