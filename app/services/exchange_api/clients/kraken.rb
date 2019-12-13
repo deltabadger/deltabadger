@@ -13,7 +13,7 @@ module ExchangeApi
       def validate_credentials
         response = @client.balance
 
-        return false if response.keys.include?('error')
+        return false if response.fetch('error').any?
 
         true
       end
