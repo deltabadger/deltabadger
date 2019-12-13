@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/LineLength:
 require 'kraken_ruby_client'
 
 module ExchangeApi
@@ -27,27 +28,66 @@ module ExchangeApi
         (bid + ask) / 2
       end
 
+      def orders
+        @client.closed_orders.dig('result', 'closed')
+      end
+
       def buy(settings)
         currency = settings.fetch('currency')
         price = settings.fetch('price')
         pair = "XBT#{currency}"
+        volume = price / current_price(settings)
 
-        response = @client.add_order(pair: pair, type: 'buy', ordertype: 'market', volume: 1)
+        response =
+          @client
+          .add_order(pair: pair, type: 'buy', ordertype: 'market', volume: volume)
 
-        if response.fetch("error").any?
-          Result::Failure.new(
+        if response.fetch('error').any?
+          return Result::Failure.new(
             *@map_errors.call(response.fetch('error'))
           )
-        else
-          true
         end
+
+        offer_id = response.dig('result', 'txid').first
+        order_data = orders[offer_id]
+        vol = order_data.fetch('vol').to_f
+        cost = order_data.fetch('cost').to_f
+
+        Result::Success.new(
+          offer_id: offer_id,
+          rate: cost/vol,
+          amount: vol
+        )
       end
 
-      def sell(_)
-        puts 'Selling things on Kraken!'
+      def sell(settings)
+        currency = settings.fetch('currency')
+        price = settings.fetch('price')
+        pair = "XBT#{currency}"
+        volume = price / current_price(settings)
 
-        true
+        response =
+          @client
+          .add_order(pair: pair, type: 'sell', ordertype: 'market', volume: volume)
+
+        if response.fetch('error').any?
+          return Result::Failure.new(
+            *@map_errors.call(response.fetch('error'))
+          )
+        end
+
+        offer_id = response.dig('result', 'txid').first
+        order_data = orders[offer_id]
+        vol = order_data.fetch('vol').to_f
+        cost = order_data.fetch('cost').to_f
+
+        Result::Success.new(
+          offer_id: offer_id,
+          rate: cost/vol,
+          amount: vol
+        )
       end
     end
   end
 end
+# rubocop:enable Metrics/LineLength:
