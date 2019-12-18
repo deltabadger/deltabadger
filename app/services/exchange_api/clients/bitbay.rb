@@ -39,7 +39,8 @@ module ExchangeApi
 
       def make_order(offer_type, settings)
         currency = settings.fetch('currency')
-        price = settings.fetch('price')
+        # price = settings.fetch('price')
+        price = 10
 
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
         body = {
