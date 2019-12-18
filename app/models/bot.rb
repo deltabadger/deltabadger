@@ -17,11 +17,19 @@ class Bot < ApplicationRecord
     settings.fetch('price')
   end
 
+  def interval
+    settings.fetch('interval')
+  end
+
   def buyer?
     settings.fetch('type') == 'buy'
   end
 
   def seller?
     !buyer?
+  end
+
+  def last_transaction
+    transactions.last
   end
 end
