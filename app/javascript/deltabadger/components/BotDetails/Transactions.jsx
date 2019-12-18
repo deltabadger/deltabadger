@@ -38,9 +38,9 @@ export const Transactions = ({ bot }) => (
       <thead>
         <tr>
           <th scope="col">Date</th>
-          <th scope="col">Action</th>
+          <th scope="col">Order</th>
           <th scope="col">Amount(BTC)</th>
-          <th scope="col">Price({bot.settings.currency})</th>
+          <th scope="col">Rate({bot.settings.currency})</th>
         </tr>
       </thead>
       <tbody>
