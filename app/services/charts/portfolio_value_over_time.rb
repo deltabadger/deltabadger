@@ -6,7 +6,8 @@ module Charts
           select
             created_at,
             rate * amount as invested,
-            rate
+            rate,
+            amount
           from transactions
           where bot_id = ?
         )
@@ -14,12 +15,12 @@ module Charts
         select
           created_at,
           total_invested,
-          rate,
-          rate * total_invested as current_value
+          rate * total_accumulated as current_value
           from (
             SELECT
               created_at,
               sum(invested) over (order by created_at asc rows between unbounded preceding and current row) as total_invested,
+              sum(amount) over (order by created_at asc rows between unbounded preceding and current row) as total_accumulated,
               rate
             from data) t1
       SQL
@@ -28,6 +29,7 @@ module Charts
       response = ActiveRecord::Base.connection.execute(sanitized_sql)
 
       date = response.map { |el| el.fetch('created_at') }
+
       total_invested = response.map { |el| el.fetch('total_invested') }
       value = response.map { |el| el.fetch('current_value') }
 
