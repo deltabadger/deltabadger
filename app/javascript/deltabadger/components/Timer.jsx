@@ -22,12 +22,10 @@ export const Timer = ({bot, callback, isPending}) => {
   const timeout = delay.seconds() < 0
 
   useInterval(() => {
-    console.log(timeout)
     const calculatedDelay = calculateDelay(nextTransactionTimestamp)
 
     if(timeout && !isPending && i == 0) {
       if (bot) {
-        console.log('odpalam callback')
         i = i + 1;
         callback(bot)
       }

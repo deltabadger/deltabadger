@@ -31,7 +31,7 @@ module Presenters
       def next_transaction_timestamp(bot)
         return nil if !bot.transactions.exists?
 
-        interval = @parse_interval.call(bot.settings)
+        interval = @parse_interval.call(bot)
         (bot.transactions.last.created_at + interval).to_i
       rescue
         nil
