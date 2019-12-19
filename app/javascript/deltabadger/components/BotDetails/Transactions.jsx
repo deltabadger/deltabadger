@@ -38,9 +38,9 @@ export const Transactions = ({ bot }) => (
       <thead>
         <tr>
           <th scope="col">Date</th>
-          <th scope="col">Action</th>
+          <th scope="col">Order</th>
           <th scope="col">Amount(BTC)</th>
-          <th scope="col">Price({bot.settings.currency})</th>
+          <th scope="col">Rate({bot.settings.currency})</th>
         </tr>
       </thead>
       <tbody>
@@ -49,7 +49,7 @@ export const Transactions = ({ bot }) => (
             <td scope="row">{t.created_at}</td>
             <td>{bot.settings.type}</td>
             <td>{t.amount || "N/A"}</td>
-            <td>{parseFloat(t.price).toFixed(2) || "N/A"}</td>
+            <td>{parseFloat(t.rate).toFixed(2) || "N/A"}</td>
           </tr>
         ))}
       </tbody>

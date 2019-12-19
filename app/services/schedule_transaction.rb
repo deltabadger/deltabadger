@@ -9,7 +9,7 @@ class ScheduleTransaction < BaseService
   end
 
   def call(bot)
-    interval = @parse_interval.call(bot.settings)
+    interval = @parse_interval.call(bot)
     @make_transaction_worker.perform_at(interval.from_now, bot.id)
   end
 end

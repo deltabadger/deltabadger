@@ -13,7 +13,7 @@ module ExchangeApi
       end
 
       def current_price(_)
-        100
+        rand(6000...8000)
       end
 
       def buy(_)
@@ -22,8 +22,8 @@ module ExchangeApi
         if SUCCESS
           Result::Success.new(
             offer_id: SecureRandom.uuid,
-            rate: rand,
-            amount: rand(3000)
+            rate: rand(6000...8000),
+            amount: 0.002
           )
         else
           Result::Failure.new('Something went wrong!')
@@ -36,8 +36,8 @@ module ExchangeApi
         if SUCCESS
           Result::Success.new(
             offer_id: SecureRandom.uuid,
-            rate: rand,
-            amount: rand(30)
+            rate: rand(6000...8000),
+            amount: 0.002
           )
         else
           Result::Failure.new('Something went wrong!')
