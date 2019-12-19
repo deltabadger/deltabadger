@@ -29,7 +29,7 @@ module Presenters
           bought: "#{transactions_amount_sum.floor(6)} BTC",
           totalInvested: "#{total_invested.floor(2)} #{bot.currency}",
           averagePrice: "#{average_price.floor(2)} #{bot.currency}",
-          currentValue: "#{current_price.floor(2)} #{bot.currency}",
+          currentValue: "#{current_value.floor(2)} #{bot.currency}",
           profitLoss: {
             positive: profit_loss.positive?,
             value: "#{profit_loss.positive? ? '+' : '-'}#{profit_loss.floor(2).abs} #{bot.currency} (#{profit_loss.positive? ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
