@@ -19,7 +19,6 @@ export const reducer = (state = initialState, action) => {
     case 'BOT_RELOADED': {
       const editedBot = action.payload
       const newBots = state.bots.map((b) => (b.id == editedBot.id) ? editedBot : b)
-      console.log('test', ({...state.isPending, [editedBot.id]: false}))
       return { ...state, bots: newBots, isPending: ({...state.isPending, [editedBot.id]: false}) };
     }
 

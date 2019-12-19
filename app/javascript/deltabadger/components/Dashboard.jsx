@@ -28,7 +28,6 @@ const DashboardTemplate = ({
     loadBots(true)
   }, [])
 
-  console.log(currentBot)
   const buildBotsList = (botsToRender, b) => {
     botsToRender.push(
       <Bot

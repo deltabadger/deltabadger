@@ -26,7 +26,7 @@ module Presenters
         profit_loss_percentage = (1 - current_value/total_invested) * 100
 
         {
-          bought: "#{transactions_amount_sum.floor(2)} BTC",
+          bought: "#{transactions_amount_sum.floor(6)} BTC",
           totalInvested: "#{total_invested.floor(2)} #{bot.currency}",
           averagePrice: "#{average_price.floor(2)} #{bot.currency}",
           currentValue: "#{current_price.floor(2)} #{bot.currency}",
