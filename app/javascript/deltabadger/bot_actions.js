@@ -31,7 +31,6 @@ export const loadBots = (openFirstBot = false) => dispatch => {
   return API.getBots().then(({ data }) => {
     const sortedBots = data.sort((a,b) => a.id - b.id)
     dispatch(fetchedBots(sortedBots));
-    console.log(openFirstBot)
     if (openFirstBot) { dispatch(openBot(sortedBots[0].id)) }
   })
 }
@@ -65,7 +64,6 @@ let timeout = (callback) => setTimeout(() => {
 
 
 export const reloadBot = (currentBot) => dispatch => {
-  console.log('curretn',currentBot)
   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
     if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
       clearTimeout(timeout)

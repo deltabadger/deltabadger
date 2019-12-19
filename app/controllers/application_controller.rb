@@ -5,7 +5,7 @@ class ApplicationController < ActionController::Base
 
   def current_user
     user = super
-    user.present? ? UserDecorator.new(user) : nil
+    user.present? ? UserDecorator.new(user: user, context: self) : nil
   end
 
   def configure_permitted_parameters
