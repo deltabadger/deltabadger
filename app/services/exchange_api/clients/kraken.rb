@@ -33,42 +33,26 @@ module ExchangeApi
       end
 
       def buy(settings)
-        currency = settings.fetch('currency')
-        price = settings.fetch('price')
-        pair = "XBT#{currency}"
-        volume = price / current_price(settings)
-
-        response =
-          @client
-          .add_order(pair: pair, type: 'buy', ordertype: 'market', volume: volume)
-
-        if response.fetch('error').any?
-          return Result::Failure.new(
-            *@map_errors.call(response.fetch('error'))
-          )
-        end
-
-        offer_id = response.dig('result', 'txid').first
-        order_data = orders[offer_id]
-        vol = order_data.fetch('vol').to_f
-        cost = order_data.fetch('cost').to_f
-
-        Result::Success.new(
-          offer_id: offer_id,
-          rate: cost/vol,
-          amount: vol
-        )
+        puts 'Buying on kraken'
+        make_order('buy', settings)
       end
 
       def sell(settings)
+        puts 'selling on kraken'
+        make_order('sell', settings)
+      end
+
+      private
+
+      def make_order(offer_type, settings)
         currency = settings.fetch('currency')
-        price = settings.fetch('price')
+        # price = settings.fetch('price')
+        volume = 0.002
         pair = "XBT#{currency}"
-        volume = price / current_price(settings)
 
         response =
           @client
-          .add_order(pair: pair, type: 'sell', ordertype: 'market', volume: volume)
+          .add_order(pair: pair, type: offer_type, ordertype: 'market', volume: volume)
 
         if response.fetch('error').any?
           return Result::Failure.new(
@@ -78,13 +62,12 @@ module ExchangeApi
 
         offer_id = response.dig('result', 'txid').first
         order_data = orders[offer_id]
-        vol = order_data.fetch('vol').to_f
-        cost = order_data.fetch('cost').to_f
+        rate = order_data.fetch('price').to_f
 
         Result::Success.new(
           offer_id: offer_id,
-          rate: cost/vol,
-          amount: vol
+          rate: rate,
+          amount: volume
         )
       end
     end
