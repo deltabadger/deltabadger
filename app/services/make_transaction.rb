@@ -22,7 +22,7 @@ class MakeTransaction < BaseService
     @subtract_credits = subtract_credits
   end
 
-  def call(bot_id)
+  def call(bot_id, notify: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new if !make_transaction?(bot)
 
@@ -33,20 +33,17 @@ class MakeTransaction < BaseService
 
     if result.failure?
       bot = @bots_repository.update(bot.id, status: 'stopped')
-      @notifications.error_occured(
-        bot: bot,
-        errors: result.errors
-      )
+      @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
     validate_limit_result = @validate_limit.call(bot.user)
     if validate_limit_result.failure?
       bot = @bots_repository.update(bot.id, status: 'stopped')
-      @notifications.limit_reached(bot: bot)
+      @notifications.limit_reached(bot: bot) if notify
 
       return validate_limit_result
     else
-      @notifications.limit_almost_reached(bot: bot) if @validate_almost_limit.call(bot.user).failure?
+      @notifications.limit_almost_reached(bot: bot) if @validate_almost_limit.call(bot.user).failure? && notify
     end
 
     if [result, validate_limit_result].all?(&:success?)
