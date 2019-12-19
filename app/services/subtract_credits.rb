@@ -7,12 +7,12 @@ class SubtractCredits < BaseService
     @convert_currency_to_credits = convert_currency_to_credits
   end
 
-  def call(bot)
+  def call(bot, const)
     return nil if bot.user.unlimited?
 
     subscription = bot.user.subscription
     credits_to_subtract = @convert_currency_to_credits.call(
-      amount: bot.price.to_i,
+      amount: const,
       currency: bot.currency
     )
 

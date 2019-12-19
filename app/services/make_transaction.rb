@@ -67,7 +67,8 @@ class MakeTransaction < BaseService
     @transactions_repository.create(transaction_params(result, bot))
 
     if result.success?
-      @subtract_credits.call(bot)
+      cost = result.data[:rate].to_f * result.data[:amount].to_f
+      @subtract_credits.call(bot, cost)
       bot.reload
     end
 
