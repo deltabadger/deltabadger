@@ -13,6 +13,10 @@ class ActiveRecordDecorator < SimpleDelegator
       decorated_class.primary_key
     end
 
+    def model_name
+      decorated_class.model_name
+    end
+
     protected
 
     attr_accessor :decorated_class
