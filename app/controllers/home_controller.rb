@@ -3,7 +3,7 @@ class HomeController < ApplicationController
     index
     terms_of_service
     privacy_policy
-    cookie_policy
+    cookies_policy
     contact
     about
     pricing
