@@ -11,7 +11,9 @@ export const CookieBanner = () => {
       buttonStyle={{}}
       expires={150}
     >
-      <span className="cookie_text">This website uses cookies to enhance the user experience.{" "}</span>
+      <span className="cookie_text">
+        This website uses cookies to enhance the user experience.{""} <a href="/cookies_policy" title="Cookies Policy">Read more</a>
+      </span>
     </CookieConsent>
   )
 }
