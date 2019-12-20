@@ -113,7 +113,7 @@ ActiveRecord::Schema.define(version: 2019_12_12_133134) do
     t.datetime "updated_at", null: false
     t.string "unconfirmed_email"
     t.boolean "admin", default: false, null: false
-    t.boolean "terms_of_service"
+    t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_showed", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
