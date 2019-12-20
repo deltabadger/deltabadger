@@ -89,6 +89,14 @@ const BotTemplate = ({
               <option value="sell">Sell</option>
             </select>
           </div>
+          <div className="form-group mr-2">
+            <select
+              className="form-control"
+              disabled={true}
+            >
+              <option value="buy">BTC</option>
+            </select>
+          </div>
           <div className="form-group mr-2">for</div>
           <input
             type="text"
