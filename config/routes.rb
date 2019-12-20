@@ -45,7 +45,7 @@ Rails.application.routes.draw do
   root to: 'home#index'
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard
-  get '/terms_of_service', to: 'home#terms_of_service', as: :terms_of_service
+  get '/terms_and_conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
   get '/privacy_policy', to: 'home#privacy_policy', as: :privacy_policy
   get '/cookies_policy', to: 'home#cookies_policy', as: :cookies_policy
   get '/contact', to: 'home#contact', as: :contact
