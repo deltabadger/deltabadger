@@ -9,7 +9,7 @@ class User < ApplicationRecord
   has_many :subscriptions
   has_many :payments
 
-  validates :terms_of_service, acceptance: true
+  validates :terms_and_conditions, acceptance: true
 
   def subscription
     current_subscription = subscriptions.last

@@ -20,10 +20,10 @@
               = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control"
 
             .form-check.mb-2
-              = f.check_box :terms_of_service, class: "form-check-input"
-              = f.label :terms_of_service, class: "form-check-label" do
+              = f.check_box :terms_and_conditions, class: "form-check-input"
+              = f.label :terms_and_conditions, class: "form-check-label" do
                 I have read and agree to the
-                = link_to 'Terms of Service', terms_of_service_path
+                = link_to 'Terms of Service', terms_and_conditions_path
                 and
                 = link_to 'Privacy Policy', privacy_policy_path
                 of the service.

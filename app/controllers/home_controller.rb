@@ -1,7 +1,7 @@
 class HomeController < ApplicationController
   PUBLIC_PAGES = %i[
     index
-    terms_of_service
+    terms_and_conditions
     privacy_policy
     cookies_policy
     contact
