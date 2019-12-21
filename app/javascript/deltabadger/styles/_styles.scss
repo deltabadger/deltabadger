@@ -356,12 +356,7 @@ h1 {
 // Cookie
 
 #cookie_consent {
-  background: rgb(28, 30, 19);
-  position: fixed;
-  width: 100%;
-  bottom: 0;
-  left: 0;
-  z-index: 100;
+  background: $success;
 }
 .cookieConsent {
   background: none !important;
@@ -369,12 +364,18 @@ h1 {
   @include make-container();
   @include make-container-max-widths();
   position: relative !important;
+  a {
+    color: #fff !important;
+    font-weight: bold !important;
+    text-decoration: underline !important;
+  }
   div {
     margin-left: 0 !important;
   }
   button {
+    background: $primary !important;
     margin-right: 0 !important;
-    color: #4e503b !important;
+    color: #fff !important;
     font-size: 16px !important;
     font-weight: bold !important;
     line-height: 30px !important;

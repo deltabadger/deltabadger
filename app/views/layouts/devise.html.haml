@@ -14,12 +14,14 @@
     = csp_meta_tag
 
   %body
+    #cookie_consent
+    
     = render 'layouts/navbar'
     = render 'layouts/devise_messages'
 
     = yield
 
-    #cookie_consent
+
 
     = render partial: 'layouts/drift'
 

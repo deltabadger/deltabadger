@@ -14,6 +14,8 @@
     = stylesheet_pack_tag 'deltabadger'
 
   %body
+    #cookie_consent
+    
     = render 'layouts/navbar'
     = render 'layouts/welcome_message'
     = render 'layouts/limit_reached'
@@ -24,7 +26,7 @@
 
       = render 'layouts/footer'
 
-    #cookie_consent
+
 
     = render partial: 'layouts/drift' if !Rails.env.development?
 
