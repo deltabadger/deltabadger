@@ -18,7 +18,7 @@ export const KrakenInstructions = () => (
           	<li><b>Cancel/Close Orders</b></li>
           </ul>
         </li>
-        <li>Confirm by pressing <b>Generate Key</b>.</li>
+        <li>Press <b>Generate Key</b>.</li>
         <li>Copy and paste your new API keys into the form above.</li>
       </ol>
     </div>

@@ -2,13 +2,21 @@ import React, { useState } from 'react'
 
 export const BitBayInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--bitbay">
-    <div className="alert alert-warning mx-0 mb-3 col" role="alert">
+    <div className="alert alert-success mx-0 mb-3 col" role="alert">
       <b className="alert-heading mb-2">How to get API keys from Bitbay:</b>
       <hr/>
       <ol>
-        <li>Login to Bitbay</li>
-        <li>Go to Settings</li>
-        <li>Get keys</li>
+        <li>Login to your <a href="https://bitbay.net/" target="_blank">Bitbay</a> account.</li>
+        <li>In user menu (top right corner) go to <b>API Settings</b>.</li>
+        <li>Press <b>Add New Key</b>.</li>
+        <li>Set permissions for:
+          <ul>
+          	<li><b>Get orders and market configurations</b></li>
+          	<li><b>Manage orders and change market configurations</b></li>
+          </ul>
+        </li>
+        <li>Press <b>Create</b>.</li>
+        <li>Copy and paste your new API keys into the form above.</li>
       </ol>
     </div>
   </div>
