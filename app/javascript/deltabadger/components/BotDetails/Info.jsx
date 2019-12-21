@@ -10,5 +10,11 @@ export const Info = ({ bot }) => (
     <p>You may be surprised that the bot schedule is different from the one you defined.</p>
     <p>In fact, it keeps your desired ratio using the smallest purchases allowed by the exchange. In that way, you not only get the best avaraging, but also it protect bot from being stopped when the price of Bitcoin goes "too high" so your defined amount becomes smaller than the minimal transaction allowed by the exchange.</p>
     <p><b>Example:</b> Your defined schedule is $1/hour. The smallest transaction size allowed is 0.002BTC, and the current Bitcoin price is $5000. That means that the exchange will not allow transactions lower than $10 (0.002*$5000). The bot will buy BTC worth $10 and schedule the next purchase in 10 hours. On average, you will get your desired  $1/hour ratio.</p>
+    <p className="mt-2"><b>Links</b></p>
+    <ul className="mb-5">
+      <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY" target="_blank">DCA for Beginners (video)</a></li>
+      <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY" target="_blank">The power of DCA into Bitcoin</a></li>
+      <li><a href="https://dcabtc.com/" target="_blank">DCA Simulator</a></li>
+    </ul>
   </div>
 )
