@@ -21,7 +21,7 @@ export const Details = ({ bot }) => {
           <p className="mt-2"><b>Links</b></p>
           <ul className="mb-5">
             <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY" target="_blank">DCA for Beginners (video)</a></li>
-            <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY" target="_blank">The power of DCA into Bitcoin</a></li>
+            <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank">The power of DCA into Bitcoin</a></li>
             <li><a href="https://dcabtc.com/" target="_blank">DCA Simulator</a></li>
           </ul>
         </div>
