@@ -50,7 +50,6 @@ Rails.application.routes.draw do
   get '/cookies_policy', to: 'home#cookies_policy', as: :cookies_policy
   get '/contact', to: 'home#contact', as: :contact
   get '/about', to: 'home#about', as: :about
-  get '/pricing', to: 'home#pricing', as: :pricing
   get '/referral_program', to: 'home#referral_program', as: :referral_program
 
   mount ::Sidekiq::Web => '/sidekiq'
