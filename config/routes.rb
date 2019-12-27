@@ -24,6 +24,7 @@ Rails.application.routes.draw do
     resources :transactions
     resources :subscriptions
     resources :subscription_plans
+    resources :payments
 
     root to: "users#index"
   end
