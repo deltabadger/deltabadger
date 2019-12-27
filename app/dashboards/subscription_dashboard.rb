@@ -1,6 +1,6 @@
 require "administrate/base_dashboard"
 
-class ExchangeDashboard < Administrate::BaseDashboard
+class SubscriptionDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
   # a hash that describes the type of each of the model's fields.
   #
@@ -8,10 +8,14 @@ class ExchangeDashboard < Administrate::BaseDashboard
   # which determines how the attribute is displayed
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
+    subscription_plan: Field::BelongsTo,
+    user: Field::BelongsTo,
     id: Field::Number,
-    name: Field::String,
+    end_time: Field::DateTime,
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
+    credits: Field::String.with_options(searchable: false),
+    limit_almost_reached_sent: Field::Boolean,
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -21,25 +25,33 @@ class ExchangeDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
   id
-  name
-  created_at
-  updated_at
+  subscription_plan
+  user
+  end_time
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
+  subscription_plan
+  user
   id
-  name
+  end_time
   created_at
   updated_at
+  credits
+  limit_almost_reached_sent
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-  name
+  subscription_plan
+  user
+  end_time
+  credits
+  limit_almost_reached_sent
   ].freeze
 
   # COLLECTION_FILTERS
@@ -49,15 +61,16 @@ class ExchangeDashboard < Administrate::BaseDashboard
   # For example to add an option to search for open resources by typing "open:"
   # in the search field:
   #
-  #   COLLECTION_FILTERS = {
-  #     open: ->(resources) { where(open: true) }
-  #   }.freeze
-  COLLECTION_FILTERS = {}.freeze
+  COLLECTION_FILTERS = {
+    current: ->(resources) { where('end_time > ?', Time.now) },
+    old: ->(resources) { where('end_time < ?', Time.now) }
+  }.freeze
+  # COLLECTION_FILTERS = {}.freeze
 
-  # Overwrite this method to customize how exchanges are displayed
+  # Overwrite this method to customize how subscriptions are displayed
   # across all pages of the admin dashboard.
   #
-  def display_resource(exchange)
-    "#{exchange.name.capitalize}"
-  end
+  # def display_resource(subscription)
+  #   "Subscription ##{subscription.id}"
+  # end
 end
