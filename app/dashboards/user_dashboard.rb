@@ -12,6 +12,7 @@ class UserDashboard < Administrate::BaseDashboard
     exchanges: Field::HasMany,
     bots: Field::HasMany,
     subscriptions: Field::HasMany,
+    subscription: SubscriptionField,
     payments: Field::HasMany,
     id: Field::Number,
     email: Field::String,
@@ -29,6 +30,7 @@ class UserDashboard < Administrate::BaseDashboard
     terms_of_service: Field::Boolean,
     updates_agreement: Field::Boolean,
     welcome_banner_showed: Field::Boolean,
+    limit_reached?: Field::Boolean
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -38,7 +40,9 @@ class UserDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
   email
-
+  subscription
+  limit_reached?
+  admin
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
