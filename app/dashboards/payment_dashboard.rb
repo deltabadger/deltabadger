@@ -20,6 +20,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name: Field::String,
     birth_date: Field::DateTime,
     eu: Field::Boolean,
+    paid_at: Field::DateTime,
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -28,10 +29,17 @@ class PaymentDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  user
   id
+  first_name
+  last_name
+  birth_date
+  eu
+  total
+  currency
   payment_id
+  user
   status
+  paid_at
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -73,10 +81,11 @@ class PaymentDashboard < Administrate::BaseDashboard
   # For example to add an option to search for open resources by typing "open:"
   # in the search field:
   #
-  #   COLLECTION_FILTERS = {
-  #     open: ->(resources) { where(open: true) }
-  #   }.freeze
-  COLLECTION_FILTERS = {}.freeze
+  COLLECTION_FILTERS = {
+    paid: ->(resources) { resources.where(status: :paid) },
+    unpaid: ->(resources) { resources.where.not(status: :paid) }
+  }.freeze
+  # COLLECTION_FILTERS = {}.freeze
 
   # Overwrite this method to customize how payments are displayed
   # across all pages of the admin dashboard.
