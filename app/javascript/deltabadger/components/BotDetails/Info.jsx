@@ -1,7 +1,7 @@
 import React from 'react'
 
-export const Info = ({ bot }) => (
-  <div className="tab-pane pl-3 pr-3" id="info" role="tabpanel" aria-labelledby="info-tab">
+export const Info = ({ bot, active }) => (
+  <div className={`tab-pane pl-3 pr-3 ${active ? 'active' : ''}`} id="info" role="tabpanel" aria-labelledby="info-tab">
     <p className="mt-2"><b>Exchanges</b></p>
     <p>Deltabadger works with cryptoexchanges. At the moment, we support <a href="https://bitbay.net" target="_blank" title="Bitbay">Bitbay</a> and <a href="https://kraken.com" target="_blank" title="Kraken">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases with PLN.</p>
     <p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>
