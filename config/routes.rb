@@ -17,8 +17,8 @@ Rails.application.routes.draw do
   end
 
   namespace :admin do
-    resources :users
-    resources :api_keys
+    resources :users, except: [:destroy]
+    resources :api_keys, except: [:edit, :update]
     resources :bots
     resources :exchanges
     resources :transactions
