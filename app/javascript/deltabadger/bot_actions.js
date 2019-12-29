@@ -48,6 +48,7 @@ export const startBot = (id) => dispatch => {
     dispatch(openBot(bot.id))
   }).catch((data) => {
     dispatch(setErrors(data.response.data))
+    dispatch(openBot(id))
   })
 }
 
