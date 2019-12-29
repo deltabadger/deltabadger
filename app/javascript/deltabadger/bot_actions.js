@@ -47,6 +47,7 @@ export const startBot = (id) => dispatch => {
     dispatch(botReloaded(bot))
     dispatch(openBot(bot.id))
   }).catch((data) => {
+    dispatch(fetchBot(id))
     dispatch(setErrors(data.response.data))
     dispatch(openBot(id))
   })
@@ -73,6 +74,12 @@ export const reloadBot = (currentBot) => dispatch => {
       timeout(() => reloadBot(currentBot))
     }
   })
+}
+
+export const fetchBot = (id) => dispatch => {
+  API.getBot(id).then(({data: bot}) =>
+    dispatch(botReloaded(bot))
+  )
 }
 
 export const editBot = botParams => dispatch => {
