@@ -7,7 +7,6 @@ import { Spinner } from './Spinner';
 
 const calculateDelay = (nextTransactionTimestamp, now) => {
   const date = moment.unix(nextTransactionTimestamp)
-
   const a = moment.duration(date.diff(now))
   return a
 }
@@ -17,13 +16,12 @@ export const Timer = ({bot, callback, isPending}) => {
   const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
   const working = status == 'working'
 
-  const [delay, setDelay] = useState(calculateDelay())
   const [now, setNow] = useState(moment.unix(nowTimestamp))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, now))
   const [pending, setPending] = useState(false)
   const timeout = delay.seconds() < 0
 
   useInterval(() => {
-    const calculatedDelay = calculateDelay(nextTransactionTimestamp, now)
 
     if(timeout && !isPending && i == 0) {
       if (bot) {
@@ -32,7 +30,9 @@ export const Timer = ({bot, callback, isPending}) => {
       }
     }
     setNow(now.add(1, 'seconds'))
-    setDelay(calculatedDelay)
+    setDelay(
+      calculateDelay(nextTransactionTimestamp, now)
+    )
   }, 1000);
 
   if (timeout) { return <Spinner /> }
