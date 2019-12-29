@@ -70,11 +70,6 @@
       %h5 Unique implementation
       %p To get the best results, we use a&nbsp;<i>smart intervals</i> approach that would be hard to copy manually.
 
-
-
-
-
-
 .db-bg--whitee
   .container
     .row.row--intro
@@ -109,16 +104,18 @@
         %p The fun part. It's quite satisfying to check how your investment performs over time. You can also export the data.
 
 
-  .container
-    .row.db-supported-exchanges
-      .col-12
-        %h4.text-white.mb-4 Currently supported exchanges:
-      .col-12
-        %img.db-supported-exchange{:src => asset_pack_path("media/images/bitbay-white.svg")}
-        %img.db-supported-exchange{:src => asset_pack_path("media/images/kraken-white.svg")}
-.container
+.container.pt-4
+  .row.db-supported-exchanges
+    .col-12
+      %h4.text-white.mb-4 Currently supported exchanges:
+    .col-12
+      %img.db-supported-exchange{:src => asset_pack_path("media/images/bitbay-white.svg")}
+      %img.db-supported-exchange{:src => asset_pack_path("media/images/kraken-white.svg")}
+
   .row.row--intro.row--newsletter.mb-4
-    .col-lg-6.d-flex__vertical-align
+    .col-lg-8.d-flex__vertical-align
+      %img.db-art.db-art--newsletter{:src => asset_pack_path("media/images/art-newsletter.svg")}
+    .col-lg-4.d-flex__vertical-align
       %h2.mb-4
         Wait… it's more!
       %p We're working on a unique set of tools for investors and traders focused on risk management. Stay in touch if you're interested.
