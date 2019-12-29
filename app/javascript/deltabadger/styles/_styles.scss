@@ -9,7 +9,7 @@ $bgBot:              white;
 
 $navbarHeight:       88px;
 $navbarExtraPadding: 1.25rem;
-$introBoxHeight:     70vh;
+$introBoxHeight:     60vh;
 $introBoxMaxHeight:  870px;
 $introBoxMinHeight:  700px;
 
@@ -54,6 +54,13 @@ h1 {
   max-height: $introBoxMaxHeight;
   min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
 }
+.db-bg--white {
+  background: #fff;
+  * {
+    color: $primary !important;
+  }
+}
+
 .row--newsletter {
   height:     $introBoxHeight - 10vh;
   max-height: $introBoxMaxHeight - 40px;
@@ -146,17 +153,16 @@ h1 {
 
 .db-anim-rotator {
   display:     inline-block;
-  height:      1.5em;
+  height:      1em;
   position:    relative;
   width:       3.05em;
-  font-weight: bold;
+  top:        -5px;
   span {
     width:     3.05em;
     display:   block;
     height:    1em;
     animation: homepageTextShift 6s linear 0s infinite;
     position:  absolute;
-    top:      -17px;
     opacity:   0;
   }
 }
@@ -167,12 +173,18 @@ h1 {
 @keyframes homepageTextShift {
   0%   {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
   30%  {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  33%  {top:   7px; opacity: 1; text-shadow: 0 0 5px #fff; }
+  33%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,1); }
   36%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
   65%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
   68%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
   99%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
   100% {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
+}
+
+// free
+
+.text-success--lighter {
+  color: lighten($success,10%) !important;
 }
 
 // intro image
@@ -489,4 +501,26 @@ h1 {
   }
 }
 
-//
+// .db-infoblocks
+
+.db-row--greenbox {
+  //background: $success;
+  border: 2px dashed #fff;
+  padding: 10px 40px 20px 40px;
+  border-radius: 20px;
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+
+.db-infoblocks {
+  h5 {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  p {
+  }
+  img {
+  width: 100%;
+  padding: 0 25%;
+  }
+}
