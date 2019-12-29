@@ -5,24 +5,25 @@ import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
 
-const calculateDelay = (nextTransactionTimestamp) => {
-  const now = new moment()
-  const date = new moment.unix(nextTransactionTimestamp)
+const calculateDelay = (nextTransactionTimestamp, now) => {
+  const date = moment.unix(nextTransactionTimestamp)
 
-  return moment.duration(date.diff(now))
+  const a = moment.duration(date.diff(now))
+  return a
 }
 
 export const Timer = ({bot, callback, isPending}) => {
   let i = 0;
-  const { settings, status, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
   const working = status == 'working'
 
   const [delay, setDelay] = useState(calculateDelay())
+  const [now, setNow] = useState(moment.unix(nowTimestamp))
   const [pending, setPending] = useState(false)
   const timeout = delay.seconds() < 0
 
   useInterval(() => {
-    const calculatedDelay = calculateDelay(nextTransactionTimestamp)
+    const calculatedDelay = calculateDelay(nextTransactionTimestamp, now)
 
     if(timeout && !isPending && i == 0) {
       if (bot) {
@@ -30,6 +31,7 @@ export const Timer = ({bot, callback, isPending}) => {
         callback(bot)
       }
     }
+    setNow(now.add(1, 'seconds'))
     setDelay(calculatedDelay)
   }, 1000);
 
