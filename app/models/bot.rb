@@ -21,8 +21,12 @@ class Bot < ApplicationRecord
     settings.fetch('interval')
   end
 
+  def type
+    settings.fetch('type')
+  end
+
   def buyer?
-    settings.fetch('type') == 'buy'
+    type == 'buy'
   end
 
   def seller?
@@ -31,5 +35,9 @@ class Bot < ApplicationRecord
 
   def last_transaction
     transactions.last
+  end
+
+  def total_amount
+    transactions.sum(:amount)
   end
 end
