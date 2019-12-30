@@ -25,6 +25,7 @@ html {
 
 .db-navbar {
   background: rgba(255,255,255,0);
+  transition: top 200ms ease-in-out;
 }
 .navbar-brand {
   font-family:    $fontBrand;
@@ -43,7 +44,7 @@ html {
 .navbar {
   padding-right: 0;
   padding-left:  0;
-  background: none !important;
+  background:    none !important;
   .navbar-brand {
     margin-left: 0;
   }
@@ -72,4 +73,35 @@ html {
 }
 .db-icon-verified {
   cursor: default;
+}
+
+//
+
+.db-navbar--scroll {
+  background: white !important;
+  position: fixed;
+  top:-120px;
+  width: 100%;
+  z-index: 100000;
+  transition: top 200ms ease-in-out;
+  box-shadow: 0 0 10px rgba(0,0,0,.1);
+  &+.container {
+    padding-top: 112px;
+  }
+  .navbar-brand {
+    color: $primary !important;
+  }
+  .db-logo-svg-shape {
+    fill: $primary;
+  }
+  .btn-link {
+    color: $primary !important;
+  }
+  .navbar {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+.db-navbar--scroll--show {
+  top: 0;
 }

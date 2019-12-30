@@ -62,8 +62,25 @@ h1 {
 }
 
 .row--newsletter {
-  height:     $introBoxHeight - 10vh;
-  max-height: $introBoxMaxHeight - 40px;
+  color: #fff !important;
+  align-items: flex-end;
+  margin-bottom: 120px;
+}
+.db-newsletter--form {
+  display: flex;
+  .form-group {
+    &:first-child {
+      flex-grow: 1;
+    }
+    &+.form-group {
+      margin-left: 10px;
+    }
+  }
+}
+.newsletter-form-feedback {
+  i {
+    opacity: 0;
+  }
 }
 .d-flex__vertical-align {
   align-self: center;
@@ -185,7 +202,13 @@ h1 {
 
 .text-success--lighter {
   color: lighten($success,10%) !important;
+  text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
+.text-danger--lighter {
+  color: #fc5565 !important;
+  text-shadow: 0 0 20px rgba(0,0,0,.2);
+}
+
 
 // intro image
 
@@ -400,6 +423,7 @@ h1 {
 
 .db-supported-exchanges {
   text-align: center;
+  margin-bottom: 120px;
 }
 
 .db-supported-exchange {
@@ -503,13 +527,12 @@ h1 {
 
 // .db-infoblocks
 
-.db-row--greenbox {
+.db-row--how-does-it-work {
   //background: $success;
   border: 2px dashed #fff;
   padding: 10px 40px 20px 40px;
   border-radius: 20px;
-  margin-top: 40px;
-  margin-bottom: 40px;
+  margin: 40px -40px 120px;
 }
 
 .db-infoblocks {
@@ -518,6 +541,7 @@ h1 {
     margin-bottom: 40px;
   }
   p {
+    ///text-align: center;
   }
   img {
   width: 100%;

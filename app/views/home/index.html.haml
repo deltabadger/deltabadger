@@ -1,6 +1,6 @@
 .container
   .row.row--intro
-    .col-lg-6.d-flex__vertical-align.mr-4
+    .col-6.d-flex__vertical-align
       %h1.mb-4(style="width:800px")
         Automate buying <br />
         Bitcoin
@@ -8,36 +8,8 @@
           %span.db-anim-rotator--1 hourly
           %span.db-anim-rotator--2 daily
           %span.db-anim-rotator--3 weekly
-      -# %ul(style="padding-left:1.25rem")
-      -#   %li Follow the proven strategy of dollar-cost averaging.
-      -#   %li Mitigate the risk of buying in the wrong moment.
-      -#   %li Set and forget. Save the hassle and time.
-      -#   %li Unique "smart intervals" approach.
-      -# %p
-      -#   The basic version is
-      -#   %b.text-success.text-success--lighter free
-      -#   forever.
-      -# %h1.mb-4(style="width:800px")
-      -#   Automate dollar-cost <br />
-      -#   averaging into Bitcoin
-        -# %span.db-anim-rotator
-        -#   %span.db-anim-rotator--1 Bitcoin
-        -#   %span.db-anim-rotator--2 Litecoin
-        -#   %span.db-anim-rotator--3 Ethereum
-      -# %ul(style="padding-left:1.25rem")
-      -#   %li Follow the proven strategy of long-term investing.
-      -#   %li Mitigate the risk of buying in the wrong moment.
-      -#   %li Set and forget. Save the hassle and time.
-      -#   %li Unique "smart intervals" approach.
-      -# %p
-      -#   The basic version is
-      -#   %b.text-success.text-success--lighter free
-      -#   forever.
       %p
         Five minute setup. Works with exchanges. <br/> Fully automated. Saves money and time.
-      -# %p
-      -#   Set and forget. Our bot manages the whole process for you, <br />
-      -#   mitigating the risk of buying in the wrong moment and saving time.
       %p
         The basic version is
         %b.text-success.text-success--lighter free
@@ -46,79 +18,72 @@
       %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4{:href => new_user_registration_path}
         %span.mr-2 Get started
         %i.material-icons-round arrow_forward
-    .col.db-intro-image-container
+    .col-6.db-intro-image-container
       %img.db-intro-image{:src => asset_pack_path("media/images/bot.png")}
   .row.db-infoblocks.text-white
     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
       %p
         %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_proven_strategy.svg")}
       %h5 Proven strategy
-      %p <b><i>Dollar-cost averaging</i></b> (DCA) is a well-known and highly recommended strategy of long-term investing.
+      %p <b><i>Dollar-cost averaging</i></b> (DCA) is&nbsp;a well-known and recommended strategy of longterm&nbsp;investing.
     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
       %p
         %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_mitigate_risk.svg")}
       %h5 Mitigate risk
-      %p Automate buying small chunks on a&nbsp;regular schedule to get a fair average price without stress.
+      %p Automate buying small chunks on&nbsp;a&nbsp;regular schedule to get a&nbsp;fair price without stress.
     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
       %p
         %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_set_forget.svg")}
       %h5 Set and forget
-      %p All you need is an exchange account and a few minutes for setting the bot up.
+      %p All you need is an exchange account and a few minutes for&nbsp;setting the bot up.
     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
       %p
         %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_smart_intervals.svg")}
       %h5 Unique implementation
       %p To get the best results, we use a&nbsp;<i>smart intervals</i> approach that would be hard to copy manually.
 
-.db-bg--whitee
-  .container
-    .row.row--intro
-      .col-lg-6.d-flex__vertical-align.mr-4
-        %h2 Why dollar-cost averaging?
-        %p
-          DCA is an easy to follow strategy, that helps to manage emotions and risk of investing in volatile assets. Don't try to time the market and buy small amounts on a fixed schedule get an average price. With automation it gets more accessible than ever before.
+  .row.row--intro
+    .col-lg-6.d-flex__vertical-align.mr-4
+      %h2 Why dollar-cost averaging?
+      %p
+        DCA is an easy to follow strategy, that helps to manage emotions and risk of investing in volatile assets. Don't try to time the market and buy small amounts on a fixed schedule get an average price. With automation it gets more accessible than ever before.
 
-  .container.db-row--greenbox
+  .db-row--how-does-it-work
     %h2.my-4.text-white How does it work?
 
     .row.db-infoblocks.text-white
-      .col-xs-12.col-md-6.col-lg-3.db-infoblocks__item
+      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p
           %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_exchange.svg")}
         %h5 Login to your exchange
-        %p Deltabadger works with external cryptoexchanges. You get both the best price and security. We support Kraken and Bitbay.
-      .col-xs-12.col-md-6.col-lg-3.db-infoblocks__item
+        %p Deltabadger works with external cryptoexchanges. Currently, we support Kraken and Bitbay.
+      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p
           %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_api_keys.svg")}
         %h5 Get API keys
-        %p Don't worry, we walk you through this. The process is quick, easy and safe: the keys have limitted permissions.
-      .col-xs-12.col-md-6.col-lg-3.db-infoblocks__item
+        %p No worries, we walk you through the process. It's safe: the keys have limitted permissions.
+      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p
           %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_set_up.svg")}
         %h5 Set things up
-        %p 1. Enter your API keys.<br/>2. Choose the desired schedule.<br/>3. Press <b>Start</b>.<br/>Done.
-      .col-xs-12.col-md-6.col-lg-3.db-infoblocks__item
+        %p Enter your API keys. Choose the desired schedule. Press <b>Start</b>. Done.
+      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p
           %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_track_it.svg")}
         %h5 Track results
-        %p The fun part. It's quite satisfying to check how your investment performs over time. You can also export the data.
+        %p The fun part. It's quite satisfying to check how your investment performs over time.
 
-
-.container.pt-4
-  .row.db-supported-exchanges.pb-5
+  .row.db-supported-exchanges
     .col-12
       %h4.text-white.mb-4 Currently supported exchanges:
     .col-12
       %img.db-supported-exchange{:src => asset_pack_path("media/images/bitbay-white.svg")}
       %img.db-supported-exchange{:src => asset_pack_path("media/images/kraken-white.svg")}
 
-  .row.row--intro.row--newsletter.mb-4
-    .col-lg-8.d-flex__vertical-align
-      %img.db-art.db-art--newsletter{:src => asset_pack_path("media/images/art-newsletter.svg")}
-    .col-lg-4.pt-5
-      %h2.mb-4
-        Wait… it's more!
+  .row.row--newsletter
+    .col-lg-6.pb-4
+      %h2.mb-4 Wait… it's more!
       %p We're working on a unique set of tools for investors and traders focused on risk management. Stay in touch if you're interested.
-
       #newsletter
-        .col
+    .col-lg-6.pb-4.d-flex__vertical-align
+      %img.db-art.db-art--newsletter{:src => asset_pack_path("media/images/art-newsletter.svg")}

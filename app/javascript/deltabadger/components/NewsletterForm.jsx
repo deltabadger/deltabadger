@@ -19,20 +19,22 @@ export const NewsletterForm = () => {
   }
 
   return (
-    <div>
+    <div className="db-newsletter--form">
       <div className="form-group">
         <input
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          className="form-control"
+          className={`form-control ${resultInfo && resultInfo.map(() => successResult ? ' is-valid' : ' is-invalid')}` } // TODO: fix it to not returning undefined
         />
+        <div className="newsletter-form-feedback">
+          { resultInfo && resultInfo.map((text, index) => <b key={index} className={`${successResult ? 'text-success--lighter' : 'text-danger--lighter'}` }>{text}.</b>) } <i>.</i>
+        </div>
       </div>
       <div className="form-group">
-        <div onClick={handleSubmit} className={`btn btn-success ${disableSubmit ? 'disabled' : ''}` }>
+        <div onClick={handleSubmit} className={`btn ${disableSubmit ? 'disabled btn-outline-success' : 'btn-success'}`}>
           Keep me in the loop!
         </div>
-        { resultInfo && resultInfo.map((text, index) => <b key={index} className={`ml-4 ${successResult ? 'text-success' : 'text-danger'}` }>{text}.</b>) }
       </div>
     </div>
   )
