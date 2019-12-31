@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400px" height="140px" viewBox="0 0 400 140" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 59.1 (86144) - https://sketch.com -->
+    <title>lineart_track_it</title>
+    <desc>Created with Sketch.</desc>
+    <g id="lineart_track_it" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <polyline id="Path-8" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" points="1.5 136.071828 20 131.720802 40 134.942906 60 129.136741 80 113 100 124.022234 120 107 140 103 160 82 180 86 200 103 220 88 240 92 260 71 280 48 300 61 320 41 340 45.963451 360 39 380 43 398 3"></polyline>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="80" cy="113" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="60" cy="129" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="40" cy="135" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="20" cy="132" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="2" cy="136" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="2" cy="136" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="20" cy="134.4" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="40" cy="132.6" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="60" cy="130.9" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="80" cy="129.1" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="100" cy="127.4" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="120" cy="125.7" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="140" cy="123.9" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="160" cy="122.2" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="180" cy="120.4" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="200" cy="118.7" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="220" cy="117" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="240" cy="115" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="260" cy="113.4" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="280" cy="111.7" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="300" cy="110" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="320" cy="108.2" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="272" cy="131" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="340" cy="106.5" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="360" cy="104.8" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="380" cy="102.9" r="1"></circle>
+        <circle id="Oval" fill="#28A745" cx="398" cy="101.4" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="100" cy="124" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="120" cy="107" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="140" cy="103" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="160" cy="82" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="180" cy="86" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="200" cy="103" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="220" cy="88" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="240" cy="92" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="260" cy="71" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="280" cy="48" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="300" cy="61" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="320" cy="41" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="340" cy="46" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="360" cy="39" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="380" cy="43" r="1"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="398" cy="3" r="1"></circle>
+        <line x1="1.5" y1="136" x2="397.5" y2="101.5" id="Line" stroke="#28A745" stroke-linecap="round" stroke-linejoin="round"></line>
+        <text id="Portfolio-Value" font-family="VarelaRound-Regular, Varela Round" font-size="6" font-weight="normal" fill="#FFFFFE">
+            <tspan x="355.757" y="133">Portfolio Value</tspan>
+        </text>
+        <text id="Total-Invested" font-family="VarelaRound-Regular, Varela Round" font-size="6" font-weight="normal" fill="#FFFFFE">
+            <tspan x="276.843" y="133">Total Invested</tspan>
+        </text>
+        <line x1="351.5" y1="131" x2="343.5" y2="131" id="Line-2" stroke="#FFFFFE" stroke-linecap="round" stroke-linejoin="round"></line>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="352" cy="131" r="1"></circle>
+        <line x1="271.5" y1="131" x2="263.5" y2="131" id="Line-2" stroke="#28A745" stroke-linecap="round" stroke-linejoin="round"></line>
+    </g>
+</svg>
