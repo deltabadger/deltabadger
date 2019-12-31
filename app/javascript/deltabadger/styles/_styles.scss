@@ -63,8 +63,11 @@ h1 {
 
 .row--newsletter {
   color: #fff !important;
-  align-items: flex-end;
-  margin-bottom: 120px;
+  align-items: center;
+  padding-bottom: 30px;
+  .col {
+      padding-bottom: 120px;
+  }
 }
 .db-newsletter--form {
   display: flex;
@@ -423,7 +426,7 @@ h1 {
 
 .db-supported-exchanges {
   text-align: center;
-  margin-bottom: 120px;
+  margin-bottom: 50px;
 }
 
 .db-supported-exchange {
