@@ -92,6 +92,12 @@ h1 {
       margin-left: 10px;
     }
   }
+  .btn.disabled {
+    opacity: 1;
+    cursor: default;
+    color: #34ce57;
+    border-color: #34ce57;
+  }
 }
 .newsletter-form-feedback {
   i {
