@@ -9,23 +9,26 @@ export const BotDetails = ({ bot }) => {
     {
       label: "Statistics",
       active: isNotEmpty(bot.transactions),
-      visible: isNotEmpty(bot.transactions)
+      visible: isNotEmpty(bot.transactions),
+      id: 'stats-tab',
     },
     {
       label: "Log",
       active: false,
-      visible: isNotEmpty(bot.logs)
+      visible: isNotEmpty(bot.logs),
+      id: 'log-tab',
     },
     {
       label: "Info",
       active: isEmpty(bot.transactions),
-      visible: true
+      visible: true,
+      id: 'info-tab',
     }
   ];
 
-  const builTab = ({ label, active, visible }, index) => (
+  const builTab = ({ label, active, visible, id }, index) => (
     <li className="nav-item" key={index}>
-      <a className={`nav-link ${active ? 'active' : ''}`} id="stats-tab" data-toggle="tab" href={`#${label.toLowerCase()}`} role="tab" aria-controls={label.toLowerCase()} aria-selected="true">{label}</a>
+      <a className={`nav-link ${active ? 'active' : ''}`} id={id} data-toggle="tab" href={`#${label.toLowerCase()}`} role="tab" aria-controls={label.toLowerCase()} aria-selected="true">{label}</a>
     </li>
   )
 
