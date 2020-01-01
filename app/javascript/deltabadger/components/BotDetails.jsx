@@ -5,26 +5,31 @@ import { Info } from './BotDetails/Info';
 import { isNotEmpty, isEmpty } from '../utils/array';
 
 export const BotDetails = ({ bot }) => {
+  const statisticsActive = isNotEmpty(bot.transactions)
+  const logActive = isNotEmpty(bot.logs) && !statisticsActive
+  const infoActive = isEmpty(bot.transactions) && isEmpty(bot.logs)
+
   const tabs = [
     {
       label: "Statistics",
-      active: isNotEmpty(bot.transactions),
+      active: statisticsActive,
       visible: isNotEmpty(bot.transactions),
       id: 'stats-tab',
     },
     {
       label: "Log",
-      active: false,
+      active: logActive,
       visible: isNotEmpty(bot.logs),
       id: 'log-tab',
     },
     {
       label: "Info",
-      active: isEmpty(bot.transactions),
+      active: infoActive,
       visible: true,
       id: 'info-tab',
     }
   ];
+
 
   const builTab = ({ label, active, visible, id }, index) => (
     <li className="nav-item" key={index}>
@@ -38,9 +43,9 @@ export const BotDetails = ({ bot }) => {
         {tabs.filter(e => e.visible).map(builTab)}
       </ul>
       <div className="tab-content" id="myTabContent">
-        <Transactions bot={bot} active={isNotEmpty(bot.transactions)} />
-        <Logs bot={bot} />
-        <Info bot={bot} active={isEmpty(bot.transactions)} />
+        <Transactions bot={bot} active={statisticsActive} />
+        <Logs bot={bot} active={logActive}/>
+        <Info bot={bot} active={infoActive} />
       </div>
 
     </div>

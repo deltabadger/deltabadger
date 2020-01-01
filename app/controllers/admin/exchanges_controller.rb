@@ -32,7 +32,7 @@ module Admin
     # for more information
 
     def show_action?(action, _)
-      return false if %i[destroy].include?(action)
+      return false if %i[destroy edit new].include?(action)
 
       true
     end
