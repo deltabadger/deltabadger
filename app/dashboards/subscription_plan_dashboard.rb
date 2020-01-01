@@ -22,8 +22,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
   id
   name
-  created_at
-  updated_at
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -31,8 +29,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
   id
   name
-  created_at
-  updated_at
   ].freeze
 
   # FORM_ATTRIBUTES

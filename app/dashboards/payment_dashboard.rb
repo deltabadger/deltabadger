@@ -18,9 +18,9 @@ class PaymentDashboard < Administrate::BaseDashboard
     updated_at: Field::DateTime,
     first_name: Field::String,
     last_name: Field::String,
-    birth_date: Field::DateTime,
+    birth_date: Field::DateTime.with_options(format: '%F %r'),
     eu: Field::Boolean,
-    paid_at: Field::DateTime,
+    paid_at: Field::DateTime.with_options(format: '%F %r'),
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -36,7 +36,6 @@ class PaymentDashboard < Administrate::BaseDashboard
   eu
   total
   currency
-  payment_id
   user
   status
   paid_at

@@ -11,7 +11,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     subscription_plan: Field::BelongsTo,
     user: Field::BelongsTo,
     id: Field::Number,
-    end_time: Field::DateTime,
+    end_time: Field::DateTime.with_options(format: '%F'),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     credits: Field::String.with_options(searchable: false),

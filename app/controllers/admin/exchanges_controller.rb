@@ -30,5 +30,11 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
+
+    def show_action?(action, _)
+      return false if %i[destroy].include?(action)
+
+      true
+    end
   end
 end
