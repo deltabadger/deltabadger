@@ -29,7 +29,7 @@ const Stats = ({ bought, averagePrice, totalInvested, currentValue, profitLoss =
 )
 
 export const Transactions = ({ bot, active }) => (
-  <div className={`tab-pane show ${active ? 'active' : ''}`} id="stats" role="tabpanel" aria-labelledby="stats-tab">
+  <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
     <Stats {...bot.stats} />
 
     <Chart bot={bot} />
