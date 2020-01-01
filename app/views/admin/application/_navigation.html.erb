@@ -1,0 +1,17 @@
+<nav class="navigation" role="navigation">
+  <%= link_to(
+    'Dashboard',
+    admin_dashboard_path,
+    class: "navigation__link navigation__link--#{nav_link_state('dashboard')}"
+  ) %>
+
+<% Administrate::Namespace.new(namespace).resources.each do |resource| %>
+  <% if ["Dashboard"].exclude?(resource.to_s.classify) %>
+      <%= link_to(
+        display_resource_name(resource),
+        [namespace, resource_index_route_key(resource)],
+        class: "navigation__link navigation__link--#{nav_link_state(resource)}"
+      ) %>
+    <% end %>
+  <% end %>
+</nav>
