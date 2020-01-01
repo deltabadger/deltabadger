@@ -8,12 +8,12 @@
       = render partial: 'update_password_form', locals: { user: user }
     .col-md
       = render partial: 'credits', locals: { user: user }
-      .db-settings-section
-        %h2 Email notifications
-        .form-check
-          %input#defaultCheck1.form-check-input{:type => "checkbox", :value => "", :checked => "checked"}
-          %label.form-check-label{:for => "defaultCheck2"}
-            Platform news & updates
+      -# .db-settings-section
+      -#   %h2 Email notifications
+      -#   .form-check
+      -#     %input#defaultCheck1.form-check-input{:type => "checkbox", :value => "", :checked => "checked"}
+      -#     %label.form-check-label{:for => "defaultCheck2"}
+      -#       Platform news & updates
       .db-settings-section
         %h2 Api Keys
         = render partial: 'remove_api_key', collection: api_keys, as: :api_key
