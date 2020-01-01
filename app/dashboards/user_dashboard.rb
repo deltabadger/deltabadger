@@ -1,4 +1,4 @@
-require "administrate/base_dashboard"
+require 'administrate/base_dashboard'
 
 class UserDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
@@ -27,7 +27,7 @@ class UserDashboard < Administrate::BaseDashboard
     updated_at: Field::DateTime,
     unconfirmed_email: Field::String,
     admin: Field::Boolean,
-    terms_of_service: Field::Boolean,
+    terms_and_conditions: Field::Boolean,
     updates_agreement: Field::Boolean,
     welcome_banner_showed: Field::Boolean,
     limit_reached?: Field::Boolean
@@ -63,7 +63,7 @@ class UserDashboard < Administrate::BaseDashboard
   updated_at
   unconfirmed_email
   admin
-  terms_of_service
+  terms_and_conditions
   updates_agreement
   welcome_banner_showed
   ].freeze
@@ -72,22 +72,12 @@ class UserDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-  api_keys
-  exchanges
-  bots
-  subscriptions
-  payments
   email
-  encrypted_password
-  reset_password_token
-  reset_password_sent_at
-  remember_created_at
-  confirmation_token
   confirmed_at
   confirmation_sent_at
   unconfirmed_email
   admin
-  terms_of_service
+  terms_and_conditions
   updates_agreement
   welcome_banner_showed
   ].freeze
