@@ -6,7 +6,7 @@ import { Spinner } from './Spinner';
 
 
 const calculateDelay = (nextTransactionTimestamp, now) => {
-  const date = moment.unix(nextTransactionTimestamp)
+  const date = moment.unix(nextTransactionTimestamp).utc()
   const a = moment.duration(date.diff(now))
   return a
 }
@@ -16,7 +16,11 @@ export const Timer = ({bot, callback, isPending}) => {
   const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
   const working = status == 'working'
 
-  const [now, setNow] = useState(moment.unix(nowTimestamp))
+  console.log('normal', moment.unix(nowTimestamp))
+  console.log('utc', moment.unix(nowTimestamp).utc())
+  console.log('nextTransactionTimestamp', nextTransactionTimestamp)
+
+  const [now, setNow] = useState(moment.unix(nowTimestamp).utc())
   const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, now))
   const [pending, setPending] = useState(false)
   const timeout = delay.seconds() < 0
