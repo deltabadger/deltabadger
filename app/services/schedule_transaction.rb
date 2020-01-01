@@ -17,6 +17,6 @@ class ScheduleTransaction < BaseService
     puts  "Interval from now #{interval.from_now}"
     puts  "Interval from now timestamp #{interval.from_now.to_i}"
     puts  "next_transaction_time_stamp #{interval.since(bot.last_transaction.created_at).to_i }"
-    @make_transaction_worker.perform_at(interval.from_now, bot.id)
+    @make_transaction_worker.perform_at(interval.since(bot.last_transaction.created_at).to_i, bot.id)
   end
 end
