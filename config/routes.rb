@@ -26,7 +26,9 @@ Rails.application.routes.draw do
     resources :subscription_plans
     resources :payments
 
-    root to: "users#index"
+    get :dashboard, to: 'dashboard#index'
+
+    root to: "dashboard#index"
   end
 
   post '/newsletter/add_email', to: 'newsletter#add_email'
