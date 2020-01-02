@@ -42,13 +42,18 @@ html {
   }
 }
 .navbar {
-  padding-right: 0;
-  padding-left:  0;
-  background:    none !important;
+  @include media-breakpoint-down(xs) {
+    padding-right: 0.5rem !important;
+    padding-left:  0.5rem !important;
+  }
+  @include media-breakpoint-up(sm) {
+    padding-right: 0;
+    padding-left:  0;
+  }
+  background: none !important;
   .navbar-brand {
     margin-left: 0;
   }
-
 }
 .db--loggedout {
   .navbar {
@@ -79,7 +84,8 @@ html {
     color: $primary !important;
   }
   .navbar {
-    padding: 2rem 0;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
   }
 }
 .db-navbar--scroll--show {
