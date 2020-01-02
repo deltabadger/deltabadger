@@ -54,8 +54,9 @@ export const Transactions = ({ bot }) => (
         ))}
       </tbody>
     </table>
+    <p className="db-smallinfo"><i className="material-icons-round">error_outline</i> The table above shows only the last ten transactions.<br/>The full report is available to download in CSV format below.</p>
     <div className="db-bot-info__footer">
-      <a href={`/api/bots/${bot.id}/transactions_csv`} className="btn btn-link btn--export-to-csv"><i className="material-icons-round mr-1">play_for_work</i> <span>Download .csv file</span> </a>
+      <a href={`/api/bots/${bot.id}/transactions_csv`} className="btn btn-link btn--export-to-csv"><i className="material-icons-round mr-2">cloud_download</i><span> Download .csv</span> </a>
     </div>
   </div>
 )

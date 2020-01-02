@@ -22,6 +22,7 @@ export const BotDetails = ({ bot }) => {
         <Logs bot={bot} />
         <Info bot={bot} />
       </div>
+
     </div>
   )
 }
