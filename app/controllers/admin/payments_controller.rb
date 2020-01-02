@@ -30,5 +30,13 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
+
+    def csv
+      file = Admin::GeneratePaymentsCsv.call
+      filename =
+        "deltabadger-payments-#{Time.now.strftime('%F')}.csv"
+
+      send_data(file, filename: filename)
+    end
   end
 end
