@@ -4,6 +4,8 @@ $textColorLight:     #666;
 $sidebarItemHeight:  56px;
 $sidebarItemPadding: 20px;
 
+$textColorInverted:  rgba(255,255,255,1);
+
 $bgColor:            $bgColorLight;
 $bgBot:              white;
 
@@ -72,10 +74,10 @@ h1 {
 .db-dca-info {
   padding-top:    200px;
   padding-bottom: 250px;
-  color:          #fff;
+  color:          $textColorInverted;
 }
 .row--newsletter {
-  color: #fff !important;
+  color: $textColorInverted !important;
   align-items: center;
   padding-bottom: 30px;
   .col {
@@ -422,7 +424,7 @@ h1 {
   @include make-container-max-widths();
   position: relative !important;
   a {
-    color: #fff !important;
+    color: $textColorInverted !important;
     font-weight: bold !important;
     text-decoration: underline !important;
   }
@@ -551,7 +553,7 @@ h1 {
 
 .db-row--how-does-it-work {
   @include media-breakpoint-up(sm) {
-    border: 2px dashed #fff;
+    border: 2px dashed $textColorInverted;
     padding: 10px 40px 5px 40px;
     border-radius: 20px;
     margin: 40px -40px 120px;

@@ -68,7 +68,7 @@ const BotTemplate = ({
         { working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={() => _handleSubmit(id)}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
-            { exchangeName }:BTC{settings.currency}
+            <span className="d-none d-sm-inline">{ exchangeName }:</span>BTC{settings.currency}
           </div>
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} isPending={isPending}/> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
@@ -77,7 +77,7 @@ const BotTemplate = ({
       </div>
 
       <div className="row db-bot--dca__config-free">
-        <form className="form-inline">
+        <form className="form-inline mx-3">
           <div className="form-group mr-2">
             <select
               value={settings.type}
@@ -98,40 +98,41 @@ const BotTemplate = ({
             </select>
           </div>
           <div className="form-group mr-2">for</div>
-          <input
-            type="text"
-            value={price}
-            onChange={e => setPrice(e.target.value)}
-            className="form-control mr-1"
-            disabled={working ? true : false}
-          />
-
-        <div className="form-group mr-2">
-          <select
-            value={settings.currency}
-            className="form-control"
-            id="exampleFormControlSelect1"
-            disabled={true}
-          >
-            <option value="">{settings.currency}</option>
-          </select>
-        </div>
-        <div className="form-group mr-2">/</div>
-        <div className="form-group mr-2">
-          <select
-            value={interval}
-            className="form-control"
-            onChange={e => setInterval(e.target.value)}
-            id="exampleFormControlSelect1"
-            disabled={working ? true : false}
-          >
-            <option value="minute">Minute</option>
-            <option value="hour">Hour</option>
-            <option value="day">Day</option>
-            <option value="week">Week</option>
-            <option value="month">Month</option>
-          </select>
-        </div>
+          <div className="form-group mr-2">
+            <input
+              type="text"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              className="form-control"
+              disabled={working ? true : false}
+            />
+          </div>
+          <div className="form-group mr-2">
+            <select
+              value={settings.currency}
+              className="form-control"
+              id="exampleFormControlSelect1"
+              disabled={true}
+            >
+              <option value="">{settings.currency}</option>
+            </select>
+          </div>
+          <div className="form-group mr-2">/</div>
+          <div className="form-group mr-2">
+            <select
+              value={interval}
+              className="form-control"
+              onChange={e => setInterval(e.target.value)}
+              id="exampleFormControlSelect1"
+              disabled={working ? true : false}
+            >
+              <option value="minute">Minute</option>
+              <option value="hour">Hour</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+            </select>
+          </div>
       </form>
     </div>
     <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
