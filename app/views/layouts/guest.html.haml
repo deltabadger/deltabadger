@@ -5,6 +5,33 @@
     %meta{:charset => "UTF-8"}
     %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
     %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
+
+    %meta{:content => "Deltabadger | Dollar-Cost Averaging into Bitcoin", :property => "og:title"}
+    %meta{:content => "Automate small Bitcoin purchases daily. Five minute setup. Works with cryptoexchanges. The basic version is free.", :property => "og:description"}
+    %meta{:content => asset_pack_path("media/images/facebook-thumbnail.png"), :property => "og:image"}
+    %meta{:content => "https://deltabadger.com/", :property => "og:url"}
+
+    %meta{:content => "Deltabadger | Dollar-Cost Averaging into Bitcoin", :name => "twitter:title"}
+    %meta{:content => "Automate small Bitcoin purchases daily. Five minute setup. Works with cryptoexchanges. The basic version is free.", :name => "twitter:description"}
+    %meta{:content => asset_pack_path("media/images/facebook-thumbnail.png"), :name => "twitter:image"}
+    %meta{:content => "https://deltabadger.com/", :name => "twitter:card"}
+
+
+    / Essential META Tags
+    %meta{:content => "Deltabadger | Dollar-Cost Averaging into Bitcoin", :property => "og:title"}
+    %meta{:content => "Automate small Bitcoin purchases daily. Five minute setup. Works with cryptoexchanges. The basic version is free.", :property => "og:description"}/
+    %meta{:content => asset_pack_path("media/images/facebook-thumbnail.png"), :property => "og:image"}
+    %meta{:content => "https://deltabadger.com/", :property => "og:url"}
+    %meta{:content => "summary_large_image", :name => "twitter:card"}
+    / Non-Essential, But Recommended
+    %meta{:content => "Deltabadger", :property => "og:site_name"}
+    %meta{:content => "Dollar-Cost Averaging into Bitcoin.", :name => "twitter:image:alt"}
+    / Non-Essential, But Required for Analytics
+    %meta{:content => "your_app_id", :property => "fb:app_id"}
+    %meta{:content => "@deltabadgerapp", :name => "twitter:site"}
+
+
+
     %title Deltabadger
     = csrf_meta_tags
     = csp_meta_tag
