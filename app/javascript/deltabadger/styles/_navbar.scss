@@ -4,17 +4,17 @@ html {
 .db--guest {
   background: $primary;
   .db-logo-svg-shape {
-    fill: rgba(255,255,255,.9);
+    fill: $textColorInverted;
   }
   .navbar-brand {
-    color: #fff !important;
+    color: $textColorInverted !important;
   }
   .navbar,
   .row--intro {
     a {
-      color: #fff;
+      color: $textColorInverted;
     }
-    color: rgba(255,255,255,.9);
+    color: $textColorInverted;
   }
 }
 
@@ -48,31 +48,12 @@ html {
   .navbar-brand {
     margin-left: 0;
   }
+
 }
 .db--loggedout {
   .navbar {
     padding: 2.25rem 0;
   }
-}
-.db--has-sticky-navbar {
-  .db-navbar {
-    background: rgba(255,255,255,1);
-    box-shadow: 0 1px rgba(0,0,0,.1);
-  }
-  .navbar {
-    padding: $navbar-padding-y 0 !important;
-  }
-  .db-homepage-bg {
-    height:     calc(#{$introBoxHeight} + #{$navbarHeight});
-    max-height: calc(#{$introBoxMaxHeight} + #{$navbarHeight});
-  }
-  .db-homepage-bg__image {
-    height:     calc(#{$introBoxHeight} + #{$navbarHeight});
-    max-height: calc(#{$introBoxMaxHeight} + #{$navbarHeight});
-  }
-}
-.db-icon-verified {
-  cursor: default;
 }
 
 //
@@ -98,8 +79,7 @@ html {
     color: $primary !important;
   }
   .navbar {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
+    padding: 1.5rem 0;
   }
 }
 .db-navbar--scroll--show {

@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 
 export const StartButton = ({onClick}) => (
-  <div onClick={onClick} className="btn btn-success"><span>Start</span> <i className="material-icons-round">play_arrow</i></div>
+  <div onClick={onClick} className="btn btn-success"><span className="d-none d-sm-inline">Start</span> <i className="material-icons-round">play_arrow</i></div>
 )
 export const StopButton = ({onClick}) => (
-  <div onClick={onClick} className="btn btn-outline-primary"><span>Pause</span> <i className="material-icons-round">pause</i></div>
+  <div onClick={onClick} className="btn btn-outline-primary"><span className="d-none d-sm-inline">Pause</span> <i className="material-icons-round">pause</i></div>
 )
 
 export const RemoveButton = ({onClick, disabled}) => {

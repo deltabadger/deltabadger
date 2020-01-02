@@ -13,8 +13,10 @@
             .db-tooltip= "#{ current_user.plan_days_left } days left"
         - else
           %a.btn.btn-outline-primary.mr-2{:href => upgrade_path}
-            %span Upgrade
+            %i.material-icons-round.d-inline.d-sm-none add
+            %span.d-none.d-sm-inline Upgrade
 
-        %a.btn.btn-link{:href => root_path} Dashboard
+
+        %a.btn.btn-link.d-none.d-sm-inline{:href => root_path} Dashboard
         = link_to('Settings', settings_path, class: 'btn btn-link')
         = link_to('Log out',  destroy_user_session_path, method: :delete, class: 'btn btn-link')
