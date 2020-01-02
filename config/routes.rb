@@ -24,7 +24,9 @@ Rails.application.routes.draw do
     resources :transactions
     resources :subscriptions
     resources :subscription_plans
-    resources :payments
+    resources :payments do
+      get :csv, on: :collection
+    end
 
     get :dashboard, to: 'dashboard#index'
 
