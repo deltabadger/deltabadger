@@ -23,6 +23,13 @@ html {
     }
     color: $textColorInverted;
   }
+  .btn-success {
+    &:hover {
+      background: darken($success,4%);
+      border-color: darken($success,4%);
+
+    }
+  }
 }
 
 .db-logo-svg-shape {
