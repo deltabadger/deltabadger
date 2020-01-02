@@ -14,6 +14,13 @@ html {
     a {
       color: $textColorInverted;
     }
+    .btn-outline-primary {
+      border-color: $textColorInverted;
+      &:hover {
+        background: $textColorInverted;
+        color: $primary;
+      }
+    }
     color: $textColorInverted;
   }
 }
@@ -80,8 +87,16 @@ html {
   .db-logo-svg-shape {
     fill: $primary;
   }
-  .btn-link {
+  .btn-link,
+  .btn-outline-primary {
     color: $primary !important;
+  }
+  .btn-outline-primary {
+    border-color: $primary !important;
+    &:hover {
+      background: $primary !important;
+      color: $textColorInverted !important;
+    }
   }
   .navbar {
     padding-top: 2rem;
