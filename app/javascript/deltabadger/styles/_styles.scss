@@ -6,6 +6,8 @@ $sidebarItemPadding: 20px;
 
 $textColorInverted:  rgba(255,255,255,1);
 
+$successLigher:      lighten($success,10%);
+
 $bgColor:            $bgColorLight;
 $bgBot:              white;
 
@@ -225,7 +227,7 @@ h1 {
 // free
 
 .text-success--lighter {
-  color: lighten($success,10%) !important;
+  color: $successLigher !important;
   text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 .text-danger--lighter {

@@ -33,8 +33,9 @@ export const NewsletterForm = () => {
       </div>
       <div className="form-group">
         <div onClick={handleSubmit} className={`btn ${disableSubmit ? 'disabled btn-outline-success' : 'btn-success'}`}>
-          <span className="d-none d-sm-block">Keep me in the loop!</span>
-          <span className="d-block d-sm-none">Send</span>
+          <div className="d-block d-sm-none m-0">Send</div>
+          <div className="d-none d-sm-block m-0">Keep me in the loop!</div>
+
         </div>
       </div>
     </div>
