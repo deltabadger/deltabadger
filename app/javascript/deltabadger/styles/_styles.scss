@@ -533,11 +533,19 @@ h1 {
   td {
     padding: .5rem 0;
     text-align: right;
+    font-weight: bold;
     &:first-child {
       text-align: left;
     }
   }
-
+}
+.db-billing-item__info {
+  padding: 0.5em 0;
+  font-weight: normal;
+  font-size: 0.8em;
+  line-height: 1.25em;
+  display: block;
+  opacity: 0.8;
 }
 .db-globee-badge {
   text-align: center;
