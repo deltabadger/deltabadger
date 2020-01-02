@@ -1,62 +1,105 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="420px" height="140px" viewBox="0 0 420 140" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="420px" height="160px" viewBox="0 0 420 160" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <!-- Generator: Sketch 59.1 (86144) - https://sketch.com -->
-    <title>lineart_track_it</title>
+    <title>chart</title>
     <desc>Created with Sketch.</desc>
-    <g id="lineart_track_it" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-        <polyline id="Path-8" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" points="11.5 136.071828 30 131.720802 50 134.942906 70 129.136741 90 113 110 124.022234 130 107 150 103 170 82 190 86 210 103 230 88 250 92 270 71 290 48 310 61 330 41 350 45.963451 370 39 390 43 408 3"></polyline>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="90" cy="113" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="70" cy="129" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="50" cy="135" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="30" cy="132" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="12" cy="136" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="12" cy="136" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="30" cy="134.4" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="50" cy="132.6" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="70" cy="130.9" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="90" cy="129.1" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="110" cy="127.4" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="130" cy="125.7" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="150" cy="123.9" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="170" cy="122.2" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="190" cy="120.4" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="210" cy="118.7" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="230" cy="117" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="250" cy="115" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="270" cy="113.4" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="290" cy="111.7" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="310" cy="110" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="330" cy="108.2" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="282" cy="131" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="350" cy="106.5" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="370" cy="104.8" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="390" cy="102.9" r="1"></circle>
-        <circle id="Oval" fill="#34CE57" cx="408" cy="101.4" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="110" cy="124" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="130" cy="107" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="150" cy="103" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="170" cy="82" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="190" cy="86" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="210" cy="103" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="230" cy="88" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="250" cy="92" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="270" cy="71" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="290" cy="48" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="310" cy="61" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="330" cy="41" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="350" cy="46" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="370" cy="39" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="390" cy="43" r="1"></circle>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="408" cy="3" r="1"></circle>
-        <line x1="11.5" y1="136" x2="407.5" y2="101.5" id="Line" stroke="#34CE57" fill="#28A745" stroke-linecap="round" stroke-linejoin="round"></line>
+    <g id="chart" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M40.5,83.25 L40,143.75 M40.5,134.5 L41.4437386,134.5 L42.5,134.5" id="Line-7" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M20.5,111.5 L20.5,125.5 M20.5,118.5 L21.4437386,118.5 L22.5,118.5" id="Line-5" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M10.5,118.5 L10.5,154.5 M10.5,122.5 L11.4437386,122.5 L12.5,122.5" id="Line-4" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M120.5,129.5 L121.443739,129.5 L122.5,129.5 M120.5,115.5 L120.5,136.5" id="Line-15" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M150.5,106.5 L151.443739,106.5 L152.5,106.5 M150.5,87.5 L150.5,111.5" id="Line-18" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M160.5,99.5 L161.443739,99.5 L162.5,99.5 M160.5,88.5 L160.5,124.5" id="Line-19" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M180.5,89.5 L181.443739,89.5 L182.5,89.5 M180.5,66.5 L180.5,91.5" id="Line-21" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M190.5,111.5 L191.443739,111.5 L192.5,111.5 M190.5,85.5 L190.5,114.5" id="Line-22" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M200.5,123.5 L201.443739,123.5 L202.5,123.5 M200.5,109.5 L200.5,131.5" id="Line-23" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M220.5,115.5 L221.443739,115.5 L222.5,115.5 M220,109 L220,128" id="Line-25" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M240.5,110.5 L241.443739,110.5 L242.5,110.5 M240.5,90.5 L240.5,138.5" id="Line-27" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M390.5,72.5 L391.443739,72.5 L392.5,72.5 M390.5,58.5 L390.5,91.5" id="Line-42" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M400.5,42.5 L401.443739,42.5 L402.5,42.5 M400.5,37.5 L400.5,73.5" id="Line-43" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M410.5,12.5 L411.443739,12.5 L412.5,12.5 M410.5,2.5 L410.5,43.5" id="Line-44" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M170.5,83.5 L170.5,100.5 M170.5,89.5 L171.443739,89.5 L172.5,89.5" id="Line-20" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M30.5,93.5 L30.5,120.5 M30.5,114.5 L31.4437386,114.5 L32.5,114.5" id="Line-6" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M130.5,100 L130.5,133 M130.5,123.5 L131.443739,123.5 L132.5,123.5" id="Line-16" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M110.5,125.5 L110.5,158.5 M110.5,133.5 L111.443739,133.5 L112.5,133.5" id="Line-14" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M100.5,108.5 L100.5,128.5 M100.5,126.5 L101.443739,126.5 L102.5,126.5" id="Line-13" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M90.5,91.5 L90.5,139.5 M90.5,126.5 L91.4437386,126.5 L92.5,126.5" id="Line-12" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M80.5,115.5 L80.5,138.5 M80.5,131.5 L81.4437386,131.5 L82.5,131.5" id="Line-11" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M70,113 L70,132 M70.5,121.5 L71.4437386,121.5 L72.5,121.5" id="Line-10" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M60.5,119 L60.5,135 M60.5,128.5 L61.4437386,128.5 L62.5,128.5" id="Line-9" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M50.5,114.5 L50.5,136.5 M50.5,124.5 L51.4437386,124.5 L52.5,124.5" id="Line-8" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M140.5,107.5 L140.5,130 M140.5,109.5 L141.443739,109.5 L142.5,109.5" id="Line-17" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M230.5,95 L230.5,118 M230.5,111.5 L231.443739,111.5 L232.5,111.5" id="Line-26" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M260.5,100 L260.5,131 M260.5,106.5 L261.443739,106.5 L262.5,106.5" id="Line-29" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M250.5,109 L250.5,129 M250.5,120.5 L251.443739,120.5 L252.5,120.5" id="Line-28" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M270.5,87 L270.5,108 M270.5,87.5 L271.443739,87.5 L272.5,87.5" id="Line-30" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M280.5,69 L280.5,102 M280.5,69.5 L281.443739,69.5 L282.5,69.5" id="Line-31" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M210.5,121 L210.5,154.5 M210.5,126.5 L211.443739,126.5 L212.5,126.5" id="Line-24" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M290.5,43.5 L290.5,80 M290.5,73.5 L291.443739,73.5 L292.5,73.5" id="Line-32" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M310.5,87.5 L310.5,118.5 M310.5,87.5 L311.443739,87.5 L312.5,87.5" id="Line-34" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M300.5,67.5 L300.5,91.5 M300.5,87.5 L301.443739,87.5 L302.5,87.5" id="Line-33" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M320.5,77.5 L320.5,88.5 M320.5,77.5 L321.443739,77.5 L322.5,77.5" id="Line-35" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M330.5,47.5 L330.5,78.5 M330.5,67.5 L331.443739,67.5 L332.5,67.5" id="Line-36" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M340.5,67.5 L340.5,87.5 M340.5,77.5 L341.443739,77.5 L342.5,77.5" id="Line-37" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M350.5,77.5 L350.5,108.5 M350.5,83.5 L351.443739,83.5 L352.5,83.5" id="Line-38" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M360.5,67.5 L360.5,88.5 M360.5,67.5 L361.443739,67.5 L362.5,67.5" id="Line-39" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M370.5,37.5 L370.5,68.5 M370.5,55.5 L371.443739,55.5 L372.5,55.5" id="Line-40" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M380.5,53.5 L380.5,78.5 M380.5,65.5 L381.443739,65.5 L382.5,65.5" id="Line-41" stroke-opacity="0.304632867" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <polyline id="Path-8" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="11.5 156.571828 30 152.220802 50 155.442906 70 149.636741 90 133.5 110 144.522234 130 127.5 150 123.5 170 102.5 190 106.5 210 123.5 230 108.5 250 112.5 270 91.5 290 68.5 310 81.5 330 61.5 350 66.463451 370 59.5 390 63.5 410 24.5"></polyline>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="90.5" cy="133.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="70.5" cy="149.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="50.5" cy="155.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="30.5" cy="152.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="10.5" cy="156.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="110.5" cy="144.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="130.5" cy="127.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="150.5" cy="123.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="170.5" cy="102.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="190.5" cy="106.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="210.5" cy="123.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="230.5" cy="108.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="250.5" cy="112.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="270.5" cy="91.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="290.5" cy="68.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="310.5" cy="81.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="330.5" cy="61.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="350.5" cy="66.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="370.5" cy="59.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="390.5" cy="63.5" r="1.5"></circle>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="410.5" cy="24.5" r="1.5"></circle>
+        <g id="Group" transform="translate(9.000000, 120.400000)" fill="#34CE57">
+            <circle id="Oval" cx="1.5" cy="36.1" r="1.5"></circle>
+            <circle id="Oval" cx="21.5" cy="34.5" r="1.5"></circle>
+            <circle id="Oval" cx="41.5" cy="32.7" r="1.5"></circle>
+            <circle id="Oval" cx="61.5" cy="31" r="1.5"></circle>
+            <circle id="Oval" cx="81.5" cy="29.2" r="1.5"></circle>
+            <circle id="Oval" cx="101.5" cy="27.5" r="1.5"></circle>
+            <circle id="Oval" cx="121.5" cy="25.8" r="1.5"></circle>
+            <circle id="Oval" cx="141.5" cy="24" r="1.5"></circle>
+            <circle id="Oval" cx="161.5" cy="22.3" r="1.5"></circle>
+            <circle id="Oval" cx="181.5" cy="20.5" r="1.5"></circle>
+            <circle id="Oval" cx="201.5" cy="18.8" r="1.5"></circle>
+            <circle id="Oval" cx="221.5" cy="17.1" r="1.5"></circle>
+            <circle id="Oval" cx="241.5" cy="15.1" r="1.5"></circle>
+            <circle id="Oval" cx="261.5" cy="13.5" r="1.5"></circle>
+            <circle id="Oval" cx="281.5" cy="11.8" r="1.5"></circle>
+            <circle id="Oval" cx="301.5" cy="10.1" r="1.5"></circle>
+            <circle id="Oval" cx="321.5" cy="8.3" r="1.5"></circle>
+            <circle id="Oval" cx="273.5" cy="31.1" r="1.5"></circle>
+            <circle id="Oval" cx="341.5" cy="6.6" r="1.5"></circle>
+            <circle id="Oval" cx="361.5" cy="4.9" r="1.5"></circle>
+            <circle id="Oval" cx="381.5" cy="3" r="1.5"></circle>
+            <circle id="Oval" cx="399.5" cy="1.5" r="1.5"></circle>
+        </g>
+        <line x1="10.5" y1="156.571828" x2="408.5" y2="121.9" id="Line" stroke="#34CE57" stroke-width="1.5" fill="#28A745" stroke-linecap="round" stroke-linejoin="round"></line>
         <text id="Portfolio-Value" font-family="VarelaRound-Regular, Varela Round" font-size="6" font-weight="normal" fill="#FFFFFE">
-            <tspan x="365.757" y="133">Portfolio Value</tspan>
+            <tspan x="365.757" y="153">Portfolio Value</tspan>
         </text>
         <text id="Total-Invested" font-family="VarelaRound-Regular, Varela Round" font-size="6" font-weight="normal" fill="#FFFFFE">
-            <tspan x="286.843" y="133">Total Invested</tspan>
+            <tspan x="286.843" y="153">Total Invested</tspan>
         </text>
-        <line x1="361.5" y1="131" x2="353.5" y2="131" id="Line-2" stroke="#FFFFFE" stroke-linecap="round" stroke-linejoin="round"></line>
-        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="362" cy="131" r="1"></circle>
-        <line x1="281.5" y1="131" x2="273.5" y2="131" id="Line-2" stroke="#34CE57" stroke-linecap="round" stroke-linejoin="round"></line>
+        <line x1="281.5" y1="151.5" x2="273.5" y2="151.5" id="Line-2" stroke="#34CE57" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></line>
+        <line x1="361" y1="151.5" x2="353" y2="151.5" id="Line-2" stroke="#FFFFFE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></line>
+        <circle id="Oval" stroke="#FFFFFE" fill="#0957CB" cx="362.5" cy="151.5" r="1.5"></circle>
     </g>
 </svg>
