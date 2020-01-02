@@ -85,7 +85,6 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
             className="form-control"
             id="exampleFormControlSelect1"
           >
-            <option value="minute">Minute</option>
             <option value="hour">Hour</option>
             <option value="day">Day</option>
             <option value="week">Week</option>
