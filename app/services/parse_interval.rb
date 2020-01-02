@@ -1,7 +1,7 @@
 class ParseInterval < BaseService
   Error = StandardError
 
-  INTERVALS = %w[month week day hour minute].freeze
+  INTERVALS = %w[month week day hour].freeze
 
   def call(bot)
     user_interval = calculate_user_interval(bot)

@@ -17,7 +17,7 @@ module Bots::Free::Validators
       attr_reader :interval, :currency, :type, :price
 
       CURRENCIES = %w[USD EUR PLN].freeze
-      INTERVALS = %w[month week day hour minute].freeze
+      INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
 
       validates :interval, :currency, :type, :price, presence: true
