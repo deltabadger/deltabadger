@@ -560,11 +560,15 @@ h1 {
 // .db-infoblocks
 
 .db-row--how-does-it-work {
+  margin-top: 40px;
+  margin-bottom:80px;
   @include media-breakpoint-up(sm) {
     border: 2px dashed $textColorInverted;
     padding: 10px 40px 5px 40px;
     border-radius: 20px;
-    margin: 40px -40px 120px;
+    margin-left: -40px;
+    margin-right: -40px;
+
   }
 }
 
