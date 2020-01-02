@@ -173,12 +173,23 @@
 .db-bot-info__footer {
   display:         flex;
   justify-content: space-between;
-  margin:          0 $bot-gutter-width/2 $bot-gutter-width/2;
+  margin:          0 $bot-gutter-width/1.4 $bot-gutter-width/2;
   height:          38px;
 }
 .db-table {
   th, td {
     padding: .5rem .5rem .5rem 1rem;
+  }
+}
+.db-smallinfo {
+  opacity: .5;
+  font-size: 0.8em;
+  margin: -1em 1.25em 2em 3.6em;
+  text-indent: -15px;
+  i {
+    opacity: .5;
+    position: relative;
+    top: 8px;
   }
 }
 
