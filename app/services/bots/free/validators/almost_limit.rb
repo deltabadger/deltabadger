@@ -3,7 +3,7 @@ module Bots::Free::Validators
     def call(user)
       return Result::Success.new if user.unlimited?
 
-      if user.credits <= 200
+      if user.credits <= 100
         Result::Failure.new
       else
         Result::Success.new
