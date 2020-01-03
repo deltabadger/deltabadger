@@ -39,10 +39,10 @@
           %label Country
           %br
           .form-check.form-check-inline
-            = f.radio_button :eu, false, class: 'form-check-input'
+            = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input'
             = f.label :eu, "European Union", class: 'form-check-label'
           .form-check.form-check-inline
-            = f.radio_button :eu, true, checked: payment.eu || true, class: 'form-check-input'
+            = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input'
             = f.label :eu, "Other", class: 'form-check-label'
 
         .form-group.db-form-group--main-btn
