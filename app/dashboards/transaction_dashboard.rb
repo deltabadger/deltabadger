@@ -31,6 +31,7 @@ class TransactionDashboard < Administrate::BaseDashboard
   id
   offer_id
   rate
+  amount
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES

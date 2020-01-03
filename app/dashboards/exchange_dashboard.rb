@@ -22,8 +22,6 @@ class ExchangeDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
   id
   name
-  created_at
-  updated_at
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -57,7 +55,7 @@ class ExchangeDashboard < Administrate::BaseDashboard
   # Overwrite this method to customize how exchanges are displayed
   # across all pages of the admin dashboard.
   #
-  # def display_resource(exchange)
-  #   "Exchange ##{exchange.id}"
-  # end
+  def display_resource(exchange)
+    "#{exchange.name.capitalize}"
+  end
 end

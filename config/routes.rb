@@ -17,13 +17,20 @@ Rails.application.routes.draw do
   end
 
   namespace :admin do
-    resources :users
-    resources :api_keys
+    resources :users, except: [:destroy]
+    resources :api_keys, except: [:edit, :update]
     resources :bots
     resources :exchanges
     resources :transactions
+    resources :subscriptions
+    resources :subscription_plans
+    resources :payments do
+      get :csv, on: :collection
+    end
 
-    root to: "users#index"
+    get :dashboard, to: 'dashboard#index'
+
+    root to: "dashboard#index"
   end
 
   post '/newsletter/add_email', to: 'newsletter#add_email'

@@ -1,4 +1,4 @@
-require "administrate/base_dashboard"
+require 'administrate/base_dashboard'
 
 class UserDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
@@ -12,6 +12,8 @@ class UserDashboard < Administrate::BaseDashboard
     exchanges: Field::HasMany,
     bots: Field::HasMany,
     subscriptions: Field::HasMany,
+    subscription: SubscriptionField,
+    payments: Field::HasMany,
     id: Field::Number,
     email: Field::String,
     encrypted_password: Field::String,
@@ -24,6 +26,11 @@ class UserDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     unconfirmed_email: Field::String,
+    admin: Field::Boolean,
+    terms_and_conditions: Field::Boolean,
+    updates_agreement: Field::Boolean,
+    welcome_banner_showed: Field::Boolean,
+    limit_reached?: Field::Boolean
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -32,10 +39,10 @@ class UserDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  api_keys
-  exchanges
-  bots
-  subscriptions
+  email
+  subscription
+  limit_reached?
+  admin
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -45,37 +52,34 @@ class UserDashboard < Administrate::BaseDashboard
   exchanges
   bots
   subscriptions
+  payments
   id
   email
-  encrypted_password
-  reset_password_token
   reset_password_sent_at
   remember_created_at
-  confirmation_token
   confirmed_at
   confirmation_sent_at
   created_at
   updated_at
   unconfirmed_email
+  admin
+  terms_and_conditions
+  updates_agreement
+  welcome_banner_showed
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-  api_keys
-  exchanges
-  bots
-  subscriptions
   email
-  encrypted_password
-  reset_password_token
-  reset_password_sent_at
-  remember_created_at
-  confirmation_token
   confirmed_at
   confirmation_sent_at
   unconfirmed_email
+  admin
+  terms_and_conditions
+  updates_agreement
+  welcome_banner_showed
   ].freeze
 
   # COLLECTION_FILTERS
@@ -93,7 +97,7 @@ class UserDashboard < Administrate::BaseDashboard
   # Overwrite this method to customize how users are displayed
   # across all pages of the admin dashboard.
   #
-  # def display_resource(user)
-  #   "User ##{user.id}"
-  # end
+  def display_resource(user)
+    "#{user.email}"
+  end
 end
