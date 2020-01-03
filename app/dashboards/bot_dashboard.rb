@@ -17,6 +17,11 @@ class BotDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     bot_type: Field::String.with_options(searchable: false),
+    type: Field::String,
+    currency: Field::String,
+    interval: Field::String,
+    price: Field::String,
+    total_amount: Field::Number,
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -25,10 +30,15 @@ class BotDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  exchange
-  user
-  transactions
   id
+  status
+  exchange
+  currency
+  price
+  interval
+  type
+  transactions
+  total_amount
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES

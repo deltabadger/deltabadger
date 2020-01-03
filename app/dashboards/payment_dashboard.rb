@@ -1,6 +1,6 @@
 require "administrate/base_dashboard"
 
-class ApiKeyDashboard < Administrate::BaseDashboard
+class PaymentDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
   # a hash that describes the type of each of the model's fields.
   #
@@ -8,15 +8,19 @@ class ApiKeyDashboard < Administrate::BaseDashboard
   # which determines how the attribute is displayed
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
-    exchange: Field::BelongsTo,
     user: Field::BelongsTo,
     id: Field::Number,
-    encrypted_key: Field::String,
-    encrypted_key_iv: Field::String,
+    payment_id: Field::String,
+    status: Field::String.with_options(searchable: false),
+    total: Field::String.with_options(searchable: false),
+    currency: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
-    encrypted_secret: Field::String,
-    encrypted_secret_iv: Field::String,
+    first_name: Field::String,
+    last_name: Field::String,
+    birth_date: Field::DateTime.with_options(format: '%F %r'),
+    eu: Field::Boolean,
+    paid_at: Field::DateTime.with_options(format: '%F %r'),
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -25,24 +29,49 @@ class ApiKeyDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  exchange
-  user
   id
+  first_name
+  last_name
+  birth_date
+  eu
+  total
+  currency
+  user
+  status
+  paid_at
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-  exchange
   user
   id
+  payment_id
+  status
+  total
+  currency
   created_at
+  updated_at
+  first_name
+  last_name
+  birth_date
+  eu
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
-  FORM_ATTRIBUTES = %i[].freeze
+  FORM_ATTRIBUTES = %i[
+  user
+  payment_id
+  status
+  total
+  currency
+  first_name
+  last_name
+  birth_date
+  eu
+  ].freeze
 
   # COLLECTION_FILTERS
   # a hash that defines filters that can be used while searching via the search
@@ -51,15 +80,16 @@ class ApiKeyDashboard < Administrate::BaseDashboard
   # For example to add an option to search for open resources by typing "open:"
   # in the search field:
   #
-  #   COLLECTION_FILTERS = {
-  #     open: ->(resources) { where(open: true) }
-  #   }.freeze
-  COLLECTION_FILTERS = {}.freeze
+  COLLECTION_FILTERS = {
+    paid: ->(resources) { resources.where(status: :paid) },
+    unpaid: ->(resources) { resources.where.not(status: :paid) }
+  }.freeze
+  # COLLECTION_FILTERS = {}.freeze
 
-  # Overwrite this method to customize how api keys are displayed
+  # Overwrite this method to customize how payments are displayed
   # across all pages of the admin dashboard.
   #
-  # def display_resource(api_key)
-  #   "ApiKey ##{api_key.id}"
+  # def display_resource(payment)
+  #   "Payment ##{payment.id}"
   # end
 end
