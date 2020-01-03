@@ -1,4 +1,7 @@
 class User < ApplicationRecord
+  FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT =
+    ENV.fetch('FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT')
+
   after_create :add_subscription
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
@@ -50,7 +53,7 @@ class User < ApplicationRecord
     subscriptions << Subscription.new(
       subscription_plan: SubscriptionPlan.find_by(name: 'free'),
       end_time: created_at + 1.year,
-      credits: 500
+      credits: FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
     )
   end
 end
