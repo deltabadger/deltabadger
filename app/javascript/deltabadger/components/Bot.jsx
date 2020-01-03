@@ -55,7 +55,7 @@ const BotTemplate = ({
     </div>
   )
 
- // useEffect(() => {}, [JSON.stringify(bot)])
+  // useEffect(() => {}, [JSON.stringify(bot)])
 
   const handleReload = (bot, callback) => {
     reload(bot)
@@ -126,17 +126,16 @@ const BotTemplate = ({
               id="exampleFormControlSelect1"
               disabled={working ? true : false}
             >
-              <option value="minute">Minute</option>
               <option value="hour">Hour</option>
               <option value="day">Day</option>
               <option value="week">Week</option>
               <option value="month">Month</option>
             </select>
           </div>
-      </form>
+        </form>
+      </div>
+      <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
     </div>
-    <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
-  </div>
   )
 }
 

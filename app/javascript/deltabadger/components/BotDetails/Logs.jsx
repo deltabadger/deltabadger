@@ -1,7 +1,7 @@
 import React from 'react'
 
-export const Logs = ({ bot }) => (
-  <div className="tab-pane" id="log" role="tabpanel" aria-labelledby="log-tab">
+export const Logs = ({ bot, active }) => (
+  <div className={`tab-pane ${active ? 'active' : ''}`} id="log" role="tabpanel" aria-labelledby="log-tab">
     <table className="table table-striped table-borderless db-table db-table--tx">
       <thead>
         <tr>

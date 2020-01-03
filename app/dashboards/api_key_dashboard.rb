@@ -28,7 +28,6 @@ class ApiKeyDashboard < Administrate::BaseDashboard
   exchange
   user
   id
-  encrypted_key
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -37,25 +36,13 @@ class ApiKeyDashboard < Administrate::BaseDashboard
   exchange
   user
   id
-  encrypted_key
-  encrypted_key_iv
   created_at
-  updated_at
-  encrypted_secret
-  encrypted_secret_iv
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
-  FORM_ATTRIBUTES = %i[
-  exchange
-  user
-  encrypted_key
-  encrypted_key_iv
-  encrypted_secret
-  encrypted_secret_iv
-  ].freeze
+  FORM_ATTRIBUTES = %i[].freeze
 
   # COLLECTION_FILTERS
   # a hash that defines filters that can be used while searching via the search
