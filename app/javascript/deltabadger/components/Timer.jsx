@@ -4,17 +4,8 @@ import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
-
 const calculateDelay = (nextTransactionTimestamp, nowTimestamp) => {
-  // const date = moment.unix(nextTransactionTimestamp).utc()
-  // const a = moment.duration(date.diff(now))
-
-  const diff = nextTransactionTimestamp - nowTimestamp
-  // const a = moment.duration(diff, 'seconds')
-  console.log('nowTimestamp', nowTimestamp)
-  console.log('nextTransactionTimestamp', nextTransactionTimestamp)
-  // console.log('duration', a)
-  return diff
+  return nextTransactionTimestamp - nowTimestamp
 }
 
 export const Timer = ({bot, callback, isPending}) => {
