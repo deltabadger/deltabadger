@@ -22,6 +22,7 @@ module Presenters
           transactions: transactions.first(10).map(&method(:present_transaction)),
           logs: logs.map(&method(:present_log)),
           stats: present_stats(bot, transactions),
+          nowTimestamp: Time.now.to_i,
           nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
@@ -31,8 +32,9 @@ module Presenters
       def next_transaction_timestamp(bot)
         return nil if !bot.transactions.exists?
 
+        bot.reload
         interval = @parse_interval.call(bot)
-        (bot.transactions.last.created_at + interval).to_i
+        interval.since(bot.last_transaction.created_at).to_i
       rescue
         nil
       end

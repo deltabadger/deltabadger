@@ -16,7 +16,7 @@ export const formatDuration = (duration) => {
   ]
 
   const buildFormattedDuration = (formattedDuration, el) => {
-    if (el.number && el.number > 1) {
+    if (el.number && el.number >= 1) {
       // return formattedDuration + " " + `${String(el.number).padStart(2, '0')}${el.name}`
       return formattedDuration + " " + `${String(el.number)}${el.name}`
     } else {
