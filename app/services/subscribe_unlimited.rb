@@ -19,7 +19,7 @@ class SubscribeUnlimited < BaseService
       user_id: user.id,
       subscription_plan_id: subscription_plan.id,
       end_time: Time.now + 1.year,
-      credits: 1000
+      credits: 500
     )
 
     @notifications.unlimited_granted(user: user)
