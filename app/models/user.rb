@@ -50,7 +50,7 @@ class User < ApplicationRecord
     subscriptions << Subscription.new(
       subscription_plan: SubscriptionPlan.find_by(name: 'free'),
       end_time: created_at + 1.year,
-      credits: 1000
+      credits: 500
     )
   end
 end
