@@ -12,12 +12,13 @@
             %i.material-icons-round.ml-1 verified_user
             .db-tooltip= "#{ current_user.plan_days_left } days left"
         - else
-          %a.btn.btn-outline-primary.mr-2.d-inline-flex.d-sm-none{:href => upgrade_path}
+          %a.btn.btn-link.mr-2.d-inline-flex.d-sm-none{:href => upgrade_path}
             %i.material-icons-round shopping_basket
           %a.btn.btn-outline-primary.mr-2.d-none.d-sm-inline-flex{:href => upgrade_path}
             Upgrade
 
 
-        %a.btn.btn-link.d-none.d-sm-inline-flex{:href => root_path} Dashboard
-        = link_to(raw('<i class="material-icons-round d-inline d-sm-none">account_circle</i><span class="d-none d-sm-inline">Settings</span>'), settings_path, class: 'btn btn-link')
+        %a.btn.btn-link.d-none.d-sm-inline-flex{:href => root_path}
+          Dashboard
+        = link_to(raw('<i class="material-icons-round d-inline d-sm-none pr-2">account_circle</i><span class="d-none d-sm-inline">Settings</span>'), settings_path, class: 'btn btn-link')
         = link_to(raw('<i class="material-icons-round d-inline d-sm-none">power_settings_new</i><span class="d-none d-sm-inline">Log out</span>'),  destroy_user_session_path, method: :delete, class: 'btn btn-link')
