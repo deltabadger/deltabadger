@@ -34,10 +34,9 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
           </div>
         </div>
       </div>
-
+      <div className="text-danger d-block">{ errors }Error message</div>
       <div className="row db-bot--dca__config-free">
-        { errors }
-        <form className="form-inline">
+        <form className="form-inline mx-3">
           <div className="form-group mr-2">
             <select
               value={type}
@@ -58,12 +57,14 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
             </select>
           </div>
           <div className="form-group mr-2">for</div>
-          <input
-            type="text"
-            value={price}
-            onChange={e => setPrice(e.target.value)}
-            className="form-control mr-1"
-          />
+          <div className="form-group mr-2">
+            <input
+              type="text"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              className="form-control mr-1"
+            />
+          </div>
 
         <div className="form-group mr-2">
           <select
