@@ -76,8 +76,8 @@ const BotTemplate = ({
         </div>
       </div>
 
-      <div className="row db-bot--dca__config-free">
-        <form className="form-inline mx-3">
+      <div className="row db-bot__form">
+        <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
               value={settings.type}
@@ -94,7 +94,10 @@ const BotTemplate = ({
               className="form-control"
               disabled={true}
             >
-              <option value="buy">BTC</option>
+              <option value="BTC">BTC</option>
+              <option value="ETH">ETH</option>
+              <option value="LTC">LTC</option>
+              <option value="XMR">XMR</option>
             </select>
           </div>
           <div className="form-group mr-2">for</div>
