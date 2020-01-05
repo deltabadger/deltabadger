@@ -79,24 +79,15 @@ h1 {
 .line,
 .circle-a {
   @include media-breakpoint-down(xs) {
-    stroke-width: 3px;
+    stroke-width: 3px !important;
   }
 }
 .circle-a, .circle-b {
   @include media-breakpoint-down(xs) {
-    r: 3px;
+    r: 3px !important;
   }
 }
-.circle-a--example {
-  @include media-breakpoint-down(xs) {
-    cx: 345;
-  }
-}
-.circle-b--example {
-  @include media-breakpoint-down(xs) {
-    cx: 268;
-  }
-}
+
 .db-dca-info {
   padding-top:    200px;
   padding-bottom: 250px;
