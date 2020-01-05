@@ -30,18 +30,19 @@ export const AddApiKey = ({
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-primary'}`}><i className="material-icons-round">arrow_forward</i></div>
-        <div className="db-bot__infotext db-bot__infotext--setup">Get API Key
+        <div className="db-bot__infotext--setup">Get API Keys</div>
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`}><span>Next</span> <i className="material-icons-round">arrow_forward</i></div>
+        <div className="db-bot__infotext ">
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "33%", ariaValuenow: "33", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
         </div>
 
       </div>
-      <div className="row db-bot__apikey-form">
-        { errors }
-        <form onSubmit={_handleSubmit} className="form-row w-100">
-          <div className="col form-group db-form-group--fg-2">
+      <div className="row db-bot__form db-bot__form--apikeys">
+        <div className="db-bot__alert text-danger">{ errors }</div>
+        <form onSubmit={_handleSubmit} className="form-row">
+          <div className="col form-group">
             <label>API Key:</label>
             <input
               type="text"
@@ -50,7 +51,7 @@ export const AddApiKey = ({
               className="form-control"
             />
           </div>
-          <div className="col form-group db-form-group--fg-2">
+          <div className="col form-group">
             <label>Secret API Key:</label>
             <input
               type="text"
