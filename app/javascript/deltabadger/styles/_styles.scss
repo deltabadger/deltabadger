@@ -68,15 +68,43 @@ h1 {
   position:      relative;
   margin-bottom: 150px;
 }
-.db-chart-art {
+.db-homepage-svg-chart {
   position: absolute;
-  width:    100%;
-  bottom:   0;
+  width: calc(100% - 20px);
+  margin-left: 10px;
+  margin-right: 10px;
+  bottom: 0;
+}
+.candlestick,
+.line,
+.circle-a {
+  @include media-breakpoint-down(xs) {
+    stroke-width: 3px;
+  }
+}
+.circle-a, .circle-b {
+  @include media-breakpoint-down(xs) {
+    r: 3px;
+  }
+}
+.circle-a--example {
+  @include media-breakpoint-down(xs) {
+    cx: 345;
+  }
+}
+.circle-b--example {
+  @include media-breakpoint-down(xs) {
+    cx: 268;
+  }
 }
 .db-dca-info {
   padding-top:    200px;
   padding-bottom: 250px;
   color:          $textColorInverted;
+  @include media-breakpoint-down(xs) {
+    padding-top:    100px !important;
+    padding-bottom: 150px !important;
+  }
 }
 .row--newsletter {
   color: $textColorInverted !important;
