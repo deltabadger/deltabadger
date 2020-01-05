@@ -27,16 +27,20 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready db-bot--active">
       <div className="db-bot__header">
-        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-success'}`}>{disableSubmit ? '' : <span>Start</span> }<i className="material-icons-round">{disableSubmit ? 'more_horiz' : 'play_arrow'}</i></div>
-        <div className="db-bot__infotext db-bot__infotext--setup">Set the schedule
+        <div className="db-bot__infotext--setup">Set the schedule.</div>
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
+          <span className="d-none d-sm-inline">Start</span><i className="material-icons-round">play_arrow</i>
+        </div>
+        <div className="db-bot__infotext">
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
         </div>
       </div>
-      <div className="text-danger d-block">{ errors }Error message</div>
-      <div className="row db-bot--dca__config-free">
-        <form className="form-inline mx-3">
+
+      <div className="row db-bot__form">
+        <div className="db-bot__alert text-danger">{ errors }</div>
+        <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
               value={type}
@@ -65,34 +69,33 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
               className="form-control mr-1"
             />
           </div>
-
-        <div className="form-group mr-2">
-          <select
-            value={currency}
-            onChange={e => setCurrency(e.target.value)}
-            className="form-control"
-            id="exampleFormControlSelect1"
-          >
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="PLN">PLN</option>
-          </select>
-        </div>
-        <div className="form-group mr-2">/</div>
-        <div className="form-group mr-2">
-          <select
-            value={interval}
-            onChange={e => setInterval(e.target.value)}
-            className="form-control"
-            id="exampleFormControlSelect1"
-          >
-            <option value="hour">Hour</option>
-            <option value="day">Day</option>
-            <option value="week">Week</option>
-            <option value="month">Month</option>
-          </select>
-        </div>
-      </form>
+          <div className="form-group mr-2">
+            <select
+              value={currency}
+              onChange={e => setCurrency(e.target.value)}
+              className="form-control"
+              id="exampleFormControlSelect1"
+            >
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="PLN">PLN</option>
+            </select>
+          </div>
+          <div className="form-group mr-2">/</div>
+          <div className="form-group mr-2">
+            <select
+              value={interval}
+              onChange={e => setInterval(e.target.value)}
+              className="form-control"
+              id="exampleFormControlSelect1"
+            >
+              <option value="hour">Hour</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+            </select>
+          </div>
+        </form>
     </div>
     <ResetButton />
   </div>
