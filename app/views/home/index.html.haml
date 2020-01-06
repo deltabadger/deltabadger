@@ -61,7 +61,7 @@
         .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
           %p.db-infoblocks__img
             %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_exchange.svg")}
-          %h5 Login to your exchange
+          %h5 Login to <span class="d-inline d-lg-none d-xl-inline">your </span>exchange
           %p Deltabadger works with selected cryptoexchanges. Currently, we support Kraken and Bitbay.
         .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
           %p.db-infoblocks__img
@@ -78,18 +78,18 @@
             %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_track_it.svg")}
           %h5 Track results
           %p The fun part. It's very satisfying to check how your investment performs over time.
-  %section.db-main__section.db-main__section--secondary
-    .row.db-supported-exchanges
-      .col-12
-        %h5.text-white.mb-4 Supported exchanges:
-      .col-12
-        %img.db-supported-exchange{:src => asset_pack_path("media/images/bitbay-white.svg")}
-        %img.db-supported-exchange{:src => asset_pack_path("media/images/kraken-white.svg")}
+  -# %section.db-main__section.db-main__section--secondary
+  -#   .row.db-supported-exchanges
+  -#     .col-12
+  -#       %h5.text-white.mb-4 Supported exchanges:
+  -#     .col-12
+  -#       %img.db-supported-exchange{:src => asset_pack_path("media/images/bitbay-white.svg")}
+  -#       %img.db-supported-exchange{:src => asset_pack_path("media/images/kraken-white.svg")}
   %section.db-main__section.db-main__section--primary
     .row.row--newsletter
-      .col-lg-6.pb-4
+      .col-lg-6
         %h2.mb-4 Wait… it's more!
         %p We're working on a unique set of tools for investors and traders focused on risk management. Stay in touch if you're interested.
         #newsletter
-      .col-lg-6.pb-4.d-none.d-lg-flex
+      .col-lg-6.d-none.d-lg-flex
         %img.db-art.db-art--newsletter{:src => asset_pack_path("media/images/art-newsletter.svg")}

@@ -33,7 +33,10 @@ h1,h2,h3,h4,h5,h6 {
 }
 h1 {
   font-weight: 100;
-  font-size:   2.5em;
+  font-size:   2.5rem;
+  @include media-breakpoint-down(xs) {
+    font-size:   2rem;
+  }
 }
 .btn {
   display: inline-flex;
@@ -56,15 +59,16 @@ h1 {
   color: #fff;
 }
 .db-main__section {
-  margin-bottom: 2.25rem;
 }
 .db-main__section--primary {
-  height:     $introBoxHeight;
-  max-height: $introBoxMaxHeight;
-  min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
+  // height:     $introBoxHeight;
+  // max-height: $introBoxMaxHeight;
+  // min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
   display:         flex;
   flex-direction:  column;
   justify-content: center;
+  padding-top:14vh;
+  padding-bottom:16vh;
 }
 .db-dca-bot-image {
   width:         100%;
@@ -105,12 +109,7 @@ h1 {
   }
 }
 .row--newsletter {
-  color: $textColorInverted !important;
   align-items: center;
-  padding-bottom: 30px;
-  .col {
-      padding-bottom: 120px;
-  }
 }
 .db-newsletter--form {
   display: flex;
@@ -551,26 +550,34 @@ h1 {
 // .db-infoblocks
 
 .db-row--how-does-it-work {
-  margin-top: 40px;
-  margin-bottom:80px;
   @include media-breakpoint-up(sm) {
-    border: 2px dashed $textColorInverted;
-    padding: 10px 40px 5px 40px;
+    padding: 0 23px;
     border-radius: 20px;
-    margin-left: -40px;
-    margin-right: -40px;
-
+    margin-left: -25px;
+    margin-right: -25px;
+  }
+  @include media-breakpoint-up(md) {
+    border: 2px dashed $textColorInverted;
+  }
+  @include media-breakpoint-up(xl) {
+    padding: 0 33px;
+    margin-left: -35px;
+    margin-right: -35px;
   }
 }
 
 .db-infoblocks {
   h5 {
-    text-align: center;
     margin-bottom: 24px;
+    @include media-breakpoint-up(sm) {
+      //text-align: center;
+    }
   }
   p {
-    margin-bottom: 2rem;
-    ///text-align: center;
+    margin-bottom: 1.3rem;
+    @include media-breakpoint-up(xl) {
+      margin-bottom: 2rem;
+    }
   }
 }
 .db-infoblocks__img {
