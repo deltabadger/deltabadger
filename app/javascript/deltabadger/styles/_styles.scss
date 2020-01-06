@@ -560,7 +560,14 @@ h1 {
     width: auto;
   }
 }
-
+.db-upgrade-modal--eu {
+  .db-show--eu { display: inline; }
+  .db-show--other { display: none; }
+}
+.db-upgrade-modal--other {
+  .db-show--eu { display: none; }
+  .db-show--other { display: inline; }
+}
 // .db-infoblocks
 
 .db-row--how-does-it-work {

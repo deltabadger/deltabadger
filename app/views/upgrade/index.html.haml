@@ -1,6 +1,6 @@
 .modal-dialog(role="document")
   .modal-content
-    .modal-body
+    .modal-body.db-upgrade-modal.db-upgrade-modal--other
       %h2.db-modal-title Upgrade
       - errors.each do |error|
         .text-danger.mb-4= error
@@ -10,17 +10,16 @@
           %tr
             %td(scope="col")
               Unlimited transactions (1 year)<br/>
-              %span.db-billing-item__info This upgrade removes the free plan<br/>transaction limit of $500/year.
+              %span.db-billing-item__info This upgrade removes the free plan<br/>transaction limit of <span class="db-show--eu">€</span><span class="db-show--other">$</span>500/year.
             %td(scope="col")
-            %td(scope="col") $19
-            // €21 for EU
+            %td(scope="col") <span class="db-show--eu">€21</span><span class="db-show--other">$19</span>
         %tfoot
           %tr
             %td(scope="col")
             %td(scope="col")
               %b Sum:
             %td(scope="col")
-              %b $19
+              %b <span class="db-show--eu">€21</span><span class="db-show--other">$19</span>
       = form_for payment, url: upgrade_pay_path do |f|
         %h4 Billing information
         .form-group
@@ -39,11 +38,11 @@
           %label Country
           %br
           .form-check.form-check-inline
-            = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input'
-            = f.label :eu, "European Union", class: 'form-check-label'
+            = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input radio--eu', id: 'radioEu'
+            = f.label :eu, "European Union", class: 'form-check-label', for: 'radioEu'
           .form-check.form-check-inline
-            = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input'
-            = f.label :eu, "Other", class: 'form-check-label'
+            = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input radio--other', id: 'radioOther'
+            = f.label :eu, "Other", class: 'form-check-label', for: 'radioOther'
 
         .form-group.db-form-group--main-btn
           %button.btn.btn-success.btn-lg{type: 'submit'}
