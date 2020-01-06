@@ -1,7 +1,15 @@
-module Charts
-  class PortfolioValueOverTime < BaseService
-    def call(bot) # rubocop:disable Metrics/MethodLength
-      query = <<~SQL
+module Charts::PortfolioValueOverTime
+  class Data < BaseService
+    def call(bot)
+      sanitized_sql = ActiveRecord::Base.sanitize_sql([query, bot.id])
+      response = ActiveRecord::Base.connection.execute(sanitized_sql)
+      response.map(&present_data)
+    end
+
+    private
+
+    def query
+      <<~SQL
         with data as (
           select
             created_at,
@@ -15,7 +23,8 @@ module Charts
         select
           created_at,
           total_invested,
-          rate * total_accumulated as current_value
+          rate * total_accumulated as current_value,
+          total_accumulated
           from (
             SELECT
               created_at,
@@ -24,18 +33,12 @@ module Charts
               rate
             from data) t1
       SQL
+    end
 
-      sanitized_sql = ActiveRecord::Base.sanitize_sql([query, bot.id])
-      response = ActiveRecord::Base.connection.execute(sanitized_sql)
+    private
 
-      date = response.map { |el| el.fetch('created_at') }
-
-      total_invested = response.map { |el| el.fetch('total_invested') }
-      value = response.map { |el| el.fetch('current_value') }
-
-      output = date.zip(total_invested, value)
-
-      Result::Success.new(output)
+    def present_data
+      ->(row) { row.slice('created_at', 'total_invested', 'current_value').values }
     end
   end
 end
