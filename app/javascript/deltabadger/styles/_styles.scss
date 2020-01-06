@@ -441,8 +441,12 @@ h1 {
 // Supported exchanges
 
 .db-supported-exchanges {
+  margin-top:     80px;
+  margin-bottom: -120px;
   text-align: center;
-  margin-bottom: 50px;
+  @include media-breakpoint-down(sm) {
+    display: none;
+  }
 }
 
 .db-supported-exchange {
