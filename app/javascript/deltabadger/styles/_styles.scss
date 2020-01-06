@@ -409,6 +409,9 @@ h1 {
   background: $success;
 }
 .cookieConsent {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
   background: none !important;
   margin: 0 auto !important;
   @include make-container();
@@ -431,6 +434,7 @@ h1 {
     line-height: 30px !important;
     padding: 5px 15px 5px 20px !important;
     border-radius: 20px !important;
+    margin-left: 0 !important;
   }
 }
 

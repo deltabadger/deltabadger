@@ -57,8 +57,8 @@ html {
 }
 .navbar {
   @include media-breakpoint-down(xs) {
-    padding-right: 0.5rem !important;
-    padding-left:  0.5rem !important;
+    // padding-right: 0.5rem !important;
+    // padding-left:  0.5rem !important;
   }
   @include media-breakpoint-up(sm) {
     padding-right: 0;
