@@ -5,10 +5,11 @@
   border-radius: 4px;
   max-width:     220px;
 }
-.db-main {
-  align-items: stretch;
-  height:      calc(100vh - 100px);
-}
+// // WARNING: The name has to be changed since it's used in other way.
+// .db-main {
+//   align-items: stretch;
+//   height:      calc(100vh - 100px);
+// }
 .db-sidebar {
   border: 1px solid #ddd;
   margin:  0;
@@ -41,4 +42,8 @@
   line-height: 40px;
   border-top:  1px solid $borderColorLight;
   color:       $textColorLight;
+}
+
+.db-menu-icon {
+  line-height: 10px;
 }

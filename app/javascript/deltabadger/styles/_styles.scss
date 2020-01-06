@@ -44,7 +44,7 @@ h1 {
     margin-right: .5em;
   }
   .material-icons-round {
-    align-self: center;
+    align-self:    center;
     margin-right: -.25em;
     margin-left:  -.25em;
   }
@@ -52,21 +52,30 @@ h1 {
 .btn-link {
   transition: none;
 }
-.row--intro {
+.db-main {
+  color: #fff;
+}
+.db-main__section {
+  margin-bottom: 2.25rem;
+}
+.db-main__section--primary {
   height:     $introBoxHeight;
   max-height: $introBoxMaxHeight;
   min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
+  display:         flex;
+  flex-direction:  column;
+  justify-content: center;
 }
-.db-bg--white {
-  background: #fff;
-  * {
-    color: $primary !important;
-  }
+.db-dca-bot-image {
+  width:         100%;
+  border-radius: $box-border-radius;
+  overflow:      hidden;
+  box-shadow:    0 0 20px rgba(0,0,0,.2);
+  align-self:    center;
 }
 
 .db-has-chart-art {
   position:      relative;
-  margin-bottom: 150px;
 }
 .db-homepage-svg-chart {
   position: absolute;
@@ -89,12 +98,10 @@ h1 {
 }
 
 .db-dca-info {
-  padding-top:    200px;
   padding-bottom: 250px;
   color:          $textColorInverted;
   @include media-breakpoint-down(xs) {
-    padding-top:    100px !important;
-    padding-bottom: 170px !important;
+    padding-bottom: 200px !important;
   }
 }
 .row--newsletter {
@@ -162,53 +169,6 @@ h1 {
       }
     }
   }
-}
-.db-menu-icon {
-  line-height: 10px;
-}
-.db-sidebar {
-  background:    $bgColorLight;
-  margin-left:   $grid-gutter-width/2 !important;
-  margin-bottom: $grid-gutter-width/2 !important;
-  border-radius: 4px;
-  max-width:     220px;
-}
-.db-main {
-  align-items: stretch;
-  height:      calc(100vh - 100px);
-}
-.db-sidebar {
-  border:  1px solid #ddd;
-  margin:  0;
-  padding: 0;
-  height:  calc(100vh - 90px);
-  .nav-tabs {
-    border: 0;
-  }
-  .nav-link {
-    border: 0 !important;
-  }
-  .nav-item {
-    width:        100%;
-    border-width: 2px;
-    &:hover {
-      background-color: #e1e1e1;
-    }
-  }
-}
-
-.db-sidebar__item--last {
-  border: 0 !important;
-}
-
-.db-sidebar__footer {
-  position:    absolute;
-  bottom:      0;
-  margin:      0 $grid-gutter-width/2;
-  width:       calc(100% - #{$grid-gutter-width});
-  line-height: 40px;
-  border-top:  1px solid $borderColorLight;
-  color:       $textColorLight;
 }
 
 // db-anim-rotator
@@ -387,7 +347,7 @@ h1 {
 }
 
 .db-footer--homepage {
-  padding-bottom: 10rem;
+  padding-bottom: 3.4rem;
   a {
     color: white;
     text-decoration: underline;
@@ -479,7 +439,12 @@ h1 {
 .db-supported-exchange {
   width: 200px;
   padding: 40px;
+  @include media-breakpoint-down(xs) {
+    width: 150px;
+    padding: 30px;
+  }
 }
+
 
 // limit reached
 .alert {
