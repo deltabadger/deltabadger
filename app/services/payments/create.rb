@@ -1,7 +1,8 @@
 module Payments
   class Create < BaseService
-    COST = ENV['UNLIMITED_SUBSCRYPTION_COST_AMOUNT']
-    CURRENCY = ENV['UNLIMITED_SUBSCRYPTION_COST_CURRENCY']
+    COST_EU = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_AMOUNT__EU')
+    COST_OTHER = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_AMOUNT__OTHER')
+    CURRENCY = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_CURRENCY')
 
     def initialize(
       client: Payments::Client.new,
@@ -22,7 +23,7 @@ module Payments
 
       user = params.fetch(:user)
       payment_result = @client.create_payment(
-        price: COST,
+        price: cost(payment),
         currency: CURRENCY,
         email: user.email
       )
@@ -35,6 +36,12 @@ module Payments
       end
 
       payment_result
+    end
+
+    private
+
+    def cost(payment)
+      payment.eu? ? COST_EU : COST_OTHER
     end
   end
 end
