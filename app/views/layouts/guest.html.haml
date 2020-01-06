@@ -55,40 +55,21 @@
       // facebook
 
       window.fbAsyncInit = function() {
-        FB.init({
-          appId      : '541796789740957',
-          xfbml      : true,
-          version    : 'v5.0'
-        });
+        FB.init({appId:"541796789740957", xfbml:!0, version:"v5.0"});
         FB.AppEvents.logPageView();
       };
 
-      (function(d, s, id){
-         var js, fjs = d.getElementsByTagName(s)[0];
-         if (d.getElementById(id)) {return;}
-         js = d.createElement(s); js.id = id;
-         js.src = "https://connect.facebook.net/en_US/sdk.js";
-         fjs.parentNode.insertBefore(js, fjs);
-       }(document, 'script', 'facebook-jssdk'));
+      (function(a, b, c) {
+        var d = a.getElementsByTagName(b)[0];
+        a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
+      })(document, "script", "facebook-jssdk");
 
       // sticky navbar
 
-      (function($) {
-        $(window).scroll(function() {
-            var scroll = $(window).scrollTop();
-
-            if (scroll >= 400) {
-              $(".db-navbar").addClass("db-navbar--scroll");
-            }
-            else {
-              $(".db-navbar").removeClass("db-navbar--scroll");
-            }
-            if (scroll >= 500) {
-              $(".db-navbar").addClass("db-navbar--scroll--show");
-            }
-            else {
-              $(".db-navbar").removeClass("db-navbar--scroll--show");
-            }
-
+      (function(a) {
+        a(window).scroll(function() {
+          var b = a(window).scrollTop();
+          400 <= b ? a(".db-navbar").addClass("db-navbar--scroll") : a(".db-navbar").removeClass("db-navbar--scroll");
+          500 <= b ? a(".db-navbar").addClass("db-navbar--scroll--show") : a(".db-navbar").removeClass("db-navbar--scroll--show");
         });
       })(jQuery);
