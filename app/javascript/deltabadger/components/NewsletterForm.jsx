@@ -22,6 +22,7 @@ export const NewsletterForm = () => {
     <div className="db-newsletter--form">
       <div className="form-group">
         <input
+          id="newsletter-input"
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}

@@ -351,6 +351,9 @@ h1 {
     color: white;
     text-decoration: underline;
     display: block;
+    @include media-breakpoint-down(sm) {
+      line-height: 48px;
+    }
     &.db-social-link {
       text-decoration: none;
       svg {
