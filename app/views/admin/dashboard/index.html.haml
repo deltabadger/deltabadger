@@ -6,3 +6,16 @@
 %p= "Number of unlimited plans: #{number_of_unlimited_plans}"
 %p= "Number of bots: #{number_of_all_bots}"
 %p= "Number of all transactions: #{number_of_all_transactions}"
+%p
+  %table{:style => "width:100%"}
+    %tr
+      %th Exchange Name
+      %th Sucessful
+      %th Failed
+      %th Total
+    - transations_by_exchange.each do |exchange|
+      %tr
+        %td= exchange.name
+        %td= exchange.successful_transactions
+        %td= exchange.failed_transactions
+        %td= exchange.total

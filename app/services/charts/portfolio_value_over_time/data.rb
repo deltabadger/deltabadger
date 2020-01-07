@@ -35,8 +35,6 @@ module Charts::PortfolioValueOverTime
       SQL
     end
 
-    private
-
     def present_data
       ->(row) { row.slice('created_at', 'total_invested', 'current_value').values }
     end
