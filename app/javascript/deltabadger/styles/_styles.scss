@@ -26,7 +26,7 @@ $footerHeight:       50px;
 
 body {
   font-family: $fontText;
-  background:  none;
+  background: none;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
@@ -67,8 +67,8 @@ h1 {
   display:         flex;
   flex-direction:  column;
   justify-content: center;
-  padding-top:14vh;
-  padding-bottom:16vh;
+  padding-top: 14vh;
+  padding-bottom: calc(14vh + 2.25rem);
 }
 .db-dca-bot-image {
   width:         100%;
