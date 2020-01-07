@@ -3,7 +3,7 @@ module Api
     def portfolio_value_over_time
       bot = BotsRepository.new.by_id_for_user(current_user, params[:bot_id])
 
-      result = Charts::PortfolioValueOverTime.call(bot)
+      result = Charts::PortfolioValueOverTime::Chart.call(bot)
 
       if result.success?
         render json: { data: result.data }, status: 200
