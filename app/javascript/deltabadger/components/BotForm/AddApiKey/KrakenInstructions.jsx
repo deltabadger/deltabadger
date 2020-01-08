@@ -6,7 +6,7 @@ export const KrakenInstructions = () => (
       <b className="alert-heading mb-2">How to get API keys from Kraken:</b>
       <hr/>
       <ol>
-        <li>Login to your <a href="https://r.kraken.com/deltabadger/" target="_blank" rel="noopener">Kraken</a> account.</li>
+        <li>Login to your <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener">Kraken</a> account.</li>
         <li>In user menu go to <b>Settings</b> -> <b>API</b>.</li>
         <li>Press <b>Generate New Key</b>.</li>
         <li>Set permissions for:
