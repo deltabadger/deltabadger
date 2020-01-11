@@ -48,14 +48,22 @@
   %section.db-main__section.db-main__section--primary
     .row.db-has-chart-art
       = render partial: 'layouts/chart'
-      .col-sm-6.db-dca-info
-        %h2.mb-4 Why dollar-cost averaging?
+      .col-md-10.col-lg-7.col-xl-6.db-dca-info
+        %h2.mb-4 How dollar-cost averaging works
+        %p You buy an asset for a fixed dollar amount on a regular schedule regardless of its current price. You get more of the asset when the price is lower, and less of it when the price is higher. As a result, you achieve a lower average price.
         %p
-          DCA is an easy-to-follow strategy that helps to manage emotions and risk of investing in volatile assets. Don't try to time the market. Buy&nbsp;small amounts on a fixed schedule, and get an average price. With&nbsp;automation, it gets more accessible than ever before.
-      .col-sm-6
+          <b>Example:</b> You decide to buy Bitcoin for <b>$100</b> every month:<br/>
+          In January, the price is <b>$7000</b>, you buy <b>0.0143BTC</b>.<br/>
+          In February, the price is <b>$5000</b>, you buy <b>0.02BTC</b>.<br/>
+          In March, the price is <b>$8000</b>, you buy <b>0.0125BTC</b>.
+        %p Your average price is <b>$6410</b>. You get more Bitcoins than by spending $300 in January at once.
+        %ul.pl-3
+          %li DCA reduces the impact of bad market timing.
+          %li It makes investing in volatile assets less risky and stressful.
+          %li It's an easy to follow strategy known from traditional markets.
   %section.db-main__section.db-main__section--secondary
     .db-row--how-does-it-work
-      %h2.my-4 How does it work?
+      %h2.my-4 DCA easier then ever before:
 
       .row.db-infoblocks
         .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
