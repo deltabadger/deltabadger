@@ -29,8 +29,7 @@ class UpgradeController < ApplicationController
   end
 
   def payment_callback
-    payment = Payments::Update.call(callback_params)
-    ValidateAndSubscribe.call(payment)
+    Payments::Update.call(callback_params)
 
     render json: {}
   end
