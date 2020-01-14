@@ -20,7 +20,7 @@ module Payments
       return nil if payment.paid?
 
       update_params = {
-        status: MAP_STATUSES.fetch(params['status'], params['status'].to_sym)
+        status: MAP_STATUSES.fetch(params['status'].to_sym, params['status'].to_sym)
       }
 
       if update_params.fetch(:status) == :paid
