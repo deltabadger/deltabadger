@@ -186,18 +186,24 @@
   }
 }
 .db-bot__infotext {
-  border-radius:  $btn-border-radius;
-  line-height:    40px;
-  width:          100%;
-  pointer-events: none;
-  position:       relative;
-  text-align:     right;
+  border-radius:   $btn-border-radius;
+  line-height:     20px;
+  width:           100%;
+  pointer-events:  none;
+  position:        relative;
+  text-align:      right;
+  align-self:      flex-end;
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  min-height:      40px;
 }
 .db-bot__infotext__left {
-  float:          left;
   text-transform: uppercase;
   color:          $yiq-text-dark;
-  min-height:     40px;
+}
+.db-bot__infotext__right {
+
 }
 .db-bot__infotext--setup {
   text-align: left;
