@@ -22,6 +22,11 @@ $fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
+$boxShadowBot:   1px 2px 4px rgba(0,0,0,.08);
+$boxShadowAlert: 1px 2px 4px rgba(0,0,0,.1);
+$boxShadowBox:   1px 2px 4px rgba(0,0,0,.1);
+$boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
+
 $footerHeight:       50px;
 
 body {
@@ -38,6 +43,8 @@ h1 {
     font-size:   2rem;
   }
 }
+
+// bootstrap overrides
 .btn {
   display: inline-flex;
   font-family: $fontButton;
@@ -55,6 +62,20 @@ h1 {
 .btn-link {
   transition: none;
 }
+
+.db--guest {
+  .db-navbar--scroll,
+  .btn-success,
+  .db-dca-bot-image {
+    box-shadow: $boxShadowHome;
+  }
+  .db-navbar--scroll--show {
+    .btn-success {
+      box-shadow: none;
+    }
+  }
+}
+
 .db-main {
   color: #fff;
 }
@@ -74,7 +95,6 @@ h1 {
   width:         100%;
   border-radius: $box-border-radius;
   overflow:      hidden;
-  box-shadow:    0 0 20px rgba(0,0,0,.2);
   align-self:    center;
 }
 
@@ -248,6 +268,12 @@ h1 {
   justify-content: center;
   align-items:     flex-start;
   display:         flex;
+}
+.modal-body {
+  box-shadow: $boxShadowBox;
+}
+.modal-content {
+  border-color: #ddd;
 }
 .modal-dialog {
   @include media-breakpoint-down(xs) {
@@ -462,6 +488,7 @@ h1 {
 // limit reached
 .alert {
   padding: 15px 25px;
+  box-shadow: $boxShadowAlert;
   .close {
     margin-left: 1em
   }

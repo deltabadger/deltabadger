@@ -19,23 +19,34 @@
   height: 40px;
 }
 .db-bot-data {
+  @include media-breakpoint-up(xl) {
+    grid-column-start: 2;
+    grid-row-start: 1;
+    grid-row: 1 / 100;
+  }
+  @include media-breakpoint-down(lg) {
+    background: white;
+    z-index: 1;
+  }
   .db-spinner-positioner {
     display: flex;
     justify-content: center;
     padding: 20px 40px 40px;
     margin-bottom: 20px;
   }
-  @include media-breakpoint-up(xl) {
-    grid-column-start: 2;
-    grid-row-start: 1;
-    grid-row: 1 / 100;
+  th:first-child,
+  td:first-child {
+    padding-left: 1.5rem !important;
   }
   .tab-content {
     z-index:  2;
     position: relative;
+    box-shadow: $boxShadowBot;
   }
   .nav-item {
     .nav-link {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
       margin-right: 2px;
       position:     relative;
       &:not(.active) {
@@ -45,22 +56,32 @@
         }
       }
       &.active {
+        padding-bottom: 9px;
+        border-bottom-width: 0;
+        border-color: #ddd;
         z-index: 3;
+        @include media-breakpoint-up(xl) {
+          box-shadow: $boxShadowBot;
+        }
+        &::before {
+          content:     "";
+          display:     block;
+          height:      10px;
+          background:  $bgBot;
+          left:       -5px;
+          position:    absolute;
+          width:       calc(100% + 10px);
+          bottom:     -10px;
+        }
       }
     }
     &:first-child {
       .nav-link {
         &.active {
           &::before {
-            content:     "";
-            display:     block;
-            width:       10px;
-            height:      10px;
-            background:  $bgBot;
-            bottom:     -10px;
             left:       -1px;
-            position:    absolute;
             border-left: 1px solid #ddd;
+            bottom:     -10px;
           }
         }
         &:not(.active) {
@@ -72,9 +93,9 @@
               width:      10px;
               height:     10px;
               background: rgba(0,0,0,.05);
-              bottom:    -11px;
               left:      -1px;
               position:   absolute;
+              bottom:    -11px;
             }
           }
         }
@@ -105,8 +126,10 @@
   border:        1px solid #ddd;
   border-radius: $box-border-radius;
   padding:       $bot-gutter-width/2;
+  box-shadow:    $boxShadowBot;
   .alert {
     border-radius: 0;
+    box-shadow: none;
   }
   .form-inline {
     :last-child {
@@ -124,7 +147,8 @@
     border-bottom-right-radius: 0;
     border-bottom-left-radius:  0;
     border-bottom:              0;
-    margin-bottom:              0;
+    margin-bottom:             -40px;
+    padding-bottom:             55px;
     &+.db-bot-data {
       background:                 $bgBot;
       border-right:               1px solid #ddd;
@@ -145,6 +169,8 @@
   overflow: hidden;
 }
 .db-bot__header {
+  min-height:     40px;
+  align-items:    flex-start;
   position:       relative;
   text-align:     center;
   display:        flex;
@@ -171,6 +197,7 @@
   float:          left;
   text-transform: uppercase;
   color:          $yiq-text-dark;
+  min-height:     40px;
 }
 .db-bot__infotext--setup {
   text-align: left;
@@ -199,17 +226,18 @@
 .db-smallinfo {
   opacity: .5;
   font-size: 0.8em;
-  margin: -1em 1.25em 2em 3.6em;
+  margin: -1em 1.25em 2em 4.2em;
   text-indent: -15px;
   i {
+    left: -2px;
     opacity: .5;
     position: relative;
-    top: 8px;
+    top: 10px;
   }
 }
 
 .btn--export-to-csv {
-  padding-left: 0;
+  padding-left: 5px;
   text-decoration: none !important;
   .material-icons-round {
     top:       3px;
@@ -347,6 +375,6 @@
 // chart
 
 .db-chart-container {
-  margin: 25px 10px;
+  margin: 25px 15px;
   max-width: 100%;
 }
