@@ -25,7 +25,7 @@ $fontButton:         $fontText;
 $boxShadowBot:   1px 2px 4px rgba(0,0,0,.08);
 $boxShadowAlert: 1px 2px 4px rgba(0,0,0,.1);
 $boxShadowBox:   1px 2px 4px rgba(0,0,0,.1);
-$boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
+$boxShadowHome:  1px 2px 6px rgba(0,0,0,.15);
 
 $footerHeight:       50px;
 
@@ -205,23 +205,23 @@ h1 {
     width:     3.05em;
     display:   block;
     height:    1em;
-    animation: homepageTextShift 6s linear 0s infinite;
+    animation: homepageTextShift 9s ease-in-out 0s infinite;
     position:  absolute;
     opacity:   0;
   }
 }
 .db-anim-rotator--1 { animation-delay: 0s !important; }
-.db-anim-rotator--2 { animation-delay: 2s !important; }
-.db-anim-rotator--3 { animation-delay: 4s !important; }
+.db-anim-rotator--2 { animation-delay: 3s !important; }
+.db-anim-rotator--3 { animation-delay: 6s !important; }
 
 @keyframes homepageTextShift {
-  0%   {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  30%  {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  33%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,1); }
-  36%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  65%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  68%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  99%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
+
+  0%   {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,1); }
+  3%   {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
+  32%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
+  35%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
+  66%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
+  67%  {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
   100% {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
 }
 
