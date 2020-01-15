@@ -22,10 +22,10 @@ $fontBrand:          'Varela Round', 'Inconsolata', 'Roboto', sans-serif;
 $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
-$boxShadowBot:   1px 2px 4px rgba(0,0,0,.08);
-$boxShadowAlert: 1px 2px 4px rgba(0,0,0,.1);
-$boxShadowBox:   1px 2px 4px rgba(0,0,0,.1);
-$boxShadowHome:  1px 2px 6px rgba(0,0,0,.18);
+$boxShadowBot:   1px 2px 4px rgba(0,0,0,.05);
+$boxShadowAlert: 1px 2px 4px rgba(0,0,0,.05);
+$boxShadowBox:   1px 2px 4px rgba(0,0,0,.05);
+$boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
 
 $footerHeight:       50px;
 
@@ -353,6 +353,7 @@ h1 {
   padding:       2rem;
   border-radius: $box-border-radius;
   border:        1px solid #ddd;
+  box-shadow: $boxShadowBox;
 }
 .db-content__box--settings {
   padding:       2rem 1.5rem 0;
@@ -435,6 +436,7 @@ h1 {
 
 #cookie_consent {
   background: $success;
+  box-shadow: $boxShadowAlert;
 }
 .cookieConsent {
   display: flex !important;
