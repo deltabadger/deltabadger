@@ -9,7 +9,7 @@ export const Details = ({ bot }) => {
         </li>
       </ul>
       <div className="tab-content" id="botFormInfo">
-        <div className="tab-pane show active pl-3 pr-3" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
+        <div className="tab-pane show active pl-4 pr-4" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
           <p className="mt-2"><b>Exchanges</b></p>
           <p>Deltabadger works with cryptoexchanges. At the moment, we support <a href="https://bitbay.net" target="_blank" rel="noopener" title="Bitbay">Bitbay</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener" title="Kraken">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases with PLN.</p>
           <p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>
