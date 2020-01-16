@@ -6,7 +6,7 @@ export const BitBayInstructions = () => (
       <b className="alert-heading mb-2">How to get API keys from Bitbay:</b>
       <hr/>
       <ol>
-        <li>Login to your <a href="https://auth.bitbay.net/ref/PX1icIHeUlAL" target="_blank" rel="noopener">Bitbay</a> account.</li>
+        <li>Login to your <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="noopener">Bitbay</a> account.</li>
         <li>In user menu (top right corner) go to <b>API Settings</b>.</li>
         <li>Press <b>Add New Key</b>.</li>
         <li>Set permissions for:
