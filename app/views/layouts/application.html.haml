@@ -34,7 +34,32 @@
     %script{:crossorigin => "anonymous", :integrity => "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", :src => "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
 
+    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=UA-60645901-3"}
+
     :javascript
+
+      // google
+
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-60645901-3');
+
+      // facebook
+
+      window.fbAsyncInit = function() {
+        FB.init({appId:"541796789740957", xfbml:!0, version:"v5.0"});
+        FB.AppEvents.logPageView();
+      };
+
+      (function(a, b, c) {
+        var d = a.getElementsByTagName(b)[0];
+        a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
+      })(document, "script", "facebook-jssdk");
+
+      // payments eu/non-eu
+
       $(document).ready(function(){
         $(".radio--eu").click(function(){
             $(".db-upgrade-modal").addClass("db-upgrade-modal--eu");
