@@ -40,7 +40,7 @@
     %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
     %link{:href => "https://fonts.googleapis.com/css?family=Inconsolata:400,700|Varela+Round&display=swap", :rel => "stylesheet"}
     %link{:href => "https://fonts.googleapis.com/css?family=Material+Icons+Round", :rel => "stylesheet"}
-
+    = stylesheet_pack_tag 'guest'
   %body.db-guest-template
     #cookie_consent
 
@@ -54,7 +54,6 @@
     //= render partial: 'layouts/drift'
 
     = javascript_pack_tag 'guest2'
-    = stylesheet_pack_tag 'guest'
 
     %script{:crossorigin => "anonymous", :integrity => "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", :src => "https://code.jquery.com/jquery-3.2.1.slim.min.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
