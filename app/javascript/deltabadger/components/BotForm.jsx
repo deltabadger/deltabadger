@@ -120,6 +120,7 @@ export const BotForm = ({
         />
       case 'configure_bot':
         return <ConfigureBot
+          currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureBotHandler}
           errors={errors}
