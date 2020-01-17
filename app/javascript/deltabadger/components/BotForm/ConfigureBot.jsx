@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
+export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, errors }) => {
   const [type, setType] = useState("buy");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
@@ -76,9 +76,11 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
               className="form-control"
               id="exampleFormControlSelect1"
             >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="PLN">PLN</option>
+              {
+                currentExchange.currencies.map(c =>
+                  (<option value={c}>{c}</option>)
+                )
+              }
             </select>
           </div>
           <div className="form-group mr-2">/</div>
@@ -96,8 +98,8 @@ export const ConfigureBot = ({ handleReset, handleSubmit, errors }) => {
             </select>
           </div>
         </form>
+      </div>
+      <ResetButton />
     </div>
-    <ResetButton />
-  </div>
   )
 }
