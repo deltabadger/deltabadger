@@ -3,7 +3,7 @@ module Api
     def index
       build_data = lambda do |exchange|
         owned = current_user.exchanges.select(:id)
-        { id: exchange.id, name: exchange.name }
+        { id: exchange.id, name: exchange.name, currencies: exchange.currencies }
           .merge(owned.include?(exchange) ? { owned: true } : { owned: false })
       end
 
