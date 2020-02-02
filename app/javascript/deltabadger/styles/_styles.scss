@@ -1,3 +1,25 @@
+@font-face {
+  font-family: 'Inconsolata';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Inconsolata Regular'), local('Inconsolata-Regular'), url("./../../fonts/Inconsolata.woff") format('woff');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inconsolata';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Inconsolata Bold'), local('Inconsolata-Bold'), url("./../../fonts/InconsolataBold.woff") format('woff');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Varela Round';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Varela Round Regular'), local('Varela-Round-Regular'), url("./../../fonts/VarelaRound.woff") format('woff');
+  font-display: swap;
+}
+
 $borderColorLight:   #dee2e6;
 $bgColorLight:       #f5f5f5;
 $textColorLight:     #666;
