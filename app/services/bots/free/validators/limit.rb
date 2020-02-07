@@ -4,7 +4,7 @@ module Bots::Free::Validators
       return Result::Success.new if user.unlimited?
 
       if user.limit_reached?
-        Result::Failure.new('Credits limit reached')
+        Result::Failure.new('Free plan limit reached')
       else
         Result::Success.new
       end

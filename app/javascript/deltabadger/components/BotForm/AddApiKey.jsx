@@ -43,7 +43,7 @@ export const AddApiKey = ({
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form onSubmit={_handleSubmit} className="form-row">
           <div className="col form-group">
-            <label>API Key:</label>
+            <label>API/Public Key:</label>
             <input
               type="text"
               value={key}
@@ -52,7 +52,7 @@ export const AddApiKey = ({
             />
           </div>
           <div className="col form-group">
-            <label>Secret API Key:</label>
+            <label>Private Key:</label>
             <input
               type="text"
               value={secret}

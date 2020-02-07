@@ -9,9 +9,13 @@ export const KrakenInstructions = () => (
         <li>Login to your <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener">Kraken</a> account.</li>
         <li>In user menu go to <b>Settings</b> -> <b>API</b>.</li>
         <li>Press <b>Generate New Key</b>.</li>
-        <li>Set permissions for:
+        <li>Set permissions for the following:<br/>
+          Funds:
           <ul>
           	<li><b>Query Funds</b></li>
+          </ul>
+          Order&Trades:
+          <ul>
           	<li><b>Query Open Orders & Trades</b></li>
           	<li><b>Query Closed Orders & Trades</b></li>
           	<li><b>Modify Orders</b></li>
