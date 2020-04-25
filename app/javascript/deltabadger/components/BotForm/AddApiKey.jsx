@@ -32,7 +32,7 @@ export const AddApiKey = ({
       <div className="db-bot__header">
         <div className="db-bot__infotext--setup">Get API Keys</div>
         <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`}><span>Next</span> <i className="material-icons-round">arrow_forward</i></div>
-        <div className="db-bot__infotext ">
+        <div className="db-bot__infotext">
           <div className="progress progress--thin progress--bot-setup">
             <div className="progress-bar" role="progressbar" style={{width: "33%", ariaValuenow: "33", ariaValuemin: "0", ariaValuemax: "100"}}></div>
           </div>
@@ -62,6 +62,7 @@ export const AddApiKey = ({
           </div>
         </form>
       </div>
+      
       <Instructions exchangeName={pickedExchangeName} />
       <ResetButton />
     </div>
