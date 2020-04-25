@@ -20,7 +20,44 @@
           %span.mr-2 Get started
           %i.material-icons-round arrow_forward
       .col-md-12.col-lg-7.col-xl-6.d-none.d-lg-flex
-        %img.db-dca-bot-image{:src => asset_pack_path("media/images/bot.jpg"), :alt => "Bot buying Bitcoin for one US Dollar per hour"}
+        .db-bots__item.db-bot.db-bot--dca.db-bot--pick-exchange.db-bot--running.db-bot--active.db-bots__item--homepage
+          .db-bot__header
+            .btn.btn-outline-primary
+              %span.d-none.d-sm-inline Pause
+              %i.material-icons-round pause
+            .db-bot__infotext.text-success
+              .db-bot__infotext__left
+                %span.d-none.d-sm-inline> Kraken:
+                BTCUSD
+              .db-bot__infotext__right Next buy in  13h 50m 38s
+              .progress.progress--thin.progress--bot-setup
+                .progress-bar.bg-success{:role => "progressbar", :style => "width: 0.130253%;"}
+          .row.db-bot__form
+            %form.form-inline.mx-4
+              .form-group.mr-2
+                %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
+                  %option{:value => "buy"} Buy
+                  %option{:value => "sell"} Sell
+              .form-group.mr-2
+                %select.form-control{:disabled => "disabled"}
+                  %option{:value => "BTC"} BTC
+                  %option{:value => "ETH"} ETH
+                  %option{:value => "LTC"} LTC
+                  %option{:value => "XMR"} XMR
+              .form-group.mr-2 for
+              .form-group.mr-2
+                %input.form-control{:disabled => "disabled", :type => "text", :value => "1"}/
+              .form-group.mr-2
+                %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
+                  %option{:value => ""} USD
+              .form-group.mr-2 /
+              .form-group.mr-2
+                %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
+                  %option{:value => "hour"} Hour
+                  %option{:value => "day"} Day
+                  %option{:value => "week"} Week
+                  %option{:value => "month"} Month
+
   %section.db-main__section.db-main__section--secondary
     .row.db-infoblocks.text-white
       .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item

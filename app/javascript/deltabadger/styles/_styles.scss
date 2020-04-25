@@ -67,12 +67,14 @@ $fontHeader:         $fontBrand;
 $fontButton:         $fontText;
 
 $boxShadowBot:   1px 2px 4px rgba(0,0,0,.05);
-$boxShadowAlert: 1px 2px 4px rgba(0,0,0,.05);
+$boxShadowAlert: 1px 2px 4px rgba(0,0,0,.1);
 $boxShadowBox:   1px 2px 4px rgba(0,0,0,.05);
 $boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
 
 $footerHeight:       50px;
-
+html {
+  background: $bgColor;
+}
 body {
   font-family: $fontText;
   background: none;
@@ -101,6 +103,9 @@ h1 {
     align-self:    center;
     margin-right: -.25em;
     margin-left:  -.25em;
+  }
+  &.disabled {
+    cursor: default;
   }
 }
 .btn-link {
@@ -192,7 +197,6 @@ h1 {
   }
   .btn.disabled {
     opacity: 1;
-    cursor: default;
     color: #34ce57;
     border-color: #34ce57;
   }
