@@ -17,7 +17,8 @@ module ExchangeApi
       when 'Kraken'
         ExchangeApi::Clients::Kraken.new(
           api_key: api_key.key,
-          api_secret: api_key.secret
+          api_secret: api_key.secret,
+          options: { german_trading_agreement: api_key.german_trading_agreement }
         )
       when 'BitBay'
         ExchangeApi::Clients::Bitbay.new(
