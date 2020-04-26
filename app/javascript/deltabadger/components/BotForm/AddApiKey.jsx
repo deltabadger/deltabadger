@@ -63,20 +63,22 @@ export const AddApiKey = ({
           </div>
         </form>
       </div>
-      <div className="db-exchange-instructions">
-        <div className="alert alert--trading-agreement">
-          <p><b>Achtung!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="noopener" title="Trading agreement">trading agreement</a> in order to place market and margin orders.</p>
-          <div className="form-check">
-            <input
-              type="checkbox"
-              checked={agreement}
-              onChange={e => setAgreement(!agreement)}
-              className="form-check-input"
-            />
-            <label className="form-check-label"><b> I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="noopener" title="Trading agreement">trading agreement</a></b>.</label>
+      { pickedExchangeName == "Kraken" &&
+        <div className="db-exchange-instructions">
+          <div className="alert alert--trading-agreement">
+            <p><b>Achtung!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="noopener" title="Trading agreement">trading agreement</a> in order to place market and margin orders.</p>
+            <div className="form-check">
+              <input
+                type="checkbox"
+                checked={agreement}
+                onChange={e => setAgreement(!agreement)}
+                className="form-check-input"
+              />
+              <label className="form-check-label"><b> I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="noopener" title="Trading agreement">trading agreement</a></b>.</label>
+            </div>
           </div>
         </div>
-      </div>
+      }
       <Instructions exchangeName={pickedExchangeName} />
       <ResetButton />
     </div>
