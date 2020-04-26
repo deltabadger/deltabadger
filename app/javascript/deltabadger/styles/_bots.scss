@@ -358,7 +358,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(255,255,255,.85);
-  // backdrop-filter: blur(10px) grayscale(.5);
+  backdrop-filter: blur(2px) grayscale(.1);
 }
 .db-bot__modal__content {
   text-align: center;
