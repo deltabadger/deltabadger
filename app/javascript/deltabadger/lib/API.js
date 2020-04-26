@@ -29,7 +29,8 @@ const API = {
     const ApiKeyParams = {
       exchange_id: params.exchangeId,
       key: params.key,
-      secret: params.secret
+      secret: params.secret,
+      german_trading_agreement: params.germanAgreement
     }
     return client.request({ url, data: { api_key: ApiKeyParams}, method: 'post' }).then(data => data.data);
   },
