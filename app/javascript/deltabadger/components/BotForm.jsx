@@ -65,8 +65,8 @@ export const BotForm = ({
     setStep(2)
   }
 
-  const addApiKeyHandler = (key, secret) => {
-    API.createApiKey({ key, secret, exchangeId: form.exchangeId }).then(response => {
+  const addApiKeyHandler = (key, secret, germanAgreement) => {
+    API.createApiKey({ key, secret, germanAgreement, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(3)
       loadExchanges()
