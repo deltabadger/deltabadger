@@ -4,10 +4,11 @@ require 'kraken_ruby_client'
 module ExchangeApi
   module Clients
     class Kraken < ExchangeApi::Clients::Base
-      def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new)
+      def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new, options: {})
         @client =
           ::Kraken::Client.new(api_key: api_key, api_secret: api_secret)
         @map_errors = map_errors
+        @options = options
       end
 
       def validate_credentials
@@ -50,9 +51,16 @@ module ExchangeApi
         volume = 0.002
         pair = "XBT#{currency}"
 
+        request_params = {
+          pair: pair,
+          type: offer_type,
+          ordertype: 'market',
+          volume: volume
+        }
+        request_params = request_params.merge(trading_agreement: 'agree') if @options[:german_trading_agreement]
         response =
           @client
-          .add_order(pair: pair, type: offer_type, ordertype: 'market', volume: volume)
+          .add_order(request_params)
 
         if response.fetch('error').any?
           return Result::Failure.new(
