@@ -10,10 +10,10 @@
               = f.label :email
               = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
             .form-group
-              = f.label :password
-              - if @minimum_password_length
-                %em
-                  (#{@minimum_password_length} characters minimum)
+              = f.label :password, "Password (6 characters minimum)"
+              -# - if @minimum_password_length
+              -#   %em
+              -#     (#{@minimum_password_length} characters minimum)
               = f.password_field :password, autocomplete: "new-password", class: "form-control"
             .form-group
               = f.label :password_confirmation
