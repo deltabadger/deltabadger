@@ -96,7 +96,13 @@ sur {
 svg * {
   transition: fill 0.15s ease-in-out;
 }
-
+a {
+  svg {
+    * {
+      fill: $primary;
+    }
+  }
+}
 .field_with_errors {
   input {
     border-color: $danger !important;
