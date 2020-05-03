@@ -96,13 +96,6 @@ sur {
 svg * {
   transition: fill 0.15s ease-in-out;
 }
-a {
-  svg {
-    * {
-      fill: $primary;
-    }
-  }
-}
 .field_with_errors {
   input {
     border-color: $danger !important;
@@ -111,8 +104,21 @@ a {
       box-shadow: 0 0 0 3px rgba($danger,.3) !important;
     }
   }
+  &+.invalid-feedback {
+    display: block;
+  }
 }
 // bootstrap overrides
+
+.db-product-menu {
+  background: white;
+  color: $primary;
+  svg {
+    * {
+      fill: $primary;
+    }
+  }
+}
 
 .btn {
   display: inline-flex;
