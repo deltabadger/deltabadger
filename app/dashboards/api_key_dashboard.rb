@@ -1,4 +1,4 @@
-require "administrate/base_dashboard"
+require 'administrate/base_dashboard'
 
 class ApiKeyDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
@@ -16,7 +16,7 @@ class ApiKeyDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     encrypted_secret: Field::String,
-    encrypted_secret_iv: Field::String,
+    encrypted_secret_iv: Field::String
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -25,18 +25,18 @@ class ApiKeyDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  exchange
-  user
-  id
+    exchange
+    user
+    id
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-  exchange
-  user
-  id
-  created_at
+    exchange
+    user
+    id
+    created_at
   ].freeze
 
   # FORM_ATTRIBUTES
