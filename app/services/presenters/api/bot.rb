@@ -35,7 +35,7 @@ module Presenters
         bot.reload
         interval = @parse_interval.call(bot)
         interval.since(bot.last_transaction.created_at).to_i
-      rescue
+      rescue StandardError
         nil
       end
 
