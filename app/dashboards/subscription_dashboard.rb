@@ -1,4 +1,4 @@
-require "administrate/base_dashboard"
+require 'administrate/base_dashboard'
 
 class SubscriptionDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
@@ -15,7 +15,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     credits: Field::String.with_options(searchable: false),
-    limit_almost_reached_sent: Field::Boolean,
+    limit_almost_reached_sent: Field::Boolean
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -24,34 +24,34 @@ class SubscriptionDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  id
-  subscription_plan
-  user
-  end_time
+    id
+    subscription_plan
+    user
+    end_time
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-  subscription_plan
-  user
-  id
-  end_time
-  created_at
-  updated_at
-  credits
-  limit_almost_reached_sent
+    subscription_plan
+    user
+    id
+    end_time
+    created_at
+    updated_at
+    credits
+    limit_almost_reached_sent
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-  subscription_plan
-  user
-  end_time
-  credits
-  limit_almost_reached_sent
+    subscription_plan
+    user
+    end_time
+    credits
+    limit_almost_reached_sent
   ].freeze
 
   # COLLECTION_FILTERS
@@ -62,8 +62,8 @@ class SubscriptionDashboard < Administrate::BaseDashboard
   # in the search field:
   #
   COLLECTION_FILTERS = {
-    current: ->(resources) { where('end_time > ?', Time.now) },
-    old: ->(resources) { where('end_time < ?', Time.now) }
+    current: ->(_resources) { where('end_time > ?', Time.now) },
+    old: ->(_resources) { where('end_time < ?', Time.now) }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 
