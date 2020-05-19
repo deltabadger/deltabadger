@@ -45,7 +45,7 @@ module ExchangeApi
 
       private
 
-      def make_order(offer_type, settings)
+      def make_order(offer_type, settings) # rubocop:disable Metrics/MethodLength
         currency = settings.fetch('currency')
         # price = settings.fetch('price')
         volume = 0.002
