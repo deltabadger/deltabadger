@@ -330,6 +330,8 @@ GEM
     sendinblue (2.4)
       httparty
       json
+    sentry-raven (2.13.0)
+      faraday (>= 0.7.6, < 1.0)
     sexp_processor (4.12.1)
     shellany (0.0.1)
     sidekiq (6.0.4)
@@ -407,6 +409,7 @@ DEPENDENCIES
   sass-rails (~> 5.0)
   selenium-webdriver
   sendinblue
+  sentry-raven
   sidekiq
   spring
   spring-watcher-listen (~> 2.0.0)
