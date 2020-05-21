@@ -33,5 +33,10 @@ module Deltabadger
     config.to_prepare do
       Devise::Mailer.layout "devise_mailer"
     end
+
+    Raven.configure do |config|
+      config.dsn = ENV['SENTRY_DSN']
+      config.environments = %w[ production ]
+    end
   end
 end
