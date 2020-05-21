@@ -21,6 +21,7 @@ gem 'unicorn'
 gem 'webpacker'
 gem 'kraken_ruby_client', git: 'https://github.com/jonatack/kraken_ruby_client'
 gem 'sendinblue'
+gem 'sentry-raven'
 
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
