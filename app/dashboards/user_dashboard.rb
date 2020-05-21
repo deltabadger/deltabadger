@@ -39,47 +39,47 @@ class UserDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  email
-  subscription
-  limit_reached?
-  admin
+    email
+    subscription
+    limit_reached?
+    admin
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-  api_keys
-  exchanges
-  bots
-  subscriptions
-  payments
-  id
-  email
-  reset_password_sent_at
-  remember_created_at
-  confirmed_at
-  confirmation_sent_at
-  created_at
-  updated_at
-  unconfirmed_email
-  admin
-  terms_and_conditions
-  updates_agreement
-  welcome_banner_showed
+    api_keys
+    exchanges
+    bots
+    subscriptions
+    payments
+    id
+    email
+    reset_password_sent_at
+    remember_created_at
+    confirmed_at
+    confirmation_sent_at
+    created_at
+    updated_at
+    unconfirmed_email
+    admin
+    terms_and_conditions
+    updates_agreement
+    welcome_banner_showed
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-  email
-  confirmed_at
-  confirmation_sent_at
-  unconfirmed_email
-  admin
-  terms_and_conditions
-  updates_agreement
-  welcome_banner_showed
+    email
+    confirmed_at
+    confirmation_sent_at
+    unconfirmed_email
+    admin
+    terms_and_conditions
+    updates_agreement
+    welcome_banner_showed
   ].freeze
 
   # COLLECTION_FILTERS
@@ -98,6 +98,6 @@ class UserDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(user)
-    "#{user.email}"
+    user.email.to_s
   end
 end
