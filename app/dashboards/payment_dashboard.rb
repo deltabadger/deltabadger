@@ -1,4 +1,4 @@
-require "administrate/base_dashboard"
+require 'administrate/base_dashboard'
 
 class PaymentDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
@@ -20,7 +20,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name: Field::String,
     birth_date: Field::DateTime.with_options(format: '%F %r'),
     eu: Field::Boolean,
-    paid_at: Field::DateTime.with_options(format: '%F %r'),
+    paid_at: Field::DateTime.with_options(format: '%F %r')
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -29,48 +29,48 @@ class PaymentDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
-  id
-  first_name
-  last_name
-  birth_date
-  eu
-  total
-  currency
-  user
-  status
-  paid_at
+    id
+    first_name
+    last_name
+    birth_date
+    eu
+    total
+    currency
+    user
+    status
+    paid_at
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-  user
-  id
-  payment_id
-  status
-  total
-  currency
-  created_at
-  updated_at
-  first_name
-  last_name
-  birth_date
-  eu
+    user
+    id
+    payment_id
+    status
+    total
+    currency
+    created_at
+    updated_at
+    first_name
+    last_name
+    birth_date
+    eu
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-  user
-  payment_id
-  status
-  total
-  currency
-  first_name
-  last_name
-  birth_date
-  eu
+    user
+    payment_id
+    status
+    total
+    currency
+    first_name
+    last_name
+    birth_date
+    eu
   ].freeze
 
   # COLLECTION_FILTERS
