@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_04_26_111605) do
+ActiveRecord::Schema.define(version: 2020_05_22_084827) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -60,6 +60,7 @@ ActiveRecord::Schema.define(version: 2020_04_26_111605) do
     t.date "birth_date"
     t.boolean "eu"
     t.datetime "paid_at"
+    t.string "globee_statuses", default: "", null: false
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
