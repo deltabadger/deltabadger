@@ -1,5 +1,5 @@
 class MakeTransaction < BaseService
-  def initialize(
+  def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_api: ExchangeApi::Get.new,
     schedule_transaction: ScheduleTransaction.new,
     bots_repository: BotsRepository.new,
@@ -22,6 +22,7 @@ class MakeTransaction < BaseService
     @subtract_credits = subtract_credits
   end
 
+  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new if !make_transaction?(bot)
@@ -42,15 +43,14 @@ class MakeTransaction < BaseService
       @notifications.limit_reached(bot: bot) if notify
 
       return validate_limit_result
-    else
-      @notifications.limit_almost_reached(bot: bot) if @validate_almost_limit.call(bot.user).failure? && notify
+    elsif @validate_almost_limit.call(bot.user).failure? && notify
+      @notifications.limit_almost_reached(bot: bot)
     end
 
-    if [result, validate_limit_result].all?(&:success?)
-      @schedule_transaction.call(bot)
-    end
+    @schedule_transaction.call(bot) if [result, validate_limit_result].all?(&:success?)
     result
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 
