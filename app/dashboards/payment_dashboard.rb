@@ -12,6 +12,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     id: Field::Number,
     payment_id: Field::String,
     status: Field::String.with_options(searchable: false),
+    globee_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
     currency: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
@@ -48,6 +49,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     id
     payment_id
     status
+    globee_statuses
     total
     currency
     created_at
@@ -56,6 +58,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     eu
+    paid_at
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -71,6 +74,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     eu
+    paid_at
   ].freeze
 
   # COLLECTION_FILTERS
