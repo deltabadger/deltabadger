@@ -9,9 +9,7 @@ module ExchangeApi
     def call(api_key)
       exchange = @exchanges_repository.find(api_key.exchange_id)
 
-      if DISABLE_EXCHANGES_API
-        return ExchangeApi::Clients::Fake.new(exchange.name)
-      end
+      return ExchangeApi::Clients::Fake.new(exchange.name) if DISABLE_EXCHANGES_API
 
       case exchange.name
       when 'Kraken'

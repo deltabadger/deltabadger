@@ -21,10 +21,14 @@ module ExchangeApi
 
       def current_price(settings)
         currency = settings.fetch('currency')
-        result = @client.ticker("xbt#{currency}")['result']["XXBTZ#{currency}"]
 
-        bid = result.fetch('b').first.to_f
-        ask = result.fetch('a').first.to_f
+        response = @client.ticker("xbt#{currency}")
+        result = response['result']
+        key = result.keys.first # The result should contain only one key
+        rates = result[key]
+
+        bid = rates.fetch('b').first.to_f
+        ask = rates.fetch('a').first.to_f
 
         (bid + ask) / 2
       end
@@ -45,7 +49,7 @@ module ExchangeApi
 
       private
 
-      def make_order(offer_type, settings)
+      def make_order(offer_type, settings) # rubocop:disable Metrics/MethodLength
         currency = settings.fetch('currency')
         # price = settings.fetch('price')
         volume = 0.002
