@@ -30,7 +30,9 @@ module ExchangeApi
         bid = rates.fetch('b').first.to_f
         ask = rates.fetch('a').first.to_f
 
-        (bid + ask) / 2
+        Result::Success.new((bid + ask) / 2)
+      rescue StandardError => e
+        Result::Failure.new('Could not fetch current price from Kraken', e.message)
       end
 
       def orders
@@ -81,6 +83,8 @@ module ExchangeApi
           rate: rate,
           amount: volume
         )
+      rescue StandardError => e
+        Result::Failure.new('Could not make Kraken order', e.message)
       end
     end
   end
