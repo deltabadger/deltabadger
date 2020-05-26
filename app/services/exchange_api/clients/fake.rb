@@ -13,7 +13,11 @@ module ExchangeApi
       end
 
       def current_price(_)
-        rand(6000...8000)
+        if SUCCESS
+          Result::Success.new(rand(6000...8000))
+        else
+          Result::Failure.new('Something went wrong!')
+        end
       end
 
       def buy(_)
