@@ -18,6 +18,9 @@ module Charts::PortfolioValueOverTime
       if time_now_point_result.success?
         time_now_point = time_now_point_result.data
         data <<= time_now_point
+      else
+        extrapolated_point = [Time.now, data.last[1], data.last[2]]
+        data <<= extrapolated_point
       end
 
       Result::Success.new(data)
