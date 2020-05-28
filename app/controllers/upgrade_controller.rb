@@ -12,7 +12,7 @@ class UpgradeController < ApplicationController
     if result.success?
       redirect_to result.data[:payment_url]
     else
-      render :index, locals: { payment: result.data, errors: result.errors }
+      render :index, locals: { payment: Payment.new, errors: result.errors }
     end
   end
 
@@ -22,14 +22,8 @@ class UpgradeController < ApplicationController
     redirect_to dashboard_path
   end
 
-  def payment_cancel
-    flash[:alert] = 'Payment cancelled!'
-
-    redirect_to dashboard_path
-  end
-
   def payment_callback
-    Payments::Update.call(callback_params)
+    Payments::Update.call(params['data'] || params)
 
     render json: {}
   end
@@ -41,9 +35,5 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(:first_name, :last_name, :birth_date, :eu)
       .merge(user: current_user)
-  end
-
-  def callback_params
-    params.permit(:id, :custom_payment_id, :status)
   end
 end

@@ -1,7 +1,7 @@
 module Payments
   class Update < BaseService
-    PAID_STATUSES = %i[paid overpaid underpaid paid_late confirmed completed].freeze
-    CANCELLED_STATUSES = %i[cancelled refunded].freeze
+    PAID_STATUSES = %i[paid confirmed complete].freeze
+    CANCELLED_STATUSES = %i[expired invalid].freeze
 
     def initialize(
       payments_repository: PaymentsRepository.new,
@@ -17,13 +17,17 @@ module Payments
     def call(params)
       payment = @payments_repository.find_by(payment_id: params['id'])
 
-      globee_status = params['status'].to_sym
-      status = internal_status(globee_status)
+      external_status = params['status'].to_sym
+      status = internal_status(external_status)
       just_paid = just_paid?(payment, status)
 
-      update_params = { globee_statuses: new_globee_statuses(payment, globee_status) }
+      update_params = {
+        external_statuses: new_external_statuses(payment, external_status),
+        crypto_paid: params['btcPaid']
+      }
+
       update_params.merge!(status: status) unless payment.paid?
-      update_params.merge!(paid_at: Time.now) if just_paid
+      update_params.merge!(paid_at: Time.at(params['currentTime'])) if just_paid
 
       payment = @payments_repository.update(payment.id, update_params)
 
@@ -35,10 +39,10 @@ module Payments
 
     private
 
-    def internal_status(globee_status)
-      if globee_status.in?(PAID_STATUSES)
+    def internal_status(external_status)
+      if external_status.in?(PAID_STATUSES)
         :paid
-      elsif globee_status.in?(CANCELLED_STATUSES)
+      elsif external_status.in?(CANCELLED_STATUSES)
         :cancelled
       else
         :unpaid
@@ -49,11 +53,11 @@ module Payments
       !payment.paid? && status == :paid
     end
 
-    def new_globee_statuses(payment, globee_status)
-      if payment.globee_statuses.empty?
-        globee_status
+    def new_external_statuses(payment, external_status)
+      if payment.external_statuses.empty?
+        external_status
       else
-        "#{payment.globee_statuses}, #{globee_status}"
+        "#{payment.external_statuses}, #{external_status}"
       end
     end
   end

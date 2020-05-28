@@ -12,7 +12,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     id: Field::Number,
     payment_id: Field::String,
     status: Field::String.with_options(searchable: false),
-    globee_statuses: Field::String,
+    external_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
     currency: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
@@ -49,7 +49,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     id
     payment_id
     status
-    globee_statuses
+    external_statuses
     total
     currency
     created_at
