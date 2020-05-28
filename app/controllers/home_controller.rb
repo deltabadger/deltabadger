@@ -29,6 +29,5 @@ class HomeController < ApplicationController
 
   def set_welcome_banner
     @show_welcome_banner = true
-    current_user.update!(welcome_banner_showed: true)
   end
 end
