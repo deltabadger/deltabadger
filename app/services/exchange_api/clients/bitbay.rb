@@ -23,6 +23,8 @@ module ExchangeApi
         ask = response.fetch('ask').to_f
 
         (bid + ask) / 2
+      rescue StandardError => e
+        Result::Failure.new('Could not fetch current price from Bitbay', e.message)
       end
 
       def buy(settings)
@@ -55,6 +57,8 @@ module ExchangeApi
 
         response = JSON.parse(Faraday.post(url, body, headers(body)).body)
         parse_response(response)
+      rescue StandardError => e
+        Result::Failure.new('Could not make Bitbay order', e.message)
       end
 
       def parse_response(response)
