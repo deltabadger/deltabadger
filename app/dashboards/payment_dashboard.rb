@@ -36,7 +36,6 @@ class PaymentDashboard < Administrate::BaseDashboard
     status
     total
     currency
-    crypto_total
     first_name
     last_name
     birth_date
@@ -54,11 +53,11 @@ class PaymentDashboard < Administrate::BaseDashboard
     status
     total
     currency
-    crypto_total
     first_name
     last_name
     birth_date
     eu
+    crypto_total
     crypto_paid
     paid_at
     user
@@ -75,11 +74,11 @@ class PaymentDashboard < Administrate::BaseDashboard
     status
     total
     currency
-    crypto_total
     first_name
     last_name
     birth_date
     eu
+    crypto_total
     crypto_paid
     paid_at
     user

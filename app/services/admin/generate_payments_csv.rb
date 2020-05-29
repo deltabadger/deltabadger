@@ -37,7 +37,6 @@ module Admin
         id: payment.id,
         total: payment.total,
         currency: payment.currency,
-        crypto_total: payment.crypto_total,
         first_name: payment.first_name,
         last_name: payment.last_name,
         birth_date: payment.birth_date&.strftime('%F'),
