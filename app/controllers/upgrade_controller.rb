@@ -3,7 +3,10 @@ class UpgradeController < ApplicationController
   protect_from_forgery except: [:payment_callback]
 
   def index
-    render :index, locals: { payment: Payment.new, errors: [] }
+    render :index, locals: default_locals.merge(
+      payment: Payment.new,
+      errors: []
+    )
   end
 
   def pay
@@ -12,7 +15,10 @@ class UpgradeController < ApplicationController
     if result.success?
       redirect_to result.data[:payment_url]
     else
-      render :index, locals: { payment: Payment.new, errors: result.errors }
+      render :index, locals: default_locals.merge(
+        payment: result.data || Payment.new,
+        errors: result.errors
+      )
     end
   end
 
@@ -29,6 +35,14 @@ class UpgradeController < ApplicationController
   end
 
   private
+
+  def default_locals
+    {
+      free_limit: User::FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT,
+      cost_eu: Payments::Create::COST_EU,
+      cost_other: Payments::Create::COST_OTHER
+    }
+  end
 
   def payment_params
     params

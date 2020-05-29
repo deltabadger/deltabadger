@@ -12,17 +12,25 @@
           %tr
             %td(scope="col")
               Unlimited transactions (1 year)<br/>
-              %span.db-billing-item__info This upgrade removes the free plan<br/>transaction limit of <span class="db-show--eu">€</span><span class="db-show--other">$</span>500/year.
+              %span.db-billing-item__info
+                This upgrade removes the free plan
+                %br
+                transaction limit of
+                %span.db-show--eu= "€#{free_limit}/year."
+                %span.db-show--other= "$#{free_limit}/year."
             %td(scope="col")
-            %td(scope="col") <span class="db-show--eu">€21</span><span class="db-show--other">$19</span>
-
+            %td(scope="col")
+              %span.db-show--eu= "€#{cost_eu}"
+              %span.db-show--other= "$#{cost_other}"
         %tfoot
           %tr
             %td(scope="col")
             %td(scope="col")
               %b Sum:
             %td(scope="col")
-              %b <span class="db-show--eu">€21</span><span class="db-show--other">$19</span>
+              %b
+                %span.db-show--eu= "€#{cost_eu}"
+                %span.db-show--other= "$#{cost_other}"
       = form_for payment, url: upgrade_pay_path do |f|
         %h4 Billing information
         .form-group
