@@ -8,9 +8,22 @@ module Admin
   class ApplicationController < Administrate::ApplicationController
     before_action :authenticate_user!
     before_action :authenticate_admin
+    before_action :default_order_by_id
 
     def authenticate_admin
       redirect_to dashboard_path if !current_user.admin?
+    end
+
+    def model_name
+      raise NotImplementedError
+    end
+
+    private
+
+    def default_order_by_id
+      params[model_name] ||= {}
+      params[model_name][:order] ||= 'id'
+      params[model_name][:direction] ||= 'desc'
     end
 
     # Override this value to specify the number of elements to display at a time

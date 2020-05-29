@@ -27,7 +27,7 @@ module Payments
       }
 
       update_params.merge!(status: status) unless payment.paid?
-      update_params.merge!(paid_at: Time.at(params['currentTime'])) if just_paid
+      update_params.merge!(paid_at: paid_at(params)) if just_paid
 
       payment = @payments_repository.update(payment.id, update_params)
 
@@ -59,6 +59,10 @@ module Payments
       else
         "#{payment.external_statuses}, #{external_status}"
       end
+    end
+
+    def paid_at(params)
+      Time.at(params['currentTime'] / 1000)
     end
   end
 end

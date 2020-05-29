@@ -30,6 +30,10 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
+    def model_name
+      :subscription_plan
+    end
+
     def show_action?(action, _)
       return false if %i[destroy edit new].include?(action)
 

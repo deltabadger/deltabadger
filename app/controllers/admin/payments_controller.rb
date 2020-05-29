@@ -30,6 +30,10 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
+    #
+    def model_name
+      :payment
+    end
 
     def csv
       file = Admin::GeneratePaymentsCsv.call
