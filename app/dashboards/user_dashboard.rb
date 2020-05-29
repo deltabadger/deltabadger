@@ -8,12 +8,12 @@ class UserDashboard < Administrate::BaseDashboard
   # which determines how the attribute is displayed
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
-    api_keys: Field::HasMany,
-    exchanges: Field::HasMany,
-    bots: Field::HasMany,
-    subscriptions: Field::HasMany,
+    api_keys: Field::HasMany.with_options(sort_by: :id, direction: :desc),
+    exchanges: Field::HasMany.with_options(sort_by: :id, direction: :desc),
+    bots: Field::HasMany.with_options(sort_by: :id, direction: :desc),
+    subscriptions: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     subscription: SubscriptionField,
-    payments: Field::HasMany,
+    payments: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     id: Field::Number,
     email: Field::String,
     encrypted_password: Field::String,
@@ -39,6 +39,7 @@ class UserDashboard < Administrate::BaseDashboard
   # By default, it's limited to four items to reduce clutter on index pages.
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
+    id
     email
     subscription
     limit_reached?
@@ -48,13 +49,13 @@ class UserDashboard < Administrate::BaseDashboard
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
+    id
+    email
     api_keys
     exchanges
     bots
     subscriptions
     payments
-    id
-    email
     reset_password_sent_at
     remember_created_at
     confirmed_at

@@ -10,7 +10,7 @@ class BotDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     exchange: Field::BelongsTo,
     user: Field::BelongsTo,
-    transactions: Field::HasMany,
+    transactions: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     id: Field::Number,
     status: Field::String.with_options(searchable: false),
     settings: Field::String.with_options(searchable: false),
