@@ -33,7 +33,7 @@ module Payments
 
       response = Faraday.post(url, body(params), headers)
 
-      return Result::Failure(response.body) unless response.success?
+      return Result::Failure.new(response.body) unless response.success?
 
       response = JSON.parse(response.body)
 
