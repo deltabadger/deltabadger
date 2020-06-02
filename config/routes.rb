@@ -3,6 +3,7 @@ require 'sidekiq/web'
 Rails.application.routes.draw do
   namespace :settings do
     get '/', action: :index
+    patch :hide_welcome_banner
     patch :update_password
     patch :update_email
     delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
