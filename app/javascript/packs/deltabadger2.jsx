@@ -33,3 +33,16 @@ if (document.getElementById('cookie_consent')) {
     )
   })
 }
+
+if (document.getElementById('hide_welcome_banner_button')) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document
+      .getElementById('hide_welcome_banner_button')
+      .addEventListener("click", () => {
+        Rails.ajax({
+          url: "/settings/hide_welcome_banner",
+          type: "patch"
+        });
+      });
+  })
+}
