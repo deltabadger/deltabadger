@@ -14,6 +14,11 @@ const fetchedBots = (bots) => ({
   payload: bots
 })
 
+const tryStartBot = (id) => ({
+  type: 'TRY_START_BOT',
+  payload: id
+})
+
 const botReloaded = (bot) => ({
   type: 'BOT_RELOADED',
   payload: bot
@@ -36,12 +41,14 @@ export const loadBots = (openFirstBot = false) => dispatch => {
 }
 
 export const removeBot = id => (dispatch) => {
-  return API.removeBot(id).then(data => {
+  return API.removeBot(id).then(_data => {
     dispatch(botRemoved(id));
   })
 }
 
 export const startBot = (id) => dispatch => {
+  dispatch(tryStartBot(id));
+
   API.startBot(id).then(({data: bot}) => {
     dispatch(cleanErrors(bot.id))
     dispatch(botReloaded(bot))
