@@ -4,6 +4,8 @@ require 'kraken_ruby_client'
 module ExchangeApi
   module Clients
     class Kraken < ExchangeApi::Clients::Base
+      MIN_TRANSACTION_VOLUME = 0.002
+
       def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new, options: {})
         @client =
           ::Kraken::Client.new(api_key: api_key, api_secret: api_secret)
@@ -19,7 +21,7 @@ module ExchangeApi
         true
       end
 
-      def current_price(settings)
+      def current_bid_ask_price(settings)
         currency = settings.fetch('currency')
 
         response = @client.ticker("xbt#{currency}")
@@ -30,7 +32,9 @@ module ExchangeApi
         bid = rates.fetch('b').first.to_f
         ask = rates.fetch('a').first.to_f
 
-        (bid + ask) / 2
+        Result::Success.new(BidAskPrice.new(bid, ask))
+      rescue StandardError => e
+        Result::Failure.new('Could not fetch current price from Kraken', e.message)
       end
 
       def orders
@@ -51,8 +55,11 @@ module ExchangeApi
 
       def make_order(offer_type, settings) # rubocop:disable Metrics/MethodLength
         currency = settings.fetch('currency')
-        # price = settings.fetch('price')
-        volume = 0.002
+
+        volume_result = smart_volume(offer_type, settings)
+        return volume_result unless volume_result.success?
+
+        volume = volume_result.data
         pair = "XBT#{currency}"
 
         request_params = {
@@ -81,6 +88,22 @@ module ExchangeApi
           rate: rate,
           amount: volume
         )
+      rescue StandardError => e
+        Result::Failure.new('Could not make Kraken order', e.message)
+      end
+
+      def smart_volume(offer_type, settings)
+        rate = if offer_type == 'sell'
+                 current_bid_price(settings)
+               else
+                 current_ask_price(settings)
+               end
+        return rate unless rate.success?
+
+        price = settings.fetch('price').to_f
+        volume = price / rate.data
+
+        Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
       end
     end
   end

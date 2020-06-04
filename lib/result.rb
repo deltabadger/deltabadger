@@ -1,5 +1,6 @@
 class Result
   attr_reader :data, :errors
+
   def initialize(data:, errors:)
     @data = data
     @errors = errors
@@ -11,6 +12,12 @@ class Result
 
   def failure?
     !success?
+  end
+
+  def or(other)
+    return data if success?
+
+    other
   end
 
   class Success < Result

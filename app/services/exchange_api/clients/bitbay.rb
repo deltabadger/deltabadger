@@ -2,6 +2,8 @@
 module ExchangeApi
   module Clients
     class Bitbay < ExchangeApi::Clients::Base
+      MIN_TRANSACTION_PRICE = 10
+
       def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Bitbay.new)
         @api_key = api_key
         @api_secret = api_secret
@@ -14,7 +16,7 @@ module ExchangeApi
         response.status == 200
       end
 
-      def current_price(settings)
+      def current_bid_ask_price(settings)
         url =
           "https://bitbay.net/API/Public/BTC#{settings.fetch('currency')}/ticker.json"
         response = JSON.parse(Faraday.get(url, {}, headers('')).body)
@@ -22,7 +24,9 @@ module ExchangeApi
         bid = response.fetch('bid').to_f
         ask = response.fetch('ask').to_f
 
-        (bid + ask) / 2
+        Result::Success.new(BidAskPrice.new(bid, ask))
+      rescue StandardError => e
+        Result::Failure.new('Could not fetch current price from Bitbay', e.message)
       end
 
       def buy(settings)
@@ -39,8 +43,9 @@ module ExchangeApi
 
       def make_order(offer_type, settings)
         currency = settings.fetch('currency')
-        # price = settings.fetch('price')
-        price = 10
+
+        price = settings.fetch('price').to_f
+        price = [MIN_TRANSACTION_PRICE, price].max
 
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
         body = {
@@ -55,6 +60,8 @@ module ExchangeApi
 
         response = JSON.parse(Faraday.post(url, body, headers(body)).body)
         parse_response(response)
+      rescue StandardError => e
+        Result::Failure.new('Could not make Bitbay order', e.message)
       end
 
       def parse_response(response)
