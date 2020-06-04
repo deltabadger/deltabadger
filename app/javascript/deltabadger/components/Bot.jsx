@@ -49,9 +49,10 @@ const BotTemplate = ({
     handleEdit(botParams)
   }
 
+  // Shows the first (major) error
   const Errors = ({ data }) => (
     <div className="db-bot__infotext__right">
-      { data }
+      { data[0] }
     </div>
   )
 

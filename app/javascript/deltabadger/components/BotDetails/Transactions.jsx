@@ -1,7 +1,14 @@
 import React from 'react'
 import { Chart } from './Chart';
 
-const Stats = ({ bought, averagePrice, totalInvested, currentValue, profitLoss = {} }) => (
+const Stats = ({
+  bought,
+  averagePrice,
+  totalInvested,
+  currentValue,
+  profitLoss = {},
+  currentPriceAvailable
+}) => (
     <table className="table table-borderless db-table">
       <tbody>
         <tr>
@@ -18,11 +25,17 @@ const Stats = ({ bought, averagePrice, totalInvested, currentValue, profitLoss =
         </tr>
         <tr>
           <td scope="col">Current value:</td>
-          <th scope="col">{ currentValue }</th>
+          <th scope="col">
+            { currentValue }
+            { !currentPriceAvailable && <sup>*</sup> }
+          </th>
         </tr>
         <tr>
           <td scope="col">Profit/Loss:</td>
-          <th scope="col" className={`text-${profitLoss.positive ? 'success' : 'danger'}`}>{ profitLoss.value }</th>
+          <th scope="col" className={`text-${profitLoss.positive ? 'success' : 'danger'}`}>
+            { profitLoss.value }
+            { !currentPriceAvailable && <sup>*</sup> }
+          </th>
         </tr>
       </tbody>
     </table>
@@ -31,6 +44,14 @@ const Stats = ({ bought, averagePrice, totalInvested, currentValue, profitLoss =
 export const Transactions = ({ bot, active }) => (
   <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
     <Stats {...bot.stats} />
+    { !bot.stats.currentPriceAvailable &&
+      <p className="db-smallinfo">
+       <i className="material-icons-round">error_outline</i> <sup>*</sup>
+        The exchange API does not respond at the moment.
+        <br/>
+        Calculations are based on the last data available.
+      </p>
+    }
 
     <Chart bot={bot} />
 
