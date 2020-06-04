@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom'
-import PropTypes from 'prop-types'
 import API from '../lib/API'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
