@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react'
-import { connect } from 'react-redux';
+import React, { useEffect } from 'react'
 import ReactDOM from 'react-dom'
-import PropTypes from 'prop-types'
-import API from '../lib/API'
+import { connect } from 'react-redux';
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { Bot } from './Bot'
-import { isEmpty, isNotEmpty } from '../utils/array'
+import { isEmpty } from '../utils/array'
 import {
   startBot,
   openBot,

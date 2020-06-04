@@ -8,18 +8,16 @@ const calculateDelay = (nextTransactionTimestamp, nowTimestamp) => {
   return nextTransactionTimestamp - nowTimestamp
 }
 
-export const Timer = ({bot, callback, isPending}) => {
+export const Timer = ({bot, callback}) => {
   let i = 0;
-  const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
-  const working = status == 'working'
+  const { settings, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp))
-  const [pending, setPending] = useState(false)
   const timeout = delay < 0
 
   useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
-    if(timeout && !isPending && i == 0) {
+    if(timeout && i == 0) {
       if (bot) {
         i = i + 1;
         callback(bot)
