@@ -1,6 +1,7 @@
 Exchange.find_or_create_by!(name: 'Kraken')
 Exchange.find_or_create_by!(name: 'Deribit')
 Exchange.find_or_create_by!(name: 'BitBay')
+Exchange.find_or_create_by!(name: 'BitClude')
 
 free = SubscriptionPlan.find_or_create_by!(name: 'free')
 unlimited = SubscriptionPlan.find_or_create_by!(name: 'unlimited')
