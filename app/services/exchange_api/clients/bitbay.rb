@@ -12,8 +12,13 @@ module ExchangeApi
 
       def validate_credentials
         url = 'https://api.bitbay.net/rest/trading/history/transactions'
-        response = Faraday.get(url, {}, headers(''))
-        response.status == 200
+        request = Faraday.get(url, {}, headers(''))
+        return false if request.status != 200
+
+        response = JSON.parse(request.body)
+        response['status'] == 'Ok'
+      rescue StandardError
+        false
       end
 
       def current_bid_ask_price(settings)
