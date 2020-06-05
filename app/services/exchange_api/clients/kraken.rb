@@ -91,7 +91,7 @@ module ExchangeApi
                end
         return rate unless rate.success?
 
-        volume = price / rate.data
+        volume = (price / rate.data).ceil(8)
 
         Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
       end
