@@ -15,10 +15,9 @@ module ExchangeApi
 
       def validate_credentials
         response = @client.balance
-
-        return false if response.fetch('error').any?
-
-        true
+        response['error'].none?
+      rescue StandardError
+        false
       end
 
       def current_bid_ask_price(settings)
