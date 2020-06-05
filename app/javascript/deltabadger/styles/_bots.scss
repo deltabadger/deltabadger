@@ -246,43 +246,14 @@
       background-size: 50%;
       border-radius:   $box-border-radius;
       cursor:          pointer;
+      > svg {
+        width: 80%;
+        fill: $primary;
+      }
       &:hover {
         background-color: $primary;
-      }
-      &--bitbay {
-        background-image: url("./../../images/bitbay.svg");
-        &:hover {
-          background-image: url("./../../images/bitbay-white.svg");
-        }
-      }
-      &--deribit {
-        background-image: url("./../../images/deribit.svg");
-        &:hover {
-          background-image: url("./../../images/deribit-white.svg");
-        }
-      }
-      &--kraken {
-        background-image: url("./../../images/kraken.svg");
-        &:hover {
-          background-image: url("./../../images/kraken-white.svg");
-        }
-      }
-      &--coinbase {
-        background-image: url("./../../images/coinbase.svg");
-        &:hover {
-          background-image: url("./../../images/coinbase-white.svg");
-        }
-      }
-      &--binance {
-        background-image: url("./../../images/binance.svg");
-        &:hover {
-          background-image: url("./../../images/binance-white.svg");
-        }
-      }
-      &--bitmex {
-        background-image: url("./../../images/bitmex.svg");
-        &:hover {
-          background-image: url("./../../images/bitmex-white.svg");
+        #shape {
+          fill: white;
         }
       }
     }
