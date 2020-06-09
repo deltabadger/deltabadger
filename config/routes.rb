@@ -16,6 +16,8 @@ Rails.application.routes.draw do
     post :payment_callback
   end
 
+  resource :affiliate, only: [:new, :create, :show]
+
   namespace :admin do
     resources :users, except: [:destroy]
     resources :api_keys, except: [:edit, :update]
