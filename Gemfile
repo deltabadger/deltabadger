@@ -22,6 +22,7 @@ gem 'webpacker'
 gem 'kraken_ruby_client', git: 'https://github.com/jonatack/kraken_ruby_client'
 gem 'sendinblue'
 gem 'sentry-raven'
+gem 'bitcoin-ruby', git: 'https://github.com/lian/bitcoin-ruby', branch: 'master', require: 'bitcoin'
 
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
