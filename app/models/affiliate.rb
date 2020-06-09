@@ -1,10 +1,13 @@
 class Affiliate < ApplicationRecord
   belongs_to :user
 
-  validates :first_name, :last_name, :birth_date, :user, :code, presence: true
+  validates :first_name, :last_name, :birth_date, :user, presence: true
+
   validates_inclusion_of :eu, in: [true, false]
 
   validate :btc_address, :valid_btc_address
+
+  validates_format_of :code, with: /\A[A-Z0-9]+\z/, message: 'has to consist of uppercase alphanumeric characters'
 
   private
 
