@@ -1,0 +1,42 @@
+.modal-dialog(role="document")
+  .modal-content
+    .modal-body
+      %h2.db-modal-title Sign up for affiliate program
+      - errors.each do |error|
+        .text-danger.mb-4= error
+
+      = form_for affiliate, url: affiliate_path do |f|
+        %h4 Affiliate information
+        .form-group
+          %label(for="first_name") First name
+          = f.text_field :first_name, class: 'form-control'
+
+        .form-group
+          %label(for="last_name") Last name
+          = f.text_field :last_name, class: 'form-control'
+
+        .form-group
+          %label{:for => "example-date-input"} Birth date
+          = f.date_field :birth_date, class: 'example-data-input form-control'
+
+        .form-group
+          %label Country
+          %br
+          .form-check.form-check-inline
+            = f.radio_button :eu, true, checked: affiliate.eu, class: 'form-check-input radio--eu', id: 'radioEu'
+            = f.label :eu, "European Union", class: 'form-check-label', for: 'radioEu'
+          .form-check.form-check-inline
+            = f.radio_button :eu, false, checked: !affiliate.eu, class: 'form-check-input radio--other', id: 'radioOther'
+            = f.label :eu, "Other", class: 'form-check-label', for: 'radioOther'
+
+        .form-group
+          %label(for="btc_address") BTC address
+          = f.text_field :btc_address, class: 'form-control'
+
+        .form-group
+          %label(for="code") Desired affiliate code
+          = f.text_field :code, class: 'form-control'
+
+        .form-group.db-form-group--main-btn
+          %button.btn.btn-success.btn-lg{type: 'submit'}
+            .mr-2 Sign up
