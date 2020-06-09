@@ -5,6 +5,16 @@ GIT
     kraken_ruby_client (0.0.1)
       curb (~> 0.9)
 
+GIT
+  remote: https://github.com/lian/bitcoin-ruby
+  revision: f9b817c946b3ef99c7652c318c155200aadc6489
+  branch: master
+  specs:
+    bitcoin-ruby (0.0.20)
+      eventmachine
+      ffi
+      scrypt
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -118,10 +128,14 @@ GEM
     encryptor (3.0.0)
     erubi (1.8.0)
     erubis (2.7.0)
+    eventmachine (1.2.7)
     execjs (2.7.0)
     faraday (0.15.4)
       multipart-post (>= 1.2, < 3)
     ffi (1.11.1)
+    ffi-compiler (1.0.1)
+      ffi (>= 1.0.0)
+      rake
     formatador (0.2.5)
     globalid (0.4.2)
       activesupport (>= 4.2.0)
@@ -323,6 +337,8 @@ GEM
       sprockets (> 3.0)
       sprockets-rails
       tilt
+    scrypt (3.0.7)
+      ffi-compiler (>= 1.0, < 2.0)
     selectize-rails (0.12.6)
     selenium-webdriver (3.142.3)
       childprocess (>= 0.5, < 2.0)
@@ -385,6 +401,7 @@ PLATFORMS
 DEPENDENCIES
   administrate
   attr_encrypted (~> 3.1.0)
+  bitcoin-ruby!
   bootsnap (>= 1.1.0)
   bundle-audit
   byebug
