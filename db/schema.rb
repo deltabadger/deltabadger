@@ -19,13 +19,13 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
     t.bigint "user_id"
     t.string "first_name", null: false
     t.string "last_name", null: false
-    t.date "birth_date"
-    t.boolean "eu"
+    t.date "birth_date", null: false
+    t.boolean "eu", null: false
     t.string "btc_address", null: false
     t.string "code", null: false
     t.decimal "max_profit", precision: 12, scale: 2, null: false
-    t.decimal "profit_percent", precision: 2, scale: 2, null: false
-    t.decimal "discount_percent", precision: 2, scale: 2, null: false
+    t.decimal "discount_percent", precision: 3, scale: 2, null: false
+    t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_affiliates_on_code", unique: true
