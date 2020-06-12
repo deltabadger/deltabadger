@@ -4,7 +4,7 @@ class AffiliatesController < ApplicationController
   def show
     return redirect_to new_affiliate_path if current_user.affiliate.nil?
 
-    head 200
+    render :show
   end
 
   def new
