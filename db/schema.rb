@@ -23,6 +23,9 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
     t.boolean "eu"
     t.string "btc_address", null: false
     t.string "code", null: false
+    t.decimal "max_profit", precision: 12, scale: 2, null: false
+    t.decimal "profit_percent", precision: 2, scale: 2, null: false
+    t.decimal "discount_percent", precision: 2, scale: 2, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_affiliates_on_code", unique: true
