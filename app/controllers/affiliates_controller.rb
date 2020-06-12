@@ -16,11 +16,17 @@ class AffiliatesController < ApplicationController
   def create
     return redirect_to affiliate_path unless current_user.affiliate.nil?
 
-    affiliate = Affiliate.new(affiliate_params)
+    affiliate = Affiliate.new(affiliate_params.merge(default_affiliate_params))
     current_user.affiliate = affiliate
     current_user.save!
   rescue ActiveRecord::RecordNotSaved
     render :new, locals: { affiliate: affiliate, errors: affiliate.errors.to_a }
+  end
+
+  private
+
+  def default_affiliate_params
+    { max_profit: 20, discount_percent: 0.2, total_bonus_percent: 0.3 }
   end
 
   def affiliate_params

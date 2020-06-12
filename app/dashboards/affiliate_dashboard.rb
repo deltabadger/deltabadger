@@ -16,6 +16,9 @@ class AffiliateDashboard < Administrate::BaseDashboard
     eu: Field::Boolean,
     btc_address: Field::String,
     code: Field::String,
+    max_profit: Field::Number,
+    discount_percent: Field::Number,
+    total_bonus_percent: Field::Number,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze
@@ -46,6 +49,9 @@ class AffiliateDashboard < Administrate::BaseDashboard
     eu
     btc_address
     code
+    max_profit
+    discount_percent
+    total_bonus_percent
     created_at
     updated_at
   ].freeze
@@ -61,6 +67,9 @@ class AffiliateDashboard < Administrate::BaseDashboard
     eu
     btc_address
     code
+    max_profit
+    discount_percent
+    total_bonus_percent
   ].freeze
 
   # COLLECTION_FILTERS
