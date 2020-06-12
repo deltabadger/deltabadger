@@ -28,7 +28,11 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
     t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "new_btc_address"
+    t.string "new_btc_address_token"
+    t.datetime "new_btc_address_send_at"
     t.index ["code"], name: "index_affiliates_on_code", unique: true
+    t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
     t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true
   end
 
