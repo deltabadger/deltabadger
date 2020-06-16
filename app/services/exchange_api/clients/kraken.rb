@@ -32,8 +32,8 @@ module ExchangeApi
         ask = rates.fetch('a').first.to_f
 
         Result::Success.new(BidAskPrice.new(bid, ask))
-      rescue StandardError => e
-        Result::Failure.new('Could not fetch current price from Kraken', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not fetch current price from Kraken', data: { retry: true })
       end
 
       def orders
@@ -72,11 +72,7 @@ module ExchangeApi
           @client
           .add_order(request_params)
 
-        if response.fetch('error').any?
-          return Result::Failure.new(
-            *@map_errors.call(response.fetch('error'))
-          )
-        end
+        return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
         offer_id = response.dig('result', 'txid').first
         order_data = orders[offer_id]
@@ -87,8 +83,8 @@ module ExchangeApi
           rate: rate,
           amount: volume
         )
-      rescue StandardError => e
-        Result::Failure.new('Could not make Kraken order', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not make Kraken order', data: { retry: true })
       end
 
       def smart_volume(offer_type, settings)
@@ -103,6 +99,13 @@ module ExchangeApi
         volume = price / rate.data
 
         Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
+      end
+
+      def error_to_failure(error)
+        mapped_error = @map_errors.call(error)
+        Result::Failure.new(
+          *mapped_error.message, data: { retry: mapped_error.recoverable }
+        )
       end
     end
   end
