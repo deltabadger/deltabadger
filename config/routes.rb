@@ -16,7 +16,9 @@ Rails.application.routes.draw do
     post :payment_callback
   end
 
-  resource :affiliate, only: [:new, :create, :show]
+  resource :affiliate, only: [:new, :create, :show] do
+    get '/confirm_new_btc_address/:token', to: 'affiliate#confirm_new_btc_address'
+  end
 
   namespace :admin do
     resources :users, except: [:destroy]
