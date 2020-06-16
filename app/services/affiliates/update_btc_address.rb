@@ -27,6 +27,7 @@ module Affiliates
 
       affiliate_mailer.with(
         user: affiliate.user,
+        new_btc_address: new_btc_address,
         token: token
       ).new_btc_address_confirmation.deliver_now
 
