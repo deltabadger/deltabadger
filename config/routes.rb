@@ -17,7 +17,7 @@ Rails.application.routes.draw do
   end
 
   resource :affiliate, only: [:new, :create, :show] do
-    get '/confirm_new_btc_address/:token', to: 'affiliate#confirm_new_btc_address'
+    get 'confirm_btc_address/:token', action: 'confirm_btc_address', controller: 'affiliates', as: :confirm_btc_address
   end
 
   namespace :admin do
