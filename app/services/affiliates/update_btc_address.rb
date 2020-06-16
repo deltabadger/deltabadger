@@ -30,9 +30,10 @@ module Affiliates
         token: token
       ).new_btc_address_confirmation.deliver_now
 
+      Result::Success.new(true)
     rescue StandardError => e
       Raven.capture_exception(e)
-      return Result::Failure.new('Could not update bitcoin address')
+      Result::Failure.new('Could not update bitcoin address')
     end
   end
 end

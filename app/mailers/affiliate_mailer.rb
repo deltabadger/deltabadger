@@ -3,7 +3,6 @@ class AffiliateMailer < ApplicationMailer
     @user = params[:user]
     @token = params[:token]
 
-    byebug
     mail(to: @user.email, subject: 'Confirm bitcoin address update')
   end
 end
