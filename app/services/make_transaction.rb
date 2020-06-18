@@ -2,6 +2,7 @@ class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_api: ExchangeApi::Get.new,
     schedule_transaction: ScheduleTransaction.new,
+    schedule_transaction_retry: ScheduleTransactionRetry.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
@@ -10,9 +11,9 @@ class MakeTransaction < BaseService
     validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
     subtract_credits: SubtractCredits.new
   )
-
     @get_exchange_api = exchange_api
     @schedule_transaction = schedule_transaction
+    @schedule_transaction_retry = schedule_transaction_retry
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
@@ -22,37 +23,39 @@ class MakeTransaction < BaseService
     @subtract_credits = subtract_credits
   end
 
-  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-  def call(bot_id, notify: true)
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  def call(bot_id, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new if !make_transaction?(bot)
 
-    api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-    api = @get_exchange_api.call(api_key)
+    result = perform_action(get_api(bot), bot)
 
-    result = perform_action(api, bot)
-
-    if result.failure?
+    if result.success?
+      bot = @bots_repository.update(bot.id, status: 'working')
+      result = validate_limit(bot, notify)
+    elsif restart && result.data[:retry]
+      bot = @bots_repository.update(bot.id, status: 'restarting')
+    else
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
-    validate_limit_result = @validate_limit.call(bot.user)
-    if validate_limit_result.failure?
-      bot = @bots_repository.update(bot.id, status: 'stopped')
-      @notifications.limit_reached(bot: bot) if notify
-
-      return validate_limit_result
-    elsif @validate_almost_limit.call(bot.user).failure? && notify
-      @notifications.limit_almost_reached(bot: bot)
+    if bot.working?
+      @schedule_transaction.call(bot)
+    elsif bot.restarting?
+      @schedule_transaction_retry.call(bot)
     end
 
-    @schedule_transaction.call(bot) if [result, validate_limit_result].all?(&:success?)
     result
   end
-  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
+
+  def get_api(bot)
+    api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
+    @get_exchange_api.call(api_key)
+  end
 
   def perform_action(api, bot)
     result = if bot.buyer?
@@ -72,6 +75,18 @@ class MakeTransaction < BaseService
     result
   end
 
+  def validate_limit(bot, notify)
+    validate_limit_result = @validate_limit.call(bot.user)
+    if validate_limit_result.failure?
+      bot = @bots_repository.update(bot.id, status: 'stopped')
+      @notifications.limit_reached(bot: bot) if notify
+
+      return validate_limit_result
+    elsif @validate_almost_limit.call(bot.user).failure? && notify
+      @notifications.limit_almost_reached(bot: bot)
+    end
+  end
+
   def transaction_params(result, bot)
     if result.success?
       result.data.slice(:offer_id, :rate, :amount).merge(
@@ -88,6 +103,6 @@ class MakeTransaction < BaseService
   end
 
   def make_transaction?(bot)
-    bot.working?
+    bot.working? || bot.restarting?
   end
 end
