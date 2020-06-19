@@ -1,5 +1,7 @@
 module Notifications
   class BotAlerts
+    RESTART_THRESHOLD = 4
+
     def initialize(subscriptions_repository: SubscriptionsRepository.new)
       @subscriptions_repository = subscriptions_repository
     end
@@ -10,6 +12,16 @@ module Notifications
         bot: bot,
         errors: errors
       ).notify_about_error.deliver_later
+    end
+
+    def restart_occured(bot:, errors: [])
+      return unless bot.restarts >= RESTART_THRESHOLD
+
+      BotAlertsMailer.with(
+        user: bot.user,
+        bot: bot,
+        errors: errors
+      ).notify_about_restart.deliver_later
     end
 
     def limit_reached(bot:)
