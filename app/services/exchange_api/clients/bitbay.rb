@@ -34,22 +34,19 @@ module ExchangeApi
         Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
       end
 
-      def buy(settings)
+      def buy(currency:, price:)
         puts 'Buying on bitbay'
-        make_order('BUY', settings)
+        make_order('BUY', currency, price)
       end
 
-      def sell(settings)
+      def sell(currency:, price:)
         puts 'selling on bitbay'
-        make_order('SELL', settings)
+        make_order('SELL', currency, price)
       end
 
       private
 
-      def make_order(offer_type, settings)
-        currency = settings.fetch('currency')
-
-        price = settings.fetch('price').to_f
+      def make_order(offer_type, currency, price)
         price = [MIN_TRANSACTION_PRICE, price].max
 
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
