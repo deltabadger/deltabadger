@@ -2,7 +2,7 @@ class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_api: ExchangeApi::Get.new,
     schedule_transaction: ScheduleTransaction.new,
-    schedule_transaction_retry: ScheduleTransactionRetry.new,
+    schedule_transaction_restart: ScheduleTransactionRestart.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
@@ -13,7 +13,7 @@ class MakeTransaction < BaseService
   )
     @get_exchange_api = exchange_api
     @schedule_transaction = schedule_transaction
-    @schedule_transaction_retry = schedule_transaction_retry
+    @schedule_transaction_restart = schedule_transaction_restart
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
@@ -23,13 +23,12 @@ class MakeTransaction < BaseService
     @subtract_credits = subtract_credits
   end
 
-  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new if !make_transaction?(bot)
 
-    # result = perform_action(get_api(bot), bot)
-    result = Result::Failure.new('Something went wrong', data: { recoverable: true })
+    result = perform_action(get_api(bot), bot)
 
     if result.success?
       bot = @bots_repository.update(bot.id, restarts: 0)
@@ -37,7 +36,8 @@ class MakeTransaction < BaseService
       @schedule_transaction.call(bot) if result.success?
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
-      @schedule_transaction_retry.call(bot)
+      @schedule_transaction_restart.call(bot)
+      @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
       bot = @bots_repository.update(bot.id, status: 'stopped')
@@ -46,7 +46,7 @@ class MakeTransaction < BaseService
 
     result
   end
-  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 

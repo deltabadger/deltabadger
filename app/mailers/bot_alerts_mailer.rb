@@ -7,6 +7,14 @@ class BotAlertsMailer < ApplicationMailer
     mail(to: @user.email, subject: 'Something went wrong!')
   end
 
+  def notify_about_restart
+    @user = params[:user]
+    @errors = params[:errors]
+    @bot = params[:bot]
+
+    mail(to: @user.email, subject: 'Something went wrong!')
+  end
+
   def limit_reached
     @user = params[:user]
     @bot = params[:bot]
