@@ -33,7 +33,7 @@ module ExchangeApi
 
         Result::Success.new(BidAskPrice.new(bid, ask))
       rescue StandardError
-        Result::Failure.new('Could not fetch current price from Kraken', data: { retry: true })
+        Result::Failure.new('Could not fetch current price from Kraken', data: { recoverable: true })
       end
 
       def orders
@@ -84,7 +84,7 @@ module ExchangeApi
           amount: volume
         )
       rescue StandardError
-        Result::Failure.new('Could not make Kraken order', data: { retry: true })
+        Result::Failure.new('Could not make Kraken order', data: { recoverable: true })
       end
 
       def smart_volume(offer_type, settings)

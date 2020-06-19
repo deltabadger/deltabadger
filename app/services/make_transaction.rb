@@ -28,25 +28,23 @@ class MakeTransaction < BaseService
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new if !make_transaction?(bot)
 
-    result = perform_action(get_api(bot), bot)
+    # result = perform_action(get_api(bot), bot)
+    result = Result::Failure.new('Something went wrong', { data: { recoverable: true }})
 
     if result.success?
       bot = @bots_repository.update(bot.id, status: 'working')
       result = validate_limit(bot, notify)
-    elsif restart && result.data[:retry]
-      bot = @bots_repository.update(bot.id, status: 'restarting')
+      @schedule_transaction.call(bot) if result.success?
+    elsif restart && result.data&.dig(:retry)
+      bot = @bots_repository.update(bot.id, status: 'working')
+      @schedule_transaction_retry.call(bot)
     else
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
-    if bot.working?
-      @schedule_transaction.call(bot)
-    elsif bot.restarting?
-      @schedule_transaction_retry.call(bot)
-    end
-
-    result
+    # result
+    Result::Success.new
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
@@ -80,11 +78,11 @@ class MakeTransaction < BaseService
     if validate_limit_result.failure?
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.limit_reached(bot: bot) if notify
-
-      return validate_limit_result
     elsif @validate_almost_limit.call(bot.user).failure? && notify
       @notifications.limit_almost_reached(bot: bot)
     end
+
+    validate_limit_result
   end
 
   def transaction_params(result, bot)
@@ -103,6 +101,6 @@ class MakeTransaction < BaseService
   end
 
   def make_transaction?(bot)
-    bot.working? || bot.restarting?
+    bot.working?
   end
 end
