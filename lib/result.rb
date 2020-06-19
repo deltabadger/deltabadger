@@ -28,8 +28,8 @@ class Result
   end
 
   class Failure < Result
-    def initialize(*errors, data: nil)
-      @data = data
+    def initialize(*errors, **kwargs)
+      @data = kwargs[:data]
       @errors = errors.empty? ? ['Error'] : errors
     end
   end
