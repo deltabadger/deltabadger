@@ -58,10 +58,11 @@ module ExchangeApi
       end
 
       def smart_volume(offer_type, settings)
+        currency = settings.fetch('currency')
         rate = if offer_type == 'sell'
-                 current_bid_price(settings)
+                 current_bid_price(currency)
                else
-                 current_ask_price(settings)
+                 current_ask_price(currency)
                end
         return rate unless rate.success?
 
