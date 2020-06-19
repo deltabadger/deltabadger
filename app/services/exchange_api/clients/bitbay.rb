@@ -21,9 +21,9 @@ module ExchangeApi
         false
       end
 
-      def current_bid_ask_price(settings)
+      def current_bid_ask_price(currency)
         url =
-          "https://bitbay.net/API/Public/BTC#{settings.fetch('currency')}/ticker.json"
+          "https://bitbay.net/API/Public/BTC#{currency}/ticker.json"
         response = JSON.parse(Faraday.get(url, {}, headers('')).body)
 
         bid = response.fetch('bid').to_f
