@@ -3,6 +3,8 @@ require 'result'
 module ExchangeApi
   module Clients
     class Base
+      RECOVERABLE = { data: { recoverable: true }.freeze }.freeze
+
       def current_bid_ask_price(_settings)
         raise NotImplementedError
       end
@@ -39,6 +41,15 @@ module ExchangeApi
         return result unless result.success?
 
         Result::Success.new(result.data.ask)
+      end
+
+      protected
+
+      def error_to_failure(error)
+        mapped_error = @map_errors.call(error)
+        Result::Failure.new(
+          *mapped_error.message, data: { recoverable: mapped_error.recoverable }
+        )
       end
     end
   end
