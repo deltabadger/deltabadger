@@ -29,22 +29,22 @@ class MakeTransaction < BaseService
     return Result::Failure.new if !make_transaction?(bot)
 
     # result = perform_action(get_api(bot), bot)
-    result = Result::Failure.new('Something went wrong', { data: { recoverable: true }})
+    result = Result::Failure.new('Something went wrong', data: { recoverable: true })
 
     if result.success?
-      bot = @bots_repository.update(bot.id, status: 'working')
+      bot = @bots_repository.update(bot.id, restarts: 0)
       result = validate_limit(bot, notify)
       @schedule_transaction.call(bot) if result.success?
-    elsif restart && result.data&.dig(:retry)
-      bot = @bots_repository.update(bot.id, status: 'working')
+    elsif restart && recoverable?(result)
+      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
       @schedule_transaction_retry.call(bot)
+      result = Result::Success.new
     else
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
-    # result
-    Result::Success.new
+    result
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
@@ -83,6 +83,10 @@ class MakeTransaction < BaseService
     end
 
     validate_limit_result
+  end
+
+  def recoverable?(result)
+    result.data&.dig(:recoverable) == true
   end
 
   def transaction_params(result, bot)

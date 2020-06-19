@@ -31,7 +31,7 @@ module ExchangeApi
 
         Result::Success.new(BidAskPrice.new(bid, ask))
       rescue StandardError
-        Result::Failure.new('Could not fetch current price from Bitbay', data: { recoverable: true })
+        Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
       end
 
       def buy(settings)
@@ -66,7 +66,7 @@ module ExchangeApi
         response = JSON.parse(Faraday.post(url, body, headers(body)).body)
         parse_response(response)
       rescue StandardError
-        Result::Failure.new('Could not make Bitbay order', data: { recoverable: true })
+        Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
       end
 
       def parse_response(response)
@@ -93,13 +93,6 @@ module ExchangeApi
           'Request-Timestamp' => timestamp,
           'Content-Type' => 'application/json'
         }
-      end
-
-      def error_to_failure(error)
-        mapped_error = @map_errors.call(error)
-        Result::Failure.new(
-          *mapped_error.message, data: { recoverable: mapped_error.recoverable }
-        )
       end
     end
   end
