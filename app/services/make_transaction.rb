@@ -56,10 +56,11 @@ class MakeTransaction < BaseService
   end
 
   def perform_action(api, bot)
+    settings = { currency: bot.currency, price: bot.price.to_f }
     result = if bot.buyer?
-               api.buy(bot.settings)
+               api.buy(settings)
              else
-               api.sell(bot.settings)
+               api.sell(settings)
              end
 
     @transactions_repository.create(transaction_params(result, bot))
