@@ -20,9 +20,7 @@ module ExchangeApi
         false
       end
 
-      def current_bid_ask_price(settings)
-        currency = settings.fetch('currency')
-
+      def current_bid_ask_price(currency)
         response = @client.ticker("xbt#{currency}")
         result = response['result']
         key = result.keys.first # The result should contain only one key
