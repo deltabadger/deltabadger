@@ -9,7 +9,7 @@ class ScheduleTransactionRestart < BaseService
 
   def call(bot)
     make_transaction_worker.perform_at(
-      calculate_restart_delay(bot),
+      calculate_restart_delay.call(bot.restarts),
       bot.id
     )
   end
