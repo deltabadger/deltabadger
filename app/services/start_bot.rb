@@ -12,7 +12,7 @@ class StartBot < BaseService
 
   def call(bot_id)
     bot = @bots_repository.find(bot_id)
-    @bots_repository.update(bot.id, status: 'working', restarts: 0)
+    @bots_repository.update(bot.id, status: 'working', restarts: 0, delay: 0)
 
     validate_limit_result = @validate_limit.call(bot.user)
     if validate_limit_result.failure?
