@@ -2,8 +2,14 @@ module Notifications
   class BotAlerts
     RESTART_THRESHOLD = 4
 
-    def initialize(subscriptions_repository: SubscriptionsRepository.new)
+    def initialize(
+      subscriptions_repository: SubscriptionsRepository.new,
+      calculate_restart_delay: CalculateRestartDelay.new,
+      format_readable_duration: FormatReadableDuration.new
+    )
       @subscriptions_repository = subscriptions_repository
+      @calculate_restart_delay = calculate_restart_delay
+      @format_readable_duration = format_readable_duration
     end
 
     def error_occured(bot:, errors: [])
@@ -20,6 +26,7 @@ module Notifications
       BotAlertsMailer.with(
         user: bot.user,
         bot: bot,
+        delay: format_readable_duration.call(calculate_restart_delay.call(bot.restarts)),
         errors: errors
       ).notify_about_restart.deliver_later
     end
@@ -36,12 +43,16 @@ module Notifications
 
       return nil if subscription.limit_almost_reached_sent
 
-      @subscriptions_repository.update(subscription.id, limit_almost_reached_sent: true)
+      subscriptions_repository.update(subscription.id, limit_almost_reached_sent: true)
 
       BotAlertsMailer.with(
         bot: bot,
         user: bot.user
       ).limit_almost_reached.deliver_later
     end
+
+    private
+
+    attr_reader :subscriptions_repository, :calculate_restart_delay, :format_readable_duration
   end
 end
