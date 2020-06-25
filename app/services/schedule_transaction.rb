@@ -26,7 +26,7 @@ class ScheduleTransaction < BaseService
   def decrement_bot_interval(bot)
     return unless bot.restarts.zero? && bot.delay.positive?
 
-    interval = parse_interval.call(bot)
+    interval = parse_interval.call(bot).to_i
     bots_repository.update(bot.id, delay: [bot.delay - interval, 0].max)
   end
 
