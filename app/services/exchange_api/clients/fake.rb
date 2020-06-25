@@ -22,7 +22,7 @@ module ExchangeApi
           new_prices
           Result::Success.new(BidAskPrice.new(bid, ask))
         else
-          Result::Failure.new('Something went wrong!')
+          Result::Failure.new('Something went wrong!', RECOVERABLE)
         end
       end
 
@@ -53,8 +53,8 @@ module ExchangeApi
         else
           Result::Failure.new('Something went wrong!')
         end
-      rescue StandardError => e
-        Result::Failure.new('Caught an error while making fake order', e.message)
+      rescue StandardError
+        Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
       end
 
       def smart_volume(offer_type, currency, price)
