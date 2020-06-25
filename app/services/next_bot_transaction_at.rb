@@ -24,13 +24,11 @@ class NextBotTransactionAt < BaseService
   def normal_delay(bot)
     interval = parse_interval.call(bot)
 
-    [interval - bot.delay, 0].max
+    [interval - bot.delay, 0.seconds].max
   end
 
   def restart_delay(bot)
-    (1..bot.restarts)
-      .map { |restarts| calculate_restart_delay(restarts) }
-      .sum
+    calculate_restart_delay.call(bot.restarts)
   end
 
   attr_reader :parse_interval, :calculate_restart_delay
