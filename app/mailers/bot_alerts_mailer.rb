@@ -9,6 +9,7 @@ class BotAlertsMailer < ApplicationMailer
 
   def notify_about_restart
     @user = params[:user]
+    @delay = params[:delay]
     @errors = params[:errors]
     @bot = params[:bot]
 
