@@ -39,6 +39,7 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
     t.integer "bot_type"
     t.integer "restarts", default: 0, null: false
     t.integer "delay", default: 0, null: false
+    t.integer "current_delay", default: 0, null: false
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
