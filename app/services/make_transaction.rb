@@ -2,6 +2,7 @@ class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_api: ExchangeApi::Get.new,
     schedule_transaction: ScheduleTransaction.new,
+    unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
@@ -12,6 +13,7 @@ class MakeTransaction < BaseService
   )
     @get_exchange_api = exchange_api
     @schedule_transaction = schedule_transaction
+    @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
@@ -38,11 +40,14 @@ class MakeTransaction < BaseService
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      bot = @bots_repository.update(bot.id, status: 'stopped')
-      @notifications.error_occured(bot: bot, errors: result.errors) if notify
+      stop_bot(bot, notify, result.errors)
     end
 
     result
+  rescue StandardError
+    @unschedule_transactions.call(bot)
+    stop_bot(bot, notify)
+    raise
   end
   # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
@@ -105,5 +110,10 @@ class MakeTransaction < BaseService
 
   def make_transaction?(bot)
     bot.working?
+  end
+
+  def stop_bot(bot, notify, errors = ['Something went wrong!'])
+    bot = @bots_repository.update(bot.id, status: 'stopped')
+    @notifications.error_occured(bot: bot, errors: errors) if notify
   end
 end
