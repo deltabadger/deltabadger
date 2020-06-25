@@ -2,7 +2,6 @@ class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_api: ExchangeApi::Get.new,
     schedule_transaction: ScheduleTransaction.new,
-    schedule_transaction_restart: ScheduleTransactionRestart.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
@@ -13,7 +12,6 @@ class MakeTransaction < BaseService
   )
     @get_exchange_api = exchange_api
     @schedule_transaction = schedule_transaction
-    @schedule_transaction_restart = schedule_transaction_restart
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
@@ -36,7 +34,7 @@ class MakeTransaction < BaseService
       @schedule_transaction.call(bot) if result.success?
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
-      @schedule_transaction_restart.call(bot)
+      @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else

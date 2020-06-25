@@ -8,9 +8,7 @@ class ParseInterval < BaseService
     user_price = bot.price.to_f
     fixed_amount = bot.last_transaction.price.to_f
 
-    interval = (fixed_amount * user_interval) / user_price
-
-    [interval - bot.delay, 0].max
+    (fixed_amount * user_interval) / user_price
   end
 
   private
