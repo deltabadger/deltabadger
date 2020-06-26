@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe AffiliateMailer, type: :mailer do
   describe '#new_btc_address_confirmation' do
-    let(:user) { create(:user) }
+    let!(:user) { create(:user) }
     let(:new_btc_address) { Faker::Blockchain::Bitcoin.address }
     let(:token) { Devise.friendly_token }
     let(:mail) do

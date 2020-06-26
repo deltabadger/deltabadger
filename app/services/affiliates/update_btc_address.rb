@@ -15,14 +15,13 @@ module Affiliates
         return Result::Failure.new('Invalid bitcoin address')
       end
 
-      affiliates_repository.update(
+      affiliate = affiliates_repository.update(
         affiliate.id,
         new_btc_address: new_btc_address,
         new_btc_address_token: Devise.friendly_token,
         new_btc_address_send_at: Time.now
       )
 
-      affiliate.reload
       token = affiliate.new_btc_address_token
 
       affiliate_mailer.with(
@@ -31,10 +30,10 @@ module Affiliates
         token: token
       ).new_btc_address_confirmation.deliver_now
 
-      Result::Success.new(true)
-    rescue StandardError => e
-      Raven.capture_exception(e)
-      Result::Failure.new('Could not update bitcoin address')
+      Result::Success.new
+    # rescue StandardError => e
+    #   Raven.capture_exception(e)
+    #   Result::Failure.new('Could not update bitcoin address')
     end
   end
 end
