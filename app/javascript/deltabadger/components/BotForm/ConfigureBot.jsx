@@ -47,7 +47,7 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, error
             <select
               value={type}
               onChange={e => setType(e.target.value)}
-              className="form-control"
+              className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
             >
               <option value="buy">Buy</option>
