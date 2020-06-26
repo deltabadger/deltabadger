@@ -52,7 +52,7 @@ class User < ApplicationRecord
 
   def add_subscription
     subscriptions << Subscription.new(
-      subscription_plan: SubscriptionPlan.find_by(name: 'free'),
+      subscription_plan: SubscriptionPlan.find_or_create_by(name: 'free'),
       end_time: created_at + 1.year,
       credits: FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
     )
