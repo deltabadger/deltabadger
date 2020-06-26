@@ -17,6 +17,8 @@
             %i.material-icons-round.ml-1 verified_user
             .db-tooltip= "#{ current_user.plan_days_left } days left"
         - else
+          %a.btn.btn-link.mr-2.d-inline-flex.d-sm-none{:href => upgrade_path}
+            %i.material-icons-round shopping_basket
           %a.btn.btn-outline-primary.mr-2.d-none.d-sm-inline-flex{:href => upgrade_path}
             Upgrade
 
