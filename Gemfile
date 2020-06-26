@@ -37,6 +37,7 @@ group :development do
   gem 'letter_opener'
   gem 'listen', '>= 3.0.5', '< 3.2'
   gem 'spring'
+  gem 'spring-commands-rspec'
   gem 'spring-watcher-listen', '~> 2.0.0'
   gem 'guard-rspec', require: false
   gem 'guard-rubocop'
