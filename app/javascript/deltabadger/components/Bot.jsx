@@ -83,7 +83,7 @@ const BotTemplate = ({
           <div className="form-group mr-2">
             <select
               value={settings.type}
-              className="form-control"
+              className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
               disabled={true}
             >
