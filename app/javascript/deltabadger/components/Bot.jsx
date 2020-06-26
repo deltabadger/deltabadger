@@ -139,11 +139,11 @@ const BotTemplate = ({
             </select>
           </div>
         </form>
-        <span className="db-limit-bot-modifier">Buy <input type="text" min="0" step="0.1" lang="en-150" className="form-control" placeholder="0" /> % below the price.<sur>*</sur></span>
+        {/* <span className="db-limit-bot-modifier">Buy <input type="text" min="0" step="0.1" lang="en-150" className="form-control" placeholder="0" /> % below the price.<sur>*</sur></span>*/}
       </div>
-      <small className="alert alert-warning db-alert--annotation">
+      {/* <small className="alert alert-warning db-alert--annotation">
         <sur>*</sur> The limit order bot is an experimental feature. The bot opens orders but does not track if they have been filled. Our backtesting showed that for buy orders, 2.0% below the price worked optimal in the past. <a href="#">Read more</a>
-      </small>
+      </small>*/}
       <div className="db-bot__footer">
         <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
       </div>
