@@ -43,7 +43,7 @@
 }
 
 $borderColorLight:   #dee2e6;
-$bgColorLight:       #f5f5f5;
+$bgColorLight:       #fafafa;
 $textColorLight:     #666;
 $sidebarItemHeight:  56px;
 $sidebarItemPadding: 20px;
@@ -73,7 +73,7 @@ $boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
 
 $footerHeight:       50px;
 html {
-  background: $bgColor;
+  background: #f1f2f3;
 }
 body {
   font-family: $fontText;
@@ -89,8 +89,37 @@ h1 {
     font-size:   2rem;
   }
 }
-
+sur {
+  position: relative;
+  top:-.25em;
+}
+svg * {
+  transition: fill 0.15s ease-in-out;
+}
+.field_with_errors {
+  input {
+    border-color: $danger !important;
+    &:focus,
+    &.form-check-input {
+      box-shadow: 0 0 0 3px rgba($danger,.3) !important;
+    }
+  }
+  &+.invalid-feedback {
+    display: block;
+  }
+}
 // bootstrap overrides
+
+.db-product-menu {
+  background: white;
+  color: $primary;
+  svg {
+    * {
+      fill: $primary;
+    }
+  }
+}
+
 .btn {
   display: inline-flex;
   font-family: $fontButton;
@@ -107,9 +136,47 @@ h1 {
   &.disabled {
     cursor: default;
   }
+  &--export-to-csv {
+    padding-left: 5px;
+    text-decoration: none !important;
+    .material-icons-round {
+      top:       3px;
+      font-size: 23px;
+    }
+    &:hover {
+      span {
+        text-decoration: underline !important;
+      }
+    }
+  }
+  .db-svg-icon {
+    margin: 0 -6px;
+    width: 24px;
+    height: 1.5em;
+  }
+  &-link,
+  &-outline-primary { path { fill: $primary; } }
+  &-outline-secondary {
+    &.disabled { path { fill: #dadfe4; } }
+  }
+  &-outline-success {
+    path { fill: $success; }
+  }
+  &-primary,
+  &-danger,
+  &-success,
+  &-outline-primary:hover,
+  &-outline-danger:hover,
+  &-outline-success:hover {
+    path { fill: #fff; }
+  }
 }
 .btn-link {
   transition: none;
+}
+
+.db-relative {
+  position: relative;
 }
 
 .db--guest {
@@ -125,6 +192,11 @@ h1 {
       box-shadow: none;
     }
   }
+  .alert {
+    position: absolute;
+    width: calc(100% - 30px);
+    left: 15px;
+  }
 }
 
 .db-main {
@@ -133,9 +205,6 @@ h1 {
 .db-main__section {
 }
 .db-main__section--primary {
-  // height:     $introBoxHeight;
-  // max-height: $introBoxMaxHeight;
-  // min-height: calc(#{$introBoxMinHeight} - #{$navbarHeight});
   display:         flex;
   flex-direction:  column;
   justify-content: center;
@@ -212,21 +281,7 @@ h1 {
 .text-small {
   font-size: .75em;
 }
-.progress--thin {
-  border-radius: 1.5px;
-  height:        3px;
-  overflow:      inherit;
-  .progress-bar {
-    border-radius: 1.5px;
-    height:        3px;
-    transition:    all 1s ease-in-out;
-  }
-}
-.progress--bot-setup {
-  position: absolute;
-  bottom:   0;
-  width:    100%;
-}
+
 .db--guest {
   .container {
     @include media-breakpoint-down(xs) {
@@ -412,7 +467,14 @@ h1 {
 }
 .db-remove-api-key {
   position: relative;
-  top: 6px;
+  path {
+    fill: $primary;
+  }
+  &:hover {
+    path {
+      fill: darken($primary,10%);
+    }
+  }
 }
 
 .db-settings-section {
@@ -611,6 +673,12 @@ h1 {
 }
 
 // checkout
+
+.db-table {
+  th, td {
+    padding: .5rem .5rem .5rem 1rem;
+  }
+}
 
 .db-table--checkout {
   td {
