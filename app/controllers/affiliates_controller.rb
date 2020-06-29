@@ -2,9 +2,9 @@ class AffiliatesController < ApplicationController
   before_action :authenticate_user!
 
   def show
-    return redirect_to new_affiliate_path if current_user.affiliate.nil?
-
-    render :show, locals: { errors: [] }
+    affiliate = current_user.affiliate
+    return redirect_to new_affiliate_path if affiliate.nil?
+    render :show, locals: { affiliate: affiliate, errors: [] }
   end
 
   def new
@@ -19,20 +19,23 @@ class AffiliatesController < ApplicationController
     affiliate = Affiliate.new(affiliate_params.merge(default_affiliate_params))
     current_user.affiliate = affiliate
     current_user.save!
+
+    redirect_to affiliate_path
   rescue ActiveRecord::RecordNotSaved
     render :new, locals: { affiliate: affiliate, errors: affiliate.errors.to_a }
   end
 
   def update_btc_address
+    affiliate = current_user.affiliate
+    return redirect_to new_affiliate_path if affiliate.nil?
+
     if current_user.valid_password?(params[:affiliate][:current_password]) &&
        Bitcoin.valid_address?(params[:affiliate][:btc_address])
-      puts 'Success'
-      render :show, locals: { errors: []}
+      flash[:notice] = 'Confirmation email sent'
+      render :show, locals: { affiliate: affiliate, errors: []}
     else
-      puts 'Failure'
-      render :show, locals: { errors: ['Failure']}
+      render :show, locals: { affiliate: affiliate, errors: ['Failure']}
     end
-    # byebug
   end
 
   def confirm_btc_address

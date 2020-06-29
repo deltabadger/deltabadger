@@ -5,7 +5,7 @@
       - errors.each do |error|
         .text-danger.mb-4= error
 
-      = form_with affiliate, url: affiliate_path do |f|
+      = form_with model: affiliate, local: true, url: affiliate_path do |f|
         %h4 Affiliate information
         .form-group
           = f.label :first_name

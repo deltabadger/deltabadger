@@ -5,7 +5,7 @@
         %h2 Update Bitcoin address
         - errors.each do |error|
           .text-danger.mb-4= error
-        = form_with model: Affiliate.new, method: 'patch', url: update_btc_address_affiliate_path do |f|
+        = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
           .form-group
             = f.label :btc_address, 'BTC address'
             = f.text_field :btc_address, class: 'form-control'
