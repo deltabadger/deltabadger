@@ -2,11 +2,10 @@ module Presenters
   module Api
     class Bot < BaseService
       def initialize(
-        parse_interval: ParseInterval.new,
+        next_bot_transaction_at: NextBotTransactionAt.new,
         transactions_repository: TransactionsRepository.new
       )
-
-        @parse_interval = parse_interval
+        @next_bot_transaction_at = next_bot_transaction_at
         @transactions_repository = transactions_repository
       end
 
@@ -30,11 +29,7 @@ module Presenters
       private
 
       def next_transaction_timestamp(bot)
-        return nil if !bot.transactions.exists?
-
-        bot.reload
-        interval = @parse_interval.call(bot)
-        interval.since(bot.last_transaction.created_at).to_i
+        @next_bot_transaction_at.call(bot).to_i
       rescue StandardError
         nil
       end

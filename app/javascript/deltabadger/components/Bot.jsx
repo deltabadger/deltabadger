@@ -73,21 +73,24 @@ const BotTemplate = ({
           </div>
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} isPending={isPending}/> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
-          <ProgressBar bot={bot} />
         </div>
       </div>
 
-      <div className="row db-bot__form">
+      <ProgressBar bot={bot} />
+
+      <div className="db-bot__form">
         <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
               value={settings.type}
-              className="form-control"
+              className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
               disabled={true}
             >
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
+              <option value="limit_buy" disabled>Limit Buy</option>
+              <option value="limit_sell" disabled>Limit Sell</option>
             </select>
           </div>
           <div className="form-group mr-2">
@@ -97,14 +100,13 @@ const BotTemplate = ({
             >
               <option value="BTC">BTC</option>
               <option value="ETH">ETH</option>
-              <option value="LTC">LTC</option>
-              <option value="XMR">XMR</option>
             </select>
           </div>
           <div className="form-group mr-2">for</div>
           <div className="form-group mr-2">
             <input
               type="text"
+              min="1"
               value={price}
               onChange={e => setPrice(e.target.value)}
               className="form-control"
@@ -137,8 +139,14 @@ const BotTemplate = ({
             </select>
           </div>
         </form>
+        {/* <span className="db-limit-bot-modifier">Buy <input type="text" min="0" step="0.1" lang="en-150" className="form-control" placeholder="0" /> % below the price.<sur>*</sur></span>*/}
       </div>
-      <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
+      {/* <small className="alert alert-warning db-alert--annotation">
+        <sur>*</sur> The limit order bot is an experimental feature. The bot opens orders but does not track if they have been filled. Our backtesting showed that for buy orders, 2.0% below the price worked optimal in the past. <a href="#">Read more</a>
+      </small>*/}
+      <div className="db-bot__footer">
+        <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
+      </div>
     </div>
   )
 }

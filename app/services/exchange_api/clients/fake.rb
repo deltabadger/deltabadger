@@ -22,24 +22,24 @@ module ExchangeApi
           new_prices
           Result::Success.new(BidAskPrice.new(bid, ask))
         else
-          Result::Failure.new('Something went wrong!')
+          Result::Failure.new('Something went wrong!', RECOVERABLE)
         end
       end
 
-      def buy(settings)
+      def buy(currency:, price:)
         puts "Fake: Buying things on #{exchange_name}!"
-        make_order('buy', settings)
+        make_order('buy', currency, price)
       end
 
-      def sell(settings)
+      def sell(currency:, price:)
         puts "Fake: Selling things on #{exchange_name}!"
-        make_order('sell', settings)
+        make_order('sell', currency, price)
       end
 
       private
 
-      def make_order(offer_type, settings)
-        volume_result = smart_volume(offer_type, settings)
+      def make_order(offer_type, currency, price)
+        volume_result = smart_volume(offer_type, currency, price)
         return volume_result unless volume_result.success?
 
         volume = volume_result.data
@@ -53,19 +53,18 @@ module ExchangeApi
         else
           Result::Failure.new('Something went wrong!')
         end
-      rescue StandardError => e
-        Result::Failure.new('Caught an error while making fake order', e.message)
+      rescue StandardError
+        Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
       end
 
-      def smart_volume(offer_type, settings)
+      def smart_volume(offer_type, currency, price)
         rate = if offer_type == 'sell'
-                 current_bid_price(settings)
+                 current_bid_price(currency)
                else
-                 current_ask_price(settings)
+                 current_ask_price(currency)
                end
         return rate unless rate.success?
 
-        price = settings.fetch('price').to_f
         volume = price / rate.data
 
         Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)

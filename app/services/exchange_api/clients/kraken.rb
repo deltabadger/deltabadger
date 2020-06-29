@@ -15,15 +15,12 @@ module ExchangeApi
 
       def validate_credentials
         response = @client.balance
-
-        return false if response.fetch('error').any?
-
-        true
+        response['error'].none?
+      rescue StandardError
+        false
       end
 
-      def current_bid_ask_price(settings)
-        currency = settings.fetch('currency')
-
+      def current_bid_ask_price(currency)
         response = @client.ticker("xbt#{currency}")
         result = response['result']
         key = result.keys.first # The result should contain only one key
@@ -33,30 +30,28 @@ module ExchangeApi
         ask = rates.fetch('a').first.to_f
 
         Result::Success.new(BidAskPrice.new(bid, ask))
-      rescue StandardError => e
-        Result::Failure.new('Could not fetch current price from Kraken', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not fetch current price from Kraken', RECOVERABLE)
       end
 
       def orders
         @client.closed_orders.dig('result', 'closed')
       end
 
-      def buy(settings)
+      def buy(currency:, price:)
         puts 'Buying on kraken'
-        make_order('buy', settings)
+        make_order('buy', currency, price)
       end
 
-      def sell(settings)
+      def sell(currency:, price:)
         puts 'selling on kraken'
-        make_order('sell', settings)
+        make_order('sell', currency, price)
       end
 
       private
 
-      def make_order(offer_type, settings) # rubocop:disable Metrics/MethodLength
-        currency = settings.fetch('currency')
-
-        volume_result = smart_volume(offer_type, settings)
+      def make_order(offer_type, currency, price) # rubocop:disable Metrics/MethodLength
+        volume_result = smart_volume(offer_type, currency, price)
         return volume_result unless volume_result.success?
 
         volume = volume_result.data
@@ -73,11 +68,7 @@ module ExchangeApi
           @client
           .add_order(request_params)
 
-        if response.fetch('error').any?
-          return Result::Failure.new(
-            *@map_errors.call(response.fetch('error'))
-          )
-        end
+        return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
         offer_id = response.dig('result', 'txid').first
         order_data = orders[offer_id]
@@ -88,19 +79,18 @@ module ExchangeApi
           rate: rate,
           amount: volume
         )
-      rescue StandardError => e
-        Result::Failure.new('Could not make Kraken order', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not make Kraken order', RECOVERABLE)
       end
 
-      def smart_volume(offer_type, settings)
+      def smart_volume(offer_type, currency, price)
         rate = if offer_type == 'sell'
-                 current_bid_price(settings)
+                 current_bid_price(currency)
                else
-                 current_ask_price(settings)
+                 current_ask_price(currency)
                end
         return rate unless rate.success?
 
-        price = settings.fetch('price').to_f
         volume = price / rate.data
 
         Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
