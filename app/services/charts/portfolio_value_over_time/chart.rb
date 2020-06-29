@@ -34,7 +34,7 @@ module Charts::PortfolioValueOverTime
       api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
       api = @get_exchange_api.call(api_key)
 
-      current_price_result = api.current_price(bot.settings)
+      current_price_result = api.current_price(bot.currency)
       return current_price_result if current_price_result.failure?
 
       current_price = current_price_result.data
