@@ -12,7 +12,7 @@ module Affiliates
 
     def call(affiliate:, new_btc_address:)
       unless Bitcoin.valid_address?(new_btc_address)
-        return Result::Failure.new('Invalid bitcoin address')
+        return Result::Failure.new('Bitcoin address is not valid')
       end
 
       affiliate = affiliates_repository.update(
@@ -28,12 +28,12 @@ module Affiliates
         user: affiliate.user,
         new_btc_address: new_btc_address,
         token: token
-      ).new_btc_address_confirmation.deliver_now
+      ).new_btc_address_confirmation.deliver_later
 
       Result::Success.new
-    # rescue StandardError => e
-    #   Raven.capture_exception(e)
-    #   Result::Failure.new('Could not update bitcoin address')
+    rescue StandardError => e
+      Raven.capture_exception(e)
+      Result::Failure.new('Bitcoin address could not be updated')
     end
   end
 end

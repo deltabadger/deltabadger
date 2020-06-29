@@ -1,7 +1,7 @@
 class AffiliatesController < ApplicationController
   before_action :authenticate_user!
-  before_action :fetch_affiliate!, only: [:show, :update_btc_address, :confirm_btc_address]
-  before_action :ensure_no_affiliate!, only: [:new, :create]
+  before_action :fetch_affiliate!, only: %i[show update_btc_address confirm_btc_address]
+  before_action :ensure_no_affiliate!, only: %i[new create]
   before_action :validate_password!, only: :update_btc_address
 
   def show
@@ -13,35 +13,37 @@ class AffiliatesController < ApplicationController
   end
 
   def create
-    affiliate = Affiliate.new(affiliate_params.merge(default_affiliate_params))
-    current_user.affiliate = affiliate
-    current_user.save!
+    result = Affiliates::Create.call(user: current_user, affiliate_params: affiliate_params)
 
-    redirect_to affiliate_path
-  rescue ActiveRecord::RecordNotSaved
-    render :new, locals: { affiliate: affiliate, errors: affiliate.errors.to_a }
+    if result.success?
+      redirect_to affiliate_path, flash: { alert: 'You have registered to the affiliate program' }
+    else
+      render :new, locals: {
+        affiliate: Affiliate.new(affiliate_params),
+        errors: result.errors
+      }
+    end
   end
 
   def update_btc_address
-    new_btc_address = params[:affiliate][:btc_address]
-    result = Affiliates::UpdateBtcAddress.call(affiliate: affiliate, new_btc_address: new_btc_address)
+    btc_address = params[:affiliate][:btc_address]
+    result = Affiliates::UpdateBtcAddress.call(affiliate: affiliate, new_btc_address: btc_address)
 
     if result.success?
       flash[:notice] = 'Confirmation email sent'
-      render :show, locals: { affiliate: affiliate, errors: []}
+      render :show, locals: { affiliate: affiliate, errors: [] }
     else
       render :show, locals: { affiliate: affiliate, errors: result.errors }
     end
   end
 
   def confirm_btc_address
-    if affiliate.new_btc_address_send_at + 24.hours > Time.now && affiliate.new_btc_address_token == params[:token]
-      affiliate.update!(btc_address: affiliate.new_btc_address, new_btc_address_token: nil)
-      flash[:notice] = 'Bitcoin address changed'
-      render :show, locals: { affiliate: affiliate, errors: [] }
+    result = Affiliates::ConfirmBtcAddress.call(affiliate: affiliate, token: params[:token])
+
+    if result.success?
+      redirect_to affiliate_path, flash: { notice: 'Bitcoin address changed' }
     else
-      flash[:alert] = 'Confirmation token is not valid'
-      render :show, locals: { affiliate: affiliate, errors: [] }
+      redirect_to affiliate_path, flash: { alert: result.errors.first }
     end
   end
 
@@ -65,10 +67,6 @@ class AffiliatesController < ApplicationController
     return if current_user.valid_password?(confirmation_password)
 
     render :show, locals: { affiliate: affiliate, errors: ['Confirmation password is not valid'] }
-  end
-
-  def default_affiliate_params
-    { max_profit: 20, discount_percent: 0.2, total_bonus_percent: 0.3 }
   end
 
   def affiliate_params

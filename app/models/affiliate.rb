@@ -10,6 +10,7 @@ class Affiliate < ApplicationRecord
   validates_format_of :code,
                       with: /\A[A-Z0-9]+\z/,
                       message: 'has to consist of uppercase alphanumeric characters'
+  validates_uniqueness_of :code
 
   validates :max_profit, :discount_percent, :total_bonus_percent,
             numericality: { greater_than_or_equal_to: 0 }
