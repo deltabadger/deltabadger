@@ -38,7 +38,7 @@ export const BotDetails = ({ bot }) => {
   )
 
   return (
-    <div className="db-bots__item db-bot-data">
+    <div className="db-bots__item db-bots__item--data">
       <ul className="nav nav-tabs" id="myTab" role="tablist">
         {tabs.filter(e => e.visible).map(builTab)}
       </ul>
