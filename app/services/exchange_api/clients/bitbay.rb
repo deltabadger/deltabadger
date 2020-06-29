@@ -12,39 +12,41 @@ module ExchangeApi
 
       def validate_credentials
         url = 'https://api.bitbay.net/rest/trading/history/transactions'
-        response = Faraday.get(url, {}, headers(''))
-        response.status == 200
+        request = Faraday.get(url, {}, headers(''))
+        return false if request.status != 200
+
+        response = JSON.parse(request.body)
+        response['status'] == 'Ok'
+      rescue StandardError
+        false
       end
 
-      def current_bid_ask_price(settings)
+      def current_bid_ask_price(currency)
         url =
-          "https://bitbay.net/API/Public/BTC#{settings.fetch('currency')}/ticker.json"
+          "https://bitbay.net/API/Public/BTC#{currency}/ticker.json"
         response = JSON.parse(Faraday.get(url, {}, headers('')).body)
 
         bid = response.fetch('bid').to_f
         ask = response.fetch('ask').to_f
 
         Result::Success.new(BidAskPrice.new(bid, ask))
-      rescue StandardError => e
-        Result::Failure.new('Could not fetch current price from Bitbay', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
       end
 
-      def buy(settings)
+      def buy(currency:, price:)
         puts 'Buying on bitbay'
-        make_order('BUY', settings)
+        make_order('BUY', currency, price)
       end
 
-      def sell(settings)
+      def sell(currency:, price:)
         puts 'selling on bitbay'
-        make_order('SELL', settings)
+        make_order('SELL', currency, price)
       end
 
       private
 
-      def make_order(offer_type, settings)
-        currency = settings.fetch('currency')
-
-        price = settings.fetch('price').to_f
+      def make_order(offer_type, currency, price)
         price = [MIN_TRANSACTION_PRICE, price].max
 
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
@@ -60,8 +62,8 @@ module ExchangeApi
 
         response = JSON.parse(Faraday.post(url, body, headers(body)).body)
         parse_response(response)
-      rescue StandardError => e
-        Result::Failure.new('Could not make Bitbay order', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
       end
 
       def parse_response(response)
@@ -72,9 +74,7 @@ module ExchangeApi
             amount: response.fetch('transactions').first.fetch('amount')
           )
         else
-          Result::Failure.new(
-            *@map_errors.call(response.fetch('errors'))
-          )
+          error_to_failure(response.fetch('errors'))
         end
       end
 
