@@ -1,11 +1,15 @@
 module ExchangeApi::MapErrors
   class Kraken < ExchangeApi::MapErrors::Base
+    # rubocop:disable Metrics/LineLength
     def errors_mapping
       {
-        'EGeneral:Permission denied' => 'Insufficient permissions or unverified account.',
-        'EOrder:Insufficient funds' => 'Insufficient funds',
-        'EGeneral:Invalid arguments:volume' => 'Offer funds are not exceeding minimums'
+        'EGeneral:Permission denied' => Error.new('Insufficient permissions or unverified account.', false),
+        'EOrder:Insufficient funds' => Error.new('Insufficient funds', false),
+        'EGeneral:Invalid arguments:volume' => Error.new('Offer funds are not exceeding minimums', false),
+        'EService:Unavailable' => Error.new('The exchange is currently unavailable', true),
+        'EOrder:Orders limit exceeded' => Error.new('Action limit was exceeded', true)
       }
     end
+    # rubocop:enable Metrics/LineLength
   end
 end
