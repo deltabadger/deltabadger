@@ -10,11 +10,11 @@ module ExchangeApi
         @api_secret = api_secret
       end
 
-      def current_bid_ask_price(settings)
+      def current_bid_ask_price(currency)
         url = URL + 'stats/ticker.json'
         request = public_get(url, method: 'account', action: 'info')
         response = JSON.parse(request.body)
-        rates = response.fetch("btc_#{settings.fetch('currency').downcase}")
+        rates = response.fetch("btc_#{currency.downcase}")
         bid = rates['bid'].to_f
         ask = rates['ask'].to_f
         Result::Success.new(BidAskPrice.new(bid, ask))
@@ -30,30 +30,30 @@ module ExchangeApi
         false
       end
 
-      def buy(settings)
+      def buy(currency:, price:)
         puts 'Buying on BitClude'
-        make_order('buy', settings)
+        try_make_order('buy', currency, price)
       end
 
-      def sell(settings)
+      def sell(currency:, price:)
         puts 'Selling on BitClude'
-        make_order('sell', settings)
+        try_make_order('sell', currency, price)
       end
 
       private
 
       attr_reader :api_key, :api_secret
 
-      def try_make_order(offer_type, settings)
-        make_order(offer_type, settings)
+      def try_make_order(offer_type, currency, price)
+        make_order(offer_type, currency, price)
       rescue StandardError => e
         Result::Failure.new('Could not make BitClude order', e.message)
       end
 
-      def make_order(offer_type, settings)
-        currency = settings.fetch('currency').downcase
+      def make_order(offer_type, currency, price)
+        currency = currency.downcase
 
-        rate_volume_result = smart_rate_volume(offer_type, settings)
+        rate_volume_result = smart_rate_volume(offer_type, currency, price)
         return rate_volume_result unless rate_volume_result.success?
 
         rate, volume = rate_volume_result.data
@@ -88,15 +88,14 @@ module ExchangeApi
         Faraday.get(url, params, {})
       end
 
-      def smart_rate_volume(offer_type, settings)
+      def smart_rate_volume(offer_type, currency, price)
         rate = if offer_type == 'sell'
-                 current_bid_price(settings)
+                 current_bid_price(currency)
                else
-                 current_ask_price(settings)
+                 current_ask_price(currency)
                end
         return rate unless rate.success?
 
-        price = settings.fetch('price').to_f
         volume = (price / rate.data).ceil(8)
 
         Result::Success.new([rate.data, [MIN_TRANSACTION_VOLUME, volume].max])
