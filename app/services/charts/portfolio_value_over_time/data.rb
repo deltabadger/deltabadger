@@ -17,7 +17,7 @@ module Charts::PortfolioValueOverTime
             rate,
             amount
           from transactions
-          where bot_id = ?
+          where bot_id = ? and status = 0
         )
 
         select
