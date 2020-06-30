@@ -245,7 +245,9 @@
       border-radius:   $box-border-radius;
       cursor:          pointer;
       color:           $primary;
-      font-size:       2em;
+      font-size:       1.3em;
+      font-weight:     bold;
+      font-family:     Varela Round;
       &:hover {
         background-color: $primary;
         color:            $white;
