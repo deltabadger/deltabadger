@@ -238,23 +238,17 @@
     padding: 30px 40px 35px;
     margin-bottom: -8px;
     &__item {
-      height:          6em;
+      height:          4em;
       display:         flex;
       justify-content: center;
       align-items:     center;
-      background:      no-repeat center center;
-      background-size: 50%;
       border-radius:   $box-border-radius;
       cursor:          pointer;
-      > svg {
-        width: 80%;
-        fill: $primary;
-      }
+      color:           $primary;
+      font-size:       2em;
       &:hover {
         background-color: $primary;
-        #shape {
-          fill: white;
-        }
+        color:            $white;
       }
     }
   }
