@@ -1,6 +1,15 @@
 import React, { useState } from 'react'
 import { Instructions } from './AddApiKey/Instructions';
 
+const api_key_names = exchange_name => {
+  switch (exchange_name.toLowerCase()) {
+      case 'bitbay': return { private: 'Secret Key', public: 'Public Key' };
+      case 'bitclude': return { private: 'API Key', public: 'User ID' };
+      case 'kraken': return { private: 'Private Key', public: 'API Key' };
+      default: return { private: 'Private Key', public: 'Public Key' };
+  }
+}
+
 export const AddApiKey = ({
   pickedExchangeName,
   handleReset,
@@ -28,6 +37,8 @@ export const AddApiKey = ({
       !disableSubmit && handleSubmit(key, secret, agreement)
   }
 
+  const { public: key_label, private: secret_label } = api_key_names(pickedExchangeName);
+
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
       <div className="db-bot__header">
@@ -46,7 +57,7 @@ export const AddApiKey = ({
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form onSubmit={_handleSubmit} className="form-row">
           <div className="col form-group">
-            <label>API/Public Key:</label>
+            <label>{ key_label }</label>
             <input
               type="text"
               value={key}
@@ -55,7 +66,7 @@ export const AddApiKey = ({
             />
           </div>
           <div className="col form-group">
-            <label>Private Key:</label>
+            <label>{ secret_label }</label>
             <input
               type="text"
               value={secret}
