@@ -64,6 +64,13 @@ export const CloseButton = ({onClick}) => (
   </div>
 )
 
-export const ExchangeButton = ({ handleClick, exchange }) => (
-  <div className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`} onClick={ () => handleClick(exchange.id) }></div>
-)
+export const ExchangeButton = ({ handleClick, exchange }) => {
+  return (
+    <div
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}
+      onClick={() => handleClick(exchange.id)}
+    >
+      { exchange.name }
+    </div>
+  );
+}
