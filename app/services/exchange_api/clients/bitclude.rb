@@ -5,9 +5,10 @@ module ExchangeApi
       KEY_VALID_NO_CANCELLABLE_TRANSACTION_CODE = 5057
       MIN_TRANSACTION_VOLUME = 0.0005
 
-      def initialize(api_key:, api_secret:)
+      def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Bitclude.new)
         @api_key = api_key
         @api_secret = api_secret
+        @map_errors = map_errors
       end
 
       def current_bid_ask_price(currency)
@@ -18,8 +19,8 @@ module ExchangeApi
         bid = rates['bid'].to_f
         ask = rates['ask'].to_f
         Result::Success.new(BidAskPrice.new(bid, ask))
-      rescue StandardError => e
-        Result::Failure.new('Could not fetch current price from BitClude', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not fetch current price from BitClude', RECOVERABLE)
       end
 
       def validate_credentials
@@ -46,8 +47,8 @@ module ExchangeApi
 
       def try_make_order(offer_type, currency, price)
         make_order(offer_type, currency, price)
-      rescue StandardError => e
-        Result::Failure.new('Could not make BitClude order', e.message)
+      rescue StandardError
+        Result::Failure.new('Could not make BitClude order', RECOVERABLE)
       end
 
       def make_order(offer_type, currency, price)
@@ -70,7 +71,7 @@ module ExchangeApi
 
         response = JSON.parse(request.body)
 
-        return Result::Failure.new(response.fetch('message')) if response['success'] != true
+        return error_to_failure([response.fetch('message')]) if response['success'] != true
 
         Result::Success.new(
           offer_id: response.dig('actions', offer_type).first,
