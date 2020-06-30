@@ -3,6 +3,7 @@ class Exchange < ApplicationRecord
     case name.downcase
     when 'kraken' then %w[USD EUR CHF GBP CAD]
     when 'bitbay' then %w[USD EUR PLN]
+    when 'bitclude' then %w[USD EUR PLN GBP]
     else
       %w[USD EUR]
     end
