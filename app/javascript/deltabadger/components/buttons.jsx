@@ -1,8 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-import BitBayIcon from './ExchangeIcons/BitBayIcon';
-import BitCludeIcon from './ExchangeIcons/BitCludeIcon';
-import DeribitIcon from './ExchangeIcons/DeribitIcon';
-import KrakenIcon from './ExchangeIcons/KrakenIcon';
 
 export const StartButton = ({onClick}) => (
   <div onClick={onClick} className="btn btn-success">
@@ -69,17 +65,12 @@ export const CloseButton = ({onClick}) => (
 )
 
 export const ExchangeButton = ({ handleClick, exchange }) => {
-  const name = exchange.name.toLowerCase();
-
   return (
     <div
       className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}
       onClick={() => handleClick(exchange.id)}
     >
-      {name === 'bitbay' && <BitBayIcon />}
-      {name === 'bitclude' && <BitCludeIcon />}
-      {name === 'deribit' && <DeribitIcon />}
-      {name === 'kraken' && <KrakenIcon />}
+      { exchange.name }
     </div>
   );
 }
