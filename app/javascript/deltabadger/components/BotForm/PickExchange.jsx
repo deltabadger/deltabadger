@@ -5,7 +5,7 @@ export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
-        <div className="db-bot__infotext--setup"><span class="db-breadcrumbs"><em>Exchange</em> &rarr; API Key &rarr; Schedule</span></div>
+        <div className="db-bot__infotext--setup"><span className="db-breadcrumbs"><em>Exchange</em> &rarr; API Key &rarr; Schedule</span></div>
         <div className="db-bot__infotext">
         </div>
       </div>
