@@ -28,7 +28,7 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, error
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
-        <div className="db-bot__infotext--setup"><span class="db-breadcrumbs">Exchange &rarr; API Key &rarr; <em>Schedule</em></span></div>
+        <div className="db-bot__infotext--setup"><span className="db-breadcrumbs">Exchange &rarr; API Key &rarr; <em>Schedule</em></span></div>
         <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
           <span className="d-none d-sm-inline">Start</span>
           <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
