@@ -6,7 +6,7 @@ module ExchangeApi
       @exchanges_repository = exchanges_repository
     end
 
-    def call(api_key)
+    def call(api_key) # rubocop:disable Metrics/MethodLength
       exchange = @exchanges_repository.find(api_key.exchange_id)
 
       return ExchangeApi::Clients::Fake.new(exchange.name) if DISABLE_EXCHANGES_API
@@ -20,6 +20,11 @@ module ExchangeApi
         )
       when 'BitBay'
         ExchangeApi::Clients::Bitbay.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
+        )
+      when 'BitClude'
+        ExchangeApi::Clients::Bitclude.new(
           api_key: api_key.key,
           api_secret: api_key.secret
         )
