@@ -83,7 +83,7 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
             >
               {
                 currentExchange.currencies.map(c =>
-                  (<option value={c}>{c}</option>)
+                  (<option key={c} value={c}>{c}</option>)
                 )
               }
             </select>
