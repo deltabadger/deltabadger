@@ -29,6 +29,10 @@ module Admin
     # end
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
+    def model_name
+      :api_key
+    end
+
     def show_action?(action, _)
       return false if %i[edit update].include?(action)
 
