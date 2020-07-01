@@ -11,6 +11,10 @@ class Admin::DashboardController < Admin::ApplicationController
     }
   end
 
+  def model_name
+    :dashboard
+  end
+
   private
 
   ExchangeTransactions = Struct.new(

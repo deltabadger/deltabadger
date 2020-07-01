@@ -63,7 +63,9 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
     t.date "birth_date"
     t.boolean "eu"
     t.datetime "paid_at"
-    t.string "globee_statuses", default: "", null: false
+    t.string "external_statuses", default: "", null: false
+    t.decimal "crypto_total", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "crypto_paid", precision: 20, scale: 10, default: "0.0", null: false
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
