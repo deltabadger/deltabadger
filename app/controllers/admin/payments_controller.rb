@@ -36,7 +36,7 @@ module Admin
     end
 
     def csv
-      file = Admin::GeneratePaymentsCsv.call
+      file = Admin::GeneratePaymentsCsv.call(from: params[:from], to: params[:to])
       filename =
         "deltabadger-payments-#{Time.now.strftime('%F')}.csv"
 
