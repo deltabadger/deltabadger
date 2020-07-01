@@ -12,17 +12,25 @@
           %tr
             %td(scope="col")
               Unlimited transactions (1 year)<br/>
-              %span.db-billing-item__info This upgrade removes the free plan<br/>transaction limit of <span class="db-show--eu">€</span><span class="db-show--other">$</span>500/year.
+              %span.db-billing-item__info
+                This upgrade removes the free plan
+                %br
+                transaction limit of
+                %span.db-show--eu= "€#{free_limit}/year."
+                %span.db-show--other= "$#{free_limit}/year."
             %td(scope="col")
-            %td(scope="col") <span class="db-show--eu">€21</span><span class="db-show--other">$19</span>
-
+            %td(scope="col")
+              %span.db-show--eu= "€#{cost_eu}"
+              %span.db-show--other= "$#{cost_other}"
         %tfoot
           %tr
             %td(scope="col")
             %td(scope="col")
               %b Sum:
             %td(scope="col")
-              %b <span class="db-show--eu">€21</span><span class="db-show--other">$19</span>
+              %b
+                %span.db-show--eu= "€#{cost_eu}"
+                %span.db-show--other= "$#{cost_other}"
       = form_for payment, url: upgrade_pay_path do |f|
         %h4 Billing information
         .form-group
@@ -49,10 +57,5 @@
 
         .form-group.db-form-group--main-btn
           %button.btn.btn-success.btn-lg{type: 'submit'}
-            %span.mr-3 Checkout
-            %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :width => "24", :viewBox => "0 0 24 24"}
-              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-
-        .db-globee-badge
-          %small Payment with
-          %img{:src => asset_pack_path("media/images/globee.png")}
+            %span.mr-2 Checkout
+            %i.material-icons-round arrow_forward

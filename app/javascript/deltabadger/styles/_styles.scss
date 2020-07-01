@@ -698,15 +698,6 @@ svg * {
   display: block;
   opacity: 0.8;
 }
-.db-globee-badge {
-  text-align: center;
-  color: #888;
-  img {
-    filter: grayscale(0);
-    height: 20px;
-    width: auto;
-  }
-}
 .db-upgrade-modal--eu {
   .db-show--eu { display: inline; }
   .db-show--other { display: none; }

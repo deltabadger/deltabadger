@@ -8,19 +8,21 @@ class PaymentDashboard < Administrate::BaseDashboard
   # which determines how the attribute is displayed
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
-    user: Field::BelongsTo,
     id: Field::Number,
+    user: Field::BelongsTo,
     payment_id: Field::String,
     status: Field::String.with_options(searchable: false),
-    globee_statuses: Field::String,
+    external_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
     currency: Field::String.with_options(searchable: false),
+    crypto_total: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     first_name: Field::String,
     last_name: Field::String,
-    birth_date: Field::DateTime.with_options(format: '%F %r'),
+    birth_date: Field::DateTime.with_options(format: '%F'),
     eu: Field::Boolean,
+    crypto_paid: Field::String.with_options(searchable: false),
     paid_at: Field::DateTime.with_options(format: '%F %r')
   }.freeze
 
@@ -31,42 +33,44 @@ class PaymentDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
     id
+    status
+    total
+    currency
     first_name
     last_name
     birth_date
     eu
-    total
-    currency
-    user
-    status
+    crypto_paid
     paid_at
+    user
+    payment_id
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-    user
     id
-    payment_id
     status
-    globee_statuses
     total
     currency
-    created_at
-    updated_at
     first_name
     last_name
     birth_date
     eu
+    crypto_total
+    crypto_paid
     paid_at
+    user
+    payment_id
+    external_statuses
+    created_at
+    updated_at
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-    user
-    payment_id
     status
     total
     currency
@@ -74,7 +78,11 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     eu
+    crypto_total
+    crypto_paid
     paid_at
+    user
+    payment_id
   ].freeze
 
   # COLLECTION_FILTERS

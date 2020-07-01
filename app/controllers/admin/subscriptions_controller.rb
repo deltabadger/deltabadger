@@ -30,5 +30,8 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
+    def model_name
+      :subscription
+    end
   end
 end
