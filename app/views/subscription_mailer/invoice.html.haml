@@ -1,3 +1,30 @@
+%h1
+  Invoice
 %p
-  = "This is invoice: #{@payment.total} for user: #{@user.email}"
-
+  %b= "Paid at:"
+%p
+  ="#{@payment.paid_at}"
+%p
+  %b= "Seller:"
+%p
+  Deltabadger OÜ
+  %br
+  Pärnu mnt 158/2-88
+  %br
+  11317 Tallinn
+  %br
+  Estonia
+  %br
+  Reg.No.14781461
+%p
+  %b= "Buyer:"
+%p
+  = "#{@payment.first_name} #{@payment.last_name}"
+  %br
+  = "#{@user.email}"
+%h2
+  = "Deltabadger Unlimited Plan (1-year)"
+%p
+  %b= "Paid:"
+%h2
+  = "#{@payment.total} #{@payment.currency}"
