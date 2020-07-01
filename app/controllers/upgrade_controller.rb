@@ -3,7 +3,10 @@ class UpgradeController < ApplicationController
   protect_from_forgery except: [:payment_callback]
 
   def index
-    render :index, locals: { payment: Payment.new, errors: [] }
+    render :index, locals: default_locals.merge(
+      payment: Payment.new,
+      errors: []
+    )
   end
 
   def pay
@@ -12,7 +15,10 @@ class UpgradeController < ApplicationController
     if result.success?
       redirect_to result.data[:payment_url]
     else
-      render :index, locals: { payment: result.data, errors: result.errors }
+      render :index, locals: default_locals.merge(
+        payment: result.data || Payment.new,
+        errors: result.errors
+      )
     end
   end
 
@@ -22,28 +28,26 @@ class UpgradeController < ApplicationController
     redirect_to dashboard_path
   end
 
-  def payment_cancel
-    flash[:alert] = 'Payment cancelled!'
-
-    redirect_to dashboard_path
-  end
-
   def payment_callback
-    Payments::Update.call(callback_params)
+    Payments::Update.call(params['data'] || params)
 
     render json: {}
   end
 
   private
 
+  def default_locals
+    {
+      free_limit: User::FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT,
+      cost_eu: Payments::Create::COST_EU,
+      cost_other: Payments::Create::COST_OTHER
+    }
+  end
+
   def payment_params
     params
       .require(:payment)
       .permit(:first_name, :last_name, :birth_date, :eu)
       .merge(user: current_user)
-  end
-
-  def callback_params
-    params.permit(:id, :custom_payment_id, :status)
   end
 end

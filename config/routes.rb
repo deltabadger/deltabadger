@@ -13,7 +13,6 @@ Rails.application.routes.draw do
     get '/', action: :index
     post :pay
     get :payment_success
-    get :payment_cancel
     post :payment_callback
   end
 

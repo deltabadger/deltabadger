@@ -41,6 +41,7 @@ module Admin
         last_name: payment.last_name,
         birth_date: payment.birth_date&.strftime('%F'),
         eu: payment.eu,
+        crypto_paid: payment.crypto_paid,
         paid_at: payment.paid_at,
         user: payment.user.email,
         payment_id: payment.payment_id

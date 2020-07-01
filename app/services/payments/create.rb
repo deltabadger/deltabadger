@@ -31,7 +31,7 @@ module Payments
 
       if payment_result.success?
         @payments_repository.create(
-          payment_result.data.slice(:payment_id, :status, :total)
+          payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
           .merge(currency: currency(payment)).merge(params)
         )
       end
