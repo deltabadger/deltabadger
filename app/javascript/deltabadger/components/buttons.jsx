@@ -6,6 +6,9 @@ export const StartButton = ({onClick}) => (
     <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
   </div>
 )
+export const StartingButton = () => (
+  <div className="btn btn-success disabled"><span className="d-none d-sm-inline">Starting</span> <i className="material-icons-round">play_arrow</i></div>
+)
 export const StopButton = ({onClick}) => (
   <div onClick={onClick} className="btn btn-outline-primary">
   <span className="d-none d-sm-inline">Pause</span>
