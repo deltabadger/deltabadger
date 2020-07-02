@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom'
-import PropTypes from 'prop-types'
 import API from '../lib/API'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
@@ -26,6 +25,7 @@ export const BotForm = ({
   const [form, setFormState] = useState({});
   const [exchanges, setExchanges] = useState([]);
   const [errors, setErrors] = useState("");
+  const [isCreatingBot, setCreatingBot] = useState(false);
 
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
   const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
@@ -77,6 +77,7 @@ export const BotForm = ({
 
   const configureBotHandler = (botParams) => {
     const params = {...botParams, exchangeId: form.exchangeId}
+    setCreatingBot(true);
     API.createBot(params).then(response => {
       callbackAfterCreation(response.data.id)
       setErrors([])
@@ -84,7 +85,7 @@ export const BotForm = ({
       setFormState({})
     }).catch((data) => {
       setErrors(data.response.data.errors[0])
-    })
+    }).finally(() => setCreatingBot(false));
   }
 
   // TODO: Fix this!, you can't reset all form, check this!
@@ -123,6 +124,7 @@ export const BotForm = ({
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureBotHandler}
+          disable={isCreatingBot}
           errors={errors}
         />
     }

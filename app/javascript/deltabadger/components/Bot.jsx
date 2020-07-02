@@ -1,17 +1,11 @@
-import React, { useState, useEffect, memo } from 'react';
-import moment from 'moment';
+import React, { useState } from 'react';
 import { connect } from 'react-redux';
-import { useInterval } from '../utils/interval';
-import { formatDuration } from '../utils/time';
-import { Spinner } from './Spinner';
-import API from '../lib/API';
-import { StartButton, StopButton, RemoveButton } from './buttons'
+import { StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import { isNotEmpty } from '../utils/array';
 import {
   reloadBot,
-  startBot,
   stopBot,
   removeBot,
   editBot,
@@ -21,8 +15,7 @@ import {
 const BotTemplate = ({
   bot,
   errors = [],
-  isPending,
-  handleStart,
+  startingBotIds,
   handleStop,
   handleRemove,
   handleClick,
@@ -35,15 +28,15 @@ const BotTemplate = ({
   const [price, setPrice] = useState(settings.price);
   const [interval, setInterval] = useState(settings.interval);
 
-  const description = `${settings.type} for ${settings.price}${settings.currency}/${settings.interval} on ${exchangeName}`
   const colorClass = settings.type == 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
+  const isStarting = startingBotIds.includes(id);
   const working = status == 'working'
 
   const disableSubmit = price.trim() == ''
 
-  const _handleSubmit = (evt) => {
-    if (disableSubmit) return undefined
+  const _handleSubmit = () => {
+    if (disableSubmit) return
 
     const botParams = { interval, id: bot.id, price: price.trim() }
     handleEdit(botParams)
@@ -56,22 +49,16 @@ const BotTemplate = ({
     </div>
   )
 
-  // useEffect(() => {}, [JSON.stringify(bot)])
-
-  const handleReload = (bot, callback) => {
-    reload(bot)
-    callback()
-  }
-
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
-        { working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={() => _handleSubmit(id)}/> }
+        { isStarting && <StartingButton /> }
+        { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>BTC{settings.currency}
           </div>
-          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} isPending={isPending}/> }
+          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
         </div>
       </div>
@@ -151,27 +138,12 @@ const BotTemplate = ({
   )
 }
 
-const isCurrentBotPending = (bot, pending) => {
-  if(!bot) {
-    return false;
-  }
-
-  return pending[bot.id];
-}
-
-
-const mapStateToProps = (state) => {
-  const currentBot = state.bots.find(bot => bot.id === state.currentBotId)
-  return {
-    bots: state.bots,
-    currentBot: currentBot,
-    isPending: isCurrentBotPending(currentBot, state.isPending)
-  }
+const mapStateToProps = state => {
+  return { startingBotIds: state.startingBotIds };
 }
 
 const mapDispatchToProps = ({
   reload: reloadBot,
-  handleStart: startBot,
   handleStop: stopBot,
   handleRemove: removeBot,
   handleEdit: editBot,
