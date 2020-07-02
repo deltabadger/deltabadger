@@ -21,6 +21,8 @@ Rails.application.routes.draw do
     patch :update_btc_address
   end
 
+  get '/ref/:code', to: 'ref_codes#apply_code'
+
   namespace :admin do
     resources :users, except: [:destroy]
     resources :affiliates#, except: [:destroy]

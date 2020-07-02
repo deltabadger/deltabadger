@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_07_02_102403) do
+ActiveRecord::Schema.define(version: 2020_07_02_111114) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -146,6 +146,7 @@ ActiveRecord::Schema.define(version: 2020_07_02_102403) do
     t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_showed", default: false
+    t.bigint "referrer_id"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
@@ -159,4 +160,5 @@ ActiveRecord::Schema.define(version: 2020_07_02_102403) do
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
+  add_foreign_key "users", "affiliates", column: "referrer_id"
 end
