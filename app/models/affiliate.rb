@@ -1,5 +1,6 @@
 class Affiliate < ApplicationRecord
   belongs_to :user
+  has_many :referred_users, foreign_key: 'referrer_id', class_name: 'User'
 
   scope :active, -> { where(active: true) }
   scope :inactive, -> { where(active: false) }

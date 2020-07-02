@@ -7,6 +7,7 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable, :confirmable
 
   has_one :affiliate
+  belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots
