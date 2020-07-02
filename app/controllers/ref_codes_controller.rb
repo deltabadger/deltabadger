@@ -8,7 +8,7 @@ class RefCodesController < ApplicationController
                      [false, { alert: "Invalid affiliate code #{code}"}]
                    end
 
-    if !current_user
+    if !user_signed_in?
       redirect_to new_user_registration_path, flash: flash
     elsif current_user.referrer_id
       redirect_to dashboard_path, flash: { alert: "You have already used an affiliate code" }
