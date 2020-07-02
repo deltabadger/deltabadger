@@ -54,9 +54,10 @@ Rails.application.routes.draw do
     end
   end
 
-  devise_for :users, path_names: {
-    edit: ''
-  }
+  devise_for :users,
+    controllers: { registrations: 'users/registrations' },
+    path_names: { edit: '' }
+
   root to: 'home#index'
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard
