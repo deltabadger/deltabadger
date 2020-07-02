@@ -36,11 +36,24 @@ module Admin
     end
 
     def csv
-      file = Admin::GeneratePaymentsCsv.call
-      filename =
-        "deltabadger-payments-#{Time.now.strftime('%F')}.csv"
+      from = params[:from]
+      to = params[:to]
+      file = Admin::GeneratePaymentsCsv.call(from: from, to: to)
+      send_data(file, filename: csv_filename(from, to))
+    end
 
-      send_data(file, filename: filename)
+    private
+
+    def csv_filename(from, to)
+      "deltabadger-payments-#{Time.now.strftime('%F')}#{date_range(from, to)}.csv"
+    end
+
+    def date_range(from, to)
+      "#{format_date('from', from)}#{format_date('to', to)}"
+    end
+
+    def format_date(rel, date)
+      date.blank? ? '' : "-#{rel}-#{Date.parse(date)}"
     end
   end
 end

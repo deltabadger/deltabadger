@@ -1,7 +1,7 @@
 const initialState = {
   bots: [],
   currentBotId: undefined,
-  isPending: {},
+  startingBotIds: [],
   errors: {}
 };
 
@@ -16,10 +16,16 @@ export const reducer = (state = initialState, action) => {
     case 'CLOSE_ALL_BOTS':
       return { ...state, currentBotId: undefined }
 
+
+    case 'TRY_START_BOT': {
+      const botId = action.payload;
+      return { ...state, startingBotIds: [...state.startingBotIds, botId] };
+    }
+
     case 'BOT_RELOADED': {
       const editedBot = action.payload
       const newBots = state.bots.map((b) => (b.id == editedBot.id) ? editedBot : b)
-      return { ...state, bots: newBots, isPending: ({...state.isPending, [editedBot.id]: false}) };
+      return { ...state, bots: newBots, startingBotIds: state.startingBotIds.filter(id => id !== editedBot.id) };
     }
 
     case 'REMOVE_BOT': {
@@ -28,7 +34,8 @@ export const reducer = (state = initialState, action) => {
     }
 
     case 'SET_ERRORS': {
-      return {...state, errors: ({...state.errors, ...action.payload})}
+      const errorBotIds = Object.keys(action.payload).map(parseInt);
+      return {...state, errors: ({...state.errors, ...action.payload}), startingBotIds: state.startingBotIds.filter(id => !errorBotIds.includes(id)) };
     }
 
     default:

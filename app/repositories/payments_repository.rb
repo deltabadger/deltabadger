@@ -3,6 +3,14 @@ class PaymentsRepository < BaseRepository
     model.where(status: :paid)
   end
 
+  # Returns payments paid between from and to (UTC, inclusive)
+  def paid_between(from:, to:)
+    from = from.blank? ? Date.new(0) : Date.parse(from)
+    to = to.blank? ? Date.tomorrow : Date.parse(to) + 1.day
+
+    paid.where(paid_at: from..to)
+  end
+
   def model
     Payment
   end
