@@ -15,6 +15,7 @@ class User < ApplicationRecord
   has_many :payments
 
   validates :terms_and_conditions, acceptance: true
+  validate :active_referrer, on: :create
 
   def subscription
     current_subscription = subscriptions.last
@@ -50,6 +51,14 @@ class User < ApplicationRecord
   end
 
   private
+
+  def active_referrer
+    return if referrer_id.nil?
+
+    if Affiliate.active.where(id: referrer_id).empty?
+      errors.add(:referrer, "code is not valid")
+    end
+  end
 
   def add_subscription
     subscriptions << Subscription.new(
