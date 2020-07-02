@@ -10,6 +10,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     user: Field::BelongsTo,
     id: Field::Number,
+    active: Field::Boolean,
     first_name: Field::String,
     last_name: Field::String,
     birth_date: Field::DateTime,
@@ -31,6 +32,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     user
     id
+    active
     first_name
     last_name
     eu
@@ -43,6 +45,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     user
     id
+    active
     first_name
     last_name
     birth_date
@@ -61,6 +64,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
     user
+    active
     first_name
     last_name
     birth_date
@@ -82,7 +86,10 @@ class AffiliateDashboard < Administrate::BaseDashboard
   #   COLLECTION_FILTERS = {
   #     open: ->(resources) { where(open: true) }
   #   }.freeze
-  COLLECTION_FILTERS = {}.freeze
+  COLLECTION_FILTERS = {
+    active: ->(resources) { resources.active },
+    inactive: ->(resources) { resources.inactive }
+  }.freeze
 
   # Overwrite this method to customize how affiliates are displayed
   # across all pages of the admin dashboard.
