@@ -53,6 +53,15 @@
           -#   %td(scope="col")
           -#   %td.pl-4(scope="col")
           -#     %b -10%
+              %span.db-show--eu= "€#{eu[:price_with_vat]}"
+              %span.db-show--other= "$#{other[:price_with_vat]}"
+          %tr
+            %td(scope="col")
+              Discount activated
+            %td(scope="col")
+            %td(scope="col")
+              %span.db-show--eu= "-#{(eu[:discount] * 100).to_i}%"
+              %span.db-show--other= "-#{(other[:discount] * 100).to_i}%"
         %tfoot
           %tr
             %td(scope="col")
@@ -61,6 +70,9 @@
               %b Sum:
             %td.pl-4(scope="col")
               %b <span class="db-show--eu">€#{cost_eu}</span><span class="db-show--other">$#{cost_other}</span>
+              %b
+                %span.db-show--eu= "€#{eu[:total_price]}"
+                %span.db-show--other= "$#{other[:total_price]}"
               -# %b <span class="db-show--eu"><span class="text-danger">€44.99</span> <s>€49.99</s></span><span class="db-show--other"><span class="text-success">$134.99</span> <s>$149.99</s></span>
       %h4.db-modal__subtitle Billing information
       - if errors.present?

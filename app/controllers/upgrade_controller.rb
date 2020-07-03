@@ -37,10 +37,12 @@ class UpgradeController < ApplicationController
   private
 
   def default_locals
+    cost_calculator = Payments::CostCalculator.new
+
     {
       free_limit: User::FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT,
-      cost_eu: Payments::Create::COST_EU,
-      cost_other: Payments::Create::COST_OTHER
+      eu: cost_calculator.call(base_price: Payments::Create::COST_EU, vat: 0.2, discount: 0.1),
+      other: cost_calculator.call(base_price: Payments::Create::COST_OTHER, vat: 0, discount: 0.1)
     }
   end
 
