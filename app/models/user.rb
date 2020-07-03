@@ -55,9 +55,7 @@ class User < ApplicationRecord
   def active_referrer
     return if referrer_id.nil?
 
-    if Affiliate.active.where(id: referrer_id).empty?
-      errors.add(:referrer, "code is not valid")
-    end
+    errors.add(:referrer, 'code is not valid') if Affiliate.active.where(id: referrer_id).empty?
   end
 
   def add_subscription
