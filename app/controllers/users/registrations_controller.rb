@@ -5,9 +5,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
     params[:user][:referrer_id] = session[:referrer_id]
 
     super do |user|
-      if user.persisted? || user.errors[:referrer].present?
-        session.delete(:referrer_id)
-      end
+      session.delete(:referrer_id) if user.persisted? || user.errors[:referrer].present?
     end
   end
 end
