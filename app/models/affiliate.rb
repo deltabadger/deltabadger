@@ -5,8 +5,7 @@ class Affiliate < ApplicationRecord
   scope :active, -> { where(active: true) }
   scope :inactive, -> { where(active: false) }
 
-  validates :first_name, :last_name, :birth_date, :user, presence: true
-  validates_inclusion_of :eu, in: [true, false]
+  validates :user, presence: true
   validate :btc_address, :valid_btc_address
   validates_format_of :code,
                       with: /\A[A-Z0-9]+\z/,
@@ -16,6 +15,10 @@ class Affiliate < ApplicationRecord
             numericality: { greater_than_or_equal_to: 0 }
   validates :total_bonus_percent, numericality: { less_than_or_equal_to: 1 }
   validates :discount_percent, numericality: { less_than_or_equal_to: :total_bonus_percent }
+  validates_acceptance_of :check, message: 'that everything is correct'
+
+  attr_reader :check
+
 
   def commission_percent
     total_bonus_percent - discount_percent

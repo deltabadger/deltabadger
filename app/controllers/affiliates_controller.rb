@@ -19,7 +19,7 @@ class AffiliatesController < ApplicationController
       redirect_to affiliate_path, flash: { alert: 'You have registered to the affiliate program' }
     else
       render :new, locals: {
-        affiliate: Affiliate.new(affiliate_params),
+        affiliate: Affiliate.new(affiliate_params.permit!),
         errors: result.errors
       }
     end
@@ -72,6 +72,5 @@ class AffiliatesController < ApplicationController
   def affiliate_params
     params
       .require(:affiliate)
-      .permit(:first_name, :last_name, :birth_date, :eu, :btc_address, :code)
   end
 end

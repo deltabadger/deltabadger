@@ -17,26 +17,27 @@
           - errors.each do |error|
             %li.text-danger= error
 
-      = form_with model: affiliate, local: true, url: affiliate_path do |f|
+      = form_with model: affiliate.becomes(Affiliate), local: true, url: affiliate_path do |f|
         %h4.mb-4.pt-5 1. Referrer info
 
+        - is_private = affiliate.type.nil? || affiliate.type == "PrivateAffiliate"
         .form-group
           .form-check.form-check-inline
-            = f.radio_button :type, "0", checked: true, class: "mr-2 radio--private"
-            = f.label :type, " Private", value: "0", class: "form-check-label"
+            = f.radio_button :type, "PrivateAffiliate", checked: is_private, class: "mr-2 radio--private"
+            = f.label :type, "Private", value: "PrivateAffiliate", class: "form-check-label"
           .form-check.form-check-inline
-            = f.radio_button :type, "1", checked: false, class: "mr-2 radio--eu-company"
-            = f.label :type, " EU company", value: "1", class: "form-check-label"
+            = f.radio_button :type, "EuCompanyAffiliate", checked: !is_private, class: "mr-2 radio--eu-company"
+            = f.label :type, "EU company", value: "EuCompanyAffiliate", class: "form-check-label"
 
-        .form-group.db-form-group--eu-company.mt-5
+        .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless is_private) }
           = f.label :name, "Name of the company:"
-          = f.text_field :address, class: 'form-control'
+          = f.text_field :name, class: 'form-control'
 
-        .form-group.db-form-group--eu-company
+        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless is_private) }
           = f.label :address, "Address of the company:"
           = f.text_field :address, class: 'form-control'
 
-        .form-group.db-form-group--eu-company
+        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless is_private) }
           = f.label :vat_number, "VAT number (optional):"
           = f.text_field :vat_number, class: 'form-control'
 
@@ -61,9 +62,13 @@
             = f.text_field :code, class: 'form-control', id: 'referral-code'
 
         .form-group.mb-5
+          - discount_percent = affiliate.discount_percent || 0.2
+          - earn_percent = 0.3 - discount_percent
+          - discount_percent_preview = (discount_percent * 100).to_i
+          - earn_percent_preview = (earn_percent * 100).to_i
           = f.label :discount_percent do
-            You will <b>earn <span class="db-form-label-range--discount-percent">20</span>%</b>, and referee will get <b><span class="db-form-label-range--earn-percent">10</span>% discount</b>.
-          = f.range_field :discount_percent, in: 0..30, value: 20, step: 5, class: "db-form-control-range--discount-ratio form-control-range"
+            You will <b>earn <span class="db-form-label-range--discount-percent">#{discount_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--earn-percent">#{earn_percent_preview}</span>% discount</b>.
+          = f.range_field :discount_percent, in: 0..(0.3), value: affiliate.discount_percent || 0.2, step: 0.05, class: "db-form-control-range--discount-ratio form-control-range"
 
 
         %h4.mb-4.pt-2 4. Visible info
@@ -89,9 +94,8 @@
 
 
         .form-check.pt-4.text-center
-          = f.check_box :affiliate_agreement, class: "form-check-input"
-          = f.label :affiliate_agreement, class: "form-check-label" do
-            I checked everything carefully.
+          = f.check_box :check, class: "form-check-input"
+          = f.label :check, "I checked everything carefully.", class: "form-check-label"
 
         .form-group.db-form-group--main-btn.pt-4
           %button.btn.btn-success.btn-lg{type: 'submit'}

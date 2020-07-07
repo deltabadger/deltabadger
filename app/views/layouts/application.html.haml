@@ -81,8 +81,10 @@
           $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
         });
         $(".db-form-control-range--discount-ratio").change(function(e){
-          $(".db-form-label-range--discount-percent").text(e.target.value);
-          $(".db-form-label-range--earn-percent").text(e.target.max - e.target.value);
+          var discountPercent = Math.round(e.target.value * 100);
+          var earnPercent = Math.round((e.target.max - e.target.value) * 100);
+          $(".db-form-label-range--discount-percent").text(discountPercent);
+          $(".db-form-label-range--earn-percent").text(earnPercent);
         })
        });
 k

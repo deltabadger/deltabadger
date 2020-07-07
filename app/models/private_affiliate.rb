@@ -1,0 +1,2 @@
+class PrivateAffiliate < Affiliate
+end
