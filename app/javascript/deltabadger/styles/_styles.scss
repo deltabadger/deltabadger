@@ -89,6 +89,9 @@ h1 {
     font-size:   2rem;
   }
 }
+.form-control-range {
+  filter: brightness(.95) contrast(2) saturate(.6);
+}
 sur {
   position: relative;
   top:-.25em;
@@ -404,6 +407,12 @@ svg * {
 }
 .db-form-group--fg-2 {
   flex-grow: 3;
+}
+.db-form-group--eu-company {
+  display: none;
+}
+.db-form-group--eu-company__visible {
+  display: block;
 }
 
 // page

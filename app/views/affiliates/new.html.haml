@@ -1,42 +1,98 @@
 .modal-dialog(role='document')
   .modal-content
     .modal-body
-      %h2.db-modal-title Sign up for affiliate program
-      - errors.each do |error|
-        .text-danger.mb-4= error
+      %h2.db-modal-title Referral program registration
+
+      .alert.alert-success
+        %p.mt-1 Earning bitcoins is the best way of dollar-cost averaging. Our referral program pays up to 20EUR<sup>*</sup> per user paid in BTC (using exchange ratio from the transaction). Example:
+        %ol
+          %li Referee buys 1-year plan for $20, and pays 0.0025BTC.
+          %li You earn 20% what is $4 = 0.0005BTC.
+          %li Next time the referee buys 4-year plan for $100, and pays 0.0125BTC.
+          %li 20% of it is $20, but since you already got $4, the program pays remaining $16 = 0.002BTC.
+        %small.mb-2 <sup>*</sup> The limit is either 20USD or 20EUR depending on the currency of the pricing.
+
+      - if errors.present?
+        %ul.pl-3
+          - errors.each do |error|
+            %li.text-danger= error
 
       = form_with model: affiliate, local: true, url: affiliate_path do |f|
-        %h4 Affiliate information
-        .form-group
-          = f.label :first_name
-          = f.text_field :first_name, class: 'form-control'
+        %h4.mb-4.pt-5 1. Referrer info
 
         .form-group
-          = f.label :last_name
-          = f.text_field :last_name, class: 'form-control'
-
-        .form-group
-          = f.label :birth_date
-          = f.date_field :birth_date, class: 'form-control'
-
-        .form-group
-          %label Country
-          %br
           .form-check.form-check-inline
-            = f.radio_button :eu, true, checked: affiliate.eu, class: 'form-check-input radio--eu', id: 'radioEu'
-            = f.label :eu, 'European Union', class: 'form-check-label', for: 'radioEu'
+            = f.radio_button :type, "0", checked: true, class: "mr-2 radio--private"
+            = f.label :type, " Private", value: "0", class: "form-check-label"
           .form-check.form-check-inline
-            = f.radio_button :eu, false, checked: !affiliate.eu, class: 'form-check-input radio--other', id: 'radioOther'
-            = f.label :eu, 'Other', class: 'form-check-label', for: 'radioOther'
+            = f.radio_button :type, "1", checked: false, class: "mr-2 radio--eu-company"
+            = f.label :type, " EU company", value: "1", class: "form-check-label"
 
-        .form-group
-          = f.label :btc_address, 'BTC address'
+        .form-group.db-form-group--eu-company.mt-5
+          = f.label :name, "Name of the company:"
+          = f.text_field :address, class: 'form-control'
+
+        .form-group.db-form-group--eu-company
+          = f.label :address, "Address of the company:"
+          = f.text_field :address, class: 'form-control'
+
+        .form-group.db-form-group--eu-company
+          = f.label :vat_number, "VAT number (optional):"
+          = f.text_field :vat_number, class: 'form-control'
+
+
+        %h4.mb-4.pt-5 2. Payout address
+
+        .form-group.mb-5
+          = f.label :btc_address, 'BTC address to which you want to receive your payouts.'
           = f.text_field :btc_address, class: 'form-control'
 
-        .form-group
-          = f.label :code, 'Desired affiliate code'
-          = f.text_field :code, class: 'form-control'
 
-        .form-group.db-form-group--main-btn
+        %h4.mb-4.pt-3 3. Program settings
+
+        .form-group.mb-5
+          = f.label :code, 'Pick your desired referral code.'
+          %span.text-danger
+            This can't be changed later!
+          .input-group
+            .input-group-prepend
+              %span#referral-prefix.input-group-text
+                = "deltabadger.com/ref/"
+            = f.text_field :code, class: 'form-control', id: 'referral-code'
+
+        .form-group.mb-5
+          = f.label :discount_percent do
+            You will <b>earn <span class="db-form-label-range--discount-percent">20</span>%</b>, and referee will get <b><span class="db-form-label-range--earn-percent">10</span>% discount</b>.
+          = f.range_field :discount_percent, in: 0..30, value: 20, step: 5, class: "db-form-control-range--discount-ratio form-control-range"
+
+
+        %h4.mb-4.pt-2 4. Visible info
+
+        .mb-5
+          %p The referee will see those data after using the link. Example:
+          %table.table.db-table--checkout.mb-0
+            %tbody.table-borderless
+              %tr.text-success
+                %td(scope="col")
+                  <i class="material-icons-round">check_circle</i>
+                %td(scope="col")
+                  %b Congrats! The 10% discount is active.
+                  %span.db-billing-item__info.text-dark Thanks to the referral link from <b><a href="https://en.wikipedia.org/wiki/Satoshi_Nakamoto#:~:text=Satoshi%20Nakamoto%20is%20the%20name,devised%20the%20first%20blockchain%20database">Satoshi Nakamoto</a></b>. Valid for the first purchase on the platform.
+
+        .form-group
+          = f.label :visible_name, "Name visible for referee (optional):"
+          = f.text_field :visible_name, class: 'form-control'
+
+        .form-group.mb-5
+          = f.label :visible_link, "Link (optional):"
+          = f.text_field :visible_link, class: 'form-control'
+
+
+        .form-check.pt-4.text-center
+          = f.check_box :affiliate_agreement, class: "form-check-input"
+          = f.label :affiliate_agreement, class: "form-check-label" do
+            I checked everything carefully.
+
+        .form-group.db-form-group--main-btn.pt-4
           %button.btn.btn-success.btn-lg{type: 'submit'}
-            .mr-2 Sign up
+            Let's start!
