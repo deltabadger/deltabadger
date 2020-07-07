@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_07_02_111114) do
+ActiveRecord::Schema.define(version: 2020_07_09_085116) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -90,6 +90,11 @@ ActiveRecord::Schema.define(version: 2020_07_02_111114) do
     t.string "external_statuses", default: "", null: false
     t.decimal "crypto_total", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "crypto_paid", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "commission", default: "0.0", null: false
+    t.decimal "crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "unexported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "exported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "paid_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
@@ -149,6 +154,7 @@ ActiveRecord::Schema.define(version: 2020_07_02_111114) do
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_showed", default: false
     t.bigint "referrer_id"
+    t.decimal "current_referrer_profit", default: "0.0", null: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true

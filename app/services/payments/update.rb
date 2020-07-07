@@ -6,12 +6,13 @@ module Payments
     def initialize(
       payments_repository: PaymentsRepository.new,
       notifications: Notifications::Subscription.new,
-      subscribe_unlimited: SubscribeUnlimited.new
+      subscribe_unlimited: SubscribeUnlimited.new,
+      grant_commission: Affiliates::GrantCommission.new
     )
-
       @payments_repository = payments_repository
       @notifications = notifications
       @subscribe_unlimited = subscribe_unlimited
+      @grant_commission = grant_commission
     end
 
     def call(params)
@@ -35,6 +36,7 @@ module Payments
 
       @notifications.invoice(payment: payment)
       @subscribe_unlimited.call(payment.user)
+      @grant_commission.call(referee: user, payment: payment)
     end
 
     private

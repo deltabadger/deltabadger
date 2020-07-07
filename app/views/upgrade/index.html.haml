@@ -30,8 +30,8 @@
             %td(scope="col")
               Investor (1 year)<br/>
               %span.db-billing-item__info One year of unlimited transactions.
-            %td(scope="col")
-            %td.pl-4(scope="col") <span class="db-show--eu">€#{cost_eu}</span><span class="db-show--other">$#{cost_other}</span>
+              %td(scope="col")
+              %td.pl-4(scope="col") <span class="db-show--eu">€#{eu[:price_with_vat]}</span><span class="db-show--other">$#{eu[:price_with_vat]}</span>
           %tr.db-plan--divider
           %tr.db-plan--divider
           -# %tr.db-plan.db-plan--other
@@ -69,7 +69,7 @@
             %td(scope="col")
               %b Sum:
             %td.pl-4(scope="col")
-              %b <span class="db-show--eu">€#{cost_eu}</span><span class="db-show--other">$#{cost_other}</span>
+              %b <span class="db-show--eu">€#{eu[:price_with_vat]}</span><span class="db-show--other">$#{other[:price_with_vat]}</span>
               %b
                 %span.db-show--eu= "€#{eu[:total_price]}"
                 %span.db-show--other= "$#{other[:total_price]}"

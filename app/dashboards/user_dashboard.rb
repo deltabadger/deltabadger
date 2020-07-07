@@ -31,7 +31,8 @@ class UserDashboard < Administrate::BaseDashboard
     terms_and_conditions: Field::Boolean,
     updates_agreement: Field::Boolean,
     welcome_banner_showed: Field::Boolean,
-    limit_reached?: Field::Boolean
+    limit_reached?: Field::Boolean,
+    referrer: Field::HasOne.with_options(class_name: 'Affiliate')
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -69,6 +70,7 @@ class UserDashboard < Administrate::BaseDashboard
     terms_and_conditions
     updates_agreement
     welcome_banner_showed
+    referrer
   ].freeze
 
   # FORM_ATTRIBUTES

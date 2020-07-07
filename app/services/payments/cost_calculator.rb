@@ -17,6 +17,8 @@ module Payments
       }
     end
 
+    private
+
     def to_bigdecimal(num)
       BigDecimal(format('%0.02f', num))
     end
