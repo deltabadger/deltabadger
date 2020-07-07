@@ -17,12 +17,14 @@ ActiveRecord::Schema.define(version: 2020_07_02_111114) do
 
   create_table "affiliates", force: :cascade do |t|
     t.bigint "user_id"
-    t.string "first_name", null: false
-    t.string "last_name", null: false
-    t.date "birth_date", null: false
-    t.boolean "eu", null: false
+    t.string "type", null: false
+    t.string "name"
+    t.string "address"
+    t.string "vat_number"
     t.string "btc_address", null: false
     t.string "code", null: false
+    t.string "visible_name"
+    t.string "visible_link"
     t.decimal "max_profit", precision: 12, scale: 2, null: false
     t.decimal "discount_percent", precision: 3, scale: 2, null: false
     t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
