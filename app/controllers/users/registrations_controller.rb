@@ -1,11 +1,33 @@
 # frozen_string_literal: true
 
 class Users::RegistrationsController < Devise::RegistrationsController
-  def create
-    params[:user][:referrer_id] = session[:referrer_id]
+  def new
+    if code
+      affiliate = Affiliate.active.find_by(code: code)
+      valid = affiliate.present?
 
-    super do |user|
-      session.delete(:referrer_id) if user.persisted? || user.errors[:referrer].present?
+      if valid
+        @valid_code = true
+        @code = code
+      end
     end
+
+    session.delete(:code) unless valid
+
+    @code = code
+
+    super
+  end
+
+  def create
+    super do |user|
+      session.delete(:code) if user.persisted? || user.errors[:referrer].present?
+    end
+  end
+
+  private
+
+  def code
+    session[:code]
   end
 end

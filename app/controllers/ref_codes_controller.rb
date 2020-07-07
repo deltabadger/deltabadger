@@ -1,21 +1,39 @@
 class RefCodesController < ApplicationController
   def apply_code
-    affiliate = Affiliate.active.find_by(code: code)
-    valid, flash = if affiliate
-                     session[:referrer_id] = affiliate.id
-                     [true, { notice: "Applied affiliate code #{code}" }]
-                   else
-                     [false, { alert: "Invalid affiliate code #{code}" }]
-                   end
-
     if !user_signed_in?
-      redirect_to new_user_registration_path, flash: flash
-    elsif current_user.referrer_id
-      redirect_to dashboard_path, flash: { alert: 'You have already used an affiliate code' }
+      session[:code] = code
+      return redirect_to new_user_registration_path, flash: { invalid_refcode: true }
+    end
+
+    affiliate = Affiliate.active.find_by(code: code)
+    valid = affiliate.present?
+
+    if current_user.referrer_id.present?
+      redirect_to dashboard_path, flash: { notice: 'You have already used an refferal link' }
     elsif valid
-      redirect_to ref_code_confirm_path, flash: flash
+      @valid_refcode = true
+      @code = code
+      render
     else
-      redirect_to dashboard_path, flash: flash
+      @valid_refcode = false
+      render
+    end
+  end
+
+  def accept
+    if current_user.referrer_id.present?
+      redirect_to dashboard_path, flash: { notice: 'You have already used an referral link' }
+      return
+    end
+
+    affiliate = Affiliate.active.find_by(code: code)
+    valid = affiliate.present?
+
+    if valid
+      current_user.update(referrer_id: affiliate.id)
+      redirect_to dashboard_path, flash: { notice: 'You have accepted the referral link' }
+    else
+      redirect_to dashboard_path, flash: { alert: 'The referral link seems invalid or obsolete' }
     end
   end
 

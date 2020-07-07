@@ -1,0 +1,32 @@
+.container
+  .db-modal-positioner
+    .modal-dialog
+      .modal-content
+        .modal-body
+          %h2.db-modal-title Referral Link
+          = form_with local: true, url: ref_accept_path  do |f|
+
+            %table.table.db-table--checkout
+              %tbody.table-borderless
+                - if @valid_refcode
+                  %tr.text-success
+                    %td(scope="col")
+                      <i class="material-icons-round">check_circle</i>
+                    %td(scope="col")
+                      %b Congrats! The 10% discount is active.
+                      %span.db-billing-item__info.text-dark Thanks to the referral link from <b><a href="https://www.youtube.com/watch?v=2VnIvn8vFp0">Ivan on Tech</a></b>. Valid for the first purchase on the platform.
+                - else
+                  %tr.text-danger
+                    %td(scope="col")
+                      <i class="material-icons-round">broken_image</i>
+                    %td(scope="col")
+                      %b The referral link seems invalid or obsolete.
+
+            = f.hidden_field :code, value: @code
+
+            - if @valid_refcode
+              .form-group.db-form-group--main-btn
+                = f.submit "Accept", class: "btn btn-success btn-lg"
+            - else
+              .form-group.db-form-group--main-btn
+                = link_to "Back", dashboard_path, class: "btn btn-danger btn-lg"

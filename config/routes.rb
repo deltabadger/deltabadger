@@ -22,6 +22,7 @@ Rails.application.routes.draw do
   end
 
   get '/ref/:code', to: 'ref_codes#apply_code'
+  post '/ref/accept', to: 'ref_codes#accept'
 
   namespace :admin do
     resources :users, except: [:destroy]
