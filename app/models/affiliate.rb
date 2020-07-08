@@ -19,7 +19,6 @@ class Affiliate < ApplicationRecord
 
   attr_reader :check
 
-
   def commission_percent
     total_bonus_percent - discount_percent
   end

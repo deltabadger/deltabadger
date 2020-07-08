@@ -16,7 +16,7 @@ class AffiliatesController < ApplicationController
     result = Affiliates::Create.call(user: current_user, affiliate_params: affiliate_params)
 
     if result.success?
-      redirect_to affiliate_path, flash: { alert: 'You have registered to the affiliate program' }
+      redirect_to affiliate_path, flash: { notice: 'You have joined the referral program' }
     else
       render :new, locals: {
         affiliate: Affiliate.new(affiliate_params.permit!),

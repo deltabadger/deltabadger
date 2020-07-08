@@ -10,13 +10,15 @@ class AffiliateDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     user: Field::BelongsTo,
     id: Field::Number,
+    type: Field::String,
     active: Field::Boolean,
-    first_name: Field::String,
-    last_name: Field::String,
-    birth_date: Field::DateTime,
-    eu: Field::Boolean,
+    name: Field::String,
+    address: Field::String,
+    vat_number: Field::DateTime,
     btc_address: Field::String,
     code: Field::String,
+    visible_name: Field::String,
+    visible_link: Field::String,
     max_profit: Field::Number,
     discount_percent: Field::Number,
     total_bonus_percent: Field::Number,
@@ -32,10 +34,8 @@ class AffiliateDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     user
     id
+    type
     active
-    first_name
-    last_name
-    eu
     btc_address
     code
   ].freeze
@@ -45,13 +45,15 @@ class AffiliateDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     user
     id
+    type
     active
-    first_name
-    last_name
-    birth_date
-    eu
+    name
+    address
+    vat_number
     btc_address
     code
+    visible_name
+    visible_link
     max_profit
     discount_percent
     total_bonus_percent
@@ -65,12 +67,14 @@ class AffiliateDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[
     user
     active
-    first_name
-    last_name
-    birth_date
-    eu
+    type
+    name
+    address
+    vat_number
     btc_address
     code
+    visible_name
+    visible_link
     max_profit
     discount_percent
     total_bonus_percent
