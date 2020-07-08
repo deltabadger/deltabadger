@@ -1,5 +1,5 @@
 .db-settings-section
-  %h2 Update email
+  %h4.db-modal__subtitle Update email
   = form_for(user, url: settings_update_email_path) do |f|
     .form-group
       = f.label :email
@@ -10,5 +10,5 @@
     .form-group
       = f.label :current_password, "Current password (for confirmation)"
       = f.password_field :current_password, autocomplete: "current-password", class: "form-control"
-    .form-group
-      = f.submit "Update email", class: "btn btn-primary"
+    .form-group.db-setting__button-container
+      = f.submit "Update email", class: "btn btn-lg btn-primary"

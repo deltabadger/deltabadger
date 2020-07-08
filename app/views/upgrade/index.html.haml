@@ -1,38 +1,73 @@
 .modal-dialog(role="document")
   .modal-content
     .modal-body.db-upgrade-modal.db-upgrade-modal--other
-      %h2.db-modal-title Upgrade
-      - if errors.present?
-        %ul.pl-3
-          - errors.each do |error|
-            %li.text-danger= error
-
+      %h2.db-modal-title Plans
       %table.table.db-table--checkout
         %tbody.table-borderless
-          %tr
+          %tr.db-plan--divider
+            %td(scope="col" colspan="4")
+              %h5 Current plan:
+          %tr.db-plan.db-plan--current
             %td(scope="col")
-              Unlimited transactions (1 year)<br/>
+              <i class="material-icons-round">eco</i>
+            %td(scope="col")
+              Saver<br/>
               %span.db-billing-item__info
-                This upgrade removes the free plan
-                %br
-                transaction limit of
-                %span.db-show--eu= "€#{free_limit}/year."
-                %span.db-show--other= "$#{free_limit}/year."
+                Free forever for transactions up to <span class="db-show--eu">€#{free_limit}</span><span class="db-show--other">$#{free_limit}</span>/year.
+                -# (<span class="db-show--eu">€</span><span class="db-show--other">$</span>345 left)
             %td(scope="col")
+            %td.pl-4(scope="col") Free
+          %tr.db-plan--divider
+          %tr.db-plan--divider
+          %tr.db-plan--divider
+          %tr.db-plan--divider
+            %td(scope="col" colspan="4")
+              %h5 Make an upgrade:
+
+          %tr.db-plan.db-plan--selected
             %td(scope="col")
-              %span.db-show--eu= "€#{cost_eu}"
-              %span.db-show--other= "$#{cost_other}"
+              <i class="material-icons-round">star</i>
+            %td(scope="col")
+              Investor (1 year)<br/>
+              %span.db-billing-item__info One year of unlimited transactions.
+            %td(scope="col")
+            %td.pl-4(scope="col") <span class="db-show--eu">€#{cost_eu}</span><span class="db-show--other">$#{cost_other}</span>
+          %tr.db-plan--divider
+          %tr.db-plan--divider
+          -# %tr.db-plan.db-plan--other
+          -#   %td(scope="col")
+          -#     <i class="material-icons-round">stars</i>
+          -#   %td(scope="col")
+          -#     Hodler (4 years)<br/>
+          -#     %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+          -#   %td(scope="col")
+          -#   %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
+
+          %tr.db-plan--divider
+          -# %tr.text-success
+          -#   %td(scope="col")
+          -#     <i class="material-icons-round">check_circle</i>
+          -#   %td(scope="col")
+          -#     %b Discount activated
+          -#     %span.db-billing-item__info.text-dark Thanks to the referral link from <b><a href="https://www.youtube.com/watch?v=2VnIvn8vFp0">Ivan on Tech</a></b>.<br/>Valid for the first purchase on the platform.
+          -#   %td(scope="col")
+          -#   %td.pl-4(scope="col")
+          -#     %b -10%
         %tfoot
           %tr
             %td(scope="col")
             %td(scope="col")
-              %b Sum:
             %td(scope="col")
-              %b
-                %span.db-show--eu= "€#{cost_eu}"
-                %span.db-show--other= "$#{cost_other}"
+              %b Sum:
+            %td.pl-4(scope="col")
+              %b <span class="db-show--eu">€#{cost_eu}</span><span class="db-show--other">$#{cost_other}</span>
+              -# %b <span class="db-show--eu"><span class="text-danger">€44.99</span> <s>€49.99</s></span><span class="db-show--other"><span class="text-success">$134.99</span> <s>$149.99</s></span>
+      %h4.db-modal__subtitle Billing information
+      - if errors.present?
+        %ul.pl-3
+          - errors.each do |error|
+            %li.text-danger= error
       = form_for payment, url: upgrade_pay_path do |f|
-        %h4 Billing information
         .form-group
           %label(for="first_name") Name
           = f.text_field :first_name, class: 'form-control'
@@ -57,5 +92,7 @@
 
         .form-group.db-form-group--main-btn
           %button.btn.btn-success.btn-lg{type: 'submit'}
-            %span.mr-2 Checkout
-            %i.material-icons-round arrow_forward
+            %span.mr-3 Checkout
+            %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :width => "24", :viewBox => "0 0 24 24"}
+              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
+              //   %i.material-icons-round arrow_forward

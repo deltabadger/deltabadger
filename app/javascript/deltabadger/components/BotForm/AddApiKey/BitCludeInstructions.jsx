@@ -2,7 +2,7 @@ import React from 'react'
 
 export const BitCludeInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--bitbay">
-    <div className="alert alert-success mx-0 mb-3 col" role="alert">
+    <div className="alert alert-success mx-0" role="alert">
       <b className="alert-heading mb-2">Jak pozyskać klucze API?</b>
       <hr/>
       <ol>
