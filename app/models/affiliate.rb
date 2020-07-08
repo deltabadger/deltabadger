@@ -1,7 +1,8 @@
 class Affiliate < ApplicationRecord
   DEFAULT_MAX_PROFIT = 20
   DEFAULT_BONUS_PERCENT = 0.3
-  DEFAULT_DISCOUNT_PERCENT = 0.3
+  DEFAULT_DISCOUNT_PERCENT = 0.2
+  MIN_DISCOUNT_PERCENT = 0.05
 
   self.inheritance_column = nil
   enum type: %i[individual eu_company]
@@ -23,7 +24,10 @@ class Affiliate < ApplicationRecord
   validates :max_profit, :discount_percent, :total_bonus_percent,
             numericality: { greater_than_or_equal_to: 0 }
   validates :total_bonus_percent, numericality: { less_than_or_equal_to: 1 }
-  validates :discount_percent, numericality: { less_than_or_equal_to: :total_bonus_percent }
+  validates :discount_percent, numericality: {
+    less_than_or_equal_to: :total_bonus_percent,
+    greater_than_or_equal_to: MIN_DISCOUNT_PERCENT
+  }
   validates_acceptance_of :check, message: 'that everything is correct'
 
   attr_reader :check

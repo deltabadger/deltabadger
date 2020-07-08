@@ -9,7 +9,7 @@ class RefCodesController < ApplicationController
     valid = affiliate.present?
 
     if current_user.referrer_id.present?
-      redirect_to dashboard_path, flash: { notice: 'You have already used an refferal link' }
+      redirect_to dashboard_path, flash: { notice: 'You have already used an referral link' }
     elsif valid
       @valid_refcode = true
       @code = code

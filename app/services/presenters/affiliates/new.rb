@@ -11,6 +11,10 @@ module Presenters
         affiliate.type.nil? || affiliate.type == 'individual'
       end
 
+      def min_discount_percent
+        Affiliate::MIN_DISCOUNT_PERCENT
+      end
+
       def percent_step
         0.05
       end
