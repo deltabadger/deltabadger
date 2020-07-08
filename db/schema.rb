@@ -17,7 +17,7 @@ ActiveRecord::Schema.define(version: 2020_07_02_111114) do
 
   create_table "affiliates", force: :cascade do |t|
     t.bigint "user_id"
-    t.string "type", null: false
+    t.integer "type", null: false
     t.string "name"
     t.string "address"
     t.string "vat_number"
