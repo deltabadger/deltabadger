@@ -2,7 +2,7 @@ class CreateAffiliates < ActiveRecord::Migration[5.2]
   def change
     create_table :affiliates do |t|
       t.belongs_to :user, index: { unique: true }, foreign_key: true
-      t.string :type, null: false
+      t.integer :type, null: false
       t.string :name
       t.string :address
       t.string :vat_number

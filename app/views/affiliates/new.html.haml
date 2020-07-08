@@ -20,14 +20,14 @@
       = form_with model: affiliate.becomes(Affiliate), local: true, url: affiliate_path do |f|
         %h4.mb-4.pt-5 1. Referrer info
 
-        - is_private = affiliate.type.nil? || affiliate.type == "PrivateAffiliate"
+        - is_private = affiliate.type.nil? || affiliate.type == "individual"
         .form-group
           .form-check.form-check-inline
-            = f.radio_button :type, "PrivateAffiliate", checked: is_private, class: "mr-2 radio--private"
-            = f.label :type, "Private", value: "PrivateAffiliate", class: "form-check-label"
+            = f.radio_button :type, "individual", checked: is_private, class: "mr-2 radio--private"
+            = f.label :type, "Private", value: "individual", class: "form-check-label"
           .form-check.form-check-inline
-            = f.radio_button :type, "EuCompanyAffiliate", checked: !is_private, class: "mr-2 radio--eu-company"
-            = f.label :type, "EU company", value: "EuCompanyAffiliate", class: "form-check-label"
+            = f.radio_button :type, "eu_company", checked: !is_private, class: "mr-2 radio--eu-company"
+            = f.label :type, "EU company", value: "eu_company", class: "form-check-label"
 
         .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless is_private) }
           = f.label :name, "Name of the company:"

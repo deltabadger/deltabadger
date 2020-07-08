@@ -2,8 +2,13 @@ class Affiliate < ApplicationRecord
   belongs_to :user
   has_many :referred_users, foreign_key: 'referrer_id', class_name: 'User'
 
+  self.inheritance_column = nil
+  enum type: %i[individual eu_company]
+
   scope :active, -> { where(active: true) }
   scope :inactive, -> { where(active: false) }
+
+  validates :name, :address, presence: true, if: -> { type == :eu_company }
 
   validates :user, presence: true
   validate :btc_address, :valid_btc_address

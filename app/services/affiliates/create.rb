@@ -6,15 +6,13 @@ module Affiliates
     }.freeze
 
     def call(user:, affiliate_params:)
-      if affiliate_params[:type] == "PrivateAffiliate"
-        affiliate_params = private_params(affiliate_params)
-        affiliate_class = PrivateAffiliate
+      if affiliate_params[:type] == 'individual'
+        affiliate_params = individual_params(affiliate_params)
       else
         affiliate_params = eu_company_params(affiliate_params)
-        affiliate_class = EuCompanyAffiliate
       end
 
-      affiliate = affiliate_class.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
+      affiliate = Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
       user.affiliate = affiliate
       user.save!
 
@@ -28,16 +26,16 @@ module Affiliates
 
     private
 
-    def private_permitted_params
-      %i[btc_address code visible_name visible_link discount_percent check].freeze
+    def individual_permitted_params
+      %i[type btc_address code visible_name visible_link discount_percent check].freeze
     end
 
     def eu_company_permitted_params
-      (private_permitted_params + %i[name address vat_number]).freeze
+      (individual_permitted_params + %i[name address vat_number]).freeze
     end
 
-    def private_params(affiliate_params)
-      affiliate_params.permit(private_permitted_params)
+    def individual_params(affiliate_params)
+      affiliate_params.permit(individual_permitted_params)
     end
 
     def eu_company_params(affiliate_params)
