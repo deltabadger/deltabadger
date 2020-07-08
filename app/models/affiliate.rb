@@ -1,9 +1,13 @@
 class Affiliate < ApplicationRecord
-  belongs_to :user
-  has_many :referred_users, foreign_key: 'referrer_id', class_name: 'User'
+  DEFAULT_MAX_PROFIT = 20
+  DEFAULT_BONUS_PERCENT = 0.3
+  DEFAULT_DISCOUNT_PERCENT = 0.3
 
   self.inheritance_column = nil
   enum type: %i[individual eu_company]
+
+  belongs_to :user
+  has_many :referees, foreign_key: 'referrer_id', class_name: 'User'
 
   scope :active, -> { where(active: true) }
   scope :inactive, -> { where(active: false) }

@@ -1,16 +1,21 @@
 module Affiliates
   class Create < ::BaseService
     DEFAULT_AFFILIATE_PARAMS = {
-      max_profit: 20,
-      total_bonus_percent: 0.3
+      max_profit: Affiliate::DEFAULT_MAX_PROFIT,
+      total_bonus_percent: Affiliate::DEFAULT_BONUS_PERCENT
     }.freeze
 
+    BASE_PERMITTED_PARAMS =
+      %i[type btc_address code visible_name visible_link discount_percent check].freeze
+    INDIVIDUAL_PERMITTED_PARAMS = BASE_PERMITTED_PARAMS
+    EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
+
     def call(user:, affiliate_params:)
-      if affiliate_params[:type] == 'individual'
-        affiliate_params = individual_params(affiliate_params)
-      else
-        affiliate_params = eu_company_params(affiliate_params)
-      end
+      affiliate_params = if affiliate_params[:type] == 'individual'
+                           individual_params(affiliate_params)
+                         else
+                           eu_company_params(affiliate_params)
+                         end
 
       affiliate = Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
       user.affiliate = affiliate
@@ -26,20 +31,12 @@ module Affiliates
 
     private
 
-    def individual_permitted_params
-      %i[type btc_address code visible_name visible_link discount_percent check].freeze
-    end
-
-    def eu_company_permitted_params
-      (individual_permitted_params + %i[name address vat_number]).freeze
-    end
-
     def individual_params(affiliate_params)
-      affiliate_params.permit(individual_permitted_params)
+      affiliate_params.permit(INDIVIDUAL_PERMITTED_PARAMS)
     end
 
     def eu_company_params(affiliate_params)
-      affiliate_params.permit(eu_company_permitted_params)
+      affiliate_params.permit(EU_COMPANY_PERMITTED_PARAMS)
     end
   end
 end

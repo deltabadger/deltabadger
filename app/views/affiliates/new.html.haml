@@ -17,27 +17,28 @@
           - errors.each do |error|
             %li.text-danger= error
 
-      = form_with model: affiliate.becomes(Affiliate), local: true, url: affiliate_path do |f|
+      = form_with model: affiliate, local: true, url: affiliate_path do |f|
         %h4.mb-4.pt-5 1. Referrer info
 
-        - is_private = affiliate.type.nil? || affiliate.type == "individual"
+        - presenter = Presenters::Affiliates::New.new(affiliate)
+
         .form-group
           .form-check.form-check-inline
-            = f.radio_button :type, "individual", checked: is_private, class: "mr-2 radio--private"
+            = f.radio_button :type, "individual", checked: presenter.individual?, class: "mr-2 radio--private"
             = f.label :type, "Private", value: "individual", class: "form-check-label"
           .form-check.form-check-inline
-            = f.radio_button :type, "eu_company", checked: !is_private, class: "mr-2 radio--eu-company"
+            = f.radio_button :type, "eu_company", checked: !presenter.individual?, class: "mr-2 radio--eu-company"
             = f.label :type, "EU company", value: "eu_company", class: "form-check-label"
 
-        .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless is_private) }
+        .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
           = f.label :name, "Name of the company:"
           = f.text_field :name, class: 'form-control'
 
-        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless is_private) }
+        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
           = f.label :address, "Address of the company:"
           = f.text_field :address, class: 'form-control'
 
-        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless is_private) }
+        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
           = f.label :vat_number, "VAT number (optional):"
           = f.text_field :vat_number, class: 'form-control'
 
@@ -62,13 +63,9 @@
             = f.text_field :code, class: 'form-control', id: 'referral-code'
 
         .form-group.mb-5
-          - discount_percent = affiliate.discount_percent || 0.2
-          - earn_percent = 0.3 - discount_percent
-          - discount_percent_preview = (discount_percent * 100).to_i
-          - earn_percent_preview = (earn_percent * 100).to_i
           = f.label :discount_percent do
-            You will <b>earn <span class="db-form-label-range--discount-percent">#{discount_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--earn-percent">#{earn_percent_preview}</span>% discount</b>.
-          = f.range_field :discount_percent, in: 0..(0.3), value: affiliate.discount_percent || 0.2, step: 0.05, class: "db-form-control-range--discount-ratio form-control-range"
+            You will <b>earn <span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--earn-percent">#{presenter.earn_percent_preview}</span>% discount</b>.
+          = f.range_field :discount_percent, in: 0..(presenter.bonus_percent), value: presenter.discount_percent, step: presenter.percent_step, class: "db-form-control-range--discount-ratio form-control-range"
 
 
         %h4.mb-4.pt-2 4. Visible info
