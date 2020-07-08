@@ -5,22 +5,10 @@
         .modal-body
           %h2.db-modal-title New account
           = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
-            = render "devise/shared/error_messages", resource: resource
+            - if @code_present
+              = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
-            %table.table.db-table--checkout
-              %tbody.table-borderless
-                %tr.text-success
-                  %td(scope="col")
-                    <i class="material-icons-round">check_circle</i>
-                  %td(scope="col")
-                    %b Congrats! The 10% discount is active.
-                    %span.db-billing-item__info.text-dark Thanks to the referral link from <b><a href="https://www.youtube.com/watch?v=2VnIvn8vFp0">Ivan on Tech</a></b>. Valid for the first purchase on the platform.
-                - if flash[:invalid_refcode]
-                  %tr.text-danger
-                    %td(scope="col")
-                      <i class="material-icons-round">broken_image</i>
-                    %td(scope="col")
-                      %b The referral link seems invalid or obsolete.
+            = render "devise/shared/error_messages", resource: resource
 
             .form-group
               = f.label :email

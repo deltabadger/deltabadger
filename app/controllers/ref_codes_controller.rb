@@ -6,23 +6,17 @@ class RefCodesController < ApplicationController
     end
 
     affiliate = Affiliate.active.find_by(code: code)
-    valid = affiliate.present?
 
     if current_user.referrer_id.present?
-      redirect_to dashboard_path, flash: { notice: 'You have already used an referral link' }
-    elsif valid
-      @valid_refcode = true
-      @code = code
-      render
+      redirect_to dashboard_path, flash: { notice: 'You have already used a referral link' }
     else
-      @valid_refcode = false
-      render
+      @affiliate = affiliate
     end
   end
 
   def accept
     if current_user.referrer_id.present?
-      redirect_to dashboard_path, flash: { notice: 'You have already used an referral link' }
+      redirect_to dashboard_path, flash: { notice: 'You have already used a referral link' }
       return
     end
 

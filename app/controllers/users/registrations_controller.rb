@@ -2,26 +2,30 @@
 
 class Users::RegistrationsController < Devise::RegistrationsController
   def new
-    if code
-      affiliate = Affiliate.active.find_by(code: code)
-      valid = affiliate.present?
+    @code_present = code.present?
 
-      if valid
-        @valid_code = true
-        @code = code
-      end
+    if @code_present
+      @affiliate = Affiliate.active.find_by(code: code)
+      session.delete(:code) if @affiliate.nil? # don't show an invalid code twice
     end
-
-    session.delete(:code) unless valid
-
-    @code = code
 
     super
   end
 
   def create
+    affiliate = Affiliate.active.find_by(code: code)
+    params[:user][:referrer_id] = affiliate&.id
+
     super do |user|
-      session.delete(:code) if user.persisted? || user.errors[:referrer].present?
+      session.delete(:code) if user.persisted?
+      unless user.persisted?
+        @code_present = code.present?
+
+        if @code_present
+          @affiliate = Affiliate.active.find_by(code: code)
+          session.delete(:code) if @affiliate.nil?
+        end
+      end
     end
   end
 
