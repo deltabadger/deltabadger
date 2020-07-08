@@ -3,8 +3,10 @@
     .col-md
       .db-settings-section
         %h2 Update Bitcoin address
-        - errors.each do |error|
-          .text-danger.mb-4= error
+        - if errors.present?
+          %ul.pl-3
+            - errors.each do |error|
+              %li.text-danger= error
         = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
           .form-group
             = f.label :btc_address, 'BTC address'

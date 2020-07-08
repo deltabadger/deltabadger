@@ -2,7 +2,7 @@ class RefCodesController < ApplicationController
   def apply_code
     if !user_signed_in?
       session[:code] = code
-      return redirect_to new_user_registration_path, flash: { invalid_refcode: true }
+      return redirect_to new_user_registration_path
     end
 
     affiliate = Affiliate.active.find_by(code: code)
