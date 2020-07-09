@@ -32,7 +32,8 @@ class UserDashboard < Administrate::BaseDashboard
     updates_agreement: Field::Boolean,
     welcome_banner_showed: Field::Boolean,
     limit_reached?: Field::Boolean,
-    referrer: Field::HasOne.with_options(class_name: 'Affiliate')
+    referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
+    current_referrer_profit: Field::Number
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -71,6 +72,7 @@ class UserDashboard < Administrate::BaseDashboard
     updates_agreement
     welcome_banner_showed
     referrer
+    current_referrer_profit
   ].freeze
 
   # FORM_ATTRIBUTES
