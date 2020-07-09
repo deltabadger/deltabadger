@@ -16,12 +16,11 @@ module Affiliates
         commission_granted = [commission_available, payment_commission].min
         commission_granted_percent = commission_granted / payment_commission
         crypto_commission_granted = payment.crypto_commission * commission_granted_percent
-        new_unexported_crypto_commission = referee.unexported_crypto_commission + crypto_commission_granted
+        new_unexported_crypto_commission = referrer.unexported_crypto_commission + crypto_commission_granted
         new_current_profit = current_profit + commission_granted
-        referee.update!(
-          unexported_crypto_commission: new_unexported_crypto_commission,
-          current_referrer_profit: new_current_profit
-        )
+
+        referee.update!(current_referrer_profit: new_current_profit)
+        referee.referrer.update!(unexported_crypto_commission: new_unexported_crypto_commission)
       end
     end
 

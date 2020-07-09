@@ -23,6 +23,8 @@ class PaymentDashboard < Administrate::BaseDashboard
     birth_date: Field::DateTime.with_options(format: '%F'),
     eu: Field::Boolean,
     crypto_paid: Field::String.with_options(searchable: false),
+    commission: Field::Number.with_options(searchable: false),
+    crypto_commission: Field::Number.with_options(searchable: false),
     paid_at: Field::DateTime.with_options(format: '%F %r')
   }.freeze
 
@@ -62,6 +64,8 @@ class PaymentDashboard < Administrate::BaseDashboard
     paid_at
     user
     payment_id
+    commission
+    crypto_commission
     external_statuses
     created_at
     updated_at
