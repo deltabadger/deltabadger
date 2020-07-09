@@ -12,7 +12,7 @@ module Payments
 
       {
         commission: commission,
-        crypto_commission: crypto_commission,
+        crypto_commission: crypto_commission
       }
     end
 
