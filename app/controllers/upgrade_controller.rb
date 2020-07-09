@@ -38,11 +38,14 @@ class UpgradeController < ApplicationController
 
   def default_locals
     cost_calculator = Payments::CostCalculator.new
+    referrer = current_user.referrer
+    discount = referrer&.discount_percent || 0
 
     {
       free_limit: User::FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT,
-      eu: cost_calculator.call(base_price: Payments::Create::COST_EU, vat: 0.2, discount: 0.1),
-      other: cost_calculator.call(base_price: Payments::Create::COST_OTHER, vat: 0, discount: 0.1)
+      referrer: referrer,
+      eu: cost_calculator.call(base_price: Payments::Create::COST_EU, vat: Payments::Create::VAT_EU, discount: discount),
+      other: cost_calculator.call(base_price: Payments::Create::COST_OTHER, vat: Payments::Create::VAT_OTHER, discount: discount)
     }
   end
 
