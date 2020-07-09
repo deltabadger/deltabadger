@@ -1,3 +1,5 @@
+- eu_price_presenter = Presenters::Payments::Cost.new(eu)
+- other_price_presenter = Presenters::Payments::Cost.new(other)
 .modal-dialog(role="document")
   .modal-content
     .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{payment.eu ? 'eu' : 'other'}"}
@@ -31,7 +33,7 @@
               Investor (1 year)<br/>
               %span.db-billing-item__info One year of unlimited transactions.
             %td(scope="col")
-            %td.pl-4(scope="col") <span class="db-show--eu">€#{eu[:price_with_vat]}</span><span class="db-show--other">$#{eu[:price_with_vat]}</span>
+            %td.pl-4(scope="col") <span class="db-show--eu">€#{eu_price_presenter.price_with_vat}</span><span class="db-show--other">$#{other_price_presenter.price_with_vat}</span>
           %tr.db-plan--divider
           %tr.db-plan--divider
           -# %tr.db-plan.db-plan--other
@@ -68,14 +70,14 @@
               %b
                 - if referrer.present?
                   %span.db-show--eu
-                    %span.text-success= "€#{eu[:total_price]}"
-                    %s= "€#{eu[:price_with_vat]}"
+                    %span.text-success= "€#{eu_price_presenter.total_price}"
+                    %s= "€#{eu_price_presenter.price_with_vat}"
                   %span.db-show--other
-                    %span.text-success= "$#{other[:total_price]}"
-                    %s= "$#{other[:price_with_vat]}"
+                    %span.text-success= "$#{other_price_presenter.total_price}"
+                    %s= "$#{other_price_presenter.price_with_vat}"
                 - else
-                  %span.db-show--eu= "€#{eu[:total_price]}"
-                  %span.db-show--other= "$#{other[:total_price]}"
+                  %span.db-show--eu= "€#{eu_price_presenter.total_price}"
+                  %span.db-show--other= "$#{other_price_presenter.total_price}"
       %h4.db-modal__subtitle Billing information
       - if errors.present?
         %ul.pl-3
