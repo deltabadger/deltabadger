@@ -22,7 +22,9 @@ module Payments
     end
 
     def crypto_commission(crypto_total_price:)
-      crypto_base_price = to_crypto_bigdecimal(crypto_total_price) / vat_multiplier / discount_multiplier
+      crypto_total_price = to_crypto_bigdecimal(crypto_total_price)
+      crypto_without_vat = crypto_total_price / vat_multiplier
+      crypto_base_price = crypto_without_vat / discount_multiplier
       round_crypto_down(crypto_base_price * commission_percent)
     end
 

@@ -11,14 +11,12 @@ module Payments
       client: Payments::Client.new,
       payments_repository: PaymentsRepository.new,
       payment_validator: Payments::Validators::Create.new,
-      cost_calculator: Payments::CostCalculator,
-      commission_calculator: Payments::CommissionCalculator.new
+      cost_calculator_class: Payments::CostCalculator
     )
       @client = client
       @payments_repository = payments_repository
       @payment_validator = payment_validator
-      @cost_calculator = cost_calculator
-      @commission_calculator = commission_calculator
+      @cost_calculator_class = cost_calculator_class
     end
 
     def call(params)
@@ -28,20 +26,21 @@ module Payments
       return validation_result if validation_result.failure?
 
       user = params.fetch(:user)
-      discount = user.referrer&.discount_percent || 0
-      commission = user.referrer&.commission_percent || 0
 
-      payment_result = @client.create_payment(
-        price: cost(payment, discount).to_s,
-        currency: currency(payment),
-        email: user.email
-      )
+      cost_calculator = get_cost_calculator(payment, user)
+
+      payment_result = create_payment(payment, user, cost_calculator)
 
       if payment_result.success?
         crypto_total = payment_result.data[:crypto_total]
         @payments_repository.create(
           payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
-          .merge(currency: currency(payment), **commission(payment, discount, commission, crypto_total)).merge(params)
+            .merge(
+              currency: currency(payment),
+              commission: cost_calculator.commission,
+              crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
+            )
+            .merge(params)
         )
       end
 
@@ -50,24 +49,36 @@ module Payments
 
     private
 
+    def create_payment(payment, user, cost_calculator)
+      @client.create_payment(
+        price: cost_calculator.total_price.to_s,
+        currency: currency(payment),
+        email: user.email
+      )
+    end
+
     def currency(payment)
       payment.eu? ? CURRENCY_EU : CURRENCY_OTHER
     end
 
-    def cost(payment, discount)
-      calculator = if payment.eu?
-                     @cost_calculator.new(base_price: COST_EU, vat: VAT_EU, discount_percent: discount)
-                   else
-                     @cost_calculator.new(base_price: COST_OTHER, vat: VAT_OTHER, discount_percent: discount)
-                   end
-      calculator.total_price.to_s
-    end
+    def get_cost_calculator(payment, user)
+      discount_percent = user.referrer&.discount_percent || 0
+      commission_percent = user.referrer&.commission_percent || 0
 
-    def commission(payment, discount, commission_percent, crypto_total_price)
       if payment.eu?
-        @commission_calculator.call(base_price: COST_EU, vat: VAT_EU, discount: discount, commission_percent: commission_percent, crypto_total_price: crypto_total_price)
+        @cost_calculator_class.new(
+          base_price: COST_EU,
+          vat: VAT_EU,
+          discount_percent: discount_percent,
+          commission_percent: commission_percent
+        )
       else
-        @commission_calculator.call(base_price: COST_OTHER, vat: VAT_OTHER, discount: discount, commission_percent: commission_percent, crypto_total_price: crypto_total_price)
+        @cost_calculator_class.new(
+          base_price: COST_OTHER,
+          vat: VAT_OTHER,
+          discount_percent: discount_percent,
+          commission_percent: commission_percent
+        )
       end
     end
   end
