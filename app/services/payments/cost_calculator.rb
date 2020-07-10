@@ -22,8 +22,8 @@ module Payments
     end
 
     def crypto_commission(crypto_total_price:)
-      crypto_base_price = BigDecimal(crypto_total_price) / vat_multiplier / discount_multiplier
-      crypto_base_price * commission_percent
+      crypto_base_price = to_crypto_bigdecimal(crypto_total_price) / vat_multiplier / discount_multiplier
+      round_crypto_down(crypto_base_price * commission_percent)
     end
 
     private
@@ -36,12 +36,20 @@ module Payments
       1 - discount_percent
     end
 
+    def to_crypto_bigdecimal(num)
+      BigDecimal(format('%0.08f', num))
+    end
+
     def to_bigdecimal(num)
       BigDecimal(format('%0.02f', num))
     end
 
     def round_down(num)
       num.round(2, BigDecimal::ROUND_DOWN)
+    end
+
+    def round_crypto_down(num)
+      num.round(8, BigDecimal::ROUND_DOWN)
     end
   end
 end

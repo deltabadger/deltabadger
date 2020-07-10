@@ -13,7 +13,8 @@ RSpec.describe Payments::CostCalculator do
   let(:commission_percent) { 0 }
 
   shared_examples 'returns expected values' do |expected|
-    methods = %i[base_price vat discount_percent commission_percent price_with_vat total_price commission]
+    methods =
+      %i[base_price vat discount_percent commission_percent price_with_vat total_price commission]
 
     it 'returns values as BigDecimals' do
       methods.each do |method|
@@ -28,8 +29,19 @@ RSpec.describe Payments::CostCalculator do
     end
   end
 
+  shared_examples 'returns crypto_commission' do |crypto_total_price:, expected:|
+    it 'returns BigDecimal' do
+      expect(calculator.crypto_commission(crypto_total_price: crypto_total_price).class)
+        .to eq(BigDecimal)
+    end
+
+    it 'returns expected value' do
+      expect(calculator.crypto_commission(crypto_total_price: crypto_total_price)).to eq(expected)
+    end
+  end
+
   context 'given only base price' do
-    let (:base_price) { 20 }
+    let(:base_price) { 20 }
 
     expected = {
       base_price: BigDecimal('20'),
@@ -42,11 +54,12 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission', crypto_total_price: 0.001, expected: 0
   end
 
   context 'given base price and vat' do
-    let (:base_price) { 10 }
-    let (:vat) { 0.23 }
+    let(:base_price) { 10 }
+    let(:vat) { 0.23 }
 
     expected = {
       base_price: BigDecimal('10'),
@@ -59,11 +72,12 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission', crypto_total_price: 0.001, expected: 0
   end
 
   context 'given base price and discount' do
-    let (:base_price) { 24 }
-    let (:discount_percent) { 0.33 }
+    let(:base_price) { 24 }
+    let(:discount_percent) { 0.33 }
 
     expected = {
       base_price: BigDecimal('24'),
@@ -76,12 +90,13 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission', crypto_total_price: 0.001, expected: 0
   end
 
   context 'given base price, vat and discount' do
-    let (:base_price) { 10 }
-    let (:vat) { 0.23 }
-    let (:discount_percent) { 0.15 }
+    let(:base_price) { 10 }
+    let(:vat) { 0.23 }
+    let(:discount_percent) { 0.15 }
 
     expected = {
       base_price: BigDecimal('10'),
@@ -94,11 +109,12 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission', crypto_total_price: 0.001, expected: 0
   end
 
   context 'given base price and commission' do
-    let (:base_price) { 10 }
-    let (:commission_percent) { 0.15 }
+    let(:base_price) { 10 }
+    let(:commission_percent) { 0.15 }
 
     expected = {
       base_price: BigDecimal('10'),
@@ -111,12 +127,15 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission',
+                     crypto_total_price: 0.001,
+                     expected: BigDecimal('0.00015')
   end
 
   context 'given base price, vat and commission' do
-    let (:base_price) { 10 }
-    let (:vat) { 0.23 }
-    let (:commission_percent) { 0.15 }
+    let(:base_price) { 10 }
+    let(:vat) { 0.23 }
+    let(:commission_percent) { 0.15 }
 
     expected = {
       base_price: BigDecimal('10'),
@@ -129,12 +148,15 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission',
+                     crypto_total_price: 2 * 0.00123,
+                     expected: BigDecimal('0.0003')
   end
 
   context 'given base price, discount and commission' do
-    let (:base_price) { 10 }
-    let (:discount_percent) { 0.20 }
-    let (:commission_percent) { 0.15 }
+    let(:base_price) { 10 }
+    let(:discount_percent) { 0.20 }
+    let(:commission_percent) { 0.15 }
 
     expected = {
       base_price: BigDecimal('10'),
@@ -147,13 +169,16 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission',
+                     crypto_total_price: 3 * 0.0008,
+                     expected: BigDecimal('0.00045')
   end
 
   context 'given base price, discount, vat and commission' do
-    let (:base_price) { 10 }
-    let (:vat) { 0.23 }
-    let (:discount_percent) { 0.20 }
-    let (:commission_percent) { 0.15 }
+    let(:base_price) { 10 }
+    let(:vat) { 0.23 }
+    let(:discount_percent) { 0.20 }
+    let(:commission_percent) { 0.15 }
 
     expected = {
       base_price: BigDecimal('10'),
@@ -166,5 +191,8 @@ RSpec.describe Payments::CostCalculator do
     }
 
     include_examples 'returns expected values', expected
+    include_examples 'returns crypto_commission',
+                     crypto_total_price: 4 * 0.000984,
+                     expected: BigDecimal('0.0006')
   end
 end
