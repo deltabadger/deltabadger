@@ -1,0 +1,43 @@
+- unless current_user.unlimited?
+  %tr.db-plan--divider
+  %tr.db-plan--divider
+  %tr.db-plan--divider
+  %tr.db-plan--divider
+    %td(scope="col" colspan="4")
+      %h5 Make an upgrade:
+
+  %tr.db-plan.db-plan--selected
+    %td(scope="col")
+      <i class="material-icons-round">star</i>
+    %td(scope="col")
+      Investor (1 year)<br/>
+      %span.db-billing-item__info One year of unlimited transactions.
+    %td(scope="col")
+    %td.pl-4(scope="col") <span class="db-show--eu">€#{eu_price_presenter.price_with_vat}</span><span class="db-show--other">$#{other_price_presenter.price_with_vat}</span>
+  %tr.db-plan--divider
+  %tr.db-plan--divider
+
+  -# %tr.db-plan.db-plan--other
+  -#   %td(scope="col")
+  -#     <i class="material-icons-round">stars</i>
+  -#   %td(scope="col")
+  -#     Hodler (4 years)<br/>
+  -#     %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+  -#   %td(scope="col")
+  -#   %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
+
+  %tr.db-plan--divider
+  - if referrer.present?
+    - discount_presenter = Presenters::RefCodes::Show.new(referrer)
+    %tr.text-success
+      %td(scope="col")
+        <i class="material-icons-round">check_circle</i>
+      %td(scope="col")
+        %b Discount activated
+        %span.db-billing-item__info.text-dark
+          - if discount_presenter.info?
+            Thanks to the referral link from <b><a href="#{discount_presenter.visible_link}">#{discount_presenter.visible_name}</a></b>.
+          Valid for the first purchase on the platform.
+      %td(scope="col")
+      %td.pl-4(scope="col")
+        %b -#{discount_presenter.discount_percent}%

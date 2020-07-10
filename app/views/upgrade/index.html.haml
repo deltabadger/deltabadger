@@ -1,5 +1,7 @@
 - eu_price_presenter = Presenters::Payments::Cost.new(eu)
 - other_price_presenter = Presenters::Payments::Cost.new(other)
+- locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter, referrer: referrer }
+
 .modal-dialog(role="document")
   .modal-content
     .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{payment.eu ? 'eu' : 'other'}"}
@@ -7,108 +9,10 @@
       %table.table.db-table--checkout
         %tbody.table-borderless
           %tr.db-plan--divider
-            %td(scope="col" colspan="4")
-              %h5 Current plan:
-          %tr.db-plan.db-plan--current
-            %td(scope="col")
-              <i class="material-icons-round">eco</i>
-            %td(scope="col")
-              Saver<br/>
-              %span.db-billing-item__info
-                Free forever for transactions up to <span class="db-show--eu">€#{free_limit}</span><span class="db-show--other">$#{free_limit}</span>/year.
-                -# (<span class="db-show--eu">€</span><span class="db-show--other">$</span>345 left)
-            %td(scope="col")
-            %td.pl-4(scope="col") Free
-          %tr.db-plan--divider
-          %tr.db-plan--divider
-          %tr.db-plan--divider
-          %tr.db-plan--divider
-            %td(scope="col" colspan="4")
-              %h5 Make an upgrade:
+            = render partial: "current_plan", locals: locals
 
-          %tr.db-plan.db-plan--selected
-            %td(scope="col")
-              <i class="material-icons-round">star</i>
-            %td(scope="col")
-              Investor (1 year)<br/>
-              %span.db-billing-item__info One year of unlimited transactions.
-            %td(scope="col")
-            %td.pl-4(scope="col") <span class="db-show--eu">€#{eu_price_presenter.price_with_vat}</span><span class="db-show--other">$#{other_price_presenter.price_with_vat}</span>
-          %tr.db-plan--divider
-          %tr.db-plan--divider
-          -# %tr.db-plan.db-plan--other
-          -#   %td(scope="col")
-          -#     <i class="material-icons-round">stars</i>
-          -#   %td(scope="col")
-          -#     Hodler (4 years)<br/>
-          -#     %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
-          -#   %td(scope="col")
-          -#   %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
+          = render partial: "upgrade_plans", locals: locals
 
-          %tr.db-plan--divider
-          - if referrer.present?
-            - discount_presenter = Presenters::RefCodes::Show.new(referrer)
-            %tr.text-success
-              %td(scope="col")
-                <i class="material-icons-round">check_circle</i>
-              %td(scope="col")
-                %b Discount activated
-                %span.db-billing-item__info.text-dark
-                  - if discount_presenter.info?
-                    Thanks to the referral link from <b><a href="#{discount_presenter.visible_link}">#{discount_presenter.visible_name}</a></b>.
-                  Valid for the first purchase on the platform.
-              %td(scope="col")
-              %td.pl-4(scope="col")
-                %b -#{discount_presenter.discount_percent}%
-        %tfoot
-          %tr
-            %td(scope="col")
-            %td(scope="col")
-            %td(scope="col")
-              %b Sum:
-            %td.pl-4(scope="col")
-              %b
-                - if referrer.present?
-                  %span.db-show--eu
-                    %span.text-success= "€#{eu_price_presenter.total_price}"
-                    %s= "€#{eu_price_presenter.price_with_vat}"
-                  %span.db-show--other
-                    %span.text-success= "$#{other_price_presenter.total_price}"
-                    %s= "$#{other_price_presenter.price_with_vat}"
-                - else
-                  %span.db-show--eu= "€#{eu_price_presenter.total_price}"
-                  %span.db-show--other= "$#{other_price_presenter.total_price}"
-      %h4.db-modal__subtitle Billing information
-      - if errors.present?
-        %ul.pl-3
-          - errors.each do |error|
-            %li.text-danger= error
-      = form_for payment, url: upgrade_pay_path do |f|
-        .form-group
-          %label(for="first_name") Name
-          = f.text_field :first_name, class: 'form-control'
+        = render partial: "upgrade_summary", locals: locals
 
-        .form-group
-          %label(for="last_name") Surname
-          = f.text_field :last_name, class: 'form-control'
-
-        .form-group
-          %label{:for => "example-date-input"} Birth date
-          = f.date_field :birth_date, class: 'example-data-input form-control'
-
-        .form-group
-          %label Country
-          %br
-          .form-check.form-check-inline
-            = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input radio--eu', id: 'radioEu'
-            = f.label :eu, "European Union", class: 'form-check-label', for: 'radioEu'
-          .form-check.form-check-inline
-            = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input radio--other', id: 'radioOther'
-            = f.label :eu, "Other", class: 'form-check-label', for: 'radioOther'
-
-        .form-group.db-form-group--main-btn
-          %button.btn.btn-success.btn-lg{type: 'submit'}
-            %span.mr-3 Checkout
-            %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :width => "24", :viewBox => "0 0 24 24"}
-              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-              //   %i.material-icons-round arrow_forward
+      = render partial: "billing_form", locals: locals
