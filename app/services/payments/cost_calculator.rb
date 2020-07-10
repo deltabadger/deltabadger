@@ -1,26 +1,47 @@
 module Payments
-  class CostCalculator < BaseService
-    def call(base_price:, vat: 0, discount: 0)
-      base_price = to_bigdecimal(base_price)
-      vat = to_bigdecimal(vat)
-      discount = to_bigdecimal(discount)
+  class CostCalculator
+    attr_reader :base_price, :vat, :discount_percent, :commission_percent
 
-      price_with_vat = base_price * (1 + vat)
-      total_price = price_with_vat * (1 - discount)
+    def initialize(base_price:, vat:, discount_percent:, commission_percent: 0)
+      @base_price = to_bigdecimal(base_price)
+      @vat = to_bigdecimal(vat)
+      @discount_percent = to_bigdecimal(discount_percent)
+      @commission_percent = to_bigdecimal(commission_percent)
+    end
 
-      {
-        base_price: base_price,
-        vat: vat,
-        discount: discount,
-        price_with_vat: price_with_vat,
-        total_price: total_price
-      }
+    def price_with_vat
+      @price_with_vat ||= round_down(base_price * vat_multiplier)
+    end
+
+    def total_price
+      @total_price ||= round_down(price_with_vat * discount_multiplier)
+    end
+
+    def commission
+      @commission ||= base_price * commission_percent
+    end
+
+    def crypto_commission(crypto_total_price:)
+      crypto_base_price = BigDecimal(crypto_total_price) / vat_multiplier / discount_multiplier
+      crypto_base_price * commission_percent
     end
 
     private
 
+    def vat_multiplier
+      1 + vat
+    end
+
+    def discount_multiplier
+      1 - discount_percent
+    end
+
     def to_bigdecimal(num)
       BigDecimal(format('%0.02f', num))
+    end
+
+    def round_down(num)
+      num.round(2, BigDecimal::ROUND_DOWN)
     end
   end
 end

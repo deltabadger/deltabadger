@@ -11,7 +11,7 @@ module Payments
       client: Payments::Client.new,
       payments_repository: PaymentsRepository.new,
       payment_validator: Payments::Validators::Create.new,
-      cost_calculator: Payments::CostCalculator.new,
+      cost_calculator: Payments::CostCalculator,
       commission_calculator: Payments::CommissionCalculator.new
     )
       @client = client
@@ -55,11 +55,12 @@ module Payments
     end
 
     def cost(payment, discount)
-      if payment.eu?
-        @cost_calculator.call(base_price: COST_EU, vat: VAT_EU, discount: discount)
-      else
-        @cost_calculator.call(base_price: COST_OTHER, vat: VAT_OTHER, discount: discount)
-      end[:total_price].to_s
+      calculator = if payment.eu?
+                     @cost_calculator.new(base_price: COST_EU, vat: VAT_EU, discount_percent: discount)
+                   else
+                     @cost_calculator.new(base_price: COST_OTHER, vat: VAT_OTHER, discount_percent: discount)
+                   end
+      calculator.total_price.to_s
     end
 
     def commission(payment, discount, commission_percent, crypto_total_price)

@@ -1,5 +1,5 @@
-- eu_price_presenter = Presenters::Payments::Cost.new(eu)
-- other_price_presenter = Presenters::Payments::Cost.new(other)
+- eu_price_presenter = Presenters::Payments::Cost.new(eu_calculator)
+- other_price_presenter = Presenters::Payments::Cost.new(other_calculator)
 - locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter, referrer: referrer }
 
 .modal-dialog(role="document")
