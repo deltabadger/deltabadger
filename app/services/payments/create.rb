@@ -37,6 +37,7 @@ module Payments
           payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
             .merge(
               currency: currency(payment),
+              discounted: cost_calculator.discount_percent.positive?,
               commission: cost_calculator.commission,
               crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
             )
