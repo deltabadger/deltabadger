@@ -829,6 +829,22 @@ svg * {
 
 // referral program
 
+.db-referral-program-registration {
+  &--inactive {
+    opacity: 0.5;
+    .form-control-range {
+      -webkit-filter: none;
+      filter: none;
+    }
+    a, button, input {
+      cursor: default !important;
+    }
+    a:hover {
+      text-decoration: none;
+      color: $primary;
+    }
+  }
+}
 .db-referral-code-input {
   text-transform: uppercase;
 }
