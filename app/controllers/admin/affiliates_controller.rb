@@ -33,5 +33,31 @@ module Admin
     def model_name
       :affiliate
     end
+
+    def mark_as_exported
+      Affiliates::MarkUnexportedCommissionAsExported.call
+
+      head 200
+    end
+
+    def mark_as_paid
+      Affiliates::MarkExportedCommissionAsPaid.call
+
+      head 200
+    end
+
+    def wallet_csv
+      file = Affiliates::GenerateCommissionsWalletCsv.call
+      filename = "commissions-wallet-#{Time.now.strftime('%F')}.csv"
+
+      send_data(file, filename: filename)
+    end
+
+    def accounting_csv
+      file = Affiliates::GenerateCommissionsAccountingCsv.call
+      filename = "commissions-accounting-#{Time.now.strftime('%F')}.csv"
+
+      send_data(file, filename: filename)
+    end
   end
 end
