@@ -63,8 +63,9 @@ module Payments
     end
 
     def get_cost_calculator(payment, user)
-      discount_percent = user.referrer&.discount_percent || 0
-      commission_percent = user.referrer&.commission_percent || 0
+      referrer = user.eligible_referrer
+      discount_percent = referrer&.discount_percent || 0
+      commission_percent = referrer&.commission_percent || 0
 
       if payment.eu?
         @cost_calculator_class.new(
