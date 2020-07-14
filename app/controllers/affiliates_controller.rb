@@ -4,6 +4,10 @@ class AffiliatesController < ApplicationController
   before_action :ensure_no_affiliate!, only: %i[new create]
   before_action :validate_password!, only: :update_btc_address
 
+  ALL_PERMITTED_PARAMS = Affiliates::Create::INDIVIDUAL_PERMITTED_PARAMS.union(
+    Affiliates::Create::EU_COMPANY_PERMITTED_PARAMS
+  ).freeze
+
   def show
     render :show, locals: { affiliate: affiliate, errors: [] }
   end
@@ -13,13 +17,16 @@ class AffiliatesController < ApplicationController
   end
 
   def create
-    result = Affiliates::Create.call(user: current_user, affiliate_params: affiliate_params)
+    result = Affiliates::Create.call(
+      user: current_user,
+      affiliate_params: affiliate_params.deep_dup
+    )
 
     if result.success?
       redirect_to affiliate_path, flash: { notice: 'You have joined the referral program' }
     else
       render :new, locals: {
-        affiliate: result.data || Affiliate.new(affiliate_params.permit!),
+        affiliate: result.data || Affiliate.new(affiliate_params.permit(ALL_PERMITTED_PARAMS)),
         errors: result.errors
       }
     end

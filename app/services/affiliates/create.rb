@@ -11,6 +11,8 @@ module Affiliates
     EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
 
     def call(user:, affiliate_params:)
+      add_visible_link_scheme!(affiliate_params)
+
       affiliate_params = if affiliate_params[:type] == 'individual'
                            individual_params(affiliate_params)
                          else
@@ -23,6 +25,7 @@ module Affiliates
 
       Result::Success.new(user.affiliate)
     rescue ActiveRecord::RecordNotSaved
+      remove_visible_link_scheme!(affiliate)
       Result::Failure.new(*affiliate.errors, data: affiliate)
     rescue StandardError => e
       Raven.capture_exception(e)
@@ -30,6 +33,18 @@ module Affiliates
     end
 
     private
+
+    def add_visible_link_scheme!(affiliate_params)
+      visible_link = affiliate_params[:visible_link]
+      return if visible_link.blank?
+
+      visible_link_scheme = affiliate_params[:visible_link_scheme]
+      affiliate_params[:visible_link] = visible_link_scheme + '://' + visible_link
+    end
+
+    def remove_visible_link_scheme!(affiliate)
+      affiliate.visible_link = %r{(?:https?://)?(.*)}.match(affiliate[:visible_link])[1]
+    end
 
     def individual_params(affiliate_params)
       affiliate_params.permit(INDIVIDUAL_PERMITTED_PARAMS)
