@@ -19,7 +19,7 @@ class AffiliatesController < ApplicationController
       redirect_to affiliate_path, flash: { notice: 'You have joined the referral program' }
     else
       render :new, locals: {
-        affiliate: Affiliate.new(affiliate_params.permit!),
+        affiliate: result.data || Affiliate.new(affiliate_params.permit!),
         errors: result.errors
       }
     end
