@@ -50,12 +50,20 @@ class User < ApplicationRecord
     subscription_name == 'unlimited'
   end
 
+  def eligible_referrer
+    referrer if eligible_for_discount?
+  end
+
   private
 
   def active_referrer
     return if referrer_id.nil?
 
     errors.add(:referrer, 'code is not valid') if Affiliate.active.where(id: referrer_id).empty?
+  end
+
+  def eligible_for_discount?
+    !payments.paid.where(discounted: true).exists?
   end
 
   def add_subscription

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_07_09_120237) do
+ActiveRecord::Schema.define(version: 2020_07_13_094634) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -95,6 +95,7 @@ ActiveRecord::Schema.define(version: 2020_07_09_120237) do
     t.decimal "crypto_paid", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "commission", default: "0.0", null: false
     t.decimal "crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.boolean "discounted", default: false, null: false
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
