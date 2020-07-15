@@ -21,7 +21,7 @@ Rails.application.routes.draw do
     patch :update_btc_address
   end
 
-  get '/ref/:code', to: 'ref_codes#apply_code'
+  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
 
   namespace :admin do
