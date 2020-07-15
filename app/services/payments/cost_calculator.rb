@@ -1,0 +1,57 @@
+module Payments
+  class CostCalculator
+    attr_reader :base_price, :vat, :discount_percent, :commission_percent
+
+    def initialize(base_price:, vat:, discount_percent:, commission_percent: 0)
+      @base_price = to_bigdecimal(base_price)
+      @vat = to_bigdecimal(vat)
+      @discount_percent = to_bigdecimal(discount_percent)
+      @commission_percent = to_bigdecimal(commission_percent)
+    end
+
+    def price_with_vat
+      @price_with_vat ||= round_down(base_price * vat_multiplier)
+    end
+
+    def total_price
+      @total_price ||= round_down(price_with_vat * discount_multiplier)
+    end
+
+    def commission
+      @commission ||= base_price * commission_percent
+    end
+
+    def crypto_commission(crypto_total_price:)
+      crypto_total_price = to_crypto_bigdecimal(crypto_total_price)
+      crypto_without_vat = crypto_total_price / vat_multiplier
+      crypto_base_price = crypto_without_vat / discount_multiplier
+      round_crypto_down(crypto_base_price * commission_percent)
+    end
+
+    private
+
+    def vat_multiplier
+      1 + vat
+    end
+
+    def discount_multiplier
+      1 - discount_percent
+    end
+
+    def to_crypto_bigdecimal(num)
+      BigDecimal(format('%0.08f', num))
+    end
+
+    def to_bigdecimal(num)
+      BigDecimal(format('%0.02f', num))
+    end
+
+    def round_down(num)
+      num.round(2, BigDecimal::ROUND_DOWN)
+    end
+
+    def round_crypto_down(num)
+      num.round(8, BigDecimal::ROUND_DOWN)
+    end
+  end
+end

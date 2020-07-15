@@ -1,0 +1,19 @@
+%h5 Current plan:
+- if current_user.unlimited?
+  %tr.db-plan.db-plan--selected
+    %td(scope="col")
+      <i class="material-icons-round">star</i>
+    %td(scope="col")
+      Investor (#{current_user.plan_days_left} days left)<br/>
+      %span.db-billing-item__info One year of unlimited transactions.
+- else
+  %tr.db-plan.db-plan--current
+    %td(scope="col")
+      <i class="material-icons-round">eco</i>
+    %td(scope="col")
+      Saver<br/>
+      %span.db-billing-item__info
+        Free forever for transactions up to <span class="db-show--eu">€#{free_limit}</span><span class="db-show--other">$#{free_limit}</span>/year.
+        (<span class="db-show--eu">€</span><span class="db-show--other">$</span>#{current_user.credits.round} left)
+    %td(scope="col")
+    %td.pl-4(scope="col") Free

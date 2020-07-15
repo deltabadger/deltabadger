@@ -1,3 +1,0 @@
-.db-settings-section
-  %h4.db-modal__subtitle Current limits
-  = user.unlimited? ? "#{user.plan_days_left} days of Unlimited plan left." : user.credits <= 0 ? "No free credits left. Upgrade your plan to continue." : "The free plan allows to make transactions worth $500 a year. Your remaining number of credits is #{user.credits}."
