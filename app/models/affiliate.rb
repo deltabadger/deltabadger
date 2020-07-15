@@ -13,7 +13,7 @@ class Affiliate < ApplicationRecord
   scope :active, -> { where(active: true) }
   scope :inactive, -> { where(active: false) }
 
-  validates :name, :address, presence: true, if: -> { type == :eu_company }
+  validates :name, :address, presence: true, if: -> { type == 'eu_company' }
 
   validates :user, presence: true
   validate :btc_address, :valid_btc_address
@@ -31,6 +31,10 @@ class Affiliate < ApplicationRecord
   validates_acceptance_of :check, message: 'that everything is correct'
 
   attr_reader :check
+
+  def code=(val)
+    self[:code] = val.upcase
+  end
 
   def commission_percent
     total_bonus_percent - discount_percent

@@ -37,6 +37,7 @@ module Payments
           payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
             .merge(
               currency: currency(payment),
+              discounted: cost_calculator.discount_percent.positive?,
               commission: cost_calculator.commission,
               crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
             )
@@ -62,8 +63,9 @@ module Payments
     end
 
     def get_cost_calculator(payment, user)
-      discount_percent = user.referrer&.discount_percent || 0
-      commission_percent = user.referrer&.commission_percent || 0
+      referrer = user.eligible_referrer
+      discount_percent = referrer&.discount_percent || 0
+      commission_percent = referrer&.commission_percent || 0
 
       if payment.eu?
         @cost_calculator_class.new(

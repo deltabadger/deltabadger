@@ -38,7 +38,7 @@ class UpgradeController < ApplicationController
 
   def default_locals
     cost_calculator = Payments::CostCalculator
-    referrer = current_user.referrer
+    referrer = current_user.eligible_referrer
     discount = referrer&.discount_percent || 0
 
     {
