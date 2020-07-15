@@ -11,6 +11,8 @@ module Affiliates
     EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
 
     def call(user:, affiliate_params:)
+      return Result::Failure.new('You have to upgrade to register') unless user.unlimited?
+
       add_visible_link_scheme!(affiliate_params)
 
       affiliate_params = if affiliate_params[:type] == 'individual'

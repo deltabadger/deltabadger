@@ -1,6 +1,18 @@
+- disabled = !current_user.unlimited?
+
+- if disabled
+  .alert.alert-primary.db-alert--flex
+    %span
+      To join our famous referral program, upgrade to one of our paid plans.
+
+    %a.btn.btn-primary{href: upgrade_path}
+      %span Upgrade
+
+
 .modal-dialog(role='document')
   .modal-content
     .modal-body
+
       %h2.db-modal-title Referral program registration
 
       .alert.alert-success
@@ -12,90 +24,98 @@
           %li 20% of it is $20, but since you already got $4, the program pays remaining $16 = 0.002BTC.
         %small.mb-2 <sup>*</sup> The limit is either 20USD or 20EUR depending on the currency of the pricing.
 
-      - if errors.present?
-        %ul.pl-3
-          - errors.each do |error|
-            %li.text-danger= error
+      .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
+        - if errors.present?
+          %ul.pl-3
+            - errors.each do |error|
+              %li.text-danger= error
 
-      = form_with model: affiliate, local: true, url: affiliate_path do |f|
-        %h4.mb-4.pt-5 1. Referrer info
+        = form_with model: affiliate, local: true, url: affiliate_path do |f|
+          %h4.mb-4.pt-5 1. Referrer info
 
-        - presenter = Presenters::Affiliates::New.new(affiliate)
+          - presenter = Presenters::Affiliates::New.new(affiliate)
 
-        .form-group
-          .form-check.form-check-inline
-            = f.radio_button :type, "individual", checked: presenter.individual?, class: "mr-2 radio--private"
-            = f.label :type, "Private", value: "individual", class: "form-check-label"
-          .form-check.form-check-inline
-            = f.radio_button :type, "eu_company", checked: !presenter.individual?, class: "mr-2 radio--eu-company"
-            = f.label :type, "EU company", value: "eu_company", class: "form-check-label"
+          .form-group
+            .form-check.form-check-inline
+              = f.radio_button :type, "individual", checked: presenter.individual?, class: "mr-2 radio--private", disabled: disabled
+              = f.label :type, "Private", value: "individual", class: "form-check-label"
+            .form-check.form-check-inline
+              = f.radio_button :type, "eu_company", checked: !presenter.individual?, class: "mr-2 radio--eu-company", disabled: disabled
+              = f.label :type, "EU company", value: "eu_company", class: "form-check-label"
 
-        .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-          = f.label :name, "Name of the company:"
-          = f.text_field :name, class: 'form-control'
+          .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
+            = f.label :name, "Name of the company:"
+            = f.text_field :name, class: 'form-control', disabled: disabled
 
-        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-          = f.label :address, "Address of the company:"
-          = f.text_field :address, class: 'form-control'
+          .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
+            = f.label :address, "Address of the company:"
+            = f.text_field :address, class: 'form-control', disabled: disabled
 
-        .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-          = f.label :vat_number, "VAT number (optional):"
-          = f.text_field :vat_number, class: 'form-control'
-
-
-        %h4.mb-4.pt-5 2. Payout address
-
-        .form-group.mb-5
-          = f.label :btc_address, 'BTC address to which you want to receive your payouts.'
-          = f.text_field :btc_address, class: 'form-control'
+          .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
+            = f.label :vat_number, "VAT number (optional):"
+            = f.text_field :vat_number, class: 'form-control', disabled: disabled
 
 
-        %h4.mb-4.pt-3 3. Program settings
+          %h4.mb-4.pt-5 2. Payout address
 
-        .form-group.mb-5
-          = f.label :code, 'Pick your desired referral code.'
-          %span.text-danger
-            This can't be changed later!
-          .input-group
-            .input-group-prepend
-              %span#referral-prefix.input-group-text
-                = "deltabadger.com/ref/"
-            = f.text_field :code, class: 'form-control db-referral-code-input', id: 'referral-code'
-
-        .form-group.mb-5
-          = f.label :discount_percent do
-            You will <b>earn <span class="db-form-label-range--earn-percent">#{presenter.earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount</b>.
-          = f.range_field :discount_percent, in: (presenter.min_discount_percent)..(presenter.bonus_percent), value: presenter.discount_percent, step: presenter.percent_step, class: "db-form-control-range--discount-ratio form-control-range"
+          .form-group.mb-5
+            = f.label :btc_address, 'BTC address to which you want to receive your payouts.'
+            = f.text_field :btc_address, class: 'form-control', disabled: disabled
 
 
-        %h4.mb-4.pt-2 4. Visible info
+          %h4.mb-4.pt-3 3. Program settings
 
-        .mb-5
-          %p The referee will see those data after using the link. Example:
-          %table.table.db-table--checkout.mb-0
-            %tbody.table-borderless
-              %tr.text-success
-                %td(scope="col")
-                  <i class="material-icons-round">check_circle</i>
-                %td(scope="col")
-                  %b Congrats! The <span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount is active.
-                  %span.db-billing-item__info.text-dark Thanks to the referral link from <b><a href="https://en.wikipedia.org/wiki/Satoshi_Nakamoto#:~:text=Satoshi%20Nakamoto%20is%20the%20name,devised%20the%20first%20blockchain%20database">Satoshi Nakamoto</a></b>. Valid for the first purchase on the platform.
-
-        .form-group
-          = f.label :visible_name, "Name visible for referee (optional):"
-          = f.text_field :visible_name, class: 'form-control'
-
-        .form-group.mb-5
-          = f.label :visible_link, "Link (optional):"
-          .input-group
-            = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control db-http-prefix-select'
-            = f.text_field :visible_link, class: 'form-control'
+          .form-group.mb-5
+            = f.label :code, 'Pick your desired referral code.'
+            %span.text-danger
+              This can't be changed later!
+            .input-group
+              .input-group-prepend
+                %span#referral-prefix.input-group-text
+                  = "deltabadger.com/ref/"
+              = f.text_field :code, class: 'form-control db-referral-code-input', id: 'referral-code', disabled: disabled
 
 
-        .form-check.pt-4.text-center
-          = f.check_box :check, class: "form-check-input"
-          = f.label :check, "I checked everything carefully.", class: "form-check-label"
+          .form-group.mb-5
+            = f.label :discount_percent do
+              You will <b>earn <span class="db-form-label-range--earn-percent">#{presenter.earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount</b>.
+            = f.range_field :discount_percent, in: (presenter.min_discount_percent)..(presenter.bonus_percent), value: presenter.discount_percent, step: presenter.percent_step, class: "db-form-control-range--discount-ratio form-control-range", disabled: disabled
 
-        .form-group.db-form-group--main-btn.pt-4
-          %button.btn.btn-success.btn-lg{type: 'submit'}
-            Let's start!
+
+          %h4.mb-4.pt-2 4. Visible info
+
+          .mb-5
+            %p The referee will see those data after using the link. Example:
+            %table.table.db-table--checkout.mb-0
+              %tbody.table-borderless
+                %tr.text-success
+                  %td(scope="col")
+                    <i class="material-icons-round">check_circle</i>
+                  %td(scope="col")
+                    %b Congrats! The <span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount is active.
+                    %span.db-billing-item__info.text-dark Thanks to the referral link from <b><a href="https://en.wikipedia.org/wiki/Satoshi_Nakamoto#:~:text=Satoshi%20Nakamoto%20is%20the%20name,devised%20the%20first%20blockchain%20database">Satoshi Nakamoto</a></b>. Valid for the first purchase on the platform.
+
+          .form-group
+            = f.label :visible_name, "Name visible for referee (optional):"
+            = f.text_field :visible_name, class: 'form-control', disabled: disabled
+
+          .form-group.mb-5
+            = f.label :visible_link, "Link (optional):"
+            .input-group
+              = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control db-http-prefix-select', disabled: disabled
+              = f.text_field :visible_link, class: 'form-control', disabled: disabled
+
+
+          - unless disabled
+            .form-check.pt-4.text-center
+              = f.check_box :check, class: "form-check-input"
+              = f.label :check, "I checked everything carefully.", class: "form-check-label"
+
+          - if disabled
+            .form-group.db-form-group--main-btn.pt-4
+              %button.btn.btn-success.btn-lg{type: 'submit', disabled: true}
+                Let's start!
+          - else
+            .form-group.db-form-group--main-btn.pt-4
+              %button.btn.btn-success.btn-lg{type: 'submit'}
+                Let's start!
