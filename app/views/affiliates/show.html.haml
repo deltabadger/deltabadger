@@ -4,6 +4,10 @@
       %h2.db-modal-title Referral Program
 
       .db-settings-section
+        %h4.db-modal__subtitle Your referral link
+        = ref_code_url(code: affiliate.code)
+
+      .db-settings-section
         %h4.db-modal__subtitle Stats
         - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
         %ul
