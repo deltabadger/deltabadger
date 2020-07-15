@@ -20,6 +20,10 @@ class Result
     other
   end
 
+  def ==(other)
+    data == other.data && errors == other.errors
+  end
+
   class Success < Result
     def initialize(data = nil)
       @data = data

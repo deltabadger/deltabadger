@@ -6,6 +6,8 @@ class User < ApplicationRecord
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
+  has_one :affiliate
+  belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots
@@ -13,6 +15,7 @@ class User < ApplicationRecord
   has_many :payments
 
   validates :terms_and_conditions, acceptance: true
+  validate :active_referrer, on: :create
 
   def subscription
     current_subscription = subscriptions.last
@@ -49,9 +52,15 @@ class User < ApplicationRecord
 
   private
 
+  def active_referrer
+    return if referrer_id.nil?
+
+    errors.add(:referrer, 'code is not valid') if Affiliate.active.where(id: referrer_id).empty?
+  end
+
   def add_subscription
     subscriptions << Subscription.new(
-      subscription_plan: SubscriptionPlan.find_by(name: 'free'),
+      subscription_plan: SubscriptionPlan.find_or_create_by(name: 'free'),
       end_time: created_at + 1.year,
       credits: FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
     )
