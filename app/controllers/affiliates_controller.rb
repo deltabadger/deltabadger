@@ -40,7 +40,7 @@ class AffiliatesController < ApplicationController
       flash[:notice] = 'Confirmation email sent'
       render :show, locals: { affiliate: affiliate, errors: [] }
     else
-      render :show, locals: { affiliate: affiliate, errors: result.errors }
+      render :show, locals: { affiliate: result.data || affiliate, errors: result.errors }
     end
   end
 
@@ -72,8 +72,9 @@ class AffiliatesController < ApplicationController
   def validate_password!
     confirmation_password = params[:affiliate][:current_password]
     return if current_user.valid_password?(confirmation_password)
+    affiliate.errors.add(:current_password, 'is not valid')
 
-    render :show, locals: { affiliate: affiliate, errors: ['Confirmation password is not valid'] }
+    render :show, locals: { affiliate: affiliate, errors: affiliate.errors.full_messages }
   end
 
   def affiliate_params

@@ -12,7 +12,9 @@ module Affiliates
 
     def call(affiliate:, new_btc_address:)
       unless Bitcoin.valid_address?(new_btc_address)
-        return Result::Failure.new('Bitcoin address is not valid')
+        affiliate[:btc_address] = new_btc_address
+        affiliate.errors.add(:btc_address, 'is not valid')
+        return Result::Failure.new(*affiliate.errors.full_messages, data: affiliate)
       end
 
       affiliate = affiliates_repository.update(

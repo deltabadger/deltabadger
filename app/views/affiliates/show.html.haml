@@ -1,19 +1,35 @@
-.db-content__box
-  .row
-    .col-md
+.modal-dialog(role="document")
+  .modal-content
+    .modal-body
+      %h2.db-modal-title Referral Program
+
       .db-settings-section
-        %h2 Update Bitcoin address
+        %h4.db-modal__subtitle Stats
+        - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
+        %ul
+          %li
+            Referee count:
+            = stats.referee_count
+          %li
+            Paid commission:
+            = stats.paid_commission
+          %li
+            Unpaid commission:
+            = stats.unpaid_commission
+
+      .db-settings-section
+        %h4.db-modal__subtitle Update Bitcoin address
         - if errors.present?
           %ul.pl-3
             - errors.each do |error|
               %li.text-danger= error
+
         = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
           .form-group
             = f.label :btc_address, 'BTC address'
             = f.text_field :btc_address, class: 'form-control'
           .form-group
             = f.label :current_password, 'Current password (for confirmation)'
-            = f.password_field :current_password, autocomplete: 'current-password', class: 'form-control'
+            = f.password_field :current_password, autocomplete: 'off', class: 'form-control'
           .form-group
-            = f.submit 'Update Bitcoin address', class: 'btn btn-primary'
-    .col-md Baz
+            = f.submit 'Update Bitcoin address', class: 'btn btn-lg btn-primary'
