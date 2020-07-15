@@ -1,0 +1,19 @@
+.db-content__box
+  .row
+    .col-md
+      .db-settings-section
+        %h2 Update Bitcoin address
+        - if errors.present?
+          %ul.pl-3
+            - errors.each do |error|
+              %li.text-danger= error
+        = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
+          .form-group
+            = f.label :btc_address, 'BTC address'
+            = f.text_field :btc_address, class: 'form-control'
+          .form-group
+            = f.label :current_password, 'Current password (for confirmation)'
+            = f.password_field :current_password, autocomplete: 'current-password', class: 'form-control'
+          .form-group
+            = f.submit 'Update Bitcoin address', class: 'btn btn-primary'
+    .col-md Baz

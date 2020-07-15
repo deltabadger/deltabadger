@@ -14,6 +14,7 @@ class UserDashboard < Administrate::BaseDashboard
     subscriptions: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     subscription: SubscriptionField,
     payments: Field::HasMany.with_options(sort_by: :id, direction: :desc),
+    affiliate: Field::HasOne,
     id: Field::Number,
     email: Field::String,
     encrypted_password: Field::String,
@@ -56,6 +57,7 @@ class UserDashboard < Administrate::BaseDashboard
     bots
     subscriptions
     payments
+    affiliate
     reset_password_sent_at
     remember_created_at
     confirmed_at

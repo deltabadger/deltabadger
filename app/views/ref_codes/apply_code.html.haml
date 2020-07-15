@@ -1,0 +1,18 @@
+.container
+  .db-modal-positioner
+    .modal-dialog
+      .modal-content
+        .modal-body
+          %h2.db-modal-title Referral Link
+          = form_with local: true, url: ref_accept_path  do |f|
+            - refcode_presenter = Presenters::RefCodes::Show.new(@affiliate)
+            = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
+
+            = f.hidden_field :code, value: refcode_presenter.code
+
+            - if refcode_presenter.valid?
+              .form-group.db-form-group--main-btn
+                = f.submit "Accept", class: "btn btn-success btn-lg"
+            - else
+              .form-group.db-form-group--main-btn
+                = link_to "Back", dashboard_path, class: "btn btn-danger btn-lg"

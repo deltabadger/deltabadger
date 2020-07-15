@@ -5,6 +5,16 @@ GIT
     kraken_ruby_client (0.0.1)
       curb (~> 0.9)
 
+GIT
+  remote: https://github.com/lian/bitcoin-ruby
+  revision: f9b817c946b3ef99c7652c318c155200aadc6489
+  branch: master
+  specs:
+    bitcoin-ruby (0.0.20)
+      eventmachine
+      ffi
+      scrypt
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -118,10 +128,21 @@ GEM
     encryptor (3.0.0)
     erubi (1.8.0)
     erubis (2.7.0)
+    eventmachine (1.2.7)
     execjs (2.7.0)
+    factory_bot (5.2.0)
+      activesupport (>= 4.2.0)
+    factory_bot_rails (5.2.0)
+      factory_bot (~> 5.2.0)
+      railties (>= 4.2.0)
+    faker (2.12.0)
+      i18n (>= 1.6, < 2)
     faraday (0.15.4)
       multipart-post (>= 1.2, < 3)
     ffi (1.11.1)
+    ffi-compiler (1.0.1)
+      ffi (>= 1.0.0)
+      rake
     formatador (0.2.5)
     globalid (0.4.2)
       activesupport (>= 4.2.0)
@@ -323,6 +344,8 @@ GEM
       sprockets (> 3.0)
       sprockets-rails
       tilt
+    scrypt (3.0.7)
+      ffi-compiler (>= 1.0, < 2.0)
     selectize-rails (0.12.6)
     selenium-webdriver (3.142.3)
       childprocess (>= 0.5, < 2.0)
@@ -340,6 +363,8 @@ GEM
       rack-protection (>= 2.0.0)
       redis (>= 4.1.0)
     spring (2.1.0)
+    spring-commands-rspec (1.0.4)
+      spring (>= 0.9.1)
     spring-watcher-listen (2.0.1)
       listen (>= 2.7, < 4.0)
       spring (>= 1.2, < 3.0)
@@ -385,6 +410,7 @@ PLATFORMS
 DEPENDENCIES
   administrate
   attr_encrypted (~> 3.1.0)
+  bitcoin-ruby!
   bootsnap (>= 1.1.0)
   bundle-audit
   byebug
@@ -393,6 +419,8 @@ DEPENDENCIES
   chromedriver-helper
   devise
   dotenv-rails
+  factory_bot_rails
+  faker
   faraday
   guard-rspec
   guard-rubocop
@@ -412,6 +440,7 @@ DEPENDENCIES
   sentry-raven
   sidekiq
   spring
+  spring-commands-rspec
   spring-watcher-listen (~> 2.0.0)
   tzinfo-data
   uglifier (>= 1.3.0)

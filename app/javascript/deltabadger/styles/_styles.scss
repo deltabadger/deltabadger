@@ -43,14 +43,14 @@
 }
 
 $borderColorLight:   #dee2e6;
-$bgColorLight:       #fafafa;
+$bgColorLight:       #fafbfc;
 $textColorLight:     #666;
 $sidebarItemHeight:  56px;
 $sidebarItemPadding: 20px;
 
 $textColorInverted:  rgba(255,255,255,1);
 
-$successLigher:      lighten($success,10%);
+$successLighter:      lighten($success,10%);
 
 $bgColor:            $bgColorLight;
 $bgBot:              white;
@@ -73,11 +73,12 @@ $boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
 
 $footerHeight:       50px;
 html {
-  background: #f1f2f3;
+  background: #f7f8f9;
 }
 body {
   font-family: $fontText;
   background: none;
+  color: $textColor;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
@@ -88,6 +89,9 @@ h1 {
   @include media-breakpoint-down(xs) {
     font-size:   2rem;
   }
+}
+.form-control-range {
+  filter: brightness(.95) contrast(2) saturate(.6);
 }
 sur {
   position: relative;
@@ -333,7 +337,7 @@ svg * {
 // free
 
 .text-success--lighter {
-  color: $successLigher !important;
+  color: $successLighter !important;
   text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 .text-danger--lighter {
@@ -366,6 +370,11 @@ svg * {
 
 // modal
 
+.db--devise {
+  .modal-dialog {
+    width: 500px;
+  }
+}
 .db-modal-positioner {
   width:           100%;
   height:          calc(100vh - 2 * (#{$navbarHeight} + 2 * #{$navbarExtraPadding}));
@@ -374,8 +383,10 @@ svg * {
   align-items:     flex-start;
   display:         flex;
 }
-.modal-body {
-  box-shadow: $boxShadowBox;
+.modal-content {
+  //box-shadow: $boxShadowBox;
+  border: none;
+  background: none;
 }
 .modal-content {
   border-color: #ddd;
@@ -389,7 +400,11 @@ svg * {
 
 .db-modal-title {
   text-align:    center;
+  margin-bottom: 3rem;
+}
+.db-modal__subtitle {
   margin-bottom: 2rem;
+  text-align: center;
 }
 .db-form-group--main-btn {
   text-align: center;
@@ -404,6 +419,12 @@ svg * {
 }
 .db-form-group--fg-2 {
   flex-grow: 3;
+}
+.db-form-group--eu-company {
+  display: none;
+}
+.db-form-group--eu-company__visible {
+  display: block;
 }
 
 // page
@@ -478,7 +499,12 @@ svg * {
 }
 
 .db-settings-section {
-  margin-bottom: 2.2rem;
+  margin-bottom: 4rem;
+}
+.db-setting__button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
 }
 
 // footer
@@ -601,10 +627,14 @@ svg * {
 
 // limit reached
 .alert {
-  padding: 15px 25px;
+  padding: 16px 25px;
   box-shadow: $boxShadowAlert;
   .close {
-    margin-left: 1em
+    align-self: baseline;
+    margin-left: 1em;
+    opacity: 0.8;
+    text-shadow: none;
+    color: inherit;
   }
 }
 .db-alert--flex {
@@ -682,21 +712,64 @@ svg * {
 
 .db-table--checkout {
   td {
-    padding: .5rem 0;
+    padding: .85rem 0 .5rem;
     text-align: right;
     font-weight: bold;
     &:first-child {
-      text-align: left;
+      width: 35px;
+      padding-left: 13px;
+      border-radius: $box-border-radius 0 0 $box-border-radius;
+      &+td {
+        padding-left: 10px;
+        text-align: left;
+      }
     }
+    &:last-child {
+      padding-right: 20px;
+      border-radius: 0 $box-border-radius $box-border-radius 0;
+    }
+  }
+}
+.db-plan {
+  transition: all 200ms ease-in-out;
+}
+.db-plan--current,
+.db-plan--other {
+  td:first-child {
+    color: $primary;
+  }
+}
+.db-plan.db-plan--current {
+  background: #fff;
+}
+.db-plan.db-plan--other {
+  cursor: pointer;
+  background: #ecf0f5;
+  &:hover {
+    background: #d2d7e0;
+  }
+}
+.db-plan--divider {
+  height: 10px;
+  td {
+    text-align: left;
+    padding-left: 0 !important;
+  }
+}
+.db-plan--selected {
+  cursor: default;
+  td {
+    background: $primary;
+    color: #fff; //#ceddf5;
+    box-shadow: 1px 1px 20px transparentize($primary, 1);
   }
 }
 .db-billing-item__info {
   padding: 0.5em 0;
   font-weight: normal;
-  font-size: 0.8em;
   line-height: 1.25em;
   display: block;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 .db-upgrade-modal--eu {
   .db-show--eu { display: inline; }
@@ -711,7 +784,7 @@ svg * {
 .db-row--how-does-it-work {
   @include media-breakpoint-up(sm) {
     padding: 0 23px;
-    border-radius: 20px;
+    border-radius: $box-border-radius;
     margin-left: -25px;
     margin-right: -25px;
   }

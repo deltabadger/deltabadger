@@ -10,10 +10,34 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_06_19_114111) do
+ActiveRecord::Schema.define(version: 2020_07_02_111114) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "affiliates", force: :cascade do |t|
+    t.bigint "user_id"
+    t.integer "type", null: false
+    t.string "name"
+    t.string "address"
+    t.string "vat_number"
+    t.string "btc_address", null: false
+    t.string "code", null: false
+    t.string "visible_name"
+    t.string "visible_link"
+    t.decimal "max_profit", precision: 12, scale: 2, null: false
+    t.decimal "discount_percent", precision: 3, scale: 2, null: false
+    t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "new_btc_address"
+    t.string "new_btc_address_token"
+    t.datetime "new_btc_address_send_at"
+    t.boolean "active", default: true, null: false
+    t.index ["code"], name: "index_affiliates_on_code", unique: true
+    t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
+    t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true
+  end
 
   create_table "api_keys", force: :cascade do |t|
     t.bigint "exchange_id", null: false
@@ -124,11 +148,13 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
     t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_showed", default: false
+    t.bigint "referrer_id"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
   add_foreign_key "bots", "exchanges"
@@ -136,4 +162,5 @@ ActiveRecord::Schema.define(version: 2020_06_19_114111) do
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
+  add_foreign_key "users", "affiliates", column: "referrer_id"
 end

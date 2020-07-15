@@ -16,8 +16,17 @@ Rails.application.routes.draw do
     post :payment_callback
   end
 
+  resource :affiliate, path: 'referral_program', only: [:new, :create, :show] do
+    get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
+    patch :update_btc_address
+  end
+
+  get '/ref/:code', to: 'ref_codes#apply_code'
+  post '/ref/accept', to: 'ref_codes#accept'
+
   namespace :admin do
     resources :users, except: [:destroy]
+    resources :affiliates#, except: [:destroy]
     resources :api_keys, except: [:edit, :update]
     resources :bots
     resources :exchanges
@@ -46,9 +55,10 @@ Rails.application.routes.draw do
     end
   end
 
-  devise_for :users, path_names: {
-    edit: ''
-  }
+  devise_for :users,
+    controllers: { registrations: 'users/registrations' },
+    path_names: { edit: '' }
+
   root to: 'home#index'
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard

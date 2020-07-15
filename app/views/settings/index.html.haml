@@ -1,12 +1,10 @@
-.db-content__box.db-content__box--settings
-  .row
-    .col
+.modal-dialog(role="document")
+  .modal-content
+    .modal-body
+      %h2.db-modal-title Settings
       = render "devise/shared/error_messages", resource: user
-  .row
-    .col-md
       = render partial: 'update_email_form', locals: { user: user }
       = render partial: 'update_password_form', locals: { user: user }
-    .col-md
       = render partial: 'credits', locals: { user: user }
       -# .db-settings-section
       -#   %h2 Email notifications
@@ -15,5 +13,5 @@
       -#     %label.form-check-label{:for => "defaultCheck2"}
       -#       Platform news & updates
       .db-settings-section
-        %h2 Api Keys
+        %h4.db-modal__subtitle Api Keys
         = render partial: 'remove_api_key', collection: api_keys, as: :api_key
