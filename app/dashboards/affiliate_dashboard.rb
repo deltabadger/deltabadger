@@ -14,7 +14,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
     active: Field::Boolean,
     name: Field::String,
     address: Field::String,
-    vat_number: Field::DateTime,
+    vat_number: Field::String,
     btc_address: Field::String,
     code: Field::String,
     visible_name: Field::String,

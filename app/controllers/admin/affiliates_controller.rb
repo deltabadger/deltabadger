@@ -48,16 +48,20 @@ module Admin
 
     def wallet_csv
       file = Affiliates::GenerateCommissionsWalletCsv.call
-      filename = "commissions-wallet-#{Time.now.strftime('%F')}.csv"
 
-      send_data(file, filename: filename)
+      send_data(file, filename: filename('wallet'))
     end
 
     def accounting_csv
       file = Affiliates::GenerateCommissionsAccountingCsv.call
-      filename = "commissions-accounting-#{Time.now.strftime('%F')}.csv"
 
-      send_data(file, filename: filename)
+      send_data(file, filename: filename('accounting'))
+    end
+
+    private
+
+    def filename(type)
+      "deltabadger-commissions-#{type}-#{Time.current.strftime('%F')}.csv"
     end
   end
 end
