@@ -1,0 +1,9 @@
+%td(scope="col")
+  <i class="material-icons-round">eco</i>
+%td(scope="col")
+  Saver
+  %span.db-billing-item__info
+    Free forever for transactions up to <span class="db-show--eu">€#{free_limit}</span><span class="db-show--other">$#{free_limit}</span>/year.
+    (<span class="db-show--eu">€</span><span class="db-show--other">$</span>#{current_user.credits.round} left)
+%td(scope="col")
+%td.pl-4(scope="col") Free

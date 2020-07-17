@@ -1,86 +1,12 @@
 - unless current_user.unlimited?
+  - hodler_selected = payment.subscription_plan_id == hodler_plan.id
+
+  %h4.db-modal__subtitle Billing information
   = form_for payment, url: upgrade_pay_path do |f|
     - if errors.present?
       %ul.pl-3
         - errors.each do |error|
           %li.text-danger= error
-
-    - hodler_selected = payment.subscription_plan_id == hodler_plan.id
-    %table.table.db-table--checkout
-      %tbody.table-borderless
-        %tr.db-plan--divider
-        %tr.db-plan--divider
-        %tr.db-plan--divider
-        %tr.db-plan--divider
-          %td(scope="col" colspan="4")
-            %h5 Make an upgrade:
-
-        %tr.db-plan.db-plan-investor{class: "db-plan--#{hodler_selected ? 'other' : 'selected'}"}
-          %td(scope="col")
-            <i class="material-icons-round">star</i>
-          %td(scope="col")
-            Investor (1 year)<br/>
-            %span.db-billing-item__info One year of unlimited transactions.
-          %td(scope="col")
-          %td.pl-4(scope="col")
-            %span.db-show--eu €#{eu_price_presenter.price_with_vat}
-            %span.db-show--other $#{other_price_presenter.price_with_vat}
-        %tr.db-plan--divider
-        %tr.db-plan--divider
-
-        %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
-          %td(scope="col")
-            <i class="material-icons-round">stars</i>
-          %td(scope="col")
-            Hodler (4 years)<br/>
-            %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
-          %td(scope="col")
-          %td.pl-4(scope="col")
-            %span.db-show--eu €#{hodler_eu_price_presenter.price_with_vat}
-            %span.db-show--other $#{hodler_other_price_presenter.price_with_vat}
-
-        %tr.db-plan--divider
-        - if referrer.present?
-          - discount_presenter = Presenters::RefCodes::Show.new(referrer)
-          %tr.text-success
-            %td(scope="col")
-              <i class="material-icons-round">check_circle</i>
-            %td(scope="col")
-              %b Discount activated
-              %span.db-billing-item__info.text-dark
-                - if discount_presenter.info?
-                  Thanks to the referral link from <b><a href="#{discount_presenter.visible_link}">#{discount_presenter.visible_name}</a></b>.
-                Valid for the first purchase on the platform.
-            %td(scope="col")
-            %td.pl-4(scope="col")
-              %b -#{discount_presenter.discount_percent}%
-
-      - locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter, hodler_eu_price_presenter: hodler_eu_price_presenter, hodler_other_price_presenter: hodler_other_price_presenter, investor_plan: investor_plan, hodler_plan: hodler_plan, referrer: referrer }
-      = render partial: "upgrade_summary", locals: locals
-    -# .form-group
-    -#   %input(type='radio' id='payment_plan_investor' name='payment[plan]')
-    -#   %label(for='payment_plan_investor')
-    -#     %tr.db-plan.db-plan--other
-    -#       %td(scope="col")
-    -#         <i class="material-icons-round">stars</i>
-    -#       %td(scope="col")
-    -#         Hodler (4 years)<br/>
-    -#         %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
-    -#       %td(scope="col")
-    -#       %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
-    -#   %input(type='radio' id='payment_plan_hodler' name='payment[plan]')
-    -#   %label(for='payment_plan_hodler')
-    -#     %tr.db-plan.db-plan--other
-    -#       %td(scope="col")
-    -#         <i class="material-icons-round">stars</i>
-    -#       %td(scope="col")
-    -#         Hodler (4 years)<br/>
-    -#         %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
-    -#       %td(scope="col")
-    -#       %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
-
-
-    %h4.db-modal__subtitle Billing information
 
     %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: investor_plan.id, checked: !hodler_selected}
     %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: hodler_plan.id, checked: hodler_selected}
@@ -95,21 +21,20 @@
 
     .form-group
       = f.label :birth_date
-      = f.date_field :birth_date, class: 'example-data-input form-control'
+      = f.date_field :birth_date, class: 'form-control'
 
     .form-group
       %label Country
       %br
       .form-check.form-check-inline
         = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input radio--eu', id: 'radioEu'
-        = f.label :eu, "European Union", class: 'form-check-label', for: 'radioEu'
+        = f.label :eu, 'European Union', class: 'form-check-label', for: 'radioEu'
       .form-check.form-check-inline
         = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input radio--other', id: 'radioOther'
-        = f.label :eu, "Other", class: 'form-check-label', for: 'radioOther'
+        = f.label :eu, 'Other', class: 'form-check-label', for: 'radioOther'
 
     .form-group.db-form-group--main-btn
       %button.btn.btn-success.btn-lg{type: 'submit'}
         %span.mr-3 Checkout
-        %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :width => "24", :viewBox => "0 0 24 24"}
-          %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-          //   %i.material-icons-round arrow_forward
+        %svg{class: 'db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward', xmlns: 'http://www.w3.org/2000/svg', width: '24', viewBox: '0 0 24 24'}
+          %path{d: 'M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z'}

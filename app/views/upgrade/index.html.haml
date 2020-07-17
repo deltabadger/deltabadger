@@ -12,10 +12,10 @@
       %table.table.db-table--checkout
         %tbody.table-borderless
           %tr.db-plan--divider
-            -# = render partial: "current_plan", locals: locals
+            = render partial: "current_plan", locals: locals
 
-          -# = render partial: "upgrade_plans", locals: locals
+          = render partial: "upgrade_plans", locals: locals
 
-        -# = render partial: "upgrade_summary", locals: locals
+        = render partial: "upgrade_summary", locals: locals
 
       = render partial: "billing_form", locals: locals
