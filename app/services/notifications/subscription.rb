@@ -1,9 +1,9 @@
 module Notifications
   class Subscription
-    def unlimited_granted(user:)
+    def subscription_granted(user:, subscription_plan:)
       SubscriptionMailer
-        .with(user: user)
-        .unlimited_granted
+        .with(user: user, subscription_plan: subscription_plan)
+        .subscription_granted
         .deliver_later
     end
 

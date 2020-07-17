@@ -41,16 +41,32 @@ class UpgradeController < ApplicationController
     referrer = current_user.eligible_referrer
     discount = referrer&.discount_percent || 0
 
+    saver_plan = SubscriptionPlan.find_by!(name: 'saver')
+    investor_plan = SubscriptionPlan.find_by!(name: 'investor')
+    hodler_plan = SubscriptionPlan.find_by!(name: 'hodler')
+
     {
-      free_limit: User::FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT,
+      free_limit: saver_plan.credits,
       referrer: referrer,
+      investor_plan: investor_plan,
+      hodler_plan: hodler_plan,
+      hodler_eu_calculator: cost_calculator.new(
+        base_price: hodler_plan.cost_eu,
+        vat: Payments::Create::VAT_EU,
+        discount_percent: discount
+      ),
+      hodler_other_calculator: cost_calculator.new(
+        base_price: hodler_plan.cost_other,
+        vat: Payments::Create::VAT_OTHER,
+        discount_percent: discount
+      ),
       eu_calculator: cost_calculator.new(
-        base_price: Payments::Create::COST_EU,
+        base_price: investor_plan.cost_eu,
         vat: Payments::Create::VAT_EU,
         discount_percent: discount
       ),
       other_calculator: cost_calculator.new(
-        base_price: Payments::Create::COST_OTHER,
+        base_price: investor_plan.cost_other,
         vat: Payments::Create::VAT_OTHER,
         discount_percent: discount
       )
@@ -60,7 +76,7 @@ class UpgradeController < ApplicationController
   def payment_params
     params
       .require(:payment)
-      .permit(:first_name, :last_name, :birth_date, :eu)
+      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :eu)
       .merge(user: current_user)
   end
 end

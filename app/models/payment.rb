@@ -1,5 +1,6 @@
 class Payment < ApplicationRecord
   belongs_to :user
+  belongs_to :subscription_plan
 
   enum currency: %i[USD EUR PLN]
   # we only use unpaid, cancelled, paid

@@ -757,6 +757,15 @@ svg * {
     background: #d2d7e0;
   }
 }
+.db-plan-radio {
+  display: none;
+}
+.db-upgrade-modal--investor {
+  .db-show--hodler { display: none; }
+}
+.db-upgrade-modal--hodler {
+  .db-show--investor { display: none; }
+}
 .db-plan--divider {
   height: 10px;
   td {

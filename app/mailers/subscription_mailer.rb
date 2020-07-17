@@ -1,8 +1,9 @@
 class SubscriptionMailer < ApplicationMailer
-  def unlimited_granted
+  def subscription_granted
     @user = params[:user]
+    @subscription_plan = params[:subscription_plan]
 
-    mail(to: @user.email, subject: 'Unlimited granted')
+    mail(to: @user.email, subject: "#{@subscription_plan.name.capitalize} plan granted")
   end
 
   def invoice

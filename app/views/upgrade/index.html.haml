@@ -1,18 +1,21 @@
 - eu_price_presenter = Presenters::Payments::Cost.new(eu_calculator)
 - other_price_presenter = Presenters::Payments::Cost.new(other_calculator)
-- locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter, referrer: referrer }
+- hodler_eu_price_presenter = Presenters::Payments::Cost.new(hodler_eu_calculator)
+- hodler_other_price_presenter = Presenters::Payments::Cost.new(hodler_other_calculator)
+- locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter, hodler_eu_price_presenter: hodler_eu_price_presenter, hodler_other_price_presenter: hodler_other_price_presenter, investor_plan: investor_plan, hodler_plan: hodler_plan, referrer: referrer }
 
 .modal-dialog(role="document")
   .modal-content
-    .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{payment.eu ? 'eu' : 'other'}"}
+    - hodler_selected = payment.subscription_plan_id == hodler_plan.id
+    .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{payment.eu ? 'eu' : 'other'} db-upgrade-modal--#{hodler_selected ? 'hodler' : 'investor'}"}
       %h2.db-modal-title Plans
       %table.table.db-table--checkout
         %tbody.table-borderless
           %tr.db-plan--divider
-            = render partial: "current_plan", locals: locals
+            -# = render partial: "current_plan", locals: locals
 
-          = render partial: "upgrade_plans", locals: locals
+          -# = render partial: "upgrade_plans", locals: locals
 
-        = render partial: "upgrade_summary", locals: locals
+        -# = render partial: "upgrade_summary", locals: locals
 
       = render partial: "billing_form", locals: locals

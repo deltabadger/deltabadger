@@ -1,7 +1,5 @@
 module Payments
   class Create < BaseService
-    COST_EU = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_AMOUNT__EU')
-    COST_OTHER = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_AMOUNT__OTHER')
     CURRENCY_EU = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_CURRENCY__EU')
     CURRENCY_OTHER = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_CURRENCY__OTHER')
     VAT_EU = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_VAT__EU')
@@ -63,20 +61,21 @@ module Payments
     end
 
     def get_cost_calculator(payment, user)
+      subscription_plan = payment.subscription_plan
       referrer = user.eligible_referrer
       discount_percent = referrer&.discount_percent || 0
       commission_percent = referrer&.commission_percent || 0
 
       if payment.eu?
         @cost_calculator_class.new(
-          base_price: COST_EU,
+          base_price: subscription_plan.cost_eu,
           vat: VAT_EU,
           discount_percent: discount_percent,
           commission_percent: commission_percent
         )
       else
         @cost_calculator_class.new(
-          base_price: COST_OTHER,
+          base_price: subscription_plan.cost_other,
           vat: VAT_OTHER,
           discount_percent: discount_percent,
           commission_percent: commission_percent

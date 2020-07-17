@@ -1,20 +1,100 @@
 - unless current_user.unlimited?
-  %h4.db-modal__subtitle Billing information
-  - if errors.present?
-    %ul.pl-3
-      - errors.each do |error|
-        %li.text-danger= error
   = form_for payment, url: upgrade_pay_path do |f|
+    - if errors.present?
+      %ul.pl-3
+        - errors.each do |error|
+          %li.text-danger= error
+
+    - hodler_selected = payment.subscription_plan_id == hodler_plan.id
+    %table.table.db-table--checkout
+      %tbody.table-borderless
+        %tr.db-plan--divider
+        %tr.db-plan--divider
+        %tr.db-plan--divider
+        %tr.db-plan--divider
+          %td(scope="col" colspan="4")
+            %h5 Make an upgrade:
+
+        %tr.db-plan.db-plan-investor{class: "db-plan--#{hodler_selected ? 'other' : 'selected'}"}
+          %td(scope="col")
+            <i class="material-icons-round">star</i>
+          %td(scope="col")
+            Investor (1 year)<br/>
+            %span.db-billing-item__info One year of unlimited transactions.
+          %td(scope="col")
+          %td.pl-4(scope="col")
+            %span.db-show--eu €#{eu_price_presenter.price_with_vat}
+            %span.db-show--other $#{other_price_presenter.price_with_vat}
+        %tr.db-plan--divider
+        %tr.db-plan--divider
+
+        %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
+          %td(scope="col")
+            <i class="material-icons-round">stars</i>
+          %td(scope="col")
+            Hodler (4 years)<br/>
+            %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+          %td(scope="col")
+          %td.pl-4(scope="col")
+            %span.db-show--eu €#{hodler_eu_price_presenter.price_with_vat}
+            %span.db-show--other $#{hodler_other_price_presenter.price_with_vat}
+
+        %tr.db-plan--divider
+        - if referrer.present?
+          - discount_presenter = Presenters::RefCodes::Show.new(referrer)
+          %tr.text-success
+            %td(scope="col")
+              <i class="material-icons-round">check_circle</i>
+            %td(scope="col")
+              %b Discount activated
+              %span.db-billing-item__info.text-dark
+                - if discount_presenter.info?
+                  Thanks to the referral link from <b><a href="#{discount_presenter.visible_link}">#{discount_presenter.visible_name}</a></b>.
+                Valid for the first purchase on the platform.
+            %td(scope="col")
+            %td.pl-4(scope="col")
+              %b -#{discount_presenter.discount_percent}%
+
+      - locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter, hodler_eu_price_presenter: hodler_eu_price_presenter, hodler_other_price_presenter: hodler_other_price_presenter, investor_plan: investor_plan, hodler_plan: hodler_plan, referrer: referrer }
+      = render partial: "upgrade_summary", locals: locals
+    -# .form-group
+    -#   %input(type='radio' id='payment_plan_investor' name='payment[plan]')
+    -#   %label(for='payment_plan_investor')
+    -#     %tr.db-plan.db-plan--other
+    -#       %td(scope="col")
+    -#         <i class="material-icons-round">stars</i>
+    -#       %td(scope="col")
+    -#         Hodler (4 years)<br/>
+    -#         %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+    -#       %td(scope="col")
+    -#       %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
+    -#   %input(type='radio' id='payment_plan_hodler' name='payment[plan]')
+    -#   %label(for='payment_plan_hodler')
+    -#     %tr.db-plan.db-plan--other
+    -#       %td(scope="col")
+    -#         <i class="material-icons-round">stars</i>
+    -#       %td(scope="col")
+    -#         Hodler (4 years)<br/>
+    -#         %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+    -#       %td(scope="col")
+    -#       %td.pl-4(scope="col") <span class="db-show--eu">€149.99</span><span class="db-show--other">$149.99</span>
+
+
+    %h4.db-modal__subtitle Billing information
+
+    %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: investor_plan.id, checked: !hodler_selected}
+    %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: hodler_plan.id, checked: hodler_selected}
+
     .form-group
-      %label(for="first_name") Name
+      = f.label :first_name, 'Name'
       = f.text_field :first_name, class: 'form-control'
 
     .form-group
-      %label(for="last_name") Surname
+      = f.label :last_name, 'Surname'
       = f.text_field :last_name, class: 'form-control'
 
     .form-group
-      %label{:for => "example-date-input"} Birth date
+      = f.label :birth_date
       = f.date_field :birth_date, class: 'example-data-input form-control'
 
     .form-group

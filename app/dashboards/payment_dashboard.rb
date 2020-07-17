@@ -11,6 +11,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     id: Field::Number,
     user: Field::BelongsTo,
     payment_id: Field::String,
+    subscription_plan: Field::BelongsTo,
     status: Field::String.with_options(searchable: false),
     external_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
@@ -35,6 +36,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
     id
+    subscription_plan
     status
     total
     currency
@@ -52,6 +54,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
     id
+    subscription_plan
     status
     total
     currency
