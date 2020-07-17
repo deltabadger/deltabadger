@@ -97,6 +97,8 @@ ActiveRecord::Schema.define(version: 2020_07_20_101343) do
     t.decimal "commission", default: "0.0", null: false
     t.decimal "crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.boolean "discounted", default: false, null: false
+    t.bigint "subscription_plan_id", null: false
+    t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
@@ -111,6 +113,11 @@ ActiveRecord::Schema.define(version: 2020_07_20_101343) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "years", default: 1, null: false
+    t.integer "credits", default: 500, null: false
+    t.boolean "unlimited", default: false, null: false
+    t.decimal "cost_eu", default: "0.0", null: false
+    t.decimal "cost_other", default: "0.0", null: false
   end
 
   create_table "subscriptions", force: :cascade do |t|
@@ -167,6 +174,7 @@ ActiveRecord::Schema.define(version: 2020_07_20_101343) do
   add_foreign_key "api_keys", "users"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "payments", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
