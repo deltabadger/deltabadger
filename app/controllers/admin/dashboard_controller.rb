@@ -4,7 +4,8 @@ class Admin::DashboardController < Admin::ApplicationController
 
     render :index, locals: {
       number_of_all_users: User.count,
-      number_of_unlimited_plans: SubscriptionsRepository.new.all_current_unlimited_count,
+      number_of_investor_plans: SubscriptionsRepository.new.all_current_count('investor'),
+      number_of_hodler_plans: SubscriptionsRepository.new.all_current_count('hodler'),
       number_of_all_bots: Bot.count,
       number_of_all_transactions: Transaction.count,
       transations_by_exchange: transations_by_exchange
