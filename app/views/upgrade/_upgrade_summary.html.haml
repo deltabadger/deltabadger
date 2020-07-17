@@ -3,30 +3,12 @@
     %tr
       %td(scope="col")
       %td(scope="col")
-      %td(scope="col")
+      %td(scope='col')
         %b Sum:
-      %td.pl-4(scope="col")
+      %td.pl-4(scope='col')
         %b
           .db-show--investor
-            - if referrer.present?
-              %span.db-show--eu
-                %span.text-success= "€#{eu_price_presenter.total_price}"
-                %s= "€#{eu_price_presenter.price_with_vat}"
-              %span.db-show--other
-                %span.text-success= "$#{other_price_presenter.total_price}"
-                %s= "$#{other_price_presenter.price_with_vat}"
-            - else
-              %span.db-show--eu= "€#{eu_price_presenter.total_price}"
-              %span.db-show--other= "$#{other_price_presenter.total_price}"
+            = render partial: 'upgrade_summary_plan', locals: { referrer: referrer, cost_presenters: cost_presenters[:investor] }
 
           .db-show--hodler
-            - if referrer.present?
-              %span.db-show--eu
-                %span.text-success= "€#{hodler_eu_price_presenter.total_price}"
-                %s= "€#{hodler_eu_price_presenter.price_with_vat}"
-              %span.db-show--other
-                %span.text-success= "$#{hodler_other_price_presenter.total_price}"
-                %s= "$#{hodler_other_price_presenter.price_with_vat}"
-            - else
-              %span.db-show--eu= "€#{hodler_eu_price_presenter.total_price}"
-              %span.db-show--other= "$#{hodler_other_price_presenter.total_price}"
+            = render partial: 'upgrade_summary_plan', locals: { referrer: referrer, cost_presenters: cost_presenters[:hodler] }

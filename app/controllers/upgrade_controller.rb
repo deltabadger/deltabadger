@@ -37,9 +37,7 @@ class UpgradeController < ApplicationController
   private
 
   def default_locals
-    cost_calculator = Payments::CostCalculator
     referrer = current_user.eligible_referrer
-    discount = referrer&.discount_percent || 0
 
     saver_plan = SubscriptionPlan.find_by!(name: 'saver')
     investor_plan = SubscriptionPlan.find_by!(name: 'investor')
@@ -49,27 +47,34 @@ class UpgradeController < ApplicationController
       free_limit: saver_plan.credits,
       referrer: referrer,
       investor_plan: investor_plan,
-      hodler_plan: hodler_plan,
-      hodler_eu_calculator: cost_calculator.new(
-        base_price: hodler_plan.cost_eu,
-        vat: Payments::Create::VAT_EU,
-        discount_percent: discount
-      ),
-      hodler_other_calculator: cost_calculator.new(
-        base_price: hodler_plan.cost_other,
-        vat: Payments::Create::VAT_OTHER,
-        discount_percent: discount
-      ),
-      eu_calculator: cost_calculator.new(
-        base_price: investor_plan.cost_eu,
-        vat: Payments::Create::VAT_EU,
-        discount_percent: discount
-      ),
-      other_calculator: cost_calculator.new(
-        base_price: investor_plan.cost_other,
-        vat: Payments::Create::VAT_OTHER,
-        discount_percent: discount
-      )
+      hodler_plan: hodler_plan
+    }.merge(cost_calculators(referrer, investor_plan, hodler_plan))
+  end
+
+  def cost_calculators(referrer, investor_plan, hodler_plan) # rubocop:disable Metrics/MethodLength
+    discount = referrer&.discount_percent || 0
+    factory = Payments::CostCalculatorFactory.new
+    presenter = Presenters::Payments::Cost
+
+    {
+      cost_presenters: {
+        investor: {
+          eu: presenter.new(
+            factory.call(eu: true, subscription_plan: investor_plan, discount_percent: discount)
+          ),
+          other: presenter.new(
+            factory.call(eu: false, subscription_plan: investor_plan, discount_percent: discount)
+          )
+        },
+        hodler: {
+          eu: presenter.new(
+            factory.call(eu: true, subscription_plan: hodler_plan, discount_percent: discount)
+          ),
+          other: presenter.new(
+            factory.call(eu: false, subscription_plan: hodler_plan, discount_percent: discount)
+          )
+        }
+      }
     }
   end
 

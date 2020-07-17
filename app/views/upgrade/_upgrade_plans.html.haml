@@ -8,13 +8,13 @@
       %h5 Make an upgrade:
 
   %tr.db-plan.db-plan-investor{class: "db-plan--#{hodler_selected ? 'other' : 'selected'}"}
-    = render partial: 'investor_card', locals: { days_left: nil, eu_price_presenter: eu_price_presenter, other_price_presenter: other_price_presenter }
+    = render partial: 'investor_card', locals: { days_left: nil, cost_presenters: cost_presenters[:investor] }
 
   %tr.db-plan--divider
   %tr.db-plan--divider
 
   %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
-    = render partial: 'hodler_card', locals: { days_left: nil, hodler_eu_price_presenter: hodler_eu_price_presenter, hodler_other_price_presenter: hodler_other_price_presenter }
+    = render partial: 'hodler_card', locals: { days_left: nil, cost_presenters: cost_presenters[:hodler] }
 
   %tr.db-plan--divider
   - if referrer.present?
