@@ -3,7 +3,7 @@
     %span.text-success= "€#{cost_presenters[:eu].total_price}"
     %s= "€#{cost_presenters[:eu].price_with_vat}"
   %span.db-show--other
-    %span.text-success= "€#{cost_presenters[:other].total_price}"
+    %span.text-success= "$#{cost_presenters[:other].total_price}"
     %s= "$#{cost_presenters[:other].price_with_vat}"
 - else
   %span.db-show--eu= "€#{cost_presenters[:eu].total_price}"
