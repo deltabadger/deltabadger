@@ -26,7 +26,12 @@ Rails.application.routes.draw do
 
   namespace :admin do
     resources :users, except: [:destroy]
-    resources :affiliates#, except: [:destroy]
+    resources :affiliates, except: [:destroy] do
+      get :wallet_csv, on: :collection
+      get :accounting_csv, on: :collection
+      post :mark_as_exported, on: :collection
+      post :mark_as_paid, on: :collection
+    end
     resources :api_keys, except: [:edit, :update]
     resources :bots
     resources :exchanges
