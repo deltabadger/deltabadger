@@ -1,9 +1,9 @@
 module Payments
   class Create < BaseService
-    CURRENCY_EU = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_CURRENCY__EU')
-    CURRENCY_OTHER = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_CURRENCY__OTHER')
-    VAT_EU = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_VAT__EU')
-    VAT_OTHER = ENV.fetch('UNLIMITED_SUBSCRYPTION_COST_VAT__OTHER')
+    CURRENCY_EU = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
+    CURRENCY_OTHER = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
+    VAT_EU = ENV.fetch('PAYMENT_VAT__EU').freeze
+    VAT_OTHER = ENV.fetch('PAYMENT_VAT__OTHER').freeze
 
     def initialize(
       client: Payments::Client.new,
