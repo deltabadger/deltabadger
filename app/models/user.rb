@@ -2,7 +2,7 @@ class User < ApplicationRecord
   FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT =
     ENV.fetch('FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT')
 
-  after_create :add_subscription
+  after_create :subscription
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
@@ -18,13 +18,11 @@ class User < ApplicationRecord
   validate :active_referrer, on: :create
 
   def subscription
-    current_subscription = subscriptions.last
-
-    if current_subscription.nil? || current_subscription.end_time < Time.now
-      add_subscription
-      subscription
-    else
-      current_subscription
+    now = Time.current
+    subscriptions.where('end_time > ?', now).order(end_time: :desc).first_or_create do |sub|
+      sub.subscription_plan = SubscriptionPlan.find_or_create_by(name: 'free')
+      sub.end_time = now + 1.year
+      sub.credits = FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
     end
   end
 
@@ -64,13 +62,5 @@ class User < ApplicationRecord
 
   def eligible_for_discount?
     !payments.paid.where(discounted: true).exists?
-  end
-
-  def add_subscription
-    subscriptions << Subscription.new(
-      subscription_plan: SubscriptionPlan.find_or_create_by(name: 'free'),
-      end_time: created_at + 1.year,
-      credits: FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
-    )
   end
 end
