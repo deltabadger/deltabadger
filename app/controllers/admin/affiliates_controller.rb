@@ -33,5 +33,35 @@ module Admin
     def model_name
       :affiliate
     end
+
+    def mark_as_exported
+      Affiliates::MarkUnexportedCommissionAsExported.call
+
+      head 200
+    end
+
+    def mark_as_paid
+      Affiliates::MarkExportedCommissionAsPaid.call
+
+      head 200
+    end
+
+    def wallet_csv
+      file = Affiliates::GenerateCommissionsWalletCsv.call
+
+      send_data(file, filename: filename('wallet'))
+    end
+
+    def accounting_csv
+      file = Affiliates::GenerateCommissionsAccountingCsv.call
+
+      send_data(file, filename: filename('accounting'))
+    end
+
+    private
+
+    def filename(type)
+      "deltabadger-commissions-#{type}-#{Time.current.strftime('%F')}.csv"
+    end
   end
 end
