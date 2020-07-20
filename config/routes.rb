@@ -18,6 +18,7 @@ Rails.application.routes.draw do
 
   resource :affiliate, path: 'referral_program', only: [:new, :create, :show] do
     get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
+    patch :update_visible_info
     patch :update_btc_address
   end
 
