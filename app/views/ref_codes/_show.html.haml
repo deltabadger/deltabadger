@@ -9,7 +9,7 @@
           %b Congrats! The #{code_presenter.discount_percent}% discount is active.
           %span.db-billing-item__info.text-dark
             - if code_presenter.info?
-              Thanks to the referral link from <b><a href="#{code_presenter.visible_link}">#{code_presenter.visible_name}</a></b>.
+              Thanks to the referral link from <b><a href="#{code_presenter.visible_path}">#{code_presenter.visible_name}</a></b>.
             Valid for the first purchase on the platform.
     - else
       %tr.text-danger

@@ -1,6 +1,6 @@
 class AffiliatesController < ApplicationController
   before_action :authenticate_user!
-  before_action :fetch_affiliate!, only: %i[show update_btc_address confirm_btc_address]
+  before_action :fetch_affiliate!, only: %i[show update_visible_info update_btc_address confirm_btc_address]
   before_action :ensure_no_affiliate!, only: %i[new create]
   before_action :validate_password!, only: :update_btc_address
 
@@ -30,6 +30,12 @@ class AffiliatesController < ApplicationController
         errors: result.errors
       }
     end
+  end
+
+  def update_visible_info
+    Affiliates::UpdateVisibleInfo.call(affiliate: affiliate, params: params[:affiliate])
+
+    render :show, locals: { affiliate: affiliate, errors: [] }
   end
 
   def update_btc_address

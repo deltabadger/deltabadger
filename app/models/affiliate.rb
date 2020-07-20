@@ -28,6 +28,9 @@ class Affiliate < ApplicationRecord
     less_than_or_equal_to: :total_bonus_percent,
     greater_than_or_equal_to: MIN_DISCOUNT_PERCENT
   }
+
+  validates :visible_link_scheme, inclusion: { in: %w[https http] }
+
   validates_acceptance_of :check, message: 'that everything is correct'
 
   attr_reader :check

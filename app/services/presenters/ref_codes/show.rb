@@ -27,8 +27,8 @@ module Presenters
         affiliate.visible_name
       end
 
-      def visible_link
-        affiliate.visible_link
+      def visible_path
+        "#{affiliate.visible_link_scheme}://#{affiliate.visible_link}"
       end
     end
   end
