@@ -12,7 +12,7 @@ FactoryBot.define do
 
   factory :payment do
     user
-    subscription_plan { SubscriptionPlan.find_by!(name: 'investor') }
+    subscription_plan { SubscriptionPlansRepository.new.saver }
     status { :paid }
     total { 12 }
     crypto_total { 0.001 }
