@@ -39,9 +39,10 @@ class UpgradeController < ApplicationController
   def default_locals
     referrer = current_user.eligible_referrer
 
-    saver_plan = SubscriptionPlan.find_by!(name: 'saver')
-    investor_plan = SubscriptionPlan.find_by!(name: 'investor')
-    hodler_plan = SubscriptionPlan.find_by!(name: 'hodler')
+    subscription_plan_repository = SubscriptionPlansRepository.new
+    saver_plan = subscription_plan_repository.saver
+    investor_plan = subscription_plan_repository.investor
+    hodler_plan = subscription_plan_repository.hodler
 
     {
       free_limit: saver_plan.credits,

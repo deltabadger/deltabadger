@@ -5,5 +5,6 @@ class Subscription < ApplicationRecord
   scope :current, -> { where('end_time > ?', Time.now) }
 
   delegate :name, to: :subscription_plan
+  delegate :display_name, to: :subscription_plan
   delegate :unlimited?, to: :subscription_plan
 end

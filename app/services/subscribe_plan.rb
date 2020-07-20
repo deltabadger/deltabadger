@@ -11,7 +11,7 @@ class SubscribePlan < BaseService
     @subscriptions_repository.create(
       user_id: user.id,
       subscription_plan_id: subscription_plan.id,
-      end_time: Time.current + subscription_plan.years.to_i.years,
+      end_time: Time.current + subscription_plan.duration,
       credits: subscription_plan.credits
     )
 

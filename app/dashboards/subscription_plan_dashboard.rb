@@ -72,6 +72,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(subscription_plan)
-    subscription_plan.name.capitalize.to_s
+    subscription_plan.display_name
   end
 end

@@ -23,7 +23,7 @@
   %br
   = "#{@user.email}"
 %h2
-  = "Deltabadger #{@payment.subscription_plan.name.capitalize} Plan (#{@payment.subscription_plan.years}-year)"
+  = "Deltabadger #{@payment.subscription_plan.display_name} Plan (#{@payment.subscription_plan.years}-year)"
 %p
   %b= "Paid:"
 %h2
