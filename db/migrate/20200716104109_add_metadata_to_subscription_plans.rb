@@ -10,7 +10,7 @@ class AddMetadataToSubscriptionPlans < ActiveRecord::Migration[5.2]
       dir.up do
         execute <<~SQL
           UPDATE subscription_plans
-            SET unlimited = true, cost_eu = 20, cost_other = 20
+            SET unlimited = true, cost_eu = 49.99, cost_other = 49.99
             WHERE name <> 'free'
         SQL
       end

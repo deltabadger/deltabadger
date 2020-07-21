@@ -14,7 +14,7 @@ class AddNewSubscriptionPlans < ActiveRecord::Migration[5.2]
         SQL
         execute <<~SQL
           INSERT INTO subscription_plans (name, unlimited, years, cost_eu, cost_other, credits, created_at, updated_at)
-            VALUES ('hodler', true, 4, 60, 60, 500, NOW(), NOW())
+            VALUES ('hodler', true, 4, 149.99, 149.99, 500, NOW(), NOW())
         SQL
       end
 
@@ -28,6 +28,10 @@ class AddNewSubscriptionPlans < ActiveRecord::Migration[5.2]
           UPDATE subscription_plans
             SET name = 'unlimited'
             WHERE name = 'investor'
+        SQL
+        execute <<~SQL
+          DELETE FROM subscription_plans
+            WHERE name = 'hodler'
         SQL
       end
     end
