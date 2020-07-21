@@ -1,4 +1,4 @@
-- unless current_user.unlimited?
+- if upgrade_presenter.upgrade_available?
   %tfoot
     %tr
       %td(scope='col')
@@ -7,8 +7,12 @@
         %b Sum:
       %td.pl-4(scope='col')
         %b
-          .db-show--investor
-            = render partial: 'upgrade_summary_plan', locals: { referrer: referrer, cost_presenters: cost_presenters[:investor] }
+          - referrer = upgrade_presenter.referrer
 
-          .db-show--hodler
-            = render partial: 'upgrade_summary_plan', locals: { referrer: referrer, cost_presenters: cost_presenters[:hodler] }
+          - if 'investor'.in?(upgrade_presenter.available_plans)
+            .db-show--investor
+              = render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters[:investor] }
+
+          - if 'hodler'.in?(upgrade_presenter.available_plans)
+            .db-show--hodler
+              = render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters[:hodler] }

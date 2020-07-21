@@ -1,5 +1,4 @@
-- unless current_user.unlimited?
-  - hodler_selected = payment.subscription_plan_id == hodler_plan.id
+- if upgrade_presenter.upgrade_available?
   %tr.db-plan--divider
   %tr.db-plan--divider
   %tr.db-plan--divider
@@ -7,17 +6,34 @@
     %td(scope="col" colspan="4")
       %h5 Make an upgrade:
 
-  %tr.db-plan.db-plan-investor{class: "db-plan--#{hodler_selected ? 'other' : 'selected'}"}
-    = render partial: 'investor_card', locals: { days_left: nil, cost_presenters: cost_presenters[:investor] }
+  - if 'investor'.in?(upgrade_presenter.available_plans)
+    - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
+    %tr.db-plan.db-plan-investor{class: "db-plan--#{investor_selected ? 'selected' : 'other'}"}
+      = render partial: 'investor_card', locals: { days_left: nil, cost_presenters: cost_presenters[:investor] }
 
-  %tr.db-plan--divider
-  %tr.db-plan--divider
+    %tr.db-plan--divider
+    %tr.db-plan--divider
 
-  %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
-    = render partial: 'hodler_card', locals: { days_left: nil, cost_presenters: cost_presenters[:hodler] }
+  - if 'hodler'.in?(upgrade_presenter.available_plans)
+    - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
+    %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
+      = render partial: 'hodler_card', locals: { days_left: nil, cost_presenters: cost_presenters[:hodler] }
 
-  %tr.db-plan--divider
-  - if referrer.present?
+  - if upgrade_presenter.plan_upgrade_discount?
+    %tr.db-plan--divider
+    %tr.text-success
+      %td(scope="col")
+        <i class="material-icons-round">check_circle</i>
+      %td(scope="col")
+        %b Plan upgrade discount activated
+        %span.db-billing-item__info.text-dark
+          Because you have #{current_user.plan_days_left} days of Investor left.
+      %td(scope="col")
+      %td.pl-4(scope="col")
+        %b -$10.00
+
+  - if upgrade_presenter.referrer_discount?
+    %tr.db-plan--divider
     - discount_presenter = Presenters::RefCodes::Show.new(referrer)
     %tr.text-success
       %td(scope="col")

@@ -1,11 +1,10 @@
 %h5 Current plan:
 %tr.db-plan.db-plan--current
 - if current_user.unlimited?
-  - current_subscription_name = current_user.subscription.name
   - days_left = current_user.plan_days_left
-  - if current_subscription_name == 'investor'
+  - if upgrade_presenter.current_plan_name == 'investor'
     = render partial: 'investor_card', locals: { days_left: days_left }
   - else
     = render partial: 'hodler_card', locals: { days_left: days_left }
 - else
-  = render partial: 'saver_card', locals: { free_limit: free_limit }
+  = render partial: 'saver_card', locals: { free_limit: upgrade_presenter.current_plan.credits }

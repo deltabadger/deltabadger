@@ -1,6 +1,4 @@
-- unless current_user.unlimited?
-  - hodler_selected = payment.subscription_plan_id == hodler_plan.id
-
+- if upgrade_presenter.upgrade_available?
   %h4.db-modal__subtitle Billing information
   = form_for payment, url: upgrade_pay_path do |f|
     - if errors.present?
@@ -8,8 +6,12 @@
         - errors.each do |error|
           %li.text-danger= error
 
-    %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: investor_plan.id, checked: !hodler_selected}
-    %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: hodler_plan.id, checked: hodler_selected}
+    - if 'investor'.in?(upgrade_presenter.available_plans)
+      - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
+      %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected}
+    - if 'hodler'.in?(upgrade_presenter.available_plans)
+      - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
+      %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
 
     .form-group
       = f.label :first_name, 'Name'

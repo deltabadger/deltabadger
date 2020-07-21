@@ -1,4 +1,4 @@
-- if referrer.present?
+- if upgrade_presenter.discount?
   %span.db-show--eu
     %span.text-success= "€#{cost_presenters[:eu].total_price}"
     %s= "€#{cost_presenters[:eu].price_with_vat}"
