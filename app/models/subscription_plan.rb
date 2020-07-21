@@ -5,7 +5,7 @@ class SubscriptionPlan < ApplicationRecord
   validates :credits, numericality: { only_integer: true, greater_than: 0 }
 
   def duration
-    years.to_i.years
+    years.years
   end
 
   def display_name
