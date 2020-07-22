@@ -27,7 +27,7 @@ User.find_or_create_by(
 ) do |user|
   user.password = "polopolo"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current - 30.days)
+  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current - 30.days, credits: investor.credits)
 end
 
 User.find_or_create_by(
@@ -35,7 +35,7 @@ User.find_or_create_by(
 ) do |user|
   user.password = "polopolo"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current + investor.duration + 1.day)
+  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current + investor.duration + 1.day, credits: investor.credits)
 end
 
 
@@ -44,5 +44,5 @@ User.find_or_create_by(
 ) do |user|
   user.password = "polopolo"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: hodler, end_time: Time.current + hodler.duration + 1.day)
+  user.subscriptions << Subscription.new(subscription_plan: hodler, end_time: Time.current + hodler.duration + 1.day, credits: hodler.credits)
 end

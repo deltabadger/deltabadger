@@ -45,7 +45,6 @@ class UpgradeController < ApplicationController
     referrer = current_user.eligible_referrer
 
     {
-      free_limit: saver_plan.credits,
       referrer: referrer,
       current_plan: current_plan,
       investor_plan: investor_plan,

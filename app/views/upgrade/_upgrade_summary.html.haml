@@ -7,8 +7,6 @@
         %b Sum:
       %td.pl-4(scope='col')
         %b
-          - referrer = upgrade_presenter.referrer
-
           - if 'investor'.in?(upgrade_presenter.available_plans)
             .db-show--investor
               = render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters[:investor] }
