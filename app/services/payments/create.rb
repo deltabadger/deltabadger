@@ -66,21 +66,16 @@ module Payments
       discount_percent = referrer&.discount_percent || 0
       commission_percent = referrer&.commission_percent || 0
 
-      if payment.eu?
-        @cost_calculator_class.new(
-          base_price: subscription_plan.cost_eu,
-          vat: VAT_EU,
-          discount_percent: discount_percent,
-          commission_percent: commission_percent
-        )
-      else
-        @cost_calculator_class.new(
-          base_price: subscription_plan.cost_other,
-          vat: VAT_OTHER,
-          discount_percent: discount_percent,
-          commission_percent: commission_percent
-        )
-      end
+      current_plan = user.subscription.subscription_plan
+
+      Payments::CostCalculatorFactory.call(
+        eu: payment.eu?,
+        subscription_plan: subscription_plan,
+        current_plan: current_plan,
+        days_left: user.plan_days_left,
+        discount_percent: discount_percent,
+        commission_percent: commission_percent
+      )
     end
   end
 end

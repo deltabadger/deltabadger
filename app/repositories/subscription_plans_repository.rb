@@ -17,7 +17,11 @@ class SubscriptionPlansRepository < BaseRepository
 
   private
 
+  def plan_cache
+    @plan_cache ||= SubscriptionPlan.all.map { |sp| [sp.name, sp] }.to_h
+  end
+
   def find_by_name!(name)
-    SubscriptionPlan.find_by!(name: name)
+    plan_cache.fetch(name)
   end
 end

@@ -14,7 +14,7 @@ RSpec.describe Payments::CostCalculator do
 
   shared_examples 'returns expected values' do |expected|
     methods =
-      %i[base_price vat discount_percent commission_percent price_with_vat total_price commission]
+      %i[base_price vat discount_percent commission_percent base_price_with_vat total_price commission]
 
     it 'returns values as BigDecimals' do
       methods.each do |method|
@@ -48,7 +48,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0'),
-      price_with_vat: BigDecimal('20'),
+      base_price_with_vat: BigDecimal('20'),
       total_price: BigDecimal('20'),
       commission: BigDecimal('0')
     }
@@ -66,7 +66,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0.23'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0'),
-      price_with_vat: BigDecimal('12.3'),
+      base_price_with_vat: BigDecimal('12.3'),
       total_price: BigDecimal('12.3'),
       commission: BigDecimal('0')
     }
@@ -84,7 +84,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0'),
       discount_percent: BigDecimal('0.33'),
       commission_percent: BigDecimal('0'),
-      price_with_vat: BigDecimal('24'),
+      base_price_with_vat: BigDecimal('24'),
       total_price: BigDecimal('16.08'),
       commission: BigDecimal('0')
     }
@@ -103,7 +103,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0.23'),
       discount_percent: BigDecimal('0.15'),
       commission_percent: BigDecimal('0'),
-      price_with_vat: BigDecimal('12.3'),
+      base_price_with_vat: BigDecimal('12.3'),
       total_price: BigDecimal('10.45'),
       commission: BigDecimal('0')
     }
@@ -121,7 +121,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0.15'),
-      price_with_vat: BigDecimal('10'),
+      base_price_with_vat: BigDecimal('10'),
       total_price: BigDecimal('10'),
       commission: BigDecimal('1.5')
     }
@@ -142,7 +142,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0.23'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0.15'),
-      price_with_vat: BigDecimal('12.3'),
+      base_price_with_vat: BigDecimal('12.3'),
       total_price: BigDecimal('12.3'),
       commission: BigDecimal('1.5')
     }
@@ -163,7 +163,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0'),
       discount_percent: BigDecimal('0.2'),
       commission_percent: BigDecimal('0.15'),
-      price_with_vat: BigDecimal('10'),
+      base_price_with_vat: BigDecimal('10'),
       total_price: BigDecimal('8'),
       commission: BigDecimal('1.5')
     }
@@ -185,7 +185,7 @@ RSpec.describe Payments::CostCalculator do
       vat: BigDecimal('0.23'),
       discount_percent: BigDecimal('0.2'),
       commission_percent: BigDecimal('0.15'),
-      price_with_vat: BigDecimal('12.3'),
+      base_price_with_vat: BigDecimal('12.3'),
       total_price: BigDecimal('9.84'),
       commission: BigDecimal('1.5')
     }

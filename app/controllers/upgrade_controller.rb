@@ -53,31 +53,32 @@ class UpgradeController < ApplicationController
     }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan))
   end
 
-  def cost_calculators(referrer, current_plan, investor_plan, hodler_plan) # rubocop:disable Metrics/MethodLength
+  def cost_calculators(referrer, current_plan, investor_plan, hodler_plan)
     discount = referrer&.discount_percent || 0
+
     factory = Payments::CostCalculatorFactory.new
     presenter = Presenters::Payments::Cost
 
-    {
-      cost_presenters: {
-        investor: {
-          eu: presenter.new(
-            factory.call(eu: true, current_plan: current_plan, subscription_plan: investor_plan, discount_percent: discount)
-          ),
-          other: presenter.new(
-            factory.call(eu: false, current_plan: current_plan, subscription_plan: investor_plan, discount_percent: discount)
-          )
-        },
-        hodler: {
-          eu: presenter.new(
-            factory.call(eu: true, current_plan: current_plan, subscription_plan: hodler_plan, discount_percent: discount)
-          ),
-          other: presenter.new(
-            factory.call(eu: false, current_plan: current_plan, subscription_plan: hodler_plan, discount_percent: discount)
-          )
-        }
-      }
-    }
+    build_presenter = ->(args) { presenter.new(factory.call(**args)) }
+
+    plans = { investor: investor_plan, hodler: hodler_plan }
+    currencies = %i[eu other]
+
+    cost_presenters = plans.map do |plan_name, plan|
+      [plan_name,
+       currencies.map do |currency|
+         [currency,
+          build_presenter.call(
+            eu: currency == :eu,
+            subscription_plan: plan,
+            current_plan: current_plan,
+            days_left: current_user.plan_days_left,
+            discount_percent: discount
+          )]
+       end.to_h]
+    end.to_h
+
+    { cost_presenters: cost_presenters }
   end
 
   def payment_params

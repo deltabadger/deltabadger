@@ -1,24 +1,29 @@
 module Payments
   class CostCalculator
-    attr_reader :base_price, :vat, :discount_percent, :commission_percent
+    attr_reader :base_price, :vat, :flat_discount, :discount_percent, :commission_percent
 
-    def initialize(base_price:, vat:, discount_percent:, commission_percent: 0)
+    def initialize(base_price:, vat:, flat_discount: 0, discount_percent: 0, commission_percent: 0)
       @base_price = to_bigdecimal(base_price)
       @vat = to_bigdecimal(vat)
+      @flat_discount = to_bigdecimal(flat_discount)
       @discount_percent = to_bigdecimal(discount_percent)
       @commission_percent = to_bigdecimal(commission_percent)
     end
 
-    def price_with_vat
-      @price_with_vat ||= round_down(base_price * vat_multiplier)
+    def base_price_with_vat
+      @base_price_with_vat ||= round_down(base_price * vat_multiplier)
+    end
+
+    def discounted_price
+      @discounted_price = round_down((base_price - flat_discount) * discount_multiplier)
     end
 
     def total_price
-      @total_price ||= round_down(price_with_vat * discount_multiplier)
+      @total_price ||= round_down(discounted_price * vat_multiplier)
     end
 
     def commission
-      @commission ||= base_price * commission_percent
+      @commission ||= (base_price - flat_discount) * commission_percent
     end
 
     def crypto_commission(crypto_total_price:)

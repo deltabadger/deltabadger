@@ -19,6 +19,9 @@
     %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
       = render partial: 'hodler_card', locals: { days_left: nil, cost_presenters: cost_presenters[:hodler] }
 
+  - if upgrade_presenter.discount?
+    %tr.db-plan--divider
+
   - if upgrade_presenter.plan_upgrade_discount?
     %tr.db-plan--divider
     %tr.text-success
@@ -30,11 +33,15 @@
           Because you have #{current_user.plan_days_left} days of Investor left.
       %td(scope="col")
       %td.pl-4(scope="col")
-        %b -$10.00
+        %span.db-show--investor
+          %b.db-show--eu= "-€#{cost_presenters[:investor][:eu].flat_discount}"
+          %b.db-show--other= "-$#{cost_presenters[:investor][:other].flat_discount}"
+        %span.db-show--hodler
+          %b.db-show--eu= "-€#{cost_presenters[:hodler][:eu].flat_discount}"
+          %b.db-show--other= "-$#{cost_presenters[:hodler][:other].flat_discount}"
 
   - if upgrade_presenter.referrer_discount?
-    %tr.db-plan--divider
-    - discount_presenter = Presenters::RefCodes::Show.new(referrer)
+    - discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer)
     %tr.text-success
       %td(scope="col")
         <i class="material-icons-round">check_circle</i>

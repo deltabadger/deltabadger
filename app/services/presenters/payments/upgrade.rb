@@ -46,12 +46,6 @@ module Presenters
       def plan_upgrade_discount?
         current_plan.name != 'saver'
       end
-
-      def investor_cost
-      end
-
-      def hodler_cost
-      end
     end
   end
 end
