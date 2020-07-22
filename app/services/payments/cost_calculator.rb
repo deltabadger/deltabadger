@@ -23,7 +23,7 @@ module Payments
     end
 
     def commission
-      @commission ||= (base_price - flat_discount) * commission_percent
+      @commission ||= round_down((base_price - flat_discount) * commission_percent)
     end
 
     def crypto_commission(crypto_total_price:)
