@@ -373,9 +373,21 @@ svg * {
   border: none;
   background: none;
   border-color: #ddd;
-  .btn-lg {
-    min-width: 280px;
-    justify-content: center;
+}
+.db--loggedin {
+  .modal-content {
+    .btn-lg {
+      min-width: 280px;
+      justify-content: center;
+    }
+  }
+}
+.db--loggedout {
+  .modal-content {
+    .btn-lg {
+      min-width: 180px;
+      justify-content: center;
+    }
   }
 }
 .modal-dialog {
