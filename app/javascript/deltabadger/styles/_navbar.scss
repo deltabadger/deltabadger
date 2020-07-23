@@ -1,10 +1,21 @@
 .db--guest {
   background: $primary;
+  .container {
+    @include media-breakpoint-down(xs) {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
   .db-logo-svg-shape {
     fill: $textColorInverted;
   }
   .navbar-brand {
     color: $textColorInverted !important;
+    span {
+      @include media-breakpoint-down(xs) {
+        display: none;
+      }
+    }
   }
   .navbar,
   .row--intro {
@@ -28,6 +39,9 @@
     }
   }
 }
+.navbar {
+  padding: 2.25rem 0;
+}
 
 .db-logo-svg-shape {
   fill: $primary;
@@ -37,20 +51,6 @@
 .db-navbar {
   background: rgba(255,255,255,0);
   transition: top 200ms ease-in-out;
-}
-.navbar-brand {
-  font-family:    $fontBrand;
-  color:          $primary !important;
-  text-transform: lowercase;
-  font-size:      1.2em;
-  font-weight:    700;
-  line-height:    28px;
-  margin-left:    10px;
-  svg {
-    margin-right: 4px;
-  }
-}
-.navbar {
   @include media-breakpoint-down(xs) {
     // padding-right: 0.5rem !important;
     // padding-left:  0.5rem !important;
@@ -64,9 +64,23 @@
     margin-left: 0;
   }
 }
+
 .db--loggedout {
   .navbar {
     padding: 2.25rem 0;
+  }
+}
+
+.navbar-brand {
+  font-family:    $fontBrand;
+  color:          $primary !important;
+  text-transform: lowercase;
+  font-size:      1.2em;
+  font-weight:    700;
+  line-height:    28px;
+  margin-left:    10px;
+  svg {
+    margin-right: 4px;
   }
 }
 
