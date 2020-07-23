@@ -18,10 +18,11 @@ Rails.application.routes.draw do
 
   resource :affiliate, path: 'referral_program', only: [:new, :create, :show] do
     get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
+    patch :update_visible_info
     patch :update_btc_address
   end
 
-  get '/ref/:code', to: 'ref_codes#apply_code'
+  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
 
   namespace :admin do
