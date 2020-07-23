@@ -90,8 +90,10 @@ h1 {
     font-size:   2rem;
   }
 }
-.form-control-range {
-  filter: brightness(.95) contrast(2) saturate(.6);
+.form-control-range,
+[type="radio"],
+[type="checkbox"] {
+  filter: brightness(0.9) contrast(1.5) saturate(0.6);
 }
 sur {
   position: relative;
@@ -286,22 +288,6 @@ svg * {
   font-size: .75em;
 }
 
-.db--guest {
-  .container {
-    @include media-breakpoint-down(xs) {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
-  }
-  .navbar-brand {
-    span {
-      @include media-breakpoint-down(xs) {
-        display: none;
-      }
-    }
-  }
-}
-
 // db-anim-rotator
 
 .db-anim-rotator {
@@ -338,11 +324,11 @@ svg * {
 
 .text-success--lighter {
   color: $successLighter !important;
-  text-shadow: 0 0 20px rgba(0,0,0,.2);
+  //text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 .text-danger--lighter {
   color: #fc5565 !important;
-  text-shadow: 0 0 20px rgba(0,0,0,.2);
+  //text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 
 
@@ -384,12 +370,25 @@ svg * {
   display:         flex;
 }
 .modal-content {
-  //box-shadow: $boxShadowBox;
   border: none;
   background: none;
-}
-.modal-content {
   border-color: #ddd;
+}
+.db--loggedin {
+  .modal-content {
+    .btn-lg {
+      min-width: 280px;
+      justify-content: center;
+    }
+  }
+}
+.db--loggedout {
+  .modal-content {
+    .btn-lg {
+      min-width: 180px;
+      justify-content: center;
+    }
+  }
 }
 .modal-dialog {
   @include media-breakpoint-down(xs) {
@@ -849,5 +848,8 @@ svg * {
   text-transform: uppercase;
 }
 .db-http-prefix-select {
-  max-width: 110px;
+  max-width: 112px; // 141
+  // background: #ced4da !important;
+  // border-color: #ced4da !important;
+  // border-right: 8px solid #ced4da !important;
 }
