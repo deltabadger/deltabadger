@@ -24,12 +24,10 @@ module Affiliates
         new_btc_address_send_at: Time.now
       )
 
-      token = affiliate.new_btc_address_token
-
       affiliate_mailer.with(
         user: affiliate.user,
         new_btc_address: new_btc_address,
-        token: token
+        token: affiliate.new_btc_address_token
       ).new_btc_address_confirmation.deliver_later
 
       Result::Success.new

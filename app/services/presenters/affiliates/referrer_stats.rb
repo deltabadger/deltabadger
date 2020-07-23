@@ -16,7 +16,9 @@ module Presenters
       end
 
       def unpaid_commission
-        @unpaid_commission ||= format_btc(referrer.unexported_crypto_commission + referrer.exported_crypto_commission)
+        @unpaid_commission ||= format_btc(
+          referrer.unexported_crypto_commission + referrer.exported_crypto_commission
+        )
       end
 
       def format_btc(amount)

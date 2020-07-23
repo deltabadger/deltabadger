@@ -1,6 +1,7 @@
 class AffiliatesController < ApplicationController
   before_action :authenticate_user!
-  before_action :fetch_affiliate!, only: %i[show update_visible_info update_btc_address confirm_btc_address]
+  before_action :fetch_affiliate!, only: %i[show update_visible_info update_btc_address
+                                            confirm_btc_address]
   before_action :ensure_no_affiliate!, only: %i[new create]
   before_action :validate_password!, only: :update_btc_address
 
@@ -78,6 +79,7 @@ class AffiliatesController < ApplicationController
   def validate_password!
     confirmation_password = params[:affiliate][:current_password]
     return if current_user.valid_password?(confirmation_password)
+
     affiliate.errors.add(:current_password, 'is not valid')
 
     render :show, locals: { affiliate: affiliate, errors: affiliate.errors.full_messages }

@@ -5,8 +5,8 @@ module Affiliates
       total_bonus_percent: Affiliate::DEFAULT_BONUS_PERCENT
     }.freeze
 
-    BASE_PERMITTED_PARAMS =
-      %i[type btc_address code visible_name visible_link_scheme visible_link discount_percent check].freeze
+    BASE_PERMITTED_PARAMS = %i[type btc_address code visible_name visible_link_scheme visible_link
+                               discount_percent check].freeze
     INDIVIDUAL_PERMITTED_PARAMS = BASE_PERMITTED_PARAMS
     EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
 
