@@ -36,7 +36,7 @@
         %b Discount activated
         %span.db-billing-item__info.text-dark
           - if discount_presenter.info?
-            Thanks to the referral link from <b><a href="#{discount_presenter.visible_link}">#{discount_presenter.visible_name}</a></b>.
+            Thanks to the referral link from <b><a href="#{discount_presenter.visible_path}">#{discount_presenter.visible_name}</a></b>.
           Valid for the first purchase on the platform.
       %td(scope="col")
       %td.pl-4(scope="col")

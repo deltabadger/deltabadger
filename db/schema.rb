@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_07_13_094634) do
+ActiveRecord::Schema.define(version: 2020_07_20_101343) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -37,6 +37,7 @@ ActiveRecord::Schema.define(version: 2020_07_13_094634) do
     t.decimal "unexported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "exported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "paid_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.string "visible_link_scheme", default: "https", null: false
     t.index ["code"], name: "index_affiliates_on_code", unique: true
     t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
     t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true

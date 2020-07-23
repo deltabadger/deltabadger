@@ -1,19 +1,70 @@
-.db-content__box
-  .row
-    .col-md
+.modal-dialog(role="document")
+  .modal-content
+    .modal-body
+      %h2.db-modal-title Referral Program
+
       .db-settings-section
-        %h2 Update Bitcoin address
+        %h4.db-modal__subtitle Your referral link
+        %input.form-control.text-center{ :type=>"text", :value=>ref_code_url(code: affiliate.code), :readonly=>"readonly" }
+
+      .db-settings-section.text-center
+        %h4.db-modal__subtitle Stats
+        - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
+        .row
+          .col
+            .alert.alert-primary
+              %p
+                Referees
+              %h4.text-primary
+                = stats.referee_count
+          .col
+            .alert.alert-primary
+              %p
+                Paid so far (BTC)
+              %h4.text-primary
+                = stats.paid_commission
+          .col
+            .alert.alert-primary
+              %p
+                Unpaid (BTC)
+              %h4.text-primary
+                = stats.unpaid_commission
+
+      .db-settings-section
+        %h4.db-modal__subtitle Update visible info
+        .mb-5
+          - presenter = Presenters::RefCodes::Show.new(affiliate)
+
+          %p Preview of the info visible for referee:
+          = render partial: 'ref_codes/show', locals: { affiliate: affiliate }
+
+        = form_with model: affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f|
+          .form-group
+            = f.label :visible_name, "Name on the preview"
+            = f.text_field :visible_name, class: 'form-control'
+
+          .form-group.mb-5
+            = f.label :visible_link, "Link"
+            .input-group
+              = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control db-http-prefix-select'
+              = f.text_field :visible_link, class: 'form-control'
+
+          .form-group.text-center
+            = f.submit 'Update visible info', class: 'btn btn-lg btn-primary'
+
+      .db-settings-section
+        %h4.db-modal__subtitle Update Bitcoin address
         - if errors.present?
           %ul.pl-3
             - errors.each do |error|
               %li.text-danger= error
+
         = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
           .form-group
             = f.label :btc_address, 'BTC address'
             = f.text_field :btc_address, class: 'form-control'
-          .form-group
+          .form-group.mb-5
             = f.label :current_password, 'Current password (for confirmation)'
-            = f.password_field :current_password, autocomplete: 'current-password', class: 'form-control'
-          .form-group
-            = f.submit 'Update Bitcoin address', class: 'btn btn-primary'
-    .col-md Baz
+            = f.password_field :current_password, autocomplete: 'off', class: 'form-control'
+          .form-group.text-center
+            = f.submit 'Update Bitcoin address', class: 'btn btn-lg btn-primary'

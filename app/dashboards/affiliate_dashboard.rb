@@ -18,6 +18,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
     btc_address: Field::String,
     code: Field::String,
     visible_name: Field::String,
+    visible_link_scheme: Field::String,
     visible_link: Field::String,
     max_profit: Field::Number,
     discount_percent: Field::Number,
@@ -56,6 +57,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
     btc_address
     code
     visible_name
+    visible_link_scheme
     visible_link
     max_profit
     discount_percent
@@ -80,6 +82,7 @@ class AffiliateDashboard < Administrate::BaseDashboard
     btc_address
     code
     visible_name
+    visible_link_scheme
     visible_link
     max_profit
     discount_percent

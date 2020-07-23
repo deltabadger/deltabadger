@@ -1,6 +1,7 @@
 class AffiliatesController < ApplicationController
   before_action :authenticate_user!
-  before_action :fetch_affiliate!, only: %i[show update_btc_address confirm_btc_address]
+  before_action :fetch_affiliate!, only: %i[show update_visible_info update_btc_address
+                                            confirm_btc_address]
   before_action :ensure_no_affiliate!, only: %i[new create]
   before_action :validate_password!, only: :update_btc_address
 
@@ -32,6 +33,12 @@ class AffiliatesController < ApplicationController
     end
   end
 
+  def update_visible_info
+    Affiliates::UpdateVisibleInfo.call(affiliate: affiliate, params: params[:affiliate])
+
+    render :show, locals: { affiliate: affiliate, errors: [] }
+  end
+
   def update_btc_address
     btc_address = params[:affiliate][:btc_address]
     result = Affiliates::UpdateBtcAddress.call(affiliate: affiliate, new_btc_address: btc_address)
@@ -40,7 +47,7 @@ class AffiliatesController < ApplicationController
       flash[:notice] = 'Confirmation email sent'
       render :show, locals: { affiliate: affiliate, errors: [] }
     else
-      render :show, locals: { affiliate: affiliate, errors: result.errors }
+      render :show, locals: { affiliate: result.data || affiliate, errors: result.errors }
     end
   end
 
@@ -73,7 +80,9 @@ class AffiliatesController < ApplicationController
     confirmation_password = params[:affiliate][:current_password]
     return if current_user.valid_password?(confirmation_password)
 
-    render :show, locals: { affiliate: affiliate, errors: ['Confirmation password is not valid'] }
+    affiliate.errors.add(:current_password, 'is not valid')
+
+    render :show, locals: { affiliate: affiliate, errors: affiliate.errors.full_messages }
   end
 
   def affiliate_params
