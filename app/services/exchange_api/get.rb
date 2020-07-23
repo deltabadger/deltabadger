@@ -23,12 +23,6 @@ module ExchangeApi
           api_key: api_key.key,
           api_secret: api_key.secret
         )
-      when 'BitClude'
-        ExchangeApi::Clients::Bitclude.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
-        )
-      when 'Deribit' then ExchangeApi::Clients::Deribit.new
       end
     end
   end
