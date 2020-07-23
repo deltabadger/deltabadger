@@ -11,7 +11,7 @@
 
 .modal-dialog(role='document')
   .modal-content
-    .modal-body
+    .modal-body{ class: ("db-referral-program-registration--inactive" if disabled) }
 
       %h2.db-modal-title Referral program registration
 
@@ -24,7 +24,7 @@
           %li 20% of it is $20, but since you already got $4, the program pays remaining $16 = 0.002BTC.
         %small.mb-2 <sup>*</sup> The limit is either 20USD or 20EUR depending on the currency of the pricing.
 
-      .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
+      .db-referral-program-registration
         - if errors.present?
           %ul.pl-3
             - errors.each do |error|

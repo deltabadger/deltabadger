@@ -20,7 +20,7 @@ module Presenters
       end
 
       def format_btc(amount)
-        format('%0.8g BTC', amount)
+        format('%0.8g', amount)
       end
     end
   end

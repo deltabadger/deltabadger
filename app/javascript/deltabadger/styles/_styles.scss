@@ -93,7 +93,7 @@ h1 {
 .form-control-range,
 [type="radio"],
 [type="checkbox"] {
-  filter: brightness(0.8) contrast(3) saturate(0.1);
+  filter: brightness(0.9) contrast(1.5) saturate(0.6);
 }
 sur {
   position: relative;
@@ -370,12 +370,13 @@ svg * {
   display:         flex;
 }
 .modal-content {
-  //box-shadow: $boxShadowBox;
   border: none;
   background: none;
-}
-.modal-content {
   border-color: #ddd;
+  .btn-lg {
+    min-width: 280px;
+    justify-content: center;
+  }
 }
 .modal-dialog {
   @include media-breakpoint-down(xs) {
@@ -835,5 +836,8 @@ svg * {
   text-transform: uppercase;
 }
 .db-http-prefix-select {
-  max-width: 110px;
+  max-width: 112px; // 141
+  // background: #ced4da !important;
+  // border-color: #ced4da !important;
+  // border-right: 8px solid #ced4da !important;
 }
