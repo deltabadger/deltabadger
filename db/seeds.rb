@@ -1,4 +1,5 @@
 Exchange.find_or_create_by!(name: 'Kraken')
+Exchange.find_or_create_by!(name: 'Binance')
 Exchange.find_or_create_by!(name: 'BitBay')
 
 _saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 500)

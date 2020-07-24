@@ -18,6 +18,11 @@ module ExchangeApi
           api_secret: api_key.secret,
           options: { german_trading_agreement: api_key.german_trading_agreement }
         )
+      when 'Binance'
+        ExchangeApi::Clients::Binance.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
+        )
       when 'BitBay'
         ExchangeApi::Clients::Bitbay.new(
           api_key: api_key.key,
