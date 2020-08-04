@@ -28,7 +28,7 @@ module Presenters
       end
 
       def selected_payment_type
-        @selected_payment_type ||= payment.eu ? 'eu' : 'other'
+        @selected_payment_type ||= payment.eu? ? 'eu' : 'other'
       end
 
       def selected_plan_name

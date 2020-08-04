@@ -2,15 +2,20 @@
   %tfoot
     %tr
       %td(scope='col')
+      %td(scope='col' colspan='2')
+        VAT (20%):
       %td(scope='col')
+        $19.99
+    %tr
       %td(scope='col')
+      %td(scope='col'  colspan='2')
         %b Sum:
       %td.pl-4(scope='col')
         %b
           - if 'investor'.in?(upgrade_presenter.available_plans)
             .db-show--investor
-              = render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters[:investor] }
+              = render partial: 'upgrade_summary_plan', locals: { plan: 'investor', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
 
           - if 'hodler'.in?(upgrade_presenter.available_plans)
             .db-show--hodler
-              = render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters[:hodler] }
+              = render partial: 'upgrade_summary_plan', locals: { plan: 'hodler', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }

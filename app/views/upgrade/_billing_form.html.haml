@@ -26,14 +26,11 @@
       = f.date_field :birth_date, class: 'form-control'
 
     .form-group
-      %label Country
-      %br
-      .form-check.form-check-inline
-        = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input radio--eu', id: 'radioEu'
-        = f.label :eu, 'European Union', class: 'form-check-label', for: 'radioEu'
-      .form-check.form-check-inline
-        = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input radio--other', id: 'radioOther'
-        = f.label :eu, 'Other', class: 'form-check-label', for: 'radioOther'
+      = f.label :country
+      = f.select :country, nil, {}, class: 'form-control' do
+        - cost_presenters.each do |country, presenter|
+          - selected = country == payment.country
+          = content_tag :option, country, value: country, selected: selected, data: { ibpwv: presenter[:investor].base_price_with_vat, hbpwv: presenter[:hodler].base_price_with_vat, ifdwv: presenter[:investor].flat_discount_with_vat, hfdwv: presenter[:hodler].flat_discount_with_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
 
     .form-group.db-form-group--main-btn
       %button.btn.btn-success.btn-lg{type: 'submit'}

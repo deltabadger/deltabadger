@@ -11,6 +11,7 @@ module Payments
     # rubocop:disable Naming/UncommunicativeMethodParamName, Metrics/ParameterLists
     def call(
       eu:,
+      vat:,
       subscription_plan:,
       current_plan:,
       days_left: 0,
@@ -18,7 +19,6 @@ module Payments
       commission_percent: 0
     )
       base_price = eu ? subscription_plan.cost_eu : subscription_plan.cost_other
-      vat = eu ? Payments::Create::VAT_EU : Payments::Create::VAT_OTHER
       current_plan_base_price = eu ? current_plan.cost_eu : current_plan.cost_other
 
       flat_discount = @flat_discount_calculator.call(

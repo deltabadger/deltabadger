@@ -19,10 +19,6 @@ module Presenters
         format_price(cost_calculator.flat_discount_with_vat)
       end
 
-      def discount
-        format_price(cost_calculator.discount)
-      end
-
       def base_price_with_vat
         format_price(cost_calculator.base_price_with_vat)
       end

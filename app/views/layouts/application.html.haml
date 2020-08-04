@@ -83,13 +83,23 @@
       // payments eu/non-eu
 
       $(document).ready(function(){
-        $(".radio--eu").click(function(){
-            $(".db-upgrade-modal").addClass("db-upgrade-modal--eu");
-            $(".db-upgrade-modal").removeClass("db-upgrade-modal--other");
-        });
-        $(".radio--other").click(function(){
+        $("#payment_country").change(function(event) {
+          if (event.target.value.toLowerCase() === 'other') {
             $(".db-upgrade-modal").addClass("db-upgrade-modal--other");
             $(".db-upgrade-modal").removeClass("db-upgrade-modal--eu");
+          } else {
+            $(".db-upgrade-modal").addClass("db-upgrade-modal--eu");
+            $(".db-upgrade-modal").removeClass("db-upgrade-modal--other");
+          }
+          var dataset = event.target.options[event.target.selectedIndex].dataset;
+
+          $(".investor-total-price").text(dataset.itp);
+          $(".investor-base-price-with-vat").text(dataset.ibpwv);
+          $(".investor-flat-discount-with-vat").text(dataset.ifdwv);
+
+          $(".hodler-total-price").text(dataset.htp);
+          $(".hodler-base-price-with-vat").text(dataset.hbpwv);
+          $(".hodler-flat-discount-with-vat").text(dataset.hfdwv);
         });
       });
 
