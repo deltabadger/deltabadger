@@ -6,7 +6,7 @@ module ExchangeApi
       @exchanges_repository = exchanges_repository
     end
 
-    def call(api_key) # rubocop:disable Metrics/MethodLength
+    def call(api_key)
       exchange = @exchanges_repository.find(api_key.exchange_id)
 
       return ExchangeApi::Clients::Fake.new(exchange.name) if DISABLE_EXCHANGES_API

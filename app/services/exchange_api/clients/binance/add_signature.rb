@@ -1,8 +1,6 @@
 module ExchangeApi
   module Clients
     class Binance
-      private
-
       AddSignature = Struct.new(:app, :api_secret) do
         def call(env)
           signature = OpenSSL::HMAC.hexdigest('sha256', api_secret, env.url.query)

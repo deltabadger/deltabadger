@@ -4,6 +4,7 @@ import { Instructions } from './AddApiKey/Instructions';
 const api_key_names = exchange_name => {
   switch (exchange_name.toLowerCase()) {
       case 'bitbay': return { private: 'Secret Key', public: 'Public Key' };
+      case 'binance': return { private: 'Secret Key', public: 'API Key' };
       case 'kraken': return { private: 'Private Key', public: 'API Key' };
       default: return { private: 'Private Key', public: 'Public Key' };
   }
