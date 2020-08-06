@@ -1,20 +1,21 @@
 module ExchangeApi
   module Clients
     class Binance < ExchangeApi::Clients::Base
-      URL_BASE = 'https://testnet.binance.vision/api/v3'
-
+      URL_BASE = 'https://testnet.binance.vision/api/v3'.freeze
       ORDER_DOES_NOT_EXIST = -2011
+      MIN_TRANSACTION_PRICE = 20
 
-      def initialize(api_key:, api_secret:)
+      def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Binance.new)
         @api_key = api_key
         @api_secret = api_secret
+        @map_errors = map_errors
       end
 
       def validate_credentials
         request = signed_client.delete('order', symbol: 'ETHBTC', orderId: '9' * 10)
         response = JSON.parse(request.body)
         response['code'] == ORDER_DOES_NOT_EXIST
-      rescue
+      rescue StandardError
         false
       end
 
@@ -42,7 +43,36 @@ module ExchangeApi
       private
 
       def make_order(offer_type, currency, price)
+        price = [MIN_TRANSACTION_PRICE, price].max
         symbol = "BTC#{currency.upcase}"
+
+        params = {
+          symbol: symbol,
+          side: offer_type,
+          type: 'MARKET',
+          quoteOrderQty: price
+        }
+
+        request = signed_client.post('order') do |req|
+          req.params = params
+        end
+
+        response = JSON.parse(request.body)
+
+        parse_response(response)
+      rescue StandardError
+        Result::Failure.new('Could not make Binance order', RECOVERABLE)
+      end
+
+      def parse_response(response)
+        return error_to_failure([response['msg']]) if response['msg'].present?
+
+        rate = BigDecimal(response['cummulativeQuoteQty']) / BigDecimal(response['executedQty'])
+        Result::Success.new(
+          offer_id: response['orderId'],
+          rate: rate,
+          amount: response['executedQty']
+        )
       end
 
       def unsigned_client
