@@ -1,7 +1,7 @@
 module ExchangeApi
   module Clients
     class Binance < ExchangeApi::Clients::Base
-      URL_BASE = 'https://testnet.binance.vision/api/v3'.freeze
+      URL_BASE = 'https://api.binance.com/api/v3'.freeze
       ORDER_DOES_NOT_EXIST = -2011
       MIN_TRANSACTION_PRICE = 20
 
