@@ -1,11 +1,14 @@
 import React from 'react'
+import { BinanceInstructions } from './BinanceInstructions';
 import { BitBayInstructions } from './BitBayInstructions';
 import { KrakenInstructions } from './KrakenInstructions';
 
 export const Instructions = ({ exchangeName }) => {
-  if (exchangeName == 'BitBay') {
+  if (exchangeName === 'Binance') {
+    return <BinanceInstructions />
+  } else if (exchangeName === 'BitBay') {
     return <BitBayInstructions />
-  } else if (exchangeName == 'Kraken') {
+  } else if (exchangeName === 'Kraken') {
     return <KrakenInstructions />
   } else {
     return "";
