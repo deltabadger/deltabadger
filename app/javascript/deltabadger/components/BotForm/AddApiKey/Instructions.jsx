@@ -4,13 +4,10 @@ import { BitBayInstructions } from './BitBayInstructions';
 import { KrakenInstructions } from './KrakenInstructions';
 
 export const Instructions = ({ exchangeName }) => {
-  if (exchangeName === 'Binance') {
-    return <BinanceInstructions />
-  } else if (exchangeName === 'BitBay') {
-    return <BitBayInstructions />
-  } else if (exchangeName === 'Kraken') {
-    return <KrakenInstructions />
-  } else {
-    return "";
+  switch (exchangeName.toLowerCase()) {
+    case 'binance': return <BinanceInstructions />;
+    case 'bitbay': return <BitBayInstructions />;
+    case 'kraken': return <KrakenInstructions />;
+    default: return '';
   }
 }
