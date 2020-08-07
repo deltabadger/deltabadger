@@ -7,6 +7,10 @@ _saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_oth
 investor = SubscriptionPlan.find_or_create_by!(name: 'investor', cost_eu: 49.99, cost_other: 49.99, unlimited: true, years: 1, credits: 500)
 hodler = SubscriptionPlan.find_or_create_by!(name: 'hodler', cost_eu: 149.99, cost_other: 149.99, unlimited: true, years: 4, credits: 500)
 
+VatRate.find_or_create_by!(country: 'Other', vat: 0)
+VatRate.find_or_create_by!(country: 'Poland', vat: 0.23)
+VatRate.find_or_create_by!(country: 'Estonia', vat: 0.2)
+
 User.find_or_create_by(
   email: "test@test.com"
 ) do |user|
