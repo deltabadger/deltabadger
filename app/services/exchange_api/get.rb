@@ -11,22 +11,22 @@ module ExchangeApi
 
       return ExchangeApi::Clients::Fake.new(exchange.name) if DISABLE_EXCHANGES_API
 
-      case exchange.name
-      when 'Kraken'
-        ExchangeApi::Clients::Kraken.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret,
-          options: { german_trading_agreement: api_key.german_trading_agreement }
-        )
-      when 'Binance'
+      case exchange.name.downcase
+      when 'binance'
         ExchangeApi::Clients::Binance.new(
           api_key: api_key.key,
           api_secret: api_key.secret
         )
-      when 'BitBay'
+      when 'bitbay'
         ExchangeApi::Clients::Bitbay.new(
           api_key: api_key.key,
           api_secret: api_key.secret
+        )
+      when 'kraken'
+        ExchangeApi::Clients::Kraken.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret,
+          options: { german_trading_agreement: api_key.german_trading_agreement }
         )
       end
     end
