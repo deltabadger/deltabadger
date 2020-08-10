@@ -1,17 +1,16 @@
-- locals = { payment: payment, errors: errors, user: current_user, free_limit: free_limit, cost_presenters: cost_presenters, investor_plan: investor_plan, hodler_plan: hodler_plan, referrer: referrer }
+- upgrade_presenter = Presenters::Payments::Upgrade.new(payment, current_plan, investor_plan, hodler_plan, referrer)
 
 .modal-dialog(role="document")
   .modal-content
-    - hodler_selected = payment.subscription_plan_id == hodler_plan.id
-    .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{payment.eu ? 'eu' : 'other'} db-upgrade-modal--#{hodler_selected ? 'hodler' : 'investor'}"}
+    .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{upgrade_presenter.selected_payment_type} db-upgrade-modal--#{upgrade_presenter.selected_plan_name}"}
       %h2.db-modal-title Plans
       %table.table.db-table--checkout
         %tbody.table-borderless
           %tr.db-plan--divider
-            = render partial: "current_plan", locals: locals
+            = render partial: "current_plan", locals: { upgrade_presenter: upgrade_presenter }
 
-          = render partial: "upgrade_plans", locals: locals
+          = render partial: "upgrade_plans", locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters }
 
-        = render partial: "upgrade_summary", locals: locals
+        = render partial: "upgrade_summary", locals: { upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters }
 
-      = render partial: "billing_form", locals: locals
+      = render partial: "billing_form", locals: { payment: payment, errors: errors, upgrade_presenter: upgrade_presenter }
