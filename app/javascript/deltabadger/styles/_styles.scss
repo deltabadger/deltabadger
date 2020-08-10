@@ -85,7 +85,10 @@ h1,h2,h3,h4,h5,h6 {
 }
 h1 {
   font-weight: 100;
-  font-size:   2.5rem;
+  font-size:   3rem;
+  @include media-breakpoint-down(lg) {
+    font-size: 2.5rem;
+  }
   @include media-breakpoint-down(xs) {
     font-size:   2rem;
   }
@@ -437,7 +440,7 @@ svg * {
   li {
     margin-top: 1em;
   }
-  ol {
+  .db-ol {
     counter-reset: item;
     & > li {
       counter-increment: item;
@@ -550,7 +553,7 @@ svg * {
 // Contact
 
 .db-woowoo {
-  display: flex;
+  display: inline-flex;
   flex-direction: row-reverse;
   justify-content: flex-end;
   span{
