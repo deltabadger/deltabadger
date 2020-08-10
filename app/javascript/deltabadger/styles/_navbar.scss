@@ -124,18 +124,18 @@
   top: -35px;
   left: 110px;
   opacity: 0;
-  transition: all 100ms ease-in-out;
+  //transition: all 100ms ease-in-out;
   svg {
     position: absolute;
     left: -10px;
     bottom: -15px;
   }
 }
-.navbar-brand {
-  &:hover {
-    .db-hi-welcome {
-      opacity: 1;
-      top: 15px;
-    }
+.navbar-brand:hover,
+.db--guest,
+.db--loggedout {
+  .db-hi-welcome {
+    opacity: 1;
+    top: 15px;
   }
 }
