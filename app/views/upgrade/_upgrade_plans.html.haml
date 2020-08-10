@@ -9,7 +9,7 @@
   - if 'investor'.in?(upgrade_presenter.available_plans)
     - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
     %tr.db-plan.db-plan-investor{class: "db-plan--#{investor_selected ? 'selected' : 'other'}"}
-      = render partial: 'investor_card', locals: { days_left: nil, cost_presenters: cost_presenters[:investor] }
+      = render partial: 'investor_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
 
     %tr.db-plan--divider
     %tr.db-plan--divider
@@ -17,7 +17,7 @@
   - if 'hodler'.in?(upgrade_presenter.available_plans)
     - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
     %tr.db-plan.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
-      = render partial: 'hodler_card', locals: { days_left: nil, cost_presenters: cost_presenters[:hodler] }
+      = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
   - if upgrade_presenter.discount?
     %tr.db-plan--divider
@@ -34,11 +34,11 @@
       %td(scope="col")
       %td.pl-4(scope="col")
         %span.db-show--investor
-          %b.db-show--eu= "-€#{cost_presenters[:investor][:eu].flat_discount_with_vat}"
-          %b.db-show--other= "-$#{cost_presenters[:investor][:other].flat_discount_with_vat}"
+          %b
+            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
         %span.db-show--hodler
-          %b.db-show--eu= "-€#{cost_presenters[:hodler][:eu].flat_discount_with_vat}"
-          %b.db-show--other= "-$#{cost_presenters[:hodler][:other].flat_discount_with_vat}"
+          %b
+            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
 
   - if upgrade_presenter.referrer_discount?
     - discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer)
@@ -46,11 +46,17 @@
       %td(scope="col")
         <i class="material-icons-round">check_circle</i>
       %td(scope="col")
-        %b Discount activated
+        %b #{discount_presenter.discount_percent}% discount activated
         %span.db-billing-item__info.text-dark
           - if discount_presenter.info?
             Thanks to the referral link from <b><a href="#{discount_presenter.visible_path}">#{discount_presenter.visible_name}</a></b>.
           Valid for the first purchase on the platform.
       %td(scope="col")
       %td.pl-4(scope="col")
-        %b -#{discount_presenter.discount_percent}%
+        %b
+        - if 'investor'.in?(upgrade_presenter.available_plans)
+          .db-show--investor
+            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-discount-percent-amount'>#{cost_presenter[:investor].discount_percent_amount}</span>
+        - if 'hodler'.in?(upgrade_presenter.available_plans)
+          .db-show--hodler
+            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-discount-percent-amount'>#{cost_presenter[:hodler].discount_percent_amount}</span>

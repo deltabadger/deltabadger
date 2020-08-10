@@ -42,6 +42,7 @@ Rails.application.routes.draw do
     resources :payments do
       get :csv, on: :collection
     end
+    resources :vat_rates
 
     get :dashboard, to: 'dashboard#index'
 

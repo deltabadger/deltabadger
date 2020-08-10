@@ -38,7 +38,7 @@ class UpgradeController < ApplicationController
 
   def new_payment
     subscription_plan_id = current_plan.id == investor_plan.id ? hodler_plan.id : investor_plan.id
-    Payment.new(subscription_plan_id: subscription_plan_id)
+    Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
   end
 
   def default_locals
@@ -61,14 +61,14 @@ class UpgradeController < ApplicationController
     build_presenter = ->(args) { presenter.new(factory.call(**args)) }
 
     plans = { investor: investor_plan, hodler: hodler_plan }
-    currencies = %i[eu other]
 
-    cost_presenters = plans.map do |plan_name, plan|
-      [plan_name,
-       currencies.map do |currency|
-         [currency,
+    cost_presenters = VatRate.all.order(country: :asc).map do |country|
+      [country.country,
+       plans.map do |plan_name, plan|
+         [plan_name,
           build_presenter.call(
-            eu: currency == :eu,
+            eu: country.eu?,
+            vat: country.vat,
             subscription_plan: plan,
             current_plan: current_plan,
             days_left: current_user.plan_days_left,
@@ -83,7 +83,7 @@ class UpgradeController < ApplicationController
   def payment_params
     params
       .require(:payment)
-      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :eu)
+      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :country)
       .merge(user: current_user)
   end
 

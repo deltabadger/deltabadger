@@ -1,12 +1,15 @@
 %td(scope="col")
   <i class="material-icons-round">star</i>
 %td(scope="col")
-  Investor
+  Investor (1-year)
   - if days_left
     (#{current_user.plan_days_left} days left)
   %span.db-billing-item__info One year of unlimited transactions.
   - unless days_left
     %td(scope="col")
     %td.pl-4(scope="col")
-      %span.db-show--eu €#{cost_presenters[:eu].base_price_with_vat}
-      %span.db-show--other $#{cost_presenters[:other].base_price_with_vat}
+      - if upgrade_presenter.discount?
+        <span class='text-success'><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-discounted-price'>#{cost_presenter.discounted_price}</span></span>
+        <s><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-base-price'>#{cost_presenter.base_price}</span></s>
+      - else
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-base-price'>#{cost_presenter.base_price}</span>

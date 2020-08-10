@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_07_20_101343) do
+ActiveRecord::Schema.define(version: 2020_08_04_090411) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -89,7 +89,6 @@ ActiveRecord::Schema.define(version: 2020_07_20_101343) do
     t.string "first_name"
     t.string "last_name"
     t.date "birth_date"
-    t.boolean "eu"
     t.datetime "paid_at"
     t.string "external_statuses", default: "", null: false
     t.decimal "crypto_total", precision: 20, scale: 10, default: "0.0", null: false
@@ -98,6 +97,7 @@ ActiveRecord::Schema.define(version: 2020_07_20_101343) do
     t.decimal "crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.boolean "discounted", default: false, null: false
     t.bigint "subscription_plan_id", null: false
+    t.string "country", null: false
     t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
@@ -167,6 +167,13 @@ ActiveRecord::Schema.define(version: 2020_07_20_101343) do
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
+  end
+
+  create_table "vat_rates", force: :cascade do |t|
+    t.string "country", null: false
+    t.decimal "vat", precision: 2, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   add_foreign_key "affiliates", "users"

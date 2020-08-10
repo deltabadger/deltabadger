@@ -68,8 +68,11 @@ module Payments
 
       current_plan = user.subscription.subscription_plan
 
+      vat = VatRate.find_by!(country: payment.country).vat
+
       Payments::CostCalculatorFactory.call(
         eu: payment.eu?,
+        vat: vat,
         subscription_plan: subscription_plan,
         current_plan: current_plan,
         days_left: user.plan_days_left,

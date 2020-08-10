@@ -1,10 +1,1 @@
-- if upgrade_presenter.discount?
-  %span.db-show--eu
-    %span.text-success= "€#{cost_presenters[:eu].total_price}"
-    %s= "€#{cost_presenters[:eu].base_price_with_vat}"
-  %span.db-show--other
-    %span.text-success= "$#{cost_presenters[:other].total_price}"
-    %s= "$#{cost_presenters[:other].base_price_with_vat}"
-- else
-  %span.db-show--eu= "€#{cost_presenters[:eu].total_price}"
-  %span.db-show--other= "$#{cost_presenters[:other].total_price}"
+<span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='#{plan}-total-price'>#{cost_presenter.total_price}</span>

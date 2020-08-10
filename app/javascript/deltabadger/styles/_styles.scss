@@ -738,6 +738,12 @@ svg * {
       border-radius: 0 $box-border-radius $box-border-radius 0;
     }
   }
+  tfoot {
+    td {
+      text-align: right !important;
+      border-top: 0 !important;
+    }
+  }
 }
 .db-plan {
   transition: all 200ms ease-in-out;
@@ -782,6 +788,7 @@ svg * {
     box-shadow: 1px 1px 20px transparentize($primary, 1);
   }
 }
+.db-plan--other {}
 .db-billing-item__info {
   padding: 0.5em 0;
   font-weight: normal;
