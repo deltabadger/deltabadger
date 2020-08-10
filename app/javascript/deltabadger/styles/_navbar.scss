@@ -130,12 +130,20 @@
     left: -10px;
     bottom: -15px;
   }
+  @include media-breakpoint-down(md) {
+    display: none !important;
+  }
 }
-.navbar-brand:hover,
-.db--guest,
-.db--loggedout {
+// .navbar-brand:hover,
+// .db--loggedout,
+.db--guest {
   .db-hi-welcome {
     opacity: 1;
     top: 15px;
+  }
+}
+.db-navbar--scroll {
+  .db-hi-welcome {
+    display: none;
   }
 }
