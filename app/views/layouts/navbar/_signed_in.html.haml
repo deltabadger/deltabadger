@@ -13,7 +13,7 @@
       .ml-auto
         - if current_user.unlimited?
           .btn.text-success.db-icon-verified.mr-2.db-has-tooltip
-            Unlimited
+            = current_user.subscription.display_name
             %i.material-icons-round.ml-1 verified_user
             .db-tooltip= "#{ current_user.plan_days_left } days left"
         - else

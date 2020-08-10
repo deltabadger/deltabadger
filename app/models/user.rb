@@ -1,7 +1,4 @@
 class User < ApplicationRecord
-  FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT =
-    ENV.fetch('FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT')
-
   after_create :subscription
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
@@ -17,12 +14,15 @@ class User < ApplicationRecord
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
 
+  delegate :unlimited?, to: :subscription
+
   def subscription
     now = Time.current
     subscriptions.where('end_time > ?', now).order(end_time: :desc).first_or_create do |sub|
-      sub.subscription_plan = SubscriptionPlan.find_or_create_by(name: 'free')
-      sub.end_time = now + 1.year
-      sub.credits = FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
+      saver_plan = SubscriptionPlansRepository.new.saver
+      sub.subscription_plan = saver_plan
+      sub.end_time = now + saver_plan.duration
+      sub.credits = saver_plan.credits
     end
   end
 
@@ -42,10 +42,6 @@ class User < ApplicationRecord
 
   def welcome_banner_showed?
     welcome_banner_showed
-  end
-
-  def unlimited?
-    subscription_name == 'unlimited'
   end
 
   def eligible_referrer
