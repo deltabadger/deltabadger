@@ -2,12 +2,12 @@ import React from 'react'
 
 // TODO: change to Binance
 export const BinanceInstructions = () => (
-  <div className="db-exchange-instructions db-exchange-instructions--bitbay">
+  <div className="db-exchange-instructions db-exchange-instructions--binance">
     <div className="alert alert-success mx-0" role="alert">
       <b className="alert-heading mb-2">How to get API keys from Binance:</b>
       <hr/>
       <ol>
-        <li>Login to your <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="noopener">Binance</a> account.</li>
+        <li>Login to your <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="noopener">Binance</a> account.</li>
         <li>In user menu (round icon in the top right corner) go to <b>API Management</b>.</li>
         <li>Name the new API key by pressing "Create".</li>
         <li>Confirm creation with one-time code(s).</li>
