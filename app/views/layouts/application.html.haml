@@ -80,10 +80,18 @@
         $(".radio--private").click(function(){
           $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
         });
-        $(".db-form-control-range--discount-ratio").change(function(e){
+        $(".db-form-control-range--discount-ratio").on('input', function(e){
           var discountPercent = Math.round(e.target.value * 100);
           var earnPercent = Math.round((e.target.max - e.target.value) * 100);
           $(".db-form-label-range--discount-percent").text(discountPercent);
           $(".db-form-label-range--earn-percent").text(earnPercent);
+        })
+        $(".db-form-control-text--visible_name").on('input', function(e){
+          if (e.target.value.trim()) {
+           $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
+          } else {
+           $(".db-form-preview--visible_text").removeClass("db-form-preview--visible_text__visible");
+          }
+          $(".db-form-preview--visible_name").text(e.target.value);
         })
        });

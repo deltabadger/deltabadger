@@ -425,6 +425,12 @@ svg * {
 .db-form-group--eu-company__visible {
   display: block;
 }
+.db-form-preview--visible_text {
+  display: none;
+}
+.db-form-preview--visible_text__visible {
+  display: inline;
+}
 
 // page
 
