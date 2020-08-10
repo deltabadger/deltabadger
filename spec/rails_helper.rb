@@ -58,6 +58,12 @@ RSpec.configure do |config|
   # instead of true.
   config.use_transactional_fixtures = true
 
+  config.before(:suite) do
+    SubscriptionPlan.create(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 500)
+    SubscriptionPlan.create(name: 'investor', cost_eu: 20, cost_other: 20, unlimited: true, years: 1, credits: 500)
+    SubscriptionPlan.create(name: 'hodler', cost_eu: 60, cost_other: 60, unlimited: true, years: 4, credits: 500)
+  end
+
   # RSpec Rails can automatically mix in different behaviours to your tests
   # based on their file location, for example enabling you to call `get` and
   # `post` in specs under `spec/controllers`.

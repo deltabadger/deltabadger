@@ -58,6 +58,28 @@
         a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
       })(document, "script", "facebook-jssdk");
 
+      // payments plan
+      $(document).ready(function(){
+        $(".db-plan-investor").click(function(){
+          $("#payment_plan_investor").click()
+          $(".db-plan-investor").addClass("db-plan--selected")
+          $(".db-plan-investor").removeClass("db-plan--other")
+          $(".db-plan-hodler").addClass("db-plan--other")
+          $(".db-plan-hodler").removeClass("db-plan--selected")
+          $(".db-upgrade-modal").addClass("db-upgrade-modal--investor");
+          $(".db-upgrade-modal").removeClass("db-upgrade-modal--hodler");
+        })
+        $(".db-plan-hodler").click(function(){
+          $("#payment_plan_hodler").click()
+          $(".db-plan-hodler").addClass("db-plan--selected")
+          $(".db-plan-hodler").removeClass("db-plan--other")
+          $(".db-plan-investor").addClass("db-plan--other")
+          $(".db-plan-investor").removeClass("db-plan--selected")
+          $(".db-upgrade-modal").addClass("db-upgrade-modal--hodler");
+          $(".db-upgrade-modal").removeClass("db-upgrade-modal--investor");
+        })
+      })
+
       // payments eu/non-eu
 
       $(document).ready(function(){

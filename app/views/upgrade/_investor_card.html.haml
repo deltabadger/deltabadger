@@ -1,0 +1,12 @@
+%td(scope="col")
+  <i class="material-icons-round">star</i>
+%td(scope="col")
+  Investor
+  - if days_left
+    (#{current_user.plan_days_left} days left)
+  %span.db-billing-item__info One year of unlimited transactions.
+  - unless days_left
+    %td(scope="col")
+    %td.pl-4(scope="col")
+      %span.db-show--eu €#{cost_presenters[:eu].price_with_vat}
+      %span.db-show--other $#{cost_presenters[:other].price_with_vat}

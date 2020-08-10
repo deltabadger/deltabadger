@@ -10,6 +10,11 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     id: Field::Number,
     name: Field::String,
+    years: Field::Number,
+    unlimited: Field::Boolean,
+    cost_eu: Field::Number,
+    cost_other: Field::Number,
+    credits: Field::Number,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze
@@ -22,6 +27,11 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     id
     name
+    unlimited
+    cost_eu
+    cost_other
+    years
+    credits
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -29,13 +39,21 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     id
     name
+    unlimited
+    cost_eu
+    cost_other
+    years
+    credits
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-    name
+    cost_eu
+    cost_other
+    years
+    credits
   ].freeze
 
   # COLLECTION_FILTERS
@@ -54,6 +72,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(subscription_plan)
-    subscription_plan.name.capitalize.to_s
+    subscription_plan.display_name
   end
 end

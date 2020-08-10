@@ -1,35 +1,40 @@
 - unless current_user.unlimited?
+  - hodler_selected = payment.subscription_plan_id == hodler_plan.id
+
   %h4.db-modal__subtitle Billing information
-  - if errors.present?
-    %ul.pl-3
-      - errors.each do |error|
-        %li.text-danger= error
   = form_for payment, url: upgrade_pay_path do |f|
+    - if errors.present?
+      %ul.pl-3
+        - errors.each do |error|
+          %li.text-danger= error
+
+    %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: investor_plan.id, checked: !hodler_selected}
+    %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: hodler_plan.id, checked: hodler_selected}
+
     .form-group
-      %label(for="first_name") Name
+      = f.label :first_name, 'Name'
       = f.text_field :first_name, class: 'form-control'
 
     .form-group
-      %label(for="last_name") Surname
+      = f.label :last_name, 'Surname'
       = f.text_field :last_name, class: 'form-control'
 
     .form-group
-      %label{:for => "example-date-input"} Birth date
-      = f.date_field :birth_date, class: 'example-data-input form-control'
+      = f.label :birth_date
+      = f.date_field :birth_date, class: 'form-control'
 
     .form-group
       %label Country
       %br
       .form-check.form-check-inline
         = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input radio--eu', id: 'radioEu'
-        = f.label :eu, "European Union", class: 'form-check-label', for: 'radioEu'
+        = f.label :eu, 'European Union', class: 'form-check-label', for: 'radioEu'
       .form-check.form-check-inline
         = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input radio--other', id: 'radioOther'
-        = f.label :eu, "Other", class: 'form-check-label', for: 'radioOther'
+        = f.label :eu, 'Other', class: 'form-check-label', for: 'radioOther'
 
     .form-group.db-form-group--main-btn
       %button.btn.btn-success.btn-lg{type: 'submit'}
         %span.mr-3 Checkout
-        %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :width => "24", :viewBox => "0 0 24 24"}
-          %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-          //   %i.material-icons-round arrow_forward
+        %svg{class: 'db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward', xmlns: 'http://www.w3.org/2000/svg', width: '24', viewBox: '0 0 24 24'}
+          %path{d: 'M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z'}

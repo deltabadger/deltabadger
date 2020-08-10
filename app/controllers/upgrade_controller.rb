@@ -37,30 +37,52 @@ class UpgradeController < ApplicationController
   private
 
   def default_locals
-    cost_calculator = Payments::CostCalculator
     referrer = current_user.eligible_referrer
-    discount = referrer&.discount_percent || 0
+
+    subscription_plan_repository = SubscriptionPlansRepository.new
+    saver_plan = subscription_plan_repository.saver
+    investor_plan = subscription_plan_repository.investor
+    hodler_plan = subscription_plan_repository.hodler
 
     {
-      free_limit: User::FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT,
+      free_limit: saver_plan.credits,
       referrer: referrer,
-      eu_calculator: cost_calculator.new(
-        base_price: Payments::Create::COST_EU,
-        vat: Payments::Create::VAT_EU,
-        discount_percent: discount
-      ),
-      other_calculator: cost_calculator.new(
-        base_price: Payments::Create::COST_OTHER,
-        vat: Payments::Create::VAT_OTHER,
-        discount_percent: discount
-      )
+      investor_plan: investor_plan,
+      hodler_plan: hodler_plan
+    }.merge(cost_calculators(referrer, investor_plan, hodler_plan))
+  end
+
+  def cost_calculators(referrer, investor_plan, hodler_plan) # rubocop:disable Metrics/MethodLength
+    discount = referrer&.discount_percent || 0
+    factory = Payments::CostCalculatorFactory.new
+    presenter = Presenters::Payments::Cost
+
+    {
+      cost_presenters: {
+        investor: {
+          eu: presenter.new(
+            factory.call(eu: true, subscription_plan: investor_plan, discount_percent: discount)
+          ),
+          other: presenter.new(
+            factory.call(eu: false, subscription_plan: investor_plan, discount_percent: discount)
+          )
+        },
+        hodler: {
+          eu: presenter.new(
+            factory.call(eu: true, subscription_plan: hodler_plan, discount_percent: discount)
+          ),
+          other: presenter.new(
+            factory.call(eu: false, subscription_plan: hodler_plan, discount_percent: discount)
+          )
+        }
+      }
     }
   end
 
   def payment_params
     params
       .require(:payment)
-      .permit(:first_name, :last_name, :birth_date, :eu)
+      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :eu)
       .merge(user: current_user)
   end
 end

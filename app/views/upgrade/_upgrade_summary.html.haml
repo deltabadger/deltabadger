@@ -1,19 +1,14 @@
 - unless current_user.unlimited?
   %tfoot
     %tr
-      %td(scope="col")
-      %td(scope="col")
-      %td(scope="col")
+      %td(scope='col')
+      %td(scope='col')
+      %td(scope='col')
         %b Sum:
-      %td.pl-4(scope="col")
+      %td.pl-4(scope='col')
         %b
-          - if referrer.present?
-            %span.db-show--eu
-              %span.text-success= "€#{eu_price_presenter.total_price}"
-              %s= "€#{eu_price_presenter.price_with_vat}"
-            %span.db-show--other
-              %span.text-success= "$#{other_price_presenter.total_price}"
-              %s= "$#{other_price_presenter.price_with_vat}"
-          - else
-            %span.db-show--eu= "€#{eu_price_presenter.total_price}"
-            %span.db-show--other= "$#{other_price_presenter.total_price}"
+          .db-show--investor
+            = render partial: 'upgrade_summary_plan', locals: { referrer: referrer, cost_presenters: cost_presenters[:investor] }
+
+          .db-show--hodler
+            = render partial: 'upgrade_summary_plan', locals: { referrer: referrer, cost_presenters: cost_presenters[:hodler] }

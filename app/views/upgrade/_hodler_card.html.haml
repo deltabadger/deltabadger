@@ -1,0 +1,12 @@
+%td(scope="col")
+  <i class="material-icons-round">stars</i>
+%td(scope="col")
+  Hodler
+  - if days_left
+    (#{current_user.plan_days_left} days left)
+  %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+  - unless days_left
+    %td(scope="col")
+    %td.pl-4(scope="col")
+      %span.db-show--eu €#{cost_presenters[:eu].price_with_vat}
+      %span.db-show--other $#{cost_presenters[:other].price_with_vat}

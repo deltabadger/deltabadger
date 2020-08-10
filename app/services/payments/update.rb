@@ -6,12 +6,12 @@ module Payments
     def initialize(
       payments_repository: PaymentsRepository.new,
       notifications: Notifications::Subscription.new,
-      subscribe_unlimited: SubscribeUnlimited.new,
+      subscribe_plan: SubscribePlan.new,
       grant_commission: Affiliates::GrantCommission.new
     )
       @payments_repository = payments_repository
       @notifications = notifications
-      @subscribe_unlimited = subscribe_unlimited
+      @subscribe_plan = subscribe_plan
       @grant_commission = grant_commission
     end
 
@@ -35,7 +35,7 @@ module Payments
       return unless just_paid
 
       @notifications.invoice(payment: payment)
-      @subscribe_unlimited.call(payment.user)
+      @subscribe_plan.call(user: payment.user, subscription_plan: payment.subscription_plan)
       @grant_commission.call(referee: user, payment: payment)
     end
 

@@ -35,9 +35,7 @@ module Admin
     end
 
     def show_action?(action, _)
-      return false if %i[destroy edit new].include?(action)
-
-      true
+      !action.in?(%i[destroy new])
     end
   end
 end
