@@ -93,13 +93,19 @@
           }
           var dataset = event.target.options[event.target.selectedIndex].dataset;
 
+          $(".vat-percent").text(dataset.vp);
+
           $(".investor-total-price").text(dataset.itp);
-          $(".investor-base-price-with-vat").text(dataset.ibpwv);
-          $(".investor-flat-discount-with-vat").text(dataset.ifdwv);
+          $(".investor-base-price").text(dataset.ibp);
+          $(".investor-flat-discount").text(dataset.ifd);
+          $(".investor-discount-percent-amount").text(dataset.idpa);
+          $(".investor-total-vat").text(dataset.itv);
 
           $(".hodler-total-price").text(dataset.htp);
-          $(".hodler-base-price-with-vat").text(dataset.hbpwv);
-          $(".hodler-flat-discount-with-vat").text(dataset.hfdwv);
+          $(".hodler-base-price").text(dataset.hbp);
+          $(".hodler-flat-discount").text(dataset.hfd);
+          $(".hodler-discount-percent-amount").text(dataset.hdpa);
+          $(".hodler-total-vat").text(dataset.htv);
         });
       });
 

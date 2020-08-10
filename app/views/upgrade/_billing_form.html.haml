@@ -30,7 +30,7 @@
       = f.select :country, nil, {}, class: 'form-control' do
         - cost_presenters.each do |country, presenter|
           - selected = country == payment.country
-          = content_tag :option, country, value: country, selected: selected, data: { ibpwv: presenter[:investor].base_price_with_vat, hbpwv: presenter[:hodler].base_price_with_vat, ifdwv: presenter[:investor].flat_discount_with_vat, hfdwv: presenter[:hodler].flat_discount_with_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+          = content_tag :option, country, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
 
     .form-group.db-form-group--main-btn
       %button.btn.btn-success.btn-lg{type: 'submit'}

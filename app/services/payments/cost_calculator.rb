@@ -14,12 +14,20 @@ module Payments
       @base_price_with_vat ||= round_down(base_price * vat_multiplier)
     end
 
-    def flat_discount_with_vat
-      @flat_discount_with_vat ||= round_down(flat_discount * vat_multiplier)
+    def flat_discounted_price
+      @flat_discounted_price = base_price - flat_discount
+    end
+
+    def discount_percent_amount
+      @discount_percent_amount = flat_discounted_price - discounted_price
     end
 
     def discounted_price
-      @discounted_price = round_down((base_price - flat_discount) * discount_multiplier)
+      @discounted_price = round_down(flat_discounted_price * discount_multiplier)
+    end
+
+    def total_vat
+      @total_vat = total_price - discounted_price
     end
 
     def total_price
