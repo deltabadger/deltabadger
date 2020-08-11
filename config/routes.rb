@@ -35,6 +35,7 @@ Rails.application.routes.draw do
     end
     resources :api_keys, except: [:edit, :update]
     resources :bots
+    resources :conversion_rates
     resources :exchanges
     resources :transactions
     resources :subscriptions
