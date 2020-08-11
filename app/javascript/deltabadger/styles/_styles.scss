@@ -180,6 +180,12 @@ svg * {
     path { fill: #fff; }
   }
 }
+.btn-lg {
+  min-width: 300px !important;
+}
+.btn--get-started {
+  min-width: auto !important;
+}
 .btn-link {
   transition: none;
 }
@@ -366,10 +372,9 @@ svg * {
 }
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - 2 * (#{$navbarHeight} + 2 * #{$navbarExtraPadding}));
-  max-height:      1000px;
+  height:          calc(100vh - 2 * (#{$navbarHeight}));
   justify-content: center;
-  align-items:     flex-start;
+  align-items:     center;
   display:         flex;
 }
 .modal-content {
@@ -410,7 +415,7 @@ svg * {
 }
 .db-form-group--main-btn {
   text-align: center;
-  margin-top: 2rem;
+  margin-top: 3rem;
 }
 .db-form-group--btn {
   display:     flex;
@@ -736,6 +741,7 @@ svg * {
     &:last-child {
       padding-right: 20px;
       border-radius: 0 $box-border-radius $box-border-radius 0;
+      white-space: nowrap;
     }
   }
   tfoot {
