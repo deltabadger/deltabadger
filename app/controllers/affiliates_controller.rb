@@ -10,7 +10,7 @@ class AffiliatesController < ApplicationController
   ).freeze
 
   def show
-    render :show, locals: { affiliate: affiliate, errors: [] }
+    render :show, locals: default_show_locals.merge(affiliate: affiliate)
   end
 
   def new
@@ -36,7 +36,7 @@ class AffiliatesController < ApplicationController
   def update_visible_info
     Affiliates::UpdateVisibleInfo.call(affiliate: affiliate, params: params[:affiliate])
 
-    render :show, locals: { affiliate: affiliate, errors: [] }
+    render :show, locals: default_show_locals.merge(affiliate: affiliate)
   end
 
   def update_btc_address
@@ -45,9 +45,11 @@ class AffiliatesController < ApplicationController
 
     if result.success?
       flash[:notice] = 'Confirmation email sent'
-      render :show, locals: { affiliate: affiliate, errors: [] }
+      render :show, locals: default_show_locals.merge(affiliate: affiliate)
     else
-      render :show, locals: { affiliate: result.data || affiliate, errors: result.errors }
+      render :show, locals: default_show_locals.merge(
+        affiliate: result.data || affiliate, errors: result.errors
+      )
     end
   end
 
@@ -83,6 +85,17 @@ class AffiliatesController < ApplicationController
     affiliate.errors.add(:current_password, 'is not valid')
 
     render :show, locals: { affiliate: affiliate, errors: affiliate.errors.full_messages }
+  end
+
+  def default_show_locals
+    affiliate_active = affiliate.active?
+    unlimited_active = current_user.unlimited?
+    {
+      errors: [],
+      affiliate_active: affiliate_active,
+      unlimited_active: unlimited_active,
+      disabled: !(affiliate_active && unlimited_active)
+    }
   end
 
   def affiliate_params

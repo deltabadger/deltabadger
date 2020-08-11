@@ -5,7 +5,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
     @code_present = code.present?
 
     if @code_present
-      @affiliate = Affiliate.active.find_by(code: code)
+      @affiliate = find_affiliate(code)
       session.delete(:code) if @affiliate.nil? # don't show an invalid code twice
     end
 
@@ -13,7 +13,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def create
-    affiliate = Affiliate.active.find_by(code: code)
+    affiliate = find_affiliate(code)
     params[:user][:referrer_id] = affiliate&.id
 
     super do |user|
@@ -22,7 +22,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
         @code_present = code.present?
 
         if @code_present
-          @affiliate = Affiliate.active.find_by(code: code)
+          @affiliate = find_affiliate(code)
           session.delete(:code) if @affiliate.nil?
         end
       end
@@ -30,6 +30,10 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   private
+
+  def find_affiliate(code)
+    AffiliatesRepository.new.find_active_by_code(code)
+  end
 
   def code
     session[:code]

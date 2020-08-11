@@ -16,13 +16,19 @@
       %h2.db-modal-title Referral program registration
 
       .alert.alert-success
-        %p.mt-1 Earning bitcoins is the best way of dollar-cost averaging. Our referral program pays up to 20EUR<sup>*</sup> per user paid in BTC (using exchange ratio from the transaction). Example:
+        %p.mt-1 Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:
         %ol
-          %li Referee buys 1-year plan for $20, and pays 0.0025BTC.
-          %li You earn 20% what is $4 = 0.0005BTC.
-          %li Next time the referee buys 4-year plan for $100, and pays 0.0125BTC.
-          %li 20% of it is $20, but since you already got $4, the program pays remaining $16 = 0.002BTC.
-        %small.mb-2 <sup>*</sup> The limit is either 20USD or 20EUR depending on the currency of the pricing.
+          %li For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.
+          %li Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).
+          %li It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.
+          %li Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.
+          %li You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.
+
+        %p
+          <em>Earning bitcoins is the best kind of dollar-cost averaging!</em>
+        %small.mb-2 <sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.
+        %br
+        %small.mb-5 <sup>2</sup> For the referee, the referral link works even if your subscription has expired.
 
       .db-referral-program-registration
         - if errors.present?

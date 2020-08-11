@@ -6,6 +6,16 @@ RSpec.describe Affiliates::GrantCommission do
 
     let!(:referrer) { create(:user) }
 
+    let!(:subscription) do
+      investor = SubscriptionPlan.find_by!(name: 'investor')
+      Subscription.create(
+        user: referrer,
+        subscription_plan: investor,
+        end_time: Time.current + investor.duration + 1.day,
+        credits: investor.credits
+      )
+    end
+
     let!(:affiliate) do
       create(:affiliate,
              user: referrer,
@@ -26,6 +36,61 @@ RSpec.describe Affiliates::GrantCommission do
              user: referee,
              commission: commission,
              crypto_commission: crypto_commission)
+    end
+
+    context 'when referrer has no active subscription' do
+      let(:max_profit) { 20 }
+      let(:unexported_crypto_commission) { 0.1 }
+      let(:exported_crypto_commission) { 0.2 }
+      let(:paid_crypto_commission) { 0.3 }
+      let(:current_referrer_profit) { 0 }
+      let(:commission) { 2 }
+      let(:crypto_commission) { 0.2 }
+
+      before do
+        saver = SubscriptionPlan.find_by!(name: 'saver')
+        subscription.update(subscription_plan: saver)
+      end
+
+      it "does not modifiy referrer's commissions" do
+        subject
+
+        referee.reload
+        affiliate.reload
+
+        expect(referee.current_referrer_profit).to eq(0)
+
+        expect(affiliate.unexported_crypto_commission).to eq(0.1)
+        expect(affiliate.exported_crypto_commission).to eq(0.2)
+        expect(affiliate.paid_crypto_commission).to eq(0.3)
+      end
+    end
+
+    context 'when referrer is inactive' do
+      let(:max_profit) { 20 }
+      let(:unexported_crypto_commission) { 0.1 }
+      let(:exported_crypto_commission) { 0.2 }
+      let(:paid_crypto_commission) { 0.3 }
+      let(:current_referrer_profit) { 0 }
+      let(:commission) { 2 }
+      let(:crypto_commission) { 0.2 }
+
+      before do
+        affiliate.update(active: false)
+      end
+
+      it "does not modifiy referrer's commissions" do
+        subject
+
+        referee.reload
+        affiliate.reload
+
+        expect(referee.current_referrer_profit).to eq(0)
+
+        expect(affiliate.unexported_crypto_commission).to eq(0.1)
+        expect(affiliate.exported_crypto_commission).to eq(0.2)
+        expect(affiliate.paid_crypto_commission).to eq(0.3)
+      end
     end
 
     context 'when there is no commission' do

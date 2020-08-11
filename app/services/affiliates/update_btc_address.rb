@@ -10,7 +10,11 @@ module Affiliates
       @affiliate_mailer = affiliate_mailer
     end
 
-    def call(affiliate:, new_btc_address:)
+    def call(affiliate:, new_btc_address:) # rubocop:disable Metrics/MethodLength
+      unless affiliate.program_active?
+        return Result::Failure.new('Your referral program is inactive')
+      end
+
       unless Bitcoin.valid_address?(new_btc_address)
         affiliate[:btc_address] = new_btc_address
         affiliate.errors.add(:btc_address, 'is not valid')

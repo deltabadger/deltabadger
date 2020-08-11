@@ -1,13 +1,10 @@
 .db--guest {
   background: $primary;
-  .container {
-    @include media-breakpoint-down(xs) {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
-  }
   .db-logo-svg-shape {
     fill: $textColorInverted;
+  }
+  .db-hi-welcome path {
+    stroke: $textColorInverted;
   }
   .navbar-brand {
     color: $textColorInverted !important;
@@ -47,7 +44,9 @@
   fill: $primary;
   shape-rendering: geometricprecision;
 }
-
+.db-hi-welcome path {
+  stroke: $primary;
+}
 .db-navbar {
   background: rgba(255,255,255,0);
   transition: top 200ms ease-in-out;
@@ -62,12 +61,6 @@
   background: none !important;
   .navbar-brand {
     margin-left: 0;
-  }
-}
-
-.db--loggedout {
-  .navbar {
-    padding: 2.25rem 1.5rem;
   }
 }
 
@@ -103,6 +96,9 @@
   .db-logo-svg-shape {
     fill: $primary;
   }
+  .db-hi-welcome path {
+    stroke: $primary;
+  }
   .btn-link,
   .btn-outline-primary {
     color: $primary !important;
@@ -121,4 +117,33 @@
 }
 .db-navbar--scroll--show {
   top: 0;
+}
+.db-hi-welcome {
+  pointer-events: none;
+  position: absolute;
+  top: -35px;
+  left: 110px;
+  opacity: 0;
+  //transition: all 100ms ease-in-out;
+  svg {
+    position: absolute;
+    left: -10px;
+    bottom: -15px;
+  }
+  @include media-breakpoint-down(md) {
+    display: none !important;
+  }
+}
+// .navbar-brand:hover,
+// .db--loggedout,
+.db--guest {
+  .db-hi-welcome {
+    opacity: 1;
+    top: 15px;
+  }
+}
+.db-navbar--scroll {
+  .db-hi-welcome {
+    display: none;
+  }
 }
