@@ -36,7 +36,7 @@ module Payments
 
       @notifications.invoice(payment: payment)
       @subscribe_plan.call(user: payment.user, subscription_plan: payment.subscription_plan)
-      @grant_commission.call(referee: user, payment: payment)
+      @grant_commission.call(referee: payment.user, payment: payment)
     end
 
     private
