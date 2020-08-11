@@ -733,7 +733,9 @@ svg * {
     padding: .5rem .5rem .5rem 1rem;
   }
 }
-
+.db-nobreak {
+  white-space: nowrap;
+}
 .db-table--checkout {
   td {
     padding: .85rem 0 .5rem;
@@ -751,7 +753,6 @@ svg * {
     &:last-child {
       padding-right: 20px;
       border-radius: 0 $box-border-radius $box-border-radius 0;
-      white-space: nowrap;
     }
   }
   tfoot {
