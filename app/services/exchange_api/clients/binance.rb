@@ -3,7 +3,15 @@ module ExchangeApi
     class Binance < ExchangeApi::Clients::Base
       URL_BASE = 'https://api.binance.com/api/v3'.freeze
       ORDER_DOES_NOT_EXIST = -2011
-      MIN_TRANSACTION_PRICE = 20
+      MIN_TRANSACTION_PRICES = {
+        BKRW: 2000,
+        IDRT: 40_000,
+        NGN: 1000,
+        RUB: 200,
+        ZAR: 200,
+        UAH: 200
+      }.freeze
+      DEFAULT_MIN_TRANSACTION_PRICE = 20
 
       def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Binance.new)
         @api_key = api_key
@@ -43,7 +51,7 @@ module ExchangeApi
       private
 
       def make_order(offer_type, currency, price)
-        price = [MIN_TRANSACTION_PRICE, price].max
+        price = transaction_price(currency, price)
         symbol = "BTC#{currency.upcase}"
 
         params = {
@@ -62,6 +70,11 @@ module ExchangeApi
         parse_response(response)
       rescue StandardError
         Result::Failure.new('Could not make Binance order', RECOVERABLE)
+      end
+
+      def transaction_price(currency, price)
+        limit = MIN_TRANSACTION_PRICES.fetch(currency.upcase.to_sym, DEFAULT_MIN_TRANSACTION_PRICE)
+        [limit, price].max
       end
 
       def parse_response(response)
