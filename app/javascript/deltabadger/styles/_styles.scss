@@ -372,11 +372,14 @@ svg * {
 }
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - 2 * (#{$navbarHeight}));
+  height:          calc(100vh - 3 * (#{$navbarHeight}));
   justify-content: center;
   align-items:     center;
   display:         flex;
+  min-height: 440px;
 }
+.db-modal-positioner--sign-in { min-height: 560px; }
+.db-modal-positioner--sign-up { min-height: 690px; }
 .modal-content {
   border: none;
   background: none;
