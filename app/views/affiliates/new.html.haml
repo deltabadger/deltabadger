@@ -1,19 +1,5 @@
 - disabled = !current_user.unlimited?
 
-.alert.alert-secondary.db-alert--flex
-  %span
-    It looks like this program got deactivated. Contact us if you're not sure why it happened.
-
-  %a.btn.btn-outline-secondary{href: "mailto:contact@deltabadger.com"}
-    %span Contact us
-
-.alert.alert-primary.db-alert--flex
-  %span
-    Oh no… your subscription has expired. Renew your plan to continue benefiting from your referral program.
-
-  %a.btn.btn-primary{href: upgrade_path}
-    %span Upgrade
-
 - if disabled
   .alert.alert-primary.db-alert--flex
     %span
