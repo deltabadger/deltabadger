@@ -1,5 +1,5 @@
 class User < ApplicationRecord
-  after_create :subscription
+  after_create :active_subscription
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
@@ -17,14 +17,7 @@ class User < ApplicationRecord
   delegate :unlimited?, to: :subscription
 
   def subscription
-    now = Time.current
-    @subscription ||=
-      subscriptions.where('end_time > ?', now).order(end_time: :desc).first_or_create do |sub|
-        saver_plan = SubscriptionPlansRepository.new.saver
-        sub.subscription_plan = saver_plan
-        sub.end_time = now + saver_plan.duration
-        sub.credits = saver_plan.credits
-      end
+    @subscription ||= active_subscription
   end
 
   def subscription_name
@@ -51,10 +44,20 @@ class User < ApplicationRecord
 
   private
 
-  def active_referrer
-    return if referrer_id.nil?
+  def active_subscription
+    now = Time.current
+    subscriptions.where('end_time > ?', now).order(end_time: :desc).first_or_create do |sub|
+      saver_plan = SubscriptionPlansRepository.new.saver
+      sub.subscription_plan = saver_plan
+      sub.end_time = now + saver_plan.duration
+      sub.credits = saver_plan.credits
+    end
+  end
 
-    errors.add(:referrer, 'code is not valid') if Affiliate.active.where(id: referrer_id).empty?
+  def active_referrer
+    return if referrer_id.nil? || AffiliatesRepository.new.active?(id: referrer_id)
+
+    errors.add(:referrer, 'code is not valid')
   end
 
   def eligible_for_discount?
