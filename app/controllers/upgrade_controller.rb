@@ -62,7 +62,7 @@ class UpgradeController < ApplicationController
 
     plans = { investor: investor_plan, hodler: hodler_plan }
 
-    cost_presenters = VatRate.all.order(country: :asc).map do |country|
+    cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,
        plans.map do |plan_name, plan|
          [plan_name,
