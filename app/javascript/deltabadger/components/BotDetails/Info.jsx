@@ -3,8 +3,7 @@ import React from 'react'
 export const Info = ({ bot, active }) => (
   <div className={`tab-pane pl-4 pr-4 ${active ? 'active' : ''}`} id="info" role="tabpanel" aria-labelledby="info-tab">
     <p className="mt-2"><b>Exchanges</b></p>
-    <p>Deltabadger works with cryptoexchanges. At the moment, we support <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="noopener" title="Bitbay">Bitbay</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener" title="Kraken">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>
-    <p class="alert alert-success"><span class="badge badge-success">Nowość!</span> Użyj <a href="https://bitclude.com/r/345469148" target="_blank" rel="noopener" title="Bitclude">BitClude</a> jeśli szukasz giełdy w języku polskim o bardzo atrakcyjnych marżach.</p>
+    <p>Deltabadger works with cryptoexchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="noopener">Binance</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="noopener" title="Bitbay">Bitbay</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener" title="Kraken">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>
     <p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p>
     <p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>
     <p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>
