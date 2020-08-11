@@ -50,7 +50,7 @@ $sidebarItemPadding: 20px;
 
 $textColorInverted:  rgba(255,255,255,1);
 
-$successLighter:      lighten($success,10%);
+$successLighter:      lighten($success,7%);
 
 $bgColor:            $bgColorLight;
 $bgBot:              white;
@@ -786,6 +786,9 @@ svg * {
     background: $primary;
     color: #fff; //#ceddf5;
     box-shadow: 1px 1px 20px transparentize($primary, 1);
+  }
+  .text-success {
+    color: $successLighter !important;
   }
 }
 .db-plan--other {}
