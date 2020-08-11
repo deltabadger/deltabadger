@@ -3,7 +3,7 @@ module Affiliates
     def call(referee:, payment:)
       payment_commission = payment.commission
 
-      return if !payment_commission.positive? || referee.referrer_id.nil?
+      return if not_eligible_for_commission?(referee, payment_commission)
 
       User.transaction do
         referee.reload
@@ -26,6 +26,22 @@ module Affiliates
     end
 
     private
+
+    def not_eligible_for_commission?(referee, commission)
+      no_commission?(commission) || no_referrer?(referee) || referrer_invalid?(referee)
+    end
+
+    def no_commission?(payment_commission)
+      !payment_commission.positive?
+    end
+
+    def no_referrer?(referee)
+      referee.referrer_id.nil?
+    end
+
+    def referrer_invalid?(referee)
+      !referee.referrer.program_active?
+    end
 
     def total_commission(referee)
       referee.unexported_commission + referee.exported_commission + referee.paid_commission

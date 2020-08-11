@@ -5,7 +5,7 @@ class RefCodesController < ApplicationController
       return redirect_to new_user_registration_path
     end
 
-    affiliate = Affiliate.active.find_by(code: code)
+    affiliate = find_affiliate(code)
 
     if current_user.referrer_id.present?
       redirect_to dashboard_path, flash: { notice: 'You have already used a referral link' }
@@ -20,10 +20,9 @@ class RefCodesController < ApplicationController
       return
     end
 
-    affiliate = Affiliate.active.find_by(code: code)
-    valid = affiliate.present?
+    affiliate = find_affiliate(code)
 
-    if valid
+    if affiliate.present?
       current_user.update(referrer_id: affiliate.id)
       redirect_to dashboard_path, flash: { notice: 'You have accepted the referral link' }
     else
@@ -32,6 +31,10 @@ class RefCodesController < ApplicationController
   end
 
   private
+
+  def find_affiliate(code)
+    AffiliatesRepository.new.find_active_by_code(code)
+  end
 
   def code
     params[:code]
