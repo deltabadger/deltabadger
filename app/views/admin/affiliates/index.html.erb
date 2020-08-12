@@ -52,12 +52,25 @@ It renders the `_table` partial to display details about the resources.
   </div>
 </header>
 
+
+<section class="container container-fluid pl-5 pt-5">
+  <div>
+    <b>Unexported: </b><%= @total_unexported %>
+  </div>
+  <div>
+    <b>Exported: </b><%= @total_exported %>
+  </div>
+  <div>
+    <b>Paid: </b><%= @total_paid %>
+  </div>
+</section>
+
 <section class="container container-fluid pl-5 pt-5">
   <%= link_to(
     "Mark Unexported as Exported",
     mark_as_exported_admin_affiliates_path,
     class: "button",
-    remote: true,
+    remote: false,
     method: :post,
     data: { confirm: "Are you sure?" },
   ) %>
@@ -66,7 +79,7 @@ It renders the `_table` partial to display details about the resources.
     "Mark Exported as Paid",
     mark_as_paid_admin_affiliates_path,
     class: "button",
-    remote: true,
+    remote: false,
     method: :post,
     data: { confirm: "Are you sure?" },
   ) %>
