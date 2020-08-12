@@ -10,5 +10,5 @@
     .form-group
       = f.label :current_password, "Current password (for confirmation)"
       = f.password_field :current_password, autocomplete: "current-password", class: "form-control"
-    .form-group.db-setting__button-container
+    .form-group.db-form-group--main-btn
       = f.submit "Update email", class: "btn btn-lg btn-primary"

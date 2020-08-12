@@ -28,11 +28,12 @@
       %td(scope="col")
         <i class="material-icons-round">check_circle</i>
       %td(scope="col")
-        %b Plan upgrade discount activated
+        %b Compensation for unused days of your current plan
         %span.db-billing-item__info.text-dark
-          Because you have #{current_user.plan_days_left} days of Investor left.
+          You still have #{current_user.plan_days_left} days of Investor plan left.
+
       %td(scope="col")
-      %td.pl-4(scope="col")
+      %td.pl-4.db-nobreak(scope="col")
         %span.db-show--investor
           %b
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
@@ -52,7 +53,7 @@
             Thanks to the referral link from <b><a href="#{discount_presenter.visible_path}">#{discount_presenter.visible_name}</a></b>.
           Valid for the first purchase on the platform.
       %td(scope="col")
-      %td.pl-4(scope="col")
+      %td.pl-4.db-nobreak(scope="col")
         %b
         - if 'investor'.in?(upgrade_presenter.available_plans)
           .db-show--investor

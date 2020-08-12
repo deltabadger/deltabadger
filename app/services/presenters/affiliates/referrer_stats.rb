@@ -22,7 +22,7 @@ module Presenters
       end
 
       def format_btc(amount)
-        format('%0.8g', amount)
+        format('%.8f', amount)
       end
     end
   end
