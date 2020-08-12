@@ -17,11 +17,10 @@ module Payments
 
     def call(params)
       payment = Payment.new(params)
-      validation_result = @payment_validator.call(payment)
+      user = params.fetch(:user)
+      validation_result = @payment_validator.call(payment, user)
 
       return validation_result if validation_result.failure?
-
-      user = params.fetch(:user)
 
       cost_calculator = get_cost_calculator(payment, user)
 

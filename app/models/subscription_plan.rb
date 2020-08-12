@@ -1,4 +1,8 @@
 class SubscriptionPlan < ApplicationRecord
+  SAVER = 'saver'.freeze
+  INVESTOR = 'investor'.freeze
+  HODLER = 'hodler'.freeze
+
   validates :years, numericality: { only_integer: true, greater_than: 0 }
   validates :cost_eu, numericality: { greater_than_or_equal_to: 0 }
   validates :cost_other, numericality: { greater_than_or_equal_to: 0 }
