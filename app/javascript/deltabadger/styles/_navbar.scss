@@ -3,8 +3,16 @@
   .db-logo-svg-shape {
     fill: $textColorInverted;
   }
+  .db-hi-welcome path {
+    stroke: $textColorInverted;
+  }
   .navbar-brand {
     color: $textColorInverted !important;
+    span {
+      @include media-breakpoint-down(xs) {
+        display: none;
+      }
+    }
   }
   .navbar,
   .row--intro {
@@ -28,29 +36,20 @@
     }
   }
 }
+.navbar {
+  padding: 2.25rem 0;
+}
 
 .db-logo-svg-shape {
   fill: $primary;
   shape-rendering: geometricprecision;
 }
-
+.db-hi-welcome path {
+  stroke: $primary;
+}
 .db-navbar {
   background: rgba(255,255,255,0);
   transition: top 200ms ease-in-out;
-}
-.navbar-brand {
-  font-family:    $fontBrand;
-  color:          $primary !important;
-  text-transform: lowercase;
-  font-size:      1.2em;
-  font-weight:    700;
-  line-height:    28px;
-  margin-left:    10px;
-  svg {
-    margin-right: 4px;
-  }
-}
-.navbar {
   @include media-breakpoint-down(xs) {
     // padding-right: 0.5rem !important;
     // padding-left:  0.5rem !important;
@@ -64,9 +63,17 @@
     margin-left: 0;
   }
 }
-.db--loggedout {
-  .navbar {
-    padding: 2.25rem 0;
+
+.navbar-brand {
+  font-family:    $fontBrand;
+  color:          $primary !important;
+  text-transform: lowercase;
+  font-size:      1.2em;
+  font-weight:    700;
+  line-height:    28px;
+  margin-left:    10px;
+  svg {
+    margin-right: 4px;
   }
 }
 
@@ -89,6 +96,9 @@
   .db-logo-svg-shape {
     fill: $primary;
   }
+  .db-hi-welcome path {
+    stroke: $primary;
+  }
   .btn-link,
   .btn-outline-primary {
     color: $primary !important;
@@ -107,4 +117,33 @@
 }
 .db-navbar--scroll--show {
   top: 0;
+}
+.db-hi-welcome {
+  pointer-events: none;
+  position: absolute;
+  top: -35px;
+  left: 110px;
+  opacity: 0;
+  //transition: all 100ms ease-in-out;
+  svg {
+    position: absolute;
+    left: -10px;
+    bottom: -15px;
+  }
+  @include media-breakpoint-down(md) {
+    display: none !important;
+  }
+}
+// .navbar-brand:hover,
+.db--loggedout,
+.db--guest {
+  .db-hi-welcome {
+    opacity: 1;
+    top: 15px;
+  }
+}
+.db-navbar--scroll {
+  .db-hi-welcome {
+    display: none;
+  }
 }

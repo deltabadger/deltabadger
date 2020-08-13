@@ -1,11 +1,10 @@
 class User < ApplicationRecord
-  FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT =
-    ENV.fetch('FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT')
-
-  after_create :add_subscription
+  after_create :active_subscription
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
+  has_one :affiliate
+  belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots
@@ -13,16 +12,12 @@ class User < ApplicationRecord
   has_many :payments
 
   validates :terms_and_conditions, acceptance: true
+  validate :active_referrer, on: :create
+
+  delegate :unlimited?, to: :subscription
 
   def subscription
-    current_subscription = subscriptions.last
-
-    if current_subscription.nil? || current_subscription.end_time < Time.now
-      add_subscription
-      subscription
-    else
-      current_subscription
-    end
+    @subscription ||= active_subscription
   end
 
   def subscription_name
@@ -43,17 +38,29 @@ class User < ApplicationRecord
     welcome_banner_showed
   end
 
-  def unlimited?
-    subscription_name == 'unlimited'
+  def eligible_referrer
+    referrer if eligible_for_discount?
   end
 
   private
 
-  def add_subscription
-    subscriptions << Subscription.new(
-      subscription_plan: SubscriptionPlan.find_by(name: 'free'),
-      end_time: created_at + 1.year,
-      credits: FREE_SUBSCRIPTION_YEAR_CREDITS_LIMIT
-    )
+  def active_subscription
+    now = Time.current
+    subscriptions.where('end_time > ?', now).order(end_time: :desc).first_or_create do |sub|
+      saver_plan = SubscriptionPlansRepository.new.saver
+      sub.subscription_plan = saver_plan
+      sub.end_time = now + saver_plan.duration
+      sub.credits = saver_plan.credits
+    end
+  end
+
+  def active_referrer
+    return if referrer_id.nil? || AffiliatesRepository.new.active?(id: referrer_id)
+
+    errors.add(:referrer, 'code is not valid')
+  end
+
+  def eligible_for_discount?
+    !payments.paid.where(discounted: true).exists?
   end
 end
