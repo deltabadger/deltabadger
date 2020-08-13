@@ -12,18 +12,18 @@
 
             .form-group
               = f.label :email
-              = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
+              = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
 
             .form-group
               = f.label :password
-              = f.password_field :password, autocomplete: "new-password", class: "form-control"
+              = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg"
               - if @minimum_password_length
                 .invalid-feedback
                   #{@minimum_password_length} characters minimum
 
             .form-group
               = f.label :password_confirmation
-              = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control"
+              = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control form-control-lg"
 
             .form-check.mb-2
               = f.check_box :terms_and_conditions, class: "form-check-input"
