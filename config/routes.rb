@@ -77,6 +77,8 @@ Rails.application.routes.draw do
   get '/about', to: 'home#about', as: :about
   get '/referral_program', to: 'home#referral_program', as: :referral_program
 
+  get '*path' => redirect('/')
+
   authenticate :user, lambda { |u| u.admin? } do
     mount Sidekiq::Web => '/sidekiq'
   end
