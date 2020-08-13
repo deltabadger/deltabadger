@@ -12,8 +12,8 @@
 
       .ml-auto
         - if current_user.unlimited?
-          .btn.text-success.db-icon-verified.mr-2.db-has-tooltip
-            Unlimited
+          %a.btn.btn-link.text-success.db-icon-verified.mr-2.db-has-tooltip{href: upgrade_path}
+            = current_user.subscription.display_name
             %i.material-icons-round.ml-1 verified_user
             .db-tooltip= "#{ current_user.plan_days_left } days left"
         - else
@@ -34,5 +34,7 @@
         -#       Position Opener
         %a.btn.btn-link.d-none.d-sm-inline-flex{:href => root_path}
           Dashboard
+        %a.btn.btn-link.d-none.d-sm-inline-flex{:href => affiliate_path}
+          Referral Program
         = link_to(raw('<i class="material-icons-round d-inline d-sm-none pr-2">account_circle</i><span class="d-none d-sm-inline">Settings</span>'), settings_path, class: 'btn btn-link')
         = link_to(raw('<i class="material-icons-round d-inline d-sm-none pr-2">power_settings_new</i><span class="d-none d-sm-inline">Logout</span>'),  destroy_user_session_path, method: :delete, class: 'btn btn-link')

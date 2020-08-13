@@ -14,6 +14,7 @@ class UserDashboard < Administrate::BaseDashboard
     subscriptions: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     subscription: SubscriptionField,
     payments: Field::HasMany.with_options(sort_by: :id, direction: :desc),
+    affiliate: Field::HasOne,
     id: Field::Number,
     email: Field::String,
     encrypted_password: Field::String,
@@ -30,7 +31,9 @@ class UserDashboard < Administrate::BaseDashboard
     terms_and_conditions: Field::Boolean,
     updates_agreement: Field::Boolean,
     welcome_banner_showed: Field::Boolean,
-    limit_reached?: Field::Boolean
+    limit_reached?: Field::Boolean,
+    referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
+    current_referrer_profit: Field::Number
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -56,6 +59,7 @@ class UserDashboard < Administrate::BaseDashboard
     bots
     subscriptions
     payments
+    affiliate
     reset_password_sent_at
     remember_created_at
     confirmed_at
@@ -67,6 +71,8 @@ class UserDashboard < Administrate::BaseDashboard
     terms_and_conditions
     updates_agreement
     welcome_banner_showed
+    referrer
+    current_referrer_profit
   ].freeze
 
   # FORM_ATTRIBUTES
