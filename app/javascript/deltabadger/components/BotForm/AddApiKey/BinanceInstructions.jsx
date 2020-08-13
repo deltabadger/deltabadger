@@ -1,6 +1,5 @@
 import React from 'react'
 
-// TODO: change to Binance
 export const BinanceInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--binance">
     <div className="alert alert-success mx-0" role="alert">
