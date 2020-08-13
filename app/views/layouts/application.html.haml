@@ -128,7 +128,7 @@
         });
         $(".db-form-control-range--discount-ratio").on('input', function(e){
           var discountPercent = Math.round(e.target.value * 100);
-          var earnPercent = Math.round((e.target.max - e.target.value) * 100);
+          var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
           $(".db-form-label-range--discount-percent").text(discountPercent);
           $(".db-form-label-range--earn-percent").text(earnPercent);
         })

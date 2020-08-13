@@ -19,6 +19,10 @@ module Presenters
         0.05
       end
 
+      def max_discount_percent
+        Affiliate::DEFAULT_BONUS_PERCENT - Affiliate::MIN_DISCOUNT_PERCENT
+      end
+
       def bonus_percent
         Affiliate::DEFAULT_BONUS_PERCENT
       end
