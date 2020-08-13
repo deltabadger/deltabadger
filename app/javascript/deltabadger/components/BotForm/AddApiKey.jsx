@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { Instructions } from './AddApiKey/Instructions';
 
-const api_key_names = exchange_name => {
-  switch (exchange_name.toLowerCase()) {
+const apiKeyNames = exchangeName => {
+  switch (exchangeName.toLowerCase()) {
+      case 'binance': return { private: 'Secret Key', public: 'API Key' };
       case 'bitbay': return { private: 'Secret Key', public: 'Public Key' };
-      case 'bitclude': return { private: 'Klucz API', public: 'ID Użytkownika' };
       case 'kraken': return { private: 'Private Key', public: 'API Key' };
       default: return { private: 'Private Key', public: 'Public Key' };
   }
@@ -37,7 +37,7 @@ export const AddApiKey = ({
       !disableSubmit && handleSubmit(key, secret, agreement)
   }
 
-  const { public: key_label, private: secret_label } = api_key_names(pickedExchangeName);
+  const { public: key_label, private: secret_label } = apiKeyNames(pickedExchangeName);
 
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
