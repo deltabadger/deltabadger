@@ -83,15 +83,17 @@
       // payments eu/non-eu
 
       $(document).ready(function(){
-        $("#payment_country").change(function(event) {
-          if (event.target.value.toLowerCase() === 'other') {
+        function setPrices(select) {
+          if (!select) return;
+
+          if (select.value.toLowerCase() === 'other') {
             $(".db-upgrade-modal").addClass("db-upgrade-modal--other");
             $(".db-upgrade-modal").removeClass("db-upgrade-modal--eu");
           } else {
             $(".db-upgrade-modal").addClass("db-upgrade-modal--eu");
             $(".db-upgrade-modal").removeClass("db-upgrade-modal--other");
           }
-          var dataset = event.target.options[event.target.selectedIndex].dataset;
+          var dataset = select.options[select.selectedIndex].dataset;
 
           $(".vat-percent").text(dataset.vp);
 
@@ -106,7 +108,13 @@
           $(".hodler-flat-discount").text(dataset.hfd);
           $(".hodler-discount-percent-amount").text(dataset.hdpa);
           $(".hodler-total-vat").text(dataset.htv);
+        }
+
+        $("#payment_country").change(function(event) {
+          setPrices(event.target);
         });
+
+        setPrices(document.getElementById("payment_country"));
       });
 
       // referral program registration
@@ -120,7 +128,7 @@
         });
         $(".db-form-control-range--discount-ratio").on('input', function(e){
           var discountPercent = Math.round(e.target.value * 100);
-          var earnPercent = Math.round((e.target.max - e.target.value) * 100);
+          var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
           $(".db-form-label-range--discount-percent").text(discountPercent);
           $(".db-form-label-range--earn-percent").text(earnPercent);
         })
