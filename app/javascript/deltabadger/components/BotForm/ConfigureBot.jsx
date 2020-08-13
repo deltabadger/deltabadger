@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const [type, setType] = useState("buy");
   const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState(currentExchange.currencies[0]);
   const [interval, setInterval] = useState("hour");
 
   const ResetButton = () => (

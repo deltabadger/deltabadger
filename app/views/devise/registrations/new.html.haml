@@ -1,5 +1,5 @@
 .container
-  .db-modal-positioner
+  .db-modal-positioner.db-modal-positioner--sign-up
     .modal-dialog
       .modal-content
         .modal-body
@@ -40,6 +40,6 @@
                 I agree to receive emails with information on new features, and technical updates.
 
             .form-group.db-form-group--main-btn
-              = f.submit "Sign up", class: "btn btn-success btn-lg"
+              = f.submit "Sign up", class: "btn btn-success btn-lg w-100"
           .text-center
             = render "devise/shared/links"

@@ -9,7 +9,7 @@
     %td(scope="col")
     %td.pl-4(scope="col")
       - if upgrade_presenter.discount?
-        <span class='text-success--lighter'><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-discounted-price'>#{cost_presenter.discounted_price}</span></span>
+        <span class='text-success'><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-discounted-price'>#{cost_presenter.discounted_price}</span></span>
         <s><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'>#{cost_presenter.base_price}</span></s>
       - else
         <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'>#{cost_presenter.base_price}</span>

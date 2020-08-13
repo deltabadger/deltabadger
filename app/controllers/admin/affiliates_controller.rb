@@ -8,6 +8,13 @@ module Admin
     #   foo.update(params[:foo])
     #   send_foo_updated_email
     # end
+    def index
+      repository = AffiliatesRepository.new
+      @total_unexported = format_crypto(repository.total_unexported)
+      @total_exported = format_crypto(repository.total_exported)
+      @total_paid = format_crypto(repository.total_paid)
+      super
+    end
 
     # Override this method to specify custom lookup behavior.
     # This will be used to set the resource for the `show`, `edit`, and `update`
@@ -37,13 +44,13 @@ module Admin
     def mark_as_exported
       Affiliates::MarkUnexportedCommissionAsExported.call
 
-      head 200
+      redirect_back(fallback_location: '/')
     end
 
     def mark_as_paid
       Affiliates::MarkExportedCommissionAsPaid.call
 
-      head 200
+      redirect_back(fallback_location: '/')
     end
 
     def wallet_csv
@@ -59,6 +66,10 @@ module Admin
     end
 
     private
+
+    def format_crypto(amount)
+      format('%0.8f', amount)
+    end
 
     def filename(type)
       "deltabadger-commissions-#{type}-#{Time.current.strftime('%F')}.csv"
