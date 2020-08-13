@@ -1,0 +1,19 @@
+- code_presenter = Presenters::RefCodes::Show.new(affiliate)
+%table.table.db-table--checkout
+  %tbody.table-borderless
+    - if code_presenter.valid?
+      %tr.text-success
+        %td(scope="col")
+          <i class="material-icons-round">check_circle</i>
+        %td(scope="col")
+          %b Congrats! The #{code_presenter.discount_percent}% discount is active.
+          %span.db-billing-item__info.text-dark
+            - if code_presenter.info?
+              Thanks to the referral link from <b><a href="#{code_presenter.visible_path}">#{code_presenter.visible_name}</a></b>.
+            Valid for the first purchase on the platform.
+    - else
+      %tr.text-danger
+        %td(scope="col")
+          <i class="material-icons-round">broken_image</i>
+        %td(scope="col")
+          %b The referral link seems invalid or obsolete.

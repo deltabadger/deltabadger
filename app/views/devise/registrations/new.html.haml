@@ -1,20 +1,26 @@
 .container
-  .db-modal-positioner
+  .db-modal-positioner.db-modal-positioner--sign-up
     .modal-dialog
       .modal-content
         .modal-body
           %h2.db-modal-title New account
           = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
+            - if @code_present
+              = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
+
             = render "devise/shared/error_messages", resource: resource
+
             .form-group
               = f.label :email
               = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control"
+
             .form-group
               = f.label :password
               = f.password_field :password, autocomplete: "new-password", class: "form-control"
               - if @minimum_password_length
                 .invalid-feedback
                   #{@minimum_password_length} characters minimum
+
             .form-group
               = f.label :password_confirmation
               = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control"
@@ -34,6 +40,6 @@
                 I agree to receive emails with information on new features, and technical updates.
 
             .form-group.db-form-group--main-btn
-              = f.submit "Sign up", class: "btn btn-success btn-lg"
+              = f.submit "Sign up", class: "btn btn-success btn-lg w-100"
           .text-center
             = render "devise/shared/links"

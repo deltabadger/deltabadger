@@ -1,0 +1,26 @@
+- if upgrade_presenter.upgrade_available?
+  %tfoot
+    %tr
+      %td(scope='col')
+      %td(scope='col' colspan='2')
+        VAT (<span class='vat-percent'>#{cost_presenter[:hodler].vat_integer}</span>%):
+      %td(scope='col')
+        - if 'investor'.in?(upgrade_presenter.available_plans)
+          .db-show--investor
+            <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-total-vat'>#{cost_presenter[:investor].total_vat}</span>
+        - if 'hodler'.in?(upgrade_presenter.available_plans)
+          .db-show--hodler
+            <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-vat'>#{cost_presenter[:hodler].total_vat}</span>
+    %tr
+      %td(scope='col')
+      %td(scope='col'  colspan='2')
+        %b Sum:
+      %td.pl-4(scope='col')
+        %b
+          - if 'investor'.in?(upgrade_presenter.available_plans)
+            .db-show--investor
+              = render partial: 'upgrade_summary_plan', locals: { plan: 'investor', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
+
+          - if 'hodler'.in?(upgrade_presenter.available_plans)
+            .db-show--hodler
+              = render partial: 'upgrade_summary_plan', locals: { plan: 'hodler', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }

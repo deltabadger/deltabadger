@@ -11,6 +11,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     id: Field::Number,
     user: Field::BelongsTo,
     payment_id: Field::String,
+    subscription_plan: Field::BelongsTo,
     status: Field::String.with_options(searchable: false),
     external_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
@@ -21,8 +22,10 @@ class PaymentDashboard < Administrate::BaseDashboard
     first_name: Field::String,
     last_name: Field::String,
     birth_date: Field::DateTime.with_options(format: '%F'),
-    eu: Field::Boolean,
+    country: Field::String,
     crypto_paid: Field::String.with_options(searchable: false),
+    commission: Field::Number.with_options(searchable: false),
+    crypto_commission: Field::Number.with_options(searchable: false),
     paid_at: Field::DateTime.with_options(format: '%F %r')
   }.freeze
 
@@ -33,13 +36,14 @@ class PaymentDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
     id
+    subscription_plan
     status
     total
     currency
     first_name
     last_name
     birth_date
-    eu
+    country
     crypto_paid
     paid_at
     user
@@ -50,18 +54,21 @@ class PaymentDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
     id
+    subscription_plan
     status
     total
     currency
     first_name
     last_name
     birth_date
-    eu
+    country
     crypto_total
     crypto_paid
     paid_at
     user
     payment_id
+    commission
+    crypto_commission
     external_statuses
     created_at
     updated_at
@@ -77,7 +84,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     first_name
     last_name
     birth_date
-    eu
+    country
     crypto_total
     crypto_paid
     paid_at

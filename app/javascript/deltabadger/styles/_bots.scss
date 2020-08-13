@@ -40,7 +40,6 @@
       .tab-content {
         z-index:  2;
         position: relative;
-        box-shadow: $boxShadowBot;
       }
       .nav-item {
         .nav-link {
@@ -113,6 +112,7 @@
         border:        1px solid #ddd;
         background:    $bgBot;
         border-radius: $box-border-radius;
+        box-shadow:    $boxShadowBot;
       }
     }
   }

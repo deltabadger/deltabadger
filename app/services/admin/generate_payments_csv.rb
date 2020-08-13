@@ -40,7 +40,7 @@ module Admin
         first_name: payment.first_name,
         last_name: payment.last_name,
         birth_date: payment.birth_date&.strftime('%F'),
-        eu: payment.eu,
+        country: payment.country,
         crypto_paid: payment.crypto_paid,
         paid_at: payment.paid_at,
         user: payment.user.email,

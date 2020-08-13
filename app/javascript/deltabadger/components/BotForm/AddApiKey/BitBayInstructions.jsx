@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 
 export const BitBayInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--bitbay">
-    <div className="alert alert-success mx-0 col" role="alert">
+    <div className="alert alert-success mx-0" role="alert">
       <b className="alert-heading mb-2">How to get API keys from Bitbay:</b>
       <hr/>
       <ol>

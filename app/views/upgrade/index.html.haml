@@ -1,61 +1,18 @@
+- upgrade_presenter = Presenters::Payments::Upgrade.new(payment, current_plan, investor_plan, hodler_plan, referrer)
+
+- selected_cost_presenter = cost_presenters[payment.country]
+
 .modal-dialog(role="document")
   .modal-content
-    .modal-body.db-upgrade-modal.db-upgrade-modal--other
-      %h2.db-modal-title Upgrade
-      - if errors.present?
-        %ul.pl-3
-          - errors.each do |error|
-            %li.text-danger= error
-
+    .modal-body.db-upgrade-modal{class: "db-upgrade-modal--#{upgrade_presenter.selected_payment_type} db-upgrade-modal--#{upgrade_presenter.selected_plan_name}"}
+      %h2.db-modal-title Plans
       %table.table.db-table--checkout
         %tbody.table-borderless
-          %tr
-            %td(scope="col")
-              Unlimited transactions (1 year)<br/>
-              %span.db-billing-item__info
-                This upgrade removes the free plan
-                %br
-                transaction limit of
-                %span.db-show--eu= "€#{free_limit}/year."
-                %span.db-show--other= "$#{free_limit}/year."
-            %td(scope="col")
-            %td(scope="col")
-              %span.db-show--eu= "€#{cost_eu}"
-              %span.db-show--other= "$#{cost_other}"
-        %tfoot
-          %tr
-            %td(scope="col")
-            %td(scope="col")
-              %b Sum:
-            %td(scope="col")
-              %b
-                %span.db-show--eu= "€#{cost_eu}"
-                %span.db-show--other= "$#{cost_other}"
-      = form_for payment, url: upgrade_pay_path do |f|
-        %h4 Billing information
-        .form-group
-          %label(for="first_name") Name
-          = f.text_field :first_name, class: 'form-control'
+          %tr.db-plan--divider
+            = render partial: "current_plan", locals: { upgrade_presenter: upgrade_presenter }
 
-        .form-group
-          %label(for="last_name") Surname
-          = f.text_field :last_name, class: 'form-control'
+          = render partial: "upgrade_plans", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
 
-        .form-group
-          %label{:for => "example-date-input"} Birth date
-          = f.date_field :birth_date, class: 'example-data-input form-control'
+        = render partial: "upgrade_summary", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
 
-        .form-group
-          %label Country
-          %br
-          .form-check.form-check-inline
-            = f.radio_button :eu, true, checked: payment.eu, class: 'form-check-input radio--eu', id: 'radioEu'
-            = f.label :eu, "European Union", class: 'form-check-label', for: 'radioEu'
-          .form-check.form-check-inline
-            = f.radio_button :eu, false, checked: !payment.eu, class: 'form-check-input radio--other', id: 'radioOther'
-            = f.label :eu, "Other", class: 'form-check-label', for: 'radioOther'
-
-        .form-group.db-form-group--main-btn
-          %button.btn.btn-success.btn-lg{type: 'submit'}
-            %span.mr-2 Checkout
-            %i.material-icons-round arrow_forward
+      = render partial: "billing_form", locals: { payment: payment, errors: errors, upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters }

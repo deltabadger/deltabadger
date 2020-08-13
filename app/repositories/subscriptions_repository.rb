@@ -3,11 +3,11 @@ class SubscriptionsRepository < BaseRepository
     Subscription
   end
 
-  def all_current_unlimited_count
+  def all_current_count(name)
     model
       .joins(:subscription_plan)
       .merge(SubscriptionPlan
-      .where(name: 'unlimited'))
+      .where(name: name))
       .current
       .count
   end

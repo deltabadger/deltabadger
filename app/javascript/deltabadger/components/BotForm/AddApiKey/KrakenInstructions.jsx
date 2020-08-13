@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 
 export const KrakenInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--kraken">
-    <div className="alert alert-success mx-0 col" role="alert">
+    <div className="alert alert-success mx-0" role="alert">
       <b className="alert-heading mb-2">How to get API keys from Kraken:</b>
       <hr/>
       <ol>

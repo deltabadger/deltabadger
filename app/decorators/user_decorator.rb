@@ -9,7 +9,10 @@ class UserDecorator < ActiveRecordDecorator
   end
 
   def show_limit_reached_navbar?
-    limit_reached? && !action?('upgrade', 'index')
+    limit_reached? &&
+      !action?('upgrade', 'index') &&
+      !action?('affiliates', 'new') &&
+      !action?('affiliates', 'create')
   end
 
   private

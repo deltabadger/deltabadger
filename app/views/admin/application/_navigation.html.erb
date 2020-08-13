@@ -6,7 +6,7 @@
   ) %>
 
 <% Administrate::Namespace.new(namespace).resources.each do |resource| %>
-  <% if ["Dashboard", "Exchange", "SubscriptionPlan"].exclude?(resource.to_s.classify) %>
+  <% if ["Dashboard", "Exchange"].exclude?(resource.to_s.classify) %>
       <%= link_to(
         display_resource_name(resource),
         [namespace, resource_index_route_key(resource)],

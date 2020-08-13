@@ -43,14 +43,14 @@
 }
 
 $borderColorLight:   #dee2e6;
-$bgColorLight:       #fafafa;
+$bgColorLight:       #fafbfc;
 $textColorLight:     #666;
 $sidebarItemHeight:  56px;
 $sidebarItemPadding: 20px;
 
 $textColorInverted:  rgba(255,255,255,1);
 
-$successLigher:      lighten($success,10%);
+$successLighter:      lighten($success,7%);
 
 $bgColor:            $bgColorLight;
 $bgBot:              white;
@@ -73,28 +73,37 @@ $boxShadowHome:  1px 2px 6px rgba(0,0,0,.2);
 
 $footerHeight:       50px;
 html {
-  background: #f1f2f3;
+  background: #f7f8f9;
 }
 body {
   font-family: $fontText;
   background: none;
+  color: $textColor;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
 }
 h1 {
   font-weight: 100;
-  font-size:   2.5rem;
+  font-size:   3rem;
+  @include media-breakpoint-down(lg) {
+    font-size: 2.5rem;
+  }
   @include media-breakpoint-down(xs) {
     font-size:   2rem;
   }
+}
+.form-control-range,
+[type="radio"],
+[type="checkbox"] {
+  filter: brightness(0.9) contrast(1.5) saturate(0.6);
 }
 sur {
   position: relative;
   top:-.25em;
 }
 svg * {
-  transition: fill 0.15s ease-in-out;
+  //transition: fill 0.15s ease-in-out;
 }
 .field_with_errors {
   input {
@@ -170,6 +179,12 @@ svg * {
   &-outline-success:hover {
     path { fill: #fff; }
   }
+}
+.btn-lg {
+  min-width: 300px !important;
+}
+.btn--get-started {
+  min-width: auto !important;
 }
 .btn-link {
   transition: none;
@@ -282,22 +297,6 @@ svg * {
   font-size: .75em;
 }
 
-.db--guest {
-  .container {
-    @include media-breakpoint-down(xs) {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
-  }
-  .navbar-brand {
-    span {
-      @include media-breakpoint-down(xs) {
-        display: none;
-      }
-    }
-  }
-}
-
 // db-anim-rotator
 
 .db-anim-rotator {
@@ -333,12 +332,12 @@ svg * {
 // free
 
 .text-success--lighter {
-  color: $successLigher !important;
-  text-shadow: 0 0 20px rgba(0,0,0,.2);
+  color: $successLighter !important;
+  //text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 .text-danger--lighter {
   color: #fc5565 !important;
-  text-shadow: 0 0 20px rgba(0,0,0,.2);
+  //text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 
 
@@ -366,19 +365,41 @@ svg * {
 
 // modal
 
+.db--devise {
+  .modal-dialog {
+    width: 500px;
+  }
+}
 .db-modal-positioner {
   width:           100%;
-  height:          calc(100vh - 2 * (#{$navbarHeight} + 2 * #{$navbarExtraPadding}));
-  max-height:      1000px;
+  height:          calc(100vh - 3 * (#{$navbarHeight}));
   justify-content: center;
-  align-items:     flex-start;
+  align-items:     center;
   display:         flex;
+  min-height: 440px;
 }
-.modal-body {
-  box-shadow: $boxShadowBox;
-}
+.db-modal-positioner--sign-in { min-height: 560px; }
+.db-modal-positioner--sign-up { min-height: 690px; }
 .modal-content {
+  border: none;
+  background: none;
   border-color: #ddd;
+}
+.db--loggedin {
+  .modal-content {
+    .btn-lg {
+      min-width: 280px;
+      justify-content: center;
+    }
+  }
+}
+.db--loggedout {
+  .modal-content {
+    .btn-lg {
+      min-width: 180px;
+      justify-content: center;
+    }
+  }
 }
 .modal-dialog {
   @include media-breakpoint-down(xs) {
@@ -389,11 +410,15 @@ svg * {
 
 .db-modal-title {
   text-align:    center;
+  margin-bottom: 3rem;
+}
+.db-modal__subtitle {
   margin-bottom: 2rem;
+  text-align: center;
 }
 .db-form-group--main-btn {
   text-align: center;
-  margin-top: 2rem;
+  margin-top: 3rem;
 }
 .db-form-group--btn {
   display:     flex;
@@ -404,6 +429,18 @@ svg * {
 }
 .db-form-group--fg-2 {
   flex-grow: 3;
+}
+.db-form-group--eu-company {
+  display: none;
+}
+.db-form-group--eu-company__visible {
+  display: block;
+}
+.db-form-preview--visible_text {
+  display: none;
+}
+.db-form-preview--visible_text__visible {
+  display: inline;
 }
 
 // page
@@ -417,7 +454,7 @@ svg * {
   li {
     margin-top: 1em;
   }
-  ol {
+  .db-ol {
     counter-reset: item;
     & > li {
       counter-increment: item;
@@ -478,7 +515,12 @@ svg * {
 }
 
 .db-settings-section {
-  margin-bottom: 2.2rem;
+  margin-bottom: 4rem;
+}
+.db-setting__button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
 }
 
 // footer
@@ -522,10 +564,17 @@ svg * {
   }
 }
 
+.db-minifooter {
+  width: 100%;
+  text-align: center;
+  padding-top: 6rem;
+  opacity: .5;
+}
+
 // Contact
 
 .db-woowoo {
-  display: flex;
+  display: inline-flex;
   flex-direction: row-reverse;
   justify-content: flex-end;
   span{
@@ -601,10 +650,14 @@ svg * {
 
 // limit reached
 .alert {
-  padding: 15px 25px;
+  padding: 16px 25px;
   box-shadow: $boxShadowAlert;
   .close {
-    margin-left: 1em
+    align-self: baseline;
+    margin-left: 1em;
+    opacity: 0.8;
+    text-shadow: none;
+    color: inherit;
   }
 }
 .db-alert--flex {
@@ -635,6 +688,7 @@ svg * {
       left: -130px;
     }
     &:hover {
+      text-decoration: none;
       .db-tooltip {
       left: -140px;
       }
@@ -679,24 +733,88 @@ svg * {
     padding: .5rem .5rem .5rem 1rem;
   }
 }
-
+.db-nobreak {
+  white-space: nowrap;
+}
 .db-table--checkout {
   td {
-    padding: .5rem 0;
+    padding: .85rem 0 .5rem;
     text-align: right;
     font-weight: bold;
     &:first-child {
-      text-align: left;
+      width: 35px;
+      padding-left: 13px;
+      border-radius: $box-border-radius 0 0 $box-border-radius;
+      &+td {
+        padding-left: 10px;
+        text-align: left;
+      }
+    }
+    &:last-child {
+      padding-right: 20px;
+      border-radius: 0 $box-border-radius $box-border-radius 0;
+    }
+  }
+  tfoot {
+    td {
+      text-align: right !important;
+      border-top: 0 !important;
     }
   }
 }
+.db-plan {
+  transition: all 200ms ease-in-out;
+}
+.db-plan--current,
+.db-plan--other {
+  td:first-child {
+    color: $primary;
+  }
+}
+.db-plan.db-plan--current {
+  background: #fff;
+}
+.db-plan.db-plan--other {
+  cursor: pointer;
+  background: #ecf0f5;
+  &:hover {
+    background: #d2d7e0;
+  }
+}
+.db-plan-radio {
+  display: none;
+}
+.db-upgrade-modal--investor {
+  .db-show--hodler { display: none; }
+}
+.db-upgrade-modal--hodler {
+  .db-show--investor { display: none; }
+}
+.db-plan--divider {
+  height: 10px;
+  td {
+    text-align: left;
+    padding-left: 0 !important;
+  }
+}
+.db-plan--selected {
+  cursor: default;
+  td {
+    background: $primary;
+    color: #fff; //#ceddf5;
+    box-shadow: 1px 1px 20px transparentize($primary, 1);
+  }
+  .text-success {
+    color: $successLighter !important;
+  }
+}
+.db-plan--other {}
 .db-billing-item__info {
   padding: 0.5em 0;
   font-weight: normal;
-  font-size: 0.8em;
   line-height: 1.25em;
   display: block;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 .db-upgrade-modal--eu {
   .db-show--eu { display: inline; }
@@ -711,7 +829,7 @@ svg * {
 .db-row--how-does-it-work {
   @include media-breakpoint-up(sm) {
     padding: 0 23px;
-    border-radius: 20px;
+    border-radius: $box-border-radius;
     margin-left: -25px;
     margin-right: -25px;
   }
@@ -752,4 +870,32 @@ svg * {
 }
 .db-art {
   width: 100%;
+}
+
+// referral program
+
+.db-referral-program-registration {
+  &--inactive {
+    opacity: 0.5;
+    .form-control-range {
+      -webkit-filter: none;
+      filter: none;
+    }
+    a, button, input {
+      cursor: default !important;
+    }
+    a:hover {
+      text-decoration: none;
+      color: $primary;
+    }
+  }
+}
+.db-referral-code-input {
+  text-transform: uppercase;
+}
+.db-http-prefix-select {
+  max-width: 112px; // 141
+  // background: #ced4da !important;
+  // border-color: #ced4da !important;
+  // border-right: 8px solid #ced4da !important;
 }
