@@ -1,13 +1,14 @@
-.container.db-relative
-  - if flash[:notice].present?
-    .alert.alert-success
-      =flash[:notice]
-      %button(type="button" class="close" data-dismiss="alert" aria-label="Close")
-        %span(aria-hidden="true")
-          &times;
-  - if flash[:alert].present?
-    .alert.alert-danger
-      =flash[:alert]
-      %button(type="button" class="close" data-dismiss="alert" aria-label="Close")
-        %span(aria-hidden="true")
-          &times;
+- if flash[:notice].present?
+  .db-hi-welcome.db-messages
+    %span
+      %span.db-hi-welcome__default
+        =flash[:notice]
+    %svg{:width => "38px", :height => "14px", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
+      %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke="#0a45a4" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
+- if flash[:alert].present?
+  .db-hi-welcome.db-messages.text-danger
+    %span
+      %span.db-hi-welcome__default
+        =flash[:alert]
+    %svg{:width => "38px", :height => "14px", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
+      %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
