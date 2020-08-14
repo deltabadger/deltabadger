@@ -3,8 +3,15 @@
   .db-logo-svg-shape {
     fill: $textColorInverted;
   }
-  .db-hi-welcome path {
-    stroke: $textColorInverted;
+  .db-hi-welcome {
+    path {
+      stroke: $textColorInverted;
+    }
+    &.text-danger {
+      path {
+        stroke: $danger;
+      }
+    }
   }
   .navbar-brand {
     color: $textColorInverted !important;
@@ -44,8 +51,20 @@
   fill: $primary;
   shape-rendering: geometricprecision;
 }
-.db-hi-welcome path {
-  stroke: $primary;
+.db-hi-welcome {
+  path {
+    stroke: $primary;
+  }
+  &.text-danger {
+    path {
+      stroke: $danger;
+    }
+  }
+}
+.db-hi-welcome__default {
+  &:not(:first-child) {
+    display: none;
+  }
 }
 .db-navbar {
   background: rgba(255,255,255,0);
@@ -121,10 +140,9 @@
 .db-hi-welcome {
   pointer-events: none;
   position: absolute;
-  top: -35px;
   left: 110px;
-  opacity: 0;
-  //transition: all 100ms ease-in-out;
+  opacity: 1;
+  top: 18px;
   svg {
     position: absolute;
     left: -10px;
@@ -133,17 +151,32 @@
   @include media-breakpoint-down(md) {
     display: none !important;
   }
-}
-// .navbar-brand:hover,
-.db--loggedout,
-.db--guest {
-  .db-hi-welcome {
-    opacity: 1;
-    top: 15px;
+  &+ .db-hi-welcome  {
+    display: none;
   }
 }
+.db-messages {
+  animation-name: showMessage;
+  animation-duration: 1.2s;
+}
+
 .db-navbar--scroll {
   .db-hi-welcome {
     display: none;
+  }
+}
+
+@keyframes showMessage {
+  0% {
+    top: -35px;
+    opacity: 0;
+  }
+  70% {
+    top: -35px;
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    top: 18px;
   }
 }
