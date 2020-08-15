@@ -99,39 +99,39 @@
 //
 
 .db-navbar--scroll {
-  background: white !important;
+  background: $primary !important;
+  box-shadow: 0 4px 0 rgba(0,0,0,.1);
   position: fixed;
   top:-120px;
   width: 100%;
   z-index: 100000;
   transition: top 200ms ease-in-out;
-  box-shadow: 0 0 10px rgba(0,0,0,.1);
   &+.container {
     padding-top: 112px;
   }
-  .navbar-brand {
-    color: $primary !important;
-  }
-  .db-logo-svg-shape {
-    fill: $primary;
-  }
-  .db-hi-welcome path {
-    stroke: $primary;
-  }
-  .btn-link,
-  .btn-outline-primary {
-    color: $primary !important;
-  }
-  .btn-outline-primary {
-    border-color: $primary !important;
-    &:hover {
-      background: $primary !important;
-      color: $textColorInverted !important;
-    }
-  }
+  // .navbar-brand {
+  //   color: $primary !important;
+  // }
+  // .db-logo-svg-shape {
+  //   fill: $primary;
+  // }
+  // .db-hi-welcome path {
+  //   stroke: $primary;
+  // }
+  // .btn-link,
+  // .btn-outline-primary {
+  //   color: $primary !important;
+  // }
+  // .btn-outline-primary {
+  //   border-color: $primary !important;
+  //   &:hover {
+  //     background: $primary !important;
+  //     color: $textColorInverted !important;
+  //   }
+  // }
   .navbar {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
+    padding-top: 40px;
+    padding-bottom: 40px;
   }
 }
 .db-navbar--scroll--show {
@@ -158,12 +158,6 @@
 .db-messages {
   animation-name: showMessage;
   animation-duration: 1.2s;
-}
-
-.db-navbar--scroll {
-  .db-hi-welcome {
-    display: none;
-  }
 }
 
 @keyframes showMessage {

@@ -38,7 +38,7 @@ en:
       updated_not_active: "Done! Your password has been changed."
     registrations:
       destroyed: "Bye! We hope to see you again soon…"
-      signed_up: "Nice to meet you."
+      signed_up: "Nice to meet you!"
       signed_up_but_inactive: "Hi, your account is not yet activated. Have you checked your email?"
       signed_up_but_locked: "Oups… your account is locked."
       signed_up_but_unconfirmed: "Check your email and click in the confirmation link."
@@ -46,7 +46,7 @@ en:
       updated: "Your account has been updated successfully."
       updated_but_not_signed_in: "Your account has been updated successfully, sign again."
     sessions:
-      signed_in: "Oh hello!"
+      signed_in: "Long time no see!"
       signed_out: "See you soon!"
       already_signed_out: "I hate goodbyes. See you soon?"
     unlocks:

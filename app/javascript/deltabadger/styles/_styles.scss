@@ -195,7 +195,6 @@ svg * {
 }
 
 .db--guest {
-  .db-navbar--scroll,
   .btn-success,
   .db-dca-bot-image,
   .alert,
@@ -211,6 +210,9 @@ svg * {
     position: absolute;
     width: calc(100% - 30px);
     left: 15px;
+  }
+  .btn-lg {
+    min-width: 120px !important;
   }
 }
 
@@ -824,6 +826,12 @@ svg * {
 // .db-infoblocks
 
 .db-row--how-does-it-work {
+  .db-infoblocks__img {
+    justify-content: flex-start !important;
+  }
+  img {
+    width: 100px !important;
+  }
   @include media-breakpoint-up(sm) {
     padding: 0 23px;
     border-radius: $box-border-radius;
@@ -831,7 +839,7 @@ svg * {
     margin-right: -25px;
   }
   @include media-breakpoint-up(md) {
-    border: 2px dashed $textColorInverted;
+    //border: 2px dashed $textColorInverted;
   }
   @include media-breakpoint-up(xl) {
     padding: 0 33px;
@@ -862,7 +870,7 @@ svg * {
   display: flex;
   justify-content: center;
   img {
-    width: 100px;
+    width: 200px;
   }
 }
 .db-art {
