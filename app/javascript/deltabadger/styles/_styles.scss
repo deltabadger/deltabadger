@@ -195,6 +195,8 @@ svg * {
 }
 
 .db--guest {
+  .db-group-cta__avatar,
+  .db-group-cta__bubble,
   .btn-success,
   .db-dca-bot-image,
   .alert,
@@ -903,4 +905,40 @@ svg * {
   // background: #ced4da !important;
   // border-color: #ced4da !important;
   // border-right: 8px solid #ced4da !important;
+}
+
+//
+
+.db-group-cta {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  color: #fff;
+  line-height: 20px;
+  white-space: nowrap;
+  a {
+    font-weight: bold;
+    color: #fff;
+    text-decoration: underline;
+  }
+}
+.db-group-cta__avatar {
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+  border-radius: 30px;
+  img {
+    width: 100%;
+  }
+}
+.db-group-cta__bubble {
+  position: absolute;
+  bottom: 0px;
+  right: 70px;
+  padding: 18px 25px;
+  border-radius: 40px;
+  background: red;
+
+  border: 2px solid white;
+  background: $primary; //#3e66b3;
 }

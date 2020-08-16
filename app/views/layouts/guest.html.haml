@@ -50,6 +50,12 @@
 
     = render 'layouts/footer/guest'
 
+    .db-group-cta
+      .db-group-cta__avatar
+        %img{:src => asset_pack_path("media/images/jan.png"), :alt => "Jan"}
+      .db-group-cta__bubble
+        Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="noopener" title="Telegram Group">Telegram</a> &rarr;
+
     //= render partial: 'layouts/drift'
 
     = javascript_pack_tag 'guest2'
