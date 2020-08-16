@@ -285,8 +285,7 @@ svg * {
   }
   .btn.disabled {
     opacity: 1;
-    color: #34ce57;
-    border-color: #34ce57;
+    border-color: $secondary;
   }
 }
 .newsletter-form-feedback {

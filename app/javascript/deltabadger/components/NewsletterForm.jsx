@@ -33,7 +33,7 @@ export const NewsletterForm = () => {
         </div>
       </div>
       <div className="form-group">
-        <div onClick={handleSubmit} className={`btn btn-lg ${disableSubmit ? 'disabled btn-outline-success' : 'btn-success'}`}>
+        <div onClick={handleSubmit} className={`btn btn-lg ${disableSubmit ? 'disabled btn-secondary' : 'btn-success'}`}>
           <div className="d-block d-sm-none m-0">Send</div>
           <div className="d-none d-sm-block m-0">Sign up</div>
         </div>
