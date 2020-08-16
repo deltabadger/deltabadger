@@ -203,11 +203,6 @@ svg * {
   #cookie_consent {
     box-shadow: $boxShadowHome;
   }
-  .db-navbar--scroll--show {
-    .btn-success {
-      box-shadow: none;
-    }
-  }
   .alert {
     position: absolute;
     width: calc(100% - 30px);
@@ -909,6 +904,7 @@ svg * {
 //
 
 .db-group-cta {
+  z-index: 1000;
   position: fixed;
   bottom: 40px;
   right: 40px;
@@ -920,6 +916,29 @@ svg * {
     color: #fff;
     text-decoration: underline;
   }
+  .btn-xl {
+    position: absolute;
+    left: -190px;
+    padding: 1.15rem 1.7rem;
+    bottom: -2px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 1rem;
+    line-height: 28px;
+    svg {
+      position: relative;
+      right:-8px;
+    }
+  }
+}
+.btn-xl {
+  opacity: 0%;
+  transition: opacity 200ms ease-in-out;
+  pointer-events: none;
+}
+.db-opacity-100 {
+  opacity: 100%;
+  pointer-events: all;
 }
 .db-group-cta__avatar {
   width: 70px;

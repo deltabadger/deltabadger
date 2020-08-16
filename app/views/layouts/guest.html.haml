@@ -50,15 +50,6 @@
 
     = render 'layouts/footer/guest'
 
-    .db-group-cta
-      .db-group-cta__avatar
-        %img{:src => asset_pack_path("media/images/jan.png"), :alt => "Jan"}
-      .db-group-cta__bubble
-        %span.d-none.d-md-inline I'm Jan, founder of Deltabadger.
-        Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="noopener" title="Telegram Group">Telegram</a>
-        %svg{:class => "db-group-cta__arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
-          %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-
     //= render partial: 'layouts/drift'
 
     = javascript_pack_tag 'guest2'
@@ -90,12 +81,10 @@
         a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
       })(document, "script", "facebook-jssdk");
 
-      // sticky navbar
-
       // (function(a) {
       //   a(window).scroll(function() {
       //     var b = a(window).scrollTop();
-      //     300 <= b ? a(".db-navbar").addClass("db-navbar--scroll") : a(".db-navbar").removeClass("db-navbar--scroll");
-      //     400 <= b ? a(".db-navbar").addClass("db-navbar--scroll--show") : a(".db-navbar").removeClass("db-navbar--scroll--show");
+      //     700 <= b ? a(".btn-xl").addClass("") : a(".btn-xl").removeClass("db-opacity-100");
+      //     750 <= b ? a(".btn-xl").addClass("db-opacity-100") : a(".btn-xl").removeClass("");
       //   });
       // })(jQuery);
