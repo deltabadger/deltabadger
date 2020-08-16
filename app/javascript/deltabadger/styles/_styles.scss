@@ -923,10 +923,10 @@ svg * {
   }
 }
 .db-group-cta__avatar {
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   overflow: hidden;
-  border-radius: 30px;
+  border-radius: 40px;
   img {
     width: 100%;
   }
@@ -934,11 +934,18 @@ svg * {
 .db-group-cta__bubble {
   position: absolute;
   bottom: 0px;
-  right: 70px;
-  padding: 18px 25px;
+  right: 80px;
+  padding: 18px 18px 18px 25px;
   border-radius: 40px;
   background: red;
 
   border: 2px solid white;
   background: $primary; //#3e66b3;
+}
+.db-group-cta__arrow-forward {
+  display: inline-block;
+  width: 30px;
+  * {
+    fill: white;
+  }
 }
