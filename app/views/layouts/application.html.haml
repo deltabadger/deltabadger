@@ -7,7 +7,7 @@
     %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
     = csrf_meta_tags
     = csp_meta_tag
-    
+
     %title Deltabadger
 
     %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
@@ -19,7 +19,6 @@
     = render 'layouts/navbar'
     = render 'layouts/welcome_message'
     = render 'layouts/limit_reached'
-    = render 'layouts/devise_messages'
 
     .container
       = yield

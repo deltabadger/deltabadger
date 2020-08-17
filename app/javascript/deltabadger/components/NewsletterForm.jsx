@@ -26,17 +26,16 @@ export const NewsletterForm = () => {
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          className={`form-control ${resultInfo && resultInfo.map(() => successResult ? ' is-valid' : ' is-invalid')}` } // TODO: fix it to not returning undefined
+          className={`form-control form-control-lg ${resultInfo && resultInfo.map(() => successResult ? ' is-valid' : ' is-invalid')}` } // TODO: fix it to not returning undefined
         />
         <div className="newsletter-form-feedback">
           { resultInfo && resultInfo.map((text, index) => <b key={index} className={`${successResult ? 'text-success--lighter' : 'text-danger--lighter'}` }>{text}.</b>) } <i>.</i>
         </div>
       </div>
       <div className="form-group">
-        <div onClick={handleSubmit} className={`btn ${disableSubmit ? 'disabled btn-outline-success' : 'btn-success'}`}>
+        <div onClick={handleSubmit} className={`btn btn-lg ${disableSubmit ? 'disabled btn-secondary' : 'btn-success'}`}>
           <div className="d-block d-sm-none m-0">Send</div>
-          <div className="d-none d-sm-block m-0">Keep me in the loop!</div>
-
+          <div className="d-none d-sm-block m-0">Sign up</div>
         </div>
       </div>
     </div>

@@ -45,7 +45,6 @@
     #cookie_consent
 
     = render 'layouts/navbar'
-    = render 'layouts/devise_messages'
 
     = yield
 
@@ -82,12 +81,10 @@
         a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
       })(document, "script", "facebook-jssdk");
 
-      // sticky navbar
-
-      (function(a) {
-        a(window).scroll(function() {
-          var b = a(window).scrollTop();
-          400 <= b ? a(".db-navbar").addClass("db-navbar--scroll") : a(".db-navbar").removeClass("db-navbar--scroll");
-          500 <= b ? a(".db-navbar").addClass("db-navbar--scroll--show") : a(".db-navbar").removeClass("db-navbar--scroll--show");
-        });
-      })(jQuery);
+      // (function(a) {
+      //   a(window).scroll(function() {
+      //     var b = a(window).scrollTop();
+      //     700 <= b ? a(".btn-xl").addClass("") : a(".btn-xl").removeClass("db-opacity-100");
+      //     750 <= b ? a(".btn-xl").addClass("db-opacity-100") : a(".btn-xl").removeClass("");
+      //   });
+      // })(jQuery);

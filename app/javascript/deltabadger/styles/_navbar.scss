@@ -3,8 +3,15 @@
   .db-logo-svg-shape {
     fill: $textColorInverted;
   }
-  .db-hi-welcome path {
-    stroke: $textColorInverted;
+  .db-hi-welcome {
+    path {
+      stroke: $textColorInverted;
+    }
+    &.text-danger {
+      path {
+        stroke: $danger;
+      }
+    }
   }
   .navbar-brand {
     color: $textColorInverted !important;
@@ -37,15 +44,27 @@
   }
 }
 .navbar {
-  padding: 2.25rem 0;
+  padding: 40px 0;
 }
 
 .db-logo-svg-shape {
   fill: $primary;
   shape-rendering: geometricprecision;
 }
-.db-hi-welcome path {
-  stroke: $primary;
+.db-hi-welcome {
+  path {
+    stroke: $primary;
+  }
+  &.text-danger {
+    path {
+      stroke: $danger;
+    }
+  }
+}
+.db-hi-welcome__default {
+  &:not(:first-child) {
+    display: none;
+  }
 }
 .db-navbar {
   background: rgba(255,255,255,0);
@@ -77,54 +96,12 @@
   }
 }
 
-//
-
-.db-navbar--scroll {
-  background: white !important;
-  position: fixed;
-  top:-120px;
-  width: 100%;
-  z-index: 100000;
-  transition: top 200ms ease-in-out;
-  box-shadow: 0 0 10px rgba(0,0,0,.1);
-  &+.container {
-    padding-top: 112px;
-  }
-  .navbar-brand {
-    color: $primary !important;
-  }
-  .db-logo-svg-shape {
-    fill: $primary;
-  }
-  .db-hi-welcome path {
-    stroke: $primary;
-  }
-  .btn-link,
-  .btn-outline-primary {
-    color: $primary !important;
-  }
-  .btn-outline-primary {
-    border-color: $primary !important;
-    &:hover {
-      background: $primary !important;
-      color: $textColorInverted !important;
-    }
-  }
-  .navbar {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-  }
-}
-.db-navbar--scroll--show {
-  top: 0;
-}
 .db-hi-welcome {
   pointer-events: none;
   position: absolute;
-  top: -35px;
   left: 110px;
-  opacity: 0;
-  //transition: all 100ms ease-in-out;
+  opacity: 1;
+  top: 18px;
   svg {
     position: absolute;
     left: -10px;
@@ -133,17 +110,32 @@
   @include media-breakpoint-down(md) {
     display: none !important;
   }
-}
-// .navbar-brand:hover,
-.db--loggedout,
-.db--guest {
-  .db-hi-welcome {
-    opacity: 1;
-    top: 15px;
-  }
-}
-.db-navbar--scroll {
-  .db-hi-welcome {
+  &+ .db-hi-welcome  {
     display: none;
   }
+}
+.db-hi-welcome {
+  animation-name: showMessage;
+  animation-duration: 1.2s;
+}
+
+@keyframes showMessage {
+  0% {
+    top: -35px;
+    opacity: 0;
+  }
+  70% {
+    top: -35px;
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    top: 18px;
+  }
+}
+
+// newsletter
+
+.db-newsletter-label {
+  margin-bottom: 2em;
 }

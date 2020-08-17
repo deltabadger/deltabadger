@@ -16,17 +16,9 @@
   %body
     #cookie_consent
 
-    = render 'layouts/navbar'
-    = render 'layouts/devise_messages'
+    = render 'layouts/navbar/devise'
 
     = yield
-
-    -# %footer.db-minifooter
-    -#   &copy;
-    -#   = Time.current.year
-    -#   Deltabadger OÜ
-
-    //= render partial: 'layouts/drift'
 
     = javascript_pack_tag 'guest2'
 
