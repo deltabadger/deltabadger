@@ -84,7 +84,9 @@ class AffiliatesController < ApplicationController
 
     affiliate.errors.add(:current_password, 'is not valid')
 
-    render :show, locals: { affiliate: affiliate, errors: affiliate.errors.full_messages }
+    render :show, locals: default_show_locals.merge(
+      affiliate: affiliate, errors: affiliate.errors.full_messages
+    )
   end
 
   def default_show_locals
