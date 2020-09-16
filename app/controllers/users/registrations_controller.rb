@@ -18,21 +18,17 @@ class Users::RegistrationsController < Devise::RegistrationsController
     affiliate = find_affiliate(code)
     params[:user][:referrer_id] = affiliate&.id
 
-    # TODO: FIXME
-    flash[:alert] = 'Sorry, sign up is temporarily unavailable'
-    redirect_to '/'
+    super do |user|
+      session.delete(:code) if user.persisted?
+      unless user.persisted?
+        @code_present = code.present?
 
-    # super do |user|
-    #   session.delete(:code) if user.persisted?
-    #   unless user.persisted?
-    #     @code_present = code.present?
-
-    #     if @code_present
-    #       @affiliate = find_affiliate(code)
-    #       session.delete(:code) if @affiliate.nil?
-    #     end
-    #   end
-    # end
+        if @code_present
+          @affiliate = find_affiliate(code)
+          session.delete(:code) if @affiliate.nil?
+        end
+      end
+    end
   end
 
   private
