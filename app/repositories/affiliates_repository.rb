@@ -4,6 +4,8 @@ class AffiliatesRepository < BaseRepository
   end
 
   def find_active_by_code(code)
+    return unless code
+
     affiliate = model.active.find_by(code: code.upcase)
     return unless affiliate&.user&.unlimited?
 
