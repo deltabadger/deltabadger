@@ -18,6 +18,17 @@ class AffiliatesRepository < BaseRepository
     affiliate&.user&.unlimited?
   end
 
+  def all_with_unpaid_commissions
+    model.includes(:user).where('exported_crypto_commission > 0')
+  end
+
+  def mark_all_exported_commissions_as_paid
+    model.update_all(
+        'paid_crypto_commission = paid_crypto_commission + exported_crypto_commission, '\
+        'exported_crypto_commission = 0'
+    )
+  end
+
   def total_unexported
     model.sum(:unexported_crypto_commission)
   end

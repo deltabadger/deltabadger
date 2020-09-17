@@ -22,4 +22,24 @@ RSpec.describe AffiliateMailer, type: :mailer do
       expect(mail.body.encoded).to match(new_btc_address)
     end
   end
+
+  describe '#referral_payout_notification' do
+    let!(:user) { create(:user) }
+    let(:amount) { 10 } # arbitrary number
+    let(:mail) do
+      AffiliateMailer
+        .with(user: user, amount: amount)
+        .referrals_payout_notification
+    end
+
+    it 'renders the headers' do
+      expect(mail.subject).to eq('Referral program payout notification')
+      expect(mail.to).to eq([user.email])
+      expect(mail.from).to eq(['support@deltabadger.com'])
+    end
+
+    it 'renders the body' do
+      expect(mail.body.encoded).to match(amount.to_s)
+    end
+  end
 end
