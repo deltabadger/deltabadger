@@ -4,7 +4,9 @@ class AffiliatesRepository < BaseRepository
   end
 
   def find_active_by_code(code)
-    affiliate = model.active.find_by(code: code)
+    return unless code
+
+    affiliate = model.active.find_by(code: code.upcase)
     return unless affiliate&.user&.unlimited?
 
     affiliate
@@ -14,6 +16,17 @@ class AffiliatesRepository < BaseRepository
     affiliate = model.active.where(id: id).first
 
     affiliate&.user&.unlimited?
+  end
+
+  def all_with_unpaid_commissions
+    model.includes(:user).where('exported_crypto_commission > 0')
+  end
+
+  def mark_all_exported_commissions_as_paid
+    model.update_all(
+      'paid_crypto_commission = paid_crypto_commission + exported_crypto_commission, '\
+      'exported_crypto_commission = 0'
+    )
   end
 
   def total_unexported
