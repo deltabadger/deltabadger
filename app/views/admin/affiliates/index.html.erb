@@ -55,10 +55,10 @@ It renders the `_table` partial to display details about the resources.
 
 <section class="container container-fluid pl-5 pt-5">
   <div>
-    <b>Unexported: </b><%= @total_unexported %>
+    <b>To pay since: </b><%= @total_unexported %>
   </div>
   <div>
-    <b>Exported: </b><%= @total_exported %>
+    <b>In progress: </b><%= @total_exported %>
   </div>
   <div>
     <b>Paid: </b><%= @total_paid %>
@@ -67,7 +67,7 @@ It renders the `_table` partial to display details about the resources.
 
 <section class="container container-fluid pl-5 pt-5">
   <%= link_to(
-    "Mark Unexported as Exported",
+    "Generate payout",
     mark_as_exported_admin_affiliates_path,
     class: "button",
     remote: false,
@@ -76,24 +76,24 @@ It renders the `_table` partial to display details about the resources.
   ) %>
 
   <%= link_to(
-    "Mark Exported as Paid",
-    mark_as_paid_admin_affiliates_path,
-    class: "button",
-    remote: false,
-    method: :post,
-    data: { confirm: "Are you sure?" },
-  ) %>
-
-  <%= link_to(
-    "Get Exported Wallet CSV",
+    "Get wallet CSV",
     wallet_csv_admin_affiliates_path,
     class: "button",
   ) %>
 
   <%= link_to(
-    "Get Exported Accounting CSV",
+    "Get accounting CSV",
     accounting_csv_admin_affiliates_path,
     class: "button",
+  ) %>
+
+  <%= link_to(
+          "Confirm payout",
+          mark_as_paid_admin_affiliates_path,
+          class: "button",
+          remote: false,
+          method: :post,
+          data: { confirm: "Are you sure?" },
   ) %>
 </section>
 
