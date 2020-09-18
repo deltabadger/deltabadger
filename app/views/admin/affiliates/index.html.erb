@@ -55,7 +55,7 @@ It renders the `_table` partial to display details about the resources.
 
 <section class="container container-fluid pl-5 pt-5">
   <div>
-    <b>To pay since: </b><%= @total_unexported %>
+    <b>To pay: </b><%= @total_unexported %>
   </div>
   <div>
     <b>In progress: </b><%= @total_exported %>
@@ -69,7 +69,7 @@ It renders the `_table` partial to display details about the resources.
   <%= link_to(
     "Generate payout",
     mark_as_exported_admin_affiliates_path,
-    class: "button",
+    class: "button #{'disabled' if @total_unexported.to_f <= 0}",
     remote: false,
     method: :post,
     data: { confirm: "Are you sure?" },
@@ -78,22 +78,24 @@ It renders the `_table` partial to display details about the resources.
   <%= link_to(
     "Get wallet CSV",
     wallet_csv_admin_affiliates_path,
-    class: "button",
+    class: "button #{'disabled' if @total_exported.to_f <= 0}",
+    onClick: "enableConfirmPayoutButton()"
   ) %>
 
   <%= link_to(
     "Get accounting CSV",
     accounting_csv_admin_affiliates_path,
-    class: "button",
+    class: "button #{'disabled' if @total_exported.to_f <= 0}"
   ) %>
 
   <%= link_to(
-          "Confirm payout",
-          mark_as_paid_admin_affiliates_path,
-          class: "button",
-          remote: false,
-          method: :post,
-          data: { confirm: "Are you sure?" },
+    "Confirm payout",
+    mark_as_paid_admin_affiliates_path,
+    id: "confirm-payout",
+    class: "button disabled",
+    remote: false,
+    method: :post,
+    data: { confirm: "Are you sure?" },
   ) %>
 </section>
 
@@ -109,3 +111,16 @@ It renders the `_table` partial to display details about the resources.
 
   <%= paginate resources %>
 </section>
+
+<style>
+  .button.disabled {
+    pointer-events: none;
+    opacity: .5;
+  }
+</style>
+
+<script>
+  function enableConfirmPayoutButton() {
+    $("#confirm-payout").removeClass("disabled")
+  }
+</script>
