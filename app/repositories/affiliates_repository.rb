@@ -24,8 +24,8 @@ class AffiliatesRepository < BaseRepository
 
   def mark_all_exported_commissions_as_paid
     model.update_all(
-        'paid_crypto_commission = paid_crypto_commission + exported_crypto_commission, '\
-        'exported_crypto_commission = 0'
+      'paid_crypto_commission = paid_crypto_commission + exported_crypto_commission, '\
+      'exported_crypto_commission = 0'
     )
   end
 

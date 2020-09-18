@@ -21,8 +21,8 @@ module Affiliates
     def send_notifications(affiliates)
       affiliates.each do |affiliate|
         affiliate_mailer.with(
-            user: affiliate.user,
-            amount: affiliate.exported_crypto_commission
+          user: affiliate.user,
+          amount: affiliate.exported_crypto_commission
         ).referrals_payout_notification.deliver_later
       end
     end
