@@ -6,4 +6,11 @@ class AffiliateMailer < ApplicationMailer
 
     mail(to: @user.email, subject: 'Confirm bitcoin address update')
   end
+
+  def referrals_payout_notification
+    @user = params[:user]
+    @amount = params[:amount]
+
+    mail(to: @user.email, subject: 'Referral program payout notification')
+  end
 end
