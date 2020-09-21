@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react'
-import ReactDOM from 'react-dom'
 import { connect } from 'react-redux';
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
