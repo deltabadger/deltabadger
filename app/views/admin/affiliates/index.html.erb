@@ -69,7 +69,7 @@ It renders the `_table` partial to display details about the resources.
   <%= link_to(
     "Generate payout",
     mark_as_exported_admin_affiliates_path,
-    class: "button #{'disabled' if @total_unexported.to_f <= 0}",
+    class: "button #{'disabled' unless @total_unexported.to_f.positive?}",
     remote: false,
     method: :post,
     data: { confirm: "Are you sure?" },
@@ -78,14 +78,14 @@ It renders the `_table` partial to display details about the resources.
   <%= link_to(
     "Get wallet CSV",
     wallet_csv_admin_affiliates_path,
-    class: "button #{'disabled' if @total_exported.to_f <= 0}",
-    onClick: "enableConfirmPayoutButton()"
+    class: "button #{'disabled' unless @total_exported.to_f.positive?}",
+    onClick: "exportButtonClicked()"
   ) %>
 
   <%= link_to(
     "Get accounting CSV",
     accounting_csv_admin_affiliates_path,
-    class: "button #{'disabled' if @total_exported.to_f <= 0}"
+    class: "button #{'disabled' unless @total_exported.to_f.positive?}"
   ) %>
 
   <%= link_to(
@@ -120,7 +120,38 @@ It renders the `_table` partial to display details about the resources.
 </style>
 
 <script>
-  function enableConfirmPayoutButton() {
-    $("#confirm-payout").removeClass("disabled")
+  function enablePayoutButton() {
+    $('#confirm-payout').removeClass('disabled')
   }
+
+  function setExportClicked() {
+    localStorage.setItem('export-clicked', true)
+  }
+
+  function unsetExportClicked() {
+    localStorage.removeItem('export-clicked')
+  }
+
+  function exportButtonClicked() {
+    setExportClicked()
+    enablePayoutButton()
+  }
+
+  function enablePayoutButtonIfExported() {
+    if (localStorage.getItem('export-clicked')) {
+      enablePayoutButton()
+    }
+  }
+
+  function initialize() {
+    $('#confirm-payout').on('confirm:complete', unsetExportClicked)
+    <% if @total_exported.to_f.positive? %>
+      enablePayoutButtonIfExported()
+    <% else %>
+      // unset existing export flag in case payout was made from another device
+      unsetExportClicked()
+    <% end %>
+  }
+
+  window.onload = initialize
 </script>
