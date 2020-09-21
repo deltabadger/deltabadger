@@ -39,12 +39,10 @@ module ExchangeApi
       end
 
       def buy(currency:, price:)
-        puts 'Buying on kraken'
         make_order('buy', currency, price)
       end
 
       def sell(currency:, price:)
-        puts 'selling on kraken'
         make_order('sell', currency, price)
       end
 

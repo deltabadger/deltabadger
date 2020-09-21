@@ -35,12 +35,10 @@ module ExchangeApi
       end
 
       def buy(currency:, price:)
-        puts 'Buying on bitbay'
         make_order('BUY', currency, price)
       end
 
       def sell(currency:, price:)
-        puts 'selling on bitbay'
         make_order('SELL', currency, price)
       end
 
