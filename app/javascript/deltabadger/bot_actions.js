@@ -34,20 +34,22 @@ const cleanErrors = (id) => ({ type: 'SET_ERRORS', payload: {[id]: []}})
 
 export const loadBots = (openFirstBot = false) => dispatch => {
   return API.getBots().then(({ data }) => {
+    if (data.length === 0) { return }
+
     const sortedBots = data.sort((a,b) => a.id - b.id)
-    dispatch(fetchedBots(sortedBots));
+    dispatch(fetchedBots(sortedBots))
     if (openFirstBot) { dispatch(openBot(sortedBots[0].id)) }
   })
 }
 
 export const removeBot = id => (dispatch) => {
   return API.removeBot(id).then(_data => {
-    dispatch(botRemoved(id));
+    dispatch(botRemoved(id))
   })
 }
 
 export const startBot = (id) => dispatch => {
-  dispatch(tryStartBot(id));
+  dispatch(tryStartBot(id))
 
   API.startBot(id).then(({data: bot}) => {
     dispatch(cleanErrors(bot.id))
