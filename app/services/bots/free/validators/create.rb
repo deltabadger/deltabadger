@@ -16,15 +16,17 @@ module Bots::Free::Validators
     class BotSettings
       include ActiveModel::Validations
 
-      attr_reader :interval, :currency, :type, :price, :allowed_currencies
+      attr_reader :interval, :currency, :type, :order_type, :price, :allowed_currencies
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
+      ORDER_TYPES = %w[market limit].freeze
 
       validates :interval, :currency, :type, :price, presence: true
       validate :allowed_currency
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
+      validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
       validate :interval_within_limit
 
@@ -32,6 +34,7 @@ module Bots::Free::Validators
         @interval = params.fetch('interval')
         @currency = params.fetch('currency')
         @type = params.fetch('type')
+        @order_type = params.fetch('order_type')
         @price = params.fetch('price').to_f
         @allowed_currencies = allowed_currencies
       end

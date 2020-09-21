@@ -26,7 +26,7 @@ class MakeTransaction < BaseService
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
-    return Result::Failure.new if !make_transaction?(bot)
+    return Result::Failure.new unless make_transaction?(bot)
 
     result = perform_action(get_api(bot), bot)
 

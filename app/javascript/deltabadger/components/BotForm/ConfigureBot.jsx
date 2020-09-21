@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 
 export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disable, errors }) => {
-  const [type, setType] = useState("buy");
+  const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState(currentExchange.currencies[0]);
   const [interval, setInterval] = useState("hour");
@@ -50,10 +50,10 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
               className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
             >
-              <option value="buy">Buy</option>
-              <option value="sell">Sell</option>
-              <option value="limit_buy" disabled>Limit Buy</option>
-              <option value="limit_sell" disabled>Limit Sell</option>
+              <option value="market_buy">Buy</option>
+              <option value="market_sell">Sell</option>
+              <option value="limit_buy">Limit Buy</option>
+              <option value="limit_sell">Limit Sell</option>
             </select>
           </div>
           <div className="form-group mr-2">
