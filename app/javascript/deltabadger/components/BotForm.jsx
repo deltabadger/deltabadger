@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import ReactDOM from 'react-dom'
 import API from '../lib/API'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
@@ -75,8 +74,17 @@ export const BotForm = ({
     })
   }
 
+  const getOfferTypeParams = (type) => {
+    const [order_type, offer_type] = type.split('_')
+    return {
+      type: offer_type,
+      order_type
+    }
+  }
+
   const configureBotHandler = (botParams) => {
-    const params = {...botParams, exchangeId: form.exchangeId}
+    const typeParams = getOfferTypeParams(botParams.type)
+    const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
     setCreatingBot(true);
     API.createBot(params).then(response => {
       callbackAfterCreation(response.data.id)

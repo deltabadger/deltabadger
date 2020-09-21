@@ -76,6 +76,7 @@ module Api
     BOT_PARAMS = %i[
       exchange_id
       type
+      order_type
       price
       currency
       interval
