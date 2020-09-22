@@ -26,13 +26,23 @@ module ExchangeApi
         end
       end
 
-      def buy(currency:, price:)
-        puts "Fake: Buying things on #{exchange_name}!"
+      def market_buy(currency:, price:)
+        puts "Fake: Market buying things on #{exchange_name}!"
         make_order('buy', currency, price)
       end
 
-      def sell(currency:, price:)
-        puts "Fake: Selling things on #{exchange_name}!"
+      def market_sell(currency:, price:)
+        puts "Fake: Market selling things on #{exchange_name}!"
+        make_order('sell', currency, price)
+      end
+
+      def limit_buy(currency:, price:)
+        puts "Fake: Limit buying things on #{exchange_name}!"
+        make_order('sell', currency, price)
+      end
+
+      def limit_sell(currency:, price:)
+        puts "Fake: Limit selling things on #{exchange_name}!"
         make_order('sell', currency, price)
       end
 

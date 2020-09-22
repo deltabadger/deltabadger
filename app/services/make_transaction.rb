@@ -49,6 +49,7 @@ class MakeTransaction < BaseService
     stop_bot(bot, notify)
     raise
   end
+
   # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
@@ -61,9 +62,15 @@ class MakeTransaction < BaseService
   def perform_action(api, bot)
     settings = { currency: bot.currency, price: bot.price.to_f }
     result = if bot.buyer?
-               api.buy(settings)
-             else
-               api.sell(settings)
+               if bot.market?
+                 api.market_buy(settings)
+               else
+                 api.limit_buy(settings)
+               end
+             elsif bot.market? # Bot is a market seller
+               api.market_sell(settings)
+             else # Bot is a limit seller
+               api.limit_sell(settings)
              end
 
     @transactions_repository.create(transaction_params(result, bot))
