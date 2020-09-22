@@ -34,17 +34,25 @@ module ExchangeApi
         Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
       end
 
-      def buy(currency:, price:)
-        make_order('BUY', currency, price)
+      def market_buy(currency:, price:)
+        make_order('MARKET', 'BUY', currency, price)
       end
 
-      def sell(currency:, price:)
-        make_order('SELL', currency, price)
+      def market_sell(currency:, price:)
+        make_order('MARKET', 'SELL', currency, price)
+      end
+
+      def limit_buy(currency:, price:)
+        make_order('LIMIT', 'BUY', currency, price)
+      end
+
+      def limit_sell(currency:, price:)
+        make_order('LIMIT', 'SELL', currency, price)
       end
 
       private
 
-      def make_order(offer_type, currency, price)
+      def make_order(order_type, offer_type, currency, price)
         price = [MIN_TRANSACTION_PRICE, price].max
 
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
@@ -54,7 +62,7 @@ module ExchangeApi
           price: price,
           rate: nil,
           postOnly: false,
-          mode: 'market',
+          mode: order_type,
           fillOrKill: false
         }.to_json
 

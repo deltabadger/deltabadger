@@ -13,11 +13,19 @@ module ExchangeApi
         raise NotImplementedError
       end
 
-      def buy
+      def market_buy
         raise NotImplementedError
       end
 
-      def sell
+      def market_sell
+        raise NotImplementedError
+      end
+
+      def limit_buy
+        raise NotImplementedError
+      end
+
+      def limit_sell
         raise NotImplementedError
       end
 
