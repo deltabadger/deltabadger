@@ -40,24 +40,32 @@ module ExchangeApi
         Result::Failure.new('Could not fetch current price from Binance')
       end
 
-      def buy(currency:, price:)
-        make_order('BUY', currency, price)
+      def market_buy(currency:, price:)
+        make_order('MARKET', 'BUY', currency, price)
       end
 
-      def sell(currency:, price:)
-        make_order('SELL', currency, price)
+      def market_sell(currency:, price:)
+        make_order('MARKET', 'SELL', currency, price)
+      end
+
+      def limit_buy(currency:, price:)
+        make_order('LIMIT', 'BUY', currency, price)
+      end
+
+      def limit_sell(currency:, price:)
+        make_order('LIMIT', 'SELL', currency, price)
       end
 
       private
 
-      def make_order(offer_type, currency, price)
+      def make_order(order_type, offer_type, currency, price)
         price = transaction_price(currency, price)
         symbol = "BTC#{currency.upcase}"
 
         params = {
           symbol: symbol,
           side: offer_type,
-          type: 'MARKET',
+          type: order_type,
           quoteOrderQty: price
         }
 

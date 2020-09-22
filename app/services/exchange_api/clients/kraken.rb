@@ -38,17 +38,25 @@ module ExchangeApi
         @client.closed_orders.dig('result', 'closed')
       end
 
-      def buy(currency:, price:)
-        make_order('buy', currency, price)
+      def market_buy(currency:, price:)
+        make_order('market', 'buy', currency, price)
       end
 
-      def sell(currency:, price:)
-        make_order('sell', currency, price)
+      def market_sell(currency:, price:)
+        make_order('market', 'sell', currency, price)
+      end
+
+      def limit_buy(currency:, price:)
+        make_order('limit', 'sell', currency, price)
+      end
+
+      def limit_sell(currency:, price:)
+        make_order('limit', 'sell', currency, price)
       end
 
       private
 
-      def make_order(offer_type, currency, price) # rubocop:disable Metrics/MethodLength
+      def make_order(order_type, offer_type, currency, price) # rubocop:disable Metrics/MethodLength
         volume_result = smart_volume(offer_type, currency, price)
         return volume_result unless volume_result.success?
 
@@ -58,7 +66,7 @@ module ExchangeApi
         request_params = {
           pair: pair,
           type: offer_type,
-          ordertype: 'market',
+          ordertype: order_type,
           volume: volume
         }
         request_params = request_params.merge(trading_agreement: 'agree') if @options[:german_trading_agreement]
