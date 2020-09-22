@@ -43,6 +43,7 @@ const API = {
       type: params.type,
       order_type: params.order_type,
       price: params.price,
+      percentage: params.percentage,
       currency: params.currency,
       interval: params.interval,
     }
@@ -53,6 +54,7 @@ const API = {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
       price: params.price,
+      percentage: params.percentage,
       interval: params.interval,
     }
 

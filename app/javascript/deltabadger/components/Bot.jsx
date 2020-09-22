@@ -3,6 +3,7 @@ import { connect } from 'react-redux';
 import { StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
+import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import {
   reloadBot,
@@ -26,19 +27,20 @@ const BotTemplate = ({
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [price, setPrice] = useState(settings.price);
+  const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
 
-  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+  const colorClass = settings.type === 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
   const isStarting = startingBotIds.includes(id);
-  const working = status == 'working'
+  const working = status === 'working'
 
-  const disableSubmit = price.trim() == ''
+  const disableSubmit = price.trim() === ''
 
   const _handleSubmit = () => {
     if (disableSubmit) return
 
-    const botParams = { interval, id: bot.id, price: price.trim() }
+    const botParams = { interval, id: bot.id, price: price.trim(), percentage: percentage.trim() }
     handleEdit(botParams)
   }
 
@@ -48,6 +50,10 @@ const BotTemplate = ({
       { data[0] }
     </div>
   )
+
+  const isLimitOrder = () => settings.order_type === 'limit'
+
+  const isSellOffer = () => settings.type === 'sell'
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
@@ -83,7 +89,7 @@ const BotTemplate = ({
           <div className="form-group mr-2">
             <select
               className="form-control"
-              disabled={true}
+              disabled
             >
               <option value="BTC">BTC</option>
               <option value="ETH">ETH</option>
@@ -97,7 +103,7 @@ const BotTemplate = ({
               value={price}
               onChange={e => setPrice(e.target.value)}
               className="form-control"
-              disabled={working ? true : false}
+              disabled={working}
             />
           </div>
           <div className="form-group mr-2">
@@ -105,7 +111,7 @@ const BotTemplate = ({
               value={settings.currency}
               className="form-control"
               id="exampleFormControlSelect1"
-              disabled={true}
+              disabled
             >
               <option value="">{settings.currency}</option>
             </select>
@@ -117,7 +123,7 @@ const BotTemplate = ({
               className="form-control"
               onChange={e => setInterval(e.target.value)}
               id="exampleFormControlSelect1"
-              disabled={working ? true : false}
+              disabled={working}
             >
               <option value="hour">Hour</option>
               <option value="day">Day</option>
@@ -126,11 +132,20 @@ const BotTemplate = ({
             </select>
           </div>
         </form>
-        {/* <span className="db-limit-bot-modifier">Buy <input type="text" min="0" step="0.1" lang="en-150" className="form-control" placeholder="0" /> % below the price.<sur>*</sur></span>*/}
+        {isLimitOrder() &&
+        <span className="db-limit-bot-modifier">
+          Buy <input
+            type="text"
+            min="0"
+            step="0.1"
+            lang="en-150"
+            value={percentage}
+            className="form-control"
+            onChange={e => setPercentage(e.target.value)}
+            disabled={working}
+        /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
       </div>
-      {/* <small className="alert alert-warning db-alert--annotation">
-        <sur>*</sur> The limit order bot is an experimental feature. The bot opens orders but does not track if they have been filled. Our backtesting showed that for buy orders, 2.0% below the price worked optimal in the past. <a href="#">Read more</a>
-      </small>*/}
+      {isLimitOrder() && <LimitOrderNotice />}
       <div className="db-bot__footer">
         <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
       </div>
