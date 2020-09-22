@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
+import LimitOrderNotice from "./LimitOrderNotice";
 
 export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState(currentExchange.currencies[0]);
   const [interval, setInterval] = useState("hour");
+  const [percentage, setPercentage] = useState("0");
 
   const ResetButton = () => (
     <div
@@ -16,13 +18,24 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
     </div>
   )
 
-  const disableSubmit = disable || price.trim() == ''
+  const disableSubmit = disable || price.trim() === ''
 
   const _handleSubmit = (evt) => {
     evt.preventDefault();
-    const botParams = { type, currency, interval, price: price.trim(), botType: 'free' }
+    const botParams = {
+      type,
+      currency,
+      interval,
+      price: price.trim(),
+      percentage: isLimitOrder() ? percentage.trim() : undefined,
+      botType: 'free',
+    }
     !disableSubmit && handleSubmit(botParams);
   }
+
+  const isLimitOrder = () => type === 'limit_buy' || type === 'limit_sell'
+
+  const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--ready db-bot--active">
@@ -33,11 +46,11 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
           <span className="d-none d-sm-inline">Start</span>
           <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
         </div>
-        <div className="db-bot__infotext"></div>
+        <div className="db-bot__infotext"/>
       </div>
 
       <div className="db-bot__progress progress progress--thin progress--bot-setup">
-        <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}></div>
+        <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}/>
       </div>
 
       <div className="db-bot__form">
@@ -103,8 +116,19 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
             </select>
           </div>
         </form>
-
+        {isLimitOrder() &&
+        <span className="db-limit-bot-modifier">
+          Buy <input
+            type="text"
+            min="0"
+            step="0.1"
+            lang="en-150"
+            className="form-control"
+            onChange={e => setPercentage(e.target.value)}
+            placeholder="0"
+        /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
       </div>
+      {isLimitOrder() && <LimitOrderNotice />}
       <div className="db-bot__footer">
         <ResetButton />
       </div>
