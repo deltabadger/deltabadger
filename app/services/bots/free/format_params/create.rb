@@ -3,8 +3,7 @@ module Bots
     module FormatParams
       class Create < BaseService
         def call(params)
-          bot_settings = params.slice(:type, :order_type, :price, :currency, :interval)
-
+          bot_settings = params.slice(:type, :order_type, :price, :percentage, :currency, :interval)
           {
             user: params[:user],
             exchange_id: params[:exchange_id],
