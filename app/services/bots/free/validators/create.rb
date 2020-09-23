@@ -27,9 +27,9 @@ module Bots::Free::Validators
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
-      validate :percentage_present_if_limit_order
       validates :price, numericality: { only_float: true, greater_than: 0 }
-      validates :percentage, numericality: { only_float: true, greater_than: 0, smaller_than: 100 }
+      validates :percentage, numericality: { only_float: true, greater_than: 0, smaller_than: 100 }, allow_nil: true
+      validate :percentage_present_if_limit_order
       validate :interval_within_limit
 
       def initialize(params, allowed_currencies)
@@ -38,7 +38,7 @@ module Bots::Free::Validators
         @type = params.fetch('type')
         @order_type = params.fetch('order_type')
         @price = params.fetch('price').to_f
-        @percentage = params.fetch('percentage').to_f
+        @percentage = params.key?('percentage') ? params.fetch('percentage').to_f : nil
         @allowed_currencies = allowed_currencies
       end
 
@@ -61,7 +61,7 @@ module Bots::Free::Validators
       end
 
       def percentage_present_if_limit_order
-        return if order_type == 'limit' && percentage.present?
+        return if order_type == 'market' || (order_type == 'limit' && percentage.present?)
 
         errors.add(:base, 'Specify percentage when creating a limit order')
       end

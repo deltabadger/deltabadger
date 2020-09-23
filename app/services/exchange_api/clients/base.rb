@@ -51,6 +51,21 @@ module ExchangeApi
         Result::Success.new(result.data.ask)
       end
 
+      def current_offer_price(offer_type, currency)
+        rate = offer_type == 'sell' ? current_bid_price(currency) : current_ask_price(currency)
+        return rate unless rate.success?
+
+        Result::Success.new(rate.data)
+      end
+
+      def limit_rate(offer_type, currency, percentage)
+        percentage = -percentage if offer_type == 'buy'
+        offer_price = current_offer_price(offer_type, currency)
+        return offer_price unless offer_price.success?
+
+        Result::Success.new(offer_price.data * (1 + percentage / 100))
+      end
+
       protected
 
       def error_to_failure(error)

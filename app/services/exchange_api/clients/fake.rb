@@ -36,20 +36,20 @@ module ExchangeApi
         make_order('sell', currency, price)
       end
 
-      def limit_buy(currency:, price:)
+      def limit_buy(currency:, price:, percentage:)
         puts "Fake: Limit buying things on #{exchange_name}!"
-        make_order('sell', currency, price)
+        make_order('buy', currency, price, percentage)
       end
 
-      def limit_sell(currency:, price:)
+      def limit_sell(currency:, price:, percentage:)
         puts "Fake: Limit selling things on #{exchange_name}!"
-        make_order('sell', currency, price)
+        make_order('sell', currency, price, percentage)
       end
 
       private
 
-      def make_order(offer_type, currency, price)
-        volume_result = smart_volume(offer_type, currency, price)
+      def make_order(offer_type, currency, price, percentage = 0)
+        volume_result = smart_volume(offer_type, currency, price, percentage)
         return volume_result unless volume_result.success?
 
         volume = volume_result.data
@@ -67,16 +67,11 @@ module ExchangeApi
         Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
       end
 
-      def smart_volume(offer_type, currency, price)
-        rate = if offer_type == 'sell'
-                 current_bid_price(currency)
-               else
-                 current_ask_price(currency)
-               end
+      def smart_volume(offer_type, currency, price, percentage)
+        rate = limit_rate(offer_type, currency, percentage)
         return rate unless rate.success?
 
-        volume = price / rate.data
-
+        volume = (price / rate.data).ceil(8)
         Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
       end
 

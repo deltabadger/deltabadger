@@ -42,34 +42,36 @@ module ExchangeApi
         make_order('MARKET', 'SELL', currency, price)
       end
 
-      def limit_buy(currency:, price:)
-        make_order('LIMIT', 'BUY', currency, price)
+      def limit_buy(currency:, price:, percentage:)
+        make_order('LIMIT', 'BUY', currency, price, percentage)
       end
 
       def limit_sell(currency:, price:)
-        make_order('LIMIT', 'SELL', currency, price)
+        make_order('LIMIT', 'SELL', currency, price, percentage)
       end
 
       private
 
-      def make_order(order_type, offer_type, currency, price)
-        price = [MIN_TRANSACTION_PRICE, price].max
-
+      def make_order(order_type, offer_type, currency, price, percentage = 0)
+        body = get_order_params(order_type, offer_type, currency, price, percentage)
         url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
-        body = {
-          offerType: offer_type,
-          amount: nil,
-          price: price,
-          rate: nil,
-          postOnly: false,
-          mode: order_type,
-          fillOrKill: false
-        }.to_json
-
         response = JSON.parse(Faraday.post(url, body, headers(body)).body)
         parse_response(response)
       rescue StandardError
         Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
+      end
+
+      def get_order_params(order_type, offer_type, currency, price, percentage)
+        price = [MIN_TRANSACTION_PRICE, price].max
+        {
+          offerType: offer_type,
+          amount: nil,
+          price: price,
+          rate: order_type == 'limit' ? limit_rate(offer_type, currency, percentage) : nil,
+          postOnly: false,
+          mode: order_type,
+          fillOrKill: false
+        }.to_json
       end
 
       def parse_response(response)
