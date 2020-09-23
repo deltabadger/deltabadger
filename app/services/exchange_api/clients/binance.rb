@@ -48,27 +48,18 @@ module ExchangeApi
         make_order('MARKET', 'SELL', currency, price)
       end
 
-      def limit_buy(currency:, price:)
-        make_order('LIMIT', 'BUY', currency, price)
+      def limit_buy(currency:, price:, percentage:)
+        make_order('LIMIT', 'BUY', currency, price, percentage)
       end
 
-      def limit_sell(currency:, price:)
-        make_order('LIMIT', 'SELL', currency, price)
+      def limit_sell(currency:, price:, percentage:)
+        make_order('LIMIT', 'SELL', currency, price, percentage)
       end
 
       private
 
-      def make_order(order_type, offer_type, currency, price)
-        price = transaction_price(currency, price)
-        symbol = "BTC#{currency.upcase}"
-
-        params = {
-          symbol: symbol,
-          side: offer_type,
-          type: order_type,
-          quoteOrderQty: price
-        }
-
+      def make_order(order_type, offer_type, currency, price, percentage = 0)
+        params = get_order_params(order_type, offer_type, currency, price, percentage)
         request = signed_client.post('order') do |req|
           req.params = params
         end
@@ -78,6 +69,32 @@ module ExchangeApi
         parse_response(response)
       rescue StandardError
         Result::Failure.new('Could not make Binance order', RECOVERABLE)
+      end
+
+      def get_order_params(order_type, offer_type, currency, price, percentage)
+        price = transaction_price(currency, price)
+        symbol = "BTC#{currency.upcase}"
+
+        params = {
+          symbol: symbol,
+          side: offer_type,
+          type: order_type
+        }
+        if order_type == 'MARKET'
+          params.merge(quoteOrderQty: price)
+        else # LIMIT
+          params.merge(get_limit_order_params(offer_type, currency, percentage))
+        end
+      end
+
+      def get_limit_order_params(offer_type, currency, percentage)
+        rate = limit_rate(offer_type, currency, percentage)
+        quantity = (price / rate.data).ceil(8)
+        {
+          timeInForce: 'GTC', # Good Til Canceled
+          price: rate,
+          quantity: quantity
+        }
       end
 
       def transaction_price(currency, price)

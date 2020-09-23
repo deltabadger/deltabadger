@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_api: ExchangeApi::Get.new,
@@ -50,7 +51,7 @@ class MakeTransaction < BaseService
     raise
   end
 
-  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 
@@ -61,16 +62,17 @@ class MakeTransaction < BaseService
 
   def perform_action(api, bot)
     settings = { currency: bot.currency, price: bot.price.to_f }
-    result = if bot.buyer?
-               if bot.market?
-                 api.market_buy(settings)
-               else
+    result = if bot.limit?
+               settings[:percentage] = bot.percentage.to_f
+               if bot.buyer?
                  api.limit_buy(settings)
+               else
+                 api.limit_sell(settings)
                end
-             elsif bot.market? # Bot is a market seller
+             elsif bot.buyer? # Bot is a market buyer
+               api.market_buy(settings)
+             else # Bot is a market seller
                api.market_sell(settings)
-             else # Bot is a limit seller
-               api.limit_sell(settings)
              end
 
     @transactions_repository.create(transaction_params(result, bot))
@@ -83,6 +85,8 @@ class MakeTransaction < BaseService
 
     result
   end
+
+  # rubocop:enable Metrics/AbcSize
 
   def validate_limit(bot, notify)
     validate_limit_result = @validate_limit.call(bot.user)

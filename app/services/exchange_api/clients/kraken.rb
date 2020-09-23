@@ -46,33 +46,21 @@ module ExchangeApi
         make_order('market', 'sell', currency, price)
       end
 
-      def limit_buy(currency:, price:)
-        make_order('limit', 'sell', currency, price)
+      def limit_buy(currency:, price:, percentage:)
+        make_order('limit', 'sell', currency, price, percentage)
       end
 
-      def limit_sell(currency:, price:)
-        make_order('limit', 'sell', currency, price)
+      def limit_sell(currency:, price:, percentage:)
+        make_order('limit', 'sell', currency, price, percentage)
       end
 
       private
 
-      def make_order(order_type, offer_type, currency, price) # rubocop:disable Metrics/MethodLength
-        volume_result = smart_volume(offer_type, currency, price)
-        return volume_result unless volume_result.success?
-
-        volume = volume_result.data
-        pair = "XBT#{currency}"
-
-        request_params = {
-          pair: pair,
-          type: offer_type,
-          ordertype: order_type,
-          volume: volume
-        }
-        request_params = request_params.merge(trading_agreement: 'agree') if @options[:german_trading_agreement]
+      def make_order(order_type, offer_type, currency, price, percentage = 0)
+        order_params = get_order_params(order_type, offer_type, currency, price, percentage)
         response =
           @client
-          .add_order(request_params)
+          .add_order(order_params)
 
         return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
@@ -89,16 +77,28 @@ module ExchangeApi
         Result::Failure.new('Could not make Kraken order', RECOVERABLE)
       end
 
-      def smart_volume(offer_type, currency, price)
-        rate = if offer_type == 'sell'
-                 current_bid_price(currency)
-               else
-                 current_ask_price(currency)
-               end
+      def get_order_params(order_type, offer_type, currency, price, percentage)
+        volume_result = smart_volume(offer_type, currency, price, percentage)
+        return volume_result unless volume_result.success?
+
+        volume = volume_result.data
+        pair = "XBT#{currency}"
+
+        {
+          pair: pair,
+          type: offer_type,
+          ordertype: order_type,
+          volume: volume,
+          trading_agreement: ('agree' if @options[:german_trading_agreement]),
+          price: (current_offer_price(offer_type, currency) if order_type == 'limit')
+        }.compact
+      end
+
+      def smart_volume(offer_type, currency, price, percentage = 0)
+        rate = limit_rate(offer_type, currency, percentage)
         return rate unless rate.success?
 
         volume = (price / rate.data).ceil(8)
-
         Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
       end
     end
