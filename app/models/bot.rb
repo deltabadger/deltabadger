@@ -17,6 +17,10 @@ class Bot < ApplicationRecord
     settings.fetch('price')
   end
 
+  def percentage
+    settings.fetch('percentage')
+  end
+
   def interval
     settings.fetch('interval')
   end
