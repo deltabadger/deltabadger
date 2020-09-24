@@ -3,7 +3,7 @@ require 'result'
 module ExchangeApi
   module Clients
     module Fake
-      class Base < ExchangeApi::Clients::Base
+      class Base < ExchangeApi::Clients::BaseTrader
         MIN_TRANSACTION_VOLUME = 0.002
 
         SUCCESS = true

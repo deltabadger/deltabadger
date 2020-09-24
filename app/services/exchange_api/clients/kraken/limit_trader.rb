@@ -3,7 +3,7 @@ require 'result'
 module ExchangeApi
   module Clients
     module Kraken
-      class KrakenLimit < Base
+      class LimitTrader < BaseTrader
         def buy(currency:, price:, percentage:)
           buy_params = get_buy_params(currency, price, percentage)
           return buy_params unless buy_params.success?

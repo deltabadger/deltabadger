@@ -5,7 +5,7 @@ require 'kraken_ruby_client'
 module ExchangeApi
   module Clients
     module Kraken
-      class Base < ExchangeApi::Clients::Base
+      class BaseTrader < ExchangeApi::Clients::BaseTrader
         MIN_TRANSACTION_VOLUME = 0.001
 
         def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new, options: {})
