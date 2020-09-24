@@ -1,7 +1,6 @@
-# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
-    exchange_api: ExchangeApi::Get.new,
+    exchange_api: ExchangeApi::Clients::Get.new,
     schedule_transaction: ScheduleTransaction.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
@@ -57,22 +56,15 @@ class MakeTransaction < BaseService
 
   def get_api(bot)
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-    @get_exchange_api.call(api_key)
+    @get_exchange_api.call(api_key, bot.order_type)
   end
 
   def perform_action(api, bot)
-    settings = { currency: bot.currency, price: bot.price.to_f }
-    result = if bot.limit?
-               settings[:percentage] = bot.percentage.to_f
-               if bot.buyer?
-                 api.limit_buy(settings)
-               else
-                 api.limit_sell(settings)
-               end
-             elsif bot.buyer? # Bot is a market buyer
-               api.market_buy(settings)
-             else # Bot is a market seller
-               api.market_sell(settings)
+    settings = { currency: bot.currency, price: bot.price.to_f, percentage: bot.percentage }.compact
+    result = if bot.buyer?
+               api.buy(settings)
+             else
+               api.sell(settings)
              end
 
     @transactions_repository.create(transaction_params(result, bot))

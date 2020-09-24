@@ -40,7 +40,7 @@ const BotTemplate = ({
   const _handleSubmit = () => {
     if (disableSubmit) return
 
-    const botParams = { interval, id: bot.id, price: price.trim(), percentage: percentage.trim() }
+    const botParams = { interval, id: bot.id, price: price.trim(), percentage: percentage && percentage.trim() }
     handleEdit(botParams)
   }
 

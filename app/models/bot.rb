@@ -18,7 +18,7 @@ class Bot < ApplicationRecord
   end
 
   def percentage
-    settings.fetch('percentage')
+    settings.fetch('percentage', nil)
   end
 
   def interval

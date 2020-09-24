@@ -28,7 +28,11 @@ module Bots::Free::Validators
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
-      validates :percentage, numericality: { only_float: true, greater_than: 0, smaller_than: 100 }, allow_nil: true
+      validates :percentage, allow_nil: true, numericality: {
+        only_float: true,
+        greater_than: 0,
+        smaller_than: 100
+      }
       validate :percentage_present_if_limit_order
       validate :interval_within_limit
 
@@ -38,7 +42,7 @@ module Bots::Free::Validators
         @type = params.fetch('type')
         @order_type = params.fetch('order_type')
         @price = params.fetch('price').to_f
-        @percentage = params.key?('percentage') ? params.fetch('percentage').to_f : nil
+        @percentage = params.fetch('percentage', nil)&.to_f
         @allowed_currencies = allowed_currencies
       end
 

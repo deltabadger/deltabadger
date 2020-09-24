@@ -2,7 +2,7 @@ module Presenters
   module Api
     class Stats < BaseService
       def initialize(
-        get_exchange_api: ExchangeApi::Get.new,
+        get_exchange_api: ExchangeApi::Clients::Get.new,
         api_keys_repository: ApiKeysRepository.new
       )
 
@@ -14,7 +14,7 @@ module Presenters
         return {} if transactions.empty?
 
         api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-        api = @get_exchange_api.call(api_key)
+        api = @get_exchange_api.call(api_key, bot.order_type)
 
         current_price_result = api.current_price(bot.currency)
         current_price = current_price_result.or(transactions.last.rate)

@@ -1,12 +1,15 @@
 class ApiKeyValidator < BaseService
-  def initialize(exchange_api: ExchangeApi::Get.new)
-    @get_exchange_api = exchange_api
+  def initialize(get_validator: ExchangeApi::Validators::Get.new)
+    @get_validator = get_validator
   end
 
   def call(api_key)
-    api = @get_exchange_api.call(api_key)
-    return Result::Failure.new('Invalid tokens') if !api_key.valid?
-    return Result::Failure.new('Invalid tokens') if !api.validate_credentials
+    validator = @get_validator.call(api_key)
+    return Result::Failure.new('Invalid tokens') unless api_key.valid?
+    return Result::Failure.new('Invalid tokens') unless validator.validate_credentials(
+      api_key: api_key.key,
+      api_secret: api_key.secret
+    )
 
     Result::Success.new
   end
