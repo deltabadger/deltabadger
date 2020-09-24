@@ -1,17 +1,17 @@
 class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
-      exchange_api: ExchangeApi::Clients::GetTrader.new,
-      schedule_transaction: ScheduleTransaction.new,
-      unschedule_transactions: UnscheduleTransactions.new,
-      bots_repository: BotsRepository.new,
-      transactions_repository: TransactionsRepository.new,
-      api_keys_repository: ApiKeysRepository.new,
-      notifications: Notifications::BotAlerts.new,
-      validate_limit: Bots::Free::Validators::Limit.new,
-      validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
-      subtract_credits: SubtractCredits.new
+    exchange_trader: ExchangeApi::Traders::Get.new,
+    schedule_transaction: ScheduleTransaction.new,
+    unschedule_transactions: UnscheduleTransactions.new,
+    bots_repository: BotsRepository.new,
+    transactions_repository: TransactionsRepository.new,
+    api_keys_repository: ApiKeysRepository.new,
+    notifications: Notifications::BotAlerts.new,
+    validate_limit: Bots::Free::Validators::Limit.new,
+    validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
+    subtract_credits: SubtractCredits.new
   )
-    @get_exchange_api = exchange_api
+    @get_exchange_trader = exchange_trader
     @schedule_transaction = schedule_transaction
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
@@ -56,7 +56,7 @@ class MakeTransaction < BaseService
 
   def get_api(bot)
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-    @get_exchange_api.call(api_key, bot.order_type)
+    @get_exchange_trader.call(api_key, bot.order_type)
   end
 
   def perform_action(api, bot)

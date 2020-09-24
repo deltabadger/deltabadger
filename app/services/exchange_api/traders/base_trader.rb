@@ -1,6 +1,6 @@
 module ExchangeApi
-  module Clients
-    class BaseTrader < BaseClient
+  module Traders
+    class BaseTrader
       def buy
         raise NotImplementedError
       end
@@ -37,4 +37,3 @@ module ExchangeApi
     end
   end
 end
-

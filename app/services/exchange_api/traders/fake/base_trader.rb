@@ -1,9 +1,11 @@
 require 'result'
 
 module ExchangeApi
-  module Clients
+  module Traders
     module Fake
-      class Base < ExchangeApi::Clients::BaseTrader
+      class BaseTrader < ExchangeApi::Traders::BaseTrader
+        include ExchangeApi::Clients::Fake
+
         MIN_TRANSACTION_VOLUME = 0.002
 
         SUCCESS = true

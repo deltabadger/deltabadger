@@ -2,9 +2,11 @@ require 'result'
 
 # rubocop#disable Style/StringLiterals
 module ExchangeApi
-  module Clients
+  module Traders
     module Bitbay
-      class BaseTrader < BaseClient
+      class BaseTrader < ExchangeApi::Traders::BaseTrader
+        include ExchangeApi::Clients::Bitbay
+
         MIN_TRANSACTION_PRICE = 10
 
         def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Bitbay.new)

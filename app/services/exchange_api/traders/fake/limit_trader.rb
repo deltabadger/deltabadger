@@ -1,23 +1,21 @@
 require 'result'
 
 module ExchangeApi
-  module Clients
-    module Binance
+  module Traders
+    module Fake
       class LimitTrader < BaseTrader
         def buy(currency:, price:, percentage:)
           buy_params = get_buy_params(currency, price, percentage)
           return buy_params unless buy_params.success?
 
-          body = buy_params.data.to_json
-          place_order(body)
+          place_order(buy_params.data)
         end
 
         def sell(currency:, price:, percentage:)
           sell_params = get_sell_params(currency, price, percentage)
           return sell_params unless sell_params.success?
 
-          body = sell_params.data.to_json
-          place_order(body)
+          place_order(sell_params.data)
         end
 
         private
@@ -27,12 +25,10 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate.data * (1 - percentage / 100)
-          quantity = (price / limit_rate).ceil(8)
-          Result::Success.new(common_order_params(currency).merge(
-                                type: 'buy',
-                                quantity: quantity,
-                                price: limit_rate
-                              ))
+          volume = smart_volume(price, limit_rate)
+          return volume unless volume.success?
+
+          Result::Success.new(common_order_params.merge(amount: volume, rate: limit_rate))
         end
 
         def get_sell_params(currency, price, percentage)
@@ -40,16 +36,10 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate.data * (1 + percentage / 100)
-          quantity = (price / limit_rate).ceil(8)
-          Result::Success.new(common_order_params(currency).merge(
-                                type: 'sell',
-                                quantity: quantity,
-                                price: limit_rate
-                              ))
-        end
+          volume = smart_volume(price, limit_rate)
+          return volume unless volume.success?
 
-        def common_order_params(currency)
-          super(currency).merge(side: 'limit', timeInForce: 'GTC')
+          Result::Success.new(common_order_params.merge(amount: volume, rate: limit_rate))
         end
       end
     end

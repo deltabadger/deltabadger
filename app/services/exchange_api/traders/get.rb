@@ -1,6 +1,6 @@
 module ExchangeApi
-  module Clients
-    class GetTrader < BaseService
+  module Traders
+    class Get < BaseService
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -9,34 +9,34 @@ module ExchangeApi
 
       def call(api_key, order_type)
         exchange = @exchanges_repository.find(api_key.exchange_id)
-        return get_fake_client(order_type, exchange.name) if DISABLE_EXCHANGES_API
+        return fake_client(order_type, exchange.name) if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
         when 'binance'
-          get_binance_client(order_type)
+          binance_client(order_type)
         when 'bitbay'
-          get_bitbay_client(order_type)
+          bitbay_client(order_type)
         when 'kraken'
-          get_kraken_client(order_type)
+          kraken_client(order_type)
         end
       end
 
       private
 
-      def get_fake_client(order_type, exchange_name)
+      def fake_client(order_type, exchange_name)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Fake::LimitTrader
+                   ExchangeApi::Traders::Fake::LimitTrader
                  else
-                   ExchangeApi::Clients::Fake::MarketTrader
+                   ExchangeApi::Traders::Fake::MarketTrader
                  end
         client.new(exchange_name)
       end
 
-      def get_binance_client(order_type)
+      def binance_client(order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Binance::LimitTrader
+                   ExchangeApi::Traders::Binance::LimitTrader
                  else
-                   ExchangeApi::Clients::Binance::MarketTrader
+                   ExchangeApi::Traders::Binance::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
@@ -44,11 +44,11 @@ module ExchangeApi
         )
       end
 
-      def get_bitbay_client(order_type)
+      def bitbay_client(order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Bitbay::LimitTrader
+                   ExchangeApi::Traders::Bitbay::LimitTrader
                  else
-                   ExchangeApi::Clients::Bitbay::MarketTrader
+                   ExchangeApi::Traders::Bitbay::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
@@ -56,11 +56,11 @@ module ExchangeApi
         )
       end
 
-      def get_kraken_client(order_type)
+      def kraken_client(order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Kraken::LimitTrader
+                   ExchangeApi::Traders::Kraken::LimitTrader
                  else
-                   ExchangeApi::Clients::Kraken::MarketTrader
+                   ExchangeApi::Traders::Kraken::MarketTrader
                  end
         client.new(
           api_key: api_key.key,

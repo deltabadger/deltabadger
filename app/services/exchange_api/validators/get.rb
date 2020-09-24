@@ -1,14 +1,14 @@
 module ExchangeApi
-  module Clients
-    class GetValidator < BaseService
+  module Validators
+    class Get < BaseService
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
         @exchanges_repository = exchanges_repository
       end
 
-      def call(api_key)
-        exchange = @exchanges_repository.find(api_key.exchange_id)
+      def call(exchange_id)
+        exchange = @exchanges_repository.find(exchange_id)
 
         return Fake.Validator.new if DISABLE_EXCHANGES_API
 

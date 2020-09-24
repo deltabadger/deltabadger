@@ -1,7 +1,7 @@
 require 'result'
 
 module ExchangeApi
-  module Clients
+  module Traders
     module Bitbay
       class LimitTrader < BaseTrader
         def buy(currency:, price:, percentage:)

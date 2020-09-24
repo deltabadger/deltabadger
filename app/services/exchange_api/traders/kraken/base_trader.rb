@@ -1,15 +1,16 @@
 # rubocop:disable Metrics/LineLength:
 require 'result'
-require 'kraken_ruby_client'
 
 module ExchangeApi
-  module Clients
+  module Traders
     module Kraken
-      class BaseTrader < ExchangeApi::Clients::BaseTrader
+      class BaseTrader < ExchangeApi::Traders::BaseTrader
+        include ExchangeApi::Clients::Kraken
+
         MIN_TRANSACTION_VOLUME = 0.001
 
         def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new, options: {})
-          @client = ::Kraken::Client.new(api_key: api_key, api_secret: api_secret)
+          @client = get_client(api_key, api_secret)
           @map_errors = map_errors
           @options = options
         end
