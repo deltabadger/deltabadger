@@ -2,8 +2,8 @@ module Presenters
   module Api
     class Stats < BaseService
       def initialize(
-        get_exchange_api: ExchangeApi::Clients::Get.new,
-        api_keys_repository: ApiKeysRepository.new
+          get_exchange_api: ExchangeApi::Clients::GetValidator.new,
+          api_keys_repository: ApiKeysRepository.new
       )
 
         @get_exchange_api = get_exchange_api

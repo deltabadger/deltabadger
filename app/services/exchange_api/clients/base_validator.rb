@@ -1,6 +1,6 @@
 module ExchangeApi
-  module Validators
-    class Base
+  module Clients
+    class BaseValidator < BaseClient
       def validate_credentials(_api_key, _api_secret)
         raise NotImplementedError
       end

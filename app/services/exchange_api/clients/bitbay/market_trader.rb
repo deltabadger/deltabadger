@@ -1,7 +1,7 @@
 module ExchangeApi
   module Clients
     module Bitbay
-      class BitbayMarket < Base
+      class MarketTrader < BaseTrader
         def buy(currency:, price:)
           buy_params = get_buy_params(price)
           place_order(currency, buy_params.to_json)
