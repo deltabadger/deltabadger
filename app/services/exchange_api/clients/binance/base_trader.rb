@@ -3,7 +3,7 @@ require 'result'
 module ExchangeApi
   module Clients
     module Binance
-      class Base < ExchangeApi::Clients::Base
+      class BaseTrader < BaseClient
         URL_BASE = 'https://api.binance.com/api/v3'.freeze
         ORDER_DOES_NOT_EXIST = -2011
         MIN_TRANSACTION_PRICES = {
@@ -17,8 +17,7 @@ module ExchangeApi
         DEFAULT_MIN_TRANSACTION_PRICE = 20
 
         def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Binance.new)
-          @api_key = api_key
-          @api_secret = api_secret
+          @signed_client = signed_client(api_key, api_secret)
           @map_errors = map_errors
         end
 
@@ -38,7 +37,7 @@ module ExchangeApi
         private
 
         def place_order(order_params)
-          request = signed_client.post('order') do |req|
+          request = @signed_client.post('order') do |req|
             req.params = order_params
           end
 
@@ -73,21 +72,6 @@ module ExchangeApi
             rate: rate,
             amount: response['executedQty']
           )
-        end
-
-        def unsigned_client
-          Faraday.new(url: URL_BASE) do |conn|
-            conn.adapter Faraday.default_adapter
-          end
-        end
-
-        def signed_client
-          Faraday.new(url: URL_BASE) do |conn|
-            conn.headers['X-MBX-APIKEY'] = @api_key
-            conn.use AddTimestamp
-            conn.use AddSignature, @api_secret
-            conn.adapter Faraday.default_adapter
-          end
         end
       end
     end

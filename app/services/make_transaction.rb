@@ -1,15 +1,15 @@
 class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
-    exchange_api: ExchangeApi::Clients::Get.new,
-    schedule_transaction: ScheduleTransaction.new,
-    unschedule_transactions: UnscheduleTransactions.new,
-    bots_repository: BotsRepository.new,
-    transactions_repository: TransactionsRepository.new,
-    api_keys_repository: ApiKeysRepository.new,
-    notifications: Notifications::BotAlerts.new,
-    validate_limit: Bots::Free::Validators::Limit.new,
-    validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
-    subtract_credits: SubtractCredits.new
+      exchange_api: ExchangeApi::Clients::GetTrader.new,
+      schedule_transaction: ScheduleTransaction.new,
+      unschedule_transactions: UnscheduleTransactions.new,
+      bots_repository: BotsRepository.new,
+      transactions_repository: TransactionsRepository.new,
+      api_keys_repository: ApiKeysRepository.new,
+      notifications: Notifications::BotAlerts.new,
+      validate_limit: Bots::Free::Validators::Limit.new,
+      validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
+      subtract_credits: SubtractCredits.new
   )
     @get_exchange_api = exchange_api
     @schedule_transaction = schedule_transaction

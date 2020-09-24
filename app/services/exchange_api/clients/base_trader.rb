@@ -1,10 +1,6 @@
-require 'result'
-
 module ExchangeApi
   module Clients
-    class Base
-      RECOVERABLE = { data: { recoverable: true }.freeze }.freeze
-
+    class BaseTrader < BaseClient
       def buy
         raise NotImplementedError
       end
@@ -38,15 +34,7 @@ module ExchangeApi
 
         Result::Success.new(result.data.ask)
       end
-
-      protected
-
-      def error_to_failure(error)
-        mapped_error = @map_errors.call(error)
-        Result::Failure.new(
-          *mapped_error.message, data: { recoverable: mapped_error.recoverable }
-        )
-      end
     end
   end
 end
+

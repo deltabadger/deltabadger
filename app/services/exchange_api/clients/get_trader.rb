@@ -1,6 +1,6 @@
 module ExchangeApi
   module Clients
-    class Get < BaseService
+    class GetTrader < BaseService
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -25,18 +25,18 @@ module ExchangeApi
 
       def get_fake_client(order_type, exchange_name)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Fake::FakeLimit
+                   ExchangeApi::Clients::Fake::LimitTrader
                  else
-                   ExchangeApi::Clients::Fake::FakeMarket
+                   ExchangeApi::Clients::Fake::MarketTrader
                  end
         client.new(exchange_name)
       end
 
       def get_binance_client(order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Binance::BinanceLimit
+                   ExchangeApi::Clients::Binance::LimitTrader
                  else
-                   ExchangeApi::Clients::Binance::BinanceMarket
+                   ExchangeApi::Clients::Binance::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
@@ -46,9 +46,9 @@ module ExchangeApi
 
       def get_bitbay_client(order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Bitbay::BitbayLimit
+                   ExchangeApi::Clients::Bitbay::LimitTrader
                  else
-                   ExchangeApi::Clients::Bitbay::BitbayMarket
+                   ExchangeApi::Clients::Bitbay::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
@@ -58,9 +58,9 @@ module ExchangeApi
 
       def get_kraken_client(order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Clients::Kraken::KrakenLimit
+                   ExchangeApi::Clients::Kraken::LimitTrader
                  else
-                   ExchangeApi::Clients::Kraken::KrakenMarket
+                   ExchangeApi::Clients::Kraken::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
