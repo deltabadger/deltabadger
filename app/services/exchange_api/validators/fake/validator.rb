@@ -1,7 +1,9 @@
 module ExchangeApi
-  module Clients
+  module Validators
     module Fake
-      class Validator < BaseValidatr
+      class Validator < BaseValidator
+        include ExchangeApi::Clients::Fake
+
         SUCCESS = true
         # SUCCESS = false
 
