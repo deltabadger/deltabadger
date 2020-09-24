@@ -1,7 +1,7 @@
 require 'result'
 
 module ExchangeApi
-  module Clients
+  module Traders
     module Kraken
       class MarketTrader < BaseTrader
         def buy(currency:, price:)

@@ -1,11 +1,11 @@
 require 'result'
 
 module ExchangeApi
-  module Clients
+  module Traders
     module Binance
-      class BaseTrader < BaseClient
-        URL_BASE = 'https://api.binance.com/api/v3'.freeze
-        ORDER_DOES_NOT_EXIST = -2011
+      class BaseTrader < ExchangeApi::Traders::BaseTrader
+        include ExchangeApi::Clients::Binance
+
         MIN_TRANSACTION_PRICES = {
           BKRW: 2000,
           IDRT: 40_000,

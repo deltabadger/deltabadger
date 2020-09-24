@@ -1,5 +1,5 @@
 module ExchangeApi
-  module Clients
+  module Traders
     module Binance
       class MarketTrader < BaseTrader
         def buy(currency:, price:)
