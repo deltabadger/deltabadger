@@ -3,48 +3,37 @@
   %head
     %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
     :css
+      @import url('https://fonts.googleapis.com/css?family=Varela+Round&display=swap');
+
       body {
-        background: #f5f5f5;
+        background: #fff;
+        font-family: "Varela Round", sans-serif;
+        font-size: 1.6em;
+        width: 18em;
+        letter-spacing: .02em;
+        color: #234;
+        padding: 1.2em 1.45em;
       }
-      a {
-        color: #0a45a4;
+      a,
+      .badger-color {
+        color: #0957cb;
       }
+      br {
+        display:block;
+        height: 0;
+      }
+      .extra-space {
+        padding-top: 1em;
+        padding-bottom: 1.2em;
+      }
+
   %body
-    %table{:bgcolor => "#f5f5f5", :border => "0", :cellpadding => "0", :cellspacing => "0", :height => "100%", :style => "height: 100%; width: 100%; font-family: Inconsolata,Roboto,-apple-system,BlinkMacSystemFont,sans-serif", :width => "100%"}
-      %tbody
-        %tr
-          %td{:valign => "top"}
-            %table{:align => "center", :border => "0", :cellpadding => "0", :cellspacing => "0", :style => "max-width: 580px; margin:0 auto; table-layout: fixed;"}
-              %tbody
-                %tr
-                  %td{:colspan => "4"}
 
-                    %table{:border => "0", :cellpadding => "0", :cellspacing => "0", :width => "100%", :style => "width: 100%" }
-                      %tbody
-                        %tr
-                          %td{:colspan => "2", :height => "40", :style => "height: 40px"}
-                        %tr
-                          %td{:align => "left", :style => "text-align: center", :valign => "top"}
-                            %a{:href => "https://deltabadger.com", :rel => "noreferrer nofollow noopener", :style => "display:inline-block; cursor:pointer; text-align:center;", :target => "_blank"}
-                              %img.proton-embedded{:alt => "Deltabadger", :border => "0", :height => "46", :style => "height: 46px", :referrerpolicy => "no-referrer", :src => "https://asset.deltabadger.com/deltabadger-email-header.png"}
-                        %tr
-                          %td{:height => "40", :style => "height: 40px"}
+    %img.proton-embedded{:alt => "Deltabadger", :border => "0", :height => "50", :style => "height: 50px", :referrerpolicy => "no-referrer", :src => "https://asset.deltabadger.com/deltabadger-email-header.png"}
 
-                    %table{:bgcolor => "#ffffff", :border => "0", :cellpadding => "0", :cellspacing => "0", :style => "border-radius: 4px; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 20px 50px 20px", :width => "100%"}
-                      %tbody
-                        %tr
-                          %td{:style => "text-align: center; padding-bottom: 50px;"}
-                            = yield
+    = yield
 
-                    %table{:border => "0", :cellpadding => "0", :cellspacing => "0", :width => "100%", :style => "width: 100%"}
-                      %tbody
-                        %tr
-                          %td{:height => "40px", :style => "height: 40px"}  
-                        %tr
-                          %td{:align => "center", :valign => "top"}
-                            %span{:style => "font-family: Inconsolata,Roboto,-apple-system,BlinkMacSystemFont,sans-serif; color:#9EB0C9; font-size:14px;"}
-                              &copy;
-                              = Time.current.year
-                              %a{:href => "https://deltabadger.com", :rel => "noreferrer nofollow noopener", :style => "color:#9EB0C9 !important; text-decoration:none;", :target => "_blank"} Deltabadger OÜ
-                        %tr
-                          %td{:height => "40px", :style => "height: 40px"}  
+    %p —
+    %p Deltabadger Team 🧑‍🚀
+    %br
+    %p 💡 If you started DCA into ₿itcoin<br>a year ago, you're now up <span style="color:#079e60">+48%</span>.

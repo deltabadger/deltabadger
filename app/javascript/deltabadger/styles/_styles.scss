@@ -959,6 +959,11 @@ svg * {
   background: rgba(10, 69, 164, 0); //#3e66b3;
   backdrop-filter: blur(8px);
 }
+@-moz-document url-prefix() {
+  .db-group-cta__bubble {
+    background:$primary;
+  }
+}
 .db-group-cta__arrow-forward {
   display: inline-block;
   width: 30px;

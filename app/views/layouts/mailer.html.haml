@@ -1,8 +1,38 @@
 !!!
 %html
   %head
-    %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}/
+    %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
     :css
-      /* Email styles need to be inline */
+      @import url('https://fonts.googleapis.com/css?family=Varela+Round&display=swap');
+
+      body {
+        background: #fff;
+        font-family: "Varela Round", sans-serif;
+        font-size: 1.6em;
+        width: 18em;
+        letter-spacing: .02em;
+        color: #234;
+        padding: 1.2em 1.45em;
+      }
+      a {
+        color: #0957cb;
+      }
+      br {
+        display:block;
+        height: 0;
+      }
+      .extra-space {
+        padding-top: 1em;
+        padding-bottom: 1.2em;
+      }
+
   %body
+
+    %img.proton-embedded{:alt => "Deltabadger", :border => "0", :height => "50", :style => "height: 50px", :referrerpolicy => "no-referrer", :src => "https://asset.deltabadger.com/deltabadger-email-header.png"}
+
     = yield
+
+    %p —
+    %p Deltabadger Team 🧑‍🚀
+    %br
+    %p 💡 If you started DCA into ₿itcoin<br>a year ago, you're now up <span style="color:#079e60">+48%</span>.

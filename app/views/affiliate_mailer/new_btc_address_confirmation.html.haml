@@ -1,9 +1,10 @@
-%p Hello,
-%p We received a request to to change your bitcoin address to #{@new_btc_address}. You can do this after clicking the link below:
+%p Hello 👋,
+%p It looks like you want to change<br/>your ₿itcoin address to
+%p <b>#{@new_btc_address}</b>
+%p This address will be used for your<br/>payouts from our referral program.
+%p Are you sure?
 %br
-%p= link_to 'Confirm new bitcoin address', confirm_btc_address_affiliate_url(@token)
+%p= link_to "Yes, let's change it!", confirm_btc_address_affiliate_url(@token)
 %br
-%p If you didn't send this request this, please, ignore this email.
-%p Your bitcoin address won't change until you access the link above.
-%p ---
-%p Deltabadger Team
+%p You didn't send this request?<br/>No worries! Just ignore it.
+%p The address won't change until<br/>you access the link above.
