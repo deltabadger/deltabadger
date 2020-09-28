@@ -31,7 +31,7 @@ module Deltabadger
     config.generators.system_tests = nil
 
     config.to_prepare do
-      Devise::Mailer.layout "devise_mailer"
+      Devise::Mailer.layout "mailer"
     end
 
     Raven.configure do |config|
