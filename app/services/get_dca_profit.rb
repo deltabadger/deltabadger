@@ -15,18 +15,26 @@ class GetDcaProfit < BaseService
 
     response_json = JSON.parse(response.body)
     price_index = response_json.fetch('bpi')
-    number_of_days = (end_date - start_date).to_i
-    Result::Success.new(calculate_profit(number_of_days, price_index.values))
+    Result::Success.new(calculate_profit(price_index.values))
   end
 
-  def calculate_profit(number_of_days, prices)
-    # Assuming 1 BTC per day - number of BTC doesn't affect the percentage
+  def calculate_profit(prices)
+    number_of_days = prices.length
+    # Assuming 10$ per day - amount doesn't affect the percentage
+    dollars_per_day = 10
+    total_purchased_btc = calculate_purchased_btc(prices, dollars_per_day)
     current_rate = prices.last
-    current_value = calculate_current_crypto_value(current_rate, number_of_days)
-    total_expenses = prices.sum
+    current_value = calculate_current_crypto_value(current_rate, total_purchased_btc)
+    total_expenses = number_of_days * dollars_per_day
 
     increase = current_value - total_expenses
     increase / total_expenses * 100
+  end
+
+  def calculate_purchased_btc(prices, amount)
+    prices.inject(0) do |sum, price|
+      sum + amount / price
+    end
   end
 
   def calculate_current_crypto_value(rate, number_of_btc)
