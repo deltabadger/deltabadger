@@ -1,6 +1,8 @@
 module ExchangeApi
   module Traders
     class BaseTrader
+      RECOVERABLE = { data: { recoverable: true }.freeze }.freeze
+
       def buy
         raise NotImplementedError
       end
