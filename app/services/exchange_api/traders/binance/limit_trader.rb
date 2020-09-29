@@ -5,14 +5,16 @@ module ExchangeApi
     module Binance
       class LimitTrader < BaseTrader
         def buy(currency:, price:, percentage:)
-          buy_params = get_buy_params(currency, price, percentage)
+          final_price = transaction_price(currency, price)
+          buy_params = get_buy_params(currency, final_price, percentage)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data)
         end
 
         def sell(currency:, price:, percentage:)
-          sell_params = get_sell_params(currency, price, percentage)
+          final_price = transaction_price(currency, price)
+          sell_params = get_sell_params(currency, final_price, percentage)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
