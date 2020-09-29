@@ -29,7 +29,7 @@ module ExchangeApi
           limit_rate = rate.data * (1 - percentage / 100)
           quantity = (price / limit_rate).ceil(8)
           Result::Success.new(common_order_params(currency).merge(
-                                type: 'buy',
+                                side: 'BUY',
                                 quantity: quantity,
                                 price: limit_rate
                               ))
@@ -42,14 +42,14 @@ module ExchangeApi
           limit_rate = rate.data * (1 + percentage / 100)
           quantity = (price / limit_rate).ceil(8)
           Result::Success.new(common_order_params(currency).merge(
-                                type: 'sell',
+                                side: 'SELL',
                                 quantity: quantity,
                                 price: limit_rate
                               ))
         end
 
         def common_order_params(currency)
-          super(currency).merge(side: 'limit', timeInForce: 'GTC')
+          super(currency).merge(type: 'LIMIT', timeInForce: 'GTC')
         end
       end
     end
