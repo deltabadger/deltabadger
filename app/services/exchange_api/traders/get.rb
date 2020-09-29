@@ -13,11 +13,11 @@ module ExchangeApi
 
         case exchange.name.downcase
         when 'binance'
-          binance_client(order_type)
+          binance_client(api_key, order_type)
         when 'bitbay'
-          bitbay_client(order_type)
+          bitbay_client(api_key, order_type)
         when 'kraken'
-          kraken_client(order_type)
+          kraken_client(api_key, order_type)
         end
       end
 
@@ -32,7 +32,7 @@ module ExchangeApi
         client.new(exchange_name)
       end
 
-      def binance_client(order_type)
+      def binance_client(api_key, order_type)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Binance::LimitTrader
                  else
@@ -44,7 +44,7 @@ module ExchangeApi
         )
       end
 
-      def bitbay_client(order_type)
+      def bitbay_client(api_key, order_type)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Bitbay::LimitTrader
                  else
@@ -56,7 +56,7 @@ module ExchangeApi
         )
       end
 
-      def kraken_client(order_type)
+      def kraken_client(api_key, order_type)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Kraken::LimitTrader
                  else
