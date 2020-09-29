@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_trader: ExchangeApi::Traders::Get.new,
@@ -60,7 +61,11 @@ class MakeTransaction < BaseService
   end
 
   def perform_action(api, bot)
-    settings = { currency: bot.currency, price: bot.price.to_f, percentage: bot.percentage }.compact
+    settings = {
+      currency: bot.currency,
+      price: bot.price.to_f,
+      percentage: bot.percentage&.to_f
+    }.compact
     result = if bot.buyer?
                api.buy(settings)
              else
@@ -120,3 +125,4 @@ class MakeTransaction < BaseService
     @notifications.error_occured(bot: bot, errors: errors) if notify
   end
 end
+# rubocop:enable Metrics/ClassLength
