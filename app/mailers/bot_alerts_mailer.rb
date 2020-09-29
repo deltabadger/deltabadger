@@ -4,7 +4,7 @@ class BotAlertsMailer < ApplicationMailer
     @errors = params[:errors]
     @bot = params[:bot]
 
-    mail(to: @user.email, subject: "Something went wrong 😵")
+    mail(to: @user.email, subject: 'Something went wrong 😵')
   end
 
   def notify_about_restart
@@ -13,20 +13,20 @@ class BotAlertsMailer < ApplicationMailer
     @errors = params[:errors]
     @bot = params[:bot]
 
-    mail(to: @user.email, subject: "Oups! Next try… 🧐")
+    mail(to: @user.email, subject: 'Oups! Next try… 🧐')
   end
 
   def limit_reached
     @user = params[:user]
     @bot = params[:bot]
 
-    mail(to: @user.email, subject: "You've reached the limit 🥳")
+    mail(to: @user.email, subject: 'You\'ve reached the limit 🥳')
   end
 
   def limit_almost_reached
     @user = params[:user]
     @bot = params[:bot]
 
-    mail(to: @user.email, subject: "Limit almost reached ⌛")
+    mail(to: @user.email, subject: 'Limit almost reached ⌛')
   end
 end

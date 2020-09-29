@@ -42,7 +42,7 @@ module ExchangeApi
       def error_to_failure(error)
         mapped_error = @map_errors.call(error)
         Result::Failure.new(
-            *mapped_error.message, data: { recoverable: mapped_error.recoverable }
+          *mapped_error.message, data: { recoverable: mapped_error.recoverable }
         )
       end
     end
