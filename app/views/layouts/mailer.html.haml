@@ -34,5 +34,6 @@
 
     %p —
     %p Deltabadger Team 🧑‍🚀
-    %br
-    %p 💡 If you started DCA into ₿itcoin<br>a year ago, you're now up <span style="color:#079e60">#{@dca_profit}%</span>.
+    - if @dca_profit.success?
+      %br
+      %p 💡 If you started DCA into ₿itcoin<br>a year ago, you're now up <span style="color:#079e60">#{@dca_profit.data}%</span>.

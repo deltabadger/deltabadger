@@ -1,10 +1,13 @@
 class GetDcaProfit < BaseService
   API_URL = 'https://api.coindesk.com/v1/bpi/historical/close.json'.freeze
+  CACHE_KEY = 'dca_profit'.freeze
 
   def call(start_date, end_date)
-    Rails.cache.fetch('dca_profit', expires_in: 1.day) do
-      query_profit_dca(start_date, end_date)
-    end
+    return Rails.cache.read(CACHE_KEY) if Rails.cache.exist?(CACHE_KEY)
+
+    profit = query_profit_dca(start_date, end_date)
+    Rails.cache.write(CACHE_KEY, profit, expires_in: 1.day) if profit.success?
+    profit
   end
 
   private
