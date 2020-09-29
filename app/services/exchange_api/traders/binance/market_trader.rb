@@ -15,16 +15,16 @@ module ExchangeApi
         private
 
         def get_buy_params(currency, price)
-          common_order_params(currency, price).merge(type: 'buy')
+          common_order_params(currency, price).merge(side: 'BUY')
         end
 
         def get_sell_params(currency, price)
-          common_order_params(currency, price).merge(type: 'sell')
+          common_order_params(currency, price).merge(side: 'SELL')
         end
 
         def common_order_params(currency, price)
           price = transaction_price(currency, price)
-          super(currency).merge(side: 'market', quoteOrderQty: price)
+          super(currency).merge(type: 'MARKET', quoteOrderQty: price)
         end
       end
     end
