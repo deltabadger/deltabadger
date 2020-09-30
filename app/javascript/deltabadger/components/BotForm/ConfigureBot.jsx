@@ -118,7 +118,7 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
         </form>
         {isLimitOrder() &&
         <span className="db-limit-bot-modifier">
-          Buy <input
+          { isSellOffer() ? 'Sell' : 'Buy' } <input
             type="text"
             min="0"
             step="0.1"
