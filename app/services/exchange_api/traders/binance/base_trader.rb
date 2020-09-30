@@ -15,6 +15,8 @@ module ExchangeApi
           UAH: 200
         }.freeze
         DEFAULT_MIN_TRANSACTION_PRICE = 20
+        DEFAULT_MIN_QUANTITY = 0.001
+        DEFAULT_QUANTITY_ACCURACY = 3 # Decimal places
 
         def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Binance.new)
           @signed_client = signed_client(api_key, api_secret)
@@ -61,6 +63,11 @@ module ExchangeApi
             DEFAULT_MIN_TRANSACTION_PRICE
           )
           [limit, price].max
+        end
+
+        def transaction_quantity(price, rate)
+          quantity = (price / rate).ceil(DEFAULT_QUANTITY_ACCURACY)
+          [quantity, DEFAULT_MIN_QUANTITY].max
         end
 
         def parse_response(response)
