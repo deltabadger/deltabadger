@@ -27,7 +27,7 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = (rate.data * (1 - percentage / 100)).ceil(2)
-          quantity = (price / limit_rate).ceil(8)
+          quantity = transaction_quantity(price, limit_rate)
           Result::Success.new(common_order_params(currency).merge(
                                 side: 'BUY',
                                 quantity: quantity,
@@ -40,7 +40,7 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = (rate.data * (1 + percentage / 100)).ceil(2)
-          quantity = (price / limit_rate).ceil(8)
+          quantity = transaction_quantity(price, limit_rate)
           Result::Success.new(common_order_params(currency).merge(
                                 side: 'SELL',
                                 quantity: quantity,
