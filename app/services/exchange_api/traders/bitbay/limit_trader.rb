@@ -24,7 +24,7 @@ module ExchangeApi
           rate = current_ask_price(currency)
           return rate unless rate.success?
 
-          limit_rate = rate.data * (1 - percentage / 100)
+          limit_rate = (rate.data * (1 - percentage / 100)).ceil(2)
           Result::Success.new(common_order_params(price).merge(offerType: 'buy', rate: limit_rate))
         end
 
@@ -32,7 +32,7 @@ module ExchangeApi
           rate = current_bid_price(currency)
           return rate unless rate.success?
 
-          limit_rate = rate.data * (1 + percentage / 100)
+          limit_rate = (rate.data * (1 + percentage / 100)).ceil(2)
           Result::Success.new(common_order_params(price).merge(offerType: 'sell', rate: limit_rate))
         end
 
