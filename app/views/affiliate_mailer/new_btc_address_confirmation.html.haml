@@ -1,10 +1,8 @@
 %p Hello 👋,
 %p It looks like you want to change<br/>your ₿itcoin address to
-%p <b>#{@new_btc_address}</b>
+%p <b style="color: #0a45a4;">#{@new_btc_address}</b>
 %p This address will be used for your<br/>payouts from our referral program.
 %p Are you sure?
-%br
-%p= link_to "Yes, let's change it!", confirm_btc_address_affiliate_url(@token)
-%br
+%p{:style=>"margin: 1em 0 1.2em;"}= link_to "Yes, let's change it!", confirm_btc_address_affiliate_url(@token), {:style=> "color: #0a45a4;"}
 %p You didn't send this request?<br/>No worries! Just ignore it.
 %p The address won't change until<br/>you access the link above.

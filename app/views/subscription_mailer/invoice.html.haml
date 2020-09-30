@@ -1,9 +1,7 @@
-%h1
-  Invoice
+%h1 Invoice
 %p
   %b= "Paid at:"
-%p
-  ="#{@payment.paid_at}"
+%p= "#{@payment.paid_at}"
 %p
   %b= "Seller:"
 %p
@@ -22,9 +20,7 @@
   = "#{@payment.first_name} #{@payment.last_name}"
   %br
   = "#{@user.email}"
-%h2
-  = "Deltabadger #{@payment.subscription_plan.display_name} Plan (#{@payment.subscription_plan.years}-year)"
+%h2= "Deltabadger #{@payment.subscription_plan.display_name} Plan (#{@payment.subscription_plan.years}-year)"
 %p
   %b= "Paid:"
-%h2
-  = "#{@payment.total} #{@payment.currency}"
+%h2= "#{@payment.total} #{@payment.currency}"

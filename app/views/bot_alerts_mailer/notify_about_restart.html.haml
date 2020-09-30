@@ -1,8 +1,6 @@
-%p Hello 👋,
-%p
-  The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in #{@delay}.
-%p
-  All error are visible in the bot log.<br>Sign in to check it out.
+%p Oh snap 🧐,
+%p The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in #{@delay}.
+%p All error are visible in the bot log.<br>Sign in to check it out.
 %p Errors:
 %blockquote
-  %b.badger-color #{@errors.inspect}
+  %b(style="color: #0a45a4;") #{@errors.inspect}
