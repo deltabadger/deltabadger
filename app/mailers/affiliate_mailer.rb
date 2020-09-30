@@ -13,11 +13,4 @@ class AffiliateMailer < ApplicationMailer
 
     mail(to: @user.email, subject: "It's a payday! 💸")
   end
-
-  def referrals_payout_notification
-    @user = params[:user]
-    @amount = params[:amount]
-
-    mail(to: @user.email, subject: 'Referral program payout notification')
-  end
 end
