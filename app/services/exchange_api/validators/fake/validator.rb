@@ -7,7 +7,7 @@ module ExchangeApi
         SUCCESS = true
         # SUCCESS = false
 
-        def validate_credentials(_api_key, _api_secret)
+        def validate_credentials(api_key:, api_secret:) # rubocop:disable Lint/UnusedMethodArgument
           SUCCESS
         end
       end
