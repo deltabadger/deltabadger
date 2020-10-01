@@ -66,7 +66,7 @@ module ExchangeApi
         end
 
         def transaction_quantity(price, rate)
-          quantity = (price / rate).ceil(DEFAULT_QUANTITY_ACCURACY)
+          quantity = (price / rate).round(DEFAULT_QUANTITY_ACCURACY)
           [quantity, DEFAULT_MIN_QUANTITY].max
         end
 
