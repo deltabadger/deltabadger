@@ -8,10 +8,24 @@ class TransactionsRepository < BaseRepository
   end
 
   def count_by_status_and_exchange(status, exchange)
-    Transaction.joins(:bot).where('bots.exchange_id = ?', exchange.id).where(status: status).count
+    model.joins(:bot).where(bots: { exchange_id: exchange.id }).where(status: status).count
+  end
+
+  def total_btc_bought
+    total_btc_by_type('buy')
+  end
+
+  def total_btc_sold
+    total_btc_by_type('sell')
   end
 
   def model
     Transaction
+  end
+
+  private
+
+  def total_btc_by_type(type)
+    model.joins(:bot).where("bots.settings->>'type' = ?", type).sum(:amount)
   end
 end
