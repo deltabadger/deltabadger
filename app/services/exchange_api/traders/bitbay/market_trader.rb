@@ -4,12 +4,12 @@ module ExchangeApi
       class MarketTrader < BaseTrader
         def buy(currency:, price:)
           buy_params = get_buy_params(price)
-          place_order(currency, buy_params.to_json)
+          place_order(currency, buy_params)
         end
 
         def sell(currency:, price:)
           sell_params = get_sell_params(price)
-          place_order(currency, sell_params.to_json)
+          place_order(currency, sell_params)
         end
 
         private
