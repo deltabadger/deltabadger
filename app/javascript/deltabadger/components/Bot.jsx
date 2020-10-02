@@ -55,6 +55,14 @@ const BotTemplate = ({
 
   const isSellOffer = () => settings.type === 'sell'
 
+  const getDisplayType = () => {
+    let side = isSellOffer() ? 'Sell' : 'Buy'
+    if (isLimitOrder()) {
+      side = `Limit ${side}`
+    }
+    return side;
+  }
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
       <div className="db-bot__header">
@@ -75,10 +83,10 @@ const BotTemplate = ({
         <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
-              value={settings.type}
+              value={getDisplayType()}
               className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
-              disabled={true}
+              disabled
             >
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
