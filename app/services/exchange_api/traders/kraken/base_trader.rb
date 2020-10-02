@@ -62,7 +62,7 @@ module ExchangeApi
         end
 
         def smart_volume(price, rate)
-          volume = (price / rate.data).ceil(8)
+          volume = (price / rate).ceil(8)
           Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
         end
       end
