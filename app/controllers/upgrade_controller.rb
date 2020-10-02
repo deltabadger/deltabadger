@@ -23,6 +23,7 @@ class UpgradeController < ApplicationController
   end
 
   def payment_success
+    current_user.update!(welcome_banner_showed: true)
     flash[:notice] = 'Payment ordered!'
 
     redirect_to dashboard_path
