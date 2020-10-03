@@ -1,5 +1,5 @@
 # Additional translations at https://github.com/plataformatec/devise/wiki/I18n
-
+ 
 en:
   devise:
     confirmations:
@@ -18,7 +18,7 @@ en:
       unconfirmed: "You have to confirm your email address before continuing."
     mailer:
       confirmation_instructions:
-        subject: "Hi there 👋"
+        subject: "Welcome to Deltabadger 🎉"
       reset_password_instructions:
         subject: "Password reset 🔑"
       unlock_instructions:
