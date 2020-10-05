@@ -45,7 +45,7 @@ module ExchangeApi
 
           Result::Success.new(common_order_params(currency).merge(
                                 type: 'sell',
-                                volume: volume,
+                                volume: volume.data,
                                 price: limit_rate
                               ))
         end
