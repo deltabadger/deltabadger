@@ -101,7 +101,7 @@ const BotTemplate = ({
               min="1"
               value={price}
               onChange={e => setPrice(e.target.value)}
-              className="form-control  db-input--dca-amount"
+              className="form-control db-input--dca-amount"
               disabled={working}
             />
           </div>
