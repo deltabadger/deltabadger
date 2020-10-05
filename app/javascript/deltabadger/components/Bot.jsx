@@ -81,7 +81,7 @@ const BotTemplate = ({
 
       <div className="db-bot__form">
         <form className="form-inline mx-4">
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">
             <select
               value={getType()}
               className="form-control db-select--buy-sell"
@@ -94,38 +94,19 @@ const BotTemplate = ({
               <option value="limit_sell">Limit Sell</option>
             </select>
           </div>
-          <div className="form-group mr-2">
-            <select
-              className="form-control"
-              disabled
-            >
-              <option value="BTC">BTC</option>
-              <option value="ETH">ETH</option>
-            </select>
-          </div>
-          <div className="form-group mr-2">for</div>
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">BTC for</div>
+          <div className="form-group mr-1">
             <input
               type="text"
               min="1"
               value={price}
               onChange={e => setPrice(e.target.value)}
-              className="form-control"
+              className="form-control  db-input--dca-amount"
               disabled={working}
             />
           </div>
-          <div className="form-group mr-2">
-            <select
-              value={settings.currency}
-              className="form-control"
-              id="exampleFormControlSelect1"
-              disabled
-            >
-              <option value="">{settings.currency}</option>
-            </select>
-          </div>
-          <div className="form-group mr-2">/</div>
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">{settings.currency} /</div>
+          <div className="form-group mr-1">
             <select
               value={interval}
               className="form-control"
