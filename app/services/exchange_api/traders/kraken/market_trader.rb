@@ -21,14 +21,20 @@ module ExchangeApi
         private
 
         def get_buy_params(currency, price)
-          volume = smart_volume(price, current_ask_price(currency))
+          rate = current_ask_price(currency)
+          return rate unless rate.success?
+
+          volume = smart_volume(price, rate.data)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params(currency).merge(type: 'buy', volume: volume))
         end
 
         def get_sell_params(currency, price)
-          volume = smart_volume(price, current_bid_price(currency))
+          rate = current_bid_price(currency)
+          return rate unless rate.success?
+
+          volume = smart_volume(price, rate.data)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params(currency).merge(type: 'sell', volume: volume))
