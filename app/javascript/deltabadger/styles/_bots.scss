@@ -290,7 +290,6 @@
   align-items: center;
   input {
     text-align: right;
-    max-width: 80px !important;
   }
 }
 .db-bot__form--apikeys {
@@ -388,5 +387,8 @@
   height: 40px;
 }
 .db-select--buy-sell {
-  max-width: 80px;
+  max-width: 7.8em;
+}
+.db-input--dca-amount {
+  max-width: 4.1em;
 }
