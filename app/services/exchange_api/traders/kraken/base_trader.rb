@@ -47,7 +47,7 @@ module ExchangeApi
           Result::Success.new(
             offer_id: offer_id,
             rate: rate,
-            amount: order_params.volume
+            amount: order_params[:volume]
           )
         rescue StandardError
           Result::Failure.new('Could not make Kraken order', RECOVERABLE)
