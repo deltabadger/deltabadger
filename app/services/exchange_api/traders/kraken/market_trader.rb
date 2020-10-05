@@ -8,14 +8,14 @@ module ExchangeApi
           buy_params = get_buy_params(currency, price)
           return buy_params unless buy_params.success?
 
-          place_order(buy_params)
+          place_order(buy_params.data)
         end
 
         def sell(currency:, price:)
           sell_params = get_sell_params(currency, price)
           return sell_params unless sell_params.success?
 
-          place_order(sell_params)
+          place_order(sell_params.data)
         end
 
         private
