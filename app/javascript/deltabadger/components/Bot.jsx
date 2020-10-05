@@ -55,12 +55,12 @@ const BotTemplate = ({
 
   const isSellOffer = () => settings.type === 'sell'
 
-  const getDisplayType = () => {
-    let side = isSellOffer() ? 'Sell' : 'Buy'
+  const getType = () => {
     if (isLimitOrder()) {
-      side = `Limit ${side}`
+      const side = settings.type
+      return `limit_${side}`
     }
-    return side;
+    return settings.type;
   }
 
   return (
@@ -83,15 +83,15 @@ const BotTemplate = ({
         <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
-              value={getDisplayType()}
+              value={getType()}
               className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
               disabled
             >
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
-              <option value="limit_buy" disabled>Limit Buy</option>
-              <option value="limit_sell" disabled>Limit Sell</option>
+              <option value="limit_buy">Limit Buy</option>
+              <option value="limit_sell">Limit Sell</option>
             </select>
           </div>
           <div className="form-group mr-2">

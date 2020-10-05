@@ -40,14 +40,14 @@ module ExchangeApi
 
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
-          offer_id = response.dig('result', 'txid').first
-          order_data = orders[offer_id]
-          rate = order_data.fetch('price').to_f
+          order = response.dig('result', 'descr', 'order')
+          offer_id = order['offerId']
+          rate = order['price'].to_f
 
           Result::Success.new(
             offer_id: offer_id,
             rate: rate,
-            amount: volume
+            amount: order_params.volume
           )
         rescue StandardError
           Result::Failure.new('Could not make Kraken order', RECOVERABLE)
@@ -62,7 +62,7 @@ module ExchangeApi
         end
 
         def smart_volume(price, rate)
-          volume = (price / rate.data).ceil(8)
+          volume = (price / rate).ceil(8)
           Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
         end
       end
