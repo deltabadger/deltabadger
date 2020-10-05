@@ -56,7 +56,7 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form className="form-inline mx-4">
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">
             <select
               value={type}
               onChange={e => setType(e.target.value)}
@@ -69,7 +69,7 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
               <option value="limit_sell">Limit Sell</option>
             </select>
           </div>
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">
             <select
               className="form-control"
             >
@@ -77,17 +77,17 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
               <option value="buy" disabled>ETH</option>
             </select>
           </div>
-          <div className="form-group mr-2">for</div>
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">for</div>
+          <div className="form-group mr-1">
             <input
               type="text"
               min="1"
               value={price}
               onChange={e => setPrice(e.target.value)}
-              className="form-control mr-1"
+              className="form-control mr-1 db-input--dca-amount"
             />
           </div>
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">
             <select
               value={currency}
               onChange={e => setCurrency(e.target.value)}
@@ -101,8 +101,8 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
               }
             </select>
           </div>
-          <div className="form-group mr-2">/</div>
-          <div className="form-group mr-2">
+          <div className="form-group mr-1">/</div>
+          <div className="form-group mr-1">
             <select
               value={interval}
               onChange={e => setInterval(e.target.value)}
