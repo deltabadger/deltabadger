@@ -37,20 +37,13 @@
           .row.db-bot__form
             %form.form-inline.mx-4
               .form-group.mr-2
-                %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
+                %select#exampleFormControlSelect1.form-control.db-select--buy-sell{:disabled => "disabled"}
                   %option{:value => "buy"} Buy
                   %option{:value => "sell"} Sell
+              .form-group.mr-2 BTC for
               .form-group.mr-2
-                %select.form-control{:disabled => "disabled"}
-                  %option{:value => "BTC"} BTC
-                  %option{:value => "ETH"} ETH
-              .form-group.mr-2 for
-              .form-group.mr-2
-                %input.form-control{:disabled => "disabled", :type => "text", :value => "1"}/
-              .form-group.mr-2
-                %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
-                  %option{:value => ""} USD
-              .form-group.mr-2 /
+                %input.form-control.db-input--dca-amount{:disabled => "disabled", :type => "text", :value => "1"}/
+              .form-group.mr-2 USD /
               .form-group.mr-2
                 %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
                   %option{:value => "hour"} Hour
