@@ -30,22 +30,25 @@ module ExchangeApi
 
         private
 
-        def place_order(currency, body)
+        def place_order(currency, params)
           url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
+          body = params.to_json
           response = JSON.parse(Faraday.post(url, body, headers(@api_key, @api_secret, body)).body)
           parse_response(response)
         rescue StandardError
           Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
         end
 
-        def common_order_params(price)
-          price = [MIN_TRANSACTION_PRICE, price].max
-          {
-            amount: nil,
-            postOnly: false,
-            fillOrKill: false,
-            price: price
-          }
+        def transaction_price(price)
+          [MIN_TRANSACTION_PRICE, price].max
+        end
+
+        def transaction_amount(price, rate)
+          (price / rate).ceil(8)
+        end
+
+        def common_order_params
+          { postOnly: false, fillOrKill: false }
         end
 
         def parse_response(response)
