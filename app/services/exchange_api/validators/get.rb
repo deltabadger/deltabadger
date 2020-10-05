@@ -10,7 +10,7 @@ module ExchangeApi
       def call(exchange_id)
         exchange = @exchanges_repository.find(exchange_id)
 
-        return Fake.Validator.new if DISABLE_EXCHANGES_API
+        return Fake::Validator.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
         when 'binance'
