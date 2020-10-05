@@ -24,7 +24,7 @@ module ExchangeApi
           rate = current_ask_price(currency)
           return rate unless rate.success?
 
-          limit_rate = (rate.data * (1 - percentage / 100)).ceil(2)
+          limit_rate = (rate.data * (1 - percentage / 100)).ceil(1)
           volume = smart_volume(price, limit_rate)
           return volume unless volume.success?
 
@@ -39,7 +39,7 @@ module ExchangeApi
           rate = current_bid_price(currency)
           return rate unless rate.success?
 
-          limit_rate = (rate.data * (1 + percentage / 100)).ceil(2)
+          limit_rate = (rate.data * (1 + percentage / 100)).ceil(1)
           volume = smart_volume(price, limit_rate)
           return volume unless volume.success?
 
