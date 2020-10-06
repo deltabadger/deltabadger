@@ -1,8 +1,9 @@
 module Bots::Free::Validators
   class Create < BaseService
     def call(bot, user)
-      allowed_currencies = bot.exchange.currencies
-      bot_settings = BotSettings.new(bot.settings, user, allowed_currencies)
+      allowed_bases = bot.exchange.bases
+      allowed_quotes = bot.exchange.quotes
+      bot_settings = BotSettings.new(bot.settings, user, allowed_bases, allowed_quotes)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -16,14 +17,14 @@ module Bots::Free::Validators
     class BotSettings
       include ActiveModel::Validations
 
-      attr_reader :interval, :currency, :type, :order_type, :price,
-                  :percentage, :allowed_currencies, :hodler
+      attr_reader :interval, :base, :quote, :type, :order_type, :price,
+                  :percentage, :allowed_bases, :allowed_quotes, :hodler
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
 
-      validates :interval, :currency, :type, :order_type, :price, presence: true
+      validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_currency
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
@@ -38,30 +39,38 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
 
-      def initialize(params, user, allowed_currencies)
+      def initialize(params, user, allowed_bases, allowed_quotes)
         @interval = params.fetch('interval')
-        @currency = params.fetch('currency')
+        @base = params.fetch('base')
+        @quote = params.fetch('quote')
         @type = params.fetch('type')
         @order_type = params.fetch('order_type')
         @price = params.fetch('price').to_f
         @percentage = params.fetch('percentage', nil)&.to_f
-        @allowed_currencies = allowed_currencies
+        @allowed_bases = allowed_bases
+        @allowed_quotes = allowed_quotes
         @hodler = user.subscription_name == 'hodler'
       end
 
       private
 
-      def allowed_currency
-        return if currency.in?(allowed_currencies)
+      def allowed_base
+        return if base.in?(allowed_bases)
 
-        errors.add(:currency, "'#{currency}' is not allowed")
+        errors.add(:bases, "'#{base}' is not allowed")
+      end
+
+      def allowed_quote
+        return if quote.in?(allowed_quotes)
+
+        errors.add(:quote, "'#{quote}' is not allowed")
       end
 
       def interval_within_limit
         result = Bots::Free::Validators::IntervalWithinLimit.call(
           interval: interval,
           price: price,
-          currency: currency
+          currency: quote
         )
 
         errors.add(:base, result.errors.first) if result.failure?

@@ -4,7 +4,8 @@ import LimitOrderNotice from "./LimitOrderNotice";
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState(currentExchange.currencies[0]);
+  const [base, setBase] = useState(currentExchange.symbol_bases[0]);
+  const [quote, setQuote] = useState(currentExchange.symbol_quotes[0]);
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
 
@@ -24,7 +25,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     evt.preventDefault();
     const botParams = {
       type,
-      currency,
+      base,
+      quote,
       interval,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
@@ -72,10 +74,15 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           </div>
           <div className="form-group mr-2">
             <select
+              value={base}
+              onChange={e => setBase(e.target.value)}
               className="form-control"
             >
-              <option value="buy">BTC</option>
-              <option value="buy" disabled>ETH</option>
+              {
+                currentExchange.symbol_bases.map(c =>
+                  (<option key={c} value={c}>{c}</option>)
+                )
+              }
             </select>
           </div>
           <div className="form-group mr-2">for</div>
@@ -90,13 +97,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           </div>
           <div className="form-group mr-2">
             <select
-              value={currency}
-              onChange={e => setCurrency(e.target.value)}
+              value={quote}
+              onChange={e => setQuote(e.target.value)}
               className="form-control"
               id="exampleFormControlSelect1"
             >
               {
-                currentExchange.currencies.map(c =>
+                currentExchange.symbol_quotes.map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }
