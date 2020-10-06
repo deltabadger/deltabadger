@@ -4,14 +4,16 @@ module ExchangeApi
   module Traders
     module Fake
       class MarketTrader < ExchangeApi::Traders::Fake::BaseTrader
-        def buy(symbol:, price:)
+        def buy(base:, quote:, price:)
+          symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data)
         end
 
-        def sell(symbol:, price:)
+        def sell(base:, quote:, price:)
+          symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(symbol, price)
           return sell_params unless sell_params.success?
 

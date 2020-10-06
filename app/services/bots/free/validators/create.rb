@@ -25,7 +25,8 @@ module Bots::Free::Validators
       ORDER_TYPES = %w[market limit].freeze
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
-      validate :allowed_currency
+      validate :allowed_base
+      validate :allowed_quote
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }

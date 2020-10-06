@@ -4,14 +4,16 @@ module ExchangeApi
   module Traders
     module Kraken
       class LimitTrader < ExchangeApi::Traders::Kraken::BaseTrader
-        def buy(symbol:, price:, percentage:)
+        def buy(base:, quote:, price:, percentage:)
+          symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, percentage)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data)
         end
 
-        def sell(symbol:, price:, percentage:)
+        def sell(base:, quote:, price:, percentage:)
+          symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(symbol, price, percentage)
           return sell_params unless sell_params.success?
 

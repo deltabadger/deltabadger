@@ -44,7 +44,8 @@ const API = {
       order_type: params.order_type,
       price: params.price,
       percentage: params.percentage,
-      currency: params.currency,
+      base: params.base,
+      quote: params.quote,
       interval: params.interval,
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
