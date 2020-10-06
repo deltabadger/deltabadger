@@ -25,7 +25,7 @@ module ExchangeApi
         end
 
         def get_buy_params(currency, price)
-          rate = current_ask_price(currency)
+          rate = @market.current_ask_price(currency)
           return rate unless rate.success?
 
           volume = smart_volume(price, rate.data)
@@ -35,7 +35,7 @@ module ExchangeApi
         end
 
         def get_sell_params(currency, price)
-          rate = current_bid_price(currency)
+          rate = @market.current_bid_price(currency)
           return rate unless rate.success?
 
           volume = smart_volume(price, rate.data)

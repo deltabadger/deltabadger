@@ -9,24 +9,17 @@ module ExchangeApi
 
         MIN_TRANSACTION_VOLUME = 0.001
 
-        def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new, options: {})
+        def initialize(
+          api_key:,
+          api_secret:,
+          market: ExchangeApi::Markets::Kraken::Market.new,
+          map_errors: ExchangeApi::MapErrors::Kraken.new,
+          options: {}
+        )
           @client = get_client(api_key, api_secret)
+          @market = market
           @map_errors = map_errors
           @options = options
-        end
-
-        def current_bid_ask_price(currency)
-          response = @client.ticker("xbt#{currency}")
-          result = response['result']
-          key = result.keys.first # The result should contain only one key
-          rates = result[key]
-
-          bid = rates.fetch('b').first.to_f
-          ask = rates.fetch('a').first.to_f
-
-          Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError
-          Result::Failure.new('Could not fetch current price from Kraken', RECOVERABLE)
         end
 
         private

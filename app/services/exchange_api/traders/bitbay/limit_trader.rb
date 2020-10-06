@@ -42,7 +42,7 @@ module ExchangeApi
         end
 
         def get_buy_params(currency, price, percentage)
-          rate = current_ask_price(currency)
+          rate = @market.current_ask_price(currency)
           return rate unless rate.success?
 
           limit_rate = (rate.data * (1 - percentage / 100)).ceil(2)
@@ -55,7 +55,7 @@ module ExchangeApi
         end
 
         def get_sell_params(currency, price, percentage)
-          rate = current_bid_price(currency)
+          rate = @market.current_bid_price(currency)
           return rate unless rate.success?
 
           limit_rate = (rate.data * (1 + percentage / 100)).ceil(2)

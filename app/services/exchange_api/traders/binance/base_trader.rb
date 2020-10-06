@@ -18,22 +18,15 @@ module ExchangeApi
         DEFAULT_MIN_QUANTITY = 0.001
         DEFAULT_QUANTITY_ACCURACY = 3 # Decimal places
 
-        def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Binance.new)
+        def initialize(
+          api_key:,
+          api_secret:,
+          market: ExchangeApi::Markets::Binance::Market.new,
+          map_errors: ExchangeApi::MapErrors::Binance.new
+        )
           @signed_client = signed_client(api_key, api_secret)
+          @market = market
           @map_errors = map_errors
-        end
-
-        def current_bid_ask_price(currency)
-          symbol = "BTC#{currency.upcase}"
-          request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
-          response = JSON.parse(request.body)
-
-          bid = response.fetch('bidPrice').to_f
-          ask = response.fetch('askPrice').to_f
-
-          Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError
-          Result::Failure.new('Could not fetch current price from Binance')
         end
 
         private

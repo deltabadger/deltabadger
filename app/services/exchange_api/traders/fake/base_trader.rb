@@ -7,24 +7,14 @@ module ExchangeApi
         include ExchangeApi::Clients::Fake
 
         MIN_TRANSACTION_VOLUME = 0.002
-
         SUCCESS = true
-        # SUCCESS = false
 
         attr_reader :exchange_name, :bid, :ask
 
-        def initialize(exchange_name)
+        def initialize(exchange_name, market: ExchangeApi::Markets::Fake::Market.new)
           @exchange_name = exchange_name
+          @market = market
           new_prices
-        end
-
-        def current_bid_ask_price(_)
-          if SUCCESS
-            new_prices
-            Result::Success.new(BidAskPrice.new(bid, ask))
-          else
-            Result::Failure.new('Something went wrong!', RECOVERABLE)
-          end
         end
 
         private
