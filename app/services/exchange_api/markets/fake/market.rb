@@ -5,6 +5,11 @@ module ExchangeApi
         include ExchangeApi::Clients::Fake
 
         SUCCESS = true
+        MINIMUM_ORDER_VOLUME = 0.001
+
+        def minimum_order_volume(_symbol)
+          MINIMUM_ORDER_VOLUME
+        end
 
         private
 
