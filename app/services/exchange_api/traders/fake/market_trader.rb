@@ -4,15 +4,15 @@ module ExchangeApi
   module Traders
     module Fake
       class MarketTrader < ExchangeApi::Traders::Fake::BaseTrader
-        def buy(currency:, price:)
-          buy_params = get_buy_params(currency, price)
+        def buy(symbol:, price:)
+          buy_params = get_buy_params(symbol, price)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data)
         end
 
-        def sell(currency:, price:)
-          sell_params = get_sell_params(currency, price)
+        def sell(symbol:, price:)
+          sell_params = get_sell_params(symbol, price)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
@@ -20,21 +20,21 @@ module ExchangeApi
 
         private
 
-        def get_buy_params(currency, price)
-          rate = @market.current_ask_price(currency)
+        def get_buy_params(symbol, price)
+          rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(price, rate.data)
+          volume = smart_volume(symbol, price, rate.data)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params.merge(amount: volume.data, rate: rate.data))
         end
 
-        def get_sell_params(currency, price)
-          rate = @market.current_bid_price(currency)
+        def get_sell_params(symbol, price)
+          rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(price, rate.data)
+          volume = smart_volume(symbol, price, rate.data)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params.merge(amount: volume.data, rate: rate.data))

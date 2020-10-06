@@ -6,7 +6,6 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Fake
 
-        MIN_TRANSACTION_VOLUME = 0.002
         SUCCESS = true
 
         attr_reader :exchange_name, :bid, :ask
@@ -37,9 +36,10 @@ module ExchangeApi
           }
         end
 
-        def smart_volume(price, rate)
+        def smart_volume(symbol, price, rate)
           volume = (price / rate).ceil(8)
-          Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
+          min_volume = @market.minimum_order_volume(symbol)
+          Result::Success.new([min_volume, volume].max)
         end
 
         def new_prices

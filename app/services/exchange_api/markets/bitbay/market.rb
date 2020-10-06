@@ -4,10 +4,17 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Bitbay
 
+        def minimum_order_price(symbol)
+          url = "https://api.bitbay.net/rest/trading/ticker/#{symbol}"
+          response = JSON.parse(Faraday.get(url))
+          minimum_quote_price = response.dig('ticker', 'market', 'second', 'minOffer')
+          minimum_quote_price.to_f
+        end
+
         private
 
-        def current_bid_ask_price(currency)
-          url = "https://bitbay.net/API/Public/BTC#{currency}/ticker.json"
+        def current_bid_ask_price(symbol)
+          url = "https://bitbay.net/API/Public/#{symbol}/ticker.json"
           response = JSON.parse(Faraday.get(url, {}, headers(@api_key, @api_secret, '')).body)
 
           bid = response.fetch('bid').to_f

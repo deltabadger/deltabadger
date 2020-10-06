@@ -7,8 +7,6 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Bitbay
 
-        MIN_TRANSACTION_PRICE = 10
-
         def initialize(
           api_key:,
           api_secret:,
@@ -23,8 +21,8 @@ module ExchangeApi
 
         private
 
-        def place_order(currency, params)
-          url = "https://api.bitbay.net/rest/trading/offer/BTC-#{currency}"
+        def place_order(symbol, params)
+          url = "https://api.bitbay.net/rest/trading/offer/#{symbol}"
           body = params.to_json
           response = JSON.parse(Faraday.post(url, body, headers(@api_key, @api_secret, body)).body)
           parse_response(response)
@@ -32,8 +30,9 @@ module ExchangeApi
           Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
         end
 
-        def transaction_price(price)
-          [MIN_TRANSACTION_PRICE, price].max
+        def transaction_price(symbol, price)
+          min_price = @market.minimum_order_price(symbol)
+          [min_price, price].max
         end
 
         def transaction_amount(price, rate)
