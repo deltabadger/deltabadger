@@ -12,7 +12,7 @@ RSpec.describe AffiliateMailer, type: :mailer do
     end
 
     it 'renders the headers' do
-      expect(mail.subject).to eq('Confirm bitcoin address update')
+      expect(mail.subject).to eq('Confirm new ₿itcoin address 📒')
       expect(mail.to).to eq([user.email])
       expect(mail.from).to eq(['support@deltabadger.com'])
     end
@@ -33,7 +33,7 @@ RSpec.describe AffiliateMailer, type: :mailer do
     end
 
     it 'renders the headers' do
-      expect(mail.subject).to eq('Referral program payout notification')
+      expect(mail.subject).to eq('It\'s a payday! 💸')
       expect(mail.to).to eq([user.email])
       expect(mail.from).to eq(['support@deltabadger.com'])
     end
