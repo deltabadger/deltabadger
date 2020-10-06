@@ -3,8 +3,12 @@ module Api
     def index
       build_data = lambda do |exchange|
         owned = current_user.exchanges.select(:id)
-        { id: exchange.id, name: exchange.name, currencies: exchange.currencies }
-          .merge(owned.include?(exchange) ? { owned: true } : { owned: false })
+        {
+          id: exchange.id,
+          name: exchange.name,
+          symbol_bases: exchange.bases,
+          symbol_quotes: exchange.quotes
+        }.merge(owned.include?(exchange) ? { owned: true } : { owned: false })
       end
 
       render json: { data: ExchangesRepository.new.all.map(&build_data) }
