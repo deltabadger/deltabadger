@@ -6,8 +6,6 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Kraken
 
-        MIN_TRANSACTION_VOLUME = 0.001
-
         def initialize(
           api_key:,
           api_secret:,
@@ -51,17 +49,17 @@ module ExchangeApi
           }
         end
 
-        def common_order_params(currency)
-          pair = "XBT#{currency}"
+        def common_order_params(symbol)
           {
-            pair: pair,
+            pair: symbol,
             trading_agreement: ('agree' if @options[:german_trading_agreement])
           }.compact
         end
 
-        def smart_volume(price, rate)
+        def smart_volume(symbol, price, rate)
           volume = (price / rate).ceil(8)
-          Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
+          min_volume = @market.minimum_order_volume(symbol)
+          Result::Success.new([min_volume, volume].max)
         end
 
         def orders

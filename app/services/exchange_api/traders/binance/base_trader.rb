@@ -6,15 +6,6 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Binance
 
-        MIN_TRANSACTION_PRICES = {
-          BKRW: 2000,
-          IDRT: 40_000,
-          NGN: 1000,
-          RUB: 200,
-          ZAR: 200,
-          UAH: 200
-        }.freeze
-        DEFAULT_MIN_TRANSACTION_PRICE = 20
         DEFAULT_MIN_QUANTITY = 0.001
         DEFAULT_QUANTITY_ACCURACY = 3 # Decimal places
 
@@ -43,19 +34,15 @@ module ExchangeApi
           Result::Failure.new('Could not make Binance order', RECOVERABLE)
         end
 
-        def common_order_params(currency)
-          symbol = "BTC#{currency.upcase}"
+        def common_order_params(symbol)
           {
             symbol: symbol
           }
         end
 
-        def transaction_price(currency, price)
-          limit = MIN_TRANSACTION_PRICES.fetch(
-            currency.upcase.to_sym,
-            DEFAULT_MIN_TRANSACTION_PRICE
-          )
-          [limit, price].max
+        def transaction_price(symbol, price)
+          min_price = @market.minimum_order_price(symbol)
+          [min_price, price].max
         end
 
         def transaction_quantity(price, rate)
