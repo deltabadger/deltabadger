@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/LineLength:
 require 'result'
 
 module ExchangeApi
@@ -72,4 +71,3 @@ module ExchangeApi
     end
   end
 end
-# rubocop:enable Metrics/LineLength:
