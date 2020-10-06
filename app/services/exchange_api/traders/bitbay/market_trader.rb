@@ -2,12 +2,14 @@ module ExchangeApi
   module Traders
     module Bitbay
       class MarketTrader < ExchangeApi::Traders::Bitbay::BaseTrader
-        def buy(symbol:, price:)
+        def buy(base:, quote:, price:)
+          symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(price)
           place_order(symbol, buy_params)
         end
 
-        def sell(symbol:, price:)
+        def sell(base:, quote:, price:)
+          symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(price)
           place_order(symbol, sell_params)
         end
