@@ -13,7 +13,6 @@ module ExchangeApi
         def initialize(exchange_name, market: ExchangeApi::Markets::Fake::Market.new)
           @exchange_name = exchange_name
           @market = market
-          new_prices
         end
 
         private
@@ -40,11 +39,6 @@ module ExchangeApi
           volume = (price / rate).ceil(8)
           min_volume = @market.minimum_order_volume(symbol)
           Result::Success.new([min_volume, volume].max)
-        end
-
-        def new_prices
-          @bid = rand(6000...8000)
-          @ask = @bid * (1 + rand * 0.2)
         end
       end
     end

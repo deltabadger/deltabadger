@@ -4,6 +4,11 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Fake
 
+        def initialize
+          super
+          new_prices
+        end
+
         SUCCESS = true
         MINIMUM_ORDER_VOLUME = 0.001
 
@@ -16,10 +21,15 @@ module ExchangeApi
         def current_bid_ask_price(_)
           if SUCCESS
             new_prices
-            Result::Success.new(BidAskPrice.new(bid, ask))
+            Result::Success.new(BidAskPrice.new(@bid, @ask))
           else
             Result::Failure.new('Something went wrong!', RECOVERABLE)
           end
+        end
+
+        def new_prices
+          @bid = rand(6000...8000)
+          @ask = @bid * (1 + rand * 0.2)
         end
       end
     end

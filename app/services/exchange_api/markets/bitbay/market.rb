@@ -11,6 +11,10 @@ module ExchangeApi
           minimum_quote_price.to_f
         end
 
+        def symbol(base, quote)
+          "#{base}-#{quote}"
+        end
+
         private
 
         def current_bid_ask_price(symbol)
