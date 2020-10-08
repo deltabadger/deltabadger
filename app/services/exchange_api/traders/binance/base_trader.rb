@@ -6,9 +6,6 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Binance
 
-        DEFAULT_MIN_QUANTITY = 0.001
-        DEFAULT_QUANTITY_ACCURACY = 3 # Decimal places
-
         def initialize(
           api_key:,
           api_secret:,
@@ -42,12 +39,27 @@ module ExchangeApi
 
         def transaction_price(symbol, price)
           min_price = @market.minimum_order_price(symbol)
-          [min_price, price].max
+          return min_price unless min_price.success?
+
+          [price, min_price.data].max
         end
 
-        def transaction_quantity(price, rate)
-          quantity = (price / rate).round(DEFAULT_QUANTITY_ACCURACY)
-          [quantity, DEFAULT_MIN_QUANTITY].max
+        def transaction_volume(price, rate)
+          min_volume = @market.minimum_order_volume(symbol)
+          return min_volume unless min_volume.success?
+
+          [chosen_volume(price, rate), min_volume.data].max
+        end
+
+        def chosen_volume(price, rate)
+          base_step_size = @market.base_step_size(symbol)
+          return base_step_size unless base_step_size.success?
+
+          base_decimals = @market.base_decimals(symbol)
+          return base_decimals unless base_step_size.success?
+
+          volume = price / rate
+          ((volume / base_step_size.data).round * base_step_size).round(base_decimals.data)
         end
 
         def parse_response(response)

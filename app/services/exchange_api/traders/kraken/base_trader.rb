@@ -57,9 +57,14 @@ module ExchangeApi
         end
 
         def smart_volume(symbol, price, rate)
-          volume = (price / rate).ceil(8)
+          volume_decimals = @market.base_decimals(symbol)
+          return volume_decimals unless volume_decimals.success?
+
+          volume = (price / rate).ceil(volume_decimals.data)
           min_volume = @market.minimum_order_volume(symbol)
-          Result::Success.new([min_volume, volume].max)
+          return min_volume unless min_volume.success?
+
+          Result::Success.new([min_volume.data, volume].max)
         end
 
         def orders

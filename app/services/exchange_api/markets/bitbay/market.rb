@@ -4,11 +4,28 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Bitbay
 
+        TICKER_URL = 'https://api.bitbay.net/rest/trading/ticker'.freeze
+
         def minimum_order_price(symbol)
-          url = "https://api.bitbay.net/rest/trading/ticker/#{symbol}"
-          response = JSON.parse(Faraday.get(url))
-          minimum_quote_price = response.dig('ticker', 'market', 'second', 'minOffer')
-          minimum_quote_price.to_f
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          minimum_quote_price = response.data.dig('ticker', 'market', 'second', 'minOffer')
+          Result::Success.new(minimum_quote_price.to_f)
+        end
+
+        def base_decimals(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data.dig('ticker', 'market', 'first', 'scale'))
+        end
+
+        def quote_decimals(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data.dig('ticker', 'market', 'second', 'scale'))
         end
 
         def symbol(base, quote)
@@ -16,6 +33,18 @@ module ExchangeApi
         end
 
         private
+
+        def fetch_symbol(symbol)
+          cache_key = symbol_cache_key(symbol)
+          return Result::Success.new(Rails.cache.read(cache_key)) if Rails.cache.exist?(cache_key)
+
+          url = "#{TICKER_URL}/#{symbol}"
+          response = JSON.parse(Faraday.get(url))
+          Rails.cache.write(cache_key, response, expires_in: 1.hour)
+          Result::Success.new(response)
+        rescue StandardError
+          Result::Failure.new(['Could not fetch chosen symbol from Bitbay', RECOVERABLE])
+        end
 
         def current_bid_ask_price(symbol)
           url = "https://bitbay.net/API/Public/#{symbol}/ticker.json"
@@ -27,6 +56,10 @@ module ExchangeApi
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
           Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
+        end
+
+        def symbol_cache_key(symbol)
+          "bitbay_symbol_#{symbol}"
         end
       end
     end

@@ -9,63 +9,102 @@ module ExchangeApi
         LOT_SIZE = 'LOT_SIZE'.freeze
 
         def minimum_order_price(symbol)
-          symbol_info = fetch_symbol_info(symbol)
-          return symbol_info unless symbol_info.success?
+          minimum_price = min_notional(symbol)
+          return minimum_price unless minimum_price.success?
 
-          minimum_price = get_minimum_quote_notional(symbol_info.data)
-          return minimum_price unless symbol_info.success?
+          Result::Success.new(minimum_price.data)
+        end
 
-          minimum_price.data
+        def minimum_order_volume(symbol)
+          min_lot = min_lot_size(symbol)
+          return min_lot unless min_lot.success?
+
+          Result::Success.new(min_lot.data)
+        end
+
+        def base_decimals(symbol)
+          step_size = lot_step_size(symbol)
+          return step_size unless step_size.success?
+
+          Result::Success.new(step_size.data.split('.').last.size)
+        end
+
+        def base_step_size(symbol)
+          step_size = lot_step_size(symbol)
+          return step_size unless step_size.success?
+
+          Result::Success.new(step_size.data.to_f)
+        end
+
+        def quote_decimals(symbol)
+          tick_size = price_tick_size(symbol)
+          return tick_size unless tick_size.success?
+
+          Result::Success.new(tick_size.data.split('.').last.size)
+        end
+
+        def quote_tick_size(symbol)
+          tick_size = price_tick_size(symbol)
+          return tick_size unless tick_size.success?
+
+          Result::Success.new(tick_size.data.to_f)
         end
 
         private
 
-        def current_bid_ask_price(symbol)
-          request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
-          response = JSON.parse(request.body)
+        def min_price(symbol)
+          symbol_info = fetch_symbol_info(symbol)
+          return symbol_info unless symbol_info.success?
 
-          bid = response.fetch('bidPrice').to_f
-          ask = response.fetch('askPrice').to_f
-
-          Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError
-          Result::Failure.new('Could not fetch current price from Binance')
-        end
-
-        def fetch_symbol_info(symbol)
-          request = unsigned_client.get('exchangeInfo')
-          response = JSON.parse(request.body)
-          symbols = response['symbols']
-          found_symbol = symbols.find do |symbol_info|
-            symbol_info['symbol'] == symbol
-          end
-          return Result::Failure.new('Invalid ticker symbol') if found_symbol.nil?
-
-          Result::Success.new(found_symbol)
-        end
-
-        def get_minimum_order_price(symbol_info)
-          price_filter = find_filter(symbol_info, PRICE_FILTER)
-          return 0 if price_filter.nil?
+          price_filter = find_filter(symbol_info.data, PRICE_FILTER)
+          return Result::Success.new(0) if price_filter.nil?
 
           min_price = price_filter['minPrice']
-          min_price.to_f
+          Result::Success.new(min_price.to_f)
         end
 
-        def get_minimum_lot_size(symbol_info)
-          lot_filter = find_filter(symbol_info, LOT_SIZE)
-          return 0 if lot_filter.nil?
+        def price_tick_size(symbol)
+          symbol_info = fetch_symbol_info(symbol)
+          return symbol_info unless symbol_info.success?
+
+          price_filter = find_filter(symbol_info.data, PRICE_FILTER)
+          return Result::Success.new(0) if price_filter.nil?
+
+          tick_size = price_filter['tickSize']
+          Result::Success.new(tick_size)
+        end
+
+        def min_lot_size(symbol)
+          symbol_info = fetch_symbol_info(symbol)
+          return symbol_info unless symbol_info.success?
+
+          lot_filter = find_filter(symbol_info.data, LOT_SIZE)
+          return Result::Success.new(0) if lot_filter.nil?
 
           min_lot = lot_filter['minQty']
-          min_lot.to_f
+          Result::Success.new(min_lot.to_f)
         end
 
-        def get_minimum_quote_notional(symbol_info)
-          notional_filter = find_filter(symbol_info, MIN_NOTIONAL)
-          return 0 if notional_filter.nil?
+        def lot_step_size(symbol)
+          symbol_info = fetch_symbol_info(symbol)
+          return symbol_info unless symbol_info.success?
+
+          lot_filter = find_filter(symbol_info.data, LOT_SIZE)
+          return Result::Success.new(0) if lot_filter.nil?
+
+          step_size = lot_filter['stepSize']
+          Result::Success.new(step_size)
+        end
+
+        def min_notional(symbol)
+          symbol_info = fetch_symbol_info(symbol)
+          return symbol_info unless symbol_info.success?
+
+          notional_filter = find_filter(symbol_info.data, MIN_NOTIONAL)
+          return Result::Success.new(0) if notional_filter.nil?
 
           min_notional = notional_filter['minNotional']
-          min_notional.to_f
+          Result::Success.new(min_notional.to_f)
         end
 
         def find_filter(symbol_info, target_filter)
@@ -74,6 +113,47 @@ module ExchangeApi
             filter['filterType'] == target_filter
           end
         end
+
+        def fetch_symbol_info(symbol)
+          cache_key = exchange_info_cache_key(symbol)
+          return Result::Success.new(Rails.cache.read(cache_key)) if Rails.cache.exist?(cache_key)
+
+          request = unsigned_client.get('exchangeInfo')
+          response = JSON.parse(request.body)
+          found_symbol = find_symbol_in_exchange_info(symbol, response)
+          return found_symbol unless found_symbol.success?
+
+          Rails.cache.write(cache_key, found_symbol.data, expires_in: 1.hour)
+          Result::Success.new(found_symbol.data)
+        end
+      end
+
+      def find_symbol_in_exchange_info(symbol, exchange_info)
+        symbols = exchange_info['symbols']
+        found_symbol = symbols.find do |symbol_info|
+          symbol_info['symbol'] == symbol
+        end
+        if found_symbol.present?
+          Result::Success.new(found_symbol)
+        else
+          Result::Failure.new('Invalid ticker symbol')
+        end
+      end
+
+      def current_bid_ask_price(symbol)
+        request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
+        response = JSON.parse(request.body)
+
+        bid = response.fetch('bidPrice').to_f
+        ask = response.fetch('askPrice').to_f
+
+        Result::Success.new(BidAskPrice.new(bid, ask))
+      rescue StandardError
+        Result::Failure.new('Could not fetch current price from Binance')
+      end
+
+      def exchange_info_cache_key(symbol)
+        "binance_exchange_info_#{symbol}"
       end
     end
   end

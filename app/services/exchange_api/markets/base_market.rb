@@ -27,6 +27,14 @@ module ExchangeApi
         "#{base}#{quote}"
       end
 
+      def base_decimals(_symbol)
+        raise NotImplementedError
+      end
+
+      def quote_decimals(_symbol)
+        raise NotImplementedError
+      end
+
       private
 
       def current_bid_ask_price(_symbol)

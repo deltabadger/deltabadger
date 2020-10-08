@@ -32,11 +32,16 @@ module ExchangeApi
 
         def transaction_price(symbol, price)
           min_price = @market.minimum_order_price(symbol)
+          return min_price unless min_price.success?
+
           [min_price, price].max
         end
 
-        def transaction_amount(price, rate)
-          (price / rate).ceil(8)
+        def transaction_volume(symbol, price, rate)
+          rate_decimals = @market.base_decimals(symbol)
+          return rate_decimals unless rate_decimals.success?
+
+          (price / rate).ceil(rate_decimals.data)
         end
 
         def common_order_params
