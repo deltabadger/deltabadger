@@ -20,6 +20,23 @@ module ExchangeApi
 
         private
 
+        def parse_response(response)
+          created_order = response.fetch('result')
+          offer_id = created_order.fetch('txid').first
+          order_data = orders.fetch(offer_id)
+          rate = order_data.fetch('price').to_f
+          amount = order_data.fetch('vol').to_f
+          {
+            offer_id: offer_id,
+            rate: rate,
+            amount: amount
+          }
+        end
+
+        def orders
+          @client.closed_orders.dig('result', 'closed')
+        end
+
         def get_buy_params(currency, price)
           rate = current_ask_price(currency)
           return rate unless rate.success?
