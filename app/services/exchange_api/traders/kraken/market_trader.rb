@@ -27,7 +27,7 @@ module ExchangeApi
           volume = smart_volume(price, rate.data)
           return volume unless volume.success?
 
-          Result::Success.new(common_order_params(currency).merge(type: 'buy', volume: volume))
+          Result::Success.new(common_order_params(currency).merge(type: 'buy', volume: volume.data))
         end
 
         def get_sell_params(currency, price)
@@ -37,7 +37,7 @@ module ExchangeApi
           volume = smart_volume(price, rate.data)
           return volume unless volume.success?
 
-          Result::Success.new(common_order_params(currency).merge(type: 'sell', volume: volume))
+          Result::Success.new(common_order_params(currency).merge(type: 'sell', volume: volume.data))
         end
 
         def common_order_params(currency)
