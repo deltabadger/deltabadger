@@ -38,8 +38,11 @@ module ExchangeApi
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = (rate.data * (1 - percentage / 100)).ceil(2)
-          quantity = transaction_quantity(price, limit_rate)
+          quote_decimals = @market.quote_decimals(symbol)
+          return quote_decimals unless quote_decimals.success?
+
+          limit_rate = (rate.data * (1 - percentage / 100)).ceil(quote_decimals.data)
+          quantity = transaction_volume(price, limit_rate)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'BUY',
                                 quantity: quantity,
@@ -51,8 +54,11 @@ module ExchangeApi
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = (rate.data * (1 + percentage / 100)).ceil(2)
-          quantity = transaction_quantity(price, limit_rate)
+          quote_decimals = @market.quote_decimals(symbol)
+          return quote_decimals unless quote_decimals.success?
+
+          limit_rate = (rate.data * (1 + percentage / 100)).ceil(quote_decimals.data)
+          quantity = transaction_volume(price, limit_rate)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'SELL',
                                 quantity: quantity,
