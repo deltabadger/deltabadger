@@ -6,8 +6,7 @@ module Api
         {
           id: exchange.id,
           name: exchange.name,
-          symbol_bases: exchange.bases,
-          symbol_quotes: exchange.quotes
+          symbols: exchange.symbols,
         }.merge(owned.include?(exchange) ? { owned: true } : { owned: false })
       end
 
