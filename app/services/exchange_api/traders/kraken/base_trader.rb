@@ -29,27 +29,16 @@ module ExchangeApi
           Result::Failure.new('Could not fetch current price from Kraken', RECOVERABLE)
         end
 
-        def orders
-          @client.closed_orders.dig('result', 'closed')
-        end
-
         private
 
         def place_order(order_params)
           response = @client.add_order(order_params)
-
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
-          order = response.dig('result', 'descr', 'order')
-          offer_id = order['offerId']
-          rate = order['price'].to_f
-
-          Result::Success.new(
-            offer_id: offer_id,
-            rate: rate,
-            amount: order_params[:volume]
-          )
-        rescue StandardError
+          result = parse_response(response)
+          Result::Success.new(result)
+        rescue StandardError => e
+          Raven.capture_exception(e)
           Result::Failure.new('Could not make Kraken order', RECOVERABLE)
         end
 
@@ -64,6 +53,10 @@ module ExchangeApi
         def smart_volume(price, rate)
           volume = (price / rate).ceil(8)
           Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
+        end
+
+        def parse_response(_response)
+          raise NotImplementedError
         end
       end
     end
