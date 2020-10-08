@@ -3,13 +3,13 @@ class Exchange < ApplicationRecord
   BINANCE_QUOTES =
     %w[USDT USDC USDS BUSD TUSD EUR GBP AUD PAX TRY BKRW IDRT NGN RUB ZAR UAH].freeze
 
-  BITBAY_BASES = %w[BTC]
+  BITBAY_BASES = %w[BTC].freeze
   BITBAY_QUOTES = %w[USD USDC EUR PLN].freeze
 
   KRAKEN_QUOTES = %w[USD USDT USDC AUD DAI EUR CHF GBP CAD].freeze
-  KRAKEN_BASES = %w[XBT]
+  KRAKEN_BASES = %w[XBT].freeze
 
-  DEFAULT_BASES = %w[XBT]
+  DEFAULT_BASES = %w[XBT].freeze
   DEFAULT_QUOTES = %w[USD EUR].freeze
 
   def bases
