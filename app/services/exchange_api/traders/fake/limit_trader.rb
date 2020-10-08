@@ -28,7 +28,7 @@ module ExchangeApi
           volume = smart_volume(price, limit_rate)
           return volume unless volume.success?
 
-          Result::Success.new(common_order_params.merge(amount: volume, rate: limit_rate))
+          Result::Success.new(common_order_params.merge(amount: volume.data, rate: limit_rate))
         end
 
         def get_sell_params(currency, price, percentage)
@@ -39,7 +39,7 @@ module ExchangeApi
           volume = smart_volume(price, limit_rate)
           return volume unless volume.success?
 
-          Result::Success.new(common_order_params.merge(amount: volume, rate: limit_rate))
+          Result::Success.new(common_order_params.merge(amount: volume.data, rate: limit_rate))
         end
       end
     end
