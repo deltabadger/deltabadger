@@ -5,6 +5,7 @@ module ExchangeApi
         include ExchangeApi::Clients::Bitbay
 
         TICKER_URL = 'https://api.bitbay.net/rest/trading/ticker'.freeze
+        ALL_SYMBOLS_CACHE_KEY = 'bitbay_all_symbols'.freeze
 
         def minimum_order_price(symbol)
           response = fetch_symbol(symbol)
@@ -12,6 +13,20 @@ module ExchangeApi
 
           minimum_quote_price = response.data.dig('ticker', 'market', 'second', 'minOffer')
           Result::Success.new(minimum_quote_price.to_f)
+        end
+
+        def all_symbols
+          return Result::Success.new(Rails.cache.read(ALL_SYMBOLS_CACHE_KEY)) if Rails.cache.exist?(ALL_SYMBOLS_CACHE_KEY)
+
+          response = JSON.parse(Faraday.get(TICKER_URL))
+          return Result::Failure.new("Couldn't fetch Bitbay symbols") if response['status'] != 'Ok'
+
+          symbols_data = response['items']
+          all_symbols = symbols_data.map do |_, symbol_data|
+            symbol_data.fetch('market').fetch('code')
+          end
+          Rails.cache.write(ALL_SYMBOLS_CACHE_KEY, all_symbols, expires_in: 1.hour)
+          Result::Success.new(all_symbols)
         end
 
         def base_decimals(symbol)

@@ -11,6 +11,11 @@ module ExchangeApi
           symbol_info.data['ordermin'].to_f
         end
 
+        def all_symbols
+          symbols = @client.asset_pairs
+          symbols['result'].map { |_symbol, data| data.slice(:base, :quote) }
+        end
+
         def base_decimals(symbol)
           symbol_info = fetch_symbol(symbol)
           return symbol_info unless symbol_info.success?
@@ -32,7 +37,7 @@ module ExchangeApi
           found_symbol = response['result'].first[1] # Value of the only hash element
           Result::Success.new(found_symbol)
         rescue StandardError
-          Result::Failure.new(['Could not fetch chosen symbol from Kraken', RECOVERABLE])
+          Result::Failure.new('Could not fetch chosen symbol from Kraken')
         end
 
         def current_bid_ask_price(symbol)
@@ -46,7 +51,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Kraken', RECOVERABLE)
+          Result::Failure.new('Could not fetch current price from Kraken')
         end
       end
     end

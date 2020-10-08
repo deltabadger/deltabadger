@@ -27,6 +27,10 @@ module ExchangeApi
         "#{base}#{quote}"
       end
 
+      def all_symbols
+        raise NotImplementedError
+      end
+
       def base_decimals(_symbol)
         raise NotImplementedError
       end
