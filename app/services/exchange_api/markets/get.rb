@@ -9,15 +9,15 @@ module ExchangeApi
 
       def call(exchange_id)
         exchange = @exchanges_repository.find(exchange_id)
-        return Fake::Market.new if DISABLE_EXCHANGES_API
+        return ExchangeApi::Markets::Fake::Market.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
         when 'binance'
-          Binance::Market.new
+          ExchangeApi::Markets::Binance::Market.new
         when 'bitbay'
-          Bitbay::Market.new
+          ExchangeApi::Markets::Bitbay::Market.new
         when 'kraken'
-          Kraken::Market.new
+          ExchangeApi::Markets::Kraken::Market.new
         end
       end
     end

@@ -1,32 +1,31 @@
 class Exchange < ApplicationRecord
-  BINANCE_BASES = %w[BTC]
-  BINANCE_QUOTES =
-    %w[USDT USDC USDS BUSD TUSD EUR GBP AUD PAX TRY BKRW IDRT NGN RUB ZAR UAH].freeze
-
-  BITBAY_BASES = %w[BTC].freeze
-  BITBAY_QUOTES = %w[USD USDC EUR PLN].freeze
-
-  KRAKEN_QUOTES = %w[USD USDT USDC AUD DAI EUR CHF GBP CAD].freeze
-  KRAKEN_BASES = %w[XBT].freeze
-
-  DEFAULT_BASES = %w[XBT].freeze
-  DEFAULT_QUOTES = %w[USD EUR].freeze
-
-  def bases
+  def symbols
     case name.downcase
-    when 'binance' then BINANCE_BASES
-    when 'bitbay' then BITBAY_BASES
-    when 'kraken' then KRAKEN_BASES
-    else DEFAULT_BASES
+    when 'binance' then binance_symbols
+    when 'bitbay' then bitbay_symbols
+    when 'kraken' then kraken_symbols
+    else default_symbols
     end
   end
 
-  def quotes
-    case name.downcase
-    when 'binance' then BINANCE_QUOTES
-    when 'bitbay' then BITBAY_QUOTES
-    when 'kraken' then KRAKEN_QUOTES
-    else DEFAULT_QUOTES
-    end
+  private
+
+  def binance_symbols
+    market = ExchangeApi::Markets::Binance::Market.new
+    market.all_symbols
+  end
+
+  def bitbay_symbols
+    market = ExchangeApi::Markets::Bitbay::Market.new
+    market.all_symbols
+  end
+
+  def kraken_symbols
+    market = ExchangeApi::Markets::Kraken::Market.new
+    market.all_symbols
+  end
+
+  def default_symbols
+    %w[BTCUSD]
   end
 end
