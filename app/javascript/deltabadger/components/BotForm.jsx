@@ -71,7 +71,7 @@ export const BotForm = ({
       setStep(3)
       loadExchanges()
     }).catch(() => {
-      setErrors("Invalid token")
+      setErrors("Wrong keys or insufficient permissions.")
     })
   }
 
