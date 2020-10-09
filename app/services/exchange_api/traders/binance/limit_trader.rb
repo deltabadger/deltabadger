@@ -3,7 +3,7 @@ require 'result'
 module ExchangeApi
   module Traders
     module Binance
-      class LimitTrader < BaseTrader
+      class LimitTrader < ExchangeApi::Traders::Binance::BaseTrader
         def buy(currency:, price:, percentage:)
           final_price = transaction_price(currency, price)
           buy_params = get_buy_params(currency, final_price, percentage)
