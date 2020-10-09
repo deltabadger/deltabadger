@@ -3,7 +3,7 @@ require 'result'
 module ExchangeApi
   module Traders
     module Fake
-      class MarketTrader < BaseTrader
+      class MarketTrader < ExchangeApi::Traders::Fake::BaseTrader
         def buy(currency:, price:)
           buy_params = get_buy_params(currency, price)
           return buy_params unless buy_params.success?
