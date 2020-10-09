@@ -93,7 +93,7 @@ module Api
     def bot_update_params
       params
         .require(:bot)
-        .permit(:interval, :price, :percentage).merge(id: params[:id])
+        .permit(:order_type, :interval, :price, :percentage).merge(id: params[:id])
     end
   end
 end

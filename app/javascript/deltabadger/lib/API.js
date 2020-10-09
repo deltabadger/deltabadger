@@ -53,6 +53,7 @@ const API = {
   updateBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
+      order_type: params.order_type,
       price: params.price,
       percentage: params.percentage,
       interval: params.interval,
