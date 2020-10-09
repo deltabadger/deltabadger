@@ -42,6 +42,23 @@ module ExchangeApi
           Result::Failure.new('Could not make Kraken order', RECOVERABLE)
         end
 
+        def parse_response(response)
+          created_order = response.fetch('result')
+          offer_id = created_order.fetch('txid').first
+          order_data = orders.fetch(offer_id)
+          rate = if order_data.fetch('status') == 'open'
+                   order_data.fetch('descr').fetch('price').to_f
+                 else # closed
+                   order_data.fetch('price').to_f
+                 end
+          amount = order_data.fetch('vol').to_f
+          {
+            offer_id: offer_id,
+            rate: rate,
+            amount: amount
+          }
+        end
+
         def common_order_params(currency)
           pair = "XBT#{currency}"
           {
@@ -55,7 +72,7 @@ module ExchangeApi
           Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
         end
 
-        def parse_response(_response)
+        def orders
           raise NotImplementedError
         end
       end
