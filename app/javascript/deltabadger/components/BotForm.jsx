@@ -13,7 +13,10 @@ const STEPS = [
   'configure_bot',
 ]
 
+const HODLER = 'hodler'
+
 export const BotForm = ({
+  subscription,
   open,
   currentBot,
   callbackAfterCreation,
@@ -129,6 +132,7 @@ export const BotForm = ({
         />
       case 'configure_bot':
         return <ConfigureBot
+          showLimitOrders={subscription === HODLER}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureBotHandler}
