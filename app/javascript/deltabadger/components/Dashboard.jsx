@@ -12,6 +12,7 @@ import {
 } from '../bot_actions'
 
 const DashboardTemplate = ({
+  subscription,
   bots = [],
   errors = {},
   currentBot,
@@ -28,6 +29,7 @@ const DashboardTemplate = ({
   const buildBotsList = (botsToRender, b) => {
     botsToRender.push(
       <Bot
+        subscription={subscription}
         key={`${b.id}-${b.id == currentBot}`}
         bot={b}
         open={currentBot && (b.id == currentBot.id)}
@@ -46,6 +48,7 @@ const DashboardTemplate = ({
     <div className="db-bots">
       { bots.reduce(buildBotsList, []) }
       <BotForm
+        subscription={subscription}
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {
