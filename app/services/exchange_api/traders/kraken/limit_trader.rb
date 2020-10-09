@@ -23,7 +23,7 @@ module ExchangeApi
         def orders
           open_orders = @client.open_orders.dig('result', 'open')
           closed_orders = @client.closed_orders.dig('result', 'closed') # In case a limit order gets fulfilled automatically
-          open_orders + closed_orders
+          open_orders.merge(closed_orders)
         end
 
         def get_buy_params(currency, price, percentage)
