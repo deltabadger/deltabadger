@@ -26,6 +26,7 @@ const BotTemplate = ({
 }) => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
+  const [type, setType] = useState(settings.order_type);
   const [price, setPrice] = useState(settings.price);
   const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
@@ -37,10 +38,18 @@ const BotTemplate = ({
 
   const disableSubmit = price.trim() === ''
 
+  const isLimitSelected = () => type === 'limit'
+
   const _handleSubmit = () => {
     if (disableSubmit) return
 
-    const botParams = { interval, id: bot.id, price: price.trim(), percentage: percentage && percentage.trim() }
+    const botParams = {
+      order_type: type,
+      interval,
+      id: bot.id,
+      price: price.trim(),
+      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
+    }
     handleEdit(botParams)
   }
 
@@ -51,17 +60,7 @@ const BotTemplate = ({
     </div>
   )
 
-  const isLimitOrder = () => settings.order_type === 'limit'
-
   const isSellOffer = () => settings.type === 'sell'
-
-  const getType = () => {
-    if (isLimitOrder()) {
-      const side = settings.type
-      return `limit_${side}`
-    }
-    return settings.type;
-  }
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
@@ -83,15 +82,21 @@ const BotTemplate = ({
         <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
-              value={getType()}
+              value={type}
+              onChange={e => setType(e.target.value)}
               className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
-              disabled
+              disabled={working}
             >
-              <option value="buy">Buy</option>
-              <option value="sell">Sell</option>
-              <option value="limit_buy">Limit Buy</option>
-              <option value="limit_sell">Limit Sell</option>
+              {isSellOffer() ? <>
+                  <option value="market">Sell</option>
+                  <option value="limit">Limit Sell</option>
+                </>
+                : <>
+                  <option value="market" disabled={isSellOffer()}>Buy</option>
+                  <option value="limit" disabled={isSellOffer()}>Limit Buy</option>
+                </>
+              }
             </select>
           </div>
           <div className="form-group mr-2">BTC for</div>
@@ -121,7 +126,7 @@ const BotTemplate = ({
             </select>
           </div>
         </form>
-        {isLimitOrder() &&
+        {isLimitSelected() &&
         <span className="db-limit-bot-modifier">
           { isSellOffer() ? 'Sell' : 'Buy' } <input
             type="text"
@@ -134,7 +139,7 @@ const BotTemplate = ({
             disabled={working}
         /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
       </div>
-      {isLimitOrder() && <LimitOrderNotice />}
+      {isLimitSelected() && <LimitOrderNotice />}
       <div className="db-bot__footer">
         <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
       </div>
