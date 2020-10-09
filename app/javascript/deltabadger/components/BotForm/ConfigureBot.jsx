@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import LimitOrderNotice from "./LimitOrderNotice";
 
-export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disable, errors }) => {
+export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState(currentExchange.currencies[0]);
@@ -65,8 +65,11 @@ export const ConfigureBot = ({ currentExchange, handleReset, handleSubmit, disab
             >
               <option value="market_buy">Buy</option>
               <option value="market_sell">Sell</option>
-              <option value="limit_buy">Limit Buy</option>
-              <option value="limit_sell">Limit Sell</option>
+              {showLimitOrders && <>
+                <option value="limit_buy">Limit Buy</option>
+                <option value="limit_sell">Limit Sell</option>
+              </>
+              }
             </select>
           </div>
           <div className="form-group mr-2">
