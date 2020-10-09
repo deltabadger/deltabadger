@@ -1,7 +1,7 @@
 module ExchangeApi
   module Traders
     module Binance
-      class MarketTrader < BaseTrader
+      class MarketTrader < ExchangeApi::Traders::Binance::BaseTrader
         def buy(currency:, price:)
           buy_params = get_buy_params(currency, price)
           place_order(buy_params)
