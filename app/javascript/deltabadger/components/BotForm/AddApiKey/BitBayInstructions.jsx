@@ -11,6 +11,7 @@ export const BitBayInstructions = () => (
         <li>Press <b>Add New Key</b>.</li>
         <li>Set permissions for:
           <ul>
+            <li><b>History</b></li>
           	<li><b>Get orders and market configurations</b></li>
           	<li><b>Manage orders and change market configurations</b></li>
           </ul>
