@@ -70,7 +70,7 @@ const BotTemplate = ({
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
-            <span className="d-none d-sm-inline">{ exchangeName }:</span>BTC{settings.currency}
+            <span className="d-none d-sm-inline">{ exchangeName }:</span>{settings.base}{settings.quote}
           </div>
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
@@ -100,7 +100,7 @@ const BotTemplate = ({
               }
             </select>
           </div>
-          <div className="form-group mr-2">BTC for</div>
+          <div className="form-group mr-2">&nbsp;{settings.base} for</div>
           <div className="form-group mr-2">
             <input
               type="text"
@@ -111,7 +111,7 @@ const BotTemplate = ({
               disabled={working}
             />
           </div>
-          <div className="form-group mr-2">{settings.currency} /</div>
+          <div className="form-group mr-2">&nbsp;{settings.quote} /</div>
           <div className="form-group mr-2">
             <select
               value={interval}
