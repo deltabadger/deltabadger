@@ -50,6 +50,19 @@ module ExchangeApi
           Result::Success.new(tick_size.data.to_f)
         end
 
+
+        def all_symbols
+          request = unsigned_client.get('exchangeInfo')
+          exchange_info = JSON.parse(request.body)
+          symbols = exchange_info['symbols']
+
+          symbols.each do |symbol_info|
+            puts "base #{symbol_info['baseAsset']}, quote #{symbol_info['quoteAsset']}"
+          end
+
+
+        end
+
         private
 
         def min_price(symbol)
