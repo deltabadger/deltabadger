@@ -170,6 +170,17 @@
         }
       }
     }
+    select, input {
+      text-align: center !important;
+    }
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      text-indent: 1px;
+      text-indent: 0;
+      text-align-last:center;
+    }
   }
   &--collapsed {
     height:   76px;
