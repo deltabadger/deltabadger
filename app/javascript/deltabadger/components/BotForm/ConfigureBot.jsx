@@ -4,8 +4,8 @@ import LimitOrderNotice from "./LimitOrderNotice";
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
-  const [base, setBase] = useState(currentExchange.symbol_bases[0]);
-  const [quote, setQuote] = useState(currentExchange.symbol_quotes[0]);
+  const [base, setBase] = useState(currentExchange.symbols[0].base);
+  const [quote, setQuote] = useState(currentExchange.symbols[0].quote);
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
 
@@ -79,7 +79,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               className="form-control"
             >
               {
-                currentExchange.symbol_bases.map(c =>
+                [...new Set(currentExchange.symbols.map(s => s.base))].map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }
@@ -103,7 +103,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               id="exampleFormControlSelect1"
             >
               {
-                currentExchange.symbol_quotes.map(c =>
+                [... new Set(currentExchange.symbols.map(s => s.quote))].map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }

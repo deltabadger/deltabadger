@@ -1,9 +1,8 @@
 module Bots::Free::Validators
   class Create < BaseService
     def call(bot, user)
-      allowed_bases = bot.exchange.bases
-      allowed_quotes = bot.exchange.quotes
-      bot_settings = BotSettings.new(bot.settings, user, allowed_bases, allowed_quotes)
+      allowed_symbols = bot.exchange.symbols
+      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -17,16 +16,15 @@ module Bots::Free::Validators
     class BotSettings
       include ActiveModel::Validations
 
-      attr_reader :interval, :base, :quote, :type, :order_type, :price,
-                  :percentage, :allowed_bases, :allowed_quotes, :hodler
+      attr_reader :interval, :base, :quote, :type, :order_type,
+                  :price, :percentage, :allowed_symbols, :hodler
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
-      validate :allowed_base
-      validate :allowed_quote
+      validate :allowed_symbol
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -40,7 +38,7 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
 
-      def initialize(params, user, allowed_bases, allowed_quotes)
+      def initialize(params, user, allowed_symbols)
         @interval = params.fetch('interval')
         @base = params.fetch('base')
         @quote = params.fetch('quote')
@@ -48,23 +46,17 @@ module Bots::Free::Validators
         @order_type = params.fetch('order_type')
         @price = params.fetch('price').to_f
         @percentage = params.fetch('percentage', nil)&.to_f
-        @allowed_bases = allowed_bases
-        @allowed_quotes = allowed_quotes
+        @allowed_symbols = allowed_symbols
         @hodler = user.subscription_name == 'hodler'
       end
 
       private
 
-      def allowed_base
-        return if base.in?(allowed_bases)
+      def allowed_symbol
+        symbol = { base: @base, quote: @quote }
+        return if symbol.in?(allowed_symbols)
 
-        errors.add(:bases, "'#{base}' is not allowed")
-      end
-
-      def allowed_quote
-        return if quote.in?(allowed_quotes)
-
-        errors.add(:quote, "'#{quote}' is not allowed")
+        errors.add(:symbols, "'#{symbol} is not allowed")
       end
 
       def interval_within_limit
