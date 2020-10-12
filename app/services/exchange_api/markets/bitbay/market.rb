@@ -18,7 +18,7 @@ module ExchangeApi
         def all_symbols
           return Result::Success.new(Rails.cache.read(ALL_SYMBOLS_CACHE_KEY)) if Rails.cache.exist?(ALL_SYMBOLS_CACHE_KEY)
 
-          response = JSON.parse(Faraday.get(TICKER_URL))
+          response = JSON.parse(Faraday.get(TICKER_URL).body)
           return Result::Failure.new("Couldn't fetch Bitbay symbols") if response['status'] != 'Ok'
 
           symbols_data = response['items']
