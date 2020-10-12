@@ -65,10 +65,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             >
               <option value="market_buy">Buy</option>
               <option value="market_sell">Sell</option>
-              {showLimitOrders && <>
-                <option value="limit_buy">Limit Buy</option>
-                <option value="limit_sell">Limit Sell</option>
-              </>
+              <option value="limit_buy" disabled={!showLimitOrders}>Limit Buy</option>
+              <option value="limit_sell" disabled={!showLimitOrders}>Limit Sell</option>
               }
             </select>
           </div>
