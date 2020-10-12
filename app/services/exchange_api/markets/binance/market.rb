@@ -64,6 +64,22 @@ module ExchangeApi
 
         private
 
+        def find_symbol_in_exchange_info(symbol, exchange_info)
+          symbols = exchange_info['symbols']
+          found_symbol = symbols.find do |symbol_info|
+            symbol_info['symbol'] == symbol
+          end
+          if found_symbol.present?
+            Result::Success.new(found_symbol)
+          else
+            Result::Failure.new('Invalid ticker symbol')
+          end
+        end
+
+        def exchange_info_cache_key(symbol)
+          "binance_exchange_info_#{symbol}"
+        end
+
         def min_price(symbol)
           symbol_info = fetch_symbol_info(symbol)
           return symbol_info unless symbol_info.success?
@@ -140,18 +156,6 @@ module ExchangeApi
         end
       end
 
-      def find_symbol_in_exchange_info(symbol, exchange_info)
-        symbols = exchange_info['symbols']
-        found_symbol = symbols.find do |symbol_info|
-          symbol_info['symbol'] == symbol
-        end
-        if found_symbol.present?
-          Result::Success.new(found_symbol)
-        else
-          Result::Failure.new('Invalid ticker symbol')
-        end
-      end
-
       def current_bid_ask_price(symbol)
         request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
         response = JSON.parse(request.body)
@@ -162,10 +166,6 @@ module ExchangeApi
         Result::Success.new(BidAskPrice.new(bid, ask))
       rescue StandardError
         Result::Failure.new('Could not fetch current price from Binance')
-      end
-
-      def exchange_info_cache_key(symbol)
-        "binance_exchange_info_#{symbol}"
       end
     end
   end
