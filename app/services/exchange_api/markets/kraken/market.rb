@@ -4,6 +4,10 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Kraken
 
+        def initialize
+          @client = get_client('anything', 'anything')
+        end
+
         def minimum_order_volume(symbol)
           symbol_info = fetch_symbol(symbol)
           return symbol_info unless symbol_info.success?
@@ -13,7 +17,7 @@ module ExchangeApi
 
         def all_symbols
           symbols = @client.asset_pairs
-          symbols['result'].map { |_symbol, data| data.slice(:base, :quote) }
+          symbols['result'].map { |_symbol, data| data.slice('base', 'quote') }
         end
 
         def base_decimals(symbol)
