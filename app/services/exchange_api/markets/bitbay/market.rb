@@ -23,7 +23,8 @@ module ExchangeApi
 
           symbols_data = response['items']
           all_symbols = symbols_data.map do |_, symbol_data|
-            symbol_data.fetch('market').fetch('code')
+            base, quote = symbol_data.fetch('market').fetch('code').split('-')
+            MarketSymbol.new(base, quote)
           end
           Rails.cache.write(ALL_SYMBOLS_CACHE_KEY, all_symbols, expires_in: 1.hour)
           Result::Success.new(all_symbols)
