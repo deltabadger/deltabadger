@@ -64,6 +64,18 @@ module ExchangeApi
 
         private
 
+        def current_bid_ask_price(symbol)
+          request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
+          response = JSON.parse(request.body)
+
+          bid = response.fetch('bidPrice').to_f
+          ask = response.fetch('askPrice').to_f
+
+          Result::Success.new(BidAskPrice.new(bid, ask))
+        rescue StandardError
+          Result::Failure.new('Could not fetch current price from Binance')
+        end
+
         def find_symbol_in_exchange_info(symbol, exchange_info)
           symbols = exchange_info['symbols']
           found_symbol = symbols.find do |symbol_info|
@@ -154,18 +166,6 @@ module ExchangeApi
           Rails.cache.write(cache_key, found_symbol.data, expires_in: 1.hour)
           Result::Success.new(found_symbol.data)
         end
-      end
-
-      def current_bid_ask_price(symbol)
-        request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
-        response = JSON.parse(request.body)
-
-        bid = response.fetch('bidPrice').to_f
-        ask = response.fetch('askPrice').to_f
-
-        Result::Success.new(BidAskPrice.new(bid, ask))
-      rescue StandardError
-        Result::Failure.new('Could not fetch current price from Binance')
       end
     end
   end
