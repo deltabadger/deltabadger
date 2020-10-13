@@ -15,13 +15,14 @@ Rails.start();
 const store = configureStore(reducer)
 
 if (document.getElementById('dashboard')) {
-  const node = document.getElementById('current_user_subscription')
+  const node = document.getElementById('is_current_user_admin')
   const data = node.getAttribute('data')
+  const isAdmin = data === 'true'
 
   document.addEventListener('DOMContentLoaded', () => {
     ReactDOM.render(
       <Provider store={store}>
-        <Dashboard subscription={data} />
+        <Dashboard isAdmin={isAdmin} />
       </Provider>,
       document.getElementById('dashboard')
     )
