@@ -9,6 +9,17 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
 
+  const uniqueArray = (array) => [...new Set(array)]
+
+  const BASES = uniqueArray(currentExchange.symbols.map(s => s.base))
+
+  const QUOTES = uniqueArray(currentExchange.symbols.map(s => s.quote))
+
+  const validQuotesForSelectedBase = () => {
+    const symbols = currentExchange.symbols
+    return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
+  }
+
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
@@ -79,7 +90,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               className="form-control"
             >
               {
-                [...new Set(currentExchange.symbols.map(s => s.base))].map(c =>
+                BASES.map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }
@@ -103,7 +114,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               id="exampleFormControlSelect1"
             >
               {
-                [... new Set(currentExchange.symbols.map(s => s.quote))].map(c =>
+                validQuotesForSelectedBase().map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }
