@@ -20,4 +20,9 @@ class ApplicationController < ActionController::Base
     Raven.user_context(id: session[:current_user_id])
     Raven.extra_context(params: params.to_unsafe_h, url: request.url)
   end
+
+  def handle_unverified_request
+    flash[:alert] = 'Please refresh your browser and try again'
+    redirect_back fallback_location: root_path
+  end
 end

@@ -1,6 +1,7 @@
+# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
-    exchange_api: ExchangeApi::Get.new,
+    exchange_trader: ExchangeApi::Traders::Get.new,
     schedule_transaction: ScheduleTransaction.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
@@ -11,7 +12,7 @@ class MakeTransaction < BaseService
     validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
     subtract_credits: SubtractCredits.new
   )
-    @get_exchange_api = exchange_api
+    @get_exchange_trader = exchange_trader
     @schedule_transaction = schedule_transaction
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
@@ -26,7 +27,7 @@ class MakeTransaction < BaseService
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
-    return Result::Failure.new if !make_transaction?(bot)
+    return Result::Failure.new unless make_transaction?(bot)
 
     result = perform_action(get_api(bot), bot)
 
@@ -49,17 +50,22 @@ class MakeTransaction < BaseService
     stop_bot(bot, notify)
     raise
   end
-  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 
   def get_api(bot)
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-    @get_exchange_api.call(api_key)
+    @get_exchange_trader.call(api_key, bot.order_type)
   end
 
   def perform_action(api, bot)
-    settings = { currency: bot.currency, price: bot.price.to_f }
+    settings = {
+      currency: bot.currency,
+      price: bot.price.to_f,
+      percentage: (bot.percentage.to_f if bot.limit?)
+    }.compact
     result = if bot.buyer?
                api.buy(settings)
              else
@@ -76,6 +82,8 @@ class MakeTransaction < BaseService
 
     result
   end
+
+  # rubocop:enable Metrics/AbcSize
 
   def validate_limit(bot, notify)
     validate_limit_result = @validate_limit.call(bot.user)
@@ -117,3 +125,4 @@ class MakeTransaction < BaseService
     @notifications.error_occured(bot: bot, errors: errors) if notify
   end
 end
+# rubocop:enable Metrics/ClassLength

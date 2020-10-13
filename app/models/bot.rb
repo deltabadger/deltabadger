@@ -17,12 +17,28 @@ class Bot < ApplicationRecord
     settings.fetch('price')
   end
 
+  def percentage
+    settings.fetch('percentage', nil)
+  end
+
   def interval
     settings.fetch('interval')
   end
 
   def type
     settings.fetch('type')
+  end
+
+  def order_type
+    settings.fetch('order_type')
+  end
+
+  def market?
+    order_type == 'market'
+  end
+
+  def limit?
+    !market?
   end
 
   def buyer?

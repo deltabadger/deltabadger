@@ -1,23 +1,17 @@
-require 'result'
-
 module ExchangeApi
-  module Clients
-    class Base
+  module Traders
+    class BaseTrader
       RECOVERABLE = { data: { recoverable: true }.freeze }.freeze
-
-      def current_bid_ask_price(_currency)
-        raise NotImplementedError
-      end
-
-      def validate_credentials
-        raise NotImplementedError
-      end
 
       def buy
         raise NotImplementedError
       end
 
       def sell
+        raise NotImplementedError
+      end
+
+      def current_bid_ask_price(_currency)
         raise NotImplementedError
       end
 

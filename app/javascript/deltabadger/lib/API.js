@@ -32,7 +32,7 @@ const API = {
       secret: params.secret,
       german_trading_agreement: params.germanAgreement
     }
-    return client.request({ url, data: { api_key: ApiKeyParams}, method: 'post' }).then(data => data.data);
+    return client.request({ url, data: { api_key: ApiKeyParams }, method: 'post' }).then(data => data.data);
   },
 
   createBot(params) {
@@ -41,21 +41,25 @@ const API = {
       bot_type: params.botType,
       exchange_id: params.exchangeId,
       type: params.type,
+      order_type: params.order_type,
       price: params.price,
+      percentage: params.percentage,
       currency: params.currency,
       interval: params.interval,
     }
-    return client.request({ url, data: { bot: botParams}, method: 'post' }).then(data => data.data);
+    return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
   updateBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
+      order_type: params.order_type,
       price: params.price,
+      percentage: params.percentage,
       interval: params.interval,
     }
 
-    return client.request({ url, data: { bot: botParams}, method: 'put' }).then(data => data.data);
+    return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
   },
 
   getBots() {
