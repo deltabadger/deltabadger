@@ -100,7 +100,7 @@ const BotTemplate = ({
               }
             </select>
           </div>
-          <div className="form-group mr-2">&nbsp;{settings.base} for</div>
+          <div className="form-group mr-2"> {settings.base} for</div>
           <div className="form-group mr-2">
             <input
               type="text"
@@ -111,7 +111,7 @@ const BotTemplate = ({
               disabled={working}
             />
           </div>
-          <div className="form-group mr-2">&nbsp;{settings.quote} /</div>
+          <div className="form-group mr-2"> {settings.quote} /</div>
           <div className="form-group mr-2">
             <select
               value={interval}
