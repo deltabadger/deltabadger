@@ -7,7 +7,8 @@ module Api
           id: exchange.id,
           name: exchange.name,
           symbols: exchange.symbols,
-        }.merge(owned.include?(exchange) ? { owned: true } : { owned: false })
+          owned: exchange.in?(owned)
+        }
       end
 
       render json: { data: ExchangesRepository.new.all.map(&build_data) }

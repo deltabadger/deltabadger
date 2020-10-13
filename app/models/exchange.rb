@@ -17,7 +17,10 @@ class Exchange < ApplicationRecord
 
   def bitbay_symbols
     market = ExchangeApi::Markets::Bitbay::Market.new
-    market.all_symbols
+    all_symbols = market.all_symbols
+    return all_symbols unless all_symbols.success?
+
+    all_symbols.data
   end
 
   def kraken_symbols
@@ -26,6 +29,6 @@ class Exchange < ApplicationRecord
   end
 
   def default_symbols
-    %w[BTCUSD]
+    { base: 'BTC', quote: 'USD' }
   end
 end
