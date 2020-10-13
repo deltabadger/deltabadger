@@ -15,7 +15,7 @@ module Bots
       formatted_params = @format_params.call(params)
       bot = Bot.new(formatted_params)
 
-      result = @bot_validator.call(bot)
+      result = @bot_validator.call(bot, params[:user])
 
       if result.success?
         saved_bot = @bots_repository.save(bot)
