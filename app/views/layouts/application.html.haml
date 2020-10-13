@@ -27,7 +27,7 @@
 
     //= render partial: 'layouts/drift' if !Rails.env.development?
 
-    #current_user_subscription{ data: current_user&.subscription_name }
+    #is_current_user_admin{ data: current_user.admin.to_s }
     = javascript_pack_tag 'deltabadger2'
 
     %script{:crossorigin => "anonymous", :integrity => "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", :src => "https://code.jquery.com/jquery-3.2.1.slim.min.js"}

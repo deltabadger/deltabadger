@@ -19,7 +19,7 @@ module Bots
         .slice(:settings)
 
       bot.assign_attributes(settings_params)
-      validation = @bot_validator.call(bot)
+      validation = @bot_validator.call(bot, user)
 
       if validation.success?
         updated_bot = @bots_repository.save(bot)

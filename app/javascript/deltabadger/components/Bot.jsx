@@ -13,10 +13,8 @@ import {
   openBot,
 } from '../bot_actions'
 
-const HODLER = 'hodler'
-
 const BotTemplate = ({
-  subscription,
+  showLimitOrders,
   bot,
   errors = [],
   startingBotIds,
@@ -93,11 +91,11 @@ const BotTemplate = ({
             >
               {isSellOffer() ? <>
                   <option value="market">Sell</option>
-                  <option value="limit" disabled={subscription !== HODLER}>Limit Sell</option>
+                  <option value="limit" disabled={!showLimitOrders}>Limit Sell</option>
                 </>
                 : <>
                   <option value="market">Buy</option>
-                  <option value="limit" disabled={subscription !== HODLER}>Limit Buy</option>
+                  <option value="limit" disabled={!showLimitOrders}>Limit Buy</option>
                 </>
               }
             </select>
