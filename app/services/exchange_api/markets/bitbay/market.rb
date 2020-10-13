@@ -57,7 +57,7 @@ module ExchangeApi
           return Result::Success.new(Rails.cache.read(cache_key)) if Rails.cache.exist?(cache_key)
 
           url = "#{TICKER_URL}/#{symbol}"
-          response = JSON.parse(Faraday.get(url))
+          response = JSON.parse(Faraday.get(url).body)
           Rails.cache.write(cache_key, response, expires_in: 1.hour)
           Result::Success.new(response)
         rescue StandardError

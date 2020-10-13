@@ -48,7 +48,10 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate_percentage(symbol, rate.data, percentage)
-          amount = transaction_volume(symbol, transaction_price(symbol, price), limit_rate)
+          price_above_minimums = transaction_price(symbol, price)
+          return price_above_minimums unless price_above_minimums.success?
+
+          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
           Result::Success.new(common_order_params.merge(
                                 offerType: 'buy',
                                 amount: amount,
@@ -61,7 +64,10 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate_percentage(symbol, rate.data, percentage)
-          amount = transaction_volume(symbol, transaction_price(symbol, price), limit_rate)
+          price_above_minimums = transaction_price(symbol, price)
+          return price_above_minimums unless price_above_minimums.success?
+
+          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
                                 amount: amount,
