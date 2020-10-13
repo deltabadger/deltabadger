@@ -1,12 +1,12 @@
 module Charts::PortfolioValueOverTime
   class Chart < BaseService
     def initialize(
-      get_exchange_api: ExchangeApi::Get.new,
+      get_trader: ExchangeApi::Traders::Get.new,
       api_keys_repository: ApiKeysRepository.new,
       fetch_data: Charts::PortfolioValueOverTime::Data.new
     )
 
-      @get_exchange_api = get_exchange_api
+      @get_exchange_trader = get_trader
       @api_keys_repository = api_keys_repository
       @fetch_data = fetch_data
     end
@@ -32,7 +32,7 @@ module Charts::PortfolioValueOverTime
 
     def calculate_time_now_point(bot, date, total_invested)
       api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-      api = @get_exchange_api.call(api_key)
+      api = @get_exchange_trader.call(api_key, bot.order_type)
 
       current_price_result = api.current_price(bot.currency)
       return current_price_result if current_price_result.failure?

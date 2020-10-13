@@ -170,6 +170,17 @@
         }
       }
     }
+    select, input {
+      text-align: center !important;
+    }
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      text-indent: 1px;
+      text-indent: 0;
+      text-align-last:center;
+    }
   }
   &--collapsed {
     height:   76px;
@@ -290,7 +301,6 @@
   align-items: center;
   input {
     text-align: right;
-    max-width: 80px !important;
   }
 }
 .db-bot__form--apikeys {
@@ -370,7 +380,6 @@
 }
 .db-alert--annotation {
   display: block;
-  padding-left: 2.1em;
   &:first-line {
     text-indent: -1em;
   }
@@ -388,5 +397,8 @@
   height: 40px;
 }
 .db-select--buy-sell {
-  max-width: 80px;
+  max-width: 7.8em;
+}
+.db-input--dca-amount {
+  max-width: 4.1em;
 }

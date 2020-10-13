@@ -10,6 +10,12 @@ class BotsRepository < BaseRepository
       .all
   end
 
+  def count_with_status(status)
+    model
+      .where(status: status)
+      .count
+  end
+
   def model
     Bot
   end
