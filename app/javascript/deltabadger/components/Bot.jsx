@@ -3,6 +3,7 @@ import { connect } from 'react-redux';
 import { StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
+import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import {
   reloadBot,
@@ -13,6 +14,7 @@ import {
 } from '../bot_actions'
 
 const BotTemplate = ({
+  showLimitOrders,
   bot,
   errors = [],
   startingBotIds,
@@ -25,20 +27,30 @@ const BotTemplate = ({
 }) => {
   const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
+  const [type, setType] = useState(settings.order_type);
   const [price, setPrice] = useState(settings.price);
+  const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
 
-  const colorClass = settings.type == 'buy' ? 'success' : 'danger'
+  const colorClass = settings.type === 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
   const isStarting = startingBotIds.includes(id);
-  const working = status == 'working'
+  const working = status === 'working'
 
-  const disableSubmit = price.trim() == ''
+  const disableSubmit = price.trim() === ''
+
+  const isLimitSelected = () => type === 'limit'
 
   const _handleSubmit = () => {
     if (disableSubmit) return
 
-    const botParams = { interval, id: bot.id, price: price.trim() }
+    const botParams = {
+      order_type: type,
+      interval,
+      id: bot.id,
+      price: price.trim(),
+      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
+    }
     handleEdit(botParams)
   }
 
@@ -48,6 +60,8 @@ const BotTemplate = ({
       { data[0] }
     </div>
   )
+
+  const isSellOffer = () => settings.type === 'sell'
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
@@ -69,55 +83,42 @@ const BotTemplate = ({
         <form className="form-inline mx-4">
           <div className="form-group mr-2">
             <select
-              value={settings.type}
+              value={type}
+              onChange={e => setType(e.target.value)}
               className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
-              disabled={true}
+              disabled={working}
             >
-              <option value="buy">Buy</option>
-              <option value="sell">Sell</option>
-              <option value="limit_buy" disabled>Limit Buy</option>
-              <option value="limit_sell" disabled>Limit Sell</option>
+              {isSellOffer() ? <>
+                  <option value="market">Sell</option>
+                  <option value="limit" disabled={!showLimitOrders}>Limit Sell</option>
+                </>
+                : <>
+                  <option value="market">Buy</option>
+                  <option value="limit" disabled={!showLimitOrders}>Limit Buy</option>
+                </>
+              }
             </select>
           </div>
-          <div className="form-group mr-2">
-            <select
-              className="form-control"
-              disabled={true}
-            >
-              <option value="BTC">BTC</option>
-              <option value="ETH">ETH</option>
-            </select>
-          </div>
-          <div className="form-group mr-2">for</div>
+          <div className="form-group mr-2">BTC for</div>
           <div className="form-group mr-2">
             <input
               type="text"
               min="1"
               value={price}
               onChange={e => setPrice(e.target.value)}
-              className="form-control"
-              disabled={working ? true : false}
+              className="form-control db-input--dca-amount"
+              disabled={working}
             />
           </div>
-          <div className="form-group mr-2">
-            <select
-              value={settings.currency}
-              className="form-control"
-              id="exampleFormControlSelect1"
-              disabled={true}
-            >
-              <option value="">{settings.currency}</option>
-            </select>
-          </div>
-          <div className="form-group mr-2">/</div>
+          <div className="form-group mr-2">{settings.currency} /</div>
           <div className="form-group mr-2">
             <select
               value={interval}
               className="form-control"
               onChange={e => setInterval(e.target.value)}
               id="exampleFormControlSelect1"
-              disabled={working ? true : false}
+              disabled={working}
             >
               <option value="hour">Hour</option>
               <option value="day">Day</option>
@@ -126,11 +127,20 @@ const BotTemplate = ({
             </select>
           </div>
         </form>
-        {/* <span className="db-limit-bot-modifier">Buy <input type="text" min="0" step="0.1" lang="en-150" className="form-control" placeholder="0" /> % below the price.<sur>*</sur></span>*/}
+        {isLimitSelected() &&
+        <span className="db-limit-bot-modifier">
+          { isSellOffer() ? 'Sell' : 'Buy' } <input
+            type="text"
+            min="0"
+            step="0.1"
+            lang="en-150"
+            value={percentage}
+            className="form-control"
+            onChange={e => setPercentage(e.target.value)}
+            disabled={working}
+        /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
       </div>
-      {/* <small className="alert alert-warning db-alert--annotation">
-        <sur>*</sur> The limit order bot is an experimental feature. The bot opens orders but does not track if they have been filled. Our backtesting showed that for buy orders, 2.0% below the price worked optimal in the past. <a href="#">Read more</a>
-      </small>*/}
+      {isLimitSelected() && <LimitOrderNotice />}
       <div className="db-bot__footer">
         <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
       </div>

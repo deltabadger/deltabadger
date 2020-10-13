@@ -76,7 +76,9 @@ module Api
     BOT_PARAMS = %i[
       exchange_id
       type
+      order_type
       price
+      percentage
       currency
       interval
       bot_type
@@ -91,7 +93,7 @@ module Api
     def bot_update_params
       params
         .require(:bot)
-        .permit(:interval, :price).merge(id: params[:id])
+        .permit(:order_type, :interval, :price, :percentage).merge(id: params[:id])
     end
   end
 end
