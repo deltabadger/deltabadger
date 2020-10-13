@@ -1,8 +1,8 @@
 module Bots::Free::Validators
   class Create < BaseService
-    def call(bot)
+    def call(bot, user)
       allowed_currencies = bot.exchange.currencies
-      bot_settings = BotSettings.new(bot.settings, allowed_currencies)
+      bot_settings = BotSettings.new(bot.settings, user, allowed_currencies)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -16,7 +16,8 @@ module Bots::Free::Validators
     class BotSettings
       include ActiveModel::Validations
 
-      attr_reader :interval, :currency, :type, :order_type, :price, :percentage, :allowed_currencies
+      attr_reader :interval, :currency, :type, :order_type, :price,
+                  :percentage, :allowed_currencies, :admin
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
@@ -33,10 +34,11 @@ module Bots::Free::Validators
         greater_than: 0,
         smaller_than: 100
       }
-      validate :percentage_present_if_limit_order
+      validate :admin_if_limit_order
+      validate :percentage_if_limit_order
       validate :interval_within_limit
 
-      def initialize(params, allowed_currencies)
+      def initialize(params, user, allowed_currencies)
         @interval = params.fetch('interval')
         @currency = params.fetch('currency')
         @type = params.fetch('type')
@@ -44,6 +46,7 @@ module Bots::Free::Validators
         @price = params.fetch('price').to_f
         @percentage = params.fetch('percentage', nil)&.to_f
         @allowed_currencies = allowed_currencies
+        @admin = user.admin
       end
 
       private
@@ -64,7 +67,13 @@ module Bots::Free::Validators
         errors.add(:base, result.errors.first) if result.failure?
       end
 
-      def percentage_present_if_limit_order
+      def admin_if_limit_order
+        return if admin || order_type == 'market'
+
+        errors.add(:base, 'Limit orders are an admin-only functionality')
+      end
+
+      def percentage_if_limit_order
         return if order_type == 'market' || (order_type == 'limit' && percentage.present?)
 
         errors.add(:base, 'Specify percentage when creating a limit order')
