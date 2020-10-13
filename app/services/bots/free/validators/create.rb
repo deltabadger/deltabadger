@@ -53,10 +53,10 @@ module Bots::Free::Validators
       private
 
       def allowed_symbol
-        symbol = { base: @base, quote: @quote }
+        symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
         return if symbol.in?(allowed_symbols)
 
-        errors.add(:symbols, "'#{symbol} is not allowed")
+        errors.add(:symbol, "#{symbol} is not supported")
       end
 
       def interval_within_limit
