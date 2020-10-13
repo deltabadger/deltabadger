@@ -17,7 +17,11 @@ module ExchangeApi
 
         def all_symbols
           symbols = @client.asset_pairs
-          symbols['result'].map { |_symbol, data| data.slice('base', 'quote') }
+          symbols['result'].map do |_symbol, data|
+            base = data['base']
+            quote = data['quote']
+            MarketSymbol.new(base, quote)
+          end
         end
 
         def base_decimals(symbol)

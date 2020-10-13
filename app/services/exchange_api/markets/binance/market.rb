@@ -58,7 +58,7 @@ module ExchangeApi
           symbols.map do |symbol_info|
             base = symbol_info['baseAsset']
             quote = symbol_info['quoteAsset']
-            { base: base, quote: quote }
+            MarketSymbol.new(base, quote)
           end
         end
 
