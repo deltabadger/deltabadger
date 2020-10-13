@@ -61,7 +61,7 @@ module ExchangeApi
           Rails.cache.write(cache_key, response, expires_in: 1.hour)
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new(['Could not fetch chosen symbol from Bitbay', RECOVERABLE])
+          Result::Failure.new('Could not fetch chosen symbol from Bitbay')
         end
 
         def current_bid_ask_price(symbol)
@@ -73,7 +73,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
+          Result::Failure.new('Could not fetch current price from Bitbay')
         end
 
         def symbol_cache_key(symbol)
