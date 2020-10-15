@@ -9,15 +9,21 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
 
+  const isKraken = () => currentExchange.name === "Kraken"
+
   const uniqueArray = (array) => [...new Set(array)]
 
   const BASES = uniqueArray(currentExchange.symbols.map(s => s.base))
+      .map(s => isKraken() ? s.replace(/^X(...)/, "$1").replace(/^XBT/, "BTC") : s)
+      .sort()
 
   const QUOTES = uniqueArray(currentExchange.symbols.map(s => s.quote))
 
   const validQuotesForSelectedBase = () => {
     const symbols = currentExchange.symbols
     return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
+        .map(s => isKraken() ? s.replace(/^X(...)/, "$1").replace(/^XBT/, "BTC") : s)
+        .sort()
   }
 
   const ResetButton = () => (
