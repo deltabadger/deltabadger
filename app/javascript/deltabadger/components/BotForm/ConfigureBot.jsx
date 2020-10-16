@@ -42,6 +42,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
   }
 
+  const setFirstValidQuoteIfUnavailable = () => {
+    const validQuotes = validQuotesForSelectedBase()
+    if (validQuotes.includes(quote)) return;
+
+    setQuote(validQuotes[0])
+  }
+
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
@@ -108,7 +115,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           <div className="form-group mr-2">
             <select
               value={base}
-              onChange={e => setBase(e.target.value)}
+              onChange={e => setBase(e.target.value) && setFirstValidQuoteIfUnavailable()}
               className="form-control"
             >
               {
