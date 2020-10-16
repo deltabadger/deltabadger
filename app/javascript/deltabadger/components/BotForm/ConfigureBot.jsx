@@ -14,16 +14,25 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const uniqueArray = (array) => [...new Set(array)]
 
   const BASES = uniqueArray(currentExchange.symbols.map(s => s.base))
-      .map(s => isKraken() ? s.replace(/^X(...)/, "$1").replace(/^XBT/, "BTC") : s)
-      .sort()
 
   const QUOTES = uniqueArray(currentExchange.symbols.map(s => s.quote))
 
+  const renameSymbol = (s) => {
+    return s.replace(/(^X|^Z)([A-Z]{3})/, "$2")
+        .replace(/^XBT/, "BTC")
+  }
+
+  const renameAndSortSymbols = (symbols) => {
+    // renaming is only performed for Kraken
+    const renamedSymbols = symbols.map(s => isKraken() ? renameSymbol(s) : s)
+    const BTC = renamedSymbols.find(s => s === "BTC") ? ["BTC"] : []
+    const ETH = renamedSymbols.find(s => s === "ETH") ? ["ETH"] : []
+    return [...BTC, ...ETH, ...renamedSymbols.filter(s => s !== "BTC" && s !== "ETH").sort()]
+  }
+
   const validQuotesForSelectedBase = () => {
-    const symbols = currentExchange.symbols
+    const symbols = currentExchange.symbols.map(symbol => ({base : renameSymbol(symbol.base), quote: symbol.quote}))
     return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
-        .map(s => isKraken() ? s.replace(/^X(...)/, "$1").replace(/^XBT/, "BTC") : s)
-        .sort()
   }
 
   const ResetButton = () => (
@@ -96,7 +105,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               className="form-control"
             >
               {
-                BASES.map(c =>
+                renameAndSortSymbols(BASES).map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }
@@ -120,7 +129,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               id="exampleFormControlSelect1"
             >
               {
-                validQuotesForSelectedBase().map(c =>
+                renameAndSortSymbols(validQuotesForSelectedBase()).map(c =>
                   (<option key={c} value={c}>{c}</option>)
                 )
               }
