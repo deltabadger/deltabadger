@@ -9,7 +9,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
 
-  const isKraken = () => currentExchange.name === "Kraken"
+  const KRAKEN = "Kraken"
+  const shouldRename = currentExchange.name === KRAKEN
+  const BTC = shouldRename ? "XXBT" : "BTC"
+  const ETH = shouldRename ? "XETH" : "ETH"
 
   const uniqueArray = (array) => [...new Set(array)]
 
@@ -22,16 +25,23 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         .replace(/^XBT/, "BTC")
   }
 
-  const renameAndSortSymbols = (symbols) => {
-    // renaming is only performed for Kraken
-    const renamedSymbols = symbols.map(s => isKraken() ? renameSymbol(s) : s)
-    const BTC = renamedSymbols.find(s => s === "BTC") ? ["BTC"] : []
-    const ETH = renamedSymbols.find(s => s === "ETH") ? ["ETH"] : []
-    return [...BTC, ...ETH, ...renamedSymbols.filter(s => s !== "BTC" && s !== "ETH").sort()]
+  const compareSymbols = (x, y) => {
+    if (shouldRename) {
+      return renameSymbol(x).localeCompare(renameSymbol(y))
+    } else {
+      return x.localeCompare(y)
+    }
+  }
+
+  const sortSymbols = (symbols) => {
+    const btcOrEmpty = symbols.find(s => s === BTC) ? [BTC] : []
+    const ethOrEmpty = symbols.find(s => s === ETH) ? [ETH] : []
+    const otherSymbols = symbols.filter(s => s !== BTC && s !== ETH)
+    return [...btcOrEmpty, ...ethOrEmpty, ...otherSymbols.sort(compareSymbols)]
   }
 
   const validQuotesForSelectedBase = () => {
-    const symbols = currentExchange.symbols.map(symbol => ({base : renameSymbol(symbol.base), quote: symbol.quote}))
+    const symbols = currentExchange.symbols//.map(symbol => ({base : renameSymbosymbol.base, quote: symbol.quote}))
     return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
   }
 
@@ -105,8 +115,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               className="form-control"
             >
               {
-                renameAndSortSymbols(BASES).map(c =>
-                  (<option key={c} value={c}>{c}</option>)
+                sortSymbols(BASES).map(c =>
+                  (<option key={c} value={c}>{renameSymbol(c)}</option>)
                 )
               }
             </select>
@@ -129,8 +139,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               id="exampleFormControlSelect1"
             >
               {
-                renameAndSortSymbols(validQuotesForSelectedBase()).map(c =>
-                  (<option key={c} value={c}>{c}</option>)
+                sortSymbols(validQuotesForSelectedBase()).map(c =>
+                  (<option key={c} value={c}>{renameSymbol(c)}</option>)
                 )
               }
             </select>
