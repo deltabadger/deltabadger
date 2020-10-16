@@ -41,7 +41,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   }
 
   const validQuotesForSelectedBase = () => {
-    const symbols = currentExchange.symbols//.map(symbol => ({base : renameSymbosymbol.base, quote: symbol.quote}))
+    const symbols = currentExchange.symbols
     return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
   }
 
