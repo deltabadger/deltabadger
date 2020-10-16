@@ -3,23 +3,9 @@ import LimitOrderNotice from "./LimitOrderNotice";
 import {shouldRename, renameSymbol} from "../../utils/symbols";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
-  const [type, setType] = useState("market_buy");
-  const [price, setPrice] = useState("");
-  const [base, setBase] = useState(currentExchange.symbols[0].base);
-  const [quote, setQuote] = useState(currentExchange.symbols[0].quote);
-  const [interval, setInterval] = useState("hour");
-  const [percentage, setPercentage] = useState("0");
-
   const shouldRenameSymbols = shouldRename(currentExchange.name)
-
   const BTC = shouldRenameSymbols ? "XXBT" : "BTC"
   const ETH = shouldRenameSymbols ? "XETH" : "ETH"
-
-  const uniqueArray = (array) => [...new Set(array)]
-
-  const BASES = uniqueArray(currentExchange.symbols.map(s => s.base))
-
-  const QUOTES = uniqueArray(currentExchange.symbols.map(s => s.quote))
 
   const compareSymbols = (x, y) => {
     if (shouldRenameSymbols) {
@@ -35,6 +21,21 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     const otherSymbols = symbols.filter(s => s !== BTC && s !== ETH)
     return [...btcOrEmpty, ...ethOrEmpty, ...otherSymbols.sort(compareSymbols)]
   }
+
+  const uniqueArray = (array) => [...new Set(array)]
+  const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)))
+  const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)))
+
+  console.log(BASES)
+  console.log(QUOTES)
+
+
+  const [type, setType] = useState("market_buy");
+  const [price, setPrice] = useState("");
+  const [base, setBase] = useState(BASES[0]);
+  const [quote, setQuote] = useState(QUOTES[0]);
+  const [interval, setInterval] = useState("hour");
+  const [percentage, setPercentage] = useState("0");
 
   const validQuotesForSelectedBase = () => {
     const symbols = currentExchange.symbols
@@ -111,7 +112,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               className="form-control"
             >
               {
-                sortSymbols(BASES).map(c =>
+                BASES.map(c =>
                   (<option key={c} value={c}>{renameSymbol(c)}</option>)
                 )
               }
@@ -135,7 +136,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               id="exampleFormControlSelect1"
             >
               {
-                sortSymbols(validQuotesForSelectedBase()).map(c =>
+                validQuotesForSelectedBase().map(c =>
                   (<option key={c} value={c}>{renameSymbol(c)}</option>)
                 )
               }
