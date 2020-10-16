@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import LimitOrderNotice from "./LimitOrderNotice";
+import {shouldRename, renameSymbol} from "../../utils/symbols";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const [type, setType] = useState("market_buy");
@@ -9,10 +10,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
 
-  const KRAKEN = "Kraken"
-  const shouldRename = currentExchange.name === KRAKEN
-  const BTC = shouldRename ? "XXBT" : "BTC"
-  const ETH = shouldRename ? "XETH" : "ETH"
+  const shouldRenameSymbols = shouldRename(currentExchange.name)
+
+  const BTC = shouldRenameSymbols ? "XXBT" : "BTC"
+  const ETH = shouldRenameSymbols ? "XETH" : "ETH"
 
   const uniqueArray = (array) => [...new Set(array)]
 
@@ -20,13 +21,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const QUOTES = uniqueArray(currentExchange.symbols.map(s => s.quote))
 
-  const renameSymbol = (s) => {
-    return s.replace(/(^X|^Z)([A-Z]{3})/, "$2")
-        .replace(/^XBT/, "BTC")
-  }
-
   const compareSymbols = (x, y) => {
-    if (shouldRename) {
+    if (shouldRenameSymbols) {
       return renameSymbol(x).localeCompare(renameSymbol(y))
     } else {
       return x.localeCompare(y)

@@ -5,6 +5,7 @@ import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
+import { shouldRename, renameSymbol} from "../utils/symbols";
 import {
   reloadBot,
   stopBot,
@@ -63,6 +64,9 @@ const BotTemplate = ({
 
   const isSellOffer = () => settings.type === 'sell'
 
+  const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
+  const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--active db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
@@ -70,7 +74,7 @@ const BotTemplate = ({
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
-            <span className="d-none d-sm-inline">{ exchangeName }:</span>{settings.base}{settings.quote}
+            <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
           </div>
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
@@ -100,7 +104,7 @@ const BotTemplate = ({
               }
             </select>
           </div>
-          <div className="form-group mr-2"> {settings.base} for</div>
+          <div className="form-group mr-2"> {baseName} for</div>
           <div className="form-group mr-2">
             <input
               type="text"
@@ -111,7 +115,7 @@ const BotTemplate = ({
               disabled={working}
             />
           </div>
-          <div className="form-group mr-2"> {settings.quote} /</div>
+          <div className="form-group mr-2"> {quoteName} /</div>
           <div className="form-group mr-2">
             <select
               value={interval}
