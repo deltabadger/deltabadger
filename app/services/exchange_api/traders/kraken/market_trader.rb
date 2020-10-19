@@ -37,7 +37,7 @@ module ExchangeApi
         end
 
         def get_sell_params(symbol, price)
-          rate = @market.current_bid_price(currency)
+          rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
           volume = smart_volume(symbol, price, rate.data)
