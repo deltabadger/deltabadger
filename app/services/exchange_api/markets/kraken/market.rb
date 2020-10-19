@@ -28,14 +28,14 @@ module ExchangeApi
           symbol_info = fetch_symbol(symbol)
           return symbol_info unless symbol_info.success?
 
-          symbol_info.data['lot_decimals']
+          Result::Success.new(symbol_info.data['lot_decimals'])
         end
 
         def quote_decimals(symbol)
           symbol_info = fetch_symbol(symbol)
           return symbol_info unless symbol_info.success?
 
-          symbol_info.data['pair_decimals']
+          Result::Success.new(symbol_info.data['pair_decimals'])
         end
 
         private
