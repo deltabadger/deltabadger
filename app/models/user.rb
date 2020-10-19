@@ -28,6 +28,11 @@ class User < ApplicationRecord
     subscription.credits
   end
 
+  def first_month?
+    month_ago = Date.current - 1.month
+    created_at > month_ago
+  end
+
   def limit_reached?
     return false if unlimited?
 
