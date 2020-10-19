@@ -17,7 +17,7 @@ module Bots::Free::Validators
       include ActiveModel::Validations
 
       attr_reader :interval, :currency, :type, :order_type, :price,
-                  :percentage, :allowed_currencies, :admin
+                  :percentage, :allowed_currencies, :hodler
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
@@ -34,7 +34,7 @@ module Bots::Free::Validators
         greater_than: 0,
         smaller_than: 100
       }
-      validate :admin_if_limit_order
+      validate :hodler_if_limit_order
       validate :percentage_if_limit_order
       validate :interval_within_limit
 
@@ -46,7 +46,7 @@ module Bots::Free::Validators
         @price = params.fetch('price').to_f
         @percentage = params.fetch('percentage', nil)&.to_f
         @allowed_currencies = allowed_currencies
-        @admin = user.admin
+        @hodler = user.subscription_name == 'hodler'
       end
 
       private
@@ -67,10 +67,10 @@ module Bots::Free::Validators
         errors.add(:base, result.errors.first) if result.failure?
       end
 
-      def admin_if_limit_order
-        return if admin || order_type == 'market'
+      def hodler_if_limit_order
+        return if hodler || order_type == 'market'
 
-        errors.add(:base, 'Limit orders are an admin-only functionality')
+        errors.add(:base, 'Limit orders are an hodler-only functionality')
       end
 
       def percentage_if_limit_order

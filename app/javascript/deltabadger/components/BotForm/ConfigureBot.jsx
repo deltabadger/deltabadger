@@ -38,7 +38,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
   return (
-    <div className="db-bots__item db-bot db-bot--dca db-bot--ready db-bot--active">
+    <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
         <div className="db-bot__infotext--setup"><span className="db-breadcrumbs">Exchange &rarr; API Key &rarr; <em>Schedule</em></span></div>
