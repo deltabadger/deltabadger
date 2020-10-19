@@ -1,13 +1,9 @@
 import React, { useState } from 'react'
 import LimitOrderNotice from "./LimitOrderNotice";
-import {shouldRename, renameSymbol} from "../../utils/symbols";
+import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
-  const BTC = shouldRenameSymbols ? "XXBT" : "BTC"
-  const ETH = shouldRenameSymbols ? "XETH" : "ETH"
-  const EUR = shouldRenameSymbols ? "ZEUR" : "EUR"
-  const USD = shouldRenameSymbols ? "ZUSD" : "USD"
 
   const compareSymbols = (x, y) => {
     if (shouldRenameSymbols) {
@@ -24,8 +20,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   }
 
   const uniqueArray = (array) => [...new Set(array)]
-  const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)), [BTC, ETH])
-  const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)), [EUR, USD])
+  const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
+  const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)), getSpecialSymbols(currentExchange.name, false))
 
 
   const [type, setType] = useState("market_buy");
