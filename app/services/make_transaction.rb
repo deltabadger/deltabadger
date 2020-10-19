@@ -10,6 +10,7 @@ class MakeTransaction < BaseService
     notifications: Notifications::BotAlerts.new,
     validate_limit: Bots::Free::Validators::Limit.new,
     validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
+    validate_trial_ending_soon: Bots::Free::Validators::TrialEndingSoon.new,
     subtract_credits: SubtractCredits.new
   )
     @get_exchange_trader = exchange_trader
@@ -21,6 +22,7 @@ class MakeTransaction < BaseService
     @notifications = notifications
     @validate_limit = validate_limit
     @validate_almost_limit = validate_almost_limit
+    @validate_trial_ending_soon = validate_trial_ending_soon
     @subtract_credits = subtract_credits
   end
 
@@ -34,6 +36,7 @@ class MakeTransaction < BaseService
     if result.success?
       bot = @bots_repository.update(bot.id, restarts: 0)
       result = validate_limit(bot, notify)
+      check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
@@ -95,6 +98,11 @@ class MakeTransaction < BaseService
     end
 
     validate_limit_result
+  end
+
+  def check_if_trial_ending_soon(bot, notify)
+    ending_soon_result = @validate_trial_ending_soon.call(bot.user)
+    @notifications.first_month_ending_soon(bot: bot) if ending_soon_result.failure? && notify
   end
 
   def recoverable?(result)
