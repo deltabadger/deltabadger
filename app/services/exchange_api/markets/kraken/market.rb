@@ -12,7 +12,7 @@ module ExchangeApi
           symbol_info = fetch_symbol(symbol)
           return symbol_info unless symbol_info.success?
 
-          symbol_info.data['ordermin'].to_f
+          Result::Success.new(symbol_info.data['ordermin'].to_f)
         end
 
         def all_symbols
