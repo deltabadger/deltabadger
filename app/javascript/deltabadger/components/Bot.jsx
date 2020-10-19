@@ -64,7 +64,7 @@ const BotTemplate = ({
   const isSellOffer = () => settings.type === 'sell'
 
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--pick-exchange db-bot--running ${botOpenClass}`}>
+    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--active db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
