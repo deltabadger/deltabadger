@@ -51,6 +51,13 @@ module Notifications
       ).limit_almost_reached.deliver_later
     end
 
+    def first_month_ending_soon(bot:)
+      BotAlertsMailer.with(
+        bot: bot,
+        user: bot.user
+      ).first_month_ending_soon.deliver_later
+    end
+
     private
 
     attr_reader :subscriptions_repository, :calculate_restart_delay, :format_readable_duration
