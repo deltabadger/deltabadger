@@ -29,4 +29,11 @@ class BotAlertsMailer < ApplicationMailer
 
     mail(to: @user.email, subject: 'Limit almost reached ⌛')
   end
+
+  def first_month_ending_soon
+    @user = params[:user]
+    @bot = params[:bot]
+
+    mail(to: @user.email, subject: 'First month trial ending soon!')
+  end
 end
