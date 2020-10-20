@@ -1,11 +1,9 @@
 import React, { useState } from 'react'
 import LimitOrderNotice from "./LimitOrderNotice";
-import {shouldRename, renameSymbol} from "../../utils/symbols";
+import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
-  const BTC = shouldRenameSymbols ? "XXBT" : "BTC"
-  const ETH = shouldRenameSymbols ? "XETH" : "ETH"
 
   const compareSymbols = (x, y) => {
     if (shouldRenameSymbols) {
@@ -15,19 +13,15 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
   }
 
-  const sortSymbols = (symbols) => {
-    const btcOrEmpty = symbols.find(s => s === BTC) ? [BTC] : []
-    const ethOrEmpty = symbols.find(s => s === ETH) ? [ETH] : []
-    const otherSymbols = symbols.filter(s => s !== BTC && s !== ETH)
-    return [...btcOrEmpty, ...ethOrEmpty, ...otherSymbols.sort(compareSymbols)]
+  const sortSymbols = (symbols, specialSymbols) => {
+    const specialSymbolsOrEmpty = specialSymbols.filter(s => symbols.includes(s))
+    const otherSymbols = symbols.filter(s => !(specialSymbols.includes(s)))
+    return [...specialSymbolsOrEmpty, ...otherSymbols.sort(compareSymbols)]
   }
 
   const uniqueArray = (array) => [...new Set(array)]
-  const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)))
-  const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)))
-
-  console.log(BASES)
-  console.log(QUOTES)
+  const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
+  const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)), getSpecialSymbols(currentExchange.name, false))
 
 
   const [type, setType] = useState("market_buy");
