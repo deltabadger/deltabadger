@@ -2,7 +2,8 @@ module Bots::Free::Validators
   class Create < BaseService
     def call(bot, user)
       allowed_symbols = bot.exchange.symbols
-      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols)
+      non_hodler_symbols = bot.exchange.non_hodler_symbols
+      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols, non_hodler_symbols)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -25,6 +26,7 @@ module Bots::Free::Validators
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
+      validate :hodler_allowed_symbol
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -38,7 +40,7 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
 
-      def initialize(params, user, allowed_symbols)
+      def initialize(params, user, allowed_symbols, non_hodler_symbols)
         @interval = params.fetch('interval')
         @base = params.fetch('base')
         @quote = params.fetch('quote')
@@ -47,6 +49,7 @@ module Bots::Free::Validators
         @price = params.fetch('price').to_f
         @percentage = params.fetch('percentage', nil)&.to_f
         @allowed_symbols = allowed_symbols
+        @non_hodler_symbols = non_hodler_symbols
         @hodler = user.subscription_name == 'hodler'
       end
 
@@ -67,6 +70,13 @@ module Bots::Free::Validators
         )
 
         errors.add(:base, result.errors.first) if result.failure?
+      end
+
+      def hodler_allowed_symbol
+        symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
+        return if hodler || symbol.in?(non_hodler_symbols)
+
+        errors.add(:symbol, "#{symbol} is not supported in your subscription")
       end
 
       def hodler_if_limit_order
