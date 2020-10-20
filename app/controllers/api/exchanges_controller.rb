@@ -6,7 +6,7 @@ module Api
         {
           id: exchange.id,
           name: exchange.name,
-          symbols: exchange.symbols,
+          symbols: current_user.subscription_name == "hodler" ? exchange.symbols : exchange.non_hodler_symbols,
           owned: exchange.in?(owned)
         }
       end
