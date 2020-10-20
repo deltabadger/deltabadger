@@ -8,6 +8,10 @@ class Exchange < ApplicationRecord
     end
   end
 
+  def non_hodler_symbols
+    filter_non_hodler_symbols(symbols)
+  end
+
   private
 
   def binance_symbols
@@ -30,5 +34,11 @@ class Exchange < ApplicationRecord
 
   def default_symbols
     { base: 'BTC', quote: 'USD' }
+  end
+
+  def filter_non_hodler_symbols(symbols)
+    is_kraken = name.downcase == 'kraken'
+    btc_eth = is_kraken ? ['XXBT', 'XETH'] : ['BTC', 'ETH']
+    symbols.select { |s| btc_eth.include?(s.base) }
   end
 end
