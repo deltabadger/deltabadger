@@ -66,8 +66,8 @@ export const Transactions = ({ bot, active }) => {
         <tr>
           <th scope="col">Date</th>
           <th scope="col">Order</th>
-          <th scope="col">Amount({bot.settings.base})</th>
-          <th scope="col">Rate({bot.settings.quote})</th>
+          <th scope="col">Amount({base})</th>
+          <th scope="col">Rate({quote})</th>
         </tr>
       </thead>
       <tbody>
