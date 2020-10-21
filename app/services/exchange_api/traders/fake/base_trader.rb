@@ -6,25 +6,13 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Fake
 
-        MIN_TRANSACTION_VOLUME = 0.002
-
         SUCCESS = true
-        # SUCCESS = false
 
         attr_reader :exchange_name, :bid, :ask
 
-        def initialize(exchange_name)
+        def initialize(exchange_name, market: ExchangeApi::Markets::Fake::Market.new)
           @exchange_name = exchange_name
-          new_prices
-        end
-
-        def current_bid_ask_price(_)
-          if SUCCESS
-            new_prices
-            Result::Success.new(BidAskPrice.new(bid, ask))
-          else
-            Result::Failure.new('Something went wrong!', RECOVERABLE)
-          end
+          @market = market
         end
 
         private
@@ -47,14 +35,10 @@ module ExchangeApi
           }
         end
 
-        def smart_volume(price, rate)
+        def smart_volume(symbol, price, rate)
           volume = (price / rate).ceil(8)
-          Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
-        end
-
-        def new_prices
-          @bid = rand(6000...8000)
-          @ask = @bid * (1 + rand * 0.2)
+          min_volume = @market.minimum_order_volume(symbol)
+          Result::Success.new([min_volume, volume].max)
         end
       end
     end
