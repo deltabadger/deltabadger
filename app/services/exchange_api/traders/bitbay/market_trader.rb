@@ -2,24 +2,46 @@ module ExchangeApi
   module Traders
     module Bitbay
       class MarketTrader < ExchangeApi::Traders::Bitbay::BaseTrader
-        def buy(currency:, price:)
-          buy_params = get_buy_params(price)
-          place_order(currency, buy_params)
+        def buy(base:, quote:, price:)
+          symbol = @market.symbol(base, quote)
+          buy_params = get_buy_params(symbol, price)
+          return buy_params unless buy_params.success?
+
+          place_order(symbol, buy_params.data)
         end
 
-        def sell(currency:, price:)
-          sell_params = get_sell_params(price)
-          place_order(currency, sell_params)
+        def sell(base:, quote:, price:)
+          symbol = @market.symbol(base, quote)
+          sell_params = get_sell_params(symbol, price)
+          return sell_params unless sell_params.success?
+
+          place_order(symbol, sell_params.data)
         end
 
         private
 
-        def get_buy_params(price)
-          common_order_params.merge(offerType: 'buy', price: transaction_price(price))
+        def get_buy_params(symbol, price)
+          price_above_minimums = transaction_price(symbol, price)
+          return price_above_minimums unless price_above_minimums.success?
+
+          Result::Success.new(
+            common_order_params.merge(
+              offerType: 'buy',
+              price: price_above_minimums.data
+            )
+          )
         end
 
-        def get_sell_params(price)
-          common_order_params.merge(offerType: 'sell', price: transaction_price(price))
+        def get_sell_params(symbol, price)
+          price_above_minimums = transaction_price(symbol, price)
+          return price_above_minimums unless price_above_minimums.success?
+
+          Result::Success.new(
+            common_order_params.merge(
+              offerType: 'sell',
+              price: price_above_minimums.data
+            )
+          )
         end
 
         def common_order_params
