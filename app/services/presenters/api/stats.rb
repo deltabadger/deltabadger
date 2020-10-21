@@ -1,22 +1,17 @@
 module Presenters
   module Api
     class Stats < BaseService
-      def initialize(
-        get_trader: ExchangeApi::Traders::Get.new,
-        api_keys_repository: ApiKeysRepository.new
-      )
-
-        @get_exchange_trader = get_trader
-        @api_keys_repository = api_keys_repository
+      def initialize(get_markets: ExchangeApi::Markets::Get.new)
+        @get_exchange_market = get_markets
       end
 
       def call(bot:, transactions:)
         return {} if transactions.empty?
 
-        api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
-        api = @get_exchange_trader.call(api_key, bot.order_type)
+        market = @get_exchange_market.call(bot.exchange_id)
 
-        current_price_result = api.current_price(bot.currency)
+        market_symbol = market.symbol(bot.base, bot.quote)
+        current_price_result = market.current_price(market_symbol)
         current_price = current_price_result.or(transactions.last.rate)
         transactions_amount_sum = transactions.sum(&:amount)
         total_invested = transactions.sum(&:price).ceil(5)
@@ -41,7 +36,7 @@ module Presenters
       end
 
       def price_format(price, bot)
-        "#{price.floor(2)} #{bot.currency}"
+        "#{price.floor(2)} #{bot.quote}"
       end
 
       def profit_loss_format(current_value, total_invested, bot)
@@ -53,7 +48,7 @@ module Presenters
         {
           positive: positive,
           value: "#{positive ? '+' : '-'}#{profit_loss.floor(2).abs} "\
-            "#{bot.currency} "\
+            "#{bot.quote} "\
             "(#{positive ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
         }
       end

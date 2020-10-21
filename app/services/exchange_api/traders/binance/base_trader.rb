@@ -6,34 +6,15 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Binance
 
-        MIN_TRANSACTION_PRICES = {
-          BKRW: 2000,
-          IDRT: 40_000,
-          NGN: 1000,
-          RUB: 200,
-          ZAR: 200,
-          UAH: 200
-        }.freeze
-        DEFAULT_MIN_TRANSACTION_PRICE = 20
-        DEFAULT_MIN_QUANTITY = 0.001
-        DEFAULT_QUANTITY_ACCURACY = 3 # Decimal places
-
-        def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Binance.new)
+        def initialize(
+          api_key:,
+          api_secret:,
+          market: ExchangeApi::Markets::Binance::Market.new,
+          map_errors: ExchangeApi::MapErrors::Binance.new
+        )
           @signed_client = signed_client(api_key, api_secret)
+          @market = market
           @map_errors = map_errors
-        end
-
-        def current_bid_ask_price(currency)
-          symbol = "BTC#{currency.upcase}"
-          request = unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
-          response = JSON.parse(request.body)
-
-          bid = response.fetch('bidPrice').to_f
-          ask = response.fetch('askPrice').to_f
-
-          Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError
-          Result::Failure.new('Could not fetch current price from Binance')
         end
 
         private
@@ -50,24 +31,35 @@ module ExchangeApi
           Result::Failure.new('Could not make Binance order', RECOVERABLE)
         end
 
-        def common_order_params(currency)
-          symbol = "BTC#{currency.upcase}"
+        def common_order_params(symbol)
           {
             symbol: symbol
           }
         end
 
-        def transaction_price(currency, price)
-          limit = MIN_TRANSACTION_PRICES.fetch(
-            currency.upcase.to_sym,
-            DEFAULT_MIN_TRANSACTION_PRICE
-          )
-          [limit, price].max
+        def transaction_price(symbol, price)
+          min_price = @market.minimum_order_price(symbol)
+          return min_price unless min_price.success?
+
+          [price, min_price.data].max
         end
 
-        def transaction_quantity(price, rate)
-          quantity = (price / rate).round(DEFAULT_QUANTITY_ACCURACY)
-          [quantity, DEFAULT_MIN_QUANTITY].max
+        def transaction_volume(price, rate)
+          min_volume = @market.minimum_order_volume(symbol)
+          return min_volume unless min_volume.success?
+
+          [chosen_volume(price, rate), min_volume.data].max
+        end
+
+        def chosen_volume(price, rate)
+          base_step_size = @market.base_step_size(symbol)
+          return base_step_size unless base_step_size.success?
+
+          base_decimals = @market.base_decimals(symbol)
+          return base_decimals unless base_step_size.success?
+
+          volume = price / rate
+          ((volume / base_step_size.data).round * base_step_size).round(base_decimals.data)
         end
 
         def parse_response(response)

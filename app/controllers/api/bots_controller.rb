@@ -79,7 +79,8 @@ module Api
       order_type
       price
       percentage
-      currency
+      base
+      quote
       interval
       bot_type
     ].freeze

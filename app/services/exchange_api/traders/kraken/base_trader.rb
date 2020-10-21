@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/LineLength:
 require 'result'
 
 module ExchangeApi
@@ -7,26 +6,17 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Kraken
 
-        MIN_TRANSACTION_VOLUME = 0.001
-
-        def initialize(api_key:, api_secret:, map_errors: ExchangeApi::MapErrors::Kraken.new, options: {})
+        def initialize(
+          api_key:,
+          api_secret:,
+          market: ExchangeApi::Markets::Kraken::Market.new,
+          map_errors: ExchangeApi::MapErrors::Kraken.new,
+          options: {}
+        )
           @client = get_client(api_key, api_secret)
+          @market = market
           @map_errors = map_errors
           @options = options
-        end
-
-        def current_bid_ask_price(currency)
-          response = @client.ticker("xbt#{currency}")
-          result = response['result']
-          key = result.keys.first # The result should contain only one key
-          rates = result[key]
-
-          bid = rates.fetch('b').first.to_f
-          ask = rates.fetch('a').first.to_f
-
-          Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError
-          Result::Failure.new('Could not fetch current price from Kraken', RECOVERABLE)
         end
 
         private
@@ -59,17 +49,22 @@ module ExchangeApi
           }
         end
 
-        def common_order_params(currency)
-          pair = "XBT#{currency}"
+        def common_order_params(symbol)
           {
-            pair: pair,
+            pair: symbol,
             trading_agreement: ('agree' if @options[:german_trading_agreement])
           }.compact
         end
 
-        def smart_volume(price, rate)
-          volume = (price / rate).ceil(8)
-          Result::Success.new([MIN_TRANSACTION_VOLUME, volume].max)
+        def smart_volume(symbol, price, rate)
+          volume_decimals = @market.base_decimals(symbol)
+          return volume_decimals unless volume_decimals.success?
+
+          volume = (price / rate).ceil(volume_decimals.data)
+          min_volume = @market.minimum_order_volume(symbol)
+          return min_volume unless min_volume.success?
+
+          Result::Success.new([min_volume.data, volume].max)
         end
 
         def orders
@@ -79,4 +74,3 @@ module ExchangeApi
     end
   end
 end
-# rubocop:enable Metrics/LineLength:
