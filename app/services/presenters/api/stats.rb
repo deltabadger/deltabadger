@@ -21,10 +21,10 @@ module Presenters
 
         {
           bought: bought_format(transactions_amount_sum),
-          totalInvested: price_format(total_invested, bot),
-          averagePrice: price_format(average_price, bot),
-          currentValue: price_format(current_value, bot),
-          profitLoss: profit_loss_format(current_value, total_invested, bot),
+          totalInvested: price_format(total_invested),
+          averagePrice: price_format(average_price),
+          currentValue: price_format(current_value),
+          profitLoss: profit_loss_format(current_value, total_invested),
           currentPriceAvailable: current_price_result.success?
         }
       end
@@ -32,14 +32,14 @@ module Presenters
       private
 
       def bought_format(transactions_amount_sum)
-        "#{transactions_amount_sum.floor(6)} BTC"
+        transactions_amount_sum.floor(6).to_s
       end
 
-      def price_format(price, bot)
-        "#{price.floor(2)} #{bot.quote}"
+      def price_format(price)
+        price.floor(2).to_s
       end
 
-      def profit_loss_format(current_value, total_invested, bot)
+      def profit_loss_format(current_value, total_invested)
         profit_loss = current_value - total_invested
         profit_loss_percentage = (1 - current_value / total_invested) * 100
 
@@ -47,9 +47,8 @@ module Presenters
 
         {
           positive: positive,
-          value: "#{positive ? '+' : '-'}#{profit_loss.floor(2).abs} "\
-            "#{bot.quote} "\
-            "(#{positive ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
+          value: "#{positive ? '+' : '-'}#{profit_loss.floor(2).abs}",
+          percentage: "(#{positive ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
         }
       end
     end
