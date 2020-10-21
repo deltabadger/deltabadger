@@ -17,8 +17,8 @@ module Bots::Free::Validators
     class BotSettings
       include ActiveModel::Validations
 
-      attr_reader :interval, :base, :quote, :type, :order_type,
-                  :price, :percentage, :allowed_symbols, :hodler
+      attr_reader :interval, :base, :quote, :type, :order_type, :price,
+                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
