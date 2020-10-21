@@ -1,8 +1,9 @@
 module Bots::Free::Validators
   class Create < BaseService
     def call(bot, user)
-      allowed_currencies = bot.exchange.currencies
-      bot_settings = BotSettings.new(bot.settings, user, allowed_currencies)
+      allowed_symbols = bot.exchange.symbols
+      non_hodler_symbols = bot.exchange.non_hodler_symbols
+      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols, non_hodler_symbols)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -16,15 +17,16 @@ module Bots::Free::Validators
     class BotSettings
       include ActiveModel::Validations
 
-      attr_reader :interval, :currency, :type, :order_type, :price,
-                  :percentage, :allowed_currencies, :hodler
+      attr_reader :interval, :base, :quote, :type, :order_type, :price,
+                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
 
-      validates :interval, :currency, :type, :order_type, :price, presence: true
-      validate :allowed_currency
+      validates :interval, :base, :quote, :type, :order_type, :price, presence: true
+      validate :allowed_symbol
+      validate :hodler_allowed_symbol
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -38,33 +40,43 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
 
-      def initialize(params, user, allowed_currencies)
+      def initialize(params, user, allowed_symbols, non_hodler_symbols)
         @interval = params.fetch('interval')
-        @currency = params.fetch('currency')
+        @base = params.fetch('base')
+        @quote = params.fetch('quote')
         @type = params.fetch('type')
         @order_type = params.fetch('order_type')
         @price = params.fetch('price').to_f
         @percentage = params.fetch('percentage', nil)&.to_f
-        @allowed_currencies = allowed_currencies
+        @allowed_symbols = allowed_symbols
+        @non_hodler_symbols = non_hodler_symbols
         @hodler = user.subscription_name == 'hodler'
       end
 
       private
 
-      def allowed_currency
-        return if currency.in?(allowed_currencies)
+      def allowed_symbol
+        symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
+        return if symbol.in?(allowed_symbols)
 
-        errors.add(:currency, "'#{currency}' is not allowed")
+        errors.add(:symbol, "#{symbol} is not supported")
       end
 
       def interval_within_limit
         result = Bots::Free::Validators::IntervalWithinLimit.call(
           interval: interval,
           price: price,
-          currency: currency
+          currency: quote
         )
 
         errors.add(:base, result.errors.first) if result.failure?
+      end
+
+      def hodler_allowed_symbol
+        symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
+        return if hodler || symbol.in?(non_hodler_symbols)
+
+        errors.add(:symbol, "#{symbol} is not supported in your subscription")
       end
 
       def hodler_if_limit_order

@@ -4,23 +4,25 @@ module ExchangeApi
   module Traders
     module Bitbay
       class LimitTrader < ExchangeApi::Traders::Bitbay::BaseTrader
-        def buy(currency:, price:, percentage:)
-          buy_params = get_buy_params(currency, price, percentage)
+        def buy(base:, quote:, price:, percentage:)
+          symbol = @market.symbol(base, quote)
+          buy_params = get_buy_params(symbol, price, percentage)
           return buy_params unless buy_params.success?
 
-          place_order(currency, buy_params.data)
+          place_order(symbol, buy_params.data)
         end
 
-        def sell(currency:, price:, percentage:)
-          sell_params = get_sell_params(currency, price, percentage)
+        def sell(base:, quote:, percentage:)
+          symbol = @market.symbol(base, quote)
+          sell_params = get_sell_params(symbol, price, percentage)
           return sell_params unless sell_params.success?
 
-          place_order(currency, sell_params.data)
+          place_order(symbol, sell_params.data)
         end
 
         private
 
-        def place_order(currency, params)
+        def place_order(symbol, params)
           response = super
           return response unless response.success?
 
@@ -41,12 +43,15 @@ module ExchangeApi
           end
         end
 
-        def get_buy_params(currency, price, percentage)
-          rate = current_ask_price(currency)
+        def get_buy_params(symbol, price, percentage)
+          rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = (rate.data * (1 - percentage / 100)).ceil(2)
-          amount = transaction_amount(transaction_price(price), limit_rate)
+          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          price_above_minimums = transaction_price(symbol, price)
+          return price_above_minimums unless price_above_minimums.success?
+
+          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
           Result::Success.new(common_order_params.merge(
                                 offerType: 'buy',
                                 amount: amount,
@@ -54,17 +59,27 @@ module ExchangeApi
                               ))
         end
 
-        def get_sell_params(currency, price, percentage)
-          rate = current_bid_price(currency)
+        def get_sell_params(symbol, price, percentage)
+          rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = (rate.data * (1 + percentage / 100)).ceil(2)
-          amount = transaction_amount(transaction_price(price), limit_rate)
+          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          price_above_minimums = transaction_price(symbol, price)
+          return price_above_minimums unless price_above_minimums.success?
+
+          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
                                 amount: amount,
                                 rate: limit_rate
                               ))
+        end
+
+        def rate_percentage(symbol, rate, percentage)
+          rate_decimals = @market.quote_decimals(symbol)
+          return rate_decimals unless rate_decimals.success?
+
+          (rate.data * (1 + percentage / 100)).ceil(rate_decimals)
         end
 
         def common_order_params

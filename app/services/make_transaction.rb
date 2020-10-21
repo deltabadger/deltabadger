@@ -65,7 +65,8 @@ class MakeTransaction < BaseService
 
   def perform_action(api, bot)
     settings = {
-      currency: bot.currency,
+      base: bot.base,
+      quote: bot.quote,
       price: bot.price.to_f,
       percentage: (bot.percentage.to_f if bot.limit?)
     }.compact
