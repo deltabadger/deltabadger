@@ -9,8 +9,12 @@ class Bot < ApplicationRecord
   enum status: [*STATES]
   enum bot_type: [*TYPES]
 
-  def currency
-    settings.fetch('currency')
+  def base
+    settings.fetch('base')
+  end
+
+  def quote
+    settings.fetch('quote')
   end
 
   def price
