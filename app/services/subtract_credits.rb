@@ -13,7 +13,7 @@ class SubtractCredits < BaseService
     subscription = bot.user.subscription
     credits_to_subtract = @convert_currency_to_credits.call(
       amount: const,
-      currency: bot.currency
+      currency: bot.quote
     )
 
     subtracted_credits = subscription.credits - credits_to_subtract

@@ -1,5 +1,5 @@
 module ExchangeApi
-  module Traders
+  module Markets
     class BidAskPrice
       attr_reader :bid, :ask
 

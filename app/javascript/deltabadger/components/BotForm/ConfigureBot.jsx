@@ -1,12 +1,47 @@
 import React, { useState } from 'react'
 import LimitOrderNotice from "./LimitOrderNotice";
+import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
+  const shouldRenameSymbols = shouldRename(currentExchange.name)
+
+  const compareSymbols = (x, y) => {
+    if (shouldRenameSymbols) {
+      return renameSymbol(x).localeCompare(renameSymbol(y))
+    } else {
+      return x.localeCompare(y)
+    }
+  }
+
+  const sortSymbols = (symbols, specialSymbols) => {
+    const specialSymbolsOrEmpty = specialSymbols.filter(s => symbols.includes(s))
+    const otherSymbols = symbols.filter(s => !(specialSymbols.includes(s)))
+    return [...specialSymbolsOrEmpty, ...otherSymbols.sort(compareSymbols)]
+  }
+
+  const uniqueArray = (array) => [...new Set(array)]
+  const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
+  const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)), getSpecialSymbols(currentExchange.name, false))
+
+
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState(currentExchange.currencies[0]);
+  const [base, setBase] = useState(BASES[0]);
+  const [quote, setQuote] = useState(QUOTES[0]);
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
+
+  const validQuotesForSelectedBase = () => {
+    const symbols = currentExchange.symbols
+    return QUOTES.filter(quote => symbols.find(symbol => symbol.base === base && symbol.quote === quote ))
+  }
+
+  const setFirstValidQuoteIfUnavailable = () => {
+    const validQuotes = validQuotesForSelectedBase()
+    if (validQuotes.includes(quote)) return;
+
+    setQuote(validQuotes[0])
+  }
 
   const ResetButton = () => (
     <div
@@ -24,7 +59,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     evt.preventDefault();
     const botParams = {
       type,
-      currency,
+      base,
+      quote,
       interval,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
@@ -72,10 +108,15 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           </div>
           <div className="form-group mr-2">
             <select
+              value={base}
+              onChange={e => setBase(e.target.value) && setFirstValidQuoteIfUnavailable()}
               className="form-control"
             >
-              <option value="buy">BTC</option>
-              <option value="buy" disabled>ETH</option>
+              {
+                BASES.map(c =>
+                  (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                )
+              }
             </select>
           </div>
           <div className="form-group mr-2">for</div>
@@ -90,14 +131,14 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           </div>
           <div className="form-group mr-2">
             <select
-              value={currency}
-              onChange={e => setCurrency(e.target.value)}
+              value={quote}
+              onChange={e => setQuote(e.target.value)}
               className="form-control"
               id="exampleFormControlSelect1"
             >
               {
-                currentExchange.currencies.map(c =>
-                  (<option key={c} value={c}>{c}</option>)
+                validQuotesForSelectedBase().map(c =>
+                  (<option key={c} value={c}>{renameSymbol(c)}</option>)
                 )
               }
             </select>
