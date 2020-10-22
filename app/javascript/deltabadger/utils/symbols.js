@@ -8,9 +8,6 @@ export const renameSymbol = (s) => {
 export const getSpecialSymbols = (name, isBase) => {
     const shouldRenameSymbols = shouldRename(name)
     const BTC = shouldRenameSymbols ? 'XBT' : 'BTC'
-    const ETH = 'ETH'
-    const EUR = 'EUR'
-    const USD = 'USD'
 
-    return isBase ? [BTC, ETH] : [EUR, USD]
+    return isBase ? [BTC, 'ETH'] : ['EUR', 'USD']
 }
