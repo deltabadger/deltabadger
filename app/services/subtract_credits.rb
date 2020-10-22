@@ -8,7 +8,8 @@ class SubtractCredits < BaseService
   end
 
   def call(bot, const)
-    return nil if bot.user.unlimited? || bot.user.first_month?
+    first_month_and_limit_reached = bot.user.first_month? && bot.user.limit_reached?
+    return nil if bot.user.unlimited? || first_month_and_limit_reached
 
     subscription = bot.user.subscription
     credits_to_subtract = @convert_currency_to_credits.call(

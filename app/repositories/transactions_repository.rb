@@ -1,4 +1,6 @@
 class TransactionsRepository < BaseRepository
+  BTC = %w[XXBT XBT BTC].freeze
+
   def for_bot(bot, limit: nil)
     bot.transactions.limit(limit).order(id: :desc)
   end
@@ -26,6 +28,8 @@ class TransactionsRepository < BaseRepository
   private
 
   def total_btc_by_type(type)
-    model.joins(:bot).where("bots.settings->>'type' = ?", type).sum(:amount)
+    model.joins(:bot)
+         .where("bots.settings->>'type' = ? AND bots.settings->>'base' IN (?)", type, BTC)
+         .sum(:amount)
   end
 end
