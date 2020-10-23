@@ -17,9 +17,10 @@ module ExchangeApi
 
         def all_symbols
           symbols = @client.asset_pairs
+          alt_names = altname_symbols
           symbols['result'].map do |_symbol, data|
-            base = data['base']
-            quote = data['quote']
+            base = alt_names[data['base']]
+            quote = alt_names[data['quote']]
             MarketSymbol.new(base, quote)
           end
         end
@@ -39,6 +40,11 @@ module ExchangeApi
         end
 
         private
+
+        def altname_symbols
+          symbols = @client.assets
+          Hash[symbols['result'].map.collect { |name, data| [name, data['altname']] }]
+        end
 
         def fetch_symbol(symbol)
           response = @client.asset_pairs(symbol)
