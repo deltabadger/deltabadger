@@ -9,7 +9,10 @@ class PaymentDashboard < Administrate::BaseDashboard
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
     id: Field::Number,
-    user: Field::BelongsTo,
+    user: Field::BelongsTo.with_options(
+      searchable: true,
+      searchable_field: 'email'
+    ),
     payment_id: Field::String,
     subscription_plan: Field::BelongsTo,
     status: Field::String.with_options(searchable: false),
@@ -78,6 +81,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
+    subscription_plan
     status
     total
     currency
