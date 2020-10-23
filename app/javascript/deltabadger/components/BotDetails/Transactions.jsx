@@ -1,7 +1,10 @@
 import React from 'react'
 import { Chart } from './Chart';
+import { shouldRename, renameSymbol } from '../../utils/symbols';
 
 const Stats = ({
+  base,
+  quote,
   bought,
   averagePrice,
   totalInvested,
@@ -13,27 +16,27 @@ const Stats = ({
       <tbody>
         <tr>
           <td scope="col">Bought:</td>
-          <th scope="col">{ bought }</th>
+          <th scope="col">{ bought } { base }</th>
         </tr>
         <tr>
           <td scope="col">Average price:</td>
-          <th scope="col">{ averagePrice }</th>
+          <th scope="col">{ averagePrice } { quote }</th>
         </tr>
         <tr>
           <td scope="col">Total invested:</td>
-          <th scope="col">{ totalInvested }</th>
+          <th scope="col">{ totalInvested } { quote }</th>
         </tr>
         <tr>
           <td scope="col">Current value:</td>
           <th scope="col">
-            { currentValue }
+            { currentValue } { quote }
             { !currentPriceAvailable && <sup>*</sup> }
           </th>
         </tr>
         <tr>
           <td scope="col">Profit/Loss:</td>
           <th scope="col" className={`text-${profitLoss.positive ? 'success' : 'danger'}`}>
-            { profitLoss.value }
+            { profitLoss.value } { quote } { profitLoss.percentage }
             { !currentPriceAvailable && <sup>*</sup> }
           </th>
         </tr>
@@ -41,9 +44,12 @@ const Stats = ({
     </table>
 )
 
-export const Transactions = ({ bot, active }) => (
-  <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
-    <Stats {...bot.stats} />
+export const Transactions = ({ bot, active }) => {
+  const { exchangeName } = bot;
+  const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
+  const quote = shouldRename(exchangeName) ? renameSymbol(bot.settings.quote) : bot.settings.quote
+  return <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
+    <Stats base={base} quote={quote} {...bot.stats} />
     { !bot.stats.currentPriceAvailable &&
       <p className="db-smallinfo">
        <i className="material-icons-round">error_outline</i> <sup>*</sup>
@@ -60,8 +66,8 @@ export const Transactions = ({ bot, active }) => (
         <tr>
           <th scope="col">Date</th>
           <th scope="col">Order</th>
-          <th scope="col">Amount(BTC)</th>
-          <th scope="col">Rate({bot.settings.currency})</th>
+          <th scope="col">Amount({base})</th>
+          <th scope="col">Rate({quote})</th>
         </tr>
       </thead>
       <tbody>
@@ -85,4 +91,4 @@ export const Transactions = ({ bot, active }) => (
       <span className="ml-3"> Download .csv</span> </a>
     </div>
   </div>
-)
+}
