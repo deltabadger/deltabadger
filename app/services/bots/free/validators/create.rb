@@ -2,8 +2,12 @@ module Bots::Free::Validators
   class Create < BaseService
     def call(bot, user)
       allowed_symbols = bot.exchange.symbols
+      return allowed_symbols unless allowed_symbols.success?
+
       non_hodler_symbols = bot.exchange.non_hodler_symbols
-      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols, non_hodler_symbols)
+      return non_hodler_symbols unless allowed_symbols.success?
+
+      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols.data, non_hodler_symbols.data)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
