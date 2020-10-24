@@ -21,7 +21,9 @@ module ExchangeApi
           return Result::Success.new(Rails.cache.read(ALL_SYMBOLS_CACHE_KEY)) if Rails.cache.exist?(ALL_SYMBOLS_CACHE_KEY)
 
           response = JSON.parse(Faraday.get(TICKER_URL).body)
-          return Result::Failure.new("Couldn't fetch Bitbay symbols") if response['status'] != 'Ok'
+          if response['status'] != 'Ok'
+            return Result::Failure.new("Couldn't fetch Bitbay symbols", RECOVERABLE)
+          end
 
           symbols_data = response['items']
           all_symbols = symbols_data.map do |_, symbol_data|
@@ -61,7 +63,7 @@ module ExchangeApi
           Rails.cache.write(cache_key, response, expires_in: 1.hour)
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new('Could not fetch chosen symbol from Bitbay')
+          Result::Failure.new('Could not fetch chosen symbol from Bitbay', RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
@@ -73,7 +75,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Bitbay')
+          Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
         end
 
         def symbol_cache_key(symbol)
