@@ -17,7 +17,7 @@ class Exchange < ApplicationRecord
     all_symbols = symbols
     return all_symbols unless all_symbols.success?
 
-    filter_non_hodler_symbols(all_symbols.data)
+    Result::Success.new(filter_non_hodler_symbols(all_symbols.data))
   end
 
   private
