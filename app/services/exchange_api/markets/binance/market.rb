@@ -1,3 +1,4 @@
+require 'result'
 module ExchangeApi
   module Markets
     module Binance
