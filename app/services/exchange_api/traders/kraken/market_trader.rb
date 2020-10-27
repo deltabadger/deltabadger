@@ -4,17 +4,17 @@ module ExchangeApi
   module Traders
     module Kraken
       class MarketTrader < ExchangeApi::Traders::Kraken::BaseTrader
-        def buy(base:, quote:, price:)
+        def buy(base:, quote:, price:, force:)
           symbol = @market.symbol(base, quote)
-          buy_params = get_buy_params(symbol, price)
+          buy_params = get_buy_params(symbol, price, force)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data)
         end
 
-        def sell(base:, quote:, price:)
+        def sell(base:, quote:, price:, force:)
           symbol = @market.symbol(base, quote)
-          sell_params = get_sell_params(symbol, price)
+          sell_params = get_sell_params(symbol, price, force)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
@@ -26,21 +26,21 @@ module ExchangeApi
           @client.closed_orders.dig('result', 'closed')
         end
 
-        def get_buy_params(symbol, price)
+        def get_buy_params(symbol, price, force)
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(symbol, price, rate.data)
+          volume = smart_volume(symbol, price, rate.data, force)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params(symbol).merge(type: 'buy', volume: volume.data))
         end
 
-        def get_sell_params(symbol, price)
+        def get_sell_params(symbol, price, force)
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(symbol, price, rate.data)
+          volume = smart_volume(symbol, price, rate.data, force)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params(symbol).merge(type: 'sell', volume: volume.data))

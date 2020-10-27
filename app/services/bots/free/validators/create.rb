@@ -22,13 +22,13 @@ module Bots::Free::Validators
       include ActiveModel::Validations
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
-                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler
+                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler, :force
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
 
-      validates :interval, :base, :quote, :type, :order_type, :price, presence: true
+      validates :interval, :base, :quote, :type, :order_type, :price, :force, presence: true
       validate :allowed_symbol
       validate :hodler_allowed_symbol
       validates :interval, inclusion: { in: INTERVALS }
@@ -45,13 +45,14 @@ module Bots::Free::Validators
       validate :interval_within_limit
 
       def initialize(params, user, allowed_symbols, non_hodler_symbols)
-        @interval = params.fetch('interval')
-        @base = params.fetch('base')
-        @quote = params.fetch('quote')
-        @type = params.fetch('type')
-        @order_type = params.fetch('order_type')
-        @price = params.fetch('price').to_f
-        @percentage = params.fetch('percentage', nil)&.to_f
+        @interval = params['interval']
+        @base = params['base']
+        @quote = params['quote']
+        @type = params['type']
+        @order_type = params['order_type']
+        @price = params['price']&.to_f
+        @percentage = params['percentage']&.to_f
+        @force = params['force']
         @allowed_symbols = allowed_symbols
         @non_hodler_symbols = non_hodler_symbols
         @hodler = user.subscription_name == 'hodler'

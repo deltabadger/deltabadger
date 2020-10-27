@@ -37,6 +37,10 @@ class Bot < ApplicationRecord
     settings.fetch('order_type')
   end
 
+  def force
+    settings.fetch('force', false)
+  end
+
   def market?
     order_type == 'market'
   end
