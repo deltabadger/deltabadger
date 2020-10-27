@@ -83,6 +83,7 @@ module Api
       quote
       interval
       bot_type
+      force
     ].freeze
 
     def bot_create_params
