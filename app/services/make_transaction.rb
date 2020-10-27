@@ -68,10 +68,12 @@ class MakeTransaction < BaseService
       base: bot.base,
       quote: bot.quote,
       price: bot.price.to_f,
-      percentage: (bot.percentage.to_f if bot.limit?)
+      percentage: (bot.percentage.to_f if bot.limit?),
+      force: bot.force
     }.compact
     result = if bot.buyer?
-               api.buy(settings)
+               api.
+                   buy(settings)
              else
                api.sell(settings)
              end
