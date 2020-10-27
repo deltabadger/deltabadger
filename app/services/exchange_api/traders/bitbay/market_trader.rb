@@ -2,17 +2,17 @@ module ExchangeApi
   module Traders
     module Bitbay
       class MarketTrader < ExchangeApi::Traders::Bitbay::BaseTrader
-        def buy(base:, quote:, price:)
+        def buy(base:, quote:, price:, force:)
           symbol = @market.symbol(base, quote)
-          buy_params = get_buy_params(symbol, price)
+          buy_params = get_buy_params(symbol, price, force)
           return buy_params unless buy_params.success?
 
           place_order(symbol, buy_params.data)
         end
 
-        def sell(base:, quote:, price:)
+        def sell(base:, quote:, price:, force:)
           symbol = @market.symbol(base, quote)
-          sell_params = get_sell_params(symbol, price)
+          sell_params = get_sell_params(symbol, price, force)
           return sell_params unless sell_params.success?
 
           place_order(symbol, sell_params.data)
@@ -20,8 +20,8 @@ module ExchangeApi
 
         private
 
-        def get_buy_params(symbol, price)
-          price_above_minimums = transaction_price(symbol, price)
+        def get_buy_params(symbol, price, force)
+          price_above_minimums = transaction_price(symbol, price, force)
           return price_above_minimums unless price_above_minimums.success?
 
           Result::Success.new(
@@ -32,8 +32,8 @@ module ExchangeApi
           )
         end
 
-        def get_sell_params(symbol, price)
-          price_above_minimums = transaction_price(symbol, price)
+        def get_sell_params(symbol, price, force)
+          price_above_minimums = transaction_price(symbol, price, force)
           return price_above_minimums unless price_above_minimums.success?
 
           Result::Success.new(

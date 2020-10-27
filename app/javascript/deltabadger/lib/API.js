@@ -47,6 +47,7 @@ const API = {
       base: params.base,
       quote: params.quote,
       interval: params.interval,
+      force: params.force
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
