@@ -28,13 +28,14 @@ module Bots::Free::Validators
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
 
-      validates :interval, :base, :quote, :type, :order_type, :price, :force, presence: true
+      validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
       validate :hodler_allowed_symbol
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
+      validates :force, inclusion: { in: [true, false] }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
         greater_than: 0,
