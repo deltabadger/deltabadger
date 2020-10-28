@@ -69,10 +69,10 @@ module ExchangeApi
           return quote_tick unless quote_decimals.success?
 
           percentage_rate = rate.data * (1 - percentage / 100)
-          rounded_to_min_tick = (
-            (percentage_rate / quote_tick.data).round * quote_tick.data
-          ).round(quote_decimals.data)
-          Result::Success.new(rounded_to_min_tick)
+          ceil_to_min_tick = (
+            (percentage_rate / quote_tick.data).ceil * quote_tick.data
+          ).ceil(quote_decimals.data)
+          Result::Success.new(ceil_to_min_tick)
         end
 
         def common_order_params(symbol)
