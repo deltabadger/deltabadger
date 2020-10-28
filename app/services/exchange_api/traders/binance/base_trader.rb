@@ -59,7 +59,7 @@ module ExchangeApi
           return base_decimals unless base_step_size.success?
 
           volume = price / rate
-          ((volume / base_step_size.data).round * base_step_size.data).round(base_decimals.data)
+          ((volume / base_step_size.data).ceil * base_step_size.data).ceil(base_decimals.data)
         end
 
         def parse_response(response)
