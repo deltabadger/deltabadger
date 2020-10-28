@@ -12,7 +12,7 @@ module ExchangeApi
           place_order(symbol, buy_params.data)
         end
 
-        def sell(base:, quote:, percentage:)
+        def sell(base:, quote:, price:, percentage:)
           symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(symbol, price, percentage)
           return sell_params unless sell_params.success?
