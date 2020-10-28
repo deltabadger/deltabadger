@@ -48,14 +48,18 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate_percentage(symbol, rate.data, percentage)
+          return limit_rate unless limit_rate.success?
+
           price_above_minimums = transaction_price(symbol, price)
           return price_above_minimums unless price_above_minimums.success?
 
           amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
+          return amount unless amount.success?
+
           Result::Success.new(common_order_params.merge(
                                 offerType: 'buy',
-                                amount: amount,
-                                rate: limit_rate
+                                amount: amount.data,
+                                rate: limit_rate.data
                               ))
         end
 
@@ -64,14 +68,18 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate_percentage(symbol, rate.data, percentage)
+          return limit_rate unless limit_rate.success?
+
           price_above_minimums = transaction_price(symbol, price)
           return price_above_minimums unless price_above_minimums.success?
 
           amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
+          return amount unless amount.success?
+
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
-                                amount: amount,
-                                rate: limit_rate
+                                amount: amount.data,
+                                rate: limit_rate.success?
                               ))
         end
 
@@ -79,7 +87,7 @@ module ExchangeApi
           rate_decimals = @market.quote_decimals(symbol)
           return rate_decimals unless rate_decimals.success?
 
-          (rate.data * (1 + percentage / 100)).ceil(rate_decimals)
+          Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
         end
 
         def common_order_params

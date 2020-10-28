@@ -41,7 +41,7 @@ module ExchangeApi
           rate_decimals = @market.base_decimals(symbol)
           return rate_decimals unless rate_decimals.success?
 
-          (price / rate).ceil(rate_decimals.data)
+          Result::Success.new((price / rate).ceil(rate_decimals.data))
         end
 
         def common_order_params
