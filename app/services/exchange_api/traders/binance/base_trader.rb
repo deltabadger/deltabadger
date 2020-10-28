@@ -44,7 +44,7 @@ module ExchangeApi
           [price, min_price.data].max
         end
 
-        def transaction_volume(price, rate)
+        def transaction_volume(symbol, price, rate)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 

@@ -42,7 +42,7 @@ module ExchangeApi
           return quote_decimals unless quote_decimals.success?
 
           limit_rate = (rate.data * (1 - percentage / 100)).ceil(quote_decimals.data)
-          quantity = transaction_volume(price, limit_rate)
+          quantity = transaction_volume(symbol, price, limit_rate)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'BUY',
                                 quantity: quantity,
@@ -58,7 +58,7 @@ module ExchangeApi
           return quote_decimals unless quote_decimals.success?
 
           limit_rate = (rate.data * (1 + percentage / 100)).ceil(quote_decimals.data)
-          quantity = transaction_volume(price, limit_rate)
+          quantity = transaction_volume(symbol, price, limit_rate)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'SELL',
                                 quantity: quantity,
