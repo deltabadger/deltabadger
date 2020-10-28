@@ -53,7 +53,7 @@ module ExchangeApi
           price_above_minimums = transaction_price(symbol, price)
           return price_above_minimums unless price_above_minimums.success?
 
-          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
+          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data)
           return amount unless amount.success?
 
           Result::Success.new(common_order_params.merge(
@@ -73,13 +73,13 @@ module ExchangeApi
           price_above_minimums = transaction_price(symbol, price)
           return price_above_minimums unless price_above_minimums.success?
 
-          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate)
+          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data)
           return amount unless amount.success?
 
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
                                 amount: amount.data,
-                                rate: limit_rate.success?
+                                rate: limit_rate.data
                               ))
         end
 
