@@ -48,10 +48,10 @@ module ExchangeApi
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          [chosen_volume(price, rate), min_volume.data].max
+          [chosen_volume(symbol, price, rate), min_volume.data].max
         end
 
-        def chosen_volume(price, rate)
+        def chosen_volume(symbol, price, rate)
           base_step_size = @market.base_step_size(symbol)
           return base_step_size unless base_step_size.success?
 
