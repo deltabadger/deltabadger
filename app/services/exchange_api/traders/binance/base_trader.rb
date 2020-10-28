@@ -44,14 +44,14 @@ module ExchangeApi
           [price, min_price.data].max
         end
 
-        def transaction_volume(price, rate)
+        def transaction_volume(symbol, price, rate)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          [chosen_volume(price, rate), min_volume.data].max
+          [chosen_volume(symbol, price, rate), min_volume.data].max
         end
 
-        def chosen_volume(price, rate)
+        def chosen_volume(symbol, price, rate)
           base_step_size = @market.base_step_size(symbol)
           return base_step_size unless base_step_size.success?
 
@@ -59,7 +59,7 @@ module ExchangeApi
           return base_decimals unless base_step_size.success?
 
           volume = price / rate
-          ((volume / base_step_size.data).round * base_step_size).round(base_decimals.data)
+          ((volume / base_step_size.data).round * base_step_size.data).round(base_decimals.data)
         end
 
         def parse_response(response)

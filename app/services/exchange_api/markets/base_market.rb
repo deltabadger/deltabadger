@@ -1,6 +1,8 @@
 module ExchangeApi
   module Markets
     class BaseMarket
+      RECOVERABLE = { data: { recoverable: true }.freeze }.freeze
+
       def current_price(symbol)
         result = current_bid_ask_price(symbol)
         return result unless result.success?

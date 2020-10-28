@@ -1,3 +1,4 @@
+require 'result'
 module ExchangeApi
   module Markets
     module Binance
@@ -55,11 +56,14 @@ module ExchangeApi
           exchange_info = JSON.parse(request.body)
           symbols = exchange_info['symbols']
 
-          symbols.map do |symbol_info|
+          market_symbols = symbols.map do |symbol_info|
             base = symbol_info['baseAsset']
             quote = symbol_info['quoteAsset']
             MarketSymbol.new(base, quote)
           end
+          Result::Success.new(market_symbols)
+        rescue StandardError
+          Result::Failure.new('Binance exchange info is unavailable', RECOVERABLE)
         end
 
         private
@@ -73,7 +77,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Binance')
+          Result::Failure.new('Could not fetch current price from Binance', RECOVERABLE)
         end
 
         def find_symbol_in_exchange_info(symbol, exchange_info)
