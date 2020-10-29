@@ -22,7 +22,7 @@ module Bots::Free::Validators
       include ActiveModel::Validations
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
-                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler, :force
+                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler, :force_smart_intervals
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
@@ -35,7 +35,7 @@ module Bots::Free::Validators
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
-      validates :force, inclusion: { in: [true, false] }
+      validates :force_smart_intervals, inclusion: { in: [true, false] }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
         greater_than: 0,
@@ -53,7 +53,7 @@ module Bots::Free::Validators
         @order_type = params['order_type']
         @price = params['price']&.to_f
         @percentage = params['percentage']&.to_f
-        @force = params['force']
+        @force_smart_intervals = params['force_smart_intervals']
         @allowed_symbols = allowed_symbols
         @non_hodler_symbols = non_hodler_symbols
         @hodler = user.subscription_name == 'hodler'

@@ -32,7 +32,7 @@ const BotTemplate = ({
   const [price, setPrice] = useState(settings.price);
   const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
-  const [force, setForce] = useState(settings.force);
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
 
   const colorClass = settings.type === 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
@@ -51,7 +51,7 @@ const BotTemplate = ({
       interval,
       id: bot.id,
       price: price.trim(),
-      force: force,
+      force_smart_intervals: forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
     handleEdit(botParams)
@@ -135,8 +135,9 @@ const BotTemplate = ({
           <div>
             <label>
               <input type="checkbox"
-                     checked={force}
-                     onChange={() => setForce(!force)}
+                     checked={forceSmartIntervals}
+                     onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+                     disabled={working}
               />
               Execute my schedule using smart intervals
             </label>
