@@ -2,7 +2,15 @@ module Bots
   module Free
     module FormatParams
       class Create < BaseService
-        BOT_SETTING_PARAMS = %i[type order_type price percentage base quote interval force].freeze
+        BOT_SETTING_PARAMS = %i[
+          type
+          order_type
+          price percentage
+          base
+          quote
+          interval
+          force_smart_intervals
+        ].freeze
 
         def call(params)
           bot_settings = params.slice(*BOT_SETTING_PARAMS)

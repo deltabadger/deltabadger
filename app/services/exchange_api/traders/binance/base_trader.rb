@@ -37,18 +37,18 @@ module ExchangeApi
           }
         end
 
-        def transaction_price(symbol, price, force)
+        def transaction_price(symbol, price, force_smart_intervals)
           min_price = @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
 
-          force ? min_price.data : [price, min_price.data].max
+          force_smart_intervals ? min_price.data : [price, min_price.data].max
         end
 
-        def transaction_volume(symbol, price, rate, force)
+        def transaction_volume(symbol, price, rate, force_smart_intervals)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          force ? min_volume.data : [chosen_volume(symbol, price, rate), min_volume.data].max
+          force_smart_intervals ? min_volume.data : [chosen_volume(symbol, price, rate), min_volume.data].max
         end
 
         def chosen_volume(symbol, price, rate)
