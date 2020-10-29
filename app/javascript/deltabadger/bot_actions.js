@@ -30,7 +30,8 @@ const botRemoved = (id) => ({
 })
 
 const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: errors}})
-const cleanErrors = (id) => ({ type: 'SET_ERRORS', payload: {[id]: []}})
+
+export const clearErrors = (id) => ({ type: 'SET_ERRORS', payload: {[id]: []}})
 
 export const loadBots = (openFirstBot = false) => dispatch => {
   return API.getBots().then(({ data }) => {
@@ -52,7 +53,7 @@ export const startBot = (id) => dispatch => {
   dispatch(tryStartBot(id))
 
   API.startBot(id).then(({data: bot}) => {
-    dispatch(cleanErrors(bot.id))
+    dispatch(clearErrors(bot.id))
     dispatch(botReloaded(bot))
     dispatch(openBot(bot.id))
   }).catch((data) => {
@@ -93,7 +94,7 @@ export const fetchBot = (id) => dispatch => {
 
 export const editBot = botParams => dispatch => {
   API.updateBot(botParams).then(({data: bot}) => {
-    dispatch(cleanErrors(bot.id))
+    dispatch(clearErrors(bot.id))
     dispatch(startBot(bot.id))
   }).catch((data) => {
     dispatch(setErrors(data.response.data))
