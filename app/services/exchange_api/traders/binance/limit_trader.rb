@@ -35,35 +35,44 @@ module ExchangeApi
         end
 
         def get_buy_params(symbol, price, percentage, force)
+          rate = limit_rate(symbol, percentage)
+          return rate unless rate.success?
+
+          quantity = transaction_volume(symbol, price, rate.data, force)
+          Result::Success.new(common_order_params(symbol).merge(
+                                side: 'BUY',
+                                quantity: quantity,
+                                price: rate.data
+                              ))
+        end
+
+        def get_sell_params(symbol, price, percentage, force)
+          rate = limit_rate(symbol, percentage)
+          return rate unless rate.success?
+
+          quantity = transaction_volume(symbol, price, rate.data, force)
+          Result::Success.new(common_order_params(symbol).merge(
+                                side: 'SELL',
+                                quantity: quantity,
+                                price: rate.data
+                              ))
+        end
+
+        def limit_rate(symbol, percentage)
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
           quote_decimals = @market.quote_decimals(symbol)
           return quote_decimals unless quote_decimals.success?
 
-          limit_rate = (rate.data * (1 - percentage / 100)).ceil(quote_decimals.data)
-          quantity = transaction_volume(price, limit_rate, force)
-          Result::Success.new(common_order_params(symbol).merge(
-                                side: 'BUY',
-                                quantity: quantity,
-                                price: limit_rate
-                              ))
-        end
+          quote_tick = @market.quote_tick_size(symbol)
+          return quote_tick unless quote_decimals.success?
 
-        def get_sell_params(symbol, price, percentage, force)
-          rate = @market.current_bid_price(symbol)
-          return rate unless rate.success?
-
-          quote_decimals = @market.quote_decimals(symbol)
-          return quote_decimals unless quote_decimals.success?
-
-          limit_rate = (rate.data * (1 + percentage / 100)).ceil(quote_decimals.data)
-          quantity = transaction_volume(price, limit_rate, force)
-          Result::Success.new(common_order_params(symbol).merge(
-                                side: 'SELL',
-                                quantity: quantity,
-                                price: limit_rate
-                              ))
+          percentage_rate = rate.data * (1 - percentage / 100)
+          ceil_to_min_tick = (
+            (percentage_rate / quote_tick.data).ceil * quote_tick.data
+          ).ceil(quote_decimals.data)
+          Result::Success.new(ceil_to_min_tick)
         end
 
         def common_order_params(symbol)
