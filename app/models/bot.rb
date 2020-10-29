@@ -37,8 +37,8 @@ class Bot < ApplicationRecord
     settings.fetch('order_type')
   end
 
-  def force
-    settings.fetch('force', false)
+  def force_smart_intervals
+    settings.fetch('force_smart_intervals', false)
   end
 
   def market?
