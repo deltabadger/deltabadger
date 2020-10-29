@@ -12,6 +12,7 @@ import {
   removeBot,
   editBot,
   openBot,
+  clearErrors
 } from '../bot_actions'
 
 const BotTemplate = ({
@@ -23,6 +24,7 @@ const BotTemplate = ({
   handleRemove,
   handleClick,
   handleEdit,
+  clearBotErrors,
   reload,
   open
 }) => {
@@ -69,6 +71,8 @@ const BotTemplate = ({
   const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
   const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote
 
+  const handleTypeChange = (e) => {setType(e.target.value); clearBotErrors(id)}
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--active db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
@@ -90,7 +94,7 @@ const BotTemplate = ({
           <div className="form-group mr-2">
             <select
               value={type}
-              onChange={e => setType(e.target.value)}
+              onChange={handleTypeChange}
               className="form-control db-select--buy-sell"
               id="exampleFormControlSelect1"
               disabled={working}
@@ -153,6 +157,7 @@ const BotTemplate = ({
             value={percentage}
             className="form-control"
             onChange={e => setPercentage(e.target.value)}
+            placeholder="0"
             disabled={working}
         /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
       </div>
@@ -174,5 +179,6 @@ const mapDispatchToProps = ({
   handleRemove: removeBot,
   handleEdit: editBot,
   handleClick: openBot,
+  clearBotErrors: clearErrors
 })
 export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
