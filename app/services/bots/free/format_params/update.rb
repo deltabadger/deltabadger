@@ -4,7 +4,7 @@ module Bots
       class Update < BaseService
         def call(bot, params)
           bot_settings = bot.settings.merge(
-            params.slice(:order_type, :price, :interval, :percentage, :force)
+            params.slice(:order_type, :price, :interval, :percentage, :force_smart_intervals)
           )
 
           {

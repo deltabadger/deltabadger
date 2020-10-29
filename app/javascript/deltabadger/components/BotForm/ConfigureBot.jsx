@@ -30,7 +30,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [quote, setQuote] = useState(QUOTES[0]);
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
-  const [force, setForce] = useState(true);
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(true);
 
   const validQuotesForSelectedBase = () => {
     const symbols = currentExchange.symbols
@@ -63,7 +63,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       base,
       quote,
       interval,
-      force,
+      force_smart_intervals: forceSmartIntervals,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
@@ -162,8 +162,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           <div>
             <label>
               <input type="checkbox"
-                     checked={force}
-                     onChange={() => setForce(!force)}
+                     checked={forceSmartIntervals}
+                     onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               />
               Execute my schedule using smart intervals
             </label>
