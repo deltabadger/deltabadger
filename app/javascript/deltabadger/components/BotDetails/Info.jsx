@@ -11,16 +11,20 @@ export const Info = ({ bot, active }) => (
     </div>
     <div className="db-showif db-showif--setup">
       <p className="mt-2"><b>"Smart intervals"</b></p>
-      <p>Sometimes, you may be surprised that the bot schedule is different from the one you defined.</p>
-      <p>Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy periodically is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>
-      <p>You can force smart intervals by setting a small transaction size. Our backtesting on data since the beginning of 2017 shows that hourly DCA beats daily DCA by +1.5%. Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours). Soon, we will provide a better interface for that.</p>
-      </div>
-      <p className="mt-2"><b>New to dollar-cost averaging?</b></p>
-      <p>Those links will help:</p>
-      <ul className="mb-5">
-        <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY" target="_blank" rel="noopener">DCA for Beginners (video)</a></li>
-        <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank" rel="noopener">The power of DCA into Bitcoin</a></li>
-        <li><a href="https://dcabtc.com/" target="_blank" rel="noopener">DCA Simulator</a></li>
-      </ul>
+      <p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p>
+      <p className="mt-2"><b>Why?</b></p>
+      <p>There are two benefits:</p>
+      <p>More frequent schedule often results in a better average price. On Kraken, since the beginning of 2017, hourly DCA beats daily DCA by ~1.5%.</p>
+      <p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>
+      <p className="mt-2"><b>Example:</b></p>
+      <p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>
+    </div>
+    <p className="mt-2"><b>New to dollar-cost averaging?</b></p>
+    <p>Those links will help:</p>
+    <ul className="mb-5">
+      <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY" target="_blank" rel="noopener">DCA for Beginners (video)</a></li>
+      <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank" rel="noopener">The power of DCA into Bitcoin</a></li>
+      <li><a href="https://dcabtc.com/" target="_blank" rel="noopener">DCA Simulator</a></li>
+    </ul>
   </div>
 )
