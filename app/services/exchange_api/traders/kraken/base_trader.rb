@@ -64,7 +64,7 @@ module ExchangeApi
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          Result::Success.new(force_smart_intervals ? min_volume : [min_volume.data, volume].max)
+          Result::Success.new(force_smart_intervals ? min_volume.data : [min_volume.data, volume].max)
         end
 
         def orders
