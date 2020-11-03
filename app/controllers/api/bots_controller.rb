@@ -83,6 +83,7 @@ module Api
       quote
       interval
       bot_type
+      force_smart_intervals
     ].freeze
 
     def bot_create_params
@@ -94,7 +95,7 @@ module Api
     def bot_update_params
       params
         .require(:bot)
-        .permit(:order_type, :interval, :price, :percentage).merge(id: params[:id])
+        .permit(:order_type, :interval, :price, :percentage, :force_smart_intervals).merge(id: params[:id])
     end
   end
 end
