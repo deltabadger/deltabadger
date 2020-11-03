@@ -63,7 +63,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       base,
       quote,
       interval,
-      force_smart_intervals: forceSmartIntervals,
+      forceSmartIntervals,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
