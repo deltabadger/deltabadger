@@ -53,7 +53,7 @@ const BotTemplate = ({
       interval,
       id: bot.id,
       price: price.trim(),
-      force_smart_intervals: forceSmartIntervals,
+      forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
     handleEdit(botParams)
@@ -71,7 +71,10 @@ const BotTemplate = ({
   const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
   const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote
 
-  const handleTypeChange = (e) => {setType(e.target.value); clearBotErrors(id)}
+  const handleTypeChange = (e) => {
+    setType(e.target.value)
+    clearBotErrors(id)
+  }
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
