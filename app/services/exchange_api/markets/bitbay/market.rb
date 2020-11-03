@@ -10,6 +10,11 @@ module ExchangeApi
         ALL_SYMBOLS_CACHE_KEY = 'bitbay_all_symbols'.freeze
 
         def minimum_order_price(symbol)
+          if symbol.include? "-BTC"
+            thousand_satoshis = 0.00001
+            return Result::Success.new(thousand_satoshis)
+          end
+
           response = fetch_symbol(symbol)
           return response unless response.success?
 
