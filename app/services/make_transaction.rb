@@ -72,8 +72,7 @@ class MakeTransaction < BaseService
       force_smart_intervals: bot.force_smart_intervals
     }.compact
     result = if bot.buyer?
-               api.
-                   buy(settings)
+               api.buy(settings)
              else
                api.sell(settings)
              end

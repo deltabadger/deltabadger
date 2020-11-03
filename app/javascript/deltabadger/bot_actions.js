@@ -31,7 +31,7 @@ const botRemoved = (id) => ({
 
 const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: errors}})
 
-export const clearErrors = (id) => ({ type: 'SET_ERRORS', payload: {[id]: []}})
+export const clearErrors = (id) => setErrors({ id, errors: [] })
 
 export const loadBots = (openFirstBot = false) => dispatch => {
   return API.getBots().then(({ data }) => {
