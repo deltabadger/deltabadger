@@ -31,7 +31,7 @@ module ExchangeApi
           common_params = common_order_params(symbol, price, force_smart_intervals)
           return common_params unless common_params.success?
 
-          Result::Success.new(common_params.merge(side: 'SELL'))
+          Result::Success.new(common_params.data.merge(side: 'SELL'))
         end
 
         def common_order_params(symbol, price, force_smart_intervals)
