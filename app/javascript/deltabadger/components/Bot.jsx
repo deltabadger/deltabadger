@@ -12,6 +12,7 @@ import {
   removeBot,
   editBot,
   openBot,
+  clearErrors
 } from '../bot_actions'
 
 const BotTemplate = ({
@@ -23,6 +24,7 @@ const BotTemplate = ({
   handleRemove,
   handleClick,
   handleEdit,
+  clearBotErrors,
   reload,
   open
 }) => {
@@ -32,6 +34,7 @@ const BotTemplate = ({
   const [price, setPrice] = useState(settings.price);
   const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
 
   const colorClass = settings.type === 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
@@ -50,6 +53,7 @@ const BotTemplate = ({
       interval,
       id: bot.id,
       price: price.trim(),
+      forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
     handleEdit(botParams)
@@ -67,8 +71,13 @@ const BotTemplate = ({
   const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
   const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote
 
+  const handleTypeChange = (e) => {
+    setType(e.target.value)
+    clearBotErrors(id)
+  }
+
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--active db-bot--setup-finished ${botOpenClass}`}>
+    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
@@ -84,52 +93,63 @@ const BotTemplate = ({
       <ProgressBar bot={bot} />
 
       <div className="db-bot__form">
-        <form className="form-inline mx-4">
-          <div className="form-group mr-2">
-            <select
-              value={type}
-              onChange={e => setType(e.target.value)}
-              className="form-control db-select--buy-sell"
-              id="exampleFormControlSelect1"
-              disabled={working}
-            >
-              {isSellOffer() ? <>
-                  <option value="market">Sell</option>
-                  <option value="limit" disabled={!showLimitOrders}>Limit Sell</option>
-                </>
-                : <>
-                  <option value="market">Buy</option>
-                  <option value="limit" disabled={!showLimitOrders}>Limit Buy</option>
-                </>
-              }
-            </select>
+        <form>
+          <div className="form-inline mx-4">
+            <div className="form-group mr-2">
+              <select
+                value={type}
+                onChange={handleTypeChange}
+                className="form-control db-select--buy-sell"
+                id="exampleFormControlSelect1"
+                disabled={working}
+              >
+                {isSellOffer() ? <>
+                    <option value="market">Sell</option>
+                    <option value="limit" disabled={!showLimitOrders}>Limit Sell</option>
+                  </>
+                  : <>
+                    <option value="market">Buy</option>
+                    <option value="limit" disabled={!showLimitOrders}>Limit Buy</option>
+                  </>
+                }
+              </select>
+            </div>
+            <div className="form-group mr-2"> {baseName} for</div>
+            <div className="form-group mr-2">
+              <input
+                type="text"
+                min="1"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                className="form-control db-input--dca-amount"
+                disabled={working}
+              />
+            </div>
+            <div className="form-group mr-2"> {quoteName} /</div>
+            <div className="form-group mr-2">
+              <select
+                value={interval}
+                className="form-control"
+                onChange={e => setInterval(e.target.value)}
+                id="exampleFormControlSelect1"
+                disabled={working}
+              >
+                <option value="hour">Hour</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+              </select>
+            </div>
           </div>
-          <div className="form-group mr-2"> {baseName} for</div>
-          <div className="form-group mr-2">
+          <label className="form-inline mx-4 mt-4 mb-0">
             <input
-              type="text"
-              min="1"
-              value={price}
-              onChange={e => setPrice(e.target.value)}
-              className="form-control db-input--dca-amount"
+              type="checkbox"
+              checked={forceSmartIntervals}
               disabled={working}
-            />
-          </div>
-          <div className="form-group mr-2"> {quoteName} /</div>
-          <div className="form-group mr-2">
-            <select
-              value={interval}
-              className="form-control"
-              onChange={e => setInterval(e.target.value)}
-              id="exampleFormControlSelect1"
-              disabled={working}
-            >
-              <option value="hour">Hour</option>
-              <option value="day">Day</option>
-              <option value="week">Week</option>
-              <option value="month">Month</option>
-            </select>
-          </div>
+              onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+              className="mr-2" />
+            <label disabled={working}>Always use smart intervals.</label>
+          </label>
         </form>
         {isLimitSelected() &&
         <span className="db-limit-bot-modifier">
@@ -141,6 +161,7 @@ const BotTemplate = ({
             value={percentage}
             className="form-control"
             onChange={e => setPercentage(e.target.value)}
+            placeholder="0"
             disabled={working}
         /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
       </div>
@@ -162,5 +183,6 @@ const mapDispatchToProps = ({
   handleRemove: removeBot,
   handleEdit: editBot,
   handleClick: openBot,
+  clearBotErrors: clearErrors
 })
 export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)

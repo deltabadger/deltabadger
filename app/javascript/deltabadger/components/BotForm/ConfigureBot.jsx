@@ -30,6 +30,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [quote, setQuote] = useState(QUOTES[0]);
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(true);
 
   const validQuotesForSelectedBase = () => {
     const symbols = currentExchange.symbols
@@ -62,6 +63,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       base,
       quote,
       interval,
+      forceSmartIntervals,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
@@ -91,72 +93,82 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
-        <form className="form-inline mx-4">
-          <div className="form-group mr-2">
-            <select
-              value={type}
-              onChange={e => setType(e.target.value)}
-              className="form-control db-select--buy-sell"
-              id="exampleFormControlSelect1"
-            >
-              <option value="market_buy">Buy</option>
-              <option value="market_sell">Sell</option>
-              <option value="limit_buy" disabled={!showLimitOrders}>Limit Buy</option>
-              <option value="limit_sell" disabled={!showLimitOrders}>Limit Sell</option>
-              }
-            </select>
+        <form>
+          <div className="form-inline mx-4">
+            <div className="form-group mr-2">
+              <select
+                value={type}
+                onChange={e => setType(e.target.value)}
+                className="form-control db-select--buy-sell"
+                id="exampleFormControlSelect1"
+              >
+                <option value="market_buy">Buy</option>
+                <option value="market_sell">Sell</option>
+                <option value="limit_buy" disabled={!showLimitOrders}>Limit Buy</option>
+                <option value="limit_sell" disabled={!showLimitOrders}>Limit Sell</option>
+                }
+              </select>
+            </div>
+            <div className="form-group mr-2">
+              <select
+                value={base}
+                onChange={e => setBase(e.target.value) && setFirstValidQuoteIfUnavailable()}
+                className="form-control"
+              >
+                {
+                  BASES.map(c =>
+                    (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                  )
+                }
+              </select>
+            </div>
+            <div className="form-group mr-2">for</div>
+            <div className="form-group mr-2">
+              <input
+                type="text"
+                min="1"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                className="form-control mr-2 db-input--dca-amount"
+              />
+            </div>
+            <div className="form-group mr-2">
+              <select
+                value={quote}
+                onChange={e => setQuote(e.target.value)}
+                className="form-control"
+                id="exampleFormControlSelect1"
+              >
+                {
+                  validQuotesForSelectedBase().map(c =>
+                    (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                  )
+                }
+              </select>
+            </div>
+            <div className="form-group mr-2">/</div>
+            <div className="form-group mr-2">
+              <select
+                value={interval}
+                onChange={e => setInterval(e.target.value)}
+                className="form-control"
+                id="exampleFormControlSelect1"
+              >
+                <option value="hour">Hour</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+              </select>
+            </div>
           </div>
-          <div className="form-group mr-2">
-            <select
-              value={base}
-              onChange={e => setBase(e.target.value) && setFirstValidQuoteIfUnavailable()}
-              className="form-control"
-            >
-              {
-                BASES.map(c =>
-                  (<option key={c} value={c}>{renameSymbol(c)}</option>)
-                )
-              }
-            </select>
-          </div>
-          <div className="form-group mr-2">for</div>
-          <div className="form-group mr-2">
+          <label className="form-inline mx-4 mt-4 mb-0">
             <input
-              type="text"
-              min="1"
-              value={price}
-              onChange={e => setPrice(e.target.value)}
-              className="form-control mr-2 db-input--dca-amount"
-            />
-          </div>
-          <div className="form-group mr-2">
-            <select
-              value={quote}
-              onChange={e => setQuote(e.target.value)}
-              className="form-control"
-              id="exampleFormControlSelect1"
-            >
-              {
-                validQuotesForSelectedBase().map(c =>
-                  (<option key={c} value={c}>{renameSymbol(c)}</option>)
-                )
-              }
-            </select>
-          </div>
-          <div className="form-group mr-2">/</div>
-          <div className="form-group mr-2">
-            <select
-              value={interval}
-              onChange={e => setInterval(e.target.value)}
-              className="form-control"
-              id="exampleFormControlSelect1"
-            >
-              <option value="hour">Hour</option>
-              <option value="day">Day</option>
-              <option value="week">Week</option>
-              <option value="month">Month</option>
-            </select>
-          </div>
+              type="checkbox"
+              checked={forceSmartIntervals}
+              onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+              className="mr-2" />
+            <label>Always use smart intervals.</label>
+          </label>
         </form>
         {isLimitOrder() &&
         <span className="db-limit-bot-modifier">
