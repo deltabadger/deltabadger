@@ -41,16 +41,19 @@ module ExchangeApi
           min_price = @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
 
-          return min_price.data if force_smart_intervals
+          return min_price if force_smart_intervals
 
-          [price, min_price.data].max
+          Result::Success.new([price, min_price.data].max)
         end
 
         def transaction_volume(symbol, price, rate)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          [chosen_volume(symbol, price, rate), min_volume.data].max
+          volume = chosen_volume(symbol, price, rate)
+          return volume unless volume.success?
+
+          Result::Success.new([volume.data, min_volume.data].max)
         end
 
         def chosen_volume(symbol, price, rate)
@@ -61,7 +64,9 @@ module ExchangeApi
           return base_decimals unless base_decimals.success?
 
           volume = price / rate
-          ((volume / base_step_size.data).ceil * base_step_size.data).ceil(base_decimals.data)
+          Result::Success.new(
+            ((volume / base_step_size.data).ceil * base_step_size.data).ceil(base_decimals.data)
+          )
         end
 
         def parse_response(response)
