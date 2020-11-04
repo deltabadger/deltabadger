@@ -7,7 +7,9 @@ module ExchangeApi
         def buy(base:, quote:, price:, percentage:, force_smart_intervals:)
           symbol = @market.symbol(base, quote)
           final_price = transaction_price(symbol, price, force_smart_intervals)
-          buy_params = get_buy_params(symbol, final_price, percentage, force_smart_intervals)
+          return final_price unless final_price.success?
+
+          buy_params = get_buy_params(symbol, final_price.data, percentage)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data)
@@ -16,7 +18,9 @@ module ExchangeApi
         def sell(base:, quote:, price:, percentage:, force_smart_intervals:)
           symbol = @market.symbol(base, quote)
           final_price = transaction_price(symbol, price, force_smart_intervals)
-          sell_params = get_sell_params(symbol, final_price, percentage, force_smart_intervals)
+          return final_price unless final_price.success?
+
+          sell_params = get_sell_params(symbol, final_price.data, percentage)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
@@ -34,26 +38,30 @@ module ExchangeApi
           )
         end
 
-        def get_buy_params(symbol, price, percentage, force_smart_intervals)
+        def get_buy_params(symbol, price, percentage)
           rate = limit_rate(symbol, percentage)
           return rate unless rate.success?
 
-          quantity = transaction_volume(symbol, price, rate.data, force_smart_intervals)
+          quantity = transaction_volume(symbol, price, rate.data)
+          return quantity unless quantity.success?
+
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'BUY',
-                                quantity: quantity,
+                                quantity: quantity.data,
                                 price: rate.data
                               ))
         end
 
-        def get_sell_params(symbol, price, percentage, force_smart_intervals)
+        def get_sell_params(symbol, price, percentage)
           rate = limit_rate(symbol, percentage)
           return rate unless rate.success?
 
-          quantity = transaction_volume(symbol, price, rate.data, force_smart_intervals)
+          quantity = transaction_volume(symbol, price, rate.data)
+          return quantity unless quantity.success?
+
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'SELL',
-                                quantity: quantity,
+                                quantity: quantity.data,
                                 price: rate.data
                               ))
         end
