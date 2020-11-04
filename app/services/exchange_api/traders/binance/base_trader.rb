@@ -20,6 +20,14 @@ module ExchangeApi
         private
 
         def place_order(order_params)
+          # Remove exponential notation from quantity
+          if order_params.key?(:quantity)
+            parsed_quantity = parse_quantity(order_params[:symbol], order_params[:quantity])
+            return parsed_quantity unless parsed_quantity.success?
+
+            order_params[:quantity] = parsed_quantity.data
+          end
+
           request = @signed_client.post('order') do |req|
             req.params = order_params
           end
@@ -78,6 +86,13 @@ module ExchangeApi
             rate: rate,
             amount: response['executedQty']
           )
+        end
+
+        def parse_quantity(symbol, quantity)
+          base_decimals = @market.base_decimals(symbol)
+          return base_decimals unless base_decimals.success?
+
+          Result::Success.new("%.#{base_decimals.data}f" % quantity)
         end
       end
     end
