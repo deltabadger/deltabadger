@@ -20,6 +20,7 @@ module ExchangeApi
         private
 
         def place_order(order_params)
+          byebug
           request = @signed_client.post('order') do |req|
             req.params = order_params
           end
@@ -60,7 +61,7 @@ module ExchangeApi
           return base_step_size unless base_step_size.success?
 
           base_decimals = @market.base_decimals(symbol)
-          return base_decimals unless base_step_size.success?
+          return base_decimals unless base_decimals.success?
 
           volume = price / rate
           ((volume / base_step_size.data).ceil * base_step_size.data).ceil(base_decimals.data)
