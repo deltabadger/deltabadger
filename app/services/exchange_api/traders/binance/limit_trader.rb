@@ -38,7 +38,7 @@ module ExchangeApi
           rate = limit_rate(symbol, percentage)
           return rate unless rate.success?
 
-          quantity = transaction_volume(symbol, price, rate.data, force_smart_intervals)
+          quantity = transaction_volume(symbol, price, rate.data)
           quantity_without_exp = parse_quantity(symbol, quantity)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'BUY',
@@ -51,7 +51,7 @@ module ExchangeApi
           rate = limit_rate(symbol, percentage)
           return rate unless rate.success?
 
-          quantity = transaction_volume(symbol, price, rate.data, force_smart_intervals)
+          quantity = transaction_volume(symbol, price, rate.data)
           quantity_without_exp = parse_quantity(symbol, quantity)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'SELL',
