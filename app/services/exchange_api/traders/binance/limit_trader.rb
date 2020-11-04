@@ -39,9 +39,10 @@ module ExchangeApi
           return rate unless rate.success?
 
           quantity = transaction_volume(symbol, price, rate.data, force_smart_intervals)
+          quantity_without_exp = parse_quantity(symbol, quantity)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'BUY',
-                                quantity: quantity,
+                                quantity: quantity_without_exp,
                                 price: rate.data
                               ))
         end
@@ -51,9 +52,10 @@ module ExchangeApi
           return rate unless rate.success?
 
           quantity = transaction_volume(symbol, price, rate.data, force_smart_intervals)
+          quantity_without_exp = parse_quantity(symbol, quantity)
           Result::Success.new(common_order_params(symbol).merge(
                                 side: 'SELL',
-                                quantity: quantity,
+                                quantity: quantity_without_exp,
                                 price: rate.data
                               ))
         end
@@ -73,6 +75,13 @@ module ExchangeApi
             (percentage_rate / quote_tick.data).ceil * quote_tick.data
           ).ceil(quote_decimals.data)
           Result::Success.new(ceil_to_min_tick)
+        end
+
+        def parse_quantity(symbol, quantity)
+          base_decimals = @market.base_decimals(symbol)
+          return base_decimals unless base_decimals.success?
+
+          "%.#{base_decimals.data}f" % quantity
         end
 
         def common_order_params(symbol)
