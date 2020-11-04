@@ -20,7 +20,6 @@ module ExchangeApi
         private
 
         def place_order(order_params)
-          byebug
           request = @signed_client.post('order') do |req|
             req.params = order_params
           end
@@ -47,11 +46,9 @@ module ExchangeApi
           [price, min_price.data].max
         end
 
-        def transaction_volume(symbol, price, rate, force_smart_intervals)
+        def transaction_volume(symbol, price, rate)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
-
-          return min_volume.data if force_smart_intervals
 
           [chosen_volume(symbol, price, rate), min_volume.data].max
         end
