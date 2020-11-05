@@ -1,11 +1,69 @@
 import React, { useEffect, useState, useRef } from 'react';
 
-export const StartButton = ({onClick}) => (
-  <div onClick={onClick} className="btn btn-success">
-    <span className="d-none d-sm-inline">Start</span>
-    <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
-  </div>
-)
+
+export const StartButton = ({onClick, type}) => {
+  const [isOpen, setOpen] = useState(false)
+  const node = useRef()
+
+  const handleClickOutside = e => {
+    if (node.current && node.current.contains(e.target)) {
+      return;
+    }
+    setOpen(false)
+  };
+
+  const SmarterRestartButtons = ({type}) => {
+    if (type === "changed") {
+      return (
+          <div>
+            <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary mr-2">Cancel</div>
+            <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-success">Yes, let's go!</div>
+          </div>
+      )
+    } else if (type === "missed") {
+      return (
+          <div>
+            <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-primary mr-2">No, start again from now</div>
+            <div onClick={() => {setOpen(false)}} className="btn btn-success">Yes, misssed</div>
+          </div>
+      )
+    } else {
+        return (
+            <div>
+                <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-primary mr-2">No, start again from now</div>
+                <div onClick={() => {setOpen(false)}} className="btn btn-success">Yes, on treck</div>
+            </div>
+        )
+    }
+  }
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  return(
+    <div>
+     <div
+         onClick={() => setOpen(true) }
+         className="btn btn-success">
+        <span className="d-none d-sm-inline">Start</span>
+        <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
+     </div>
+        { isOpen &&
+        <div ref={node} className="db-bot__modal">
+          <div className="db-bot__modal__content">
+            <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
+            <SmarterRestartButtons type={type} />
+          </div>
+        </div>
+        }
+     </div>
+  )
+}
+
 export const StartingButton = () => (
   <div className="btn btn-success disabled"><span className="d-none d-sm-inline">Starting</span> <i className="material-icons-round">play_arrow</i></div>
 )
