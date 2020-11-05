@@ -8,7 +8,7 @@ class NextBotTransactionAt < BaseService
   end
 
   def call(bot)
-    return nil unless bot.working? && bot.transactions.exists?
+    return nil unless bot.transactions.exists?
 
     delay = if bot.restarts.zero?
               normal_delay(bot)

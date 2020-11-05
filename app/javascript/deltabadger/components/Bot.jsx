@@ -45,6 +45,34 @@ const BotTemplate = ({
 
   const isLimitSelected = () => type === 'limit'
 
+  const hasConfigurationChanged = () => {
+    const newSettings= {
+      order_type: type,
+      interval,
+      price: price.trim(),
+      forceSmartIntervals,
+      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
+    }
+
+    const oldSettings = {
+      order_type: settings.order_type,
+      interval: settings.interval,
+      price: settings.price.trim(),
+      forceSmartIntervals: settings.force_smart_intervals,
+      percentage: settings.order_type === "limit" ? percentage && percentage.trim() : undefined
+    }
+
+    return JSON.stringify(newSettings) !== JSON.stringify(oldSettings)
+  }
+
+  const getTypeOfSmarterRestart = () => {
+    if (hasConfigurationChanged())
+      return "changed"
+
+    console.log(bot.nowTimestamp, nextTransactionTimestamp)
+    return bot.nowTimestamp >= nextTransactionTimestamp ? "missed" : "ontrack"
+  }
+
   const _handleSubmit = () => {
     if (disableSubmit) return
 
@@ -56,6 +84,7 @@ const BotTemplate = ({
       forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
+
     handleEdit(botParams)
   }
 
@@ -80,7 +109,8 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
-        { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
+        { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
+            <StartButton onClick={_handleSubmit} type={getTypeOfSmarterRestart()}/>)  }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
