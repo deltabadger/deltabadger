@@ -32,7 +32,7 @@ module ExchangeApi
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          limit_rate = rate_percentage(symbol, rate.data, -percentage)
           return limit_rate unless limit_rate.success?
 
           volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals)
