@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { connect } from 'react-redux';
-import { StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
+import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import { shouldRename, renameSymbol} from "../utils/symbols";
+import { formatDuration } from '../utils/time';
+
 import {
   reloadBot,
   stopBot,
@@ -65,12 +67,11 @@ const BotTemplate = ({
     return JSON.stringify(newSettings) !== JSON.stringify(oldSettings)
   }
 
-  const getTypeOfSmarterRestart = () => {
+  const getStartButtonType = () => {
     if (hasConfigurationChanged())
-      return "changed"
+      return startButtonType.CHANGED
 
-    console.log(bot.nowTimestamp, nextTransactionTimestamp)
-    return bot.nowTimestamp >= nextTransactionTimestamp ? "missed" : "ontrack"
+    return bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
 
   const _handleSubmit = () => {
@@ -86,6 +87,17 @@ const BotTemplate = ({
     }
 
     handleEdit(botParams)
+  }
+
+  const _handleContinue  = () => {
+    switch (getStartButtonType()){
+      case startButtonType.MISSED:
+        var map = {"hour": 3600}
+        console.log("MISSED", Math.floor((bot.nowTimestamp - nextTransactionTimestamp)/map[interval]) + 1)
+        break
+      case startButtonType.ON_SCHEDULE:
+        console.log("ONSCHEDULE", nextTransactionTimestamp - bot.nowTimestamp)
+    }
   }
 
   // Shows the first (major) error
@@ -110,7 +122,7 @@ const BotTemplate = ({
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
-            <StartButton onClick={_handleSubmit} type={getTypeOfSmarterRestart()}/>)  }
+            <StartButton onClickReset={_handleSubmit} onClickContinue={_handleContinue} type={getStartButtonType()}/>)  }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
