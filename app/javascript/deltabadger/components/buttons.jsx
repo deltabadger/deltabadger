@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 
+export const startButtonType = {
+    CHANGED: "changed",
+    MISSED: "missed",
+    ON_SCHEDULE: "onSchedule"
+}
 
-export const StartButton = ({onClick, type}) => {
+export const StartButton = ({onClickReset, onClickContinue, type}) => {
   const [isOpen, setOpen] = useState(false)
   const node = useRef()
 
@@ -13,28 +18,53 @@ export const StartButton = ({onClick, type}) => {
   };
 
   const SmarterRestartButtons = ({type}) => {
-    if (type === "changed") {
-      return (
-          <div>
-            <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary mr-2">Cancel</div>
-            <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-success">Yes, let's go!</div>
-          </div>
-      )
-    } else if (type === "missed") {
-      return (
-          <div>
-            <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-primary mr-2">No, start again from now</div>
-            <div onClick={() => {setOpen(false)}} className="btn btn-success">Yes, misssed</div>
-          </div>
-      )
-    } else {
-        return (
-            <div>
-                <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-primary mr-2">No, start again from now</div>
-                <div onClick={() => {setOpen(false)}} className="btn btn-success">Yes, on treck</div>
-            </div>
-        )
-    }
+      switch (type) {
+          case startButtonType.CHANGED:
+              return(
+                  <div>
+                      <p className="">The schedule has changed. The bot will start<br/>buying according to the new
+                          schedule right away.</p>
+                      <div onClick={() => {
+                          setOpen(false)
+                      }} className="btn btn-outline-primary mr-2">Cancel
+                      </div>
+                      <div onClick={() => {
+                          onClickReset() && setOpen(false)
+                      }} className="btn btn-success">Yes, let's go!
+                      </div>
+                  </div>
+              )
+          case startButtonType.MISSED:
+              return (
+                  <div>
+                      <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
+                          missed 150USD and stick to the schedule?</p>
+                      <div onClick={() => {
+                          onClickReset() && setOpen(false)
+                      }} className="btn btn-primary mr-2">No, start again from now
+                      </div>
+                      <div onClick={() => {
+                          onClickContinue() && setOpen(false)
+                      }} className="btn btn-success">Yes, follow the schedule
+                      </div>
+                  </div>
+              )
+          case startButtonType.ON_SCHEDULE:
+              return (
+                  <div>
+                      <p className="">While the bot was paused, you missed part of the schedule.<br/>You have still 1d 3h
+                          12m 44s to the next order.</p>
+                      <div onClick={() => {
+                          onClickReset() && setOpen(false)
+                      }} className="btn btn-primary mr-2">No, start again from now
+                      </div>
+                      <div onClick={() => {
+                          onClickContinue() && setOpen(false)
+                      }} className="btn btn-success">Yes, follow the schedule
+                      </div>
+                  </div>
+              )
+        }
   }
 
   useEffect(() => {
@@ -55,7 +85,6 @@ export const StartButton = ({onClick, type}) => {
         { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
             <SmarterRestartButtons type={type} />
           </div>
         </div>
