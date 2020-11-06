@@ -1,3 +1,4 @@
+import 'lodash'
 import React, { useState } from 'react';
 import { connect } from 'react-redux';
 import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
@@ -6,7 +7,6 @@ import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import { shouldRename, renameSymbol} from "../utils/symbols";
-import { formatDuration } from '../utils/time';
 
 import {
   reloadBot,
@@ -64,12 +64,13 @@ const BotTemplate = ({
       percentage: settings.order_type === "limit" ? percentage && percentage.trim() : undefined
     }
 
-    return JSON.stringify(newSettings) !== JSON.stringify(oldSettings)
+    return !_.isEqual(newSettings, oldSettings)
   }
 
   const getStartButtonType = () => {
     if (hasConfigurationChanged())
       return startButtonType.CHANGED
+
 
     return bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
