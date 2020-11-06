@@ -8,6 +8,7 @@
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "chart.js": "^2.9.1",
     "debounce": "^1.2.0",
+    "lodash": "^4.17.13",
     "moment": "^2.24.0",
     "prop-types": "^15.7.2",
     "rails-ujs": "^5.2.3",
