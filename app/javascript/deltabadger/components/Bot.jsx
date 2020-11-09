@@ -14,7 +14,8 @@ import {
   removeBot,
   editBot,
   openBot,
-  clearErrors
+  clearErrors,
+  fetchRestartParams
 } from '../bot_actions'
 
 const BotTemplate = ({
@@ -26,6 +27,7 @@ const BotTemplate = ({
   handleRemove,
   handleClick,
   handleEdit,
+  fetchRestartParams,
   clearBotErrors,
   reload,
   open
@@ -69,10 +71,9 @@ const BotTemplate = ({
 
   const getStartButtonType = () => {
     if (hasConfigurationChanged())
-      return startButtonType.CHANGED
+      return new Promise(() => ({data: startButtonType.CHANGED}))
 
-
-    return bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
+    return fetchRestartParams(bot.id) //bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
 
   const _handleSubmit = () => {
@@ -123,7 +124,7 @@ const BotTemplate = ({
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
-            <StartButton onClickReset={_handleSubmit} onClickContinue={_handleContinue} type={getStartButtonType()}/>)  }
+            <StartButton getRestartType={getStartButtonType} onClickReset={_handleSubmit} onClickContinue={_handleContinue}/>)  }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
@@ -226,6 +227,7 @@ const mapDispatchToProps = ({
   handleRemove: removeBot,
   handleEdit: editBot,
   handleClick: openBot,
-  clearBotErrors: clearErrors
+  clearBotErrors: clearErrors,
+  fetchRestartParams: fetchRestartParams
 })
 export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
