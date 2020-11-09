@@ -90,6 +90,11 @@ const API = {
     return client.request({ url, params: {}, method: 'delete' }).then(data => data.data);
   },
 
+  fetchRestartParams(botId) {
+    const url = `${API_URL}/bots/${botId}/restart_params`;
+    return client.request({ url, params: {}, method: 'get' }).then(data => data.data)
+  },
+
   getSubscription() {
     const url = `${API_URL}/subscriptions/check`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
