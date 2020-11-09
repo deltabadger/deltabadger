@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import {isNotEmpty} from "../utils/array";
 
 export const startButtonType = {
     CHANGED: "changed",
@@ -6,8 +7,9 @@ export const startButtonType = {
     ON_SCHEDULE: "onSchedule"
 }
 
-export const StartButton = ({onClickReset, onClickContinue, type}) => {
+export const StartButton = ({getRestartType, onClickReset, onClickContinue}) => {
   const [isOpen, setOpen] = useState(false)
+  const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const node = useRef()
 
   const handleClickOutside = e => {
@@ -17,54 +19,52 @@ export const StartButton = ({onClickReset, onClickContinue, type}) => {
     setOpen(false)
   };
 
-  const SmarterRestartButtons = ({type}) => {
-      switch (type) {
-          case startButtonType.CHANGED:
-              return(
-                  <div>
-                      <p className="">The schedule has changed. The bot will start<br/>buying according to the new
-                          schedule right away.</p>
-                      <div onClick={() => {
-                          setOpen(false)
-                      }} className="btn btn-outline-primary mr-2">Cancel
-                      </div>
-                      <div onClick={() => {
-                          onClickReset() && setOpen(false)
-                      }} className="btn btn-success">Yes, let's go!
-                      </div>
+  const SmarterRestartButtons = () => {
+      return (<div>
+          { getType === startButtonType.CHANGED &&
+              <div>
+                  <p className="">The schedule has changed. The bot will start<br/>buying according to the new
+                      schedule right away.</p>
+                  <div onClick={() => {
+                      setOpen(false)
+                  }} className="btn btn-outline-primary mr-2">Cancel
                   </div>
-              )
-          case startButtonType.MISSED:
-              return (
-                  <div>
-                      <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                          missed 150USD and stick to the schedule?</p>
-                      <div onClick={() => {
-                          onClickReset() && setOpen(false)
-                      }} className="btn btn-primary mr-2">No, start again from now
-                      </div>
-                      <div onClick={() => {
-                          onClickContinue() && setOpen(false)
-                      }} className="btn btn-success">Yes, follow the schedule
-                      </div>
+                  <div onClick={() => {
+                      onClickReset() && setOpen(false)
+                  }} className="btn btn-success">Yes, let's go!
                   </div>
-              )
-          case startButtonType.ON_SCHEDULE:
-              return (
-                  <div>
-                      <p className="">While the bot was paused, you missed part of the schedule.<br/>You have still 1d 3h
-                          12m 44s to the next order.</p>
-                      <div onClick={() => {
-                          onClickReset() && setOpen(false)
-                      }} className="btn btn-primary mr-2">No, start again from now
-                      </div>
-                      <div onClick={() => {
-                          onClickContinue() && setOpen(false)
-                      }} className="btn btn-success">Yes, follow the schedule
-                      </div>
+              </div>
+          }
+          { getType === startButtonType.MISSED &&
+              <div>
+                  <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
+                      missed 150USD and stick to the schedule?</p>
+                  <div onClick={() => {
+                      onClickReset() && setOpen(false)
+                  }} className="btn btn-primary mr-2">No, start again from now
                   </div>
-              )
-        }
+                  <div onClick={() => {
+                      onClickContinue() && setOpen(false)
+                  }} className="btn btn-success">Yes, follow the schedule
+                  </div>
+              </div>
+          }
+          { getType === startButtonType.ON_SCHEDULE &&
+              <div>
+                  <p className="">While the bot was paused, you missed part of the schedule.<br/>You have still 1d 3h
+                      12m 44s to the next order.</p>
+                  <div onClick={() => {
+                      onClickReset() && setOpen(false)
+                  }} className="btn btn-primary mr-2">No, start again from now
+                  </div>
+                  <div onClick={() => {
+                      onClickContinue() && setOpen(false)
+                  }} className="btn btn-success">Yes, follow the schedule
+                  </div>
+              </div>
+          }
+      </div>
+      )
   }
 
   useEffect(() => {
@@ -77,7 +77,14 @@ export const StartButton = ({onClickReset, onClickContinue, type}) => {
   return(
     <div>
      <div
-         onClick={() => setOpen(true) }
+         onClick={() => {
+             console.log(getType)
+             getRestartType().then((data) => {
+                 console.log("TYPE", data.restartType)
+                 setType(data.restartType)
+                 setOpen(true)
+             })
+         }}
          className="btn btn-success">
         <span className="d-none d-sm-inline">Start</span>
         <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
@@ -85,7 +92,7 @@ export const StartButton = ({onClickReset, onClickContinue, type}) => {
         { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <SmarterRestartButtons type={type} />
+            <SmarterRestartButtons />
           </div>
         </div>
         }
