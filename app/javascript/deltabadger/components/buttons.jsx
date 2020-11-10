@@ -7,9 +7,11 @@ export const startButtonType = {
     ON_SCHEDULE: "onSchedule"
 }
 
-export const StartButton = ({getRestartType, onClickReset, onClickContinue}) => {
+export const StartButton = ({settings, getRestartType, onClickReset, onClickContinue}) => {
   const [isOpen, setOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
+  const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
+  const [missedAmount, setMissedAmount] = useState(0)
   const node = useRef()
 
   const handleClickOutside = e => {
@@ -38,7 +40,7 @@ export const StartButton = ({getRestartType, onClickReset, onClickContinue}) => 
           { getType === startButtonType.MISSED &&
               <div>
                   <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                      missed 150USD and stick to the schedule?</p>
+                      missed {missedAmount} {settings.quote} and stick to the schedule?</p>
                   <div onClick={() => {
                       onClickReset() && setOpen(false)
                   }} className="btn btn-primary mr-2">No, start again from now
@@ -51,8 +53,8 @@ export const StartButton = ({getRestartType, onClickReset, onClickContinue}) => 
           }
           { getType === startButtonType.ON_SCHEDULE &&
               <div>
-                  <p className="">While the bot was paused, you missed part of the schedule.<br/>You have still 1d 3h
-                      12m 44s to the next order.</p>
+                  <p className="">While the bot was paused, you missed part of the schedule.<br/>You have
+                      still {timeToNextTransaction} to the next order.</p>
                   <div onClick={() => {
                       onClickReset() && setOpen(false)
                   }} className="btn btn-primary mr-2">No, start again from now
@@ -67,6 +69,27 @@ export const StartButton = ({getRestartType, onClickReset, onClickContinue}) => 
       )
   }
 
+  const handleOnClick = () => {
+      getRestartType().then((data) => {
+          switch (data.restartType) {
+              case startButtonType.CHANGED:
+                  setType(data.restartType)
+                  setOpen(true)
+                  break
+              case startButtonType.ON_SCHEDULE:
+                  setType(data.restartType)
+                  setTimeToNextTransaction(data.timeToNextTransaction)
+                  setOpen(true)
+                  break
+              case startButtonType.MISSED:
+                  setType(data.restartType)
+                  setMissedAmount(data.missedAmount)
+                  setOpen(true)
+                  break
+          }
+      })
+  }
+
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -77,14 +100,7 @@ export const StartButton = ({getRestartType, onClickReset, onClickContinue}) => 
   return(
     <div>
      <div
-         onClick={() => {
-             console.log(getType)
-             getRestartType().then((data) => {
-                 console.log("TYPE", data.restartType)
-                 setType(data.restartType)
-                 setOpen(true)
-             })
-         }}
+         onClick={handleOnClick}
          className="btn btn-success">
         <span className="d-none d-sm-inline">Start</span>
         <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
