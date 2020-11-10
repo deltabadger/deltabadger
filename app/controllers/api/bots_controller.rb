@@ -68,7 +68,7 @@ module Api
     end
 
     def restart_params
-      result = GetRestartParams.call(bot_id: params[:id])
+      result = GetRestartParams.call(bot_id: params[:bot_id])
 
       render json: result, status: 200
     end
