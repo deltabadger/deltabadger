@@ -71,7 +71,7 @@ const BotTemplate = ({
 
   const getStartButtonType = () => {
     if (hasConfigurationChanged())
-      return new Promise(() => ({data: startButtonType.CHANGED}))
+      return new Promise((resolve) => (resolve({restartType: startButtonType.CHANGED})))
 
     return fetchRestartParams(bot.id) //bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
@@ -124,7 +124,8 @@ const BotTemplate = ({
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
-            <StartButton getRestartType={getStartButtonType} onClickReset={_handleSubmit} onClickContinue={_handleContinue}/>)  }
+            <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}
+                         onClickContinue={_handleContinue}/>)  }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
