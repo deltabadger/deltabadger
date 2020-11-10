@@ -22,6 +22,22 @@ module ExchangeApi
 
         private
 
+        def parse_response(response)
+          created_order = response.fetch('result')
+          offer_id = created_order.fetch('txid').first
+          # This sleep ensures that the Kraken order has time to close before it's queried
+          # This will potentially stall other workers if all threads are busy
+          sleep(0.5)
+          order_data = orders.fetch(offer_id)
+          rate = order_data.fetch('price').to_f
+          amount = order_data.fetch('vol').to_f
+          {
+            offer_id: offer_id,
+            rate: rate,
+            amount: amount
+          }
+        end
+
         def orders
           @client.closed_orders.dig('result', 'closed')
         end
