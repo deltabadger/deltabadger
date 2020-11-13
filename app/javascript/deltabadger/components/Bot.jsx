@@ -70,8 +70,16 @@ const BotTemplate = ({
   }
 
   const getStartButtonType = () => {
-    if (hasConfigurationChanged())
-      return new Promise((resolve) => (resolve({restartType: startButtonType.CHANGED})))
+    if (hasConfigurationChanged()) {
+      return fetchRestartParams(bot.id).then((data) => {
+        switch (data.restartType) {
+          case startButtonType.MISSED:
+            return {...data, restartType: startButtonType.CHANGED_MISSED}
+          case startButtonType.ON_SCHEDULE:
+            return {...data, restartType: startButtonType.CHANGED_ON_SCHEDULE}
+        }
+      })
+    }
 
     return fetchRestartParams(bot.id) //bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
