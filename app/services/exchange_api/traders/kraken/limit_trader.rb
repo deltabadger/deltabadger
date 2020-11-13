@@ -22,27 +22,18 @@ module ExchangeApi
 
         private
 
-        def parse_response(response)
-          created_order = response.fetch('result')
-          offer_id = created_order.fetch('txid').first
-          order_data = orders.fetch(offer_id)
-          rate = if order_data.fetch('status') == 'open'
-                   order_data.fetch('descr').fetch('price').to_f
-                 else # closed
-                   order_data.fetch('price').to_f
-                 end
-          amount = order_data.fetch('vol').to_f
-          {
-            offer_id: offer_id,
-            rate: rate,
-            amount: amount
-          }
-        end
-
         def orders
           open_orders = @client.open_orders.dig('result', 'open')
           closed_orders = @client.closed_orders.dig('result', 'closed') # In case a limit order gets fulfilled automatically
           open_orders.merge(closed_orders)
+        end
+
+        def placed_order_rate(order_data)
+          if order_data.fetch('status') == 'open'
+            order_data.fetch('descr').fetch('price').to_f
+          else # closed
+            super
+          end
         end
 
         def get_buy_params(symbol, price, percentage, force_smart_intervals)
