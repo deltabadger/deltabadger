@@ -7,7 +7,7 @@ export const startButtonType = {
     ON_SCHEDULE: "onSchedule"
 }
 
-export const StartButton = ({settings, getRestartType, onClickReset, onClickContinue}) => {
+export const StartButton = ({settings, getRestartType, onClickReset}) => {
   const [isOpen, setOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
@@ -20,6 +20,10 @@ export const StartButton = ({settings, getRestartType, onClickReset, onClickCont
     }
     setOpen(false)
   };
+
+  const onClickContinue = () => {
+      
+  }
 
   const SmarterRestartButtons = () => {
       return (<div>
@@ -60,7 +64,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, onClickCont
                   }} className="btn btn-primary mr-2">No, start again from now
                   </div>
                   <div onClick={() => {
-                      onClickContinue() && setOpen(false)
+                      onClickReset(true) && setOpen(false)
                   }} className="btn btn-success">Yes, follow the schedule
                   </div>
               </div>

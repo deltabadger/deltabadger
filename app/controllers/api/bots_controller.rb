@@ -36,7 +36,7 @@ module Api
     end
 
     def start
-      result = StartBot.call(params[:id])
+      result = StartBot.call(params[:id], bot_continue_params[:continue_schedule])
 
       if result.success?
         data = present_bot(result.data)
@@ -73,6 +73,17 @@ module Api
       render json: result, status: 200
     end
 
+    def continue
+      result = StartBot.call(params[:id], bot_continue_params[:continue_schedule])
+
+      if result.success?
+        data = present_bot(result.data)
+        render json: { data: data }, status: 200
+      else
+        render json: { id: params[:id], errors: result.errors }, status: 422
+      end
+    end
+
     private
 
     def present_bot(bot)
@@ -102,6 +113,12 @@ module Api
       params
         .require(:bot)
         .permit(:order_type, :interval, :price, :percentage, :force_smart_intervals).merge(id: params[:id])
+    end
+
+    def bot_continue_params
+      params
+          .require(:bot)
+          .permit(:continue_schedule)
     end
   end
 end
