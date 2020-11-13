@@ -27,13 +27,13 @@ class MakeTransaction < BaseService
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-  def call(bot_id, notify: true, restart: true)
+  def call(bot_id, notify: true, restart: true, continue_schedule: false)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
-    result = perform_action(get_api(bot), bot)
+    result = continue_schedule ? nil : perform_action(get_api(bot), bot)
 
-    if result.success?
+    if continue_schedule || result.success?
       bot = @bots_repository.update(bot.id, restarts: 0)
       result = validate_limit(bot, notify)
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon

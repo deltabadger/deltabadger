@@ -76,7 +76,7 @@ const BotTemplate = ({
     return fetchRestartParams(bot.id) //bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
 
-  const _handleSubmit = () => {
+  const _handleSubmit = (continueSchedule = false) => {
     if (disableSubmit) return
 
     const botParams = {
@@ -88,18 +88,7 @@ const BotTemplate = ({
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
 
-    handleEdit(botParams)
-  }
-
-  const _handleContinue  = () => {
-    switch (getStartButtonType()){
-      case startButtonType.MISSED:
-        var map = {"hour": 3600}
-        console.log("MISSED", Math.floor((bot.nowTimestamp - nextTransactionTimestamp)/map[interval]) + 1)
-        break
-      case startButtonType.ON_SCHEDULE:
-        console.log("ONSCHEDULE", nextTransactionTimestamp - bot.nowTimestamp)
-    }
+    handleEdit(botParams, continueSchedule)
   }
 
   // Shows the first (major) error
@@ -124,8 +113,7 @@ const BotTemplate = ({
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
-            <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}
-                         onClickContinue={_handleContinue}/>)  }
+            <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}/>)  }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}

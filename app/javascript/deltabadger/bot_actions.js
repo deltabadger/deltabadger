@@ -49,10 +49,10 @@ export const removeBot = id => (dispatch) => {
   })
 }
 
-export const startBot = (id) => dispatch => {
+export const startBot = (id, continueSchedule = false) => dispatch => {
   dispatch(tryStartBot(id))
 
-  API.startBot(id).then(({data: bot}) => {
+  API.startBot({id: id, continueSchedule: continueSchedule}).then(({data: bot}) => {
     dispatch(clearErrors(bot.id))
     dispatch(botReloaded(bot))
     dispatch(openBot(bot.id))
@@ -98,10 +98,10 @@ export const fetchBot = (id) => dispatch => {
   )
 }
 
-export const editBot = botParams => dispatch => {
+export const editBot = (botParams, continueSchedule = false) => dispatch => {
   API.updateBot(botParams).then(({data: bot}) => {
     dispatch(clearErrors(bot.id))
-    dispatch(startBot(bot.id))
+    dispatch(startBot(bot.id, continueSchedule))
   }).catch((data) => {
     dispatch(setErrors(data.response.data))
   })
