@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import {isNotEmpty} from "../utils/array";
 
 export const startButtonType = {
-    CHANGED: "changed",
+    CHANGED_MISSED: "changedMissed",
+    CHANGED_ON_SCHEDULE: "changedOnSchedule",
     MISSED: "missed",
     ON_SCHEDULE: "onSchedule"
 }
@@ -22,29 +23,44 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
   };
 
   const onClickContinue = () => {
-      
+
   }
 
   const SmarterRestartButtons = () => {
-      return (<div>
-          { getType === startButtonType.CHANGED &&
+      return (
+      <div>
+          { getType === startButtonType.CHANGED_ON_SCHEDULE &&
               <div>
-                  <p className="">The schedule has changed. The bot will start<br/>buying according to the new
-                      schedule right away.</p>
-                  <div onClick={() => {
-                      setOpen(false)
-                  }} className="btn btn-outline-primary mr-2">Cancel
-                  </div>
+                  <p className="">While the bot was paused, you missed part of the schedule.<br/>You have
+                      still {timeToNextTransaction} to the next order. Also changed parameters. Scenario 1.</p>
                   <div onClick={() => {
                       onClickReset() && setOpen(false)
-                  }} className="btn btn-success">Yes, let's go!
+                  }} className="btn btn-outline-primary mr-2">Start, from now!
+                  </div>
+                  <div onClick={() => {
+                      onClickReset(true) && setOpen(false)
+                  }} className="btn btn-success">Start since next transaction!
                   </div>
               </div>
+          }
+          { getType === startButtonType.CHANGED_MISSED &&
+          <div>
+              <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
+                  missed {missedAmount} {settings.quote} and stick to the schedule? Also changed parameters. Scenario 2.</p>
+              <div onClick={() => {
+                  onClickReset() && setOpen(false)
+              }} className="btn btn-outline-primary mr-2">Start, without buying!
+              </div>
+              <div onClick={() => {
+                  onClickReset(true) && setOpen(false)
+              }} className="btn btn-success">Buy, then start with new parameters.
+              </div>
+          </div>
           }
           { getType === startButtonType.MISSED &&
               <div>
                   <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                      missed {missedAmount} {settings.quote} and stick to the schedule?</p>
+                      missed {missedAmount} {settings.quote} and stick to the schedule? scenario 4.</p>
                   <div onClick={() => {
                       onClickReset() && setOpen(false)
                   }} className="btn btn-primary mr-2">No, start again from now
@@ -58,7 +74,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
           { getType === startButtonType.ON_SCHEDULE &&
               <div>
                   <p className="">While the bot was paused, you missed part of the schedule.<br/>You have
-                      still {timeToNextTransaction} to the next order.</p>
+                      still {timeToNextTransaction} to the next order. scenario 3.</p>
                   <div onClick={() => {
                       onClickReset() && setOpen(false)
                   }} className="btn btn-primary mr-2">No, start again from now
@@ -76,16 +92,14 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
   const handleOnClick = () => {
       getRestartType().then((data) => {
           switch (data.restartType) {
-              case startButtonType.CHANGED:
-                  setType(data.restartType)
-                  setOpen(true)
-                  break
               case startButtonType.ON_SCHEDULE:
+              case startButtonType.CHANGED_ON_SCHEDULE:
                   setType(data.restartType)
                   setTimeToNextTransaction(data.timeToNextTransaction)
                   setOpen(true)
                   break
               case startButtonType.MISSED:
+              case startButtonType.CHANGED_MISSED:
                   setType(data.restartType)
                   setMissedAmount(data.missedAmount)
                   setOpen(true)
