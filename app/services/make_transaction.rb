@@ -115,13 +115,17 @@ class MakeTransaction < BaseService
     if result.success?
       result.data.slice(:offer_id, :rate, :amount).merge(
         bot_id: bot.id,
-        status: :success
+        status: :success,
+        bot_interval: bot.interval,
+        bot_price: bot.price
       )
     else
       {
         bot_id: bot.id,
         status: :failure,
-        error_messages: result.errors
+        error_messages: result.errors,
+        bot_interval: bot.interval,
+        bot_price: bot.price
       }
     end
   end
