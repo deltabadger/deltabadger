@@ -21,22 +21,21 @@ class GetRestartParams < BaseService
 
     if now_timestamp < next_transaction_timestamp
       return {
-        restartType: "onSchedule",
+        restartType: 'onSchedule',
         timeToNextTransaction: distance_of_time_in_words(next_transaction_timestamp - now_timestamp)
       }
     end
 
     {
-        restartType: "missed",
-        missedAmount: calculate_missed_amount(now_timestamp, bot.last_transaction, interval)
+      restartType: 'missed',
+      missedAmount: calculate_missed_amount(now_timestamp, bot.last_transaction, interval)
     }
   end
 
   private
 
   def calculate_missed_amount(now, last_transaction, interval)
-    puts now - last_transaction.created_at.to_i
-    number_of_transactions = ((now - last_transaction.created_at.to_i) / interval).to_i
-    (number_of_transactions * last_transaction.price.to_f).to_i
+    number_of_transactions = ((now - last_transaction.created_at.to_i) / interval).floor
+    number_of_transactions * last_transaction.price.to_f
   end
 end
