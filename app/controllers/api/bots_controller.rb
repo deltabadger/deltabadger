@@ -36,7 +36,7 @@ module Api
     end
 
     def start
-      result = StartBot.call(params[:id], bot_continue_params[:continue_schedule])
+      result = StartBot.call(params[:id], bot_continue_params)
 
       if result.success?
         data = present_bot(result.data)
@@ -117,8 +117,8 @@ module Api
 
     def bot_continue_params
       params
-          .require(:bot)
-          .permit(:continue_schedule)
+          .require(:continue_params)
+          .permit(:continue_schedule, :price)
     end
   end
 end
