@@ -12,7 +12,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
   const [isOpen, setOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
-  const [missedAmount, setMissedAmount] = useState(0)
+  const [missedAmount, setMissedAmount] = useState(0.0)
   const node = useRef()
 
   const handleClickOutside = e => {
@@ -46,13 +46,13 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
           { getType === startButtonType.CHANGED_MISSED &&
           <div>
               <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                  missed {missedAmount} {settings.quote} and stick to the schedule? Also changed parameters. Scenario 2.</p>
+                  missed {missedAmount.toFixed(3)} {settings.quote} and stick to the schedule? Also changed parameters. Scenario 2.</p>
               <div onClick={() => {
                   onClickReset() && setOpen(false)
               }} className="btn btn-outline-primary mr-2">Start, without buying!
               </div>
               <div onClick={() => {
-                  onClickReset(true) && setOpen(false)
+                  onClickReset(false, missedAmount) && setOpen(false)
               }} className="btn btn-success">Buy, then start with new parameters.
               </div>
           </div>
@@ -60,13 +60,13 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
           { getType === startButtonType.MISSED &&
               <div>
                   <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                      missed {missedAmount} {settings.quote} and stick to the schedule? scenario 4.</p>
+                      missed {missedAmount.toFixed(3)} {settings.quote} and stick to the schedule? scenario 4.</p>
                   <div onClick={() => {
                       onClickReset() && setOpen(false)
                   }} className="btn btn-primary mr-2">No, start again from now
                   </div>
                   <div onClick={() => {
-                      onClickContinue() && setOpen(false)
+                      onClickReset(false, missedAmount) && setOpen(false)
                   }} className="btn btn-success">Yes, follow the schedule
                   </div>
               </div>
