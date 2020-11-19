@@ -84,7 +84,7 @@ const BotTemplate = ({
     return fetchRestartParams(bot.id) //bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
   }
 
-  const _handleSubmit = (continueSchedule = false) => {
+  const _handleSubmit = (continueSchedule = false, fixing_price = null) => {
     if (disableSubmit) return
 
     const botParams = {
@@ -96,7 +96,12 @@ const BotTemplate = ({
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
 
-    handleEdit(botParams, continueSchedule)
+    const continueParams = {
+      continueSchedule: continueSchedule,
+      price: fixing_price
+    }
+
+    handleEdit(botParams, continueParams)
   }
 
   // Shows the first (major) error

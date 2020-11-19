@@ -87,10 +87,11 @@ const API = {
   startBot(params) {
     const url = `${API_URL}/bots/${params.id}/start`;
     const continueParams= {
-      continue_schedule: params.continueSchedule
+      continue_schedule: params.continueParams.continueSchedule,
+      price: params.continueParams.price
     }
 
-    return client.request({ url, data: {bot: continueParams}, method: 'post' }).then(data => data.data);
+    return client.request({ url, data: {continue_params: continueParams}, method: 'post' }).then(data => data.data);
   },
 
   stopBot(botId) {
