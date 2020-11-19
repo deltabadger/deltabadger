@@ -10,7 +10,8 @@ module ExchangeApi
           'Invalid API-key, IP, or permissions for action.' => Error.new('Insufficient permissions or unverified account.', false),
           'Account has insufficient balance for requested action.' => Error.new('Insufficient funds', false),
           'Filter failure: LOT_SIZE' => Error.new('Offer funds are not exceeding minimums', false),
-          'Filter failure: MIN_NOTIONAL' => Error.new('Offer funds are not exceeding minimums', false)
+          'Filter failure: MIN_NOTIONAL' => Error.new('Offer funds are not exceeding minimums', false),
+          'Filter failure: PRICE_FILTER' => Error.new('Offer funds are not exceeding minimums', false)
         }
       end
       # rubocop:enable Metrics/LineLength
