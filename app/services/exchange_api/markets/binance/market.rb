@@ -37,13 +37,6 @@ module ExchangeApi
           Result::Success.new(step_size.data.to_f)
         end
 
-        def quote_decimals(symbol)
-          tick_size = price_tick_size(symbol)
-          return tick_size unless tick_size.success?
-
-          Result::Success.new(tick_size.data.split('.').last.size)
-        end
-
         def quote_tick_size(symbol)
           tick_size = price_tick_size(symbol)
           return tick_size unless tick_size.success?
