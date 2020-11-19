@@ -38,7 +38,10 @@ module ExchangeApi
           price = transaction_price(symbol, price, force_smart_intervals)
           return price unless price.success?
 
-          Result::Success.new(super(symbol).merge(type: 'MARKET', quoteOrderQty: price.data))
+          parsed_price = parse_quote(symbol, price.data)
+          return parsed_price unless parsed_price.success?
+
+          Result::Success.new(super(symbol).merge(type: 'MARKET', quoteOrderQty: parsed_price.data))
         end
       end
     end
