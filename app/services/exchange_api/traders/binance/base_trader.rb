@@ -20,11 +20,20 @@ module ExchangeApi
         private
 
         def place_order(order_params)
+          # Remove exponential notation from quantity
+          if order_params.key?(:quantity)
+            parsed_quantity = parse_quantity(order_params[:symbol], order_params[:quantity])
+            return parsed_quantity unless parsed_quantity.success?
+
+            order_params[:quantity] = parsed_quantity.data
+          end
+
           request = @signed_client.post('order') do |req|
             req.params = order_params
           end
 
           response = JSON.parse(request.body)
+
           parse_response(response)
         rescue StandardError
           Result::Failure.new('Could not make Binance order', RECOVERABLE)
@@ -59,13 +68,8 @@ module ExchangeApi
           base_step_size = @market.base_step_size(symbol)
           return base_step_size unless base_step_size.success?
 
-          base_decimals = @market.base_decimals(symbol)
-          return base_decimals unless base_decimals.success?
-
           volume = price / rate
-          Result::Success.new(
-            ((volume / base_step_size.data).ceil * base_step_size.data).ceil(base_decimals.data)
-          )
+          Result::Success.new((volume / base_step_size.data).ceil * base_step_size.data)
         end
 
         def parse_response(response)
@@ -79,18 +83,11 @@ module ExchangeApi
           )
         end
 
-        def parse_base(symbol, amount)
+        def parse_quantity(symbol, quantity)
           base_decimals = @market.base_decimals(symbol)
           return base_decimals unless base_decimals.success?
 
-          Result::Success.new("%.#{base_decimals.data}f" % amount)
-        end
-
-        def parse_quote(symbol, amount)
-          quote_decimals = @market.quote_decimals(symbol)
-          return quote_decimals unless quote_decimals.success?
-
-          Result::Success.new("%.#{quote_decimals.data}f" % amount)
+          Result::Success.new("%.#{base_decimals.data}f" % quantity)
         end
       end
     end
