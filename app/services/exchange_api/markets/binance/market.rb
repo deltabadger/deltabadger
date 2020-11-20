@@ -24,10 +24,10 @@ module ExchangeApi
         end
 
         def base_decimals(symbol)
-          symbol_info = fetch_symbol_info(symbol)
-          return symbol_info unless symbol_info.success?
+          step_size = lot_step_size(symbol)
+          return step_size unless step_size.success?
 
-          Result::Success.new(symbol_info.data['baseAssetPrecision'])
+          Result::Success.new(step_size.data.split('.').last.size)
         end
 
         def base_step_size(symbol)
@@ -42,14 +42,6 @@ module ExchangeApi
           return tick_size unless tick_size.success?
 
           Result::Success.new(tick_size.data.to_f)
-        end
-
-        def quote_decimals(symbol)
-          tick_size = quote_tick_size(symbol)
-          return tick_size unless tick_size.success?
-
-          tick_size_decimals = tick_size.data.to_s.split('.').last.size
-          Result::Success.new(tick_size_decimals)
         end
 
         def all_symbols
