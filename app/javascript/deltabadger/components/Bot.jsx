@@ -77,6 +77,8 @@ const BotTemplate = ({
             return {...data, restartType: startButtonType.CHANGED_MISSED}
           case startButtonType.ON_SCHEDULE:
             return {...data, restartType: startButtonType.CHANGED_ON_SCHEDULE}
+          case startButtonType.FAILED:
+            return {...data, restartType: startButtonType.FAILED}
         }
       })
     }
