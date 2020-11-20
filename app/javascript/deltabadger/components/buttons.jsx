@@ -5,7 +5,8 @@ export const startButtonType = {
     CHANGED_MISSED: "changedMissed",
     CHANGED_ON_SCHEDULE: "changedOnSchedule",
     MISSED: "missed",
-    ON_SCHEDULE: "onSchedule"
+    ON_SCHEDULE: "onSchedule",
+    FAILED: "failed"
 }
 
 export const StartButton = ({settings, getRestartType, onClickReset}) => {
@@ -21,10 +22,6 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     }
     setOpen(false)
   };
-
-  const onClickContinue = () => {
-
-  }
 
   const SmarterRestartButtons = () => {
       return (
@@ -92,18 +89,21 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
   const handleOnClick = () => {
       getRestartType().then((data) => {
           switch (data.restartType) {
+              case startButtonType.FAILED:
+                onClickReset()
+                break
               case startButtonType.ON_SCHEDULE:
               case startButtonType.CHANGED_ON_SCHEDULE:
-                  setType(data.restartType)
-                  setTimeToNextTransaction(data.timeToNextTransaction)
-                  setOpen(true)
-                  break
+                setType(data.restartType)
+                setTimeToNextTransaction(data.timeToNextTransaction)
+                setOpen(true)
+                break
               case startButtonType.MISSED:
               case startButtonType.CHANGED_MISSED:
-                  setType(data.restartType)
-                  setMissedAmount(data.missedAmount)
-                  setOpen(true)
-                  break
+                setType(data.restartType)
+                setMissedAmount(data.missedAmount)
+                setOpen(true)
+                break
           }
       })
   }
