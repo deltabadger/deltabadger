@@ -79,8 +79,13 @@ module ExchangeApi
           quote_tick = @market.quote_tick_size(symbol)
           return quote_tick unless quote_tick.success?
 
+          quote_decimals = @market.quote_decimals(symbol)
+          return quote_decimals unless quote_decimals.success?
+
           percentage_rate = rate.data * (1 + percentage / 100)
-          ceil_to_min_tick = (percentage_rate / quote_tick.data).ceil * quote_tick.data
+          ceil_to_min_tick = (
+            (percentage_rate / quote_tick.data).ceil * quote_tick.data
+          ).ceil(quote_decimals.data)
           Result::Success.new(ceil_to_min_tick)
         end
       end
