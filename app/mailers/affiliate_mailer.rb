@@ -4,7 +4,7 @@ class AffiliateMailer < ApplicationMailer
     @new_btc_address = params[:new_btc_address]
     @token = params[:token]
 
-    mail(to: @user.email, subject: 'Confirm new ₿itcoin address 📒')
+    mail(to: @user.email, subject: 'Confirm new Bitcoin address 📒')
   end
 
   def referrals_payout_notification
