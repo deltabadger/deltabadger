@@ -28,57 +28,65 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       <div>
           { getType === startButtonType.CHANGED_ON_SCHEDULE &&
               <div>
-                  <p className="">While the bot was paused, you missed part of the schedule.<br/>You have
-                      still {timeToNextTransaction} to the next order. Also changed parameters. Scenario 1.</p>
-                  <div onClick={() => {
-                      onClickReset() && setOpen(false)
-                  }} className="btn btn-outline-primary mr-2">Start, from now!
-                  </div>
-                  <div onClick={() => {
-                      onClickReset(true) && setOpen(false)
-                  }} className="btn btn-success">Start since next transaction!
+                  <p className="">While the bot was paused, you missed part of the schedule. You have
+                      still <b>{timeToNextTransaction}</b> to the next order. Also changed parameters. Scenario 1.</p>
+                  <div className="db-bot__modal__btn-group">
+                    <div onClick={() => {
+                        onClickReset() && setOpen(false)
+                    }} className="btn btn-outline-primary">Start, from now!
+                    </div>
+                    <div onClick={() => {
+                        onClickReset(true) && setOpen(false)
+                    }} className="btn btn-success">Start since next transaction!
+                    </div>
                   </div>
               </div>
           }
           { getType === startButtonType.CHANGED_MISSED &&
           <div>
-              <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                  missed {missedAmount.toFixed(3)} {settings.quote} and stick to the schedule? Also changed parameters. Scenario 2.</p>
-              <div onClick={() => {
-                  onClickReset() && setOpen(false)
-              }} className="btn btn-outline-primary mr-2">Start, without buying!
-              </div>
-              <div onClick={() => {
-                  onClickReset(false, missedAmount) && setOpen(false)
-              }} className="btn btn-success">Buy, then start with new parameters.
+              <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
+                  missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and stick to the schedule? The new schedule will start after the current counting is finished. Scenario 2.</p>
+              <div className="db-bot__modal__btn-group">
+                <div onClick={() => {
+                    onClickReset() && setOpen(false)
+                }} className="btn btn-outline-primary">Start, without buying!
+                </div>
+                <div onClick={() => {
+                    onClickReset(false, missedAmount) && setOpen(false)
+                }} className="btn btn-success">Buy, then start with new parameters.
+                </div>
               </div>
           </div>
           }
           { getType === startButtonType.MISSED &&
               <div>
-                  <p className="">While the bot was paused, you missed part of the schedule.<br/>Do you want invest
-                      missed {missedAmount.toFixed(3)} {settings.quote} and stick to the schedule? scenario 4.</p>
-                  <div onClick={() => {
-                      onClickReset() && setOpen(false)
-                  }} className="btn btn-primary mr-2">No, start again from now
-                  </div>
-                  <div onClick={() => {
-                      onClickReset(false, missedAmount) && setOpen(false)
-                  }} className="btn btn-success">Yes, follow the schedule
+                  <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
+                      missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and continue the original counting? scenario 4.</p>
+                  <div className="db-bot__modal__btn-group">
+                    <div onClick={() => {
+                        onClickReset() && setOpen(false)
+                    }} className="btn btn-outline-primary">No, skip it and start new
+                    </div>
+                    <div onClick={() => {
+                        onClickReset(false, missedAmount) && setOpen(false)
+                    }} className="btn btn-success">Yes, stick to the schedule
+                    </div>
                   </div>
               </div>
           }
           { getType === startButtonType.ON_SCHEDULE &&
               <div>
-                  <p className="">While the bot was paused, you missed part of the schedule.<br/>You have
-                      still {timeToNextTransaction} to the next order. scenario 3.</p>
-                  <div onClick={() => {
-                      onClickReset() && setOpen(false)
-                  }} className="btn btn-primary mr-2">No, start again from now
-                  </div>
-                  <div onClick={() => {
-                      onClickReset(true) && setOpen(false)
-                  }} className="btn btn-success">Yes, follow the schedule
+                  <p className="">While the bot was paused, you missed part of the schedule. You have
+                      still <b>t{imeToNextTransaction}</b> to the next order. scenario 3.</p>
+                  <div className="db-bot__modal__btn-group">
+                    <div onClick={() => {
+                        onClickReset() && setOpen(false)
+                    }} className="btn btn-primary">No, start again from now
+                    </div>
+                    <div onClick={() => {
+                        onClickReset(true) && setOpen(false)
+                    }} className="btn btn-success">Yes, follow the schedule
+                    </div>
                   </div>
               </div>
           }
@@ -176,8 +184,10 @@ export const RemoveButton = ({onClick, disabled}) => {
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
             <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
-            <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary mr-2">Cancel</div>
-            <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-danger">Remove completely</div>
+            <div className="db-bot__modal__btn-group">
+              <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary">Cancel</div>
+              <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-danger">Remove completely</div>
+            </div>
           </div>
         </div>
       }
