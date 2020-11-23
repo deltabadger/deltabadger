@@ -1,9 +1,9 @@
 class GetRestartParams < BaseService
   def initialize(
-      parse_interval: ParseInterval.new,
-      next_bot_transaction_at: NextBotTransactionAt.new,
-      bots_repository: BotsRepository.new
-    )
+    parse_interval: ParseInterval.new,
+    next_bot_transaction_at: NextBotTransactionAt.new,
+    bots_repository: BotsRepository.new
+  )
     @parse_interval = parse_interval
     @next_bot_transaction_at = next_bot_transaction_at
     @bots_repository = bots_repository
@@ -54,9 +54,7 @@ class GetRestartParams < BaseService
       timeout = interval - ((now - bot.last_transaction.created_at.to_i) % interval)
     end
 
-    if timeout > 1
-      timeout -= 1
-    end
+    timeout > 1 && timeout -= 1
 
     # return in millis
     timeout * 1000

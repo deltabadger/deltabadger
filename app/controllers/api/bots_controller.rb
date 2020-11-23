@@ -112,13 +112,14 @@ module Api
     def bot_update_params
       params
         .require(:bot)
-        .permit(:order_type, :interval, :price, :percentage, :force_smart_intervals).merge(id: params[:id])
+        .permit(:order_type, :interval, :price, :percentage, :force_smart_intervals)
+        .merge(id: params[:id])
     end
 
     def bot_continue_params
       params
-          .require(:continue_params)
-          .permit(:continue_schedule, :price)
+        .require(:continue_params)
+        .permit(:continue_schedule, :price)
     end
   end
 end
