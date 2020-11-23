@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {isNotEmpty} from "../utils/array";
+import {formatDuration} from "../utils/time";
+import moment from "moment";
 
 export const startButtonType = {
     CHANGED_MISSED: "changedMissed",
@@ -8,6 +9,7 @@ export const startButtonType = {
     ON_SCHEDULE: "onSchedule",
     FAILED: "failed"
 }
+let timeout;
 
 export const StartButton = ({settings, getRestartType, onClickReset}) => {
   const [isOpen, setOpen] = useState(false)
@@ -21,99 +23,99 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       return;
     }
     setOpen(false)
+    clearTimeout(timeout)
   };
 
   const SmarterRestartButtons = () => {
-      return (
-      <div>
-          { getType === startButtonType.CHANGED_ON_SCHEDULE &&
-              <div>
-                  <p className="">While the bot was paused, you missed part of the schedule. You have
-                      still <b>{timeToNextTransaction}</b> to the next order. Also changed parameters. Scenario 1.</p>
-                  <div className="db-bot__modal__btn-group">
-                    <div onClick={() => {
-                        onClickReset() && setOpen(false)
-                    }} className="btn btn-outline-primary">Start, from now!
-                    </div>
-                    <div onClick={() => {
-                        onClickReset(true) && setOpen(false)
-                    }} className="btn btn-success">Start since next transaction!
-                    </div>
-                  </div>
-              </div>
-          }
-          { getType === startButtonType.CHANGED_MISSED &&
-          <div>
-              <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
-                  missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and stick to the schedule? The new schedule will start after the current counting is finished. Scenario 2.</p>
-              <div className="db-bot__modal__btn-group">
-                <div onClick={() => {
-                    onClickReset() && setOpen(false)
-                }} className="btn btn-outline-primary">Start, without buying!
-                </div>
-                <div onClick={() => {
-                    onClickReset(false, missedAmount) && setOpen(false)
-                }} className="btn btn-success">Buy, then start with new parameters.
-                </div>
-              </div>
+    return (
+    <div>
+      { getType === startButtonType.CHANGED_ON_SCHEDULE &&
+        <div>
+          <p className="">While the bot was paused, you missed part of the schedule. You have
+            still <b>{timeToNextTransaction}</b> to the next order. Also changed parameters. Scenario 1.</p>
+          <div className="db-bot__modal__btn-group">
+            <div onClick={() => {
+              onClickReset() && setOpen(false)
+            }} className="btn btn-outline-primary">Start, from now!
+            </div>
+            <div onClick={() => {
+              onClickReset(true) && setOpen(false)
+            }} className="btn btn-success">Start since next transaction!
+            </div>
           </div>
-          }
-          { getType === startButtonType.MISSED &&
-              <div>
-                  <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
-                      missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and continue the original counting? scenario 4.</p>
-                  <div className="db-bot__modal__btn-group">
-                    <div onClick={() => {
-                        onClickReset() && setOpen(false)
-                    }} className="btn btn-outline-primary">No, skip it and start new
-                    </div>
-                    <div onClick={() => {
-                        onClickReset(false, missedAmount) && setOpen(false)
-                    }} className="btn btn-success">Yes, stick to the schedule
-                    </div>
-                  </div>
-              </div>
-          }
-          { getType === startButtonType.ON_SCHEDULE &&
-              <div>
-                  <p className="">While the bot was paused, you missed part of the schedule. You have
-                      still <b>t{imeToNextTransaction}</b> to the next order. scenario 3.</p>
-                  <div className="db-bot__modal__btn-group">
-                    <div onClick={() => {
-                        onClickReset() && setOpen(false)
-                    }} className="btn btn-primary">No, start again from now
-                    </div>
-                    <div onClick={() => {
-                        onClickReset(true) && setOpen(false)
-                    }} className="btn btn-success">Yes, follow the schedule
-                    </div>
-                  </div>
-              </div>
-          }
+          </div>
+      }
+      { getType === startButtonType.CHANGED_MISSED &&
+        <div>
+          <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
+            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and stick to the schedule? The new schedule will start after the current counting is finished. Scenario 2.</p>
+          <div className="db-bot__modal__btn-group">
+            <div onClick={() => {
+              onClickReset() && setOpen(false)
+            }} className="btn btn-outline-primary">Start, without buying!
+            </div>
+            <div onClick={() => {
+              onClickReset(false, missedAmount) && setOpen(false)
+            }} className="btn btn-success">Buy, then start with new parameters.
+            </div>
+          </div>
       </div>
-      )
+      }
+      { getType === startButtonType.MISSED &&
+        <div>
+          <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
+            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and continue the original counting? scenario 4.</p>
+          <div className="db-bot__modal__btn-group">
+            <div onClick={() => {
+              onClickReset() && setOpen(false)
+            }} className="btn btn-outline-primary">No, skip it and start new
+            </div>
+            <div onClick={() => {
+              onClickReset(false, missedAmount) && setOpen(false)
+            }} className="btn btn-success">Yes, stick to the schedule
+            </div>
+          </div>
+          </div>
+      }
+      { getType === startButtonType.ON_SCHEDULE &&
+        <div>
+          <p className="">While the bot was paused, you missed part of the schedule. You have
+            still <b>{timeToNextTransaction}</b> to the next order. scenario 3.</p>
+          <div className="db-bot__modal__btn-group">
+            <div onClick={() => {
+              onClickReset() && setOpen(false)
+            }} className="btn btn-primary">No, start again from now
+            </div>
+            <div onClick={() => {
+              onClickReset(true) && setOpen(false)
+            }} className="btn btn-success">Yes, follow the schedule
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+    )
   }
 
   const handleOnClick = () => {
-      getRestartType().then((data) => {
-          switch (data.restartType) {
-              case startButtonType.FAILED:
-                onClickReset()
-                break
-              case startButtonType.ON_SCHEDULE:
-              case startButtonType.CHANGED_ON_SCHEDULE:
-                setType(data.restartType)
-                setTimeToNextTransaction(data.timeToNextTransaction)
-                setOpen(true)
-                break
-              case startButtonType.MISSED:
-              case startButtonType.CHANGED_MISSED:
-                setType(data.restartType)
-                setMissedAmount(data.missedAmount)
-                setOpen(true)
-                break
-          }
-      })
+    getRestartType().then((data) => {
+      switch (data.restartType) {
+        case startButtonType.FAILED:
+          onClickReset()
+          return
+        case startButtonType.ON_SCHEDULE:
+        case startButtonType.CHANGED_ON_SCHEDULE:
+          setTimeToNextTransaction(formatDuration(moment.duration(data.timeToNextTransaction, 'seconds')) )
+          break
+        case startButtonType.MISSED:
+        case startButtonType.CHANGED_MISSED:
+          setMissedAmount(data.missedAmount)
+          break
+      }
+      setType(data.restartType)
+      setOpen(true)
+      timeout = setTimeout(() => setOpen(false), data.timeout)
+    })
   }
 
   useEffect(() => {
