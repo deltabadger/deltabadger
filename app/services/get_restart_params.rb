@@ -1,6 +1,3 @@
-require 'dotiw'
-include DOTIW::Methods
-
 class GetRestartParams < BaseService
   def initialize(
       parse_interval: ParseInterval.new,
@@ -15,26 +12,27 @@ class GetRestartParams < BaseService
   def call(bot_id:)
     bot = @bots_repository.find(bot_id)
 
-    now_timestamp = Time.now.to_i
-    next_transaction_timestamp = @next_bot_transaction_at.call(bot).to_i
-
-    if now_timestamp < next_transaction_timestamp
-      return {
-        restartType: 'onSchedule',
-        timeToNextTransaction: distance_of_time_in_words(next_transaction_timestamp - now_timestamp),
-        timeout: next_transaction_timestamp - now_timestamp
-      }
-    end
-
     if was_last_regular_failed(bot)
       return {
         restartType: 'failed'
       }
     end
 
+    now_timestamp = Time.now.to_i
+    next_transaction_timestamp = @next_bot_transaction_at.call(bot).to_i
+
+    if now_timestamp < next_transaction_timestamp
+      return {
+        restartType: 'onSchedule',
+        timeToNextTransaction: next_transaction_timestamp - now_timestamp,
+        timeout: calculate_timeout(next_transaction_timestamp, now_timestamp, bot)
+      }
+    end
+
     {
       restartType: 'missed',
-      missedAmount: calculate_missed_amount(now_timestamp, bot)
+      missedAmount: calculate_missed_amount(now_timestamp, bot),
+      timeout: calculate_timeout(next_transaction_timestamp, now_timestamp, bot)
     }
   end
 
@@ -46,6 +44,22 @@ class GetRestartParams < BaseService
 
     number_of_transactions * bot.last_transaction.price.to_f *
       (bot.price.to_f / bot.last_transaction.bot_price.to_f)
+  end
+
+  def calculate_timeout(next_transaction, now, bot)
+    timeout = (next_transaction - now)
+
+    if timeout <= 0
+      interval = @parse_interval.call(bot)
+      timeout = interval - ((now - bot.last_transaction.created_at.to_i) % interval)
+    end
+
+    if timeout > 1
+      timeout -= 1
+    end
+
+    # return in millis
+    timeout * 1000
   end
 
   def was_last_regular_failed(bot)
