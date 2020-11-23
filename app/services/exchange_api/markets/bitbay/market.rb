@@ -53,6 +53,13 @@ module ExchangeApi
           Result::Success.new(response.data.dig('ticker', 'market', 'second', 'scale'))
         end
 
+        def quote_tick_size_decimals(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data.dig('ticker', 'market', 'second', 'scale'))
+        end
+
         def symbol(base, quote)
           "#{base}-#{quote}"
         end

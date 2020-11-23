@@ -75,7 +75,6 @@ export const stopBot = (id) => dispatch => {
 
 export const fetchRestartParams = (id) => dispatch => (
   API.fetchRestartParams(id).then((data) => {
-    console.log("DATA", data, id)
     return data
   })
 )
