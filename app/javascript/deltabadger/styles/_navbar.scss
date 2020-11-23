@@ -44,7 +44,11 @@
   }
 }
 .navbar {
+  z-index: 10000;
   padding: 40px 0;
+  @include media-breakpoint-down(sm) {
+      padding: 25px 0;
+  }
 }
 
 .db-logo-svg-shape {
@@ -69,14 +73,6 @@
 .db-navbar {
   background: rgba(255,255,255,0);
   transition: top 200ms ease-in-out;
-  @include media-breakpoint-down(xs) {
-    // padding-right: 0.5rem !important;
-    // padding-left:  0.5rem !important;
-  }
-  @include media-breakpoint-up(sm) {
-    padding-right: 0;
-    padding-left:  0;
-  }
   background: none !important;
   .navbar-brand {
     margin-left: 0;
