@@ -63,7 +63,7 @@ const BotTemplate = ({
       interval: settings.interval,
       price: settings.price.trim(),
       forceSmartIntervals: settings.force_smart_intervals,
-      percentage: settings.order_type === "limit" ? percentage && percentage.trim() : undefined
+      percentage: settings.order_type === 'limit' ? percentage.trim() : undefined
     }
 
     return !_.isEqual(newSettings, oldSettings)
@@ -83,7 +83,7 @@ const BotTemplate = ({
       })
     }
 
-    return fetchRestartParams(bot.id) //bot.nowTimestamp >= nextTransactionTimestamp ? startButtonType.MISSED : startButtonType.ON_SCHEDULE
+    return fetchRestartParams(bot.id)
   }
 
   const _handleSubmit = (continueSchedule = false, fixing_price = null) => {
@@ -99,8 +99,8 @@ const BotTemplate = ({
     }
 
     const continueParams = {
-      continueSchedule: continueSchedule,
-      price: fixing_price
+      price: fixing_price,
+      continueSchedule
     }
 
     handleEdit(botParams, continueParams)
