@@ -40,12 +40,17 @@ class GetRestartParams < BaseService
 
   def calculate_missed_amount(now, bot)
     interval = @parse_interval.call(bot)
-    last_transaction_timestamp = bot.last_transaction.created_at.to_i
+
+    number_of_corrected_transactions = 0
     if bot.any_last_transaction.status == 'success'
-      last_transaction_timestamp = bot.any_last_transaction.created_at.to_i
+      number_of_corrected_transactions = ((bot.any_last_transaction.created_at.to_i -
+        bot.last_transaction.created_at.to_i) / interval).floor
     end
 
-    number_of_transactions = ((now - last_transaction_timestamp) / interval).floor
+    last_paid_transaction_timestamp = bot.last_transaction.created_at.to_i +
+                                      number_of_corrected_transactions * interval
+
+    number_of_transactions = ((now - last_paid_transaction_timestamp) / interval).floor
 
     number_of_transactions * bot.last_transaction.price.to_f *
       (bot.price.to_f / bot.last_transaction.bot_price.to_f)
