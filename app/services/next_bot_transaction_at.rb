@@ -8,8 +8,10 @@ class NextBotTransactionAt < BaseService
   end
 
   def call(bot)
-    return nil if bot.last_transaction.status == 'failure'
     return nil unless bot.transactions.exists?
+    if bot.last_transaction.status == 'failure'
+      return bot.last_transaction.created_at
+    end
 
     delay = if bot.restarts.zero?
               normal_delay(bot)
