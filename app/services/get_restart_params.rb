@@ -11,8 +11,7 @@ class GetRestartParams < BaseService
 
   def call(bot_id:)
     bot = @bots_repository.find(bot_id)
-
-    if was_last_regular_failed(bot)
+    if was_first_transaction_failed(bot)
       return {
         restartType: 'failed'
       }
@@ -26,6 +25,12 @@ class GetRestartParams < BaseService
         restartType: 'onSchedule',
         timeToNextTransaction: next_transaction_timestamp - now_timestamp,
         timeout: calculate_timeout(next_transaction_timestamp, now_timestamp, bot)
+      }
+    end
+
+    unless had_first_transaction(bot)
+      return {
+        restartType: 'failed'
       }
     end
 
@@ -52,8 +57,14 @@ class GetRestartParams < BaseService
 
     number_of_transactions = ((now - last_paid_transaction_timestamp) / interval).floor
 
-    number_of_transactions * bot.last_transaction.price.to_f *
-      (bot.price.to_f / bot.last_transaction.bot_price.to_f)
+    last_transaction = bot.last_transaction
+    if bot.last_transaction.status == 'failure'
+      last_transaction = bot.last_successful_transaction
+      number_of_transactions += 1
+    end
+
+    number_of_transactions * last_transaction.price.to_f *
+      (bot.price.to_f / last_transaction.bot_price.to_f)
   end
 
   def calculate_timeout(next_transaction, now, bot)
@@ -70,7 +81,20 @@ class GetRestartParams < BaseService
     timeout * 1000
   end
 
-  def was_last_regular_failed(bot)
-    bot.last_transaction.status == 'failure'
+  def was_first_transaction_failed(bot)
+    if bot.last_successful_transaction.nil?
+      return true
+    end
+
+    bot.last_transaction.status == 'failed' &&
+      bot.last_successful_transaction.created_at.to_i < bot.settings_changed_at.to_i
+  end
+
+  def had_first_transaction(bot)
+    if bot.last_successful_transaction.nil?
+      return false
+    end
+
+    bot.last_successful_transaction.created_at.to_i >= bot.settings_changed_at.to_i
   end
 end
