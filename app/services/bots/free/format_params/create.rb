@@ -18,7 +18,8 @@ module Bots
             user: params[:user],
             exchange_id: params[:exchange_id],
             bot_type: 'free',
-            settings: bot_settings
+            settings: bot_settings,
+            settings_changed_at: Time.now
           }
         end
       end

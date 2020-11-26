@@ -61,6 +61,10 @@ class Bot < ApplicationRecord
     transactions.where(transaction_type: 'REGULAR').last
   end
 
+  def last_successful_transaction
+    transactions.where(status: 'success', transaction_type: 'REGULAR').last
+  end
+
   def any_last_transaction
     transactions.last
   end
