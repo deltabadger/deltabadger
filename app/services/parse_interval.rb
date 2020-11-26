@@ -5,8 +5,13 @@ class ParseInterval < BaseService
 
   def call(bot)
     user_interval = calculate_user_interval(bot)
-    user_price = bot.last_transaction.bot_price.to_f
-    fixed_amount = bot.last_transaction.price.to_f
+    last_transaction = bot.last_transaction
+    if bot.last_transaction.status == 'failure'
+      last_transaction = bot.last_successful_transaction
+    end
+
+    user_price = last_transaction.bot_price.to_f
+    fixed_amount = last_transaction.price.to_f
 
     (fixed_amount * user_interval) / user_price
   end
