@@ -22,7 +22,8 @@ class StartBot < BaseService
       return validate_limit_result
     end
 
-    result = @make_transaction.call(bot.id, notify: false, restart: false, continue_params: continue_params)
+    result = @make_transaction.call(bot.id, notify: false,
+                                            restart: false, continue_params: continue_params)
 
     @bots_repository.update(bot.id, status: 'stopped') if result.failure?
 
