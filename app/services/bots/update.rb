@@ -18,7 +18,7 @@ module Bots
         .call(bot, bot_params.merge(user: user))
         .slice(:settings)
 
-      if has_configuration_changed(bot, settings_params[:settings])
+      if configuration_changed?(bot, settings_params[:settings])
         settings_params = settings_params.merge(settings_changed_at: Time.now)
       end
 
@@ -35,7 +35,7 @@ module Bots
 
     private
 
-    def has_configuration_changed(bot, new_settings)
+    def configuration_changed?(bot, new_settings)
       bot.settings != new_settings
     end
   end

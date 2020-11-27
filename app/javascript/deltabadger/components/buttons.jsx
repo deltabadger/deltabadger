@@ -32,7 +32,8 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       { getType === startButtonType.CHANGED_ON_SCHEDULE &&
         <div>
           <p className="">While the bot was paused, you missed part of the schedule. You have
-            still <b>{timeToNextTransaction}</b> to the next order. Also changed parameters. Scenario 1.</p>
+            still <b>{timeToNextTransaction}</b> to the next order. The new schedule will start after
+            the current counting is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -48,7 +49,8 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
           <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
-            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and stick to the schedule? The new schedule will start after the current counting is finished. Scenario 2.</p>
+            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and stick to the schedule?
+            The new schedule will start after the current counting is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -64,7 +66,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       { getType === startButtonType.MISSED &&
         <div>
           <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
-            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and continue the original counting? scenario 4.</p>
+            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and continue the original counting?</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -80,7 +82,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
           <p className="">While the bot was paused, you missed part of the schedule. You have
-            still <b>{timeToNextTransaction}</b> to the next order. scenario 3.</p>
+            still <b>{timeToNextTransaction}</b> to the next order.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)

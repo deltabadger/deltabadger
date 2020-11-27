@@ -46,11 +46,7 @@ class GetRestartParams < BaseService
   def calculate_missed_amount(now, bot)
     interval = @parse_interval.call(bot)
 
-    number_of_corrected_transactions = 0
-    if bot.any_last_transaction.status == 'success'
-      number_of_corrected_transactions = ((bot.any_last_transaction.created_at.to_i -
-        bot.last_transaction.created_at.to_i) / interval).floor
-    end
+    number_of_corrected_transactions = num_of_corrected_transactions(bot, interval)
 
     last_paid_transaction_timestamp = bot.last_transaction.created_at.to_i +
                                       number_of_corrected_transactions * interval
@@ -58,7 +54,7 @@ class GetRestartParams < BaseService
     number_of_transactions = ((now - last_paid_transaction_timestamp) / interval).floor
 
     last_transaction = bot.last_transaction
-    if bot.last_transaction.status == 'failure'
+    if failed?(bot.last_transaction)
       last_transaction = bot.last_successful_transaction
       number_of_transactions += 1
     end
@@ -82,19 +78,26 @@ class GetRestartParams < BaseService
   end
 
   def was_first_transaction_failed(bot)
-    if bot.last_successful_transaction.nil?
-      return true
-    end
+    return true if bot.last_successful_transaction.nil?
 
-    bot.last_transaction.status == 'failed' &&
+    failed?(bot.last_transaction) &&
       bot.last_successful_transaction.created_at.to_i < bot.settings_changed_at.to_i
   end
 
   def had_first_transaction(bot)
-    if bot.last_successful_transaction.nil?
-      return false
-    end
+    return false if bot.last_successful_transaction.nil?
 
     bot.last_successful_transaction.created_at.to_i >= bot.settings_changed_at.to_i
+  end
+
+  def num_of_corrected_transactions(bot, interval)
+    return 0 if failed?(bot.any_last_transaction)
+
+    ((bot.any_last_transaction.created_at.to_i -
+        bot.last_transaction.created_at.to_i) / interval).floor
+  end
+
+  def failed?(transaction)
+    transaction.status == 'failed'
   end
 end

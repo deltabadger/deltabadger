@@ -5,10 +5,7 @@ class ParseInterval < BaseService
 
   def call(bot)
     user_interval = calculate_user_interval(bot)
-    last_transaction = bot.last_transaction
-    if bot.last_transaction.status == 'failure'
-      last_transaction = bot.last_successful_transaction
-    end
+    last_transaction = set_last_transaction(bot)
 
     user_price = last_transaction.bot_price.to_f
     fixed_amount = last_transaction.price.to_f
@@ -23,5 +20,11 @@ class ParseInterval < BaseService
     raise Error, 'Invalid interval' if !INTERVALS.include?(interval)
 
     1.public_send(interval).seconds
+  end
+
+  def set_last_transaction(bot)
+    return bot.last_successful_transaction if bot.last_transaction.status == 'failure'
+
+    bot.last_transaction
   end
 end
