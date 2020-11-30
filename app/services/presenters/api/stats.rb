@@ -32,11 +32,11 @@ module Presenters
       private
 
       def bought_format(transactions_amount_sum)
-        transactions_amount_sum.floor(6).to_s
+        transactions_amount_sum.floor(8).to_s
       end
 
       def price_format(price)
-        price.floor(2).to_s
+        price.floor(8).to_s
       end
 
       def profit_loss_format(current_value, total_invested)
@@ -47,7 +47,7 @@ module Presenters
 
         {
           positive: positive,
-          value: "#{positive ? '+' : '-'}#{profit_loss.floor(2).abs}",
+          value: "#{positive ? '+' : '-'}#{profit_loss.floor(8).abs}",
           percentage: "(#{positive ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
         }
       end
