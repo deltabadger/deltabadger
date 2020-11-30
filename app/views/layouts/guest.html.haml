@@ -43,8 +43,9 @@
 
   %body.db-guest-template
     #cookie_consent
-
+    .db--guest--bg-bottom
     = render 'layouts/navbar'
+
 
     = yield
 
@@ -88,3 +89,27 @@
       //     750 <= b ? a(".btn-xl").addClass("db-opacity-100") : a(".btn-xl").removeClass("");
       //   });
       // })(jQuery);
+      let root = document.documentElement;
+      let count = 0;
+      window.addEventListener("scroll", function() {
+        const distance = window.scrollY;
+        root.style.setProperty('--scroll', distance);
+        root.style.setProperty('--scroll-a', distance - 4100);
+
+      });
+
+      let start;
+
+      function step(timestamp) {
+        if (start === undefined)
+          start = timestamp;
+        const elapsed = timestamp - start;
+
+        root.style.setProperty('--pulsing', Math.cos(elapsed * 0.002).toFixed(3));
+
+        if (elapsed < 200000000) { // Stop the animation after 2 seconds
+          window.requestAnimationFrame(step);
+        }
+      }
+
+      window.requestAnimationFrame(step);
