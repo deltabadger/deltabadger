@@ -76,7 +76,7 @@ export const Transactions = ({ bot, active }) => {
             <td scope="row">{t.created_at}</td>
             <td>{bot.settings.type}</td>
             <td>{t.amount || "N/A"}</td>
-            <td>{parseFloat(t.rate).toFixed(2) || "N/A"}</td>
+            <td>{toFixedWithoutZeros(t.rate, 8)|| "N/A"}</td>
           </tr>
         ))}
       </tbody>
@@ -91,4 +91,8 @@ export const Transactions = ({ bot, active }) => {
       <span className="ml-3"> Download .csv</span> </a>
     </div>
   </div>
+}
+
+const toFixedWithoutZeros = (x, n) => {
+  return parseFloat(x).toFixed(n).replace(/\.?0*$/,'');
 }
