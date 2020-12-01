@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {formatDuration} from "../utils/time";
+import {formatDurationRestart} from "../utils/time";
 import moment from "moment";
 
 export const startButtonType = {
@@ -107,7 +107,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
           return
         case startButtonType.ON_SCHEDULE:
         case startButtonType.CHANGED_ON_SCHEDULE:
-          setTimeToNextTransaction(formatDuration(moment.duration(data.timeToNextTransaction, 'seconds')) )
+          setTimeToNextTransaction(formatDurationRestart(moment.duration(data.timeToNextTransaction, 'seconds')) )
           break
         case startButtonType.MISSED:
         case startButtonType.CHANGED_MISSED:
