@@ -278,6 +278,7 @@ svg * {
 
 .text-success--lighter {
   color: $successLighter !important;
+  color: #{'color(display-p3 0.0375 0.82 0.476) !important'};
   //text-shadow: 0 0 20px rgba(0,0,0,.2);
 }
 .text-danger--lighter {
@@ -934,13 +935,15 @@ svg * {
     transform: translateY(calc(var(--pulsing)* -5px));
     &__ground {
       transform-origin: 0 74%;
-      fill: #69346f;
+      fill: #5F2368;
+      fill: #{'color(display-p3 0.4 0.12 0.38) !important'};
       transform: scaleY(calc(2 - (var(--scroll) + var(--pulsing)*20) * 0.0022));
     }
     &__badger {
       transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -0.007px));
       use {
         fill: #353164;
+        fill: #{'color(display-p3 0.29 0.12 0.85)'};
       }
       path {
         fill: #fff;
