@@ -9,9 +9,9 @@
   background: $primary;
   // background: linear-gradient(180deg, $primary 0px, rgba(51,84,167,1) 1000px);
   // background: linear-gradient(180deg, color(display-p3 0.13 0.26 0.39) 0px, rgba(51,84,167,1) 1000px);
-  background: linear-gradient(180deg, #903 0px, rgba(51,84,167,1) 1200px);
-  background: linear-gradient(180deg, color(display-p3 0.6 0 0.2) 0px, color(display-p3 0.2 0.33 0.65) 1200px);
-  &--bg-bottom {
+  background: linear-gradient(180deg, #903 0px, $primary 120vh, #00234a 100%);
+  background: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary 120vh, #{'color(display-p3 0 0.33 0.65)'} 100%);
+  &--bge-bottom {
     z-index: -1;
     position: absolute;
     bottom: 0;
