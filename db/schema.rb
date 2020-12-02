@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_10_30_123321) do
+ActiveRecord::Schema.define(version: 2020_11_26_110919) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -68,6 +68,7 @@ ActiveRecord::Schema.define(version: 2020_10_30_123321) do
     t.integer "restarts", default: 0, null: false
     t.integer "delay", default: 0, null: false
     t.integer "current_delay", default: 0, null: false
+    t.datetime "settings_changed_at"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
@@ -151,6 +152,9 @@ ActiveRecord::Schema.define(version: 2020_10_30_123321) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "error_messages", default: "[]"
+    t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
+    t.string "bot_interval", default: "", null: false
+    t.string "transaction_type", default: "REGULAR", null: false
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
   end
 

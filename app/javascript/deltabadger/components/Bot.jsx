@@ -1,18 +1,21 @@
+import 'lodash'
 import React, { useState } from 'react';
 import { connect } from 'react-redux';
-import { StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
+import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import { shouldRename, renameSymbol} from "../utils/symbols";
+
 import {
   reloadBot,
   stopBot,
   removeBot,
   editBot,
   openBot,
-  clearErrors
+  clearErrors,
+  fetchRestartParams
 } from '../bot_actions'
 
 const BotTemplate = ({
@@ -24,6 +27,7 @@ const BotTemplate = ({
   handleRemove,
   handleClick,
   handleEdit,
+  fetchRestartParams,
   clearBotErrors,
   reload,
   open
@@ -45,7 +49,44 @@ const BotTemplate = ({
 
   const isLimitSelected = () => type === 'limit'
 
-  const _handleSubmit = () => {
+  const hasConfigurationChanged = () => {
+    const newSettings= {
+      order_type: type,
+      interval,
+      price: price.trim(),
+      forceSmartIntervals,
+      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
+    }
+
+    const oldSettings = {
+      order_type: settings.order_type,
+      interval: settings.interval,
+      price: settings.price.trim(),
+      forceSmartIntervals: settings.force_smart_intervals,
+      percentage: settings.order_type === 'limit' ? percentage.trim() : undefined
+    }
+
+    return !_.isEqual(newSettings, oldSettings)
+  }
+
+  const getStartButtonType = () => {
+    if (hasConfigurationChanged()) {
+      return fetchRestartParams(bot.id).then((data) => {
+        switch (data.restartType) {
+          case startButtonType.MISSED:
+            return {...data, restartType: startButtonType.CHANGED_MISSED}
+          case startButtonType.ON_SCHEDULE:
+            return {...data, restartType: startButtonType.CHANGED_ON_SCHEDULE}
+          case startButtonType.FAILED:
+            return {...data, restartType: startButtonType.FAILED}
+        }
+      })
+    }
+
+    return fetchRestartParams(bot.id)
+  }
+
+  const _handleSubmit = (continueSchedule = false, fixing_price = null) => {
     if (disableSubmit) return
 
     const botParams = {
@@ -56,7 +97,13 @@ const BotTemplate = ({
       forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
-    handleEdit(botParams)
+
+    const continueParams = {
+      price: fixing_price,
+      continueSchedule
+    }
+
+    handleEdit(botParams, continueParams)
   }
 
   // Shows the first (major) error
@@ -80,7 +127,8 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
-        { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> : <StartButton onClick={_handleSubmit}/>) }
+        { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
+            <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}/>)  }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
@@ -183,6 +231,7 @@ const mapDispatchToProps = ({
   handleRemove: removeBot,
   handleEdit: editBot,
   handleClick: openBot,
-  clearBotErrors: clearErrors
+  clearBotErrors: clearErrors,
+  fetchRestartParams: fetchRestartParams
 })
 export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
