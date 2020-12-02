@@ -26,6 +26,14 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     clearTimeout(timeout)
   };
 
+  const cleverToFixed = (amount) => {
+    if (amount >= 1) {
+      return parseFloat(amount).toFixed(2);
+    }
+
+    return parseFloat(amount).toFixed(3);
+  }
+
   const SmarterRestartButtons = () => {
     return (
     <div>
@@ -46,7 +54,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
-          <p className="">Do you want to invest <b>{missedAmount.toFixed(3)} {settings.quote}</b> missed while the bot was paused?
+          <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused?
             The new schedule will start after the current counting is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
@@ -62,7 +70,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.MISSED &&
         <div>
-          <p className="">Do you want to invest <b>{missedAmount.toFixed(3)} {settings.quote}</b> missed while the bot was paused, and continue the original time schedule?</p>
+          <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused, and continue the original time schedule?</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
