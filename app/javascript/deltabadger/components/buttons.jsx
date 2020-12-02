@@ -31,62 +31,57 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     <div>
       { getType === startButtonType.CHANGED_ON_SCHEDULE &&
         <div>
-          <p className="">While the bot was paused, you missed part of the schedule. You have
-            still <b>{timeToNextTransaction}</b> to the next order. The new schedule will start after
-            the current counting is finished.</p>
+          <p className="">The new schedule will start after the remaining <b>{timeToNextTransaction}</b> of the last one is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">Start, from now!
+            }} className="btn btn-outline-primary">Ignore it and start immediately
             </div>
             <div onClick={() => {
               onClickReset(true) && setOpen(false)
-            }} className="btn btn-success">Start since next transaction!
+            }} className="btn btn-success">I understand
             </div>
           </div>
           </div>
       }
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
-          <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
-            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and stick to the schedule?
+          <p className="">Do you want to invest <b>{missedAmount.toFixed(3)} {settings.quote}</b> missed while the bot was paused?
             The new schedule will start after the current counting is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">Start, without buying!
+            }} className="btn btn-outline-primary">Ignore the missed part
             </div>
             <div onClick={() => {
               onClickReset(false, missedAmount) && setOpen(false)
-            }} className="btn btn-success">Buy, then start with new parameters.
+            }} className="btn btn-success">Yes, buy and continue
             </div>
           </div>
       </div>
       }
       { getType === startButtonType.MISSED &&
         <div>
-          <p className="">While the bot was paused, you missed part of the schedule. Do you want invest
-            missed <b>{missedAmount.toFixed(3)} {settings.quote}</b> and continue the original counting?</p>
+          <p className="">Do you want to invest <b>{missedAmount.toFixed(3)} {settings.quote}</b> missed while the bot was paused, and continue the original time schedule?</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">No, skip it and start new
+            }} className="btn btn-outline-primary">Skip the missed part
             </div>
             <div onClick={() => {
               onClickReset(false, missedAmount) && setOpen(false)
-            }} className="btn btn-success">Yes, stick to the schedule
+            }} className="btn btn-success">Yes, buy and continue
             </div>
           </div>
           </div>
       }
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
-          <p className="">While the bot was paused, you missed part of the schedule. You have
-            still <b>{timeToNextTransaction}</b> to the next order.</p>
+          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-primary">No, start again from now
+            }} className="btn btn-outline-primary">Skip it
             </div>
             <div onClick={() => {
               onClickReset(true) && setOpen(false)
