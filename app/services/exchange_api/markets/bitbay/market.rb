@@ -10,7 +10,7 @@ module ExchangeApi
         ALL_SYMBOLS_CACHE_KEY = 'bitbay_all_symbols'.freeze
 
         def minimum_order_price(symbol)
-          if symbol.include? "-BTC"
+          if symbol.include? '-BTC'
             thousand_satoshis = 0.00001
             return Result::Success.new(thousand_satoshis)
           end
@@ -47,6 +47,13 @@ module ExchangeApi
         end
 
         def quote_decimals(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data.dig('ticker', 'market', 'second', 'scale'))
+        end
+
+        def quote_tick_size_decimals(symbol)
           response = fetch_symbol(symbol)
           return response unless response.success?
 

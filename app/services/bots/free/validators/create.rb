@@ -7,7 +7,8 @@ module Bots::Free::Validators
       non_hodler_symbols = bot.exchange.non_hodler_symbols
       return non_hodler_symbols unless allowed_symbols.success?
 
-      bot_settings = BotSettings.new(bot.settings, user, allowed_symbols.data, non_hodler_symbols.data)
+      bot_settings = BotSettings.new(bot.settings, user,
+                                     allowed_symbols.data, non_hodler_symbols.data)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -22,7 +23,8 @@ module Bots::Free::Validators
       include ActiveModel::Validations
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
-                  :percentage, :allowed_symbols, :non_hodler_symbols, :hodler, :force_smart_intervals
+                  :percentage, :allowed_symbols, :non_hodler_symbols,
+                  :hodler, :force_smart_intervals
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze

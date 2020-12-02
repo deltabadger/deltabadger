@@ -27,13 +27,19 @@ class MakeTransaction < BaseService
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-  def call(bot_id, notify: true, restart: true)
+  def call(bot_id, notify: true, restart: true, continue_params: nil)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
-    result = perform_action(get_api(bot), bot)
+    if continue_params.nil?
+      continue_params = { continue_schedule: false, price: nil }
+    end
 
-    if result.success?
+    continue_schedule = continue_params[:continue_schedule]
+    fixing_price = continue_params[:price]
+    result = continue_schedule ? nil : perform_action(get_api(bot), bot, fixing_price)
+
+    if continue_schedule || result.success?
       bot = @bots_repository.update(bot.id, restarts: 0)
       result = validate_limit(bot, notify)
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
@@ -63,13 +69,13 @@ class MakeTransaction < BaseService
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
-  def perform_action(api, bot)
+  def perform_action(api, bot, price = nil)
     settings = {
       base: bot.base,
       quote: bot.quote,
-      price: bot.price.to_f,
+      price: fixing_transaction?(price) ? price.to_f : bot.price.to_f,
       percentage: (bot.percentage.to_f if bot.limit?),
-      force_smart_intervals: bot.force_smart_intervals
+      force_smart_intervals: fixing_transaction?(price) ? false : bot.force_smart_intervals
     }.compact
     result = if bot.buyer?
                api.buy(settings)
@@ -77,7 +83,7 @@ class MakeTransaction < BaseService
                api.sell(settings)
              end
 
-    @transactions_repository.create(transaction_params(result, bot))
+    @transactions_repository.create(transaction_params(result, bot, price))
 
     if result.success?
       cost = result.data[:rate].to_f * result.data[:amount].to_f
@@ -111,19 +117,29 @@ class MakeTransaction < BaseService
     result.data&.dig(:recoverable) == true
   end
 
-  def transaction_params(result, bot)
+  def transaction_params(result, bot, price = nil)
     if result.success?
       result.data.slice(:offer_id, :rate, :amount).merge(
         bot_id: bot.id,
-        status: :success
+        status: :success,
+        bot_interval: bot.interval,
+        bot_price: fixing_transaction?(price) ? price : bot.price,
+        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
       )
     else
       {
         bot_id: bot.id,
         status: :failure,
-        error_messages: result.errors
+        error_messages: result.errors,
+        bot_interval: bot.interval,
+        bot_price: fixing_transaction?(price) ? price : bot.price,
+        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
       }
     end
+  end
+
+  def fixing_transaction?(price)
+    !price.nil?
   end
 
   def make_transaction?(bot)
