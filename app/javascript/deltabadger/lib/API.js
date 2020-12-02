@@ -65,6 +65,15 @@ const API = {
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
   },
 
+  continueBot(continueSchedule) {
+    const url = `${API_URL}/bots/${params.id}/continue`;
+    const botParams= {
+      continue_schedule: continueSchedule
+    }
+
+    return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
+  },
+
   getBots() {
     const url = `${API_URL}/bots`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
@@ -75,9 +84,14 @@ const API = {
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
 
-  startBot(botId) {
-    const url = `${API_URL}/bots/${botId}/start`;
-    return client.request({ url, params: {}, method: 'post' }).then(data => data.data);
+  startBot(params) {
+    const url = `${API_URL}/bots/${params.id}/start`;
+    const continueParams= {
+      continue_schedule: params.continueParams.continueSchedule,
+      price: params.continueParams.price
+    }
+
+    return client.request({ url, data: {continue_params: continueParams}, method: 'post' }).then(data => data.data);
   },
 
   stopBot(botId) {
@@ -88,6 +102,11 @@ const API = {
   removeBot(botId) {
     const url = `${API_URL}/bots/${botId}`;
     return client.request({ url, params: {}, method: 'delete' }).then(data => data.data);
+  },
+
+  fetchRestartParams(botId) {
+    const url = `${API_URL}/bots/${botId}/restart_params`;
+    return client.request({ url, params: {}, method: 'get' }).then(data => data.data)
   },
 
   getSubscription() {
