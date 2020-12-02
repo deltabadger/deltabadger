@@ -125,6 +125,9 @@ GEM
     dotenv-rails (2.7.5)
       dotenv (= 2.7.5)
       railties (>= 3.2, < 6.1)
+    dotiw (5.2.0)
+      activesupport
+      i18n
     encryptor (3.0.0)
     erubi (1.8.0)
     erubis (2.7.0)
@@ -421,6 +424,7 @@ DEPENDENCIES
   chromedriver-helper
   devise
   dotenv-rails
+  dotiw
   factory_bot_rails
   faker
   faraday
