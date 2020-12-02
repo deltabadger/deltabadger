@@ -49,10 +49,14 @@ export const removeBot = id => (dispatch) => {
   })
 }
 
-export const startBot = (id) => dispatch => {
+export const startBot = (id, continueParams = null) => dispatch => {
   dispatch(tryStartBot(id))
 
-  API.startBot(id).then(({data: bot}) => {
+  if (continueParams === null) {
+    continueParams = {continueSchedule: false, price: null}
+  }
+
+  API.startBot({id: id, continueParams: continueParams}).then(({data: bot}) => {
     dispatch(clearErrors(bot.id))
     dispatch(botReloaded(bot))
     dispatch(openBot(bot.id))
@@ -69,6 +73,11 @@ export const stopBot = (id) => dispatch => {
   })
 }
 
+export const fetchRestartParams = (id) => dispatch => (
+  API.fetchRestartParams(id).then((data) => {
+    return data
+  })
+)
 
 let timeout = (callback) => setTimeout(() => {
   callback()
@@ -92,10 +101,10 @@ export const fetchBot = (id) => dispatch => {
   )
 }
 
-export const editBot = botParams => dispatch => {
+export const editBot = (botParams, continueParams) => dispatch => {
   API.updateBot(botParams).then(({data: bot}) => {
     dispatch(clearErrors(bot.id))
-    dispatch(startBot(bot.id))
+    dispatch(startBot(bot.id, continueParams))
   }).catch((data) => {
     dispatch(setErrors(data.response.data))
   })
