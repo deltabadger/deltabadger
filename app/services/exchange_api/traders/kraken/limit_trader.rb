@@ -28,6 +28,14 @@ module ExchangeApi
           open_orders.merge(closed_orders)
         end
 
+        def placed_order_rate(order_data)
+          if order_data.fetch('status') == 'open'
+            order_data.fetch('descr').fetch('price').to_f
+          else # closed
+            super
+          end
+        end
+
         def get_buy_params(symbol, price, percentage, force_smart_intervals)
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
