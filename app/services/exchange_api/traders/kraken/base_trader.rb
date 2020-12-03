@@ -36,11 +36,7 @@ module ExchangeApi
           created_order = response.fetch('result')
           offer_id = created_order.fetch('txid').first
           order_data = orders.fetch(offer_id)
-          rate = if order_data.fetch('status') == 'open'
-                   order_data.fetch('descr').fetch('price').to_f
-                 else # closed
-                   order_data.fetch('price').to_f
-                 end
+          rate = placed_order_rate(order_data)
           amount = order_data.fetch('vol').to_f
           {
             offer_id: offer_id,
@@ -67,6 +63,10 @@ module ExchangeApi
           return Result::Success.new(min_volume.data) if force_smart_intervals
 
           Result::Success.new([min_volume.data, volume].max)
+        end
+
+        def placed_order_rate(order_data)
+          order_data.fetch('price').to_f
         end
 
         def orders
