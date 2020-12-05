@@ -70,25 +70,8 @@
 
       gtag('config', 'UA-60645901-3');
 
-      // facebook
+      //
 
-      window.fbAsyncInit = function() {
-        FB.init({appId:"541796789740957", xfbml:!0, version:"v5.0"});
-        FB.AppEvents.logPageView();
-      };
-
-      (function(a, b, c) {
-        var d = a.getElementsByTagName(b)[0];
-        a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
-      })(document, "script", "facebook-jssdk");
-
-      // (function(a) {
-      //   a(window).scroll(function() {
-      //     var b = a(window).scrollTop();
-      //     700 <= b ? a(".btn-xl").addClass("") : a(".btn-xl").removeClass("db-opacity-100");
-      //     750 <= b ? a(".btn-xl").addClass("db-opacity-100") : a(".btn-xl").removeClass("");
-      //   });
-      // })(jQuery);
       let root = document.documentElement;
       let count = 0;
       window.addEventListener("scroll", function() {
@@ -107,7 +90,7 @@
 
         root.style.setProperty('--pulsing', Math.cos(elapsed * 0.002).toFixed(3));
 
-        if (elapsed < 200000000) { // Stop the animation after 2 seconds
+        if (elapsed < 200000000) { // Stop the animation
           window.requestAnimationFrame(step);
         }
       }
