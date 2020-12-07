@@ -22,6 +22,11 @@ module ExchangeApi
 
         private
 
+        def parse_response(response)
+          sleep(0.5)
+          super
+        end
+
         def orders
           @client.closed_orders.dig('result', 'closed')
         end

@@ -160,7 +160,7 @@ input[disabled] + span {
       border-bottom-left-radius:  0;
       border-bottom:              0;
       margin-bottom:             -40px;
-      padding-bottom:             55px;
+      padding-bottom:             40px;
       &+.db-bots__item--data {
         background:                 $bgBot;
         border-right:               1px solid #ddd;
@@ -221,18 +221,18 @@ input[disabled] + span {
     }
   }
   &__header {
-
     align-items:    flex-start;
-    position:       relative;
     text-align:     center;
     display:        flex;
     border-radius:  $btn-border-radius;
     flex-direction: row-reverse;
     padding:        $bot-gutter-width/2 $bot-gutter-width/1.2 $bot-gutter-width/2 $bot-gutter-width/1.2;
     .btn {
-      border-radius: $btn-border-radius;
       right:        -10px;
       position:      relative;
+    }
+    .db-bot__modal .btn {
+      right: 0;
     }
   }
   &__infotext {
@@ -286,9 +286,10 @@ input[disabled] + span {
       }
     }
   }
-  &__footer {
-    .btn {
-      margin: 1em;
+  &__footer,
+  &__modal {
+    p {
+      margin: 1em 3em;
     }
   }
 }
@@ -345,21 +346,35 @@ input[disabled] + span {
 }
 
 .db-bot__modal {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,.85);
   backdrop-filter: blur(2px) grayscale(.1);
+  background: rgba(255,255,255,.85);
+  border-radius: 7px;
+  display: flex;
+  height: calc(100% - 10px);
+  justify-content: center;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 1;
+  &__btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+    .btn {
+      padding-right: 1em;
+      padding-left: 1em;
+    }
+  }
 }
 .db-bot__modal__content {
   text-align: center;
 }
 .btn--reset {
+  margin:          1em;
   color:           #bbb !important;
   text-decoration: none !important;
   align-self:      flex-start;

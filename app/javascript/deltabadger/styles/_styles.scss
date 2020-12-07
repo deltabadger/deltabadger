@@ -368,6 +368,12 @@ svg * {
     width: 500px;
   }
 }
+
+.db-modal-limitter {
+  display: flex;
+  align-items: baseline;
+  padding-top: 50px;
+}
 .db-modal-positioner {
   width:           100%;
   height:          calc(100vh - 3 * (#{$navbarHeight}));
@@ -376,8 +382,7 @@ svg * {
   display:         flex;
   min-height: 440px;
 }
-.db-modal-positioner--sign-in { min-height: 560px; }
-.db-modal-positioner--sign-up { min-height: 690px; }
+
 .modal-content {
   border: none;
   background: none;
@@ -408,7 +413,7 @@ svg * {
 
 .db-modal-title {
   text-align:    center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 .db-modal__subtitle {
   margin-bottom: 2rem;
