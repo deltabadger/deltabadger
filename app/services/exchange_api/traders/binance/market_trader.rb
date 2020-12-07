@@ -38,7 +38,12 @@ module ExchangeApi
           price = transaction_price(symbol, price, force_smart_intervals)
           return price unless price.success?
 
-          Result::Success.new(super(symbol).merge(type: 'MARKET', quoteOrderQty: price.data))
+          precision = @market.quote_tick_size_decimals(symbol)
+          return precision unless precision.success?
+
+          Result::Success.new(super(symbol)
+                                .merge(type: 'MARKET',
+                                       quoteOrderQty: price.data.ceil(precision.data)))
         end
       end
     end

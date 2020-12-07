@@ -10,7 +10,7 @@ class StartBot < BaseService
     @validate_limit = validate_limit
   end
 
-  def call(bot_id)
+  def call(bot_id, continue_params = nil)
     bot = @bots_repository.find(bot_id)
     return Result::Success.new(bot) if bot.working?
 
@@ -22,7 +22,8 @@ class StartBot < BaseService
       return validate_limit_result
     end
 
-    result = @make_transaction.call(bot.id, notify: false, restart: false)
+    result = @make_transaction.call(bot.id, notify: false,
+                                            restart: false, continue_params: continue_params)
 
     @bots_repository.update(bot.id, status: 'stopped') if result.failure?
 

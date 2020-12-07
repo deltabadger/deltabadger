@@ -18,6 +18,10 @@ module Bots
         .call(bot, bot_params.merge(user: user))
         .slice(:settings)
 
+      if configuration_changed?(bot, settings_params[:settings])
+        settings_params = settings_params.merge(settings_changed_at: Time.now)
+      end
+
       bot.assign_attributes(settings_params)
       validation = @bot_validator.call(bot, user)
 
@@ -27,6 +31,12 @@ module Bots
       else
         Result::Failure.new(*validation.errors)
       end
+    end
+
+    private
+
+    def configuration_changed?(bot, new_settings)
+      bot.settings != new_settings
     end
   end
 end
