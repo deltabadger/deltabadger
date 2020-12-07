@@ -1,12 +1,22 @@
 import Rails from 'rails-ujs';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import * as Sentry from "@sentry/react";
+import { Integrations } from "@sentry/tracing";
 import { Dashboard } from '../deltabadger/components/Dashboard';
 import style from '../deltabadger/styles/main.scss';
 import { CookieBanner } from '../deltabadger/components/CookieBanner';
 import { Provider } from 'react-redux'
 import { configureStore } from '../deltabadger/Store'
 import { reducer } from '../deltabadger/reducer'
+
+Sentry.init({
+  dsn: process.env.REACT_SENTRY_DSN,
+  integrations: [
+    new Integrations.BrowserTracing(),
+  ],
+  tracesSampleRate: 1.0,
+});
 
 require.context('../images', true)
 
