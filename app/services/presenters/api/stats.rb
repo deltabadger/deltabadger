@@ -14,7 +14,7 @@ module Presenters
         current_price_result = market.current_price(market_symbol)
         current_price = current_price_result.or(transactions.last.rate)
         transactions_amount_sum = transactions.sum(&:amount)
-        total_invested = transactions.sum(&:price).ceil(5)
+        total_invested = transactions.sum(&:price).ceil(8)
 
         average_price =  total_invested / transactions_amount_sum
         current_value = current_price * transactions_amount_sum
