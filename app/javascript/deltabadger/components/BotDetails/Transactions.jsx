@@ -16,27 +16,27 @@ const Stats = ({
       <tbody>
         <tr>
           <td scope="col">Bought:</td>
-          <th scope="col">{ bought } { base }</th>
+          <th scope="col">{ toFixedWithoutZeros(bought) } { base }</th>
         </tr>
         <tr>
           <td scope="col">Average price:</td>
-          <th scope="col">{ averagePrice } { quote }</th>
+          <th scope="col">{ toFixedWithoutZeros(averagePrice) } { quote }</th>
         </tr>
         <tr>
           <td scope="col">Total invested:</td>
-          <th scope="col">{ totalInvested } { quote }</th>
+          <th scope="col">{ toFixedWithoutZeros(totalInvested) } { quote }</th>
         </tr>
         <tr>
           <td scope="col">Current value:</td>
           <th scope="col">
-            { currentValue } { quote }
+            { toFixedWithoutZeros(currentValue) } { quote }
             { !currentPriceAvailable && <sup>*</sup> }
           </th>
         </tr>
         <tr>
           <td scope="col">Profit/Loss:</td>
           <th scope="col" className={`text-${profitLoss.positive ? 'success' : 'danger'}`}>
-            { profitLoss.value } { quote } { profitLoss.percentage }
+            { toFixedWithoutZeros(profitLoss.value) } { quote } { profitLoss.percentage }
             { !currentPriceAvailable && <sup>*</sup> }
           </th>
         </tr>
@@ -75,8 +75,8 @@ export const Transactions = ({ bot, active }) => {
           <tr key={t.id} >
             <td scope="row">{t.created_at}</td>
             <td>{bot.settings.type}</td>
-            <td>{t.amount || "N/A"}</td>
-            <td>{parseFloat(t.rate).toFixed(2) || "N/A"}</td>
+            <td>{toFixedWithoutZeros(t.amount) || "N/A"}</td>
+            <td>{toFixedWithoutZeros(t.rate)|| "N/A"}</td>
           </tr>
         ))}
       </tbody>
@@ -91,4 +91,12 @@ export const Transactions = ({ bot, active }) => {
       <span className="ml-3"> Download .csv</span> </a>
     </div>
   </div>
+}
+
+const toFixedWithoutZeros = (x) => {
+  if(parseFloat(x) >= 1.0 || parseFloat(x) <= -1.0){
+    return parseFloat(x).toFixed(2);
+  }
+
+  return parseFloat(x).toFixed(8).replace(/\.?0*$/,'');
 }
