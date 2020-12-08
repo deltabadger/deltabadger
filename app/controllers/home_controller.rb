@@ -6,6 +6,7 @@ class HomeController < ApplicationController
     cookies_policy
     contact
     about
+    confirm_registration
 
   ].freeze
 
