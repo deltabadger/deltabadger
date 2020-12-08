@@ -21,6 +21,7 @@ class HomeController < ApplicationController
   )
 
   layout 'guest', only: PUBLIC_PAGES
+  layout 'devise', only: %i[confirm_registration].freeze
 
   def index
     redirect_to dashboard_path if user_signed_in?
