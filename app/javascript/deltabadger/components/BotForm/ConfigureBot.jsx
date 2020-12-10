@@ -23,6 +23,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const BASES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
   const QUOTES = sortSymbols(uniqueArray(currentExchange.symbols.map(s => s.quote)), getSpecialSymbols(currentExchange.name, false))
 
+  const ALL_BASES = sortSymbols(uniqueArray(currentExchange.all_symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
+  const REST_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
@@ -118,6 +120,11 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 {
                   BASES.map(c =>
                     (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                  )
+                }
+                {
+                  REST_BASES.map(c =>
+                    (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
                   )
                 }
               </select>
