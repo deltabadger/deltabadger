@@ -78,6 +78,10 @@ Rails.application.routes.draw do
   get '/about', to: 'home#about', as: :about
   get '/referral-program', to: 'home#referral_program', as: :referral_program
 
+  get '/terms_and_conditions' => redirect('/terms-and-conditions')
+  get '/privacy_policy' => redirect('/privacy-policy')
+  get '/cookies_policy' => redirect('/cookies-policy')
+  get '/referral_program' => redirect('/referral-program')
   get '*path' => redirect('/')
 
   authenticate :user, lambda { |u| u.admin? } do
