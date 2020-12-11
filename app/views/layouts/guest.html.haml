@@ -1,5 +1,5 @@
 !!!
-%html.db--guest.db--loggedout{:lang => "en"}
+%html.db--guest.db--loggedout{:lang => "en", :class => "#{yield(:html_class)}"}
   %head
     %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}
     %meta{:charset => "UTF-8"}
@@ -40,8 +40,10 @@
 
     = csrf_meta_tags
     = csp_meta_tag
+    = yield(:head)
 
   %body.db-guest-template
+    =yield(:db_guest_brave)
     #cookie_consent
     .db--guest--bg-bottom
     = render 'layouts/navbar'
