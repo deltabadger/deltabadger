@@ -49,9 +49,11 @@ svg * {
 .db-product-menu {
   background: white;
   color: $primary;
+  color: $primary-p3;
   svg {
     * {
       fill: $primary;
+      fill: $primary-p3;
     }
   }
 }
@@ -91,12 +93,19 @@ svg * {
     height: 1.5em;
   }
   &-link,
-  &-outline-primary { path { fill: $primary; } }
+  &-outline-primary { path {
+    fill: $primary;
+    fill: $primary-p3;
+  } }
+
   &-outline-secondary {
     &.disabled { path { fill: #dadfe4; } }
   }
   &-outline-success {
-    path { fill: $success; }
+    path {
+      fill: $success;
+      fill: $success-p3;
+    }
   }
   &-primary,
   &-danger,
@@ -459,6 +468,7 @@ svg * {
   position: relative;
   path {
     fill: $primary;
+    fill: $primary-p3;
   }
   &:hover {
     path {
@@ -548,8 +558,8 @@ svg * {
 
 #cookie_consent {
   background: $success;
+  background: $success-p3;
   box-shadow: $boxShadowAlert;
-  background: #{'color(display-p3 0.0275 0.62 0.376) !important'};
 }
 .cookieConsent {
   display: flex !important;
@@ -570,6 +580,7 @@ svg * {
   }
   button {
     background: $primary !important;
+    background: $primary-p3 !important;
     margin-right: 0 !important;
     color: #fff !important;
     font-size: 16px !important;
@@ -720,6 +731,7 @@ svg * {
 .db-plan--other {
   td:first-child {
     color: $primary;
+    color: $primary-p3;
   }
 }
 .db-plan.db-plan--current {
@@ -752,11 +764,13 @@ svg * {
   cursor: default;
   td {
     background: $primary;
+    background: $primary-p3;
     color: #fff; //#ceddf5;
     box-shadow: 1px 1px 20px transparentize($primary, 1);
   }
   .text-success {
     color: $successLighter !important;
+    color: $success-p3 !important;
   }
 }
 .db-plan--other {}
@@ -844,6 +858,7 @@ svg * {
     a:hover {
       text-decoration: none;
       color: $primary;
+      color: $primary-p3;
     }
   }
 }
@@ -918,6 +933,7 @@ svg * {
 @-moz-document url-prefix() {
   .db-group-cta__bubble {
     background:$primary;
+    background:$primary-p3;
   }
 }
 .db-group-cta__arrow-forward {
@@ -942,19 +958,10 @@ svg * {
     transform: translateY(calc(var(--pulsing)* -5px));
     &__ground {
       transform-origin: 0 74%;
-      //fill: #5F2368;
-      //fill: #{'color(display-p3 0.4 0.12 0.38) !important'};
       transform: scaleY(calc(2 - (var(--scroll) + var(--pulsing)*20) * 0.0022));
     }
-    &__badger {
+    .badger-rig01 {
       transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -0.007px));
-      use {
-        fill: #353164;
-        fill: #{'color(display-p3 0.29 0.12 0.85)'};
-      }
-      path {
-        fill: #fff;
-      }
     }
     &__glass-shine {
       transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * 0.1px));
@@ -982,7 +989,7 @@ svg * {
   }
 }
 .db-stop-color--success {
-  stop-color: #{'color(display-p3 0.0275 0.62 0.376) !important'};
+  stop-color: #{'color(display-p3 0.0275 0.62 0.376)'} !important;
 }
 .db-deep-space {
   position: absolute;
@@ -994,4 +1001,11 @@ svg * {
 }
 .db-row--easy-chart {
   margin-bottom: 200px;
+}
+
+.db-svg--more {
+  position: absolute;
+  top: calc(100vh - 110px);
+  height: 80px;
+  padding-left: 250px;
 }
