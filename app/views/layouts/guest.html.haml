@@ -1,5 +1,5 @@
 !!!
-%html.db--guest.db--loggedout{:lang => "en"}
+%html.db--guest.db--loggedout{:lang => "en", :class => "#{yield(:html_class)}"}
   %head
     %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}
     %meta{:charset => "UTF-8"}
@@ -40,11 +40,14 @@
 
     = csrf_meta_tags
     = csp_meta_tag
+    = yield(:head)
 
   %body.db-guest-template
+    =yield(:db_guest_brave)
     #cookie_consent
-
+    .db--guest--bg-bottom
     = render 'layouts/navbar'
+
 
     = yield
 
@@ -69,22 +72,33 @@
 
       gtag('config', 'UA-60645901-3');
 
-      // facebook
+      //
 
-      window.fbAsyncInit = function() {
-        FB.init({appId:"541796789740957", xfbml:!0, version:"v5.0"});
-        FB.AppEvents.logPageView();
-      };
+      let root = document.documentElement;
+      let count = 0;
+      window.addEventListener("scroll", function() {
+        const distance = window.scrollY;
+        root.style.setProperty('--scroll', distance);
+        root.style.setProperty('--scroll-a', distance - 4600);
 
-      (function(a, b, c) {
-        var d = a.getElementsByTagName(b)[0];
-        a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://connect.facebook.net/en_US/sdk.js", d.parentNode.insertBefore(a, d));
-      })(document, "script", "facebook-jssdk");
+        if (distance > 50) {
+          root.classList.add("has-been-scrolled");
+        }
 
-      // (function(a) {
-      //   a(window).scroll(function() {
-      //     var b = a(window).scrollTop();
-      //     700 <= b ? a(".btn-xl").addClass("") : a(".btn-xl").removeClass("db-opacity-100");
-      //     750 <= b ? a(".btn-xl").addClass("db-opacity-100") : a(".btn-xl").removeClass("");
-      //   });
-      // })(jQuery);
+      });
+
+      let start;
+
+      function step(timestamp) {
+        if (start === undefined)
+          start = timestamp;
+        const elapsed = timestamp - start;
+
+        root.style.setProperty('--pulsing', Math.cos(elapsed * 0.002).toFixed(3));
+
+        if (elapsed < 200000000) { // Stop the animation
+          window.requestAnimationFrame(step);
+        }
+      }
+
+      window.requestAnimationFrame(step);
