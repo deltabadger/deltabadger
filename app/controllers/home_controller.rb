@@ -6,6 +6,7 @@ class HomeController < ApplicationController
     cookies_policy
     contact
     about
+    dollar_cost_averaging
 
   ].freeze
 
