@@ -277,11 +277,13 @@ input[disabled] + span {
       border-radius:   $box-border-radius;
       cursor:          pointer;
       color:           $primary;
+      color:           $primary-p3;
       font-size:       1.3em;
       font-weight:     bold;
       font-family:     Varela Round;
       &:hover {
         background-color: $primary;
+        background-color: $primary-p3;
         color:            $white;
       }
     }
@@ -399,6 +401,7 @@ input[disabled] + span {
 .btn--reset-back {
   &:hover, span {
     color: $primary !important;
+    color: $primary-p3 !important;
   }
 }
 

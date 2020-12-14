@@ -77,6 +77,7 @@ Rails.application.routes.draw do
   get '/contact', to: 'home#contact', as: :contact
   get '/about', to: 'home#about', as: :about
   get '/referral_program', to: 'home#referral_program', as: :referral_program
+  get '/cryptocurrency-dollar-cost-averaging', to: 'home#dollar_cost_averaging', as: :dollar_cost_averaging
 
   get '*path' => redirect('/')
 
