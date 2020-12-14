@@ -97,7 +97,12 @@ svg * {
     fill: $primary;
     fill: $primary-p3;
   } }
-
+  &-transparent {
+    color: darken($primary,9%) !important;
+    color: #{'color(display-p3 0.1 0.19 0.48)'} !important;
+    background: rgba(255,255,255,.1);
+    border-color: transparent !important;
+  }
   &-outline-secondary {
     &.disabled { path { fill: #dadfe4; } }
   }
@@ -175,6 +180,11 @@ svg * {
     position: relative;
     padding-bottom: 400px;
   }
+  &--centered {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 }
 .db-main__section--primary {
   display:         flex;
@@ -182,6 +192,10 @@ svg * {
   justify-content: center;
   padding: 10vh 0 calc(10vh + 200px);
   min-height: calc(100vh - 100px);
+  &--last {
+    padding-top: 5vh;
+    padding-bottom: 5vh;
+  }
 }
 .db-dca-bot-image {
   width:         100%;
