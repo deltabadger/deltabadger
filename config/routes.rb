@@ -78,6 +78,7 @@ Rails.application.routes.draw do
   get '/about', to: 'home#about', as: :about
   get '/referral_program', to: 'home#referral_program', as: :referral_program
   get '/confirm-registration', to: 'home#confirm_registration', as: :confirm_registration
+  get '/cryptocurrency-dollar-cost-averaging', to: 'home#dollar_cost_averaging', as: :dollar_cost_averaging
 
   get '*path' => redirect('/')
 
