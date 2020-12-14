@@ -24,7 +24,19 @@ class HomeController < ApplicationController
   layout 'guest', only: PUBLIC_PAGES
 
   def index
-    redirect_to dashboard_path if user_signed_in?
+    if user_signed_in?
+      redirect_to dashboard_path
+      return
+    end
+
+    if cookies[:alternative_landing].present?
+      redirect_to dollar_cost_averaging_path
+      return
+    end
+  end
+
+  def dollar_cost_averaging
+    cookies[:alternative_landing] = true
   end
 
   def confirm_registration
