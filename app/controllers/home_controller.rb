@@ -6,6 +6,8 @@ class HomeController < ApplicationController
     cookies_policy
     contact
     about
+    dollar_cost_averaging
+    confirm_registration
 
   ].freeze
 
@@ -23,6 +25,15 @@ class HomeController < ApplicationController
 
   def index
     redirect_to dashboard_path if user_signed_in?
+  end
+
+  def confirm_registration
+    if request.referer.nil?
+      redirect_to root_path
+      return
+    end
+
+    render layout: 'devise'
   end
 
   private
