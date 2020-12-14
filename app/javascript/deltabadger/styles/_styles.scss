@@ -168,7 +168,7 @@ svg * {
     font-size: 50px;
   }
   p {
-    font-size: 21px;
+    font-size: 18px;
   }
   a:not(.btn) {
     color: #fff;
@@ -1015,6 +1015,9 @@ svg * {
 }
 .db-row--easy-chart {
   margin-bottom: 200px;
+  p {
+    font-size: 18px;
+  }
 }
 
 .db-svg--more {
@@ -1022,4 +1025,20 @@ svg * {
   top: calc(100vh - 110px);
   height: 80px;
   padding-left: 250px;
+  transition: opacity 300ms ease-in, top 300ms ease-in;
+  //animation: bounce 500ms ease-in-out infinite alternate;
+}
+
+.has-been-scrolled .db-svg--more {
+  top: calc(100vh - 150px);
+  opacity: 0;
+}
+
+@keyframes bounce {
+	0% { top: calc(100vh - 110px); }
+	100% { top: calc(100vh - 115px); }
+}
+
+.no-break {
+  white-space: nowrap;
 }
