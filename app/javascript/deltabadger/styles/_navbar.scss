@@ -7,19 +7,9 @@
   }
   min-height: 100vh;
   background: $primary;
-  // background: linear-gradient(180deg, $primary 0px, rgba(51,84,167,1) 1000px);
-  // background: linear-gradient(180deg, color(display-p3 0.13 0.26 0.39) 0px, rgba(51,84,167,1) 1000px);
-  background: linear-gradient(180deg, #903 0px, $primary 120vh, #00234a 100%);
-  background: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary 120vh, #{'color(display-p3 0 0.33 0.65)'} 100%);
-  &--bge-bottom {
-    z-index: -1;
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 1500px;
-    background: linear-gradient(180deg, rgba(51,84,167,0) 0px, darken($primary,7%));
-    background: linear-gradient(180deg, color(display-p3 0.2 0.33 0.65 0) 0px, darken($primary,7%));
+  &--brave {
+    background: linear-gradient(180deg, #903 0px, $primary 120vh, #172e6c 100%);
+    background: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.09 0.18 0.42)'} 100%);
   }
   .db-logo-svg-shape {
     fill: $textColorInverted;
@@ -52,6 +42,7 @@
       &:hover {
         background: $textColorInverted;
         color: $primary;
+        color: $primary-p3;
       }
     }
     color: $textColorInverted;
@@ -74,11 +65,13 @@
 
 .db-logo-svg-shape {
   fill: $primary;
+  fill: $primary-p3;
   shape-rendering: geometricprecision;
 }
 .db-hi-welcome {
   path {
     stroke: $primary;
+    stroke: $primary-p3;
   }
   &.text-danger {
     path {
@@ -103,6 +96,7 @@
 .navbar-brand {
   font-family:    $fontBrand;
   color:          $primary !important;
+  color:          $primary-p3 !important;
   text-transform: lowercase;
   font-size:      1.2em;
   font-weight:    700;

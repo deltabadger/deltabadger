@@ -1,9 +1,19 @@
-$primary:              #22439E; //#0a45a4; //#0a45a4
+$primary:              #22439E;
+$primary-p3:           #{'color(display-p3 0.13 0.26 0.62)'};
+
 $success:              #079e60;
+$success-p3:           #{'color(display-p3 0.0275 0.62 0.376)'};
+
 $secondary:            #2655ab; //#3e66b3;
+$secondary-p3:           #{'color(display-p3 0.6 0 0.2)'};
+
 //$danger:               #ff4757;
+
 $textColor:            #123;
 $table-color:          $textColor;
+
+
+
 
 $grid-gutter-width:    30px;
 $bot-gutter-width:     30px;
@@ -31,3 +41,13 @@ $input-btn-padding-x-lg: 1.25rem !default;
 //   lg: 1025px,
 //   xl: 1200px
 // ) !default;
+
+
+.fill-success {
+  fill: $success !important;
+  fill: $success-p3 !important;
+}
+.stroke-success {
+  stroke: $success !important;
+  stroke: $success-p3 !important;
+}

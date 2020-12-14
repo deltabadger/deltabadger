@@ -79,7 +79,11 @@
       window.addEventListener("scroll", function() {
         const distance = window.scrollY;
         root.style.setProperty('--scroll', distance);
-        root.style.setProperty('--scroll-a', distance - 4500);
+        root.style.setProperty('--scroll-a', distance - 4600);
+
+        if (distance > 50) {
+          root.classList.add("has-been-scrolled");
+        }
 
       });
 
