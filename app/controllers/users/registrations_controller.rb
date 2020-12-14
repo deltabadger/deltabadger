@@ -31,6 +31,12 @@ class Users::RegistrationsController < Devise::RegistrationsController
     end
   end
 
+  protected
+
+  def after_inactive_sign_up_path_for(_resource)
+    confirm_registration_url
+  end
+
   private
 
   def find_affiliate(code)
