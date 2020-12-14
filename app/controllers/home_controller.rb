@@ -27,6 +27,11 @@ class HomeController < ApplicationController
   end
 
   def confirm_registration
+    if request.referer.nil?
+      redirect_to root_path
+      return
+    end
+
     render layout: 'devise'
   end
 
