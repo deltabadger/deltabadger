@@ -1,5 +1,6 @@
 %main.container.db-main
   %section.db-main__section.db-main__section--primary
+    = render 'layouts/svg_more'
     .row
       .col-md-12.col-lg-5.col-xl-6
         %h1.mb-4
@@ -82,8 +83,8 @@
     .row.db-row--easy-chart
       .col-md-12.col-lg-6.order-lg-2.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_01'
-      .col-md-12.col-lg-6.order-lg-1.db-flex-centered-vertically
-        .db-flex-centered-vertically__content
+      .col-md-12.col-lg-6.order-lg-1
+        .db-flex-centered-vertically__content--off
           %h3.mb-4
             Wait, what is DCA?
           %p
@@ -92,8 +93,8 @@
     .row.db-row--easy-chart
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_02'
-      .col-md-12.col-lg-6.db-flex-centered-vertically
-        .db-flex-centered-vertically__content
+      .col-md-12.col-lg-6
+        .db-flex-centered-vertically__content--off
           %h3.mb-4
             Should I wait for correction to start?
           %p
@@ -101,17 +102,17 @@
     .row.db-row--easy-chart
       .col-md-12.col-lg-6.order-lg-2.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_03'
-      .col-md-12.col-lg-6.order-lg-1.db-flex-centered-vertically
-        .db-flex-centered-vertically__content
+      .col-md-12.col-lg-6.order-lg-1
+        .db-flex-centered-vertically__content--off
           %h3.mb-4
             Why is it better than a lump sum investment?
           %p
-            No. In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn't change at the end.
+            In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn't change at the end.
     .row.db-row--easy-chart
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_04'
-      .col-md-12.col-lg-6.db-flex-centered-vertically
-        .db-flex-centered-vertically__content
+      .col-md-12.col-lg-6
+        .db-flex-centered-vertically__content--off
           %h3.mb-4
             Can I improve DCA with indicators like Mayer Multiple or RSI?
           %p
@@ -141,7 +142,7 @@
             %img.db-lineart--home{:src => asset_pack_path("media/images/lineart_track_it.svg"), :alt => "Tracking investment into cryptocurrencies"}
           %h5 Track results
           %p The fun part. It's very satisfying to check how your investment performs over time.
-  %section.db-main__section.db-main__section--centered
+  %section.db-main__section.db-main__section--centered.mt-5
     %a.btn.btn-success.btn-lg.my-2.my-sm-0.btn--get-started{:href => new_user_registration_path}
       %span.mr-3 Let's get started
       %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
