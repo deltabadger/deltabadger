@@ -811,7 +811,7 @@ svg * {
   .db-infoblocks__img {
     justify-content: flex-start !important;
   }
-  img {
+  svg {
     width: 100px !important;
   }
   @include media-breakpoint-up(sm) {
