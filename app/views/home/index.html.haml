@@ -1,6 +1,5 @@
 %main.container.db-main
   %section.db-main__section.db-main__section--primary
-    = render 'layouts/svg_more'
     .row
       .col-md-12.col-lg-5.col-xl-6
         %h1.mb-4
@@ -21,8 +20,9 @@
           %span.mr-3 Get started
           %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
             %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-      .col-md-12.col-lg-7.col-xl-6.d-none.d-lg-flex
-        .db-bots__item.db-bot.db-bot--dca.db-bot--pick-exchange.db-bot--running.db-bot--active.db-bots__item--homepage
+      //.col-md-12.col-lg-7.col-xl-6.d-none.d-lg-flex
+      .col-md-12.col-lg-6.d-none.d-lg-flex(style="flex-direction: column")
+        .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bots__item--homepage
           .db-bot__header
             .btn.btn-outline-primary
               %span.d-none.d-sm-inline Pause
@@ -31,7 +31,7 @@
             .db-bot__infotext.text-success
               .db-bot__infotext__left
                 %span.d-none.d-sm-inline> Kraken:
-                BTCUSD
+                BTCEUR
               .db-bot__infotext__right Next buy in  13h 50m 38s
           .db-bot__progress.progress.progress--thin.progress--bot-setup
             .progress-bar.bg-success{:role => "progressbar", :style => "width: 66%;"}
@@ -44,34 +44,47 @@
               .form-group.mr-2 BTC for
               .form-group.mr-2
                 %input.form-control.db-input--dca-amount{:disabled => "disabled", :type => "text", :value => "1"}/
-              .form-group.mr-2 USD /
+              .form-group.mr-2 EUR /
               .form-group.mr-2
                 %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
                   %option{:value => "hour"} Hour
                   %option{:value => "day"} Day
                   %option{:value => "week"} Week
                   %option{:value => "month"} Month
+        .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bot--collapsed.db-bots__item--homepage
+          .db-bot__header
+            .btn.btn-outline-primary
+              %span.d-none.d-sm-inline Pause
+              %svg{:class => "btn__svg-icon db-svg-icon db-svg-icon--pause", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+                %path{:d => "M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"}
+            .db-bot__infotext.text-success
+              .db-bot__infotext__left
+                %span.d-none.d-sm-inline> Binance:
+                BTCUSDT
+              .db-bot__infotext__right Next buy in  5h 11m 23s
+          .db-bot__progress.progress.progress--thin.progress--bot-setup
+            .progress-bar.bg-success{:role => "progressbar", :style => "width: 16%;"}
 
   %section.db-main__section.db-main__section--secondary
     .row.db-infoblocks.text-white
       .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p.db-infoblocks__img
-          %img.db-lineart--home{:src => asset_pack_path("media/images/strategy.svg"), :alt => "Dollar-Cost Averaging into Bitcoin"}
+          = render 'layouts/svg_a_strategy'
         %h5 Proven strategy
         %p <b><i>Dollar-cost averaging</i></b> (DCA) is&nbsp;a well-known and recommended strategy of longterm&nbsp;investing.
       .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p.db-infoblocks__img
-          %img.db-lineart--home{:src => asset_pack_path("media/images/protection.svg"), :alt => "Mitigate risk of buying Bitcoin in the wrong moment"}
+          = render 'layouts/svg_a_protection'
         %h5 Mitigate risk
         %p Automate buying small chunks on&nbsp;a&nbsp;regular schedule to get a&nbsp;fair price without stress.
       .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p.db-infoblocks__img
-          %img.db-lineart--home{:src => asset_pack_path("media/images/automation.svg"), :alt => "Set our bot to buy cryptocurrencies for you"}
+          = render 'layouts/svg_a_automation'
         %h5 Set and forget
         %p All you need is an exchange account and a few minutes for&nbsp;setting the bot up.
       .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
         %p.db-infoblocks__img
-          %img.db-lineart--home{:src => asset_pack_path("media/images/smart.svg"), :alt => "Innovative way to buy Bitcoin"}
+          = render 'layouts/svg_a_smart'
         %h5
           .d-inline.d-sm-none.d-md-inline.d-lg-none.d-xl-inline Unique implementation
           .d-none.d-sm-inline.d-md-none.d-lg-inline.d-xl-none Smart intervals
@@ -193,7 +206,7 @@
     Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="noopener" title="Telegram Group">Telegram</a>
     %svg{:class => "db-group-cta__arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
       %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-    %a.btn.btn-success.btn-lg.btn-xl.btn--get-started{:href => new_user_registration_path}
-      Get started
+    %a.btn.btn-white.btn-lg.btn-xl.btn--get-started{:href => new_user_registration_path}
+      Read more
       %svg{:class => "db-group-cta__arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
         %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
