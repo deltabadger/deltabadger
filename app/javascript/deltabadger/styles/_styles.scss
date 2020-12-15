@@ -169,7 +169,7 @@ svg * {
     font-size: 50px;
   }
   p {
-    font-size: 18px;
+    font-size: 17px;
   }
   a:not(.btn) {
     color: #fff;
@@ -194,8 +194,8 @@ svg * {
   padding: 10vh 0 calc(10vh + 200px);
   min-height: calc(100vh - 100px);
   &--last {
-    padding-top: 22vh !important;
-    padding-bottom: 12vh !important;
+    padding-top: 16vh !important;
+    padding-bottom: 16vh !important;
     min-height: calc(500px);
   }
 }
@@ -1037,7 +1037,7 @@ svg * {
 }
 .db-deep-space {
   position: absolute;
-  top: calc(var(--scroll)* 0.14px - 10px);
+  top: calc(var(--scroll)* 0.22px - 10px);
   left: 80px;
 }
 .db-4-easy-charts-title {

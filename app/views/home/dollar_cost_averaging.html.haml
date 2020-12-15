@@ -76,6 +76,19 @@
                 BATUSDT
               .db-bot__infotext__right Next buy in  5h 11m 23s
           .db-bot__progress.progress.progress--thin.progress--bot-setup
+            .progress-bar.bg-success{:role => "progressbar", :style => "width: 36%;"}
+        .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bot--collapsed.db-bots__item--homepage
+          .db-bot__header
+            .btn.btn-outline-primary
+              %span.d-none.d-sm-inline Pause
+              %svg{:class => "btn__svg-icon db-svg-icon db-svg-icon--pause", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+                %path{:d => "M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"}
+            .db-bot__infotext.text-success
+              .db-bot__infotext__left
+                %span.d-none.d-sm-inline> Binance:
+                XMRUSDT
+              .db-bot__infotext__right Next buy in 44m 19s
+          .db-bot__progress.progress.progress--thin.progress--bot-setup
             .progress-bar.bg-success{:role => "progressbar", :style => "width: 16%;"}
 
       .col-md-12.col-lg-5.offset-lg-1.db-flex-centered-vertically
@@ -83,7 +96,17 @@
           %h2.mb-4
             How it works?
           %p
-            It’s simple. Connect your exchange account and start a bot that executes recurring purchases on your desired schedule.
+            It’s simple. Connect your exchange account and set recurring purchases on your desired schedule. You can run as many bots as you want to DCA into your favorite crypto portfolio.
+          %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
+            %span.mr-3 Get started
+            %svg.db-bot__svg-icon.db-svg-icon.db-svg-icon--arrow-forward{:xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
+
+  %section#dcamagic.db-main__section.db-main__section--primary.pb-0
+    %h3.text-center.mb-5
+      What users say about us:
+    %script{:defer => "defer", :src => "https://apps.elfsight.com/p/platform.js"}
+    .elfsight-app-19648b4d-c598-4175-8075-6ac466f2e818
 
   %section#dcamagic.db-main__section.db-main__section--primary.pb-0
     .row.db-4-easy-charts-title
