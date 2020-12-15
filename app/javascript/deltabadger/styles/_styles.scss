@@ -811,7 +811,7 @@ svg * {
   .db-infoblocks__img {
     justify-content: flex-start !important;
   }
-  img {
+  svg {
     width: 100px !important;
   }
   @include media-breakpoint-up(sm) {
@@ -904,22 +904,44 @@ svg * {
     text-decoration: underline;
   }
   .btn-xl {
+    height: 70px;
     position: absolute;
-    left: -190px;
+    left: -180px;
     padding: 1.15rem 1.7rem;
-    bottom: -2px;
     border-radius: 50px;
     text-decoration: none;
     font-size: 1rem;
     line-height: 28px;
+    transition: opacity 300ms ease-in, bottom 300ms ease-in, color 300ms ease-in;
+    animation: bounce 500ms ease-in-out infinite alternate;
+    font-weight: normal;
     svg {
+      transform: rotate(90deg);
       position: relative;
       right:-8px;
+      path {
+        transition: fill 300ms ease-in;
+        animation: bounce_svg 500ms ease-in-out infinite alternate;
+      }
     }
   }
 }
+
+.has-been-scrolled .db-group-cta .btn-xl {
+  opacity: 0;
+}
+
+@keyframes bounce {
+	0% { bottom: -10px;  color: rgba(255,255,255,1) }
+	100% { bottom: 8px; color: rgba(255,255,255,.5) }
+}
+@keyframes bounce_svg {
+	0% { fill: rgba(255,255,255,1) }
+	100% { fill: rgba(255,255,255,.5) }
+}
+
+
 .btn-xl {
-  opacity: 0%;
   transition: opacity 200ms ease-in-out;
   pointer-events: none;
 }
@@ -1009,7 +1031,7 @@ svg * {
 }
 .db-deep-space {
   position: absolute;
-  top: calc(var(--scroll)* 0.17px - 0px);
+  top: calc(var(--scroll)* 0.14px - 10px);
   left: 80px;
 }
 .db-4-easy-charts-title {
@@ -1017,32 +1039,24 @@ svg * {
 }
 .db-row--easy-chart {
   margin-bottom: 100px;
-  p {
-    font-size: 18px;
-  }
 }
 .db-easy-chart__text {
-}
-
-.db-svg--more {
-  position: absolute;
-  top: calc(100vh - 110px);
-  height: 80px;
-  padding-left: 250px;
-  transition: opacity 300ms ease-in, top 300ms ease-in;
-  //animation: bounce 500ms ease-in-out infinite alternate;
-}
-
-.has-been-scrolled .db-svg--more {
-  top: calc(100vh - 150px);
-  opacity: 0;
-}
-
-@keyframes bounce {
-	0% { top: calc(100vh - 110px); }
-	100% { top: calc(100vh - 115px); }
+  padding-top: 20px;
+  padding-left: 30px;
+  padding-right: 20px;
+  h3 {
+    line-height: 1.4;
+  }
+  p {
+    font-size: 17px;
+  }
 }
 
 .no-break {
   white-space: nowrap;
+}
+
+.db-squareart {
+  width: 200px;
+  height: 200px;
 }
