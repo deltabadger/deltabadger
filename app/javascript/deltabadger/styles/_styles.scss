@@ -98,10 +98,11 @@ svg * {
     fill: $primary-p3;
   } }
   &-transparent {
-    color: darken($primary,9%) !important;
-    color: #{'color(display-p3 0.1 0.19 0.48)'} !important;
-    background: rgba(255,255,255,.1);
+    color: #000;
+    background: #fff;
     border-color: transparent !important;
+    opacity: 0.1 !important;
+    transition: none !important;
   }
   &-outline-secondary {
     &.disabled { path { fill: #dadfe4; } }
@@ -193,8 +194,9 @@ svg * {
   padding: 10vh 0 calc(10vh + 200px);
   min-height: calc(100vh - 100px);
   &--last {
-    padding-top: 5vh;
-    padding-bottom: 5vh;
+    padding-top: 22vh !important;
+    padding-bottom: 12vh !important;
+    min-height: calc(500px);
   }
 }
 .db-dca-bot-image {
@@ -941,7 +943,7 @@ svg * {
   padding: 18px 18px 18px 25px;
   border-radius: 40px;
   border: 2px solid white;
-  background: rgba(10, 69, 164, 0); //#3e66b3;
+  background: transparent;
   backdrop-filter: blur(8px);
 }
 @-moz-document url-prefix() {
@@ -1007,17 +1009,19 @@ svg * {
 }
 .db-deep-space {
   position: absolute;
-  top: calc(var(--scroll)* 0.21px - 15px);
+  top: calc(var(--scroll)* 0.17px - 0px);
   left: 80px;
 }
 .db-4-easy-charts-title {
-  margin-bottom: 200px;
+  margin-bottom: 150px;
 }
 .db-row--easy-chart {
-  margin-bottom: 200px;
+  margin-bottom: 100px;
   p {
     font-size: 18px;
   }
+}
+.db-easy-chart__text {
 }
 
 .db-svg--more {

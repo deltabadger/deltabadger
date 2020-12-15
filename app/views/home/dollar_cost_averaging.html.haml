@@ -97,44 +97,38 @@
           %span.no-break 4 easy charts
 
     .row.db-row--easy-chart
-      .col-md-12.col-lg-6.order-lg-2.mb-4.d-lg-flex(style="flex-direction: column")
+      .col-md-12.col-lg-6.order-lg-2
+        .db-flex-centered-vertically__content--off.db-easy-chart__text
+          %h3.mb-4.mt-4 Wait… what is DCA?
+          %p.mb-5 DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of it when the price is lower, and less when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price and participate in the long-term trend.
+      .col-md-12.col-lg-6.order-lg-1.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_01'
-      .col-md-12.col-lg-6.order-lg-1
-        .db-flex-centered-vertically__content--off
-          %h3.mb-4
-            Wait, what is DCA?
-          %p
-            DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of it when the price is lower, and less when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price and participate in the long-term trend.
 
     .row.db-row--easy-chart
+      .col-md-12.col-lg-6
+        .db-flex-centered-vertically__content--off.db-easy-chart__text
+          %h3.mb-4.mt-4 Should I wait for correction to start?
+          %p.mb-5 No. For an appreciating asset, it's always better to start earlier, even at the top! Eventually, the price will go higher, and whoever started earlier ends up with lower average price.
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_02'
-      .col-md-12.col-lg-6
-        .db-flex-centered-vertically__content--off
-          %h3.mb-4
-            Should I wait for correction to start?
-          %p
-            No. For an appreciating asset, it's always better to start earlier, even at the top! Eventually, the price will go higher, and whoever started earlier ends up with lower average price.
+
     .row.db-row--easy-chart
-      .col-md-12.col-lg-6.order-lg-2.mb-4.d-lg-flex(style="flex-direction: column")
+      .col-md-12.col-lg-6.order-lg-2
+        .db-flex-centered-vertically__content--off.db-easy-chart__text
+          %h3.mb-4.mt-4 Why is it better than a lump sum investment?
+          %p.mb-5 In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn't change at the end.
+      .col-md-12.col-lg-6.order-lg-1.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_03'
-      .col-md-12.col-lg-6.order-lg-1
-        .db-flex-centered-vertically__content--off
-          %h3.mb-4
-            Why is it better than a lump sum investment?
-          %p
-            In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn't change at the end.
+
     .row.db-row--easy-chart
+      .col-md-12.col-lg-6
+        .db-flex-centered-vertically__content--off.db-easy-chart__text
+          %h3.mb-4.mt-4 Can I improve DCA with indicators like Mayer Multiple or RSI?
+          %p.mb-5 Not really. Oscillators don't work well in an upward trend. The next bottom is often higher than the previous top. There is no automated strategy that wins with DCA, because DCA is simply investing in the market trend which can't be beaten consistently with any math formula.
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_04'
-      .col-md-12.col-lg-6
-        .db-flex-centered-vertically__content--off
-          %h3.mb-4
-            Can I improve DCA with indicators like Mayer Multiple or RSI?
-          %p
-            Not really. Oscillators don't work well in an upward trend. The next bottom is often higher than the previous top. There is no automated strategy that wins with DCA, because DCA is simply investing in the market trend which can't be beaten consistently with any math formula.
 
-  %section.db-main__section.db-main__section--centered
+  %section.db-main__section.db-main__section--centered.mt-5
     %a.btn.btn-success.btn-lg.my-2.my-sm-0.btn--get-started{:href => new_user_registration_path}
       %span.mr-3 Let's get started
       %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
