@@ -166,10 +166,10 @@ svg * {
 }
 .db-main__section {
   h2 {
-    font-size: 50px;
+    font-size: 44px;
   }
   p {
-    font-size: 18px;
+    font-size: 17px;
   }
   a:not(.btn) {
     color: #fff;
@@ -194,8 +194,8 @@ svg * {
   padding: 10vh 0 calc(10vh + 200px);
   min-height: calc(100vh - 100px);
   &--last {
-    padding-top: 22vh !important;
-    padding-bottom: 12vh !important;
+    padding-top: 16vh !important;
+    padding-bottom: 16vh !important;
     min-height: calc(500px);
   }
 }
@@ -906,19 +906,25 @@ svg * {
   .btn-xl {
     height: 70px;
     position: absolute;
-    left: -180px;
-    padding: 1.15rem 1.7rem;
+    right: -94px;
+    padding: 1.15rem 0;
     border-radius: 50px;
     text-decoration: none;
     font-size: 1rem;
     line-height: 28px;
-    transition: opacity 300ms ease-in, bottom 300ms ease-in, color 300ms ease-in;
+    transition: opacity 150ms ease-in, bottom 300ms ease-in, color 300ms ease-in;
     animation: bounce 500ms ease-in-out infinite alternate;
     font-weight: normal;
+    width: 50vw;
+    min-width: 680px !important;
+    @include media-breakpoint-down(md) {
+      display: none;
+    }
     svg {
+      width: 50px;
+      height: 50px;
       transform: rotate(90deg);
       position: relative;
-      right:-8px;
       path {
         transition: fill 300ms ease-in;
         animation: bounce_svg 500ms ease-in-out infinite alternate;
@@ -932,8 +938,8 @@ svg * {
 }
 
 @keyframes bounce {
-	0% { bottom: -10px;  color: rgba(255,255,255,1) }
-	100% { bottom: 8px; color: rgba(255,255,255,.5) }
+	0% { bottom: -0px;  color: rgba(255,255,255,1) }
+	100% { bottom: 18px; color: rgba(255,255,255,.5) }
 }
 @keyframes bounce_svg {
 	0% { fill: rgba(255,255,255,1) }
@@ -1031,7 +1037,7 @@ svg * {
 }
 .db-deep-space {
   position: absolute;
-  top: calc(var(--scroll)* 0.14px - 10px);
+  top: calc(var(--scroll)* 0.22px - 10px);
   left: 80px;
 }
 .db-4-easy-charts-title {

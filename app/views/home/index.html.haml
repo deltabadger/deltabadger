@@ -10,7 +10,7 @@
             %span.db-anim-rotator--2 daily
             %span.db-anim-rotator--3 weekly
         %p
-          Five-minute setup. Works with exchanges. <br/> Fully automated. Saves money and time.
+          A bullet-proof strategy of <a href="#dcamagic">dollar-cost averaging</a>.<br/> Works with popular exchanges. Five-minute setup.
         %p
           The basic version is
           %b.text-success.text-success--lighter free
@@ -65,31 +65,31 @@
           .db-bot__progress.progress.progress--thin.progress--bot-setup
             .progress-bar.bg-success{:role => "progressbar", :style => "width: 16%;"}
 
-  %section.db-main__section.db-main__section--secondary
-    .row.db-infoblocks.text-white
-      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-        %p.db-infoblocks__img
-          = render 'layouts/svg_a_strategy'
-        %h5 Proven strategy
-        %p <b><i>Dollar-cost averaging</i></b> (DCA) is&nbsp;a well-known and recommended strategy of longterm&nbsp;investing.
-      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-        %p.db-infoblocks__img
-          = render 'layouts/svg_a_protection'
-        %h5 Mitigate risk
-        %p Automate buying small chunks on&nbsp;a&nbsp;regular schedule to get a&nbsp;fair price without stress.
-      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-        %p.db-infoblocks__img
-          = render 'layouts/svg_a_automation'
-        %h5 Set and forget
-        %p All you need is an exchange account and a few minutes for&nbsp;setting the bot up.
-      .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-        %p.db-infoblocks__img
-          = render 'layouts/svg_a_smart'
-        %h5
-          .d-inline.d-sm-none.d-md-inline.d-lg-none.d-xl-inline Unique implementation
-          .d-none.d-sm-inline.d-md-none.d-lg-inline.d-xl-none Smart intervals
-        %p To get the best results, we use our <i>smart intervals</i> approach. Log in to read more.
-  %section#dcamagic.db-main__section.db-main__section--primary.pb-0
+  -# %section.db-main__section.db-main__section--secondary
+  -#   .row.db-infoblocks.text-white
+  -#     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+  -#       %p.db-infoblocks__img
+  -#         = render 'layouts/svg_a_strategy'
+  -#       %h5 Proven strategy
+  -#       %p <b><i>Dollar-cost averaging</i></b> (DCA) is&nbsp;a well-known and recommended strategy of longterm&nbsp;investing.
+  -#     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+  -#       %p.db-infoblocks__img
+  -#         = render 'layouts/svg_a_protection'
+  -#       %h5 Mitigate risk
+  -#       %p Automate buying small chunks on&nbsp;a&nbsp;regular schedule to get a&nbsp;fair price without stress.
+  -#     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+  -#       %p.db-infoblocks__img
+  -#         = render 'layouts/svg_a_automation'
+  -#       %h5 Set and forget
+  -#       %p All you need is an exchange account and a few minutes for&nbsp;setting the bot up.
+  -#     .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+  -#       %p.db-infoblocks__img
+  -#         = render 'layouts/svg_a_smart'
+  -#       %h5
+  -#         .d-inline.d-sm-none.d-md-inline.d-lg-none.d-xl-inline Unique implementation
+  -#         .d-none.d-sm-inline.d-md-none.d-lg-inline.d-xl-none Smart intervals
+  -#       %p To get the best results, we use our <i>smart intervals</i> approach. Log in to read more.
+  %section#dcamagic.db-main__section.db-main__section--primary.pb-0.pt-0
     .row.db-4-easy-charts-title
       .col
         %h2.text-center
@@ -133,7 +133,7 @@
 
   %section.db-main__section.db-main__section--secondary
     .db-row--how-does-it-work
-      %h2.my-4 DCA easier then ever before
+      %h2.my-5.pb-5.text-center DCA easier then ever before
 
       .row.db-infoblocks
         .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
@@ -156,16 +156,22 @@
             = render 'layouts/svg_b_track_it'
           %h5 Track results
           %p The fun part. It's very satisfying to check how your investment performs over time.
-  %section.db-main__section.db-main__section--centered.mt-5
+  %section.db-main__section.db-main__section--centered.pt-5.mt-5.mb-0.pb-0
     %a.btn.btn-success.btn-lg.my-2.my-sm-0.btn--get-started{:href => new_user_registration_path}
       %span.mr-3 Let's get started
       %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
         %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-  %section.db-main__section.db-main__section--primary
+  %section#dcamagic.db-main__section.db-main__section--primary.pb-0
+    %h3.text-center.mb-5
+      What users say about us:
+    %script{:defer => "defer", :src => "https://apps.elfsight.com/p/platform.js"}
+    .elfsight-app-19648b4d-c598-4175-8075-6ac466f2e818
+
+  %section.db-main__section.db-main__section--primary.db-main__section.db-main__section--primary--last.pt-5
     .row.row--newsletter
       .col-lg-6
         %h2.mb-4 Wait… it's more!
-        %label.db-newsletter-label(for="newsletter-input") We're working on a unique set of tools for investors and traders focused on risk management. Stay in touch if you're interested.
+        %p We're working on a unique set of risk management tools for investors and traders. Stay in touch if you're interested.
         #newsletter
       .col-lg-6.d-none.d-lg-flex
         %svg.db-deep-space-1{:viewBox => "0 0 600 815", :width => "100%", :height => "100%", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
@@ -206,7 +212,6 @@
     Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="noopener" title="Telegram Group">Telegram</a>
     %svg{:class => "db-group-cta__arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
       %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-    %a.btn.btn-white.btn-lg.btn-xl.btn--get-started{:href => new_user_registration_path}
-      Read more
+    .btn.btn-white.btn-lg.btn-xl.btn--get-started
       %svg{:class => "db-group-cta__arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
         %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
