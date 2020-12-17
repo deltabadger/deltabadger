@@ -14,6 +14,8 @@ module ExchangeApi
         case exchange.name.downcase
         when 'binance'
           ExchangeApi::Markets::Binance::Market.new
+        when 'binanceus'
+          ExchangeApi::Markets::BinanceUS::Market.new
         when 'bitbay'
           ExchangeApi::Markets::Bitbay::Market.new
         when 'kraken'

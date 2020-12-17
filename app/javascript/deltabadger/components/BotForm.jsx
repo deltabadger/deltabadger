@@ -39,6 +39,7 @@ export const BotForm = ({
 
   const loadExchanges = () => {
     API.getExchanges().then(data => {
+      console.log(data.data)
       setExchanges(data.data)
     })
   }
