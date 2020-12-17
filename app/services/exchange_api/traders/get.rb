@@ -14,6 +14,8 @@ module ExchangeApi
         case exchange.name.downcase
         when 'binance'
           binance_client(api_key, order_type)
+        when 'binanceus'
+          binanceUS_client(api_key, order_type)
         when 'bitbay'
           bitbay_client(api_key, order_type)
         when 'kraken'
@@ -37,6 +39,18 @@ module ExchangeApi
                    ExchangeApi::Traders::Binance::LimitTrader
                  else
                    ExchangeApi::Traders::Binance::MarketTrader
+                 end
+        client.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
+        )
+      end
+
+      def binanceUS_client(api_key, order_type)
+        client = if limit_trader?(order_type)
+                   ExchangeApi::Traders::BinanceUS::LimitTrader
+                 else
+                   ExchangeApi::Traders::BinanceUS::MarketTrader
                  end
         client.new(
           api_key: api_key.key,

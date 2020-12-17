@@ -2,6 +2,7 @@ class Exchange < ApplicationRecord
   def symbols
     market = case name.downcase
              when 'binance' then ExchangeApi::Markets::Binance::Market.new
+             when 'binanceus' then ExchangeApi::Markets::BinanceUS::Market.new
              when 'bitbay' then ExchangeApi::Markets::Bitbay::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              else

@@ -15,6 +15,8 @@ module ExchangeApi
         case exchange.name.downcase
         when 'binance'
           Binance::Validator.new
+        when 'binanceus'
+          BinanceUS::Validator.new
         when 'bitbay'
           Bitbay::Validator.new
         when 'kraken'
