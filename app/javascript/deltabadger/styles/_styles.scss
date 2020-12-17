@@ -6,18 +6,29 @@ body {
   font-family: $fontText;
   background: none;
   color: $textColor;
+  overflow-x: hidden;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
 }
 h1 {
   font-weight: 100;
-  font-size:   50px;
-  @include media-breakpoint-down(lg) {
-    font-size: 45px;
+  font-size:   48px;
+  @include media-breakpoint-down(sm) {
+    font-size: 32px;
   }
+}
+h2 {
+  font-size: 40px;
   @include media-breakpoint-down(xs) {
-    font-size:   2rem;
+    font-size: 32px;
+  }
+}
+h3 {
+  font-size: 30px;
+  line-height: 1.4;
+  @include media-breakpoint-down(xs) {
+    font-size: 24px;
   }
 }
 .form-control-range,
@@ -45,6 +56,17 @@ svg * {
   }
 }
 // bootstrap overrides
+
+.container {
+  padding-left: 30px;
+  padding-right: 30px;
+  text-align: center;
+  @include media-breakpoint-up(sm) {
+    padding-left: 15px;
+    padding-right: 15px;
+    text-align: left;
+  }
+}
 
 .db-product-menu {
   background: white;
@@ -165,11 +187,8 @@ svg * {
   color: #fff;
 }
 .db-main__section {
-  h2 {
-    font-size: 44px;
-  }
   p {
-    font-size: 17px;
+    font-size: 16px;
   }
   a:not(.btn) {
     color: #fff;
@@ -277,6 +296,7 @@ svg * {
   position:    relative;
   width:       3.05em;
   top:        -5px;
+  text-align:  left;
   span {
     width:     3.05em;
     display:   block;
@@ -810,6 +830,9 @@ svg * {
 .db-row--how-does-it-work {
   .db-infoblocks__img {
     justify-content: flex-start !important;
+    @include media-breakpoint-down(sm) {
+      justify-content: center !important;
+    }
   }
   svg {
     width: 100px !important;
@@ -858,7 +881,9 @@ svg * {
 .db-art {
   width: 100%;
 }
-
+.db-infoblocks__item {
+  margin-bottom: 30px;
+}
 // referral program
 
 .db-referral-program-registration {
@@ -1041,20 +1066,28 @@ svg * {
   left: 80px;
 }
 .db-4-easy-charts-title {
-  margin-bottom: 150px;
-}
-.db-row--easy-chart {
   margin-bottom: 100px;
 }
+.db-row--easy-chart {
+  margin-bottom: 60px;
+}
 .db-easy-chart__text {
+  text-align: left;
   padding-top: 20px;
   padding-left: 30px;
   padding-right: 20px;
+  @include media-breakpoint-down(md) {
+    padding-left: 0;
+    padding-right: 0;
+  }
   h3 {
-    line-height: 1.4;
+    margin-bottom: 20px;
   }
   p {
-    font-size: 17px;
+    margin-bottom: 30px;
+    @include media-breakpoint-down(md) {
+
+    }
   }
 }
 
