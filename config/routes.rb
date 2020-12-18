@@ -16,7 +16,7 @@ Rails.application.routes.draw do
     post :payment_callback
   end
 
-  resource :affiliate, path: 'referral_program', only: [:new, :create, :show] do
+  resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
     get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
     patch :update_visible_info
     patch :update_btc_address
@@ -71,15 +71,19 @@ Rails.application.routes.draw do
   root to: 'home#index'
 
   get '/dashboard', to: 'home#dashboard', as: :dashboard
-  get '/terms_and_conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
-  get '/privacy_policy', to: 'home#privacy_policy', as: :privacy_policy
-  get '/cookies_policy', to: 'home#cookies_policy', as: :cookies_policy
+  get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
+  get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
+  get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy
   get '/contact', to: 'home#contact', as: :contact
   get '/about', to: 'home#about', as: :about
-  get '/referral_program', to: 'home#referral_program', as: :referral_program
+  get '/referral-program', to: 'home#referral_program', as: :referral_program
   get '/confirm-registration', to: 'home#confirm_registration', as: :confirm_registration
   get '/cryptocurrency-dollar-cost-averaging', to: 'home#dollar_cost_averaging', as: :dollar_cost_averaging
 
+  get '/terms_and_conditions' => redirect('/terms-and-conditions')
+  get '/privacy_policy' => redirect('/privacy-policy')
+  get '/cookies_policy' => redirect('/cookies-policy')
+  get '/referral_program' => redirect('/referral-program')
   get '*path' => redirect('/')
 
   authenticate :user, lambda { |u| u.admin? } do
