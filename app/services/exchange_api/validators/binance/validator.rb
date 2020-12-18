@@ -4,10 +4,14 @@ module ExchangeApi
       class Validator < BaseValidator
         include ExchangeApi::Clients::Binance
 
+        def initialize(url_base:)
+          @url_base = url_base
+        end
+
         ORDER_DOES_NOT_EXIST = -2011
 
         def validate_credentials(api_key:, api_secret:)
-          request = signed_client(api_key, api_secret).delete(
+          request = signed_client(api_key, api_secret, @url_base).delete(
             'order',
             symbol: 'ETHBTC',
             orderId: '9' * 10
