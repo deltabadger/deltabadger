@@ -210,8 +210,8 @@ svg * {
   display:         flex;
   flex-direction:  column;
   justify-content: center;
-  padding: 10vh 0 calc(10vh + 200px);
-  min-height: calc(100vh - 100px);
+  padding: 10vh 0 calc(6vh + 100px);
+  min-height: calc(80vh - 100px);
   &--last {
     padding-top: 16vh !important;
     padding-bottom: 16vh !important;

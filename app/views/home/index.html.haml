@@ -10,7 +10,8 @@
             %span.db-anim-rotator--2 daily
             %span.db-anim-rotator--3 weekly
         %p
-          A bullet-proof strategy of <a href="#dcamagic">dollar-cost averaging</a>. <br/> Works with popular exchanges. Five-minute setup.
+          A bullet-proof strategy <span class="no-break">of <a href="#dcamagic">dollar-cost averaging</a>.</span> <br /> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
+
         %p
           The basic version is
           %b.text-success.text-success--lighter free
@@ -63,8 +64,30 @@
               .db-bot__infotext__right Next buy in  5h 11m 23s
           .db-bot__progress.progress.progress--thin.progress--bot-setup
             .progress-bar.bg-success{:role => "progressbar", :style => "width: 16%;"}
-
-  %section#dcamagic.db-main__section.db-main__section--primary.pb-0.pt-0
+  %section.db-main__section.db-main__section--secondary
+    .db-row--how-does-it-work
+      .row.db-infoblocks
+        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+          %p.db-infoblocks__img.db-infoblocks__img--lineart
+            = render 'layouts/svg_b_exchange'
+          %h5 Login to <span class="d-inline d-lg-none d-xl-inline">your </span>exchange
+          %p Deltabadger works with selected cryptoexchanges. Currently: <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="noopener">Binance</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="noopener">Bitbay</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener">Kraken</a>.
+        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+          %p.db-infoblocks__img.db-infoblocks__img--lineart
+            = render 'layouts/svg_b_keys'
+          %h5 Get API keys
+          %p No worries, we walk you through the process. It's safe: the keys have limited permissions.
+        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+          %p.db-infoblocks__img.db-infoblocks__img--lineart
+            = render 'layouts/svg_b_set_up'
+          %h5 Five-minute setup
+          %p Enter your API keys. Choose the desired schedule. Press <b>Start</b>. Done.
+        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
+          %p.db-infoblocks__img.db-infoblocks__img--lineart
+            = render 'layouts/svg_b_track_it'
+          %h5 Track results
+          %p The fun part. It's very satisfying to check how your investment performs over time.
+  %section#dcamagic.db-main__section.db-main__section--primary.pb-0.pt-5.mb-5
     .row.db-4-easy-charts-title
       .col
         %h2.text-center
@@ -106,32 +129,7 @@
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_04'
 
-  %section.db-main__section.db-main__section--secondary
-    .db-row--how-does-it-work
-      %h2.my-5.pb-5.text-center DCA easier then ever before
-
-      .row.db-infoblocks
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_exchange'
-          %h5 Login to <span class="d-inline d-lg-none d-xl-inline">your </span>exchange
-          %p Deltabadger works with selected cryptoexchanges. Currently: <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="noopener">Binance</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="noopener">Bitbay</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="noopener">Kraken</a>.
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_keys'
-          %h5 Get API keys
-          %p No worries, we walk you through the process. It's safe: the keys have limited permissions.
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_set_up'
-          %h5 Five-minute setup
-          %p Enter your API keys. Choose the desired schedule. Press <b>Start</b>. Done.
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_track_it'
-          %h5 Track results
-          %p The fun part. It's very satisfying to check how your investment performs over time.
-  %section.db-main__section.db-main__section--centered.pt-5.mt-5.mb-0.pb-0
+  %section.db-main__section.db-main__section--centered.pt-5.mb-0.pb-4
     %a.btn.btn-success.btn-lg.my-2.my-sm-0.btn--get-started{:href => new_user_registration_path}
       %span.mr-3 Let's get started
       %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
