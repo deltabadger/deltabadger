@@ -1,5 +1,5 @@
 Exchange.find_or_create_by!(name: 'Binance')
-Exchange.find_or_create_by!(name: 'BinanceUS')
+Exchange.find_or_create_by!(name: 'Binance.US')
 Exchange.find_or_create_by!(name: 'BitBay')
 Exchange.find_or_create_by!(name: 'Kraken')
 

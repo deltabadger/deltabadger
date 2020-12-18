@@ -1,6 +1,7 @@
 module ExchangeApi
   module Validators
     class Get < BaseService
+      include ExchangeApi::BinanceEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -14,9 +15,9 @@ module ExchangeApi
 
         case exchange.name.downcase
         when 'binance'
-          Binance::Validator.new
-        when 'binanceus'
-          BinanceUS::Validator.new
+          Binance::Validator.new(url_base: EU_URL_BASE)
+        when 'binance.us'
+          Binance::Validator.new(url_base: US_URL_BASE)
         when 'bitbay'
           Bitbay::Validator.new
         when 'kraken'
