@@ -1,6 +1,7 @@
 module ExchangeApi
   module Markets
     class Get < BaseService
+      include ExchangeApi::BinanceEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -13,9 +14,9 @@ module ExchangeApi
 
         case exchange.name.downcase
         when 'binance'
-          ExchangeApi::Markets::Binance::Market.new
-        when 'binanceus'
-          ExchangeApi::Markets::BinanceUS::Market.new
+          ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
+        when 'binance.us'
+          ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
         when 'bitbay'
           ExchangeApi::Markets::Bitbay::Market.new
         when 'kraken'
