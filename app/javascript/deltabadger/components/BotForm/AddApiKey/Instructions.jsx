@@ -7,7 +7,7 @@ import { KrakenInstructions } from './KrakenInstructions';
 export const Instructions = ({ exchangeName }) => {
   switch (exchangeName.toLowerCase()) {
     case 'binance': return <BinanceInstructions />;
-    case 'binanceus': return <BinanceUSInstructions />;
+    case 'binance.us': return <BinanceUSInstructions />;
     case 'bitbay': return <BitBayInstructions />;
     case 'kraken': return <KrakenInstructions />;
     default: return '';
