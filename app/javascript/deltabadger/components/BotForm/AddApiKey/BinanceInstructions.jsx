@@ -1,12 +1,19 @@
 import React from 'react'
 
-export const BinanceInstructions = () => (
+const getBinanceUrl = (binanceName) => {
+  switch(binanceName.toString().toLowerCase()) {
+    case 'binance': return "https://www.binance.com/en/register?ref=NUYVIP6R"
+    case 'binance.us': return "https://www.binance.us/en/home"
+  }
+}
+
+export const BinanceInstructions = ({binanceName}) => (
   <div className="db-exchange-instructions db-exchange-instructions--binance">
     <div className="alert alert-success mx-0" role="alert">
-      <b className="alert-heading mb-2">How to get API keys from Binance:</b>
+      <b className="alert-heading mb-2">How to get API keys from {binanceName}:</b>
       <hr/>
       <ol>
-        <li>Login to your <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="noopener">Binance</a> account.</li>
+        <li>Login to your <a href={getBinanceUrl(binanceName)} target="_blank" rel="noopener">{binanceName}</a> account.</li>
         <li>In user menu (round icon in the top right corner) go to <b>API Management</b>.</li>
         <li>Name the new API key by pressing "Create".</li>
         <li>Confirm creation with one-time code(s).</li>

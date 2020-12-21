@@ -5,9 +5,7 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Binance
 
-        def initialize(
-          url_base:
-        )
+        def initialize(url_base:)
           @unsigned_client = unsigned_client(url_base)
         end
 
