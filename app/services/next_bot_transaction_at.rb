@@ -19,7 +19,6 @@ class NextBotTransactionAt < BaseService
               restart_delay(bot)
             end
 
-    return delay.since(bot.last_transaction.created_at) if bot.working?
 
     delay.since(last_paid_transaction(bot))
   end
