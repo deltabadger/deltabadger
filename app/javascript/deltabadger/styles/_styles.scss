@@ -27,21 +27,18 @@ h2 {
 h3 {
   font-size: 30px;
   line-height: 1.4;
-  @include media-breakpoint-down(xs) {
-    font-size: 24px;
-  }
+}
+h4 {
+  font-size: 24px;
 }
 .form-control-range,
 [type="radio"],
 [type="checkbox"] {
   filter: brightness(0.9) contrast(1.5) saturate(0.6);
 }
-sur {
+sup {
   position: relative;
   top:-.25em;
-}
-svg * {
-  //transition: fill 0.15s ease-in-out;
 }
 .field_with_errors {
   input {
@@ -55,6 +52,11 @@ svg * {
     display: block;
   }
 }
+
+.no-break {
+  white-space: nowrap;
+}
+
 // bootstrap overrides
 
 .container {
@@ -354,91 +356,6 @@ svg * {
   .db-intro-image {
     display: none;
   }
-}
-
-// modal
-
-.db--devise {
-  .modal-dialog {
-    width: 500px;
-  }
-}
-
-.db-modal-limitter {
-  display: flex;
-  align-items: baseline;
-  padding-top: 50px;
-}
-.db-modal-positioner {
-  width:           100%;
-  height:          calc(100vh - 3 * (#{$navbarHeight}));
-  justify-content: center;
-  align-items:     center;
-  display:         flex;
-  min-height: 440px;
-}
-
-.modal-content {
-  border: none;
-  background: none;
-  border-color: #ddd;
-}
-.db--loggedin {
-  .modal-content {
-    .btn-lg {
-      min-width: 280px;
-      justify-content: center;
-    }
-  }
-}
-.db--loggedout {
-  .modal-content {
-    .btn-lg {
-      min-width: 180px;
-      justify-content: center;
-    }
-  }
-}
-.modal-dialog {
-  @include media-breakpoint-down(xs) {
-    margin-left: 0;
-    margin-right: 0;
-  }
-}
-
-.db-modal-title {
-  text-align:    center;
-  margin-bottom: 2rem;
-}
-.db-modal__subtitle {
-  margin-bottom: 2rem;
-  text-align: center;
-}
-.db-form-group--main-btn {
-  text-align: center;
-  margin-top: 3rem;
-}
-.db-form-group--btn {
-  display:     flex;
-  align-items: flex-end;
-  .btn {
-    width: 100%;
-  }
-}
-.db-form-group--fg-2 {
-  flex-grow: 3;
-}
-.db-form-group--eu-company {
-  display: none;
-}
-.db-form-group--eu-company__visible {
-  display: block;
-}
-.db-form-preview--visible_text {
-  display: none;
-}
-.db-form-preview--visible_text__visible {
-  display: inline;
 }
 
 // page
@@ -1089,10 +1006,6 @@ svg * {
 
     }
   }
-}
-
-.no-break {
-  white-space: nowrap;
 }
 
 .db-squareart {
