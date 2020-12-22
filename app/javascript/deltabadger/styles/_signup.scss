@@ -1,14 +1,14 @@
 .db--devise.db--loggedout {
-  background: $primary;
-  background: linear-gradient(180deg, darken($primary,10%) 0px, $primary 120vh, #0D1A40 100%);
-  background: linear-gradient(180deg, #{'color(display-p3 0.1 0.19 0.45)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
+  // background: $primary;
+  // background: linear-gradient(180deg, darken($primary,10%) 0px, $primary 120vh, #0D1A40 100%);
+  // background: linear-gradient(180deg, #{'color(display-p3 0.1 0.19 0.45)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
   min-height: 100vh;
   .navbar {
-   .btn-link {
-     color: #fff !important;
-   }
+   // .btn-link {
+   //   color: #fff !important;
+   // }
    path {
-     fill: #fff !important;
+     fill: #123 !important;
    }
   }
   .container--signup {
@@ -28,7 +28,7 @@
   }
 }
 .db-signup--text {
-  color: #fff;
+  color: #123;
 }
 .db-signup__list--item {
   display: flex;
@@ -51,8 +51,9 @@
 }
 
 .modal-content {
-  background: none;
+  // background: none;
   border: none;
+  box-shadow: 1px 1px 10px rgba(0,0,0,.05)
 }
 .db--loggedin {
   .modal-content {
