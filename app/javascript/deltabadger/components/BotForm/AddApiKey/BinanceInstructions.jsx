@@ -6,7 +6,7 @@ export const BinanceInstructions = () => (
       <b className="alert-heading mb-2">How to get API keys from Binance:</b>
       <hr/>
       <ol>
-        <li>Login to your <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="noopener">Binance</a> account.</li>
+        <li>Login to your <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a> account.</li>
         <li>In user menu (round icon in the top right corner) go to <b>API Management</b>.</li>
         <li>Name the new API key by pressing "Create".</li>
         <li>Confirm creation with one-time code(s).</li>

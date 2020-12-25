@@ -1,12 +1,15 @@
 
 html {
   background: #f7f8f9;
+  overflow-x: hidden;
 }
 body {
   font-family: $fontText;
   background: none;
   color: $textColor;
-  overflow-x: hidden;
+}
+a:not(.btn) {
+  text-decoration: underline;
 }
 h1,h2,h3,h4,h5,h6 {
   font-family: $fontHeader;
@@ -15,12 +18,15 @@ h1 {
   font-weight: 100;
   font-size:   48px;
   @include media-breakpoint-down(sm) {
+    font-size: 40px;
+  }
+  @include media-breakpoint-down(xs) {
     font-size: 32px;
   }
 }
 h2 {
   font-size: 40px;
-  @include media-breakpoint-down(xs) {
+  @include media-breakpoint-down(sm) {
     font-size: 32px;
   }
 }
@@ -62,12 +68,16 @@ sup {
 .container {
   padding-left: 30px;
   padding-right: 30px;
-  text-align: center;
-  @include media-breakpoint-up(sm) {
-    padding-left: 15px;
-    padding-right: 15px;
-    text-align: left;
+  @include media-breakpoint-down(md) {
+    max-width: none;
+    padding-left: 30px;
+    padding-right: 30px;
   }
+  // @include media-breakpoint-up(sm) {
+  //   padding-left: 15px;
+  //   padding-right: 15px;
+  //   text-align: left;
+  // }
 }
 
 .db-product-menu {
@@ -194,13 +204,9 @@ sup {
   }
   a:not(.btn) {
     color: #fff;
-    padding-bottom: 2px;
-    border-bottom: 1px solid #fff;
-    text-decoration: none !important;
   }
   &--how-it-works {
     position: relative;
-    padding-bottom: 400px;
   }
   &--centered {
     display: flex;

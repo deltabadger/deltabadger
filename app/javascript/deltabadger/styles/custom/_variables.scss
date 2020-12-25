@@ -42,7 +42,10 @@ $input-btn-padding-x-lg: 1.25rem !default;
 //   xl: 1200px
 // ) !default;
 
-
+.fill-primary {
+  fill: $primary !important;
+  fill: $primary-p3 !important;
+}
 .fill-success {
   fill: $success !important;
   fill: $success-p3 !important;
