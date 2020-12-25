@@ -1,15 +1,28 @@
-.container
-  .db-modal-positioner
-    .modal-dialog
-      .modal-content
-        .modal-body
-          %h3.db-modal-title Forgot your password?
-          = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f|
-            = render "devise/shared/error_messages", resource: resource
-            .form-group
-              = f.label :email
-              = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
-            .form-group.db-form-group--main-btn
-              = f.submit "Send me instructions", class: "btn btn-lg w-100 btn-primary"
-          .text-center
-            = render "devise/shared/links"
+.container.container--signup
+  .row
+    .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
+      %h3.mb-5.mt-4.pt-2 Password managers<br>make security easier.
+      .db-signup__list
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          %a.ml-2(href="https://bitwarden.com/" target="_blank" ref="nofollow") Bitwarden
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          %a.ml-2(href="https://bitwarden.com/" target="_blank" ref="nofollow") 1Password
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          %a.ml-2(href="https://bitwarden.com/" target="_blank" ref="nofollow") Trezor
+    .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
+      .modal-dialog
+        .modal-content
+          .modal-body
+            %h3.db-modal-title Forgot your password?
+            = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f|
+              = render "devise/shared/error_messages", resource: resource
+              .form-group
+                = f.label :email
+                = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
+              .form-group.db-form-group--main-btn
+                = f.submit "Send me instructions", class: "btn btn-lg w-100 btn-primary"
+            .text-center
+              = render "devise/shared/links"

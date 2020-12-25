@@ -963,6 +963,10 @@ sup {
       transform-origin: 0 74%;
       transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0022));
     }
+    &__underground {
+      // fill: linear-gradient(180deg, #903 0px, $primary 120vh, #0D1A40 100%);
+      // fill: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
+    }
     &__badger {
       transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -0.007px));
     }

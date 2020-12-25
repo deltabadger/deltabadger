@@ -7,9 +7,9 @@
    // .btn-link {
    //   color: #fff !important;
    // }
-   path {
-     fill: #123 !important;
-   }
+   // path {
+   //   fill: #fff !important;
+   // }
   }
   .container--signup {
     min-height: calc(100vh - 240px);
@@ -28,7 +28,7 @@
   }
 }
 .db-signup--text {
-  color: #123;
+  color: $primary;
 }
 .db-signup__list--item {
   display: flex;
@@ -52,7 +52,7 @@
 
 .modal-content {
   // background: none;
-  border: none;
+  border: 1px solid #ddd;
   box-shadow: 1px 1px 10px rgba(0,0,0,.05)
 }
 .db--loggedin {
