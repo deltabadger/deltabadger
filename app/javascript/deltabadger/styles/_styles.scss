@@ -7,6 +7,7 @@ body {
   font-family: $fontText;
   background: none;
   color: $textColor;
+  overflow-x: hidden;
 }
 a:not(.btn) {
   text-decoration: underline;
@@ -25,13 +26,13 @@ h1 {
   }
 }
 h2 {
-  font-size: 40px;
+  font-size: 32px;
   @include media-breakpoint-down(lg) {
     font-size: 32px;
   }
 }
 h3 {
-  font-size: 30px;
+  font-size: 26px;
   line-height: 1.4;
 }
 h4 {
@@ -58,11 +59,28 @@ sup {
     display: block;
   }
 }
-
-.no-break {
-  white-space: nowrap;
+.transparent-50 {
+  opacity: 20%;
 }
-
+.no-break {
+  white-space: nowrap !important;
+}
+.question-number {
+  background: $success;
+  background: $success-p3;
+  color: #fff;
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  line-height: 1.6em;
+  border-radius: 2em;
+  text-align: center;
+  margin-right: .4em;
+  font-size: 0.9em;
+  position: relative;
+  top: -.1em;
+  left: -.1em;
+}
 // bootstrap overrides
 
 .container {
@@ -197,37 +215,44 @@ sup {
 
 .db-main {
   color: #fff;
-}
-.db-main__section {
-  p {
-    font-size: 16px;
-  }
-  a:not(.btn) {
-    color: #fff;
-  }
-  &--how-it-works {
-    position: relative;
-  }
-  &--centered {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-}
-.db-main__section--primary {
-  display:         flex;
-  flex-direction:  column;
-  justify-content: center;
-  padding: 8vh 0;
-  min-height: 100vh;
-  &--first {
-    padding: 8vh 0 calc(8vh + 200px);
-    min-height: calc(100vh - 100px);
-  }
-  &--last {
-    padding-top: 16vh !important;
-    padding-bottom: 16vh !important;
-    min-height: calc(500px);
+  &__section {
+    p {
+      font-size: 16px;
+    }
+    a:not(.btn) {
+      color: #fff;
+    }
+    &--how-it-works {
+      position: relative;
+    }
+    &--centered {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    &--primary {
+      display:         flex;
+      flex-direction:  column;
+      justify-content: center;
+      padding: 8vh 0;
+      min-height: 100vh;
+      &--first {
+        padding: 200px 0 400px;
+        min-height: calc(100vh - 100px);
+        @include media-breakpoint-down(md) {
+          min-height: 0;
+          padding: 10vh 0;
+        }
+      }
+      &--last {
+        padding-top: 16vh !important;
+        padding-bottom: 16vh !important;
+        min-height: calc(100vh - 210px);
+      }
+    }
+    &--secondary {
+      padding-bottom: 200px;
+    }
   }
 }
 .db-dca-bot-image {
@@ -998,6 +1023,16 @@ sup {
 }
 .db-4-easy-charts-title {
   margin-bottom: 100px;
+  @include media-breakpoint-down(md) {
+    margin-bottom: 0;
+    h2 {
+      margin-bottom: 30px;
+      text-align: left !important
+    }
+    br {
+      display: none;
+    }
+  }
 }
 .db-row--easy-chart {
   margin-bottom: 60px;
@@ -1025,4 +1060,12 @@ sup {
 .db-squareart {
   width: 200px;
   height: 200px;
+}
+.db-list-of-exchanges {
+  overflow: hidden;
+  b {
+    white-space: nowrap;
+    position: relative;
+    left: -1em;
+  }
 }
