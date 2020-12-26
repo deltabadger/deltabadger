@@ -1,7 +1,10 @@
-.container.db-page.text-light
+- content_for :html_class do
+  db--guest--text
+
+.container.db-page
   .row.mt-5
     .col-md-4
-      %h1.mb-5 Privacy Policy
+      %h1.mb-5 Privacy<br class="d-none d-md-inline" /> Policy
     .col-md-8
       %p
         %i Effective date: August 10, 2020

@@ -1,26 +1,37 @@
+- content_for :head do
+  %meta{:name => "robots", :content => "noindex"}
+
+- content_for :html_class do
+  db--guest--homepage
+
 %main.container.db-main
-  %section.db-main__section.db-main__section--primary
+  .db-main__section.db-main__section--primary.db-main__section--primary--first
     .row
-      .col-md-12.col-lg-6
-        %h1.mb-4
-          Automate buying <br />
-          Bitcoin
-          %span.db-anim-rotator
-            %span.db-anim-rotator--1 hourly
-            %span.db-anim-rotator--2 daily
-            %span.db-anim-rotator--3 weekly
-        %p
-          A bullet-proof strategy <span class="no-break">of <a href="#dcamagic">dollar-cost averaging</a>.</span> <br /> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
+      .col-md-12.col-lg-7.db-flex-centered-vertically
+        .db-flex-centered-vertically__content
+          %h1.mb-5
+            Automate buying <br />
+            Bitcoin
+            %span.db-anim-rotator
+              %span.db-anim-rotator--1 hourly
+              %span.db-anim-rotator--2 daily
+              %span.db-anim-rotator--3 weekly
+          %p
+            A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span> <br /> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
+          %p
+            The basic version is
+            %b.text-success.text-success--lighter free
+            forever.
 
-        %p
-          The basic version is
-          %b.text-success.text-success--lighter free
-          forever.
+          %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
+            %span.mr-3 Get started
+            %svg.db-bot__svg-icon.db-svg-icon.db-svg-icon--arrow-forward{:xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
+      .col-md-12.col-lg-5.d-none.d-lg-flex
+        = render 'layouts/svg_bubbleart_01'
 
-        %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-3.mt-sm-4.btn--get-started{:href => new_user_registration_path}
-          %span.mr-3 Get started
-          %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
-            %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
+  .db-main__section.db-main__section--secondary
+    .row
       .col-md-12.col-lg-6.d-none.d-lg-flex(style="flex-direction: column")
         .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bots__item--homepage
           .db-bot__header
@@ -31,7 +42,7 @@
             .db-bot__infotext.text-success
               .db-bot__infotext__left
                 %span.d-none.d-sm-inline> Kraken:
-                BTCEUR
+                BTCUSD
               .db-bot__infotext__right Next buy in  13h 50m 38s
           .db-bot__progress.progress.progress--thin.progress--bot-setup
             .progress-bar.bg-success{:role => "progressbar", :style => "width: 66%;"}
@@ -44,7 +55,7 @@
               .form-group.mr-2 BTC for
               .form-group.mr-2
                 %input.form-control.db-input--dca-amount{:disabled => "disabled", :type => "text", :value => "1"}/
-              .form-group.mr-2 EUR /
+              .form-group.mr-2 USD /
               .form-group.mr-2
                 %select#exampleFormControlSelect1.form-control{:disabled => "disabled"}
                   %option{:value => "hour"} Hour
@@ -60,37 +71,63 @@
             .db-bot__infotext.text-success
               .db-bot__infotext__left
                 %span.d-none.d-sm-inline> Binance:
-                BTCUSDT
+                BATUSDT
               .db-bot__infotext__right Next buy in  5h 11m 23s
           .db-bot__progress.progress.progress--thin.progress--bot-setup
+            .progress-bar.bg-success{:role => "progressbar", :style => "width: 36%;"}
+        .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bot--collapsed.db-bots__item--homepage
+          .db-bot__header
+            .btn.btn-outline-primary
+              %span.d-none.d-sm-inline Pause
+              %svg{:class => "btn__svg-icon db-svg-icon db-svg-icon--pause", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+                %path{:d => "M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"}
+            .db-bot__infotext.text-success
+              .db-bot__infotext__left
+                %span.d-none.d-sm-inline> Binance:
+                XMRUSDT
+              .db-bot__infotext__right Next buy in 44m 19s
+          .db-bot__progress.progress.progress--thin.progress--bot-setup
             .progress-bar.bg-success{:role => "progressbar", :style => "width: 16%;"}
-  %section.db-main__section.db-main__section--secondary
-    .db-row--how-does-it-work
-      .row.db-infoblocks
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_exchange'
-          %h5 Login to <span class="d-inline d-lg-none d-xl-inline">your </span>exchange
-          %p Deltabadger works with selected cryptoexchanges. Currently: <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="nofollow">Bitbay</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="nofollow">Kraken</a>.
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_keys'
-          %h5 Get API keys
-          %p No worries, we walk you through the process. It's safe: the keys have limited permissions.
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_set_up'
-          %h5 Five-minute setup
-          %p Enter your API keys. Choose the desired schedule. Press <b>Start</b>. Done.
-        .col-xs-12.col-sm-6.col-lg-3.db-infoblocks__item
-          %p.db-infoblocks__img.db-infoblocks__img--lineart
-            = render 'layouts/svg_b_track_it'
-          %h5 Track results
-          %p The fun part. It's very satisfying to check how your investment performs over time.
-  %section#dcamagic.db-main__section.db-main__section--primary.pb-0.pt-5.mb-5
-    .row.db-4-easy-charts-title
+
+      .col-md-12.col-lg-5.offset-lg-1.db-flex-centered-vertically
+        .db-flex-centered-vertically__content
+          %h2.mb-5
+            It's simple.
+          %p
+            Connect one of popular exchanges and set recurring purchases on your desired schedule. You can run as many bots as you want to DCA into your favorite cryptocurrency portfolio.
+            -# It works for all assets including futures, indexes, and crypto-crypto pairs.
+          %p.db-list-of-exchanges
+            %b <span class="transparent-50">&middot;</span> Binance
+            -#   %b <span class="transparent-50">&middot;</span> Binance.US
+            %b <span class="transparent-50">&middot;</span> Bitbay
+            -#   %b <span class="transparent-50">&middot;</span> Bitfinex
+            -#   %b <span class="transparent-50">&middot;</span> Bitmex
+            -#   %b <span class="transparent-50">&middot;</span> Bitso
+            -#   %b <span class="transparent-50">&middot;</span> Bitstamp
+            -#   %b <span class="transparent-50">&middot;</span> CEX.io
+            -#   %b <span class="transparent-50">&middot;</span> Coinbase
+            -#   %b <span class="transparent-50">&middot;</span> Deribit
+            -#   %b <span class="transparent-50">&middot;</span> FTX
+            -#   %b <span class="transparent-50">&middot;</span> Gemini
+            %b <span class="transparent-50">&middot;</span> Kraken
+            -#   %b <span class="transparent-50">&middot;</span> Nash.io
+            -#   %b <span class="transparent-50">&middot;</span> Zebpay
+          %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
+            %span.mr-3 Get started
+            %svg.db-bot__svg-icon.db-svg-icon.db-svg-icon--arrow-forward{:xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
+
+
+  .db-main__section.db-main__section--secondary
+    %h2.text-center.mb-5
+      Users say about us:
+    %script{:defer => "defer", :src => "https://apps.elfsight.com/p/platform.js"}
+    .elfsight-app-19648b4d-c598-4175-8075-6ac466f2e818
+
+  #dcamagic.db-main__section.db-main__section--secondary.db-main__section--secondary--last
+    .row
       .col
-        %h2.text-center
+        %h2.mb-5.text-center
           The magic of
           %span.no-break dollar-cost
           %br
@@ -100,15 +137,16 @@
     .row.db-row--easy-chart
       .col-md-12.col-lg-6.order-lg-2
         .db-flex-centered-vertically__content--off.db-easy-chart__text
-          %h3 Wait… what is DCA?
-          %p DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of it when the price is lower, and less when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price and participate in the long-term trend.
+          %h3 <span class="question-number">1</span>Wait… what is DCA?
+          %p DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of the asset when the price is lower, and less of it when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price.
+          %p DCA keeps you away from the emotional rollercoaster, short-term risk, and decision making anxiety.
       .col-md-12.col-lg-6.order-lg-1.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_01'
 
     .row.db-row--easy-chart
       .col-md-12.col-lg-6
         .db-flex-centered-vertically__content--off.db-easy-chart__text
-          %h3 Should I wait for correction to start?
+          %h3 <span class="question-number">2</span>Should I wait for correction <span class="no-break">to start?</span>
           %p No. For an appreciating asset, it's always better to start earlier, even at the top! Eventually, the price will go higher, and whoever started earlier ends up with lower average price.
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_02'
@@ -116,7 +154,7 @@
     .row.db-row--easy-chart
       .col-md-12.col-lg-6.order-lg-2
         .db-flex-centered-vertically__content--off.db-easy-chart__text
-          %h3 Why is it better than a <span ="no-break">lump sum investment</span>?
+          %h3 <span class="question-number">3</span>Why is it better than a <span class="no-break">lump sum investment</span>?
           %p In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn't change at the end.
       .col-md-12.col-lg-6.order-lg-1.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_03'
@@ -124,58 +162,27 @@
     .row.db-row--easy-chart
       .col-md-12.col-lg-6
         .db-flex-centered-vertically__content--off.db-easy-chart__text
-          %h3 Can I improve DCA with indicators like <span ="no-break">Mayer Multiple</span> or RSI?
+          %h3 <span class="question-number">4</span>Can I improve DCA with RSI <span class="no-break">or Mayer Multiple</span>?
           %p Not really. Oscillators don't work well in an upward trend. The next bottom is often higher than the previous top. There is no automated strategy that wins with DCA, because DCA is simply investing in the market trend which can't be beaten consistently with any math formula.
       .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
         = render 'layouts/svg_easy_chart_04'
 
-  %section.db-main__section.db-main__section--centered.pt-5.mb-0.pb-4
-    %a.btn.btn-success.btn-lg.my-2.my-sm-0.btn--get-started{:href => new_user_registration_path}
-      %span.mr-3 Let's get started
-      %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
-        %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-  %section.db-main__section.db-main__section--primary.pb-0
-    %h3.text-center.mb-5
-      What users say about us:
-    %script{:defer => "defer", :src => "https://apps.elfsight.com/p/platform.js"}
-    .elfsight-app-19648b4d-c598-4175-8075-6ac466f2e818
-
-  %section.db-main__section.db-main__section--primary.db-main__section.db-main__section--primary--last.pt-5
+  .db-main__section.db-main__section--primary.db-main__section--primary--last
     .row.row--newsletter
-      .col-lg-6
-        %h2.mb-4 Wait… it's more!
-        %p We're working on a unique set of risk management tools for investors and traders. Stay in touch if you're interested.
-        #newsletter
-      .col-lg-6.d-none.d-lg-flex
-        %svg.db-deep-space-1{:viewBox => "0 0 600 815", :width => "100%", :height => "100%", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
-          %g{:fill => "none", "fill-rule" => "evenodd"}
-            %mask#planet{:fill => "#fff"}
-              %rect(x="0" y="0" width="600" height="815" fill="#fff")
-              %circle.planet-background{:cx => "482", :cy => "396.6", :fill => "#000", :r => "97"}
-            %path.milky-way{:mask => "url(#planet)", :d => "M320.4 359.2c0-53.4-31.2-138-100.7-171.8-61-29.6-92.2 26.6-122.7 2C47.7 149.5 46 21 113.7 1.7 181.5-17.4 149.3 124 199.3 150 240.1 171 244 120.6 309 127.7c148.6 16.2 65.2 457.9 238.5 467.8 91.5 5.2 16.7 5.4-3.5 64.2-6.3 18.5-.2 34.5 18.4 48a58.9 58.9 0 01-68.5 95.8c-21-14.7-30.4-35.1-33.9-58.2-13.4-88.3 60-215.3-84-208.6-77.1 3.5-55.6-86.8-55.6-177.5z", :fill => "rgba(255,255,255,.05)"}
+      .col-md-12.col-lg-6.d-none.d-lg-flex(style="flex-direction: column")
+        = render 'layouts/svg_bubbleart_02'
+      .col-md-12.col-lg-5.offset-lg-1.db-flex-centered-vertically
+        .db-flex-centered-vertically__content
+          %h2.mb-5 Dollar-cost averaging into Bitcoin is the new standard for long-term savers.
+          %p Growing regulations limit individuals' access to financial markets, while negative interest rates devaluate bonds and saving accounts.
+          %p In that environment, both individuals and companies continue investing in Bitcoin.
+          %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
+            %span.mr-3 The time to start is now
+            %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
+              %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
 
-            %g.planet-atmosphere{:stroke => "rgba(255,255,255,.05)", "stroke-linecap" => "round", "stroke-width" => "5"}
-              %path{:d => "M570.1 408.6A88.9 88.9 0 00419 334a88.9 88.9 0 00-25 76.6M485 319.4a78 78 0 1013.6 154M471 463.3a67 67 0 10-42-108.7"}
-            %mask#b{:fill => "#fff"}
-              %circle{:cx => "482", :cy => "396.6", :r => "47"}
-            %circle#a{:cx => "482", :cy => "396.6", :r => "47", :fill => "rgba(255,255,255,.2)"}
-            %path.planet-shine{:d => "M407.8 387l66-66 43.6 43.5a4.4 4.4 0 11-6.3 6.3l-9.2-9.2a4.5 4.5 0 10-6.4 6.4l2.4 2.4a4 4 0 11-5.5 5.6l-9.7-9.7a4.2 4.2 0 00-6 6l4.1 4a4.2 4.2 0 11-6 6l-2.3-2.3a4.2 4.2 0 00-6 0l-.3.4a3.7 3.7 0 000 5.3 3.7 3.7 0 010 5.3l-.4.3a4.2 4.2 0 01-6 0l-2.7-2.8a4.2 4.2 0 00-6 6l13 13a4.2 4.2 0 01-6 6l-10.8-10.8a4.2 4.2 0 10-6 6l6 6a4.2 4.2 0 01-6 6L407.9 387z", :fill => "#FFF", :mask => "url(#b)"}
-            %circle{:cx => "234.5", :cy => "97.1", :fill => "#FFF", :r => "9.5"}
-            %circle{:cx => "547.5", :cy => "145.1", :fill => "#FFF", :r => "3.5"}
-            %circle{:cx => "656.5", :cy => "353.1", :fill => "#FFF", :r => "3.5"}
-            %circle{:cx => "392", :cy => "629.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "422", :cy => "209.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "202", :cy => "269.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "152", :cy => "199.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "142", :cy => "379.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "2", :cy => "429.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "122", :cy => "489.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "312", :cy => "229.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "352", :cy => "69.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "562", :cy => "129.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "242", :cy => "479.6", :fill => "#FFF", :r => "2"}
-            %circle{:cx => "80", :cy => "285.6", :fill => "#FFF", :r => "5"}
-            %circle{:cx => "227.5", :cy => "465.1", :fill => "#FFF", :r => "7.5"}
+        -# %p We're working on a unique set of risk management tools for investors and traders. Stay in touch if you're interested.
+        -# #newsletter
 
 .db-group-cta.d-none.d-sm-inline
   .db-group-cta__avatar

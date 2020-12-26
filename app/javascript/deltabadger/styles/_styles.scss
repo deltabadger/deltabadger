@@ -18,25 +18,32 @@ h1,h2,h3,h4,h5,h6 {
 h1 {
   font-weight: 100;
   font-size:   48px;
-  @include media-breakpoint-down(lg) {
-    font-size: 40px;
-  }
-  @include media-breakpoint-down(xs) {
-    font-size: 32px;
-  }
+  line-height: 1.33;
+  @include media-breakpoint-down(lg) { font-size: 40px; }
+  @include media-breakpoint-down(sm) { font-size: 32px; }
+  @include media-breakpoint-down(xs) { font-size: 28px; }
 }
 h2 {
   font-size: 32px;
-  @include media-breakpoint-down(lg) {
-    font-size: 32px;
-  }
+  line-height: 1.4;
+  @include media-breakpoint-down(lg) { font-size: 32px; }
+  @include media-breakpoint-down(sm) { font-size: 28px; }
+  @include media-breakpoint-down(xs) { font-size: 24px; }
 }
 h3 {
   font-size: 26px;
-  line-height: 1.4;
+  line-height: 1.5;
+  @include media-breakpoint-down(sm) { font-size: 23px; }
+  @include media-breakpoint-down(xs) { font-size: 20px; }
 }
 h4 {
   font-size: 24px;
+  line-height: 1.5;
+}
+.main-graph-info {
+  @include media-breakpoint-down(md) { font-size: 18px; }
+  @include media-breakpoint-down(sm) { font-size: 20px; }
+  @include media-breakpoint-down(xs) { font-size: 22px; }
 }
 .form-control-range,
 [type="radio"],
@@ -222,36 +229,51 @@ sup {
     a:not(.btn) {
       color: #fff;
     }
+    @include media-breakpoint-down(md) {
+      .text-center {
+        text-align: left !important;
+      }
+    }
     &--how-it-works {
       position: relative;
     }
     &--centered {
-      display: flex;
+      display:         flex;
       justify-content: center;
-      align-items: center;
+      align-items:     center;
     }
     &--primary {
       display:         flex;
       flex-direction:  column;
       justify-content: center;
-      padding: 8vh 0;
+      padding: 200px 0;
       min-height: 100vh;
       &--first {
         padding: 200px 0 400px;
         min-height: calc(100vh - 100px);
         @include media-breakpoint-down(md) {
           min-height: 0;
-          padding: 10vh 0;
+          padding: 180px 0;
         }
       }
       &--last {
-        padding-top: 16vh !important;
+        padding-top:    16vh !important;
         padding-bottom: 16vh !important;
-        min-height: calc(100vh - 210px);
+        min-height:     calc(100vh - 210px);
+        @include media-breakpoint-down(md) {
+          min-height: 0;
+          padding: 180px 0;
+        }
       }
     }
     &--secondary {
       padding-bottom: 200px;
+      @include media-breakpoint-down(md) {
+        padding-bottom: 180px;
+      }
+      &--last {
+        padding-bottom: 0;
+      }
     }
   }
 }
@@ -976,7 +998,7 @@ sup {
   height: 460px;
   &--01 {
     top: calc(var(--scroll)* 0.18px);
-    transform: scale(1.1) translateY(calc(var(--pulsing)* -5px));
+    transform: scale(1) translateY(calc(var(--pulsing)* -5px));
     &__ground {
       transform-origin: 0 74%;
       transform: scaleY(calc(2 - (var(--scroll) + var(--pulsing)*20) * 0.0022));
@@ -993,7 +1015,7 @@ sup {
   }
   &--02 {
     top: calc(var(--scroll-a)* 0.18px);
-    transform: scale(1.1) translateY(calc(var(--pulsing)* -5px));
+    transform: scale(1) translateY(calc(var(--pulsing)* -5px));
     &__ground {
       transform-origin: 0 74%;
       transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0022));

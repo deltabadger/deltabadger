@@ -1,9 +1,13 @@
-.container.db-page.text-light
+- content_for :html_class do
+  db--guest--text
+
+.container.db-page
   .row.mt-5
     .col-md-4
       %h1.mb-5 About the project
 
     .col-md-8
+      %p <b>Warning:</b> this may be weirdly personal for what a typical "About" page looks like.
       %p As somebody born in communist Poland, I was not fortunate enough to get basic wealth-building knowledge from home. I grew up with the notion that money is not important. All you need to do is to provide value to society and money will follow.
 
       %p Unfortunately, while society rewards you for the value provided, inflation takes it back, and does it fast. Your national currency cannot store that value. This is the part where you need to take some extra steps.
