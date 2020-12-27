@@ -1,9 +1,8 @@
 .db--guest--text
   background: #fff !important
-  color: $primary !important
   .btn-success
     color: #fff !important
-  a, .db-hi-welcome, .db-footer__tagline
+  a, h1, .db-hi-welcome, .db-footer__tagline,.db--guest--text
     color: $primary !important
     color: $primary-p3 !important
   .db-logo-svg-shape
@@ -22,3 +21,20 @@
     path
       fill: $primary
       fill: $primary-p3
+.db-page
+  &__body
+    margin-top: 0.6em
+  &__header
+    &__time
+      opacity: .5
+      position: relative
+      top: -0.4em
+    &__author
+      display: none
+      margin-top: 1em
+      line-height: 32px
+      margin-bottom: 3em
+      img
+        width: 32px
+        height: 32px
+        border-radius: 32px
