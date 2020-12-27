@@ -23,7 +23,7 @@ h1 {
   @include media-breakpoint-down(sm) { font-size: 32px; }
   @include media-breakpoint-down(xs) { font-size: 28px; }
 }
-h2 {
+h2,.db-page h1 {
   font-size: 32px;
   line-height: 1.4;
   @include media-breakpoint-down(lg) { font-size: 32px; }
@@ -87,6 +87,15 @@ sup {
   position: relative;
   top: -.1em;
   left: -.1em;
+}
+.first-letter::first-letter {
+  font-size: 2.9em;
+  display: block;
+  float: left;
+  line-height: 1.05;
+  color: $primary;
+  padding-right: 0.2em;
+  font-family: "Varela Round";
 }
 // bootstrap overrides
 
@@ -249,7 +258,7 @@ sup {
       padding: 200px 0;
       min-height: 100vh;
       &--first {
-        padding: 200px 0 400px;
+        padding: 0 0 200px;
         min-height: calc(100vh - 100px);
         @include media-breakpoint-down(md) {
           min-height: 0;
@@ -903,9 +912,9 @@ sup {
     text-decoration: underline;
   }
   .btn-xl {
-    height: 70px;
+    height: 50px;
     position: absolute;
-    right: -94px;
+    right: -100px;
     padding: 1.15rem 0;
     border-radius: 50px;
     text-decoration: none;
@@ -920,12 +929,11 @@ sup {
       display: none;
     }
     svg {
-      width: 50px;
-      height: 50px;
-      transform: rotate(90deg);
+      width: 40px;
+      height: 20px;
       position: relative;
       path {
-        transition: fill 300ms ease-in;
+        transition: stroke 300ms ease-in;
         animation: bounce_svg 500ms ease-in-out infinite alternate;
       }
     }
@@ -937,12 +945,12 @@ sup {
 }
 
 @keyframes bounce {
-	0% { bottom: -0px;  color: rgba(255,255,255,1) }
-	100% { bottom: 18px; color: rgba(255,255,255,.5) }
+	0% { bottom: 4px;  color: rgba(255,255,255,1) }
+	100% { bottom: 16px; color: rgba(255,255,255,.6) }
 }
 @keyframes bounce_svg {
-	0% { fill: rgba(255,255,255,1) }
-	100% { fill: rgba(255,255,255,.5) }
+	0% { stroke: rgba(255,255,255,1) }
+	100% { stroke: rgba(255,255,255,.6) }
 }
 
 
