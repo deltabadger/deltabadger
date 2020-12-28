@@ -22,7 +22,7 @@ export const Details = ({ bot }) => {
             <p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p>
             <p className="mt-2"><b>Why?</b></p>
             <p>There are two benefits:</p>
-            <p>More frequent schedule often results in a better average price. On Kraken, since the beginning of 2017, hourly DCA beats daily DCA by ~1.5%.</p>
+            <p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p>
             <p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>
             <p className="mt-2"><b>Example:</b></p>
             <p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>
