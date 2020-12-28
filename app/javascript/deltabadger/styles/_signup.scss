@@ -1,0 +1,114 @@
+.db--devise.db--loggedout {
+  // background: $primary;
+  // background: linear-gradient(180deg, darken($primary,10%) 0px, $primary 120vh, #0D1A40 100%);
+  // background: linear-gradient(180deg, #{'color(display-p3 0.1 0.19 0.45)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
+  min-height: 100vh;
+  .navbar {
+   // .btn-link {
+   //   color: #fff !important;
+   // }
+   // path {
+   //   fill: #fff !important;
+   // }
+  }
+  .container--signup {
+    min-height: calc(100vh - 240px);
+    display: flex;
+    align-items: center;
+    .row {
+      width: calc(100% + 30px);
+    }
+  }
+  .modal-dialog {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .modal-content {
+    background: #fff;
+  }
+}
+.db-signup--text {
+  color: $primary;
+}
+.db-signup__list--item {
+  display: flex;
+}
+
+// modal
+
+.db-modal-limitter {
+  display: flex;
+  align-items: baseline;
+  padding-top: 50px;
+}
+.db-modal-positioner {
+  width:           100%;
+  height:          calc(100vh - 3 * (#{$navbarHeight}));
+  justify-content: center;
+  align-items:     center;
+  display:         flex;
+  min-height: 440px;
+}
+
+.modal-content {
+  // background: none;
+  border: 1px solid #ddd;
+  box-shadow: 1px 1px 10px rgba(0,0,0,.05)
+}
+.db--loggedin {
+  .modal-content {
+    .btn-lg {
+      min-width: 280px;
+      justify-content: center;
+    }
+  }
+}
+.db--loggedout {
+  .modal-content {
+    .btn-lg {
+      min-width: 180px;
+      justify-content: center;
+    }
+  }
+}
+.modal-dialog {
+  @include media-breakpoint-down(xs) {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+.db-modal-title {
+  text-align:    center;
+  margin-bottom: 2rem;
+}
+.db-modal__subtitle {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+.db-form-group--main-btn {
+  text-align: center;
+  margin-top: 3rem;
+}
+.db-form-group--btn {
+  display:     flex;
+  align-items: flex-end;
+  .btn {
+    width: 100%;
+  }
+}
+.db-form-group--fg-2 {
+  flex-grow: 3;
+}
+.db-form-group--eu-company {
+  display: none;
+}
+.db-form-group--eu-company__visible {
+  display: block;
+}
+.db-form-preview--visible_text {
+  display: none;
+}
+.db-form-preview--visible_text__visible {
+  display: inline;
+}

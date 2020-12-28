@@ -42,7 +42,10 @@ $input-btn-padding-x-lg: 1.25rem !default;
 //   xl: 1200px
 // ) !default;
 
-
+.fill-primary {
+  fill: $primary !important;
+  fill: $primary-p3 !important;
+}
 .fill-success {
   fill: $success !important;
   fill: $success-p3 !important;
@@ -50,4 +53,8 @@ $input-btn-padding-x-lg: 1.25rem !default;
 .stroke-success {
   stroke: $success !important;
   stroke: $success-p3 !important;
+}
+.stop-color-primary {
+  stop-color: $primary !important;
+  stop-color: $primary-p3 !important;
 }
