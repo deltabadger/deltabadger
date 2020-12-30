@@ -21,7 +21,10 @@
       .modal-dialog
         .modal-content
           .modal-body
-            %h3.db-modal-title New account
+            %h3.db-modal-title
+              Create
+              %span.text-success free
+              account
             = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
               - if @code_present
                 = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
@@ -44,7 +47,7 @@
                 = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control form-control-lg"
 
               .form-check.mb-3.mt-4
-                = f.check_box :terms_and_conditions, class: "form-check-input", checked: "checked"
+                = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
                 = f.label :terms_and_conditions, class: "form-check-label" do
                   By signing I agree to
                   = link_to 'Terms of Service', terms_and_conditions_path
@@ -58,6 +61,6 @@
                   I agree to receive emails about new features, and technical updates.
 
               .form-group.db-form-group--main-btn.mt-0.mb-4
-                = invisible_recaptcha_tags text: "Sign up", class: "btn btn-success btn-lg w-100"
+                = invisible_recaptcha_tags text: "Start now", class: "btn btn-success btn-lg w-100"
             .text-center
               = render "devise/shared/links"
