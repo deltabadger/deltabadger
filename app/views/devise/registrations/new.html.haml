@@ -21,7 +21,10 @@
       .modal-dialog
         .modal-content
           .modal-body
-            %h3.db-modal-title New account
+            %h3.db-modal-title
+              Create
+              %span.text-success free
+              account
             = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
               - if @code_present
                 = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
