@@ -133,3 +133,9 @@
     .db-svg--mi-visibility-off { display: block; }
   }
 }
+.db-selectable {
+  cursor: pointer;
+}
+.form-control-lg--has-icon {
+  padding-right: 3.25rem;
+}

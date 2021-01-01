@@ -35,9 +35,9 @@
                 = f.label :email
                 = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
 
-              .form-group.db-has-unmask
+              .form-group.db-has-unmask(onselectstart="return false;")
                 = f.label :password
-                = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg", id: "passwordInput"
+                = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg form-control-lg--has-icon", id: "passwordInput"
                 - if @minimum_password_length
                   .invalid-feedback
                     #{@minimum_password_length} characters minimum
@@ -55,7 +55,6 @@
                     }
                   }
 
-
               .form-check.mb-3.mt-4
                 = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
                 = f.label :terms_and_conditions, class: "form-check-label" do
@@ -66,9 +65,9 @@
                   of Deltabadger.
 
               .form-check.mb-4
-                = f.check_box :updates_agreement, class: "form-check-input"
+                = f.check_box :updates_agreement, class: "form-check-input db-selectable"
                 = f.label :updates_agreement, class: "form-check-label" do
-                  I agree to receive rare emails about new features, and updates.
+                  I agree to receive rare emails about new features and other updates.
 
               .form-group.db-form-group--main-btn.mt-0.mb-4
                 = invisible_recaptcha_tags text: "Start now", class: "btn btn-success btn-lg w-100"
