@@ -17,12 +17,12 @@
     #cookie_consent
 
     = render 'layouts/navbar'
-    = render 'layouts/welcome_message'
-    = render 'layouts/limit_reached'
-
+    .db-content-body
+      = render 'layouts/welcome_message'
+      = render 'layouts/limit_reached'
+      .container
+        = yield
     .container
-      = yield
-
       = render 'layouts/footer'
 
     //= render partial: 'layouts/drift' if !Rails.env.development?

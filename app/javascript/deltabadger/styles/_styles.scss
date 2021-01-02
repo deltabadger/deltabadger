@@ -194,9 +194,6 @@ sup {
     border-color: #{'color(display-p3 0.0275 0.62 0.376) !important'};
   }
 }
-.btn-lg {
-  min-width: 300px !important;
-}
 .btn--get-started {
   min-width: auto !important;
 }
@@ -765,6 +762,9 @@ sup {
 }
 .db-plan-radio {
   display: none;
+}
+.db-content-body {
+  min-height: calc(100vh - 200px);
 }
 .db-upgrade-modal--investor {
   .db-show--hodler { display: none; }
