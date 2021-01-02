@@ -79,7 +79,7 @@ export const AddApiKey = ({
       { pickedExchangeName == "Kraken" &&
         <div className="db-exchange-instructions">
           <div className="alert alert--trading-agreement">
-            <p><b>Achtung!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.</p>
+            <p><b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.</p>
             <div className="form-check">
               <input
                 type="checkbox"
