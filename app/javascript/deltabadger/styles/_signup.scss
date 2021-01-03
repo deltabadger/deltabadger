@@ -1,16 +1,5 @@
 .db--devise.db--loggedout {
-  // background: $primary;
-  // background: linear-gradient(180deg, darken($primary,10%) 0px, $primary 120vh, #0D1A40 100%);
-  // background: linear-gradient(180deg, #{'color(display-p3 0.1 0.19 0.45)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
   min-height: 100vh;
-  .navbar {
-   // .btn-link {
-   //   color: #fff !important;
-   // }
-   // path {
-   //   fill: #fff !important;
-   // }
-  }
   .container--signup {
     min-height: calc(100vh - 240px);
     display: flex;
@@ -58,7 +47,6 @@
 .db--loggedin {
   .modal-content {
     .btn-lg {
-      min-width: 280px;
       justify-content: center;
     }
   }
@@ -111,4 +99,43 @@
 }
 .db-form-preview--visible_text__visible {
   display: inline;
+}
+.db-unmask {
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  top: 44px;
+  right: 16px;
+  cursor: pointer;
+  .db-svg--mi {
+    transition: opacity 200ms ease-in-out;
+    opacity: 0.4;
+  }
+  &:hover {
+    .db-svg--mi {
+      opacity: 1;
+    }
+  }
+}
+.db-has-unmask {
+  position: relative;
+}
+[type="password"] {
+  &~.db-unmask {
+    .db-svg--mi-visibility { display: block; }
+    .db-svg--mi-visibility-off { display: none; }
+  }
+}
+[type="text"] {
+  &~.db-unmask {
+    .db-svg--mi-visibility { display: none; }
+    .db-svg--mi-visibility-off { display: block; }
+  }
+}
+.db-selectable {
+  cursor: pointer;
+}
+.form-control-lg--has-icon {
+  padding-right: 3.25rem;
+  background-position: center right 3rem !important;
 }
