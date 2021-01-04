@@ -1,7 +1,4 @@
-- code_presenter = nil
-- if session[:code].present?
-  - affiliate = AffiliatesRepository.new.find_active_by_code(session[:code])
-  - code_presenter = Presenters::RefCodes::Show.new(affiliate)
+- code_presenter = AffiliatesRepository.new.get_code_presenter(session[:code])
 
 .db-navbar.sticky-top--inactive
   .container
@@ -13,7 +10,7 @@
         = render 'layouts/devise_messages'
         .db-hi-welcome
           %span
-            - if !code_presenter.nil? && code_presenter.valid?
+            - if !code_presenter.nil? && code_presenter.valid? && code_presenter.info?
               %span.db-hi-welcome__default
                 Hello, enjoy #{code_presenter.discount_percent}% discount from <span class="text-success text-success--lighter">#{code_presenter.visible_name}</span>.
             - else
