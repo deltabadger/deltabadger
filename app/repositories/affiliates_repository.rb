@@ -12,6 +12,15 @@ class AffiliatesRepository < BaseRepository
     affiliate
   end
 
+  def get_code_presenter(code)
+    return nil if code.nil?
+
+    affiliate = find_active_by_code(code)
+    code_presenter = Presenters::RefCodes::Show.new(affiliate)
+
+    code_presenter
+  end
+
   def active?(id:)
     affiliate = model.active.where(id: id).first
 
