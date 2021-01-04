@@ -15,7 +15,7 @@
           %span
             - if !code_presenter.nil? && code_presenter.valid?
               %span.db-hi-welcome__default
-                Hello, enjoy #{code_presenter.discount_percent}% discount from <span class="text-success text-success--lighter">#{code_presenter.visible_name}</span>.
+                Hello! enjoy #{code_presenter.discount_percent}% discount from <span class="text-success text-success--lighter">#{code_presenter.visible_name}</span>
             - else
               %span.db-hi-welcome__default Hi, welcome to Deltabadger
           %svg{:width => "38px", :height => "14px", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
