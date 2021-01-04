@@ -1,3 +1,8 @@
+- code_presenter = nil
+- if session[:code].present?
+  - affiliate = AffiliatesRepository.new.find_active_by_code(session[:code])
+  - code_presenter = Presenters::RefCodes::Show.new(affiliate)
+
 .db-navbar.sticky-top--inactive
   .container
     %nav.navbar.navbar-expand-lg.navbar-light
@@ -8,7 +13,12 @@
         = render 'layouts/devise_messages'
         .db-hi-welcome
           %span
-            %span.db-hi-welcome__default Hi, welcome to Deltabadger
+            - if !code_presenter.nil? && code_presenter.valid?
+              %span.db-hi-welcome__default
+                %b Hello, enjoy #{code_presenter.discount_percent}% discount from
+                <a href="#{code_presenter.visible_path}">#{code_presenter.visible_name}</b>
+            - else
+              %span.db-hi-welcome__default Hi, welcome to Deltabadger
           %svg{:width => "38px", :height => "14px", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
             %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke="#0a45a4" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
       %div.form-inline.ml-auto
