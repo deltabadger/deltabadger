@@ -64,7 +64,7 @@ module Payments
     end
 
     def round_down(num)
-      num.round(2, BigDecimal::ROUND_DOWN)
+      num.round(2)
     end
 
     def round_crypto_down(num)
