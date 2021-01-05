@@ -1,8 +1,10 @@
+- profit_calculator = GetDcaProfit.new
+- today = Date.today
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
       -# %h3.mb-5.mt-4.pt-2 Deltabadger automates<br>dollar-cost averaging into<br>Bitcoin and other assets.
-      %h3.mb-5.mt-4.pt-2 If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+244%</span>
+      %h3.mb-5.mt-4.pt-2 If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+#{profit_calculator.call(today - 365, today).data.to_i}%</span>
 
       .db-signup__list
         .db-signup__list--item.mb-4

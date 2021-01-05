@@ -86,7 +86,7 @@
           .form-group.mb-5
             = f.label :discount_percent do
               You will <b>earn <span class="db-form-label-range--earn-percent">#{presenter.earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount</b>.
-            = f.range_field :discount_percent, in: (presenter.min_discount_percent)..(presenter.max_discount_percent), value: presenter.discount_percent, step: presenter.percent_step, data: { sum: presenter.bonus_percent }, class: "db-form-control-range--discount-ratio form-control-range", disabled: disabled
+            = f.range_field :discount_percent, in: (presenter.min_discount_percent)..(presenter.max_discount_percent), value: presenter.discount_percent, step: presenter.percent_step, data: { sum: presenter.bonus_percent }, class: "db-form-control-range--discount-ratio form-control-range", style: "direction: rtl", disabled: disabled
 
 
           %h4.mb-4.pt-2 4. Visible info
