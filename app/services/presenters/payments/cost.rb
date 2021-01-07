@@ -36,10 +36,8 @@ module Presenters
       end
 
       def flat_discounted_price
-        return format_price(cost_calculator.discounted_price) if cost_calculator
-                                                                 .discount_percent_amount == 0.0
-
-        format_price(cost_calculator.base_price - cost_calculator.discount_percent_amount)
+        format_price(cost_calculator.flat_discounted_price -
+                       cost_calculator.discount_percent_amount)
       end
 
       def total_vat
