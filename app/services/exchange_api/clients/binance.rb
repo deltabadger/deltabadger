@@ -1,7 +1,6 @@
 module ExchangeApi
   module Clients
     module Binance
-      URL_BASE = 'https://api.binance.com/api/v3'.freeze
 
       AddTimestamp = Struct.new(:app, :api_secret) do
         def call(env)
@@ -19,14 +18,14 @@ module ExchangeApi
         end
       end
 
-      def unsigned_client
-        Faraday.new(url: URL_BASE) do |conn|
+      def unsigned_client(url_base)
+        Faraday.new(url: url_base) do |conn|
           conn.adapter Faraday.default_adapter
         end
       end
 
-      def signed_client(api_key, api_secret)
-        Faraday.new(url: URL_BASE) do |conn|
+      def signed_client(api_key, api_secret, url_base)
+        Faraday.new(url: url_base) do |conn|
           conn.headers['X-MBX-APIKEY'] = api_key
           conn.use AddTimestamp
           conn.use AddSignature, api_secret
