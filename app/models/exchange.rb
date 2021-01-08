@@ -26,7 +26,7 @@ class Exchange < ApplicationRecord
 
   def filter_non_hodler_symbols(symbols)
     is_kraken = name.downcase == 'kraken'
-    btc_eth = is_kraken ? %w[XBT ETH] : %w[BTC ETH]
+    btc_eth = is_kraken ? %w[XBT ETH LTC XMR] : %w[BTC ETH LTC XMR]
     symbols.select { |s| btc_eth.include?(s.base) }
   end
 end
