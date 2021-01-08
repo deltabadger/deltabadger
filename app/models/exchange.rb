@@ -1,7 +1,9 @@
 class Exchange < ApplicationRecord
+  include ExchangeApi::BinanceEnum
   def symbols
     market = case name.downcase
-             when 'binance' then ExchangeApi::Markets::Binance::Market.new
+             when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
+             when 'binance.us' then ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
              when 'bitbay' then ExchangeApi::Markets::Bitbay::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              else
