@@ -9,11 +9,12 @@ module ExchangeApi
         def initialize(
           api_key:,
           api_secret:,
-          market: ExchangeApi::Markets::Binance::Market.new,
+          url_base:,
+          market: ExchangeApi::Markets::Binance::Market,
           map_errors: ExchangeApi::MapErrors::Binance.new
         )
-          @signed_client = signed_client(api_key, api_secret)
-          @market = market
+          @signed_client = signed_client(api_key, api_secret, url_base)
+          @market = market.new(url_base: url_base)
           @map_errors = map_errors
         end
 
