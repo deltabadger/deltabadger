@@ -35,6 +35,11 @@ module Presenters
         format_price(cost_calculator.discounted_price)
       end
 
+      def flat_discounted_price
+        format_price(cost_calculator.flat_discounted_price -
+                       cost_calculator.discount_percent_amount)
+      end
+
       def total_vat
         format_price(cost_calculator.total_vat)
       end

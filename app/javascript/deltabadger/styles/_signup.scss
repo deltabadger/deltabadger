@@ -1,0 +1,141 @@
+.db--devise.db--loggedout {
+  min-height: 100vh;
+  .container--signup {
+    min-height: calc(100vh - 240px);
+    display: flex;
+    align-items: center;
+    .row {
+      width: calc(100% + 30px);
+    }
+  }
+  .modal-dialog {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .modal-content {
+    background: #fff;
+  }
+}
+.db-signup--text {
+  color: $primary;
+}
+.db-signup__list--item {
+  display: flex;
+}
+
+// modal
+
+.db-modal-limitter {
+  display: flex;
+  align-items: baseline;
+  padding-top: 50px;
+}
+.db-modal-positioner {
+  width:           100%;
+  height:          calc(100vh - 3 * (#{$navbarHeight}));
+  justify-content: center;
+  align-items:     center;
+  display:         flex;
+  min-height: 440px;
+}
+
+.modal-content {
+  // background: none;
+  border: 1px solid #ddd;
+  box-shadow: 1px 1px 10px rgba(0,0,0,.05)
+}
+.db--loggedin {
+  .modal-content {
+    .btn-lg {
+      justify-content: center;
+    }
+  }
+}
+.db--loggedout {
+  .modal-content {
+    .btn-lg {
+      min-width: 180px;
+      justify-content: center;
+    }
+  }
+}
+.modal-dialog {
+  @include media-breakpoint-down(xs) {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+.db-modal-title {
+  text-align:    center;
+  margin-bottom: 2rem;
+}
+.db-modal__subtitle {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+.db-form-group--main-btn {
+  text-align: center;
+  margin-top: 3rem;
+}
+.db-form-group--btn {
+  display:     flex;
+  align-items: flex-end;
+  .btn {
+    width: 100%;
+  }
+}
+.db-form-group--fg-2 {
+  flex-grow: 3;
+}
+.db-form-group--eu-company {
+  display: none;
+}
+.db-form-group--eu-company__visible {
+  display: block;
+}
+.db-form-preview--visible_text {
+  display: none;
+}
+.db-form-preview--visible_text__visible {
+  display: inline;
+}
+.db-unmask {
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  top: 44px;
+  right: 16px;
+  cursor: pointer;
+  .db-svg--mi {
+    transition: opacity 200ms ease-in-out;
+    opacity: 0.4;
+  }
+  &:hover {
+    .db-svg--mi {
+      opacity: 1;
+    }
+  }
+}
+.db-has-unmask {
+  position: relative;
+}
+[type="password"] {
+  &~.db-unmask {
+    .db-svg--mi-visibility { display: block; }
+    .db-svg--mi-visibility-off { display: none; }
+  }
+}
+[type="text"] {
+  &~.db-unmask {
+    .db-svg--mi-visibility { display: none; }
+    .db-svg--mi-visibility-off { display: block; }
+  }
+}
+.db-selectable {
+  cursor: pointer;
+}
+.form-control-lg--has-icon {
+  padding-right: 3.25rem;
+  background-position: center right 3rem !important;
+}

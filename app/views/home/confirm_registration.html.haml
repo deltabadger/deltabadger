@@ -3,7 +3,15 @@
     .modal-dialog
       .modal-content
         .modal-body
-          %h2.db-modal-title  Thanks!
+          %h2.db-modal-title Thanks!
           .text-center
             %p.mb-5 Check your mailbox and click on the <b>confirmation link</b> we've sent to you. Then go to the login page.
             = link_to('Log in', new_user_session_path, class: 'btn btn-primary btn-lg w-100')
+
+/ Reddit Pixel
+:javascript
+  !function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','t2_9nws8asv');rdt('track', 'PageVisit');
+
+  rdt('track', 'Sign Up');
+/ DO NOT MODIFY
+/ End Reddit Pixel

@@ -13,7 +13,7 @@ export const BinanceInstructions = ({binanceName}) => (
       <b className="alert-heading mb-2">How to get API keys from {binanceName}:</b>
       <hr/>
       <ol>
-        <li>Login to your <a href={getBinanceUrl(binanceName)} target="_blank" rel="noopener">{binanceName}</a> account.</li>
+        <li>Login to your <a href={getBinanceUrl(binanceName)} target="_blank" rel="nofollow">{binanceName}</a> account.</li>
         <li>In user menu (round icon in the top right corner) go to <b>API Management</b>.</li>
         <li>Name the new API key by pressing "Create".</li>
         <li>Confirm creation with one-time code(s).</li>

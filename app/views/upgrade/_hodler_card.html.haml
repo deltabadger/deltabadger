@@ -4,12 +4,12 @@
   Hodler (4-year)
   - if days_left
     (#{current_user.plan_days_left} days left)
-  %span.db-billing-item__info DCA works the best as a long-term commitment. With four years of unlimited transactions, you get the best deal (<b>-25%</b>), and access to all <b>new experimental features</b> like limit buy orders (coming soon).
+  %span.db-billing-item__info DCA works best as a long-term commitment. Four years of unlimited transactions for <b>all cryptocurrencies</b>, <b>limit orders</b>, and <b>25% discount</b>.
   - unless days_left
     %td(scope="col")
     %td.pl-4(scope="col")
       - if upgrade_presenter.discount?
-        <span class='text-success'><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-discounted-price'>#{cost_presenter.discounted_price}</span></span>
+        <span class='text-success'><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-discounted-price'>#{cost_presenter.flat_discounted_price}</span></span>
         <s><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'>#{cost_presenter.base_price}</span></s>
       - else
         <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'>#{cost_presenter.base_price}</span>

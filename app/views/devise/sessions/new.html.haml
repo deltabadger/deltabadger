@@ -1,21 +1,32 @@
-.container.db-modal-limitter
-  .db-modal-positioner
-    .modal-dialog
-      .modal-content
-        .modal-body
-          %h2.db-modal-title Log in
-          = form_for(resource, as: resource_name, url: session_path(resource_name)) do |f|
-            .form-group
-              = f.label :email
-              = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
-            .form-group
-              = f.label :password
-              = f.password_field :password, autocomplete: "current-password", class: "form-control form-control-lg"
-            - if devise_mapping.rememberable?
-              .form-check
-                = f.check_box :remember_me, class: "form-check-input"
-                = f.label :remember_me, class: "form-check-label"
-            .form-group.db-form-group--main-btn
-              = f.submit "Log in", class: "btn btn-primary btn-lg w-100"
-          .text-center
-            = render "devise/shared/links"
+.container.container--signup
+  .row
+    .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
+      %h3.mb-5.mt-4.pt-2 Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.
+      -# %h3.mb-5.mt-4.pt-2 If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+123%</span>
+      .db-signup__list
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          %a.ml-2(href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow") Join our Telegram group
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          %a.ml-2(href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow")Follow us on Twitter
+    .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
+      .modal-dialog
+        .modal-content
+          .modal-body
+            %h3.db-modal-title Log in
+            = form_for(resource, as: resource_name, url: session_path(resource_name)) do |f|
+              .form-group
+                = f.label :email
+                = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
+              .form-group
+                = f.label :password
+                = f.password_field :password, autocomplete: "current-password", class: "form-control form-control-lg"
+              - if devise_mapping.rememberable?
+                .form-check
+                  = f.check_box :remember_me, class: "form-check-input"
+                  = f.label :remember_me, class: "form-check-label"
+              .form-group.db-form-group--main-btn
+                = f.submit "Log in", class: "btn btn-primary btn-lg w-100"
+            .text-center
+              = render "devise/shared/links"

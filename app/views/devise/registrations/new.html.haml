@@ -1,45 +1,77 @@
-.container.db-modal-limitter
-  .db-modal-positioner
-    .modal-dialog
-      .modal-content
-        .modal-body
-          %h2.db-modal-title New account
-          = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
-            - if @code_present
-              = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
+- profit_calculator = GetDcaProfit.new
+- today = Date.today
+.container.container--signup
+  .row
+    .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
+      -# %h3.mb-5.mt-4.pt-2 Deltabadger automates<br>dollar-cost averaging into<br>Bitcoin and other assets.
+      %h3.mb-5.mt-4.pt-2 If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+#{profit_calculator.call(today - 365, today).data.to_i}%</span>
 
-            = render "devise/shared/error_messages", resource: resource
+      .db-signup__list
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          .ml-2 auto-DCA on your exchange account
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          .ml-2 <i>Smart intervals</i> and five-minute setup
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          .ml-2 updates and new features every month
+        .db-signup__list--item.mb-4
+          .material-icons-round check
+          .ml-2 support and Telegram community
+    .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
+      .modal-dialog
+        .modal-content
+          .modal-body
+            %h3.db-modal-title
+              Create
+              %span.text-success free
+              account
+            = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
+              - if @code_present
+                = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
-            .form-group
-              = f.label :email
-              = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
+              = render "devise/shared/error_messages", resource: resource
 
-            .form-group
-              = f.label :password
-              = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg"
-              - if @minimum_password_length
-                .invalid-feedback
-                  #{@minimum_password_length} characters minimum
+              .form-group
+                = f.label :email
+                = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
 
-            .form-group
-              = f.label :password_confirmation
-              = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control form-control-lg"
+              .form-group.db-has-unmask(onselectstart="return false;")
+                = f.label :password
+                = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg form-control-lg--has-icon", id: "passwordInput"
+                - if @minimum_password_length
+                  .invalid-feedback
+                    #{@minimum_password_length} characters minimum
 
-            .form-check.mb-2
-              = f.check_box :terms_and_conditions, class: "form-check-input"
-              = f.label :terms_and_conditions, class: "form-check-label" do
-                I have read and agree to the
-                = link_to 'Terms of Service', terms_and_conditions_path
-                and
-                = link_to 'Privacy Policy', privacy_policy_path
-                of the service.
+                .db-unmask{:onclick => "unmaskPassword()"}
+                  = render "layouts/svg_mi_visibility"
+                  = render "layouts/svg_mi_visibility-off"
+                :javascript
+                  function unmaskPassword() {
+                    var x = document.getElementById("passwordInput");
+                    if (x.type === "password") {
+                      x.type = "text";
+                    } else {
+                      x.type = "password";
+                    }
+                  }
 
-            .form-check
-              = f.check_box :updates_agreement, class: "form-check-input"
-              = f.label :updates_agreement, class: "form-check-label" do
-                I agree to receive emails with information on new features, and technical updates.
+              .form-check.mb-5.mt-4.pl-0
+                = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
+                = f.label :terms_and_conditions, class: "form-check-label" do
+                  By signing I agree to
+                  = link_to 'Terms of Service', terms_and_conditions_path
+                  and
+                  = link_to 'Privacy Policy', privacy_policy_path
+                  of Deltabadger.
 
-            .form-group.db-form-group--main-btn
-              = invisible_recaptcha_tags text: "Sign up", class: "btn btn-success btn-lg w-100"
-          .text-center
-            = render "devise/shared/links"
+              -# .form-check.mb-4
+              -#   = f.check_box :updates_agreement, class: "form-check-input db-selectable"
+              -#   = f.label :updates_agreement, class: "form-check-label" do
+              -#     I agree to receive rare emails about new features and other updates.
+
+              .form-group.db-form-group--main-btn.mt-0.mb-4
+                = invisible_recaptcha_tags text: "Start now", class: "btn btn-success btn-lg w-100"
+            .text-center
+              = render "devise/shared/links"

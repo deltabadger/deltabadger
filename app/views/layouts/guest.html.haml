@@ -38,6 +38,8 @@
     %meta{:content => "@deltabadgerapp", :name => "twitter:site"}
     %meta{:content => "@deltabadgerapp", :name => "twitter:creator"}
 
+    %meta{:content => "HLDIK9p43jDZpjhiakjKhgU7iVFwiE_FeCHOIsqhANI", :name => "google-site-verification"}
+
     = csrf_meta_tags
     = csp_meta_tag
     = yield(:head)
@@ -79,9 +81,9 @@
       window.addEventListener("scroll", function() {
         const distance = window.scrollY;
         root.style.setProperty('--scroll', distance);
-        root.style.setProperty('--scroll-a', distance - 4600);
+        root.style.setProperty('--scroll-a', distance - 4300); // 1700
 
-        if (distance > 50) {
+        if (distance > 10) {
           root.classList.add("has-been-scrolled");
         }
 

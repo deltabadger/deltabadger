@@ -1,0 +1,4 @@
+This is a Brave Rewards publisher verification file.
+
+Domain: deltabadger.com
+Token: 8cd611c70a61237a46f396ad511e951e12050300a052a7fa3bd83517e8cc6394

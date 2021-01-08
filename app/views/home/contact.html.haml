@@ -1,21 +1,14 @@
-.container.db-page.text-light
+- content_for :html_class do
+  db--guest--text
 
-  %h1.mb-5.mt-5 Contact
+.container.db-page
+  .row.mt-5
+    .col-md-4
+      %h1.mb-5 Contact
 
-  We're on
-  %a.db-social-link(href="https://twitter.com/deltabadgerapp" target="_blank" rel="noopener")="Twitter"
-  and
-  %a.db-social-link(href="https://t.me/deltabadgerchat" target="_blank" rel="noopener")="Telegram"
-  %br
-  %br
-  You can also send us an email:
-  %a.text-white.db-woowoo{:href=>"javascript:linkTo_UnCryptMailto('nbjmup;dpoubduAefmubcbehfs/dpn');"}
-    %span dger
-    %span b
-    %span ct@delt
-    %span cont
-
-
+    .col-md-8
+      %p For general questions, please try our <a class="db-social-link" "href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.
+      %p For more specific issues, send us an email: <a class="db-woowoo" href="javascript:linkTo_UnCryptMailto('nbjmup;dpoubduAefmubcbehfs/dpn')"><span>dger</span><span>b</span><span>ct@delt</span><span>cont</span></a>, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.
 
 :javascript
   function UnCryptMailto( s )
