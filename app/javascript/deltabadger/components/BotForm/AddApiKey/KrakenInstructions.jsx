@@ -7,7 +7,7 @@ export const KrakenInstructions = () => (
       <hr/>
       <ol>
         <li>Login to your <a href="https://r.kraken.com/deltabadger" target="_blank" rel="nofollow">Kraken</a> account.</li>
-        <li>In user menu go to <b>Settings</b> -> <b>API</b>.</li>
+        <li>In user menu go to <b>Security</b> → <b>API</b>.</li>
         <li>Press <b>Generate New Key</b>.</li>
         <li>Set permissions for the following:<br/>
           Funds:
