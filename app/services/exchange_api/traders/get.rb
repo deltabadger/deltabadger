@@ -1,6 +1,7 @@
 module ExchangeApi
   module Traders
     class Get < BaseService
+      include ExchangeApi::BinanceEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -13,7 +14,9 @@ module ExchangeApi
 
         case exchange.name.downcase
         when 'binance'
-          binance_client(api_key, order_type)
+          binance_client(api_key, order_type, EU_URL_BASE)
+        when 'binance.us'
+          binance_client(api_key, order_type, US_URL_BASE)
         when 'bitbay'
           bitbay_client(api_key, order_type)
         when 'kraken'
@@ -32,7 +35,7 @@ module ExchangeApi
         client.new(exchange_name)
       end
 
-      def binance_client(api_key, order_type)
+      def binance_client(api_key, order_type, url_base)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Binance::LimitTrader
                  else
@@ -40,7 +43,8 @@ module ExchangeApi
                  end
         client.new(
           api_key: api_key.key,
-          api_secret: api_key.secret
+          api_secret: api_key.secret,
+          url_base: url_base
         )
       end
 
