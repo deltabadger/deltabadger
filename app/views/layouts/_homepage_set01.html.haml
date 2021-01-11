@@ -1,6 +1,6 @@
 .db-main__section.db-main__section--secondary
   .row
-    .col-sm-10.col-md-8.col-lg-6.d-lg-flex(style="flex-direction: column")
+    .col-sm-10.col-md-8.col-lg-6.d-none.d-lg-flex(style="flex-direction: column")
       .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bots__item--homepage
         .db-bot__header
           .btn.btn-outline-primary
@@ -66,7 +66,7 @@
           -# It works for all assets including futures, indexes, and crypto-crypto pairs.
         %p.db-list-of-exchanges
           %b <span class="transparent-50">&middot;</span> Binance
-          -#   %b <span class="transparent-50">&middot;</span> Binance.US
+          %b <span class="transparent-50">&middot;</span> Binance.US
           %b <span class="transparent-50">&middot;</span> Bitbay
           -#   %b <span class="transparent-50">&middot;</span> Bitfinex
           -#   %b <span class="transparent-50">&middot;</span> Bitmex
@@ -81,7 +81,7 @@
           -#   %b <span class="transparent-50">&middot;</span> Nash.io
           -#   %b <span class="transparent-50">&middot;</span> Zebpay
         %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
-          %span.mr-3 Start for free in 5 minutes
+          %span.mr-3 Start <span class="d-none d-sm-inline">for free</span> in 5 minutes
           %svg.db-bot__svg-icon.db-svg-icon.db-svg-icon--arrow-forward{:xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
             %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
 -# .db-main__section.db-main__section--primary
@@ -174,7 +174,7 @@
         %p Growing regulations limit individuals' access to financial markets, while negative interest rates devaluate bonds and saving accounts.
         %p In that environment, both individuals and companies continue investing in Bitcoin.
         %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
-          %span.mr-3 Start for free in 5 minutes
+          %span.mr-3 Start <span class="d-none d-sm-inline">for free</span> in 5 minutes
           %svg{:class => "db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward", :xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
             %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
 
