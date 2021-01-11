@@ -21,7 +21,7 @@ h1 {
   line-height: 1.33;
   @include media-breakpoint-down(lg) { font-size: 40px; }
   @include media-breakpoint-down(sm) { font-size: 32px; }
-  @include media-breakpoint-down(xs) { font-size: 28px; }
+  @include media-breakpoint-down(xs) { font-size: 36px; }
 }
 h2,.db-page h1 {
   font-size: 32px;
@@ -229,6 +229,9 @@ sup {
 .db-main {
   color: #fff;
   &__section {
+    @include media-breakpoint-down(sm) {
+      margin-bottom:-50px;
+    }
     p {
       font-size: 16px;
     }
@@ -257,9 +260,20 @@ sup {
       &--first {
         padding: 0 0 200px;
         min-height: calc(100vh - 100px);
+        svg {
+          z-index: -1;
+        }
         @include media-breakpoint-down(md) {
           min-height: 0;
-          padding: 180px 0;
+          padding: 5vh 0;
+        }
+        @include media-breakpoint-only(md) {
+          margin-top: 150px;
+          margin-bottom: 150px;
+          svg {
+            float: right;
+            margin-top: -200px;
+          }
         }
       }
       &--last {
@@ -1006,6 +1020,9 @@ sup {
   height: 460px;
   &--01 {
     top: calc(var(--scroll)* 0.18px);
+    @include media-breakpoint-down(sm) {
+      top: calc(var(--scroll)* 0.18px - 120px);
+    }
     transform: scale(1) translateY(calc(var(--pulsing)* -5px));
     &__ground {
       transform-origin: 0 74%;
