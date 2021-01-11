@@ -1,0 +1,18 @@
+module ExchangeApi
+  module Validators
+    module Coinbase
+      class Validator < BaseValidator
+        include ExchangeApi::Clients::Coinbase
+
+        URL = 'https://api.pro.coinbase.com/fees'.freeze
+
+        def validate_credentials(api_key:, api_secret:, passphrase:)
+          request = Faraday.get(URL, {}, headers(api_key, api_secret, passphrase, '', '/fees'))
+          return false if request.status != 200
+
+          request.reason_phrase == 'OK'
+        end
+      end
+    end
+  end
+end
