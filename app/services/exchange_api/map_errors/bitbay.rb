@@ -3,7 +3,7 @@ module ExchangeApi::MapErrors
     def errors_mapping
       {
         'FUNDS_NOT_SUFFICIENT' => Error.new('Funds not sufficient', false),
-        'OFFER_FUNDS_NOT_EXCEEDING_MINIMUMS' => Error.new('Funds not exceeding minimums', false),
+        'OFFER_FUNDS_NOT_EXCEEDING_MINIMUMS' => Error.new('Funds not exceeding minimums', true),
         'PRICE_PRECISION_INVALID' => Error.new('Price precision invalid', false),
         'PERMISSIONS_NOT_SUFFICIENT' => Error.new('API keys permissions not sufficient', false),
         'RESPONSE_TIMEOUT' => Error.new('Response time was exceeded', true),

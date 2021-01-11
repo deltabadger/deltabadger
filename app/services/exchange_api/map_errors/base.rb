@@ -8,7 +8,7 @@ module ExchangeApi::MapErrors
 
     def call(errors)
       errors.reduce(Error.new([], true)) do |joined, error|
-        mapped_error = errors_mapping.fetch(error, Error.new(error, false))
+        mapped_error = errors_mapping.fetch(error, Error.new(error, true))
         Error.new(
           joined.message + [mapped_error.message],
           joined.recoverable && mapped_error.recoverable
