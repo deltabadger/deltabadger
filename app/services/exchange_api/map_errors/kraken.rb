@@ -5,7 +5,7 @@ module ExchangeApi::MapErrors
       {
         'EGeneral:Permission denied' => Error.new('Insufficient permissions or unverified account.', false),
         'EOrder:Insufficient funds' => Error.new('Insufficient funds', false),
-        'EGeneral:Invalid arguments:volume' => Error.new('Offer funds are not exceeding minimums', false),
+        'EGeneral:Invalid arguments:volume' => Error.new('Offer funds are not exceeding minimums', true),
         'EService:Unavailable' => Error.new('The exchange is currently unavailable', true),
         'EOrder:Orders limit exceeded' => Error.new('Action limit was exceeded', true),
         'EAPI:Invalid nonce' => Error.new('A network inconsistency has occurred. Please wait a few seconds and try again', true)
