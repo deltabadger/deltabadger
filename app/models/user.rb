@@ -13,6 +13,7 @@ class User < ApplicationRecord
 
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
+  validate :validate_email
 
   delegate :unlimited?, to: :subscription
 
@@ -67,5 +68,9 @@ class User < ApplicationRecord
 
   def eligible_for_discount?
     !payments.paid.where(discounted: true).exists?
+  end
+
+  def validate_email
+    #errors.add(:email, "EMAIL")
   end
 end
