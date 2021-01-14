@@ -73,11 +73,8 @@ class User < ApplicationRecord
   def validate_email_with_sendgrid
     email_validator = SendgridMailValidator.new
     result = email_validator.call(email)
-    unless result.success?
-      errors.add(:email, 'is invalid')
-      return false
-    end
+    errors.add(:email, 'is invalid') unless result.success?
 
-    true
+    result.success?
   end
 end
