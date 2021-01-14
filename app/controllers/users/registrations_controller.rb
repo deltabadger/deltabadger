@@ -40,11 +40,11 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def set_email_suggestion
-    if devise_mapping.validatable?
-      email_validator = SendgridMailValidator.new
-      suggestion = email_validator.get_suggestion(@user.email)
-      @email_suggestion = suggestion.to_s unless suggestion.nil?
-    end
+    return unless devise_mapping.validatable?
+
+    email_validator = SendgridMailValidator.new
+    suggestion = email_validator.get_suggestion(@user.email)
+    @email_suggestion = suggestion.to_s unless suggestion.nil?
   end
 
   private
