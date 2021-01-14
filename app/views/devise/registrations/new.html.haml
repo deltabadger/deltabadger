@@ -31,11 +31,15 @@
               - if @code_present
                 = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
-              = render "devise/shared/error_messages", resource: resource
 
               .form-group
                 = f.label :email
                 = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
+                .invalid-feedback
+                  -if @email_suggestion
+                    Email invalid! Did you mean: <b>#{@email_suggestion}</b>
+                  -else
+                    Email invalid!
 
               .form-group.db-has-unmask(onselectstart="return false;")
                 = f.label :password
