@@ -13,7 +13,7 @@ class User < ApplicationRecord
 
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
-  validate :validate_email
+  validate :validate_email_with_sendgrid
 
   delegate :unlimited?, to: :subscription
 
@@ -70,7 +70,14 @@ class User < ApplicationRecord
     !payments.paid.where(discounted: true).exists?
   end
 
-  def validate_email
-    #errors.add(:email, "EMAIL")
+  def validate_email_with_sendgrid
+    email_validator = SendgridMailValidator.new
+    result = email_validator.call(email)
+    unless result.success?
+      errors.add(:email, 'is invalid')
+      return false
+    end
+
+    true
   end
 end
