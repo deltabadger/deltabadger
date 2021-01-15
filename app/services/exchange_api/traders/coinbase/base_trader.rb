@@ -16,6 +16,7 @@ module ExchangeApi
         )
           @api_key = api_key
           @api_secret = api_secret
+          @passphrase = passphrase
           @market = market
           @map_errors = map_errors
         end
@@ -27,10 +28,11 @@ module ExchangeApi
         def place_order(order_params)
           path = '/orders'.freeze
           url = API_URL + path
-          body = params.to_json
+          body = order_params.to_json
           request = Faraday.post(url, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
           parse_request(request)
-        rescue StandardError
+        rescue StandardError => e
+          Raven.capture_exception(e)
           Result::Failure.new('Could not make Coinbase order', RECOVERABLE)
         end
 
@@ -43,28 +45,24 @@ module ExchangeApi
           Result::Success.new([min_price.data, price].max)
         end
 
-        def transaction_volume(symbol, price, rate)
-          rate_decimals = @market.base_decimals(symbol)
-          return rate_decimals unless rate_decimals.success?
-
-          Result::Success.new((price / rate).ceil(rate_decimals.data))
-        end
-
-        def common_order_params
-          {}
+        def common_order_params(symbol)
+          {
+            product_id: symbol
+          }
         end
 
         def parse_request(request)
+          response = JSON.parse(request.body)
           if request.status == 200 && request.reason_phrase == 'OK'
             response = JSON.parse(request.body)
             # TODO: check if rate and amount are correct
             Result::Success.new(
               offer_id: response.fetch('id'),
-              rate: response.fetch('price').to_f,
+              #rate: response.fetch('price').to_f,
               amount: response.fetch('size').to_f
             )
           else
-            error_to_failure(response.fetch('errors'))
+            error_to_failure([response.fetch('message')])
           end
         end
       end

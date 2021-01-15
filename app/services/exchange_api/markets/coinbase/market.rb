@@ -12,9 +12,6 @@ module ExchangeApi
           super
         end
 
-        SUCCESS = true
-        MINIMUM_ORDER_VOLUME = 0.001
-
         def all_symbols
           request = Faraday.get(PRODUCTS_URL)
           if request.reason_phrase != 'OK'
@@ -30,7 +27,7 @@ module ExchangeApi
           Result::Success.new(market_symbols)
         end
 
-        def minimum_order_volume(symbol)
+        def minimum_order_price(symbol)
           url = PRODUCTS_URL + "/#{symbol}"
           request = Faraday.get(url)
           if request.reason_phrase != 'OK'
@@ -38,7 +35,7 @@ module ExchangeApi
           end
 
           response = JSON.parse(request.body)
-          Result::Success.new(response['base_min_size'])
+          Result::Success.new(response['base_min_size'].to_f)
         end
 
         def symbol(base, quote)
