@@ -40,12 +40,15 @@ module ExchangeApi
 
         def get_buy_params(symbol, price, percentage)
           common_params = common_order_params(symbol, price, -percentage)
+          byebug
 
           Result::Success.new(common_params.data.merge(side: 'BUY'))
         end
 
         def get_sell_params(symbol, price, percentage)
           common_params = common_order_params(symbol, price, percentage)
+          byebug
+
           return common_params unless common_params.success?
 
           Result::Success.new(common_params.data.merge(side: 'SELL'))
