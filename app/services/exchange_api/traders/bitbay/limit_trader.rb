@@ -47,7 +47,7 @@ module ExchangeApi
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          limit_rate = rate_percentage(symbol, rate.data, -percentage)
           return limit_rate unless limit_rate.success?
 
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals)
