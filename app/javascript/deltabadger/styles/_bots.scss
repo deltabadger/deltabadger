@@ -294,6 +294,10 @@ input[disabled] + span {
       margin: 1em 3em;
     }
   }
+  &__footer {
+    margin-top: -5em;
+    min-height: 74px;
+  }
 }
 
 .db-bot-info__footer {
@@ -409,6 +413,13 @@ input[disabled] + span {
   &:hover, span {
     color: $primary !important;
     color: $primary-p3 !important;
+  }
+}
+.db-exchange {
+  &-instructions {
+    &+.db-bot__footer {
+      margin-top: 0;
+    }
   }
 }
 
