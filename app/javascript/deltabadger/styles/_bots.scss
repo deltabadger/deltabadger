@@ -47,20 +47,22 @@ input[disabled] + span {
       }
       .nav-item {
         .nav-link {
+          text-decoration: none !important;
           padding-left: 1.5rem;
           padding-right: 1.5rem;
           margin-right: 2px;
-          position:     relative;
+          position: relative;
           &:not(.active) {
             &:hover {
-              background:   rgba(0,0,0,.05);
+              background:   #cfd6df;
               border-color: transparent;
             }
           }
           &.active {
+            cursor: default;
             padding-bottom: 9px;
             border-bottom-width: 0;
-            border-color: #ddd;
+            border-color: #cfd6df;
             z-index: 3;
             @include media-breakpoint-up(xl) {
               box-shadow: $boxShadowBot;
@@ -82,7 +84,7 @@ input[disabled] + span {
             &.active {
               &::before {
                 left:       -1px;
-                border-left: 1px solid #ddd;
+                border-left: 1px solid #cfd6df;
                 bottom:     -10px;
               }
             }
@@ -94,7 +96,7 @@ input[disabled] + span {
                   display:    block;
                   width:      10px;
                   height:     10px;
-                  background: rgba(0,0,0,.05);
+                  background: #cfd6df;
                   left:      -1px;
                   position:   absolute;
                   bottom:    -11px;
@@ -113,7 +115,7 @@ input[disabled] + span {
       }
       .tab-pane {
         padding-top:   1em;
-        border:        1px solid #ddd;
+        border:        1px solid #cfd6df;
         background:    $bgBot;
         border-radius: $box-border-radius;
         box-shadow:    $boxShadowBot;
@@ -128,7 +130,7 @@ input[disabled] + span {
   position:      relative;
   overflow:      hidden;
   background:    $bgBot;
-  border:        1px solid #ddd;
+  border:        1px solid #cfd6df;
   border-radius: $box-border-radius;
   box-shadow:    $boxShadowBot;
   .alert {
@@ -163,8 +165,8 @@ input[disabled] + span {
       padding-bottom:             40px;
       &+.db-bots__item--data {
         background:                 $bgBot;
-        border-right:               1px solid #ddd;
-        border-left:                1px solid #ddd;
+        border-right:               1px solid #cfd6df;
+        border-left:                1px solid #cfd6df;
         border-bottom-right-radius: $box-border-radius;
         border-bottom-left-radius:  $box-border-radius;
         .nav, .tab-pane {
