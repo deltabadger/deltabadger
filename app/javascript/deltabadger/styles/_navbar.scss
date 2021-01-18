@@ -95,7 +95,10 @@
   .navbar-brand {
     margin-left: 0;
   }
-
+  &__close {
+    width: 30px;
+    height: 30px;
+  }
 }
 
 .navbar-brand {
