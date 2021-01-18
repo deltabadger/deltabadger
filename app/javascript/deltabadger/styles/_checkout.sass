@@ -82,13 +82,17 @@
             end: 2
 
 .db-plan--selected
-  box-shadow: 1px 1px 10px #cfd6df
+  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
   color: #fff
   background: $primary
   background: $primary-p3
   cursor: default
+  border: 1px solid $primary
+  border: 1px solid $primary-p3
 .db-plan--other
-  background: #cfd6df // lighten(desaturate($primary,30%),5%)
+  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
+  background: #fff // #cfd6df // lighten(desaturate($primary,30%),5%)
+  border: 1px solid #cfd6df !important
 .db-plan-radio
   display: none
 
