@@ -28,14 +28,35 @@ module ExchangeApi
         end
 
         def minimum_order_price(symbol)
-          url = PRODUCTS_URL + "/#{symbol}"
-          request = Faraday.get(url)
-          if request.reason_phrase != 'OK'
-            return Result::Failure.new("Couldn't fetch Coinbase minimum volume", RECOVERABLE)
-          end
+          response = fetch_symbol(symbol)
+          return response unless response.success?
 
-          response = JSON.parse(request.body)
-          Result::Success.new(response['base_min_size'].to_f)
+          Result::Success.new(response.data['min_market_funds'].to_f)
+        end
+
+        def minimum_base_size(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data['base_min_size'].to_f)
+        end
+
+        def base_decimals(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          result = number_of_decimal_points(response.data['base_increment'].to_f)
+
+          Result::Success.new(result)
+        end
+
+        def quote_decimals(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          result = number_of_decimal_points(response.data['quote_increment'].to_f)
+
+          Result::Success.new(result)
         end
 
         def symbol(base, quote)
@@ -43,6 +64,16 @@ module ExchangeApi
         end
 
         private
+
+        def fetch_symbol(symbol)
+          url = PRODUCTS_URL + "/#{symbol}"
+          request = Faraday.get(url)
+          response = JSON.parse(request.body)
+
+          Result::Success.new(response)
+        rescue StandardError
+          Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", RECOVERABLE)
+        end
 
         def current_bid_ask_price(symbol)
           url = PRODUCTS_URL + "/#{symbol}/book"
@@ -57,6 +88,15 @@ module ExchangeApi
           ask = response['asks'][0][0].to_f
 
           Result::Success.new(BidAskPrice.new(bid, ask))
+        end
+
+        def number_of_decimal_points(number)
+          (1..100).each do |i|
+            pow = 10**i
+            return i if number * pow == 1
+
+            0
+          end
         end
       end
     end

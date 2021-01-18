@@ -45,6 +45,19 @@ module ExchangeApi
           Result::Success.new([min_price.data, price].max)
         end
 
+        def smart_volume(symbol, price, rate, force_smart_intervals)
+          volume_decimals = @market.base_decimals(symbol)
+          return volume_decimals unless volume_decimals.success?
+
+          volume = (price / rate).ceil(volume_decimals.data)
+          min_volume = @market.minimum_base_size(symbol)
+          return min_volume unless min_volume.success?
+
+          return Result::Success.new(min_volume.data) if force_smart_intervals
+
+          Result::Success.new([min_volume.data, volume].max)
+        end
+
         def common_order_params(symbol)
           {
             product_id: symbol
@@ -58,8 +71,8 @@ module ExchangeApi
             # TODO: check if rate and amount are correct
             Result::Success.new(
               offer_id: response.fetch('id'),
-              #rate: response.fetch('price').to_f,
-              amount: response.fetch('size').to_f
+              # rate: response.fetch('price').to_f,
+              # amount: response.fetch('funds').to_f
             )
           else
             error_to_failure([response.fetch('message')])
