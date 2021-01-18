@@ -26,7 +26,7 @@ module ExchangeApi
 
           Result::Success.new(
             common_order_params(symbol).merge(
-              size: price_above_minimums.data.to_f,
+              funds: price_above_minimums.data.to_f,
               side: 'buy'
             )
           )
@@ -38,7 +38,7 @@ module ExchangeApi
 
           Result::Success.new(
             common_order_params(symbol).merge(
-              size: price_above_minimums.data.to_f,
+              funds: price_above_minimums.data.to_f,
               side: 'sell'
             )
           )

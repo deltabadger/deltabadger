@@ -25,20 +25,18 @@ module ExchangeApi
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          limit_rate = rate_percentage(symbol, rate.data, -percentage)
           return limit_rate unless limit_rate.success?
 
-          price_above_minimums = transaction_price(symbol, price, force_smart_intervals)
-          return price_above_minimums unless price_above_minimums.success?
+          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals)
+          return volume unless volume.success?
 
-          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data)
-          return amount unless amount.success?
-
-          Result::Success.new(common_order_params.merge(
-            offerType: 'buy',
-            amount: amount.data,
-            rate: limit_rate.data
-          ))
+          Result::Success
+            .new(common_order_params(symbol).merge(
+                   side: 'buy',
+                   size: volume.data,
+                   price: limit_rate.data
+                 ))
         end
 
         def get_sell_params(symbol, price, percentage, force_smart_intervals)
@@ -48,17 +46,16 @@ module ExchangeApi
           limit_rate = rate_percentage(symbol, rate.data, percentage)
           return limit_rate unless limit_rate.success?
 
-          price_above_minimums = transaction_price(symbol, price, force_smart_intervals)
-          return price_above_minimums unless price_above_minimums.success?
+          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals)
+          return volume unless volume.success?
 
-          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data)
-          return amount unless amount.success?
-
-          Result::Success.new(common_order_params.merge(
-            offerType: 'sell',
-            amount: amount.data,
-            rate: limit_rate.data
-          ))
+          Result::Success
+            .new(common_order_params(symbol)
+                   .merge(
+                     side: 'sell',
+                     size: volume.data,
+                     price: limit_rate.data
+                   ))
         end
 
         def rate_percentage(symbol, rate, percentage)
@@ -68,7 +65,7 @@ module ExchangeApi
           Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
         end
 
-        def common_order_params
+        def common_order_params(symbol)
           super.merge(mode: 'limit')
         end
       end
