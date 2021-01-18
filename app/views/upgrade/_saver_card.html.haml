@@ -1,9 +1,8 @@
-%td(scope="col")
-  <i class="material-icons-round">eco</i>
-%td(scope="col")
+
+.db-plans__item__name
   Saver
-  %span.db-billing-item__info
-    Free forever for transactions up to <span class="db-show--eu">€#{free_limit}</span><span class="db-show--other">$#{free_limit}</span>/year.
-    (<span class="db-show--eu">€</span><span class="db-show--other">$</span>#{current_user.credits.round} left)
-%td(scope="col")
-%td.pl-4(scope="col") Free
+.db-plans__item__amount
+  .db-plans__item__amount__t.db-plans__item__amount__t--discount
+    Free
+.db-plans__item__info
+  Free transactions up to <span class="db-show--eu">€#{free_limit}</span><span class="db-show--other">$#{free_limit}</span>/year. <span class="db-show--eu">€</span><span class="db-show--other">$</span>#{current_user.credits.round} left.

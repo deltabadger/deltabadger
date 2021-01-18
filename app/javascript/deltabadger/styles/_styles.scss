@@ -9,6 +9,8 @@ body {
   color: $textColor;
   overflow-x: hidden;
 }
+.db-content-body { min-height: calc(100vh - 200px); }
+
 a:not(.btn) {
   text-decoration: underline;
 }
@@ -66,11 +68,20 @@ sup {
     display: block;
   }
 }
+.form-control-lg {
+  padding-left: 0.7em;
+  padding-right: 0.6em;
+}
 .transparent-50 {
   opacity: .2;
 }
 .no-break {
   white-space: nowrap !important;
+}
+.db-middot {
+  &:last-child {
+    display: none;
+  }
 }
 .question-number {
   background: $success;
@@ -484,7 +495,7 @@ sup {
   background:    white;
   padding:       2rem;
   border-radius: $box-border-radius;
-  border:        1px solid #ddd;
+  border:        1px solid #cfd6df;
   box-shadow: $boxShadowBox;
 }
 .db-content__box--settings {
@@ -695,7 +706,7 @@ sup {
   background: white;
   padding: 5px;
   border-radius: $box-border-radius;
-  border: 1px solid #ddd;
+  border: 1px solid #cfd6df;
   left: -220px;
   top: 0;
   z-index: 10000;
@@ -705,8 +716,8 @@ sup {
   &::before {
     content: "";
     border:1px solid transparent;
-    border-right-color: #ddd;
-    border-bottom-color: #ddd;
+    border-right-color: #cfd6df;
+    border-bottom-color: #cfd6df;
     top: 12px;
     display: block;
     position: absolute;
@@ -718,110 +729,6 @@ sup {
   }
 }
 
-// checkout
-
-.db-table {
-  th, td {
-    padding: .5rem .5rem .5rem 1rem;
-  }
-}
-.db-nobreak {
-  white-space: nowrap;
-}
-.db-table--checkout {
-  td {
-    padding: .85rem 0 .5rem;
-    text-align: right;
-    font-weight: bold;
-    &:first-child {
-      width: 35px;
-      padding-left: 13px;
-      border-radius: $box-border-radius 0 0 $box-border-radius;
-      &+td {
-        padding-left: 10px;
-        text-align: left;
-      }
-    }
-    &:last-child {
-      padding-right: 20px;
-      border-radius: 0 $box-border-radius $box-border-radius 0;
-    }
-  }
-  tfoot {
-    td {
-      text-align: right !important;
-      border-top: 0 !important;
-    }
-  }
-}
-.db-plan {
-  transition: all 200ms ease-in-out;
-}
-.db-plan--current,
-.db-plan--other {
-  td:first-child {
-    color: $primary;
-    color: $primary-p3;
-  }
-}
-.db-plan.db-plan--current {
-  background: #fff;
-}
-.db-plan.db-plan--other {
-  cursor: pointer;
-  background: #ecf0f5;
-  &:hover {
-    background: #d2d7e0;
-  }
-}
-.db-plan-radio {
-  display: none;
-}
-.db-content-body {
-  min-height: calc(100vh - 200px);
-}
-.db-upgrade-modal--investor {
-  .db-show--hodler { display: none; }
-}
-.db-upgrade-modal--hodler {
-  .db-show--investor { display: none; }
-}
-.db-plan--divider {
-  height: 10px;
-  td {
-    text-align: left;
-    padding-left: 0 !important;
-  }
-}
-.db-plan--selected {
-  cursor: default;
-  td {
-    background: $primary;
-    background: $primary-p3;
-    color: #fff; //#ceddf5;
-    box-shadow: 1px 1px 20px transparentize($primary, 1);
-  }
-  .text-success {
-    color: $successLighter !important;
-    color: $success-p3 !important;
-  }
-}
-.db-plan--other {}
-.db-billing-item__info {
-  padding: 0.5em 0;
-  font-weight: normal;
-  line-height: 1.25em;
-  display: block;
-  opacity: 0.9;
-}
-.db-upgrade-modal--eu {
-  .db-show--eu { display: inline; }
-  .db-show--other { display: none; }
-}
-.db-upgrade-modal--other {
-  .db-show--eu { display: none; }
-  .db-show--other { display: inline; }
-}
 // .db-infoblocks
 
 .db-row--how-does-it-work {

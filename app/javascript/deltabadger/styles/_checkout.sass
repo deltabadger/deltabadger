@@ -1,0 +1,173 @@
+.db--upgrade
+    &__show
+      display: none
+    .db--upgrade__show
+      display: inline-block
+      path
+        fill: $primary
+        fill: $primary-p3
+    .db--upgrade__hide
+      display: none
+.db-plans
+  &__item
+    padding: 24px 30px
+    background: #fff
+    margin-bottom: 10px
+    cursor: pointer
+    display: grid
+    border-radius: 8px
+    position: relative
+    overflow: hidden
+    grid:
+      template:
+        columns: auto 100px
+        rows: 50px auto auto
+    &--saver
+      grid:
+        template:
+          rows: 50px auto auto !important
+    &--investor, &--hodler
+      min-height: 230px
+      grid:
+        template:
+          rows: 80px auto auto
+      .badge
+        background: lighten($primary,10%)
+        background: $primary10-p3
+        color: #fff
+    &--current,
+    &--discount
+      cursor: default
+      background: none
+    &--current
+      min-height: 113px
+      margin-bottom: 0
+      color: #123
+      .badge
+        background: transparentize($primary, 0.9)
+        color: $primary
+        color: $primary-p3
+    &--discount
+      margin-top: -10px
+      .db-plans__item__name, .db-plans__item__amount
+        color: $success
+        color: $success-p3
+    &__name
+      font-family: "Varela Round", Inconsolata, monospace
+      font-weight: bold
+      font-size: 1.5em
+      .db-years
+        display: block
+        font-size: 16px
+    &__amount
+      font-family: "Varela Round", Inconsolata, monospace
+      text-align: right
+      &__t
+        font-size: 1.5em
+        &--discount
+          color: $success
+          color: $success-p3
+          font-weight: bold
+        &--previous
+          font-size: 16px
+          text-decoration: line-through
+    &__info
+      grid:
+        row:
+          start: 2
+          end: 3
+        column:
+          start: 1
+          end: 3
+      @include media-breakpoint-up(xl)
+        grid:
+          column:
+            start: 1
+            end: 2
+      @include media-breakpoint-only(sm)
+        grid:
+          column:
+            start: 1
+            end: 2
+
+.db-plan--selected
+  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
+  color: #fff
+  background: $primary
+  background: $primary-p3
+  cursor: default
+  border: 1px solid $primary
+  border: 1px solid $primary-p3
+.db-plan--other
+  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
+  background: #fff // #cfd6df // lighten(desaturate($primary,30%),5%)
+  border: 1px solid #cfd6df !important
+.db-plan-radio
+  display: none
+
+.db-upgrade-modal--investor
+  .db-show--hodler
+    display: none
+
+.db-upgrade-modal--hodler
+  .db-show--investor
+    display: none
+
+.db-upgrade-modal--eu
+  .db-show--eu
+    display: inline
+  .db-show--other
+    display: none
+
+.db-upgrade-modal--other
+  .db-show--eu
+    display: none
+  .db-show--other
+    display: inline
+
+.db-checkout-summary
+  border-color: #cfd6df !important
+  margin-bottom: 10px
+  display: flex
+  flex-direction: row
+  text-align: right
+  &__item
+    padding: 25px 30px
+    &--vat
+      color: #8e9fa6
+      width: 100%
+      padding-right: 0
+    &--sum
+      width: 100%
+      color: #123
+    &__quote
+      font-family: "Varela Round", Inconsolata, monospace
+      font-weight: bold
+      font-size: 1.5em
+
+.db-pay-button
+  margin-top: 35px
+  margin-bottom: 5px
+
+#payTab
+  background: #cfd6df
+  border-radius: 10px 10px 0 0
+  margin: -33px
+  margin-bottom: 0
+  a
+    color: #123
+    text-decoration: none
+  li
+    width: 50%
+    text-align: center
+  .nav-link
+    border-radius: 8px 8px 0 0
+    background: none
+    &.active
+      color: #123
+      background: #fff
+    &:not(.active):hover
+      border-color: transparent
+
+#payTabContent
+  padding-top: 28px

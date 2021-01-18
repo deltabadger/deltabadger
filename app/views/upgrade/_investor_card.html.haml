@@ -1,15 +1,20 @@
-%td(scope="col")
-  <i class="material-icons-round">star</i>
-%td(scope="col")
-  Investor (1-year)
-  - if days_left
-    (#{current_user.plan_days_left} days left)
-  %span.db-billing-item__info One year of unlimited transactions for basic currencies: BTC, ETH, LTC, XMR. Access to the referral program.
+.db-plans__item__name
+  Investor
+  .db-years
+    - if days_left
+      .text-success
+        #{current_user.plan_days_left} days left
+    - else
+      1-year plan
+.db-plans__item__amount
   - unless days_left
-    %td(scope="col")
-    %td.pl-4(scope="col")
-      - if upgrade_presenter.discount?
-        <span class='text-success'><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-discounted-price'>#{cost_presenter.flat_discounted_price}</span></span>
-        <s><span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-base-price'>#{cost_presenter.base_price}</span></s>
-      - else
+    - if upgrade_presenter.discount?
+      .db-plans__item__amount__t.db-plans__item__amount__t--discount
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-discounted-price'>#{cost_presenter.flat_discounted_price}</span>
+      .db-plans__item__amount__t.db-plans__item__amount__t--previous
         <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-base-price'>#{cost_presenter.base_price}</span>
+    - else
+      .db-plans__item__amount__t
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-base-price'>#{cost_presenter.base_price}</span>
+.db-plans__item__info
+  One year of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-btc">BTC</b>, <b class="badge badge-eth">ETH</b>, <b class="badge badge-ltc">LTC</b>, <b class="badge badge-xmr">XMR</b>. <span class="no-break">Access to</span> the <b class="badge badge-referral">referral program</b>.
