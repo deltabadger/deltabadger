@@ -8,8 +8,10 @@ $formUnit: 20px
       margin-bottom: 0
       padding-top: 10px
     &--check
+      margin-left: 4px
+      padding-top: 10px
   &__label
-    color: #9ea2a6
+    color: #678
     position: absolute
     top: 9px
     padding-left: 4px
@@ -37,7 +39,7 @@ $formUnit: 20px
     &:focus,&:not([value=""])
       opacity: 1
       &~.db-form__label
-        color: #444
+        color: #567
         top: -10px
         font-size: 13px
     &.is-invalid
@@ -59,7 +61,7 @@ $formUnit: 20px
     top: 2*$formUnit
     height: 2px
     width: 100%
-    background: #cfd6df
+    background: #abc
     &::before
       transition: all 200ms ease-out
       content: " "
@@ -84,7 +86,7 @@ $formUnit: 20px
   cursor: pointer
   .db-svg--mi
     transition: opacity 200ms ease-in-out
-    opacity: 40%
+    fill: #abc
   &:hover
     .db-svg--mi
       opacity: 1
