@@ -1,4 +1,13 @@
-
+.db--upgrade
+    &__show
+      display: none
+    .db--upgrade__show
+      display: inline-block
+      path
+        fill: $primary
+        fill: $primary-p3
+    .db--upgrade__hide
+      display: none
 .db-plans
   &__item
     padding: 24px 30px
@@ -116,7 +125,6 @@
   .db-show--other
     display: inline
 
-
 .db-checkout-summary
   border-color: #cfd6df !important
   margin-bottom: 10px
@@ -136,6 +144,7 @@
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
       font-size: 1.5em
+
 .db-pay-button
   margin-top: 35px
   margin-bottom: 5px
@@ -159,5 +168,6 @@
       background: #fff
     &:not(.active):hover
       border-color: transparent
+
 #payTabContent
   padding-top: 28px
