@@ -12,7 +12,7 @@
         -#   %svg{:width => "38px", :height => "14px", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
         -#     %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke="#0a45a4" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
 
-      .ml-auto
+      .ml-auto.db--upgrade__hide
         - if current_user.unlimited?
           %a.btn.btn-link.text-success.db-icon-verified.mr-2.db-has-tooltip{href: upgrade_path}
             = current_user.subscription.display_name
@@ -40,3 +40,7 @@
           Referral Program
         = link_to(raw('<i class="material-icons-round d-inline d-sm-none pr-2">account_circle</i><span class="d-none d-sm-inline">Settings</span>'), settings_path, class: 'btn btn-link')
         = link_to(raw('<i class="material-icons-round d-inline d-sm-none pr-2">power_settings_new</i><span class="d-none d-sm-inline">Logout</span>'),  destroy_user_session_path, method: :delete, class: 'btn btn-link')
+      .ml-auto.db--upgrade__show.db-navbar__close
+        %a{:href => root_path}
+          %svg{:viewbox => "0 0 24 24", :xmlns => "http://www.w3.org/2000/svg"}
+            %path{:d => "M18.3 5.7a1 1 0 00-1.4 0L12 10.6 7.1 5.7a1 1 0 10-1.4 1.4l4.9 4.9-4.9 4.9a1 1 0 101.4 1.4l4.9-4.9 4.9 4.9a1 1 0 101.4-1.4L13.4 12l4.9-4.9c.4-.4.4-1 0-1.4z", :fill => "#123"}
