@@ -490,7 +490,7 @@ sup {
   background:    white;
   padding:       2rem;
   border-radius: $box-border-radius;
-  border:        1px solid #ddd;
+  border:        1px solid #cfd6df;
   box-shadow: $boxShadowBox;
 }
 .db-content__box--settings {
@@ -701,7 +701,7 @@ sup {
   background: white;
   padding: 5px;
   border-radius: $box-border-radius;
-  border: 1px solid #ddd;
+  border: 1px solid #cfd6df;
   left: -220px;
   top: 0;
   z-index: 10000;
@@ -711,8 +711,8 @@ sup {
   &::before {
     content: "";
     border:1px solid transparent;
-    border-right-color: #ddd;
-    border-bottom-color: #ddd;
+    border-right-color: #cfd6df;
+    border-bottom-color: #cfd6df;
     top: 12px;
     display: block;
     position: absolute;
