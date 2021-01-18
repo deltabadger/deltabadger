@@ -78,6 +78,11 @@ sup {
 .no-break {
   white-space: nowrap !important;
 }
+.db-middot {
+  &:last-child {
+    display: none;
+  }
+}
 .question-number {
   background: $success;
   background: $success-p3;
