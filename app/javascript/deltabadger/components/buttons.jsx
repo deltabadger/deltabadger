@@ -178,7 +178,7 @@ export const RemoveButton = ({onClick, disabled}) => {
   }, []);
 
   return(
-    <div className="db-bot__footer">
+    <div>
       <div
         onClick={() => setOpen(true) }
         className={`btn btn-link btn--reset text-secondary ${disabled ? 'disabled' : ''}`}
