@@ -1,7 +1,7 @@
 %footer.db-footer.db-footer--signed-in.db-footer--oneline
   &copy;
   = Time.current.year
-  .db--upgrade__hide
+  %span.db--upgrade__hide
     Deltabadger OÜ
     &middot;
     = link_to "Terms & Conditions", terms_and_conditions_path
@@ -22,5 +22,5 @@
     &middot;
     = link_to "Contact", contact_path
 
-  .db--upgrade__show
+  %span.db--upgrade__show
     Deltabadger OÜ, Pärnu mnt 158/2-88, 11317 Tallinn, Estonia
