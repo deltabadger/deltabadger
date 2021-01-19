@@ -21,6 +21,8 @@ module ExchangeApi
           ExchangeApi::Markets::Bitbay::Market.new
         when 'kraken'
           ExchangeApi::Markets::Kraken::Market.new
+        when 'coinbase pro'
+          ExchangeApi::Markets::Coinbase::Market.new
         end
       end
     end

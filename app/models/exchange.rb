@@ -6,6 +6,7 @@ class Exchange < ApplicationRecord
              when 'binance.us' then ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
              when 'bitbay' then ExchangeApi::Markets::Bitbay::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
+             when 'coinbase pro' then ExchangeApi::Markets::Coinbase::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
