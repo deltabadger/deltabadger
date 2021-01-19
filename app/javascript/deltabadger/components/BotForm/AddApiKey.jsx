@@ -3,10 +3,11 @@ import { Instructions } from './AddApiKey/Instructions';
 
 const apiKeyNames = exchangeName => {
   switch (exchangeName.toLowerCase()) {
-      case 'binance': return { private: 'Secret Key', public: 'API Key' };
-      case 'binance.us': return { private: 'Secret Key', public: 'API Key' };
-      case 'bitbay': return { private: 'Private Key', public: 'Public Key' };
-      case 'kraken': return { private: 'Private Key', public: 'API Key' };
+      case 'binance': return { private: 'Secret Key', public: 'API Key', passphrase: ''};
+      case 'binance.us': return { private: 'Secret Key', public: 'API Key', passphrase: '' };
+      case 'bitbay': return { private: 'Private Key', public: 'Public Key', passphrase: '' };
+      case 'kraken': return { private: 'Private Key', public: 'API Key', passphrase: '' };
+      case 'coinbase pro': return { private: 'Secret Key', public: 'API Key', passphrase: 'Passphrase'}
       default: return { private: 'Private Key', public: 'Public Key' };
   }
 }
@@ -19,6 +20,7 @@ export const AddApiKey = ({
 }) => {
   const [key, setKey] = useState("");
   const [secret, setSecret] = useState("");
+  const [passphrase, setPassphrase] = useState("");
   const [agreement, setAgreement] = useState(false)
 
   const ResetButton = () => (
@@ -31,14 +33,14 @@ export const AddApiKey = ({
     </div>
   )
 
-  const disableSubmit = key == '' || secret == ''
+  const disableSubmit = key == '' || secret == '' || (pickedExchangeName == 'Coinbase Pro' && passphrase == '')
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      !disableSubmit && handleSubmit(key, secret, agreement)
+      !disableSubmit && handleSubmit(key, secret, passphrase, agreement)
   }
 
-  const { public: key_label, private: secret_label } = apiKeyNames(pickedExchangeName);
+  const { public: key_label, private: secret_label, passphrase: phrase_label } = apiKeyNames(pickedExchangeName);
 
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
@@ -75,6 +77,17 @@ export const AddApiKey = ({
               className="form-control col"
             />
           </div>
+          { pickedExchangeName == "Coinbase Pro" &&
+            <div className="col form-group">
+              <label>{ phrase_label }</label>
+              <input
+                type="text"
+                value={passphrase}
+                onChange={e => setPassphrase(e.target.value)}
+                className="form-control col"
+              />
+            </div>
+          }
         </form>
       </div>
       { pickedExchangeName == "Kraken" &&
