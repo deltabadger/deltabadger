@@ -22,6 +22,8 @@ module ExchangeApi
           Bitbay::Validator.new
         when 'kraken'
           Kraken::Validator.new
+        when 'coinbase pro'
+          Coinbase::Validator.new
         end
       end
     end
