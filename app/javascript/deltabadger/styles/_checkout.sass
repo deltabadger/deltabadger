@@ -31,10 +31,12 @@
       grid:
         template:
           rows: 80px auto auto
-      .badge
-        background: lighten($primary,10%)
-        background: $primary10-p3
-        color: #fff
+
+    .badge
+      background: transparentize($primary, 0.9)
+      color: $primary
+      color: $primary-p3
+      transition: none
     &--current,
     &--discount
       cursor: default
@@ -43,10 +45,6 @@
       min-height: 113px
       margin-bottom: 0
       color: #123
-      .badge
-        background: transparentize($primary, 0.9)
-        color: $primary
-        color: $primary-p3
     &--discount
       margin-top: -10px
       .db-plans__item__name, .db-plans__item__amount
@@ -105,6 +103,10 @@
     background: $primary-10-p3
     border: 1px solid darken($primary,10%)
     border: 1px solid $primary-10-p3
+  .badge
+    background: lighten($primary,10%)
+    background: $primary10-p3
+    color: #fff
 .db-plan--other
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
   background: #fff
