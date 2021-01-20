@@ -1,13 +1,13 @@
 .db--upgrade
-    &__show
-      display: none
-    .db--upgrade__show
-      display: inline-block
-      path
-        fill: $primary
-        fill: $primary-p3
-    .db--upgrade__hide
-      display: none
+  &__show
+    display: none
+  .db--upgrade__show
+    display: inline-block
+    path
+      fill: $primary
+      fill: $primary-p3
+  .db--upgrade__hide
+    display: none
 .db-plans
   &__item
     padding: 24px 30px
@@ -113,6 +113,7 @@
   display: none
 
 .db-checkout
+  min-height: calc(100vh - 200px)
   @include media-breakpoint-down(sm)
     display: block
 .db-checkout--investor
