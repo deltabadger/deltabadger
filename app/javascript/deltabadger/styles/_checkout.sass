@@ -27,7 +27,7 @@
         template:
           rows: 50px auto auto !important
     &--investor, &--hodler
-      min-height: 230px
+      //min-height: 230px
       grid:
         template:
           rows: 80px auto auto
@@ -55,7 +55,7 @@
     &__name
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
-      font-size: 1.5em
+      font-size: 21px
       .db-years
         display: block
         font-size: 16px
@@ -63,13 +63,14 @@
       font-family: "Varela Round", Inconsolata, monospace
       text-align: right
       &__t
-        font-size: 1.5em
-        &--discount
+        &--discount,
+        &--new
           color: $success
           color: $success-p3
-          font-weight: bold
+        &--discount,
         &--previous
-          font-size: 16px
+          font-size: 21px
+          font-weight: bold
           text-decoration: line-through
     &__info
       grid:
@@ -93,14 +94,20 @@
 .db-plan--selected
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
   color: #fff
-  background: $primary
-  background: $primary-p3
   cursor: default
-  border: 1px solid $primary
-  border: 1px solid $primary-p3
+  &.db-plan-investor
+    background: $primary
+    background: $primary-p3
+    border: 1px solid $primary
+    border: 1px solid $primary-p3
+  &.db-plan-hodler
+    background: darken($primary,10%)
+    background: $primary-10-p3
+    border: 1px solid darken($primary,10%)
+    border: 1px solid $primary-10-p3
 .db-plan--other
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  background: #fff // #cfd6df // lighten(desaturate($primary,30%),5%)
+  background: #fff
   border: 1px solid #cfd6df !important
 .db-plan-radio
   display: none
@@ -143,7 +150,6 @@
     &__quote
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
-      font-size: 1.5em
 
 .db-pay-button
   margin-top: 35px
