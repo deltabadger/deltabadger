@@ -47,8 +47,8 @@
           $(".db-plan-investor").removeClass("db-plan--other")
           $(".db-plan-hodler").addClass("db-plan--other")
           $(".db-plan-hodler").removeClass("db-plan--selected")
-          $(".db-upgrade-modal").addClass("db-upgrade-modal--investor");
-          $(".db-upgrade-modal").removeClass("db-upgrade-modal--hodler");
+          $(".db-checkout").addClass("db-checkout--investor");
+          $(".db-checkout").removeClass("db-checkout--hodler");
         })
         $(".db-plan-hodler").click(function(){
           $("#payment_plan_hodler").click()
@@ -56,8 +56,8 @@
           $(".db-plan-hodler").removeClass("db-plan--other")
           $(".db-plan-investor").addClass("db-plan--other")
           $(".db-plan-investor").removeClass("db-plan--selected")
-          $(".db-upgrade-modal").addClass("db-upgrade-modal--hodler");
-          $(".db-upgrade-modal").removeClass("db-upgrade-modal--investor");
+          $(".db-checkout").addClass("db-checkout--hodler");
+          $(".db-checkout").removeClass("db-checkout--investor");
         })
       })
 
@@ -68,11 +68,11 @@
           if (!select) return;
 
           if (select.value.toLowerCase() === 'other') {
-            $(".db-country").addClass("db-upgrade-modal--other");
-            $(".db-country").removeClass("db-upgrade-modal--eu");
+            $(".db-country").addClass("db-checkout--other");
+            $(".db-country").removeClass("db-checkout--eu");
           } else {
-            $(".db-country").addClass("db-upgrade-modal--eu");
-            $(".db-country").removeClass("db-upgrade-modal--other");
+            $(".db-country").addClass("db-checkout--eu");
+            $(".db-country").removeClass("db-checkout--other");
           }
           var dataset = select.options[select.selectedIndex].dataset;
 

@@ -112,21 +112,24 @@
 .db-plan-radio
   display: none
 
-.db-upgrade-modal--investor
+.db-checkout
+  @include media-breakpoint-down(sm)
+    display: block
+.db-checkout--investor
   .db-show--hodler
     display: none
 
-.db-upgrade-modal--hodler
+.db-checkout--hodler
   .db-show--investor
     display: none
 
-.db-upgrade-modal--eu
+.db-checkout--eu
   .db-show--eu
     display: inline
   .db-show--other
     display: none
 
-.db-upgrade-modal--other
+.db-checkout--other
   .db-show--eu
     display: none
   .db-show--other
