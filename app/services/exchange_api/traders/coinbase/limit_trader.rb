@@ -65,6 +65,28 @@ module ExchangeApi
           Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
         end
 
+        def place_order(order_params)
+          response = super
+          return response unless response.success?
+
+          Result::Success.new(
+            response.data.merge(rate: order_params[:price], amount: order_params[:size])
+          )
+        rescue StandardError
+          Result::Failure.new('Could not make Coinbase order', RECOVERABLE)
+        end
+
+        def parse_request(request)
+          response = JSON.parse(request.body)
+          if request.status == 200 && request.reason_phrase == 'OK'
+            order_id = response.fetch('id')
+
+            Result::Success.new(offer_id: order_id)
+          else
+            error_to_failure([response.fetch('message')])
+          end
+        end
+
         def common_order_params(symbol)
           super.merge(mode: 'limit')
         end

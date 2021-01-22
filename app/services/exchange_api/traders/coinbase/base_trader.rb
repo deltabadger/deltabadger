@@ -67,16 +67,36 @@ module ExchangeApi
         def parse_request(request)
           response = JSON.parse(request.body)
           if request.status == 200 && request.reason_phrase == 'OK'
-            response = JSON.parse(request.body)
-            # TODO: check if rate and amount are correct
-            Result::Success.new(
-              offer_id: response.fetch('id'),
-              # rate: response.fetch('price').to_f,
-              # amount: response.fetch('funds').to_f
-            )
+            order_id = response.fetch('id')
+            parsed_params = get_order_by_id(order_id)
+            return parsed_params unless parsed_params.success?
+
+            Result::Success.new(parsed_params.data)
           else
             error_to_failure([response.fetch('message')])
           end
+        end
+
+        def is_order_done?(response)
+          response.fetch('status') == 'done'
+        end
+
+        def get_order_by_id(order_id)
+          sleep(4.0)
+          path = "/orders/#{order_id}".freeze
+          url = API_URL + path
+          request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
+          response = JSON.parse(request.body)
+
+          amount = response.fetch('filled_size').to_f
+          Result::Success.new(
+            offer_id: order_id,
+            amount: amount,
+            rate: (response.fetch('executed_value').to_f / amount).round(2)
+          )
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from Coinbase')
         end
       end
     end
