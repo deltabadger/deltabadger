@@ -2,10 +2,14 @@
 
 - selected_cost_presenter = cost_presenters[payment.country]
 
-.row.db-content-body.db-upgrade-modal{class: "db-upgrade-modal--#{upgrade_presenter.selected_payment_type} db-upgrade-modal--#{upgrade_presenter.selected_plan_name}"}
-  .col.col-sm-12.col-md-7.col-lg-7.col-xl-8
-    = render partial: "current_plan", locals: { upgrade_presenter: upgrade_presenter }
-    = render partial: "upgrade_plans", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
-  .col.col-sm-12.col-md-5.col-lg-5.col-xl-4
-    = render partial: "upgrade_summary", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
-    = render partial: "billing_form", locals: { payment: payment, errors: errors, upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters }
+.db-country{class: "db-checkout--#{upgrade_presenter.selected_payment_type}"}
+
+  = render partial: "upgrade_header", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
+
+  .row.db-checkout{class: "db-checkout--#{upgrade_presenter.selected_plan_name}"}
+    .col.col-sm-12.col-md-7.col-lg-7.col-xl-8
+      = render partial: "current_plan", locals: { upgrade_presenter: upgrade_presenter }
+      = render partial: "upgrade_plans", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
+    .col.col-sm-12.col-md-5.col-lg-5.col-xl-4
+      = render partial: "upgrade_summary", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
+      = render partial: "billing_form", locals: { payment: payment, errors: errors, upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters }

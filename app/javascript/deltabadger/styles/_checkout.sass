@@ -1,13 +1,13 @@
 .db--upgrade
-    &__show
-      display: none
-    .db--upgrade__show
-      display: inline-block
-      path
-        fill: $primary
-        fill: $primary-p3
-    .db--upgrade__hide
-      display: none
+  &__show
+    display: none
+  .db--upgrade__show
+    display: inline-block
+    path
+      fill: $primary
+      fill: $primary-p3
+  .db--upgrade__hide
+    display: none
 .db-plans
   &__item
     padding: 24px 30px
@@ -27,14 +27,16 @@
         template:
           rows: 50px auto auto !important
     &--investor, &--hodler
-      min-height: 230px
+      //min-height: 230px
       grid:
         template:
           rows: 80px auto auto
-      .badge
-        background: lighten($primary,10%)
-        background: $primary10-p3
-        color: #fff
+
+    .badge
+      background: transparentize($primary, 0.9)
+      color: $primary
+      color: $primary-p3
+      transition: none
     &--current,
     &--discount
       cursor: default
@@ -43,10 +45,6 @@
       min-height: 113px
       margin-bottom: 0
       color: #123
-      .badge
-        background: transparentize($primary, 0.9)
-        color: $primary
-        color: $primary-p3
     &--discount
       margin-top: -10px
       .db-plans__item__name, .db-plans__item__amount
@@ -55,7 +53,7 @@
     &__name
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
-      font-size: 1.5em
+      font-size: 21px
       .db-years
         display: block
         font-size: 16px
@@ -63,13 +61,14 @@
       font-family: "Varela Round", Inconsolata, monospace
       text-align: right
       &__t
-        font-size: 1.5em
-        &--discount
+        &--discount,
+        &--new
           color: $success
           color: $success-p3
-          font-weight: bold
+        &--discount,
         &--previous
-          font-size: 16px
+          font-size: 21px
+          font-weight: bold
           text-decoration: line-through
     &__info
       grid:
@@ -93,33 +92,47 @@
 .db-plan--selected
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
   color: #fff
-  background: $primary
-  background: $primary-p3
   cursor: default
-  border: 1px solid $primary
-  border: 1px solid $primary-p3
+  &.db-plan-investor
+    background: $primary
+    background: $primary-p3
+    border: 1px solid $primary
+    border: 1px solid $primary-p3
+  &.db-plan-hodler
+    background: darken($primary,10%)
+    background: $primary-10-p3
+    border: 1px solid darken($primary,10%)
+    border: 1px solid $primary-10-p3
+  .badge
+    background: lighten($primary,10%)
+    background: $primary10-p3
+    color: #fff
 .db-plan--other
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  background: #fff // #cfd6df // lighten(desaturate($primary,30%),5%)
+  background: #fff
   border: 1px solid #cfd6df !important
 .db-plan-radio
   display: none
 
-.db-upgrade-modal--investor
+.db-checkout
+  min-height: calc(100vh - 200px)
+  @include media-breakpoint-down(sm)
+    display: block
+.db-checkout--investor
   .db-show--hodler
     display: none
 
-.db-upgrade-modal--hodler
+.db-checkout--hodler
   .db-show--investor
     display: none
 
-.db-upgrade-modal--eu
+.db-checkout--eu
   .db-show--eu
     display: inline
   .db-show--other
     display: none
 
-.db-upgrade-modal--other
+.db-checkout--other
   .db-show--eu
     display: none
   .db-show--other
@@ -143,7 +156,6 @@
     &__quote
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
-      font-size: 1.5em
 
 .db-pay-button
   margin-top: 35px

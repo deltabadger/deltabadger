@@ -17,9 +17,9 @@
       .db-plans__item__amount
         .db-plans__item__amount__t.db-plans__item__amount__t--discount
           .db-show--investor
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
+            <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
           .db-show--hodler
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
+            <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
       .db-plans__item__info
         Compensation for #{current_user.plan_days_left} unused days of the Investor plan.
 
@@ -35,10 +35,10 @@
         .db-plans__item__amount__t.db-plans__item__amount__t--discount
           - if 'investor'.in?(upgrade_presenter.available_plans)
             .db-show--investor
-              <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-discount-percent-amount'>#{cost_presenter[:investor].discount_percent_amount}</span>
+              <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-discount-percent-amount'>#{cost_presenter[:investor].discount_percent_amount}</span>
           - if 'hodler'.in?(upgrade_presenter.available_plans)
             .db-show--hodler
-              <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-discount-percent-amount'>#{cost_presenter[:hodler].discount_percent_amount}</span>
+              <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-discount-percent-amount'>#{cost_presenter[:hodler].discount_percent_amount}</span>
       .db-plans__item__info
         - if discount_presenter.info?
           Thanks to the referral link from <b><a href="#{discount_presenter.visible_path}">#{discount_presenter.visible_name}</a></b>, you get a discount for the first purchase on the platform.

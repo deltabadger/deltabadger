@@ -13,13 +13,8 @@
 
   %body
     #cookie_consent
-
-    = render 'layouts/navbar'
-    .db-content-body
-      = render 'layouts/welcome_message'
-      = render 'layouts/limit_reached'
-      .container
-        = yield
+    .container
+      = yield
     .container
       = render 'layouts/footer'
 
@@ -73,11 +68,11 @@
           if (!select) return;
 
           if (select.value.toLowerCase() === 'other') {
-            $(".db-checkout").addClass("db-checkout--other");
-            $(".db-checkout").removeClass("db-checkout--eu");
+            $(".db-country").addClass("db-checkout--other");
+            $(".db-country").removeClass("db-checkout--eu");
           } else {
-            $(".db-checkout").addClass("db-checkout--eu");
-            $(".db-checkout").removeClass("db-checkout--other");
+            $(".db-country").addClass("db-checkout--eu");
+            $(".db-country").removeClass("db-checkout--other");
           }
           var dataset = select.options[select.selectedIndex].dataset;
 
