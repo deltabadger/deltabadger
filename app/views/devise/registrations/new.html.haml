@@ -32,9 +32,9 @@
                 = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
 
-              .db-form__row
+              .db-form__row.db-form__row--input
                 = f.email_field :email, autofocus: true, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-                .db-form__bottom-line
+                
                 .db-form__info.db-form__info--invalid
                   -if @email_suggestion
                     Email invalid! Did you mean: <b>#{@email_suggestion}</b>
@@ -45,7 +45,7 @@
 
               .db-form__row.db-has-unmask(onselectstart="return false;")
                 = f.password_field :password, autocomplete: "new-password", value: "", class: "db-form__input db-form__input--has-icon", onchange: 'this.setAttribute("value", this.value);', id: "passwordInput"
-                .db-form__bottom-line
+                
                 - if @minimum_password_length
                   .db-form__info.db-form__info--invalid
                     #{@minimum_password_length} characters minimum

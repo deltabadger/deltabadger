@@ -271,7 +271,7 @@ sup {
       &--first {
         padding: 0 0 200px;
         min-height: calc(100vh - 100px);
-        svg {
+        .db-homeart {
           z-index: -1;
         }
         @include media-breakpoint-down(md) {
