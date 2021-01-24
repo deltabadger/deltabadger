@@ -1,10 +1,66 @@
 $formUnit: 20px
 
 .btn
+  display: inline-flex
+  font-family: $fontButton
+  font-weight: bold
+  cursor: pointer
   box-shadow: $boxShadowHome
-  &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover)
+  &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover),&.disabled
     box-shadow: none
+  &.disabled
+    cursor: default
+  &--export-to-csv
+    padding-left: 5px
+    text-decoration: none !important
+    &:hover
+      span
+        text-decoration: underline !important
+    .material-icons-round
+      top:       3px
+      font-size: 23px
+  &-link, &-outline-primary path
+    fill: $primary
+    fill: $primary-p3
+  &-transparent
+    color: #000
+    background: #fff
+    border-color: transparent !important
+    opacity: 0.1 !important
+    transition: none !important
+  &-outline-secondary
+    &.disabled
+      path
+        fill: #dadfe4
+  &-outline-success
+    path
+      fill: $success
+      fill: $success-p3
+  &-primary,&-danger,&-success,&-outline-primary:hover,&-outline-danger:hover,&-outline-success:hover
+    path
+      fill: #fff
+  &-primary
+    background: $primary-p3
+    border-color: $primary-p3
+  &-success
+    background: $success-p3
+    border-color: $success-p3
+  &--get-started
+    min-width: auto !important
+  &-link
+    transition: none
+  .db-svg-icon
+    margin: 0 -6px
+    width: 24px
+    height: 1.5em
+  *:not(:last-child)
+    margin-right: .5em
+  .material-icons-round
+    align-self: center
+    margin-right: -.25em
+    margin-left:  -.25em
 
+// forms
 
 .db-form
   &__row
