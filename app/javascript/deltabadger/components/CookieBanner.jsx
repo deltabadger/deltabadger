@@ -5,14 +5,14 @@ export const CookieBanner = () => {
   return (
     <CookieConsent
       location="bottom"
-      buttonText="I understand."
+      buttonText="OK"
       cookieName="CookieConsentDeltabadger"
       style={{}}
       buttonStyle={{}}
       expires={150}
     >
       <span className="cookie_text">
-        This website uses cookies to enhance the user experience.{""} <a href="/cookies_policy" title="Cookies Policy">Read more</a>
+        We use cookies. {""} <a href="/cookies_policy" title="Cookies Policy">Read more</a>
       </span>
     </CookieConsent>
   )

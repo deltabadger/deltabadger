@@ -596,44 +596,6 @@ sup {
   }
 }
 
-// Cookie
-
-#cookie_consent {
-  background: $success;
-  background: $success-p3;
-  box-shadow: $boxShadowAlert;
-}
-.cookieConsent {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  background: none !important;
-  margin: 0 auto !important;
-  @include make-container();
-  @include make-container-max-widths();
-  position: relative !important;
-  a {
-    color: $textColorInverted !important;
-    font-weight: bold !important;
-    text-decoration: underline !important;
-  }
-  div {
-    margin-left: 0 !important;
-  }
-  button {
-    background: $primary !important;
-    background: $primary-p3 !important;
-    margin-right: 0 !important;
-    color: #fff !important;
-    font-size: 16px !important;
-    font-weight: bold !important;
-    line-height: 30px !important;
-    padding: 5px 15px 5px 20px !important;
-    border-radius: 20px !important;
-    margin-left: 0 !important;
-  }
-}
-
 // Supported exchanges
 
 .db-supported-exchanges {
