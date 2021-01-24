@@ -6,76 +6,72 @@ $formUnit: 20px
     position: relative
     &--final-button
       margin-bottom: 0
-      padding-top: 10px
+      padding-top: 8px
     &--check
       margin-left: 4px
       padding-top: 10px
   &__label
+    border-radius: 4px
+    background: #fff
     color: #678
     position: absolute
-    top: 9px
+    top: 12px
     padding-left: 4px
-    left: 0
-    transition: all 200ms ease-out
+    padding-right: 4px
+    left: 12px
+    transition: all 100ms ease-out
     pointer-events: none
   &__input
-    padding-left: 4px
-    border: none
+    background: none
+    padding-left: 14px
+    padding-right: 14px
+    border: 1px solid #678
+    border-radius: 4px
     width: 100%
     height: 2*$formUnit
     position: relative
-    transition: opacity 200ms ease-in
-    &--date
-      opacity: 0
+    height: 50px
     &--select
-      opacity: 0
       appearance: none
-      width: calc(100% - 4px)
     &--has-icon
-      padding-right: 36px
+      padding-right: 48px
     &:focus
+      border-color: $primary
+      border-width: 2px
       outline: none
-      &~.db-form__bottom-line
-        &::before
-          width: 100%
+      padding-left: 13px
+      padding-right: 13px
+      &~.db-form__label
+        color: $primary
+        font-weight: bold
     &:focus,&:not([value=""])
       opacity: 1
       &~.db-form__label
-        color: #567
-        top: -12px
-        font-size: 13px
+        top: -9px
+        font-size: 14px
     &.is-invalid
-      &~.db-form__bottom-line
-        background: red
+      border-color: $danger
+      border-width: 2px
+      &~.db-form__label
+        color: $danger
+        font-weight: bold
       &~.db-form__info--invalid
         display: block
   &__info
     padding-left: 4px
-    font-size: 13px
-    margin-top: 5px
-    margin-bottom: -5px
+    font-size: 14px
+    margin-top: 4px
+    margin-bottom: -4px
     &--invalid
+      font-weight: bold
       display: none
       color: $danger
     &--right
       float: right
+      padding-right: 4px
     a
       text-decoration: none
-  &__bottom-line
-    border-radius: 10px
-    position: absolute
-    top: 2*$formUnit
-    height: 2px
-    width: 100%
-    background: #abc
-    &::before
-      transition: all 200ms ease-out
-      content: " "
-      border-radius: 10px
-      background: $primary
-      height: 2px
-      position: absolute
-      width: 0
+      font-weight: bold
   &__other-links
     text-align: center
     margin-top: 25px
@@ -87,12 +83,12 @@ $formUnit: 20px
   width: 24px
   height: 24px
   position: absolute
-  top: 8px
-  right: 4px
+  top: 13px
+  right: 14px
   cursor: pointer
   .db-svg--mi
-    transition: opacity 200ms ease-in-out
-    fill: #abc
+    transition: opacity 100ms ease-in-out
+    fill: #678
   &:hover
     .db-svg--mi
       opacity: 1
@@ -116,3 +112,6 @@ $formUnit: 20px
 
 .db-selectable
   cursor: pointer
+
+.form-label-check
+  margin-left: 2px

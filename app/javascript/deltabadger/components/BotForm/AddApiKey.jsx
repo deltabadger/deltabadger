@@ -57,23 +57,27 @@ export const AddApiKey = ({
       <div className="db-bot__form db-bot__form--apikeys">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form onSubmit={_handleSubmit} className="form-row">
-          <div className="col form-group">
-            <label>{ key_label }</label>
-            <input
-              type="text"
-              value={key}
-              onChange={e => setKey(e.target.value)}
-              className="form-control"
-            />
+          <div className="col">
+            <div className="db-form__row mb-0">
+              <input
+                type="text"
+                value={key}
+                onChange={e => setKey(e.target.value)}
+                className="db-form__input"
+              />
+              <label className="db-form__label">{ key_label }</label>
+            </div>
           </div>
-          <div className="col form-group">
-            <label>{ secret_label }</label>
-            <input
-              type="text"
-              value={secret}
-              onChange={e => setSecret(e.target.value)}
-              className="form-control col"
-            />
+          <div className="col">
+            <div className="db-form__row mb-0">
+              <input
+                type="text"
+                value={secret}
+                onChange={e => setSecret(e.target.value)}
+                className="db-form__input"
+              />
+              <label className="db-form__label">{ secret_label }</label>
+            </div>
           </div>
         </form>
       </div>
