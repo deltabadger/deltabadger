@@ -31,6 +31,8 @@ $formUnit: 20px
       opacity: 0
       appearance: none
       width: calc(100% - 4px)
+    &--has-icon
+      padding-right: 36px
     &:focus
       outline: none
       &~.db-form__bottom-line
@@ -40,7 +42,7 @@ $formUnit: 20px
       opacity: 1
       &~.db-form__label
         color: #567
-        top: -10px
+        top: -12px
         font-size: 13px
     &.is-invalid
       &~.db-form__bottom-line
@@ -85,7 +87,7 @@ $formUnit: 20px
   width: 24px
   height: 24px
   position: absolute
-  top: 10px
+  top: 8px
   right: 4px
   cursor: pointer
   .db-svg--mi
@@ -114,7 +116,3 @@ $formUnit: 20px
 
 .db-selectable
   cursor: pointer
-
-.form-control-lg--has-icon
-	padding-right: 3.25rem
-	background-position: center right 3rem !important
