@@ -1,5 +1,11 @@
 $formUnit: 20px
 
+.btn
+  box-shadow: $boxShadowHome
+  &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover)
+    box-shadow: none
+
+
 .db-form
   &__row
     margin-bottom: 1.25*$formUnit
@@ -11,7 +17,7 @@ $formUnit: 20px
         margin-left: -2px
         margin-right: -2px
         width: calc(100% + 4px) !important
-    &--check
+    &--check§
       margin-left: 4px
       padding-top: 10px
   &__label
@@ -76,14 +82,13 @@ $formUnit: 20px
       padding-right: 4px
     a
       font-weight: bold
-      
+
   &__other-links
     text-align: center
     margin-top: 25px
     a
       padding-left: 0
       padding-right: 0
-      text-decoration: underline
 
 .db-unmask
   width: 24px
