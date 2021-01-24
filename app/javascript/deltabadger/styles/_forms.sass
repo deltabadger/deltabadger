@@ -7,6 +7,10 @@ $formUnit: 20px
     &--final-button
       margin-bottom: 0
       padding-top: 8px
+      .btn
+        margin-left: -2px
+        margin-right: -2px
+        width: calc(100% + 4px) !important
     &--check
       margin-left: 4px
       padding-top: 10px
@@ -44,7 +48,7 @@ $formUnit: 20px
       &~.db-form__label
         color: $primary
         font-weight: bold
-    &:focus,&:not([value=""])
+    &--select,&:focus,&:not([value=""])
       opacity: 1
       &~.db-form__label
         top: -9px
@@ -70,7 +74,6 @@ $formUnit: 20px
       float: right
       padding-right: 4px
     a
-      text-decoration: none
       font-weight: bold
   &__other-links
     text-align: center
@@ -78,6 +81,7 @@ $formUnit: 20px
     a
       padding-left: 0
       padding-right: 0
+      text-decoration: underline
 
 .db-unmask
   width: 24px

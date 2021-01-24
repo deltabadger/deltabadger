@@ -34,7 +34,7 @@
 
               .db-form__row.db-form__row--input
                 = f.email_field :email, autofocus: true, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-                
+
                 .db-form__info.db-form__info--invalid
                   -if @email_suggestion
                     Email invalid! Did you mean: <b>#{@email_suggestion}</b>
@@ -45,7 +45,7 @@
 
               .db-form__row.db-has-unmask(onselectstart="return false;")
                 = f.password_field :password, autocomplete: "new-password", value: "", class: "db-form__input db-form__input--has-icon", onchange: 'this.setAttribute("value", this.value);', id: "passwordInput"
-                
+
                 - if @minimum_password_length
                   .db-form__info.db-form__info--invalid
                     #{@minimum_password_length} characters minimum
@@ -67,7 +67,7 @@
               .db-form__row.db-form__row--check
                 = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
                 = f.label :terms_and_conditions, class: "form-check-label" do
-                  By signing I agree to
+                  By continuing I agree to the
                   = link_to 'Terms of Service', terms_and_conditions_path
                   and
                   = link_to 'Privacy Policy', privacy_policy_path
