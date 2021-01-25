@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_11_26_110919) do
+ActiveRecord::Schema.define(version: 2021_01_19_103520) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -53,6 +53,8 @@ ActiveRecord::Schema.define(version: 2020_11_26_110919) do
     t.string "encrypted_secret"
     t.string "encrypted_secret_iv"
     t.boolean "german_trading_agreement"
+    t.string "encrypted_passphrase"
+    t.string "encrypted_passphrase_iv"
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
   end
