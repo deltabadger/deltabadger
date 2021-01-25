@@ -23,7 +23,7 @@ module ExchangeApi
         when 'kraken'
           Kraken::Validator.new
         when 'coinbase pro'
-          Coinbase::Validator.new
+          CoinbasePro::Validator.new
         end
       end
     end
