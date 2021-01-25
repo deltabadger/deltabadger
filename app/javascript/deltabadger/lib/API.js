@@ -30,6 +30,7 @@ const API = {
       exchange_id: params.exchangeId,
       key: params.key,
       secret: params.secret,
+      passphrase: params.passphrase,
       german_trading_agreement: params.germanAgreement
     }
     return client.request({ url, data: { api_key: ApiKeyParams }, method: 'post' }).then(data => data.data);
