@@ -82,14 +82,16 @@ export const AddApiKey = ({
             </div>
           </div>
           { pickedExchangeName == "Coinbase Pro" &&
-            <div className="col form-group">
-              <label>{ phrase_label }</label>
-              <input
-                type="text"
-                value={passphrase}
-                onChange={e => setPassphrase(e.target.value)}
-                className="form-control col"
-              />
+            <div className="col">
+              <div className="db-form__row mb-0">
+                <input
+                  type="text"
+                  value={passphrase}
+                  onChange={e => setPassphrase(e.target.value)}
+                  className="db-form__input"
+                />
+                <label className="db-form__label">{ phrase_label }</label>
+              </div>
             </div>
           }
         </form>
