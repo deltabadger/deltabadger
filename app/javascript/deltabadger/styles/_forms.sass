@@ -1,0 +1,187 @@
+$formUnit: 20px
+
+.btn
+  display: inline-flex
+  font-family: $fontButton
+  font-weight: bold
+  cursor: pointer
+  box-shadow: $boxShadowHome
+  &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover),&.disabled
+    box-shadow: none
+  &.disabled
+    cursor: default
+  &--export-to-csv
+    padding-left: 5px
+    text-decoration: none !important
+    &:hover
+      span
+        text-decoration: underline !important
+    .material-icons-round
+      top:       3px
+      font-size: 23px
+  &-link, &-outline-primary path
+    fill: $primary
+    fill: $primary-p3
+  &-transparent
+    color: #000
+    background: #fff
+    border-color: transparent !important
+    opacity: 0.1 !important
+    transition: none !important
+  &-outline-secondary
+    &.disabled
+      path
+        fill: #dadfe4
+  &-outline-success
+    path
+      fill: $success
+      fill: $success-p3
+  &-primary,&-danger,&-success,&-outline-primary:hover,&-outline-danger:hover,&-outline-success:hover
+    path
+      fill: #fff
+  &-primary
+    background: $primary-p3
+    border-color: $primary-p3
+  &-success
+    background: $success-p3
+    border-color: $success-p3
+  &--get-started
+    min-width: auto !important
+  &-link
+    transition: none
+  .db-svg-icon
+    margin: 0 -6px
+    width: 24px
+    height: 1.5em
+  *:not(:last-child)
+    margin-right: .5em
+  .material-icons-round
+    align-self: center
+    margin-right: -.25em
+    margin-left:  -.25em
+
+// forms
+
+.db-form
+  &__row
+    margin-bottom: 1.25*$formUnit
+    position: relative
+    &--final-button
+      margin-bottom: 0
+      padding-top: 8px
+      .btn
+        margin-left: -2px
+        margin-right: -2px
+        width: calc(100% + 4px) !important
+    &--check§
+      margin-left: 4px
+      padding-top: 10px
+  &__label
+    border-radius: 4px
+    background: #fff
+    color: #678
+    position: absolute
+    top: 13px
+    padding-left: 4px
+    padding-right: 4px
+    left: 12px
+    transition: all 100ms ease-out
+    pointer-events: none
+  &__input
+    background: none
+    padding-bottom: 2px
+    padding-left: 14px
+    padding-right: 14px
+    border: 1px solid #678
+    border-radius: 4px
+    width: 100%
+    height: 2*$formUnit
+    position: relative
+    height: 50px
+    &--select
+      appearance: none
+    &--has-icon
+      padding-right: 48px
+    &:focus
+      border-color: $primary
+      border-width: 2px
+      outline: none
+      padding-left: 13px
+      padding-right: 13px
+      &~.db-form__label
+        color: $primary
+        font-weight: bold
+    &--select,&:focus,&:not([value=""])
+      opacity: 1
+      &~.db-form__label
+        top: -9px
+        font-size: 14px
+    &.is-invalid
+      border-color: $danger
+      border-width: 2px
+      &~.db-form__label
+        color: $danger
+        font-weight: bold
+      &~.db-form__info--invalid
+        display: block
+  &__info
+    padding-left: 4px
+    font-size: 14px
+    margin-top: 4px
+    margin-bottom: -4px
+    &--invalid
+      font-weight: bold
+      display: none
+      color: $danger
+    &--right
+      float: right
+      padding-right: 4px
+    a
+      font-weight: bold
+      text-decoration: none
+      &:hover
+        text-decoration: underline
+
+  &__other-links
+    text-align: center
+    margin-top: 25px
+    a
+      padding-left: 0
+      padding-right: 0
+
+.db-unmask
+  width: 24px
+  height: 24px
+  position: absolute
+  top: 13px
+  right: 14px
+  cursor: pointer
+  .db-svg--mi
+    transition: opacity 100ms ease-in-out
+    fill: #678
+  &:hover
+    .db-svg--mi
+      opacity: 1
+
+.db-has-unmask
+	position: relative
+
+[type="password"]
+	&~.db-unmask
+    .db-svg--mi-visibility
+      display: block
+    .db-svg--mi-visibility-off
+    	display: none
+
+[type="text"]
+	&~.db-unmask
+    .db-svg--mi-visibility
+      display: none
+    .db-svg--mi-visibility-off
+    	display: block
+
+.db-selectable
+  cursor: pointer
+
+.form-label-check
+  margin-left: 2px

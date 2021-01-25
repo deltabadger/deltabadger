@@ -7,17 +7,17 @@
 %main.container.db-main
   .db-main__section.db-main__section--primary.db-main__section--primary--first
     .row
-      .col-md-12.col-lg-7.db-flex-centered-vertically
+      .col-md-12.col-lg-6.col-xl-7.db-flex-centered-vertically
         .db-flex-centered-vertically__content
           %h1.mb-5
-            Automate buying any<br />
-            cryptocurrency
+            Automate buying any<br class="d-none d-sm-inline" />
+            crypto<span class="d-none d-sm-inline">currency</span>
             %span.db-anim-rotator
               %span.db-anim-rotator--1 hourly
               %span.db-anim-rotator--2 daily
               %span.db-anim-rotator--3 weekly
           %p
-            A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span> <br /> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
+            A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span> <br>Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
           %p
             The basic plan is
             %b.text-success.text-success--lighter free
@@ -27,7 +27,7 @@
             %span.mr-3 Start in 5 minutes
             %svg.db-bot__svg-icon.db-svg-icon.db-svg-icon--arrow-forward{:xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
               %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-      .col-md-12.col-lg-5.d-none.d-lg-flex
+      .col-md-12.col-lg-6.col-xl-5.d-lg-flex
         = render 'layouts/svg_bubbleart_01'
 
   = render 'layouts/homepage_set02'
