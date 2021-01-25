@@ -91,16 +91,16 @@
 
       let start;
 
-      function step(timestamp) {
-        if (start === undefined)
-          start = timestamp;
-        const elapsed = timestamp - start;
-
-        root.style.setProperty('--pulsing', Math.cos(elapsed * 0.002).toFixed(3));
-
-        if (elapsed < 200000000) { // Stop the animation
-          window.requestAnimationFrame(step);
-        }
-      }
+      // function step(timestamp) {
+      //   if (start === undefined)
+      //     start = timestamp;
+      //   const elapsed = timestamp - start;
+      //
+      //   root.style.setProperty('--pulsing', Math.cos(elapsed * 0.002).toFixed(3));
+      //
+      //   if (elapsed < 200000000) { // Stop the animation
+      //     window.requestAnimationFrame(step);
+      //   }
+      // }
 
       window.requestAnimationFrame(step);
