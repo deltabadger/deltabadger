@@ -22,7 +22,7 @@ module ExchangeApi
         when 'kraken'
           kraken_client(api_key, order_type)
         when 'coinbase pro'
-          coinbase_client(api_key, order_type)
+          coinbase_pro_client(api_key, order_type)
         end
       end
 
@@ -75,11 +75,11 @@ module ExchangeApi
         )
       end
 
-      def coinbase_client(api_key, order_type)
+      def coinbase_pro_client(api_key, order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Coinbase::LimitTrader
+                   ExchangeApi::Traders::CoinbasePro::LimitTrader
                  else
-                   ExchangeApi::Traders::Coinbase::MarketTrader
+                   ExchangeApi::Traders::CoinbasePro::MarketTrader
                  end
         client.new(
           api_key: api_key.key,

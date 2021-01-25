@@ -3,16 +3,16 @@ require 'result'
 # rubocop#disable Style/StringLiterals
 module ExchangeApi
   module Traders
-    module Coinbase
+    module CoinbasePro
       class BaseTrader < ExchangeApi::Traders::BaseTrader
-        include ExchangeApi::Clients::Coinbase
+        include ExchangeApi::Clients::CoinbasePro
 
         def initialize(
           api_key:,
           api_secret:,
           passphrase:,
-          market: ExchangeApi::Markets::Coinbase::Market.new,
-          map_errors: ExchangeApi::MapErrors::Coinbase.new
+          market: ExchangeApi::Markets::CoinbasePro::Market.new,
+          map_errors: ExchangeApi::MapErrors::CoinbasePro.new
         )
           @api_key = api_key
           @api_secret = api_secret

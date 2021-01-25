@@ -1,8 +1,8 @@
 module ExchangeApi
   module Validators
-    module Coinbase
+    module CoinbasePro
       class Validator < BaseValidator
-        include ExchangeApi::Clients::Coinbase
+        include ExchangeApi::Clients::CoinbasePro
 
         URL = 'https://api.pro.coinbase.com/fees'.freeze
 

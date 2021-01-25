@@ -1,7 +1,7 @@
 module ExchangeApi
   module Traders
-    module Coinbase
-      class MarketTrader < ExchangeApi::Traders::Coinbase::BaseTrader
+    module CoinbasePro
+      class MarketTrader < ExchangeApi::Traders::CoinbasePro::BaseTrader
         def buy(base:, quote:, price:, force_smart_intervals:)
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, force_smart_intervals)

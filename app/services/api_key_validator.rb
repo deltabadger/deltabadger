@@ -18,7 +18,7 @@ class ApiKeyValidator < BaseService
       api_key: api_key.key,
       api_secret: api_key.secret
     }
-    params = params.merge({passphrase: api_key.passphrase}) if api_key.passphrase != ''
+    params = params.merge({passphrase: api_key.passphrase}) if api_key.passphrase.present?
 
     params
   end

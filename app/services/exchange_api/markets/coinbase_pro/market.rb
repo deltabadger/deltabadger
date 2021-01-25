@@ -1,12 +1,11 @@
 require 'result'
 module ExchangeApi
   module Markets
-    module Coinbase
+    module CoinbasePro
       class Market < BaseMarket
-        include ExchangeApi::Clients::Coinbase
+        include ExchangeApi::Clients::CoinbasePro
 
         PRODUCTS_URL = 'https://api.pro.coinbase.com/products'.freeze
-        ALL_SYMBOLS_CACHE_KEY = 'coinbase_all_symbols'.freeze
 
         def initialize
           super
@@ -14,9 +13,6 @@ module ExchangeApi
 
         def all_symbols
           request = Faraday.get(PRODUCTS_URL)
-          if request.reason_phrase != 'OK'
-            return Result::Failure.new("Couldn't fetch Coinbase symbols", RECOVERABLE)
-          end
 
           response = JSON.parse(request.body)
           market_symbols = response.map do |symbol_info|
@@ -25,6 +21,8 @@ module ExchangeApi
             MarketSymbol.new(base, quote)
           end
           Result::Success.new(market_symbols)
+        rescue StandardError
+          Result::Failure.new("Couldn't fetch Coinbase symbols", RECOVERABLE)
         end
 
         def minimum_order_price(symbol)
@@ -78,9 +76,6 @@ module ExchangeApi
         def current_bid_ask_price(symbol)
           url = PRODUCTS_URL + "/#{symbol}/book"
           request = Faraday.get(url)
-          if request.reason_phrase != 'OK'
-            return Result::Failure.new("Couldn't fetch Coinbase minimum volume", RECOVERABLE)
-          end
 
           response = JSON.parse(request.body)
 
@@ -88,15 +83,15 @@ module ExchangeApi
           ask = response['asks'][0][0].to_f
 
           Result::Success.new(BidAskPrice.new(bid, ask))
+        rescue StandardError
+          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", RECOVERABLE)
         end
 
         def number_of_decimal_points(number)
-          (1..100).each do |i|
-            pow = 10**i
-            return i if number * pow == 1
+          number_str = number.to_s
+          return 0 if number_str.include? '.'
 
-            0
-          end
+          number_str.split('.')[1].length
         end
       end
     end

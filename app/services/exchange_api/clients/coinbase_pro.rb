@@ -1,6 +1,6 @@
 module ExchangeApi
   module Clients
-    module Coinbase
+    module CoinbasePro
       def headers(api_key, api_secret, passphrase, body, request_path, method = 'GET')
         timestamp = Time.now.utc.to_i.to_s
         signature = signature(api_secret, request_path, body, timestamp, method)
@@ -17,7 +17,7 @@ module ExchangeApi
 
       def signature(api_secret, request_path = '', body = '', timestamp = nil, method = 'GET')
         body = body.to_json if body.is_a?(Hash)
-        timestamp = Time.now.to_i if !timestamp
+        timestamp ||= Time.now.to_i
 
         what = "#{timestamp}#{method}#{request_path}#{body}"
 

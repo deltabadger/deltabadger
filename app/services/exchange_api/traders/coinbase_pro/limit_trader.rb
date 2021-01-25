@@ -1,7 +1,7 @@
 module ExchangeApi
   module Traders
-    module Coinbase
-      class LimitTrader < ExchangeApi::Traders::Coinbase::BaseTrader
+    module CoinbasePro
+      class LimitTrader < ExchangeApi::Traders::CoinbasePro::BaseTrader
         def buy(base:, quote:, price:, percentage:, force_smart_intervals:)
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, percentage, force_smart_intervals)
@@ -19,7 +19,6 @@ module ExchangeApi
         end
 
         private
-
 
         def get_buy_params(symbol, price, percentage, force_smart_intervals)
           rate = @market.current_ask_price(symbol)
