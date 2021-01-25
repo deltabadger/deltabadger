@@ -2,7 +2,7 @@
   .db-checkout-summary.modal-content
     .db-checkout-summary__item.db-checkout-summary__item--vat
       .db-checkout-summary__item__info
-        +VAT (<span class='vat-percent'>#{cost_presenter[:hodler].vat_integer}</span>%)
+        +VAT <span class='vat-percent'>#{cost_presenter[:hodler].vat_integer}</span>%
       .db-checkout-summary__item__quote
         - if 'investor'.in?(upgrade_presenter.available_plans)
           %span.db-show--investor

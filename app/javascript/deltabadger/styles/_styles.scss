@@ -137,81 +137,6 @@ sup {
   }
 }
 
-.btn {
-  display: inline-flex;
-  font-family: $fontButton;
-  font-weight: bold;
-  cursor: pointer;
-  :not(:last-child) {
-    margin-right: .5em;
-  }
-  .material-icons-round {
-    align-self:    center;
-    margin-right: -.25em;
-    margin-left:  -.25em;
-  }
-  &.disabled {
-    cursor: default;
-  }
-  &--export-to-csv {
-    padding-left: 5px;
-    text-decoration: none !important;
-    .material-icons-round {
-      top:       3px;
-      font-size: 23px;
-    }
-    &:hover {
-      span {
-        text-decoration: underline !important;
-      }
-    }
-  }
-  .db-svg-icon {
-    margin: 0 -6px;
-    width: 24px;
-    height: 1.5em;
-  }
-  &-link,
-  &-outline-primary { path {
-    fill: $primary;
-    fill: $primary-p3;
-  } }
-  &-transparent {
-    color: #000;
-    background: #fff;
-    border-color: transparent !important;
-    opacity: 0.1 !important;
-    transition: none !important;
-  }
-  &-outline-secondary {
-    &.disabled { path { fill: #dadfe4; } }
-  }
-  &-outline-success {
-    path {
-      fill: $success;
-      fill: $success-p3;
-    }
-  }
-  &-primary,
-  &-danger,
-  &-success,
-  &-outline-primary:hover,
-  &-outline-danger:hover,
-  &-outline-success:hover {
-    path { fill: #fff; }
-  }
-  &-success {
-    background: #{'color(display-p3 0.0275 0.62 0.376) !important'};
-    border-color: #{'color(display-p3 0.0275 0.62 0.376) !important'};
-  }
-}
-.btn--get-started {
-  min-width: auto !important;
-}
-.btn-link {
-  transition: none;
-}
-
 .db-relative {
   position: relative;
 }
@@ -271,7 +196,7 @@ sup {
       &--first {
         padding: 0 0 200px;
         min-height: calc(100vh - 100px);
-        svg {
+        .db-homeart {
           z-index: -1;
         }
         @include media-breakpoint-down(md) {
@@ -593,44 +518,6 @@ sup {
         content: "a";
       }
     }
-  }
-}
-
-// Cookie
-
-#cookie_consent {
-  background: $success;
-  background: $success-p3;
-  box-shadow: $boxShadowAlert;
-}
-.cookieConsent {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  background: none !important;
-  margin: 0 auto !important;
-  @include make-container();
-  @include make-container-max-widths();
-  position: relative !important;
-  a {
-    color: $textColorInverted !important;
-    font-weight: bold !important;
-    text-decoration: underline !important;
-  }
-  div {
-    margin-left: 0 !important;
-  }
-  button {
-    background: $primary !important;
-    background: $primary-p3 !important;
-    margin-right: 0 !important;
-    color: #fff !important;
-    font-size: 16px !important;
-    font-weight: bold !important;
-    line-height: 30px !important;
-    padding: 5px 15px 5px 20px !important;
-    border-radius: 20px !important;
-    margin-left: 0 !important;
   }
 }
 

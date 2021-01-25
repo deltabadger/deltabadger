@@ -18,11 +18,14 @@
             = form_for(resource, as: resource_name, url: session_path(resource_name)) do |f|
               .db-form__row
                 = f.email_field :email, autofocus: true, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-                .db-form__bottom-line
+                
                 = f.label :email, class: "db-form__label"
               .db-form__row
                 = f.password_field :password, autocomplete: "current-password", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-                .db-form__bottom-line
+                
+                - if devise_mapping.recoverable? && controller_name != 'passwords' && controller_name != 'registrations'
+                  .db-form__info.db-form__info--right
+                    = link_to "Forgot password?", new_password_path(resource_name)
                 = f.label :password, class: "db-form__label"
               - if devise_mapping.rememberable?
                 .db-form__row.db-form__row--check.form-check
