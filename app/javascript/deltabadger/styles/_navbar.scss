@@ -96,7 +96,7 @@
     margin-left: 0;
   }
   &__close {
-    width: 30px;
+    width:  30px;
     height: 30px;
   }
 }
@@ -111,20 +111,17 @@
   line-height:    28px;
   margin-left:    10px;
   margin-right:   0;
-  // svg {
-  //   margin-right: 4px;
-  // }
 }
 
 .db-hi-welcome {
   pointer-events: none;
-  position: absolute;
-  left: 110px;
-  opacity: 1;
-  top: 18px;
+  position:       absolute;
+  left:           110px;
+  opacity:        1;
+  top:            18px;
   svg {
     position: absolute;
-    left: -10px;
+    left:   -10px;
     bottom: -15px;
   }
   @include media-breakpoint-down(md) {
@@ -135,22 +132,22 @@
   }
 }
 .db-hi-welcome {
-  animation-name: showMessage;
+  animation-name:     showMessage;
   animation-duration: 1.2s;
 }
 
 @keyframes showMessage {
   0% {
-    top: -35px;
+    top:    -35px;
     opacity: 0;
   }
   70% {
-    top: -35px;
+    top:    -35px;
     opacity: 0;
   }
   100% {
     opacity: 1;
-    top: 18px;
+    top:     18px;
   }
 }
 
