@@ -28,6 +28,8 @@ class Users::RegistrationsController < Devise::RegistrationsController
           session.delete(:code) if @affiliate.nil?
         end
       end
+
+      set_email_suggestion
     end
   end
 
@@ -35,6 +37,14 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def after_inactive_sign_up_path_for(_resource)
     confirm_registration_url
+  end
+
+  def set_email_suggestion
+    return unless devise_mapping.validatable?
+
+    email_validator = SendgridMailValidator.new
+    suggestion = email_validator.get_suggestion(@user.email)
+    @email_suggestion = suggestion.to_s unless suggestion.nil?
   end
 
   private
@@ -52,6 +62,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
     self.resource = resource_class.new sign_up_params
     resource.validate
+    set_email_suggestion
     set_minimum_password_length
     respond_with_navigational(resource) { render :new }
   end
