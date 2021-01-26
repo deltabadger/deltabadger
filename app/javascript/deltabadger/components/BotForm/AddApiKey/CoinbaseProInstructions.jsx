@@ -12,7 +12,6 @@ export const CoinbaseProInstructions = () => (
         <li>Set permissions for:
           <ul>
             <li><b>View</b></li>
-          	<li><b>Transfer</b></li>
           	<li><b>Trade</b></li>
           </ul>
         </li>
