@@ -29,6 +29,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
         end
       end
 
+      set_email_in_use
       set_email_suggestion
     end
   end
@@ -37,6 +38,10 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def after_inactive_sign_up_path_for(_resource)
     confirm_registration_url
+  end
+
+  def set_email_in_use
+    @email_in_use = 'That email address has already been used.' if User.where(:email => @user.email).exists?
   end
 
   def set_email_suggestion
