@@ -41,7 +41,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def set_email_in_use
-    @email_in_use = 'That email address has already been used.' if User.where(:email => @user.email).exists?
+    @email_in_use = 'This email is already used.' if User.where(:email => @user.email).exists?
   end
 
   def set_email_suggestion
@@ -67,6 +67,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
     self.resource = resource_class.new sign_up_params
     resource.validate
+    set_email_in_use
     set_email_suggestion
     set_minimum_password_length
     respond_with_navigational(resource) { render :new }
