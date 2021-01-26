@@ -36,7 +36,10 @@
                 = f.email_field :email, autofocus: true, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
 
                 .db-form__info.db-form__info--invalid
-                  -if @email_suggestion
+                  -if @email_in_use
+                    #{@email_in_use}
+                    = link_to 'Log in', new_session_path(resource_name)
+                  -elsif @email_suggestion
                     Email invalid! Did you mean: <b>#{@email_suggestion}</b>
                   -else
                     Email invalid!
