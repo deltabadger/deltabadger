@@ -38,6 +38,7 @@
                 .db-form__info.db-form__info--invalid
                   -if @email_in_use
                     #{@email_in_use}
+                    = link_to 'Log in', new_session_path(resource_name)
                   -elsif @email_suggestion
                     Email invalid! Did you mean: <b>#{@email_suggestion}</b>
                   -else
