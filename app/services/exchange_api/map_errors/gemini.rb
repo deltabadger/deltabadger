@@ -8,4 +8,3 @@ module ExchangeApi::MapErrors
     end
   end
 end
-
