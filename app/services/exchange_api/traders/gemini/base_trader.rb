@@ -56,7 +56,7 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-          return Result::Failure.new(['Could not make Gemini order', RECOVERABLE]) if was_not_filled?(response)
+          return Result::Failure.new('Could not make Gemini order', RECOVERABLE) if was_not_filled?(response)
 
           if request.status == 200 && request.reason_phrase == 'OK'
             order_id = response.fetch('order_id')
@@ -68,7 +68,7 @@ module ExchangeApi
               rate: response.fetch('avg_execution_price').to_f.round(2)
             )
           else
-            error_to_failure([response.fetch('message')])
+            error_to_failure([response.fetch('reason')])
           end
         end
 

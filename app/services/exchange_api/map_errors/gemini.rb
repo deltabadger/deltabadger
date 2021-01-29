@@ -2,7 +2,8 @@ module ExchangeApi::MapErrors
   class Gemini < ExchangeApi::MapErrors::Base
     def errors_mapping
       {
-        'Insufficient funds' => Error.new('Insufficient funds', false)
+        'InsufficientFunds' => Error.new('Insufficient funds', false),
+        'InvalidSymbol' => Error.new('Pair not available', false)
       }.freeze
     end
   end

@@ -51,12 +51,6 @@ module ExchangeApi
           Result::Success.new(result)
         end
 
-        def quote_price(symbol)
-          url = BASE_URL + "/pricefeed/#{symbol}"
-          request = Faraday.get(url)
-          response = JSON.parse(request.body)
-        end
-
         def symbol(base, quote)
           "#{base}#{quote}"
         end
@@ -88,11 +82,11 @@ module ExchangeApi
         end
 
         def get_quote(symbol)
-          symbol[-3...]
+          symbol[-3...].upcase
         end
 
         def get_base(symbol)
-          symbol[0...-3]
+          symbol[0...-3].upcase
         end
       end
     end
