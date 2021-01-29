@@ -27,7 +27,7 @@ module ExchangeApi
           volume = smart_volume(symbol, price, rate.data, force_smart_intervals)
           return volume unless volume.success?
 
-          price = rate_percentage(symbol, rate.data, 99.0)
+          price = rate_percentage(symbol, rate.data, 0.5)
           return price unless price.success?
 
           Result::Success.new(
@@ -46,7 +46,7 @@ module ExchangeApi
           volume = smart_volume(symbol, price, rate.data, force_smart_intervals)
           return volume unless volume.success?
 
-          price = rate_percentage(symbol, rate.data, -99.0)
+          price = rate_percentage(symbol, rate.data, -0.5)
           return price unless price.success?
 
           Result::Success.new(
