@@ -7,6 +7,7 @@ class Exchange < ApplicationRecord
              when 'bitbay' then ExchangeApi::Markets::Bitbay::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              when 'coinbase pro' then ExchangeApi::Markets::CoinbasePro::Market.new
+             when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
