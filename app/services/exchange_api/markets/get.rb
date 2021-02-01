@@ -23,6 +23,8 @@ module ExchangeApi
           ExchangeApi::Markets::Kraken::Market.new
         when 'coinbase pro'
           ExchangeApi::Markets::CoinbasePro::Market.new
+        when 'gemini'
+          ExchangeApi::Markets::Gemini::Market.new
         end
       end
     end
