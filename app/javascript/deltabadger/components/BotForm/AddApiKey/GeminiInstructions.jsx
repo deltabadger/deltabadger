@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 
 export const GeminiInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--bitbay">

@@ -24,7 +24,8 @@ module ExchangeApi
           rate = @market.current_ask_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = rate_percentage(symbol, rate.data, -percentage)
+          limit_percentage = limit_buy_percentage(percentage)
+          limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
           volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals)
@@ -42,7 +43,8 @@ module ExchangeApi
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          limit_percentage = limit_sell_percentage(percentage)
+          limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
           volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals)
@@ -77,7 +79,7 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-          if request.status == 200 && request.reason_phrase == 'OK'
+          if was_filled?(request)
             order_id = response.fetch('id')
 
             Result::Success.new(offer_id: order_id)
@@ -89,8 +91,15 @@ module ExchangeApi
         def common_order_params(symbol)
           super.merge(type: 'exchange limit')
         end
+
+        def limit_buy_percentage(percentage)
+          -percentage
+        end
+
+        def limit_sell_percentage(percentage)
+          percentage
+        end
       end
     end
   end
 end
-
