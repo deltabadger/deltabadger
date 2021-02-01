@@ -24,6 +24,8 @@ module ExchangeApi
           Kraken::Validator.new
         when 'coinbase pro'
           CoinbasePro::Validator.new
+        when 'gemini'
+          Gemini::Validator.new
         end
       end
     end
