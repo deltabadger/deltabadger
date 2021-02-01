@@ -3,6 +3,7 @@ Exchange.find_or_create_by!(name: 'Binance.US')
 Exchange.find_or_create_by!(name: 'BitBay')
 Exchange.find_or_create_by!(name: 'Kraken')
 Exchange.find_or_create_by!(name: 'Coinbase Pro')
+Exchange.find_or_create_by!(name: 'Gemini')
 
 _saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 500)
 investor = SubscriptionPlan.find_or_create_by!(name: 'investor', cost_eu: 49.99, cost_other: 49.99, unlimited: true, years: 1, credits: 500)
