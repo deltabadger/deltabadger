@@ -23,6 +23,8 @@ module ExchangeApi
           kraken_client(api_key, order_type)
         when 'coinbase pro'
           coinbase_pro_client(api_key, order_type)
+        when 'gemini'
+          gemini_client(api_key, order_type)
         end
       end
 
@@ -85,6 +87,18 @@ module ExchangeApi
           api_key: api_key.key,
           api_secret: api_key.secret,
           passphrase: api_key.passphrase,
+        )
+      end
+
+      def gemini_client(api_key, order_type)
+        client = if limit_trader?(order_type)
+                   ExchangeApi::Traders::Gemini::LimitTrader
+                 else
+                   ExchangeApi::Traders::Gemini::MarketTrader
+                 end
+        client.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
         )
       end
 
