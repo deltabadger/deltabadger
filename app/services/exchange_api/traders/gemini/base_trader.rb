@@ -1,6 +1,5 @@
 require 'result'
 
-# rubocop#disable Style/StringLiterals
 module ExchangeApi
   module Traders
     module Gemini
@@ -58,14 +57,15 @@ module ExchangeApi
           response = JSON.parse(request.body)
           return Result::Failure.new('Could not make Gemini order', RECOVERABLE) if was_not_filled?(response)
 
-          if request.status == 200 && request.reason_phrase == 'OK'
+          if was_filled?(request)
             order_id = response.fetch('order_id')
             amount = response.fetch('executed_amount').to_f
+            rate = response.fetch('avg_execution_price').to_f
 
             Result::Success.new(
               offer_id: order_id,
               amount: amount,
-              rate: response.fetch('avg_execution_price').to_f.round(2)
+              rate: rate
             )
           else
             error_to_failure([response.fetch('reason')])
@@ -74,6 +74,10 @@ module ExchangeApi
 
         def was_not_filled?(response)
           response.fetch('reason', '') == 'FillOrKillWouldNotFill'
+        end
+
+        def was_filled?(request)
+          request.status == 200 && request.reason_phrase == 'OK'
         end
       end
     end
