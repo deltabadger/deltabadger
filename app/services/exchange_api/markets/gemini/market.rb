@@ -7,10 +7,6 @@ module ExchangeApi
 
         BASE_URL = 'https://api.gemini.com/v1'.freeze
 
-        def initialize
-          super
-        end
-
         def all_symbols
           symbols_url = BASE_URL + '/symbols'
           request = Faraday.get(symbols_url)
