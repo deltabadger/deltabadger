@@ -17,8 +17,8 @@ module ExchangeApi
           return false if request.status != 200
 
           request.reason_phrase == 'OK'
-          #rescue StandardError
-          #false
+          rescue StandardError
+            false
         end
       end
     end
