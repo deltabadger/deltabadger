@@ -174,7 +174,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-2" />
-            <label>Always use smart intervals.</label>
+            <span>Always use smart intervals.</span>
           </label>
         </form>
         {isLimitOrder() &&
