@@ -30,4 +30,17 @@
 # available at http://guides.rubyonrails.org/i18n.html.
 
 en:
-  hello: "Hello world"
+  deltabadger: "Deltabadger"
+  upgrade: "Upgrade"
+  saver:
+    message: "Get rid of the limits, and make an upgrade!"
+  welcome:
+    default: "Hi, welcome to Deltabadger"
+  start:
+    fast: "Start in 5 minutes"
+    free_html: Start <span class="d-none d-sm-inline">for free</span> in 5 minutes
+  testimonials:
+    header: "Users say about us:"
+
+  cta:
+    telegram: Join our Telegram group

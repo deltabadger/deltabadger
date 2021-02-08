@@ -14,7 +14,8 @@
               %span.db-hi-welcome__default
                 Hello! enjoy #{code_presenter.discount_percent}% discount from <span class="text-success text-success--lighter">#{code_presenter.visible_name}</span>
             - else
-              %span.db-hi-welcome__default Hi, welcome to Deltabadger
+              %span.db-hi-welcome__default
+                = t('welcome.default')
           %svg{:width => "38px", :height => "14px", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
             %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke="#0a45a4" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
       %div.form-inline.ml-auto
