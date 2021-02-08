@@ -55,7 +55,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
           <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused?
-            The new schedule will start after the current counting is finished.</p>
+            The new schedule will start after the current countdown is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -85,7 +85,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
-          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order.</p>
+          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -93,7 +93,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
             </div>
             <div onClick={() => {
               onClickReset(true) && setOpen(false)
-            }} className="btn btn-success">Yes, follow the schedule
+            }} className="btn btn-success">Continue original schedule
             </div>
           </div>
         </div>
