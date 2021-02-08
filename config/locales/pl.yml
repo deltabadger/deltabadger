@@ -1,0 +1,15 @@
+pl:
+  deltabadger: "Deltaborsuk"
+  upgrade: "Ulepsz"
+  saver:
+    message: "Pozbądź się limitów, ulepsz swój plan!"
+  welcome:
+    default: "Cześć, witaj w Deltaborsuku!"
+  start:
+    fast: "Zacznij w 5 minut"
+    free_html: Zacznij <span class="d-none d-sm-inline">za darmo</span> w 5 minut
+  testimonials:
+    header: "Użytkownicy piszą o nas:"
+
+  cta:
+    telegram: Dołącz do naszej grupy na Telegramie
