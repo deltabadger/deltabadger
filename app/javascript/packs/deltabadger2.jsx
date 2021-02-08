@@ -1,6 +1,7 @@
 import Rails from 'rails-ujs';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import I18n from 'i18n-js/index.js.erb'
 import * as Sentry from "@sentry/react";
 import { Integrations } from "@sentry/tracing";
 import { Dashboard } from '../deltabadger/components/Dashboard';
@@ -23,6 +24,8 @@ require.context('../images', true)
 Rails.start();
 
 const store = configureStore(reducer)
+
+I18n.locale = document.body.dataset.locale || I18n.defaultLocale
 
 if (document.getElementById('dashboard')) {
   const node = document.getElementById('current_user_subscription')

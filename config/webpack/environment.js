@@ -1,4 +1,5 @@
 const { environment } = require('@rails/webpacker')
+const erb =  require('./loaders/erb')
 
 environment.loaders.get('sass').use.splice(-1, 0, {
   loader: 'resolve-url-loader',
@@ -7,4 +8,5 @@ environment.loaders.get('sass').use.splice(-1, 0, {
   }
 });
 
+environment.loaders.prepend('erb', erb)
 module.exports = environment
