@@ -196,7 +196,7 @@ const BotTemplate = ({
               disabled={working}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-2" />
-            <label disabled={working}>Always use smart intervals.</label>
+            <span disabled={working}>Always use smart intervals.</span>
           </label>
         </form>
         {isLimitSelected() &&
