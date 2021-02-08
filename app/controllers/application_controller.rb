@@ -1,6 +1,11 @@
 class ApplicationController < ActionController::Base
+  before_action :set_locale
   before_action :set_raven_context
   before_action :configure_permitted_parameters, if: :devise_controller?
+
+  def set_locale
+    I18n.locale = :pl
+  end
 
   protected
 
