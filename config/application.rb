@@ -34,8 +34,6 @@ module Deltabadger
     config.i18n.default_locale = :en
     config.i18n.fallbacks = true
 
-    config.middleware.use I18n::JS::Middleware
-
     config.to_prepare do
       Devise::Mailer.layout "mailer"
     end

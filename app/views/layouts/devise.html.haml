@@ -13,7 +13,7 @@
 
     = csrf_meta_tags
     = csp_meta_tag
-  %body
+  %body{ data: { locale: I18n.locale }}
     #cookie_consent
 
     = render 'layouts/navbar/devise'

@@ -1,9 +1,3 @@
 translations:
-- file: 'app/javascript/bundles/i18n/en.js'
-  prefix: "import I18n from 'i18n-js';\n"
-  pretty_print: true
-  only: 'en.*'
-- file: 'app/javascript/bundles/i18n/pl.js'
-  prefix: "import I18n from 'i18n-js';\n"
-  pretty_print: true
-  only: 'pl.*'
+  - only: ["en.*", "pl.*"]
+    except: ["*.activerecord.*", "*.administrate.*", "*.faker.*"]
