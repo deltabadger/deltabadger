@@ -1,46 +1,57 @@
-# Files in the config/locales directory are used for internationalization
-# and are automatically loaded by Rails. If you want to use locales other
-# than English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t 'hello'
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t('hello') %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# The following keys must be escaped otherwise they will not be retrieved by
-# the default I18n backend:
-#
-# true, false, on, off, yes, no
-#
-# Instead, surround them with single quotes.
-#
-# en:
-#   'true': 'foo'
-#
-# To learn more, please read the Rails Internationalization guide
-# available at http://guides.rubyonrails.org/i18n.html.
-
 en:
-  deltabadger: "Deltabadger"
-  upgrade: "Upgrade"
-  saver:
-    message: "Get rid of the limits, and make an upgrade!"
-  welcome:
-    default: "Hi, welcome to Deltabadger"
-  start:
-    fast: "Start in 5 minutes"
-    free_html: Start <span class="d-none d-sm-inline">for free</span> in 5 minutes
-  testimonials:
-    header: "Users say about us:"
+  deltabadger: Deltabadger
 
-  cta:
-    telegram: Join our Telegram group
+  subscriptions:
+    upgrade: Upgrade
+
+  affiliates:
+    new:
+      title: Referral program registration
+      upgrade: To join our famous referral program, upgrade to one of our paid plans.
+      referrer_info: 1. Referrer info
+      payout_address: 2. Payout address
+      program_settings: 3. Program settings
+      visible_info: 4. Visible info
+      private: Private
+      eu_company: EU company
+      company:
+        name: 'Name of the company:'
+        address: 'Address of the company:'
+        vat_number: 'Vat number (optional):'
+      payout_address_label: BTC address to which you want to receive your payouts.
+      unchangable_warning: Settings in this section can't be changed later.
+      referral_code_label: Pick your desired referral code.
+      discount_info_html: |
+        You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>,
+        and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.
+      preview_name: Name on the preview
+      preview_link: Link
+      checked: I checked everything carefully.
+      submit: Let's start!
+      manual_html: |
+        <div class="alert alert-success">
+          <p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p>
+          <ol>
+            <li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li>
+            <li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li>
+            <li>It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li>
+            <li>Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.</li>
+            <li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li>
+          </ol>
+
+          <p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p>
+          <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small>
+          <br>
+          <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small>
+        </div>
+
+    create:
+      saver_error: You have to upgrade to register
+      error: Referral program registration failed
+
+    discount:
+      congrats_html: Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% discount is active.
+      referrer_html: |
+        Thanks to the referral link from
+        <b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span>.</a></b>
+      valid_for: Valid for the first purchase on the platform.
