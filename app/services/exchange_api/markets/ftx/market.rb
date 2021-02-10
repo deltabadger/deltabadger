@@ -15,9 +15,11 @@ module ExchangeApi
           market_symbols = response.fetch('result').map do |symbol_info|
             base = get_base(symbol_info)
             quote = get_quote(symbol_info)
+            next if base.blank? || quote.blank?
+
             MarketSymbol.new(base, quote)
           end
-          Result::Success.new(market_symbols)
+          Result::Success.new(market_symbols.compact)
         rescue StandardError
           Result::Failure.new("Couldn't fetch FTX symbols", RECOVERABLE)
         end
