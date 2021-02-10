@@ -26,8 +26,8 @@ module ExchangeApi
           path = '/api/orders'.freeze
           url = API_URL + path
           body = order_params.to_json
+
           request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
-          byebug
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -41,7 +41,6 @@ module ExchangeApi
           volume = (price / rate).ceil(volume_decimals.data)
           min_volume = @market.minimum_base_size(symbol)
           return min_volume unless min_volume.success?
-          byebug
 
           return Result::Success.new(min_volume.data) if force_smart_intervals
 
@@ -55,21 +54,36 @@ module ExchangeApi
         end
 
         def parse_request(request)
-          response = JSON.parse(request.body)
+          response = JSON.parse(request.body).fetch('result')
 
           if was_filled?(request)
             order_id = response.fetch('id')
-            amount = response.fetch('filledSize').to_f
-            rate = response.fetch('price').to_f
+            parsed_params = get_order_by_id(order_id)
+            return parsed_params unless parsed_params.success?
 
-            Result::Success.new(
-              offer_id: order_id,
-              amount: amount,
-              rate: rate
-            )
+            Result::Success.new(parsed_params.data)
           else
             error_to_failure([response.fetch('error')])
           end
+        end
+
+        def get_order_by_id(order_id)
+          path = "/api/orders/#{order_id}".freeze
+          url = API_URL + path
+          request = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
+          response = JSON.parse(request.body).fetch('result')
+
+          amount = response.fetch('filledSize').to_f
+          rate = response.fetch('avgFillPrice').to_f
+
+          Result::Success.new(
+            offer_id: order_id,
+            amount: amount,
+            rate: rate
+          )
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from FTX')
         end
 
         def was_filled?(request)
