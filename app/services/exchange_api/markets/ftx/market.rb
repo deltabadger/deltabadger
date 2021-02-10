@@ -39,7 +39,6 @@ module ExchangeApi
         def base_decimals(symbol)
           response = fetch_symbol(symbol)
           return response unless response.success?
-          byebug
 
           result = number_of_decimal_points(response.data['sizeIncrement'].to_f)
 
