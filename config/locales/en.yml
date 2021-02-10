@@ -2,6 +2,19 @@ en:
   deltabadger: Deltabadger
   subscriptions:
     upgrade: Upgrade
+  links:
+    log_in: Log in
+    sign_up: Sign up
+    resend_link: Resend link
+    terms_and_conditions: Terms and Conditions
+    privacy_policy: Privacy Policy
+  ads:
+    dca_profit_html:   If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+%{profit}%</span>
+    features: |
+      auto-DCA on your exchange account;
+      <i>Smart intervals</i> and five-minute setup;
+      updates and new features every month;
+      support and Telegram community
   affiliates:
     new:
       title: Referral program registration
@@ -75,3 +88,7 @@ en:
         visible_name: Name on the preview
         visible_link: Link
         check: Check
+      user:
+        email: Email
+        password: Password
+        terms_and_conditions_tooltip: By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.

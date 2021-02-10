@@ -28,7 +28,7 @@ module Affiliates
       Result::Failure.new(*affiliate.errors, data: affiliate)
     rescue StandardError => e
       Raven.capture_exception(e)
-      Result::Failure.new('Referral program registration failed')
+      Result::Failure.new(I18n.t('affiliates.create.error'))
     end
 
     private
