@@ -14,7 +14,7 @@
 
       %h2.db-modal-title= t('.title')
 
-      = t('.manual_html')
+      = t('affiliates.manual_html')
 
       .db-referral-program-registration
         - if errors.present?
@@ -36,22 +36,22 @@
               = f.label :type, t('.eu_company'), value: "eu_company", class: "form-check-label"
 
           .form-group.db-form-group--eu-company.mt-5{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-            = f.label :name, t('.company.name')
+            = f.label :name
             = f.text_field :name, class: 'form-control form-control-lg', disabled: disabled
 
           .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-            = f.label :address, t('.company.address')
+            = f.label :address
             = f.text_field :address, class: 'form-control form-control-lg', disabled: disabled
 
           .form-group.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-            = f.label :vat_number, t('.company.vat_number')
+            = f.label :vat_number
             = f.text_field :vat_number, class: 'form-control form-control-lg', disabled: disabled
 
 
           %h4.mb-4.pt-5= t('.payout_address')
 
           .form-group.mb-5
-            = f.label :btc_address, t('.payout_address_label')
+            = f.label :btc_address, t('helpers.label.affiliate.btc_address_tooltip')
             = f.text_field :btc_address, class: 'form-control form-control-lg', disabled: disabled
 
 
@@ -60,7 +60,7 @@
           .text-danger.mb-4= t('.unchangable_warning')
 
           .form-group.mb-5
-            = f.label :code, t('.referral_code_label')
+            = f.label :code, t('helpers.label.affiliate.code_tooltip')
             .input-group
               .input-group-prepend
                 %span#referral-prefix.input-group-text
@@ -91,11 +91,11 @@
                       = t('affiliates.discount.valid_for')
 
           .form-group
-            = f.label :visible_name, t('.preview_name')
+            = f.label :visible_name
             = f.text_field :visible_name, class: 'form-control form-control-lg db-form-control-text--visible_name', disabled: disabled
 
           .form-group.mb-5
-            = f.label :visible_link, t('.preview_link')
+            = f.label :visible_link
             .input-group
               = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control form-control-lg db-http-prefix-select', disabled: disabled
               = f.text_field :visible_link, class: 'form-control form-control-lg', disabled: disabled
@@ -104,7 +104,7 @@
           - unless disabled
             .form-check.pt-4.text-center
               = f.check_box :check, class: "form-check-input"
-              = f.label :check, t('.checked'), class: "form-check-label"
+              = f.label :check, class: "form-check-label"
 
           - if disabled
             .form-group.db-form-group--main-btn.pt-4
