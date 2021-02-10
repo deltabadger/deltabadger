@@ -25,6 +25,8 @@ module ExchangeApi
           ExchangeApi::Markets::CoinbasePro::Market.new
         when 'gemini'
           ExchangeApi::Markets::Gemini::Market.new
+        when 'ftx'
+          ExchangeApi::Markets::Ftx::Market.new
         end
       end
     end
