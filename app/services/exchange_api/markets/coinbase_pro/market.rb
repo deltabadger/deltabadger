@@ -89,7 +89,7 @@ module ExchangeApi
 
         def number_of_decimal_points(number)
           number_str = number.to_s
-          return 0 if number_str.include? '.'
+          return 0 unless number_str.include? '.'
 
           number_str.split('.')[1].length
         end
