@@ -1,20 +1,20 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      %h3.mb-5.mt-4.pt-2 Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.
+      %h3.mb-5.mt-4.pt-2= t('ads.dca_standard_html')
       .db-signup__list
         .db-signup__list--item.mb-4
           .material-icons-round check
-          %a.ml-2(href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow") Join our Telegram group
+          %a.ml-2(href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow")= t('social.telegram')
         .db-signup__list--item.mb-4
           .material-icons-round check
-          %a.ml-2(href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow")Follow us on Twitter
+          %a.ml-2(href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow")= t('social.twitter')
 
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
       .modal-dialog
         .modal-content
           .modal-body
-            %h3.db-modal-title Resend instructions
+            %h3.db-modal-title= t('.title')
             = form_for(resource, as: resource_name, url: confirmation_path(resource_name), html: { method: :post }) do |f|
               = render "devise/shared/error_messages", resource: resource
               .db-form__row
@@ -22,6 +22,6 @@
 
                 = f.label :email, class: "db-form__label"
               .db-form__row.db-form__row--final-button
-                = f.submit "Resend confirmaiton link", class: "btn btn-primary btn-lg w-100"
+                = f.submit t('.submit'), class: "btn btn-primary btn-lg w-100"
             .db-form__other-links
               = render "devise/shared/links"

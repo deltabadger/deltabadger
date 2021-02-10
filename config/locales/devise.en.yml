@@ -6,6 +6,9 @@ en:
       confirmed: "Your email address has been successfully confirmed."
       send_instructions: "You will receive an email with instructions in a few minutes."
       send_paranoid_instructions: "You will receive an email with instructions in a few minutes."
+      new:
+        title: Resend instructions
+        submit: Resend confirmation link
     failure:
       already_authenticated: "You are already signed in."
       inactive: "Your account is not activated yet."
@@ -36,6 +39,12 @@ en:
       send_paranoid_instructions: "You will receive an email with instructions in a few minutes."
       updated: "Done! Your password has been changed."
       updated_not_active: "Done! Your password has been changed."
+      new:
+        title: Forgot your password?
+        submit: Send me instructions
+      edit:
+        title: Change your password
+        submit: Change my password
     registrations:
       destroyed: "Bye! We hope to see you again soon…"
       signed_up: "Nice to meet you!"
@@ -50,12 +59,14 @@ en:
         email_used: This email is already used.
         email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
         email_invalid: Email invalid!
-        minimum_password_length: '%{length} characters minimum'
         submit: Start now
     sessions:
       signed_in: "Long time no see!"
       signed_out: "See you soon!"
       already_signed_out: "I hate goodbyes. See you soon?"
+      new:
+        title: Sign in
+        submit: Log in
     unlocks:
       send_instructions: "You will receive an email with instructions in a few minutes."
       send_paranoid_instructions: "You will receive an email with instructions in a few minutes."

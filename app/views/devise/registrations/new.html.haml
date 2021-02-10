@@ -41,7 +41,7 @@
 
                 - if @minimum_password_length
                   .db-form__info.db-form__info--invalid
-                    = t('.minimum_password_length', length: @minimum_password_length)
+                    = t('forms.minimum_length', length: @minimum_password_length)
                 = f.label :password, class: "db-form__label"
 
                 .db-unmask{:onclick => "unmaskPassword()"}

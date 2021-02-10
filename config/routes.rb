@@ -64,9 +64,15 @@ Rails.application.routes.draw do
     end
   end
 
-  devise_for :users,
-    controllers: { registrations: 'users/registrations' },
-    path_names: { edit: '' }
+  devise_for :users, skip: [:registrations]
+
+  as :user do
+    scope :users do
+      get '/cancel', to: 'users/registrations#cancel', as: 'cancel_user_registration'
+      get '/sign_up', to: 'users/registrations#new', as: 'new_user_registration'
+      post '/', to: 'users/registrations#create', as: 'user_registration'
+    end
+  end
 
   root to: 'home#index'
 

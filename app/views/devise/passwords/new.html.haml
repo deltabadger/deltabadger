@@ -1,17 +1,17 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      %h3.mb-5.mt-4.pt-2 Password managers<br>make security easier.
+      %h3.mb-5.mt-4.pt-2= t('ads.password_managers_html')
       .db-signup__list
         .db-signup__list--item.mb-4
           .material-icons-round check
-          %a.ml-2(href="https://bitwarden.com/" target="_blank" ref="nofollow") Try Bitwarden
-          = ". It's free and open-source."
+          %a.ml-2(href="https://bitwarden.com/" target="_blank" ref="nofollow")= t('ads.bitwarden_title')
+          = t('ads.bitwarden_text')
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
       .modal-dialog
         .modal-content
           .modal-body
-            %h3.db-modal-title Forgot your password?
+            %h3.db-modal-title= t('.title')
             = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f|
               = render "devise/shared/error_messages", resource: resource
               .db-form__row
@@ -19,6 +19,6 @@
                 
                 = f.label :email, class: "db-form__label"
               .db-form__row.db-form__row--final-button
-                = f.submit "Send me instructions", class: "btn btn-lg w-100 btn-primary"
+                = f.submit t('.submit'), class: "btn btn-lg w-100 btn-primary"
             .db-form__other-links
               = render "devise/shared/links"
