@@ -45,6 +45,13 @@ en:
       update_needs_confirmation: "Check your email and follow the confirm link to confirm your new email address."
       updated: "Your account has been updated successfully."
       updated_but_not_signed_in: "Your account has been updated successfully, sign again."
+      new:
+        title_html: Create <span class="text-success">free</span> account
+        email_used: This email is already used.
+        email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
+        email_invalid: Email invalid!
+        minimum_password_length: '%{length} characters minimum'
+        submit: Start now
     sessions:
       signed_in: "Long time no see!"
       signed_out: "See you soon!"
