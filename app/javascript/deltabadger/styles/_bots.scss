@@ -277,6 +277,9 @@ input[disabled] + span {
       justify-content: center;
       align-items:     center;
       border-radius:   $box-border-radius;
+      &--hodler-only{
+        color: $secondary;
+      }
       cursor:          pointer;
       color:           $primary;
       color:           $primary-p3;
