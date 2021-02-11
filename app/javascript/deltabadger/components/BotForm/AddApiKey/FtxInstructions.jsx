@@ -7,8 +7,8 @@ export const FtxInstructions = () => (
       <hr/>
       <ol>
         <li>Login to your <a href="https://ftx.com" target="_blank" rel="nofollow">FTX</a> account.</li>
-        <li>Go to settings menu (top right corner).</li>
-        <li>Scroll down to <b>API Keys</b> section.</li>
+        <li>Go to the settings menu (top right corner).</li>
+        <li>Scroll down to the <b>API Key</b> section.</li>
         <li>Press <b>Create API Key</b>.</li>
         <li>Copy and paste your new API keys into the form above.</li>
       </ol>
