@@ -13,3 +13,10 @@ pl:
 
   cta:
     telegram: Dołącz do naszej grupy na Telegramie
+  home:
+    confirm_registration:
+      title: Dzięki!
+      text_html: Sprawdź pocztę w poszukiwaniu <b>linku aktywacyjnego</b>, którego Ci wysłaliśmy. Następnie przejdź to strony logowania.
+
+  links:
+    log_in: Zaloguj się
