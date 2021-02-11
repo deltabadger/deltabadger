@@ -14,7 +14,7 @@ const STEPS = [
 ]
 
 export const BotForm = ({
-  showLimitOrders,
+  isHodler,
   open,
   currentBot,
   callbackAfterCreation,
@@ -29,6 +29,9 @@ export const BotForm = ({
 
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
   const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
+  const shouldDisableHodlerOnlyExchange = (name) => {
+    return !isHodler && ['ftx'].includes(name.toLowerCase())
+  }
 
   const chooseStep = step => {
     if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return step + 1 }
@@ -60,7 +63,11 @@ export const BotForm = ({
     callbackAfterOpening()
   }
 
-  const pickExchangeHandler = (id) => {
+  const pickExchangeHandler = (id, name) => {
+    if (shouldDisableHodlerOnlyExchange(name)){
+      return;
+    }
+
     setFormState({...form, exchangeId: id})
     setStep(2)
   }
@@ -120,6 +127,7 @@ export const BotForm = ({
           }}
           handleSubmit={pickExchangeHandler}
           exchanges={exchanges}
+          shouldDisableExchange={shouldDisableHodlerOnlyExchange}
         />
       case 'add_api_key':
         return <AddApiKey
@@ -130,7 +138,7 @@ export const BotForm = ({
         />
       case 'configure_bot':
         return <ConfigureBot
-          showLimitOrders={showLimitOrders}
+          showLimitOrders={isHodler}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureBotHandler}
