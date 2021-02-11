@@ -4,7 +4,7 @@ module ExchangeApi
       class Validator < BaseValidator
         include ExchangeApi::Clients::Ftx
 
-        URL = 'https://ftx.com/api/account'.freeze
+        URL = API_URL + '/api/account'.freeze
 
         def validate_credentials(api_key:, api_secret:)
           request = Faraday.get(URL, nil, headers(api_key, api_secret, nil, '/api/account'))
@@ -19,4 +19,3 @@ module ExchangeApi
     end
   end
 end
-

@@ -1,12 +1,14 @@
 module ExchangeApi
   module Clients
     module Ftx
+      API_URL = 'https://ftx.com'.freeze
+
       def headers(api_key, api_secret, body, request_path, method = 'GET')
-        timestamp = Time.now.strftime('%s%L')
-        signature = signature(api_secret, request_path, body, timestamp, method)
+        timestamp = GetTimestamp.call
+        signature = build_signature(api_secret, request_path, body, timestamp, method)
         {
           'FTX-SIGN': signature,
-          'FTX-TS': timestamp.to_s,
+          'FTX-TS': timestamp,
           'FTX-KEY': api_key,
           'Content-Type': 'application/json'
         }
@@ -14,7 +16,7 @@ module ExchangeApi
 
       private
 
-      def signature(api_secret, request_path = '', body = '', timestamp = nil, method = 'GET')
+      def build_signature(api_secret, request_path = '', body = '', timestamp = nil, method = 'GET')
         body = body.to_json if body.is_a?(Hash)
 
         what = "#{timestamp}#{method}#{request_path}#{body}"
@@ -25,4 +27,3 @@ module ExchangeApi
     end
   end
 end
-

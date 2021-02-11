@@ -18,8 +18,6 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
-        API_URL = 'https://ftx.com'.freeze
-
         private
 
         def place_order(order_params)
@@ -54,9 +52,10 @@ module ExchangeApi
         end
 
         def parse_request(request)
-          response = JSON.parse(request.body).fetch('result')
+          response = JSON.parse(request.body)
 
           if was_filled?(request)
+            response = response.fetch('result')
             order_id = response.fetch('id')
             parsed_params = get_order_by_id(order_id)
             return parsed_params unless parsed_params.success?

@@ -1,14 +1,13 @@
 require 'result'
+
 module ExchangeApi
   module Markets
     module Ftx
       class Market < BaseMarket
         include ExchangeApi::Clients::Ftx
 
-        BASE_URL = 'https://ftx.com/api'.freeze
-
         def all_symbols
-          symbols_url = BASE_URL + '/markets'
+          symbols_url = API_URL + '/api/markets'
           request = Faraday.get(symbols_url)
 
           response = JSON.parse(request.body)
@@ -42,7 +41,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = number_of_decimal_points(response.data['sizeIncrement'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['sizeIncrement'].to_f)
 
           Result::Success.new(result)
         rescue StandardError
@@ -53,7 +52,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = number_of_decimal_points(response.data['priceIncrement'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['priceIncrement'].to_f)
 
           Result::Success.new(result)
         rescue StandardError
@@ -69,7 +68,7 @@ module ExchangeApi
         private
 
         def fetch_symbol(symbol)
-          url = BASE_URL + "/markets/#{symbol}"
+          url = API_URL + "/api/markets/#{symbol}"
           request = Faraday.get(url)
           response = JSON.parse(request.body)
 
@@ -105,13 +104,6 @@ module ExchangeApi
 
         def future?(quote)
           quote == 'PERP' || /\A\d+\z/.match(quote)
-        end
-
-        def number_of_decimal_points(number)
-          number_str = number.to_s
-          return 0 unless number_str.include? '.'
-
-          number_str.split('.')[1].length
         end
       end
     end
