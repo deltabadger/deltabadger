@@ -8,12 +8,25 @@ en:
     resend_link: Resend link
     terms_and_conditions: Terms and Conditions
     privacy_policy: Privacy Policy
+    start_fast: Start in 5 minutes
   social:
     telegram: Join our Telegram group
     twitter: Follow us on Twitter
     blog: Read our blog
   ads:
+    automate_bitcoin_html: Automate buying <br> Bitcoin
+    automate_crypto_html: |
+      Automate buying any<br class="d-none d-sm-inline">
+      crypto<span class="d-none d-sm-inline">currency</span>
+    automate_hourly: hourly
+    automate_daily: daily
+    automate_weekly: weekly
+    dca_bulletproof_html: A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span><br> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
     dca_profit_html:   If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+%{profit}%</span>
+    basic_free_html: |
+      The basic plan is
+      <b class="text-success text-success--lighter">free</b>
+      forever.
     features: |
       auto-DCA on your exchange account;
       <i>Smart intervals</i> and five-minute setup;
@@ -24,6 +37,16 @@ en:
     password_managers_html: Password managers<br>make security easier.
     bitwarden_title: Try Bitwarden
     bitwarden_text: . It's free and open-source.
+  home:
+    confirm_registration:
+      title: Thanks!
+      text_html: Check your mailbox and click on the <b>confirmation link</b> we've sent to you. Then go to the login page.
+    contact:
+      title: Contact
+      general_questions_html: |
+        For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.
+      specific_questions_html: |
+        For more specific issues, send us an email: <a class="db-woowoo" href="javascript:linkTo_UnCryptMailto('nbjmup;dpoubduAefmubcbehfs/dpn')"><span>dger</span><span>b</span><span>ct@delt</span><span>cont</span></a>, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.
   affiliates:
     new:
       title: Referral program registration
