@@ -212,6 +212,15 @@ en:
       title: Referral Link
       accept: Accept
       reject: Back
+  settings:
+    index:
+      title: Settings
+      email_section: Update email
+      submit_email: Update email
+      password_section: Update password
+      submit_password: Change password
+      api_keys_section: API keys
+      api_key_confirmation: Are you sure?
   forms:
     for_confirmation: (for confirmation)
     minimum_length: '%{length} characters minimum'
@@ -230,6 +239,7 @@ en:
       user:
         email: Email
         password: Password
+        current_password: Current password
         terms_and_conditions_tooltip: By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.
         new_password: New password
         new_password_confirmation: Confirm new password
