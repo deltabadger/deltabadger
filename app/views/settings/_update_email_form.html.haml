@@ -1,14 +1,13 @@
 .db-settings-section
-  %h4.db-modal__subtitle Update email
+  %h4.db-modal__subtitle= t('settings.index.email_section')
   = form_for(user, url: settings_update_email_path) do |f|
     .form-group
       = f.label :email
       = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
     - if user.pending_reconfirmation?
-      %div
-        Currently waiting confirmation for: #{user.unconfirmed_email}
+      %div= t('devise.registrations.edit.awaiting_confirmation', email: user.unconfirmed_email)
     .form-group
-      = f.label :current_password, "Current password (for confirmation)"
+      = f.label :current_password, t('helpers.label.user.current_password') + ' ' + t('forms.for_confirmation')
       = f.password_field :current_password, autocomplete: "current-password", class: "form-control form-control-lg"
     .form-group.db-form-group--main-btn
-      = f.submit "Update email", class: "btn btn-lg btn-primary"
+      = f.submit t('settings.index.submit_email'), class: "btn btn-lg btn-primary"

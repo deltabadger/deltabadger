@@ -60,6 +60,8 @@ en:
         email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
         email_invalid: Email invalid!
         submit: Start now
+      edit:
+        awaiting_confirmation: 'Currently waiting confirmation for: %{email}'
     sessions:
       signed_in: "Long time no see!"
       signed_out: "See you soon!"
