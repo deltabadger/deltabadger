@@ -191,7 +191,9 @@ en:
         Thanks to the referral link from
         <b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>
       valid_for: Valid for the first purchase on the platform.
-      invalid: The referral link seems invalid or obsolete.
+      accepted: You have accepted the referral link
+      invalid: The referral link seems invalid or obsolete
+      already_used: You have already used a referral link
     manual_html: |
       <div class="alert alert-success">
         <p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p>
@@ -212,6 +214,9 @@ en:
       title: Referral Link
       accept: Accept
       reject: Back
+    btc_address_confirmation_sent: Confirmation email sent
+    btc_address_changed: Bitcoin address changed
+    program_joined: You have joined the referral program
   settings:
     index:
       title: Settings
@@ -262,3 +267,6 @@ en:
     week: Week
     month: Month
     next_buy: Next buy in %{countdown}
+
+  errors:
+    unverified_request: Please refresh your browser and try again
