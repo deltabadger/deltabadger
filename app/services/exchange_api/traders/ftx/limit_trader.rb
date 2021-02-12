@@ -80,8 +80,9 @@ module ExchangeApi
         end
 
         def parse_request(request)
-          response = JSON.parse(request.body).fetch('result')
+          response = JSON.parse(request.body)
           if was_filled?(request)
+            response = response.fetch('result')
             order_id = response.fetch('id')
 
             Result::Success.new(offer_id: order_id)
