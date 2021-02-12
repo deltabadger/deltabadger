@@ -165,7 +165,7 @@ const BotTemplate = ({
             <div className="form-group mr-2"> {baseName} for</div>
             <div className="form-group mr-2">
               <input
-                type="text"
+                type="tel"
                 min="1"
                 value={price}
                 onChange={e => setPrice(e.target.value)}
