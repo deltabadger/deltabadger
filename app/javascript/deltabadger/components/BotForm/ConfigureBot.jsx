@@ -183,7 +183,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             type="text"
             min="0"
             step="0.1"
-            lang="en-150"
             className="form-control"
             onChange={e => setPercentage(e.target.value)}
             placeholder="0"
