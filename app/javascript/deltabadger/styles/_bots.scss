@@ -269,21 +269,46 @@ input[disabled] + span {
     right: 1.5rem;
   }
   &__exchanges {
-    padding: 30px 40px 35px;
-    margin-bottom: -8px;
+    padding: 28px 24px 10px;
+    margin: 0 !important;
+    justify-content: space-between;
     &__item {
+      text-align:      center;
+      max-width:       calc((100% - 32px)/3);
       height:          4em;
       display:         flex;
       justify-content: center;
       align-items:     center;
       border-radius:   $box-border-radius;
-      &--hodler-only{
-        color: $secondary;
+      background:      transparentize($secondary, 0.9);
+      margin-bottom:   16px;
+      @include media-breakpoint-down(sm) {
+        max-width: calc((100% - 16px)/2);
+      }
+      &--hodler-only {
+        color: transparentize($secondary, 0.5);
+        cursor: default;
+        &:hover {
+          color: transparentize($secondary, 0.5) !important;
+          background: transparentize($secondary, 0.9) !important;
+        }
+        &::before {
+          content: "Hodler Plan";
+          background: $secondary;
+          color: #fff;
+          position: absolute;
+          bottom: -8px;
+          line-height: 18px;
+          font-size: 12px;
+          padding-left: 8px;
+          padding-right: 8px;
+          border-radius: 12px;
+        }
       }
       cursor:          pointer;
       color:           $primary;
       color:           $primary-p3;
-      font-size:       1.3em;
+      font-size:       1em;
       font-weight:     bold;
       font-family:     Varela Round;
       &:hover {
@@ -445,6 +470,7 @@ input[disabled] + span {
   }
 }
 .db-alert--annotation {
+  margin-bottom: 80px !important;
   display: block;
   &:first-line {
     text-indent: -1em;
