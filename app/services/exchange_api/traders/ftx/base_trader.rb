@@ -72,7 +72,7 @@ module ExchangeApi
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
           response = JSON.parse(request.body).fetch('result')
 
-          # FTX returns don't your funds, just closes order
+          # FTX does not return your fund, just closes order
           return error_to_failure(['Not enough balances']) if insufficient_funds?(response)
 
           amount = response.fetch('filledSize').to_f
@@ -93,7 +93,7 @@ module ExchangeApi
         end
 
         def insufficient_funds?(response)
-          response.fetch('status') == 'closed' && response.fetch('filledSize') == 0.0
+          response.fetch('status') == 'closed' && response.fetch('filledSize', 0).to_f == 0.0
         end
       end
     end
