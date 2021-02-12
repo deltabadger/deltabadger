@@ -1,7 +1,7 @@
 class GetTimestamp < BaseService
   def call(millis: true)
-    return Time.now.utc.to_i.to_s unless millis
-
-    Time.now.strftime('%s%L')
+    format = '%s'
+    format += '%L' if millis
+    Time.now.strftime(format)
   end
 end

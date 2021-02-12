@@ -41,7 +41,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = GetNumberOfDecimalPoints.call(response.data['sizeIncrement'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['sizeIncrement'])
 
           Result::Success.new(result)
         rescue StandardError
@@ -52,7 +52,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = GetNumberOfDecimalPoints.call(response.data['priceIncrement'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['priceIncrement'])
 
           Result::Success.new(result)
         rescue StandardError
