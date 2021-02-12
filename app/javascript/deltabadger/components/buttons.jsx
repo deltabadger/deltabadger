@@ -215,7 +215,7 @@ export const CloseButton = ({onClick}) => (
 export const ExchangeButton = ({ handleClick, exchange, shouldDisableExchange }) => {
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item${shouldDisableExchange(exchange.name) ? "--hodler-only" : ""}--${exchange.name.toLowerCase()}`}
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${shouldDisableExchange(exchange.name) ? "hodler-only" : exchange.name.toLowerCase()}`}
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
       { exchange.name }

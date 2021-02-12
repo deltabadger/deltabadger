@@ -36,7 +36,7 @@ module Bots::Free::Validators
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
       validate :hodler_allowed_symbol
-      validates :exchange_name, inclusion: { in: HODLER_ONLY_EXCHANGES }
+      validates :exchange_name, exclusion: { in: HODLER_ONLY_EXCHANGES }, unless: :hodler
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
