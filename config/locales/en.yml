@@ -2,6 +2,7 @@ en:
   deltabadger: Deltabadger
   welcome:
     default: Hi, welcome to deltabadger
+    saver: Get rid of the limits, and make an upgrade!
   subscriptions:
     upgrade: Upgrade
     days_left:
