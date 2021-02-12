@@ -181,6 +181,10 @@ en:
         <br>
         <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small>
       </div>
+    apply_code:
+      title: Referral Link
+      accept: Accept
+      reject: Back
   forms:
     for_confirmation: (for confirmation)
     minimum_length: '%{length} characters minimum'
