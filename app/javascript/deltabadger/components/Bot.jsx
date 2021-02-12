@@ -205,7 +205,6 @@ const BotTemplate = ({
             type="text"
             min="0"
             step="0.1"
-            lang="en-150"
             value={percentage}
             className="form-control"
             onChange={e => setPercentage(e.target.value)}

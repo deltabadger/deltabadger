@@ -1,18 +1,37 @@
 en:
   deltabadger: Deltabadger
+  welcome:
+    default: Hi, welcome to deltabadger
   subscriptions:
     upgrade: Upgrade
+    days_left:
+      one: 1 day left
+      other: '%{count} days left'
+    limit_reached_html:
+      <b>Congrats!</b> You have reached our free transaction limit of $500/year. To continue, upgrade to the unlimited plan.
   links:
+    homepage: Link to the homepage
     log_in: Log in
     sign_up: Sign up
+    log_out: Logout
+    create_account: Create free account
     resend_link: Resend link
-    terms_and_conditions: Terms and Conditions
+    terms_and_conditions: Terms & Conditions
     privacy_policy: Privacy Policy
+    cookies_policy: Cookies Policy
     start_fast: Start in 5 minutes
+    start_fast_longer_html: Start <span class="d-none d-sm-inline">for free</span> in 5 minutes
+    contact: Contact
+    about: About
+    about_html: About <span class="d-none d-xl-inline">the project</span>
+    dashboard: Dashboard
+    referral_program: Referral Program
+    settings: Settings
   social:
     telegram: Join our Telegram group
     twitter: Follow us on Twitter
     blog: Read our blog
+    knowledge_base: Knowledge base
   ads:
     automate_bitcoin_html: Automate buying <br> Bitcoin
     automate_crypto_html: |
@@ -21,6 +40,9 @@ en:
     automate_hourly: hourly
     automate_daily: daily
     automate_weekly: weekly
+    dont_trade_automate_html:
+      <div>Don't&nbsp;trade.</div>
+      <div>Automate.</div>
     dca_bulletproof_html: A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span><br> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>
     dca_profit_html:   If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+%{profit}%</span>
     basic_free_html: |
@@ -34,10 +56,61 @@ en:
       support and Telegram community
     dca_standard: Dollar-cost averaging into Bitcoin is the new standard for long-term savers.
     dca_standard_html: Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.
+    dca_standard_description_html: |
+      <p>Growing regulations limit individuals' access to financial markets, while negative interest rates devaluate bonds and saving accounts.</p>
+      <p>In that environment, both individuals and companies continue investing in Bitcoin.</p>
     password_managers_html: Password managers<br>make security easier.
     bitwarden_title: Try Bitwarden
     bitwarden_text: . It's free and open-source.
+  meta:
+    title: Deltabadger | Bitcoin Dollar-Cost Averaging
+    description: Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free.
+    og_description: Automate small Bitcoin purchases on a regular basis. Five-minute setup.
+    twitter_description: Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free. DCA as simple as it gets.
+    twitter_image_alt: Bitcoin Dollar-Cost Averaging
   home:
+    index:
+      title: Deltabadger | Bitcoin Dollar-Cost Averaging
+      fastest_asset: DCA into the fastest appreciating asset.
+      fastest_market: DCA into the fastest appreciating market.
+      connect_exchanges: Connect one of popular exchanges and set recurring purchases on your desired schedule. You can run as many bots as you want to DCA into your favorite cryptocurrency portfolio.
+      testimonials:
+        header: 'Users say about us:'
+      dca_magic:
+        title_html: |
+          The magic of
+          <span class="no-break">dollar-cost</span>
+          <br>
+          averaging in
+          <span class="no-break">4 easy charts</span
+        easy1:
+          title_html: Wait… what is DCA?
+          text_html: |
+            <p>DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of the asset when the price is lower, and less of it when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price.</p>
+            <p>DCA keeps you away from the emotional rollercoaster, short-term risk, and decision making anxiety.</p>
+          chart_regular_purchases: Regular purchases
+          chart_average_price: Average price
+        easy2:
+          title_html: Should I wait for correction <span class="no-break">to start?</span>
+          text_html: |
+            <p>No. For an appreciating asset, it's always better to start earlier, even at the top! Eventually, the price will go higher, and whoever started earlier ends up with lower average price.</p>
+          chart_earlier: Earlier
+          chart_better_average_price: better average price
+        easy3:
+          title_html: Why is it better than a <span class="no-break">lump sum investment</span>?
+          text_html: |
+            <p>In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn't change at the end.</p>
+          chart_lump_sum: Lump sum = 5 units
+          chart_dca: DCA = 6 units
+        easy4:
+          title_html: Can I improve DCA with RSI <span class="no-break">or Mayer Multiple</span>?
+          text_html: |
+            <p>Not really. Oscillators don't work well in an upward trend. The next bottom is often higher than the previous top. There is no automated strategy that wins with DCA, because DCA is simply investing in the market trend which can't be beaten consistently with any math formula.</p>
+          chart_price: Price
+          chart_mm: Mayer Multiple
+    founder:
+      signature: I'm Jan, founder of Deltabadger.
+      telegram_invitation_html: Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>
     confirm_registration:
       title: Thanks!
       text_html: Check your mailbox and click on the <b>confirmation link</b> we've sent to you. Then go to the login page.
@@ -84,6 +157,8 @@ en:
       submit_bitcoin_address: Update Bitcoin address
       manual_title: How does it work?
     discount:
+      flash_html: |
+        Hello! enjoy %{discount_percent}% discount from <span class="text-success text-success--lighter">%{visible_name}</span>
       congrats_html: Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% discount is active.
       referrer_html: |
         Thanks to the referral link from
@@ -127,3 +202,17 @@ en:
         terms_and_conditions_tooltip: By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.
         new_password: New password
         new_password_confirmation: Confirm new password
+
+  bots:
+    start: Start
+    stop: Pause
+    buy: Buy
+    limit_buy: Limit buy
+    sell: Sell
+    limit_sell: Limit sell
+    for: for
+    hour: Hour
+    day: Day
+    week: Week
+    month: Month
+    next_buy: Next buy in %{countdown}
