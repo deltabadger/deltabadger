@@ -220,25 +220,47 @@ input[disabled] + span
     top: 5.7rem
     left: 1.5rem
     right: 1.5rem
-  &__exchanges
-    padding: 30px 40px 35px
-    margin-bottom: -8px
-    &__item
-      height:          4em
-      display:         flex
-      justify-content: center
-      align-items:     center
-      border-radius:   $box-border-radius
-      cursor:          pointer
-      color:           var(--primary)
-      color:           var(--primary-p3)
-      font-size:       1.3em
-      font-weight:     bold
-      font-family:     Varela Round
-      &:hover
-        background-color: var(--primary)
-        background-color: var(--primary-p3)
-        color:            $white
+    &__exchanges
+      padding: 28px 24px 10px
+      margin: 0 !important
+      justify-content: space-between
+      &__item
+        text-align:      center
+        max-width:       calc((100% - 32px)/3)
+        height:          4em
+        display:         flex
+        justify-content: center
+        align-items:     center
+        border-radius:   $box-border-radius
+        background:      var(--background)
+        margin-bottom:   16px
+        @include media-breakpoint-down(sm)
+          max-width: calc((100% - 16px)/2)
+        &--hodler-only
+          color: transparentize($secondary, 0.5)
+          cursor: default
+          &:hover
+            color: var(--background) !important
+            background: var(--background) !important
+          &::before
+            content: "Hodler Plan"
+            background: var(--primary)
+            color: #fff
+            position: absolute
+            bottom: -8px
+            line-height: 18px
+            font-size: 12px
+            padding-left: 8px
+            padding-right: 8px
+            border-radius: 12px
+        cursor:          pointer
+        color:           var(--primary)
+        font-size:       1em
+        font-weight:     bold
+        font-family:     "Varela Round"
+        &:hover
+          background-color: var(--primary)
+          color:            var(--paper)
   &__footer, &__modal
     p
       margin: 1em 3em
