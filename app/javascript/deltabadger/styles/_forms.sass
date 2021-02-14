@@ -20,11 +20,10 @@ $formUnit: 20px
       top:       3px
       font-size: 23px
   &-link, &-outline-primary path
-    fill: $primary
-    fill: $primary-p3
+    fill: var(--primary)
   &-transparent
     color: #000
-    background: #fff
+    background: var(--white)
     border-color: transparent !important
     opacity: 0.1 !important
     transition: none !important
@@ -34,17 +33,15 @@ $formUnit: 20px
         fill: #dadfe4
   &-outline-success
     path
-      fill: $success
-      fill: $success-p3
+      fill: var(--success)
   &-primary,&-danger,&-success,&-outline-primary:hover,&-outline-danger:hover,&-outline-success:hover
     path
-      fill: #fff
+      fill: var(--white)
   &-primary
-    background: $primary-p3
-    border-color: $primary-p3
+    background: var(--primary)
   &-success
-    background: $success-p3
-    border-color: $success-p3
+    background: var(--success)
+    border-color: var(--success)
   &--get-started
     min-width: auto !important
   &-link
@@ -78,7 +75,7 @@ $formUnit: 20px
       padding-top: 10px
   &__label
     border-radius: 4px
-    background: #fff
+    background: var(--white)
     color: #678
     position: absolute
     top: 13px
@@ -103,13 +100,13 @@ $formUnit: 20px
     &--has-icon
       padding-right: 48px
     &:focus
-      border-color: $primary
+      border-color: var(--primary)
       border-width: 2px
       outline: none
       padding-left: 13px
       padding-right: 13px
       &~.db-form__label
-        color: $primary
+        color: var(--primary)
         font-weight: bold
     &--select,&:focus,&:not([value=""])
       opacity: 1

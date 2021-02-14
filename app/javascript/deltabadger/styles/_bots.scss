@@ -17,7 +17,7 @@ input[disabled] + span {
     &--homepage {
       width: 100%;
       height: fit-content;
-      color: #123;
+      color: var(--text);
       border-radius: $box-border-radius !important;
       padding-bottom: 15px !important;
     }
@@ -28,7 +28,7 @@ input[disabled] + span {
         grid-row: 1 / 100;
       }
       @include media-breakpoint-down(lg) {
-        background: white;
+        background: var(--paper);
         z-index: 1;
       }
       .db-spinner-positioner {
@@ -47,22 +47,26 @@ input[disabled] + span {
       }
       .nav-item {
         .nav-link {
+          color: var(--link);
+          background: var(--paper);
           text-decoration: none !important;
           padding-left: 1.5rem;
           padding-right: 1.5rem;
           margin-right: 2px;
           position: relative;
           &:not(.active) {
+            background:   transparent;
+            border-color: transparent;
             &:hover {
-              background:   #cfd6df;
-              border-color: transparent;
+              background:   var(--paperBorder);
             }
           }
           &.active {
             cursor: default;
             padding-bottom: 9px;
             border-bottom-width: 0;
-            border-color: #cfd6df;
+            color: var(--text);
+            border-color: var(--paperBorder);
             z-index: 3;
             @include media-breakpoint-up(xl) {
               box-shadow: $boxShadowBot;
@@ -71,7 +75,7 @@ input[disabled] + span {
               content:     "";
               display:     block;
               height:      10px;
-              background:  $bgBot;
+              background:  var(--paper);
               left:       -5px;
               position:    absolute;
               width:       calc(100% + 10px);
@@ -84,7 +88,7 @@ input[disabled] + span {
             &.active {
               &::before {
                 left:       -1px;
-                border-left: 1px solid #cfd6df;
+                border-left: 1px solid var(--paperBorder);
                 bottom:     -10px;
               }
             }
@@ -115,8 +119,8 @@ input[disabled] + span {
       }
       .tab-pane {
         padding-top:   1em;
-        border:        1px solid #cfd6df;
-        background:    $bgBot;
+        border:        1px solid var(--paperBorder);
+        background:    var(--paper);
         border-radius: $box-border-radius;
         box-shadow:    $boxShadowBot;
       }
@@ -129,8 +133,8 @@ input[disabled] + span {
 .db-bot {
   position:      relative;
   overflow:      hidden;
-  background:    $bgBot;
-  border:        1px solid #cfd6df;
+  background:    var(--paper);
+  border:        1px solid var(--paperBorder);
   border-radius: $box-border-radius;
   box-shadow:    $boxShadowBot;
   .alert {
@@ -153,7 +157,7 @@ input[disabled] + span {
   }
   .btn-outline-secondary.disabled {
     color: darken(#e9ecef,5%) !important;
-    border-color: darken(#e9ecef,5%) !important;
+    border-color: var(--paperBorder) !important;
     opacity: 1 !important;
   }
   &--active {
@@ -164,9 +168,9 @@ input[disabled] + span {
       margin-bottom:             -40px;
       padding-bottom:             40px;
       &+.db-bots__item--data {
-        background:                 $bgBot;
-        border-right:               1px solid #cfd6df;
-        border-left:                1px solid #cfd6df;
+        background:                 var(--paper);
+        border-right:               1px solid var(--paperBorder);
+        border-left:                1px solid var(--paperBorder);
         border-bottom-right-radius: $box-border-radius;
         border-bottom-left-radius:  $box-border-radius;
         .nav, .tab-pane {
@@ -217,7 +221,7 @@ input[disabled] + span {
     left: 0;
     right: 0;
     border-radius: 0;
-    background: #f5f5f5;
+    background: var(--progressBar);
     * {
       transition: all 200ms linear;
     }
@@ -251,7 +255,7 @@ input[disabled] + span {
     min-height:      40px;
     &__left {
       text-transform: uppercase;
-      color:          $yiq-text-dark;
+      color:          var(--text);
     }
     &--setup {
       text-align: left;
@@ -278,14 +282,14 @@ input[disabled] + span {
       align-items:     center;
       border-radius:   $box-border-radius;
       cursor:          pointer;
-      color:           $primary;
-      color:           $primary-p3;
+      color:           var(--primary);
+      color:           var(--primary-p3);
       font-size:       1.3em;
       font-weight:     bold;
       font-family:     Varela Round;
       &:hover {
-        background-color: $primary;
-        background-color: $primary-p3;
+        background-color: var(--primary);
+        background-color: var(--primary-p3);
         color:            $white;
       }
     }
@@ -363,10 +367,10 @@ input[disabled] + span {
   display: flex;
   align-items: center;
   backdrop-filter: blur(2px) grayscale(.1);
-  background: rgba(255,255,255,.85);
+  background: var(--botModalBackground);
   border-radius: 7px;
   display: flex;
-  height: calc(100% - 10px);
+  height: calc(100% - 0px);
   justify-content: center;
   left: 0;
   position: absolute;
@@ -413,8 +417,8 @@ input[disabled] + span {
 }
 .btn--reset-back {
   &:hover, span {
-    color: $primary !important;
-    color: $primary-p3 !important;
+    color: var(--primary) !important;
+    color: var(--primary-p3) !important;
   }
 }
 .db-exchange {
@@ -452,7 +456,7 @@ input[disabled] + span {
   color: #aaa;
   em {
     font-style: normal;
-    color: #123;
+    color: var(--text);
   }
 }
 
