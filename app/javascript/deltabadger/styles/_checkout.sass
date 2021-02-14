@@ -4,14 +4,13 @@
   .db--upgrade__show
     display: inline-block
     path
-      fill: $primary
-      fill: $primary-p3
+      fill: var(--primary)
   .db--upgrade__hide
     display: none
 .db-plans
   &__item
     padding: 24px 30px
-    background: #fff
+    background: var(--white)
     margin-bottom: 10px
     cursor: pointer
     display: grid
@@ -33,9 +32,8 @@
           rows: 80px auto auto
 
     .badge
-      background: transparentize($primary, 0.9)
-      color: $primary
-      color: $primary-p3
+      background: var(--primary09)
+      color: var(--primary)
       transition: none
     &--current,
     &--discount
@@ -44,12 +42,11 @@
     &--current
       min-height: 113px
       margin-bottom: 0
-      color: #123
+      color: var(--text)
     &--discount
       margin-top: -10px
       .db-plans__item__name, .db-plans__item__amount
-        color: $success
-        color: $success-p3
+        color: var(--success)
     &__name
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
@@ -63,8 +60,7 @@
       &__t
         &--discount,
         &--new
-          color: $success
-          color: $success-p3
+          color: var(--success)
         &--discount,
         &--previous
           font-size: 21px
@@ -92,25 +88,20 @@
 
 .db-plan--selected
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  color: #fff
+  color: var(--white)
   cursor: default
   &.db-plan-investor
-    background: $primary
-    background: $primary-p3
-    border: 1px solid $primary
-    border: 1px solid $primary-p3
+    background: var(--primary)
+    border: 1px solid var(--primary)
   &.db-plan-hodler
-    background: darken($primary,10%)
-    background: $primary-10-p3
-    border: 1px solid darken($primary,10%)
-    border: 1px solid $primary-10-p3
+    background: var(--hodler)
+    border: 1px solid var(--hodler)
   .badge
-    background: lighten($primary,10%)
-    background: $primary10-p3
-    color: #fff
+    background: var(--primary)
+    color: var(--white)
 .db-plan--other
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  background: #fff
+  background: var(--white)
   border: 1px solid #cfd6df !important
 .db-plan-radio
   display: none
@@ -154,7 +145,7 @@
       padding-right: 0
     &--sum
       width: 100%
-      color: #123
+      color: var(--text)
     &__quote
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
@@ -169,7 +160,7 @@
   margin: -33px
   margin-bottom: 0
   a
-    color: #123
+    color: var(--text)
     text-decoration: none
   li
     width: 50%
@@ -178,8 +169,8 @@
     border-radius: 8px 8px 0 0
     background: none
     &.active
-      color: #123
-      background: #fff
+      color: var(--text)
+      background: var(--white)
     &:not(.active):hover
       border-color: transparent
 

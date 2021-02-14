@@ -1,12 +1,27 @@
-
+.table {
+  color: var(--text);
+}
+a {
+  color: var(--link);
+}
 html {
-  background: #f7f8f9;
+  background: var(--background);
   overflow-x: hidden;
+  &.db--devise {
+    background: $background;
+    a, a:hover, a:active, a:focus {
+      color: $primary;
+    }
+    .db-modal-title,
+    .form-check-label {
+      color: $text;
+    }
+  }
 }
 body {
   font-family: $fontText;
   background: none;
-  color: $textColor;
+  color: var(--text);
   overflow-x: hidden;
 }
 .db-content-body { min-height: calc(100vh - 200px); }
@@ -84,9 +99,8 @@ sup {
   }
 }
 .question-number {
-  background: $success;
-  background: $success-p3;
-  color: #fff;
+  background: var(--success);
+  color: var(--white);
   display: inline-block;
   width: 1.5em;
   height: 1.5em;
@@ -104,7 +118,7 @@ sup {
   display: block;
   float: left;
   line-height: 1.05;
-  color: $primary;
+  color: var(--primary);
   padding-right: 0.2em;
   font-family: "Varela Round";
 }
@@ -127,12 +141,10 @@ sup {
 
 .db-product-menu {
   background: white;
-  color: $primary;
-  color: $primary-p3;
+  color: var(--primary);
   svg {
     * {
-      fill: $primary;
-      fill: $primary-p3;
+      fill: var(--primary);
     }
   }
 }
@@ -163,7 +175,7 @@ sup {
 .db-guest--brave{}
 
 .db-main {
-  color: #fff;
+  color: var(--white);
   &__section {
     @include media-breakpoint-down(sm) {
       margin-bottom:-50px;
@@ -172,7 +184,7 @@ sup {
       font-size: 16px;
     }
     a:not(.btn) {
-      color: #fff;
+      color: var(--white);
     }
     @include media-breakpoint-down(md) {
       .text-center {
@@ -191,11 +203,12 @@ sup {
       display:         flex;
       flex-direction:  column;
       justify-content: center;
-      padding: 200px 0;
-      min-height: 100vh;
+      padding:         200px 0;
+      //height:          50vh;
       &--first {
         padding: 0 0 200px;
-        min-height: calc(100vh - 100px);
+        min-height: calc(30vh + 600px);
+        //max-height: 800px;
         .db-homeart {
           z-index: -1;
         }
@@ -213,9 +226,9 @@ sup {
         }
       }
       &--last {
-        padding-top:    16vh !important;
+        padding-top:    8vh !important;
         padding-bottom: 16vh !important;
-        min-height:     calc(100vh - 210px);
+        min-height:     calc(30vh + 540px);
         @include media-breakpoint-down(md) {
           min-height: 0;
           padding: 180px 0;
@@ -223,7 +236,7 @@ sup {
       }
     }
     &--secondary {
-      padding-bottom: 200px;
+      padding-bottom: 250px;
       @include media-breakpoint-down(md) {
         padding-bottom: 180px;
       }
@@ -288,7 +301,7 @@ sup {
   }
   .btn.disabled {
     opacity: 1;
-    border-color: $secondary;
+    border-color: var(--primary);
   }
 }
 .newsletter-form-feedback {
@@ -327,13 +340,13 @@ sup {
 
 @keyframes homepageTextShift {
 
-  0%   {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,1); }
-  3%   {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  32%  {top:   7px; opacity: 1; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  35%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  66%  {top:  35px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  67%  {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
-  100% {top: -21px; opacity: 0; text-shadow: 0 0 0   rgba(255,255,255,0); }
+  0%   {top: -21px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,1); }
+  3%   {top:   7px; opacity: 1; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  32%  {top:   7px; opacity: 1; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  35%  {top:  35px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  66%  {top:  35px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  67%  {top: -21px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
+  100% {top: -21px; opacity: 0; text-shadow: 0 0 0 rgba(255,255,255,0); }
 }
 
 // free
@@ -433,12 +446,11 @@ sup {
 .db-remove-api-key {
   position: relative;
   path {
-    fill: $primary;
-    fill: $primary-p3;
+    fill: var(--primary);
   }
   &:hover {
     path {
-      fill: darken($primary,10%);
+      fill: var(--primary);
     }
   }
 }
@@ -659,7 +671,7 @@ sup {
     }
   }
   a {
-    color: #fff;
+    color: var(--white);
     text-decoration: underline;
   }
 }
@@ -690,8 +702,7 @@ sup {
     }
     a:hover {
       text-decoration: none;
-      color: $primary;
-      color: $primary-p3;
+      color: var(--primary);
     }
   }
 }
@@ -712,12 +723,12 @@ sup {
   position: fixed;
   bottom: 40px;
   right: 40px;
-  color: #fff;
+  color: var(--white);
   line-height: 20px;
   white-space: nowrap;
   a {
     font-weight: bold;
-    color: #fff;
+    color: var(--white);
     text-decoration: underline;
   }
   .btn-xl {
@@ -792,8 +803,7 @@ sup {
 }
 @-moz-document url-prefix() {
   .db-group-cta__bubble {
-    background:$primary;
-    background:$primary-p3;
+    background:var(--primary);
   }
 }
 .db-group-cta__arrow-forward {
@@ -834,15 +844,15 @@ sup {
     }
   }
   &--02 {
-    top: calc(var(--scroll-a)* 0.18px);
+    top: calc(var(--scroll-a)* -0.1px);
     transform: scale(1) translateY(calc(var(--pulsing)* -5px));
     &__ground {
       transform-origin: 0 74%;
       transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0022));
     }
     &__underground {
-      // fill: linear-gradient(180deg, #903 0px, $primary 120vh, #0D1A40 100%);
-      // fill: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
+      // fill: linear-gradient(180deg, #903 0px, var(--primary) 120vh, #0D1A40 100%);
+      // fill: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  var(--primary)-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
     }
     &__badger {
       transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -0.007px));
@@ -878,12 +888,13 @@ sup {
 }
 .db-row--easy-chart {
   margin-bottom: 60px;
+  min-height: 300px;
 }
 .db-easy-chart__text {
   text-align: left;
   padding-top: 20px;
-  padding-left: 30px;
-  padding-right: 20px;
+  padding-left: 90px;
+  padding-right: 0;
   @include media-breakpoint-down(md) {
     padding-left: 0;
     padding-right: 0;
