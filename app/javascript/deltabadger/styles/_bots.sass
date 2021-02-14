@@ -233,15 +233,25 @@ input[disabled] + span
       align-items:     center
       border-radius:   $box-border-radius
       background:      var(--pickExchangeItemBg)
+      color:           var(--pickExchangeItemTxt)
       margin-bottom:   16px
+      cursor:          pointer
+      font-size:       1em
+      font-weight:     bold
+      font-family:     "Varela Round"
       @include media-breakpoint-down(sm)
         max-width: calc((100% - 16px)/2)
+      &:hover
+        background-color: var(--primary)
+        color:            var(--pickExchangeItemSelect)
+        box-shadow:       $boxShadowHome
       &--hodler-only
-        color: var(--background) !important
+        color: var(--pickExchangeItemInactive) !important
         cursor: default
+        box-shadow: none
         &:hover
-          color: var(--background) !important
-          background: var(--background) !important
+          color: var(--pickExchangeItemInactive) !important
+          background: var(--pickExchangeItemBg) !important
         &::before
           content: "Hodler Plan"
           background: var(--primary)
@@ -253,14 +263,6 @@ input[disabled] + span
           padding-left: 8px
           padding-right: 8px
           border-radius: 12px
-      cursor:          pointer
-      color:           var(--primary)
-      font-size:       1em
-      font-weight:     bold
-      font-family:     "Varela Round"
-      &:hover
-        background-color: var(--primary)
-        color:            var(--paper)
   &__footer, &__modal
     p
       margin: 1em 3em
