@@ -3,6 +3,9 @@
 }
 a {
   color: var(--link);
+  &:hover {
+    color: var(--link);
+  }
 }
 html {
   background: var(--background);
