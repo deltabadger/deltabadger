@@ -27,8 +27,9 @@ body {
   color: var(--text);
   overflow-x: hidden;
 }
-.db-content-body { min-height: calc(100vh - 200px); }
-
+.db-content-body {
+  min-height: calc(100vh - 200px);
+}
 a:not(.btn) {
   text-decoration: underline;
 }
