@@ -3,4 +3,6 @@
 %p All error are visible in the bot log.<br>Sign in to check it out.
 %p Errors:
 %blockquote
+  %b(style="color: #0a45a4;") #{@exchange_name}:#{@bot.settings.fetch('base')}#{@bot.settings.fetch('quote')}
+  %br
   %b(style="color: #0a45a4;") #{@errors.inspect}
