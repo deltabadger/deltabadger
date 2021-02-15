@@ -26,6 +26,8 @@ module ExchangeApi
           CoinbasePro::Validator.new
         when 'gemini'
           Gemini::Validator.new
+        when 'ftx'
+          Ftx::Validator.new
         end
       end
     end
