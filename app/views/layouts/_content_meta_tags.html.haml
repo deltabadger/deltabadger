@@ -1,0 +1,28 @@
+/ Essential META Tags
+%meta{:content => t('meta.title'), :property => "og:title"}
+%meta{:content => t('meta.title'), :name => "twitter:title"}
+%meta{:content => t('meta.description'), :name => "description"}
+%meta{:content => t('meta.og_description'), :property => "og:description"}
+%meta{:content => t('meta.twitter_description'), :name => "twitter:description"}
+
+%meta{:content => "https://asset.deltabadger.com/facebook-thumbnail.jpg", :property => "og:image"}
+%meta{:content => "https://asset.deltabadger.com/twitter-thumbnail.jpg", :name => "twitter:image"}
+%meta{:content => "1200", :property => "og:image:width"}
+%meta{:content => "628", :property => "og:image:height"}
+
+%meta{:content => "https://#{request.host}/", :property => "og:url"}
+%meta{:content => "summary_large_image", :name => "twitter:card"}
+
+/ Non-Essential, But Recommended
+
+%meta{:content => t('deltabadger'), :property => "og:site_name"}
+%meta{:content => t('meta.twitter_image_alt'), :name => "twitter:image:alt"}
+%meta{:content => "product", :property => "og:type"}
+
+/ Non-Essential, But Required for Analytics
+
+%meta{:content => "541796789740957", :property => "fb:app_id"}
+%meta{:content => "@deltabadgerapp", :name => "twitter:site"}
+%meta{:content => "@deltabadgerapp", :name => "twitter:creator"}
+
+%meta{:content => "HLDIK9p43jDZpjhiakjKhgU7iVFwiE_FeCHOIsqhANI", :name => "google-site-verification"}
