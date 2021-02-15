@@ -12,7 +12,8 @@ class Exchange < ApplicationRecord
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
-    all_symbols = market.all_symbols
+    cache_key = name.downcase + '_all_symbols'
+    all_symbols = market.all_symbols(cache_key)
     return all_symbols unless all_symbols.success?
 
     Result::Success.new(all_symbols.data)
