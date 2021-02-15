@@ -1,16 +1,49 @@
 .db-guest-template {
   position: relative;
 }
-.db--guest {
-  &--text {
-    body {
-      color: $text !important;
-    }
+.db {
+  &--devise {
     .navbar {
       .btn, .btn-link, .db-logo-svg-shape {
-        color: $primary !important;
+        color: var(--headerDevise) !important;
         path {
-          fill: $primary;
+          fill: var(--headerDevise);
+        }
+      }
+    }
+  }
+  &--guest {
+    &--homepage {
+      .navbar {
+        .btn, .btn-link, .db-logo-svg-shape {
+          color: var(--headerHome) !important;
+          path {
+            fill: var(--headerHome);
+          }
+        }
+      }
+    }
+    &--text {
+      body {
+        color: $text !important;
+      }
+      .navbar {
+        .btn, .btn-link, .db-logo-svg-shape {
+          color: var(--headerDevise) !important;
+          path {
+            fill: var(--headerDevise) !important;
+          }
+        }
+        .show {
+          .btn-menu {
+            color: var(--textPageBg) !important;
+            path {
+              fill: var(--textPageBg) !important;
+            }
+            &::after {
+              background: var(--textPageBg) !important
+            }
+          }
         }
       }
     }

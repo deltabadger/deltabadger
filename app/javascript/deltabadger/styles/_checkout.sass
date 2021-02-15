@@ -4,7 +4,7 @@
   .db--upgrade__show
     display: inline-block
     path
-      fill: var(--primary)
+      fill: var(--link)
   .db--upgrade__hide
     display: none
 .db-plans
@@ -32,8 +32,8 @@
           rows: 80px auto auto
 
     .badge
-      background: var(--primary09)
-      color: var(--primary)
+      background: var(--planBadge)
+      color:      var(--link)
       transition: none
     &--current,
     &--discount
@@ -88,21 +88,17 @@
 
 .db-plan--selected
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  color: var(--white)
+  color: var(--planSelectedTxt)
   cursor: default
-  &.db-plan-investor
-    background: var(--primary)
-    border: 1px solid var(--primary)
-  &.db-plan-hodler
-    background: var(--hodler)
-    border: 1px solid var(--hodler)
+  background: var(--planSelectedBg)
+  border: 1px solid var(--planSelectedBorder)
   .badge
-    background: var(--primary)
-    color: var(--white)
+    background: var(--planSelectedBadge)
+    color: var(--planSelectedTxt)
 .db-plan--other
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  background: var(--white)
-  border: 1px solid #cfd6df !important
+  background: var(--planBg)
+  border: 1px solid var(--planBorder) !important
 .db-plan-radio
   display: none
 
@@ -110,6 +106,7 @@
   min-height: calc(100vh - 200px)
   @include media-breakpoint-down(sm)
     display: block
+
 .db-checkout--investor
   .db-show--hodler
     display: none
@@ -131,7 +128,8 @@
     display: inline
 
 .db-checkout-summary
-  border-color: #cfd6df !important
+  background: var(--paper) !important
+  border-color: var(--paperBorder) !important
   margin-bottom: 10px
   display: flex
   flex-direction: row
@@ -140,7 +138,6 @@
     padding: 25px 30px
     &--vat
       color: #678
-      // #8e9fa6
       width: 100%
       padding-right: 0
     &--sum
@@ -149,16 +146,32 @@
     &__quote
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
+  &+.modal-dialog
+    .modal-content
+      background: var(--paper) !important
+      border-color: var(--paperBorder) !important
+      .db-form
+        &__input
+          color: var(--text)
+        &__label
+          color: var(--text)
+          background: var(--paper)
+        &__input
+          &:focus
+            border-color: var(--focus)
+            &+.db-form__label
+              color: var(--focus)
 
 .db-pay-button
   margin-top: 35px
   margin-bottom: 5px
 
 #payTab
-  background: #cfd6df
+  background: var(--paperBorder)
   border-radius: 10px 10px 0 0
   margin: -33px
   margin-bottom: 0
+  border-bottom-color: transparent
   a
     color: var(--text)
     text-decoration: none
@@ -168,9 +181,11 @@
   .nav-link
     border-radius: 8px 8px 0 0
     background: none
+    border-bottom: 0
     &.active
       color: var(--text)
-      background: var(--white)
+      background: var(--paper)
+      border-color: var(--paperBorder)
     &:not(.active):hover
       border-color: transparent
 
