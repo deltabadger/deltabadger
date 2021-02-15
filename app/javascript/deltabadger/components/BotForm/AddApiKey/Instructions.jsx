@@ -4,6 +4,7 @@ import { BitBayInstructions } from './BitBayInstructions';
 import { KrakenInstructions } from './KrakenInstructions';
 import { CoinbaseProInstructions } from './CoinbaseProInstructions';
 import { GeminiInstructions } from "./GeminiInstructions";
+import { FtxInstructions } from "./FtxInstructions";
 
 export const Instructions = ({ exchangeName }) => {
   switch (exchangeName.toLowerCase()) {
@@ -13,6 +14,7 @@ export const Instructions = ({ exchangeName }) => {
     case 'kraken': return <KrakenInstructions />;
     case 'coinbase pro': return <CoinbaseProInstructions />;
     case 'gemini': return <GeminiInstructions />;
+    case 'ftx': return <FtxInstructions />;
     default: return '';
   }
 }

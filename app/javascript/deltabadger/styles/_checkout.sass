@@ -4,14 +4,13 @@
   .db--upgrade__show
     display: inline-block
     path
-      fill: $primary
-      fill: $primary-p3
+      fill: var(--link)
   .db--upgrade__hide
     display: none
 .db-plans
   &__item
     padding: 24px 30px
-    background: #fff
+    background: var(--white)
     margin-bottom: 10px
     cursor: pointer
     display: grid
@@ -33,9 +32,8 @@
           rows: 80px auto auto
 
     .badge
-      background: transparentize($primary, 0.9)
-      color: $primary
-      color: $primary-p3
+      background: var(--planBadge)
+      color:      var(--link)
       transition: none
     &--current,
     &--discount
@@ -44,12 +42,11 @@
     &--current
       min-height: 113px
       margin-bottom: 0
-      color: #123
+      color: var(--text)
     &--discount
       margin-top: -10px
       .db-plans__item__name, .db-plans__item__amount
-        color: $success
-        color: $success-p3
+        color: var(--success)
     &__name
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
@@ -63,8 +60,7 @@
       &__t
         &--discount,
         &--new
-          color: $success
-          color: $success-p3
+          color: var(--success)
         &--discount,
         &--previous
           font-size: 21px
@@ -92,26 +88,17 @@
 
 .db-plan--selected
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  color: #fff
+  color: var(--planSelectedTxt)
   cursor: default
-  &.db-plan-investor
-    background: $primary
-    background: $primary-p3
-    border: 1px solid $primary
-    border: 1px solid $primary-p3
-  &.db-plan-hodler
-    background: darken($primary,10%)
-    background: $primary-10-p3
-    border: 1px solid darken($primary,10%)
-    border: 1px solid $primary-10-p3
+  background: var(--planSelectedBg)
+  border: 1px solid var(--planSelectedBorder)
   .badge
-    background: lighten($primary,10%)
-    background: $primary10-p3
-    color: #fff
+    background: var(--planSelectedBadge)
+    color: var(--planSelectedTxt)
 .db-plan--other
   box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
-  background: #fff
-  border: 1px solid #cfd6df !important
+  background: var(--planBg)
+  border: 1px solid var(--planBorder) !important
 .db-plan-radio
   display: none
 
@@ -119,6 +106,7 @@
   min-height: calc(100vh - 200px)
   @include media-breakpoint-down(sm)
     display: block
+
 .db-checkout--investor
   .db-show--hodler
     display: none
@@ -140,7 +128,8 @@
     display: inline
 
 .db-checkout-summary
-  border-color: #cfd6df !important
+  background: var(--paper) !important
+  border-color: var(--paperBorder) !important
   margin-bottom: 10px
   display: flex
   flex-direction: row
@@ -149,27 +138,42 @@
     padding: 25px 30px
     &--vat
       color: #678
-      // #8e9fa6
       width: 100%
       padding-right: 0
     &--sum
       width: 100%
-      color: #123
+      color: var(--text)
     &__quote
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
+  &+.modal-dialog
+    .modal-content
+      background: var(--paper) !important
+      border-color: var(--paperBorder) !important
+      .db-form
+        &__input
+          color: var(--text)
+        &__label
+          color: var(--text)
+          background: var(--paper)
+        &__input
+          &:focus
+            border-color: var(--focus)
+            &+.db-form__label
+              color: var(--focus)
 
 .db-pay-button
   margin-top: 35px
   margin-bottom: 5px
 
 #payTab
-  background: #cfd6df
+  background: var(--paperBorder)
   border-radius: 10px 10px 0 0
   margin: -33px
   margin-bottom: 0
+  border-bottom-color: transparent
   a
-    color: #123
+    color: var(--text)
     text-decoration: none
   li
     width: 50%
@@ -177,9 +181,11 @@
   .nav-link
     border-radius: 8px 8px 0 0
     background: none
+    border-bottom: 0
     &.active
-      color: #123
-      background: #fff
+      color: var(--text)
+      background: var(--paper)
+      border-color: var(--paperBorder)
     &:not(.active):hover
       border-color: transparent
 

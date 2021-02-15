@@ -13,11 +13,11 @@
     margin-bottom: 0;
   }
   .modal-content {
-    background: #fff;
+    background: var(--white);
   }
 }
 .db-signup--text {
-  color: $primary;
+  color: var(--primary);
 }
 .db-signup__list--item {
   display: flex;
