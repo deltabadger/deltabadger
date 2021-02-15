@@ -1,17 +1,16 @@
 import React from 'react'
-import { ExchangeButton, CloseButton } from '../buttons';
+import { ExchangeButton } from '../buttons'
+import { Breadcrumbs } from './Breadcrumbs'
+import { Progressbar } from './Progressbar'
 
-export const PickExchage = ({ handleReset, handleSubmit, exchanges }) => {
+export const PickExchage = ({ handleSubmit, exchanges }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
-        <div className="db-bot__infotext--setup"><span className="db-breadcrumbs"><em>Exchange</em> &rarr; API Key &rarr; Schedule</span></div>
-        <div className="db-bot__infotext">
-        </div>
+        <Breadcrumbs step={0} />
+        <div className="db-bot__infotext" />
       </div>
-      <div className="db-bot__progress progress progress--thin progress--bot-setup">
-        <div className="progress-bar" role="progressbar" style={{width: "0%", ariaValuenow: "0", ariaValuemin: "0", ariaValuemax: "100"}}></div>
-      </div>
+      <Progressbar value={0} />
       <div className="row db-bot__exchanges">
         {
           exchanges.map(e =>

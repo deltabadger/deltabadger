@@ -254,8 +254,19 @@ en:
         last_name: Surname
         birth_date: Birth date
         country: Country
+  cookie:
+    agree: I agree
+    description: We use cookies to make things simpler.
+    read_more: Read more
 
   bots:
+    setup:
+      step_exchange: Exchange
+      step_api_key: API Key
+      step_schedule: Schedule
+      cancel: Cancel
+      limit_warning: The limit order bot is an experimental feature. Not all orders will get filled. To achieve good results, you need to increase the invested amount proportionally. At the moment, Deltabadger does not yet offer any help with estimating this adjustment, so your own backtesting is necessary. Use it only if you know what you're doing.
+    add_new_bot: Add new bot
     start: Start
     stop: Pause
     buy: Buy
@@ -268,6 +279,7 @@ en:
     week: Week
     month: Month
     next_buy: Next buy in %{countdown}
+    next_sell: Next sell in %{countdown}
 
   errors:
     unverified_request: Please refresh your browser and try again
