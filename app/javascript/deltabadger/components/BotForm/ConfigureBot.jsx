@@ -132,7 +132,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <div className="form-group mr-2">for</div>
             <div className="form-group mr-2">
               <input
-                type="text"
+                type="tel"
                 min="1"
                 value={price}
                 onChange={e => setPrice(e.target.value)}
