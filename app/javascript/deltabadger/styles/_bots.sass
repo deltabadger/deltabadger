@@ -83,7 +83,7 @@ input[disabled] + span
                   display:    block
                   width:      10px
                   height:     10px
-                  background: #cfd6df
+                  background: var(--paperBorder)
                   left:      -1px
                   position:   absolute
                   bottom:    -11px
@@ -98,7 +98,14 @@ input[disabled] + span
         background:    var(--paper)
         border-radius: $box-border-radius
         box-shadow:    $boxShadowBot
-
+    .db-form
+      &__input
+        &:focus
+          border-color: var(--focus)
+          &+.db-form__label
+            color: var(--focus)
+      &__label
+        background: var(--paper)
 // bot
 
 .db-bot
@@ -121,6 +128,8 @@ input[disabled] + span
     justify-content: center
     :last-child
       margin-right: 0 !important
+  .form-control
+    border-color: var(--paperBorder)
   .btn-outline
     &-primary
       path
@@ -131,7 +140,7 @@ input[disabled] + span
         border-color: var(--linkInactive) !important
         opacity: 1 !important
         path
-          color: var(--linkInactive) !important
+          fill: var(--linkInactive) !important
   &--active
     @include media-breakpoint-down(lg)
       border-bottom-right-radius: 0
