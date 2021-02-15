@@ -1,30 +1,74 @@
 .db-guest-template {
   position: relative;
 }
+.db {
+  &--devise {
+    .navbar {
+      .btn, .btn-link, .db-logo-svg-shape {
+        color: var(--headerDevise) !important;
+        path {
+          fill: var(--headerDevise);
+        }
+      }
+    }
+  }
+  &--guest {
+    &--homepage {
+      .navbar {
+        .btn, .btn-link, .db-logo-svg-shape {
+          color: var(--headerHome) !important;
+          path {
+            fill: var(--headerHome);
+          }
+        }
+      }
+    }
+    &--text {
+      body {
+        color: $text !important;
+      }
+      .navbar {
+        .btn, .btn-link, .db-logo-svg-shape {
+          color: var(--headerDevise) !important;
+          path {
+            fill: var(--headerDevise) !important;
+          }
+        }
+        .show {
+          .btn-menu {
+            color: var(--textPageBg) !important;
+            path {
+              fill: var(--textPageBg) !important;
+            }
+            &::after {
+              background: var(--textPageBg) !important
+            }
+          }
+        }
+      }
+    }
+  }
+}
 .db--guest {
   body {
     min-height: 100vh;
   }
   min-height: 100vh;
-  background: $primary;
+  background: var(--primary);
   background: linear-gradient(180deg, #903 0px, $primary 120vh, #0D1A40 50%);
   background: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 50%);
-  // background: linear-gradient(180deg, darken($primary,10%) 0px, $primary 120vh, #0D1A40 100%);
-  // background: linear-gradient(180deg, #{'color(display-p3 0.1 0.19 0.45)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
-  // &--brave {
-  //   background: linear-gradient(180deg, #903 0px, $primary 120vh, #0D1A40 100%);
-  //   background: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%);
-  // }
   .db-logo-svg-shape {
     fill: $textColorInverted;
   }
   .db-hi-welcome {
     path {
       stroke: $textColorInverted;
+      fill: transparent !important;
     }
     &.text-danger {
       path {
         stroke: $danger;
+        fill: transparent !important;
       }
     }
   }
@@ -45,8 +89,7 @@
       border-color: $textColorInverted;
       &:hover {
         background: $textColorInverted;
-        color: $primary;
-        color: $primary-p3;
+        color: var(--primary);
       }
     }
     color: $textColorInverted;
@@ -65,17 +108,29 @@
   @include media-breakpoint-down(md) {
       padding: 25px 0;
   }
+  a {
+    color: var(--navbarLink) !important
+  }
+  .btn-outline-primary {
+    border-color: var(--navbarLink);
+  }
+  path {
+    fill:  var(--navbarLink);
+  }
+  .db-hi-welcome {
+    path {
+      fill: transparent !important;
+    }
+  }
 }
 
 .db-logo-svg-shape {
-  fill: $primary;
-  fill: $primary-p3;
+  fill: var(--navbarLink);
   shape-rendering: geometricprecision;
 }
 .db-hi-welcome {
   path {
-    stroke: $primary;
-    stroke: $primary-p3;
+    stroke: var(--navbarLink);
   }
   &.text-danger {
     path {
@@ -103,8 +158,7 @@
 
 .navbar-brand {
   font-family:    $fontBrand;
-  color:          $primary !important;
-  color:          $primary-p3 !important;
+  color:          var(--navbarLink) !important;
   text-transform: lowercase;
   font-size:      1.2em;
   font-weight:    700;

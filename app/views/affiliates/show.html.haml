@@ -13,59 +13,67 @@
 
     %a.btn.btn-primary{href: upgrade_path}
       %span Upgrade
-
-.modal-dialog(role="document")
-  .modal-content
-    .modal-body{ class: ("db-referral-program-registration--inactive" if disabled) }
-      %h2.db-modal-title Referral Program
+.container.db-page
+  .row.mt-5
+    .col-md-5
+      %h1.mb-5 Referral Program
+      .db-referral-stats
+        - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
+        .db-referral-stats__item
+          .db-referral-stats__item__title
+            Referees
+          .db-referral-stats__item__number
+            = stats.referee_count
+        .db-referral-stats__item
+          .db-referral-stats__item__title
+            To pay (BTC)
+          .db-referral-stats__item__number
+            = stats.unpaid_commission
+        .db-referral-stats__item
+          .db-referral-stats__item__title
+            Paid (BTC)
+          .db-referral-stats__item__number
+            = stats.paid_commission
+    .col-md-7{ class: ("db-referral-program-registration--inactive" if disabled) }
+      .alert.alert-success.pb-4
+        %p.mt-1 Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:
+        %ol
+          %li For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.
+          %li Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).
+          %li It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.
+          %li Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.
+          %li You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.
+        %p
+          <em>Earning bitcoins is the best kind of dollar-cost averaging!</em>
+        %small.mb-2 <sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.
+        %br
+        %small.mb-5 <sup>2</sup> For the referee, the referral link works even if your subscription has expired.
 
       .db-settings-section
-        %h4.db-modal__subtitle Your referral link
-        %input.form-control.form-control-lg.text-center{ :type=>"text", :value=>ref_code_url(code: affiliate.code), :readonly=>"readonly" }
-
-      .db-settings-section.text-center
-        %h4.db-modal__subtitle Stats
-        - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
-        .row
-          .col
-            .alert.alert-primary
-              %p
-                Referees
-              %h4.text-primary
-                = stats.referee_count
-          .col
-            .alert.alert-primary
-              %p
-                Paid so far (BTC)
-              %h4.text-primary
-                = stats.paid_commission
-          .col
-            .alert.alert-primary
-              %p
-                Unpaid (BTC)
-              %h4.text-primary
-                = stats.unpaid_commission
-
+        .db-form__row.db-form__row--input
+          %input.db-form__input{ :type=>"text", :value=>ref_code_url(code: affiliate.code), :readonly=>"readonly" }
+          %label.db-form__label Your referral link
       .db-settings-section
         %h4.db-modal__subtitle Update visible info
         .mb-5
           - presenter = Presenters::RefCodes::Show.new(affiliate)
 
-          %p Preview of the info visible for referee:
+          %p This is what referrees will see during registration. You can add your name, and link to your website so they they're using your link. You can also leave it blank:
           = render partial: 'ref_codes/show', locals: { affiliate: affiliate }
 
         = form_with model: affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f|
-          .form-group
-            = f.label :visible_name, "Name on the preview"
-            = f.text_field :visible_name, class: 'form-control form-control-lg', disabled: disabled
+          .db-form__row.db-form__row--input
+            = f.text_field :visible_name, class: 'db-form__input', disabled: disabled
+            %label.db-form__label Your name visible to referree (optional)
 
-          .form-group.mb-5
-            = f.label :visible_link, "Link"
-            .input-group
-              = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control form-control-lg db-http-prefix-select'
-              = f.text_field :visible_link, class: 'form-control form-control-lg', disabled: disabled
+          .db-form__row.db-form__row--input
 
-          .form-group.text-center
+          .db-form__row.db-form__row--input
+            = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control form-control-lg db-http-prefix-select'
+            = f.text_field :visible_link, class: 'db-form__input', disabled: disabled
+            = f.label :visible_link, "Your URL (optional)"
+
+          .db-form__row.db-form__row--final-button
             = f.submit 'Update visible info', class: 'btn btn-lg btn-primary', disabled: disabled
 
       .db-settings-section
@@ -84,21 +92,3 @@
             = f.password_field :current_password, autocomplete: 'off', class: 'form-control form-control-lg', disabled: disabled
           .form-group.text-center
             = f.submit 'Update Bitcoin address', class: 'btn btn-lg btn-primary', disabled: disabled
-
-      .db-settings-section
-        %h4.db-modal__subtitle How does it work?
-
-      .alert.alert-success
-        %p.mt-1 Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:
-        %ol
-          %li For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.
-          %li Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).
-          %li It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.
-          %li Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.
-          %li You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.
-
-        %p
-          <em>Earning bitcoins is the best kind of dollar-cost averaging!</em>
-        %small.mb-2 <sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.
-        %br
-        %small.mb-5 <sup>2</sup> For the referee, the referral link works even if your subscription has expired.
