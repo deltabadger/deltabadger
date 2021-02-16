@@ -15,7 +15,7 @@ module ExchangeApi
           Result::Success.new(symbol_info.data['ordermin'].to_f)
         end
 
-        def all_symbols
+        def fetch_all_symbols
           symbols = @client.asset_pairs
           alt_names = altname_symbols
           market_symbols = symbols['result'].map do |_symbol, data|
