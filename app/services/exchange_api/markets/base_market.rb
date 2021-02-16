@@ -29,8 +29,18 @@ module ExchangeApi
         "#{base}#{quote}"
       end
 
-      def all_symbols
+      def fetch_all_symbols
         raise NotImplementedError
+      end
+
+      def all_symbols(cache_key, expires_in = 1.hour)
+        return Result::Success.new(Rails.cache.read(cache_key)) if Rails.cache.exist?(cache_key)
+
+        symbols = fetch_all_symbols
+        return symbols unless symbols.success?
+
+        Rails.cache.write(cache_key, symbols.data, expires_in: expires_in)
+        Result::Success.new(symbols.data)
       end
 
       def base_decimals(_symbol)

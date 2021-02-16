@@ -6,7 +6,7 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Ftx
 
-        def all_symbols
+        def fetch_all_symbols
           symbols_url = API_URL + '/api/markets'
           request = Faraday.get(symbols_url)
 
