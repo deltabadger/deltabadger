@@ -13,10 +13,7 @@ class Exchange < ApplicationRecord
                Result::Failure.new("Unsupported exchange #{name}")
              end
     cache_key = name.downcase + '_all_symbols'
-    all_symbols = market.all_symbols(cache_key)
-    return all_symbols unless all_symbols.success?
-
-    Result::Success.new(all_symbols.data)
+    market.all_symbols(cache_key)
   end
 
   def non_hodler_symbols
