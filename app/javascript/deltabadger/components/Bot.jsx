@@ -1,5 +1,6 @@
 import 'lodash'
 import React, { useState } from 'react';
+import I18n from 'i18n-js'
 import { connect } from 'react-redux';
 import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
 import { Timer } from './Timer';
@@ -148,21 +149,20 @@ const BotTemplate = ({
                 value={type}
                 onChange={handleTypeChange}
                 className="form-control db-select--buy-sell"
-                id="exampleFormControlSelect1"
                 disabled={working}
               >
                 {isSellOffer() ? <>
-                    <option value="market">Sell</option>
-                    <option value="limit" disabled={!showLimitOrders}>Limit Sell</option>
+                    <option value="market">{I18n.t('bots.sell')}</option>
+                    <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
                   </>
                   : <>
-                    <option value="market">Buy</option>
-                    <option value="limit" disabled={!showLimitOrders}>Limit Buy</option>
+                    <option value="market">{I18n.t('bots.buy')}</option>
+                    <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
                   </>
                 }
               </select>
             </div>
-            <div className="form-group mr-2"> {baseName} for</div>
+            <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
             <div className="form-group mr-2">
               <input
                 type="tel"
@@ -179,13 +179,12 @@ const BotTemplate = ({
                 value={interval}
                 className="form-control"
                 onChange={e => setInterval(e.target.value)}
-                id="exampleFormControlSelect1"
                 disabled={working}
               >
-                <option value="hour">Hour</option>
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
+                <option value="hour">{I18n.t('bots.hour')}</option>
+                <option value="day">{I18n.t('bots.day')}</option>
+                <option value="week">{I18n.t('bots.week')}</option>
+                <option value="month">{I18n.t('bots.month')}</option>
               </select>
             </div>
           </div>
@@ -196,7 +195,7 @@ const BotTemplate = ({
               disabled={working}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-2" />
-            <span disabled={working}>Always use smart intervals.</span>
+            <span disabled={working}>{I18n.t('bots.force_smart_intervals')}</span>
           </label>
         </form>
         {isLimitSelected() &&

@@ -296,6 +296,23 @@ en:
     details:
       stats:
         title: Statistics
+        chart:
+          total_invested: total invested
+          value: value
+        bought: Bought
+        average_price: Average price
+        total_invested: Total invested
+        current_value: Current value
+        profit_loss: Profit/Loss
+        exchange_unavailable_html: |
+          The exchange API does not respond at the moment.<br>Calculations are based on the last data available.
+        csv_download_html: |
+          The table above shows only the last ten transactions.<br>The full report is available to download in CSV format below.
+        download_csv: 'Download .csv'
+        date: Date
+        order: Order
+        amount: Amount(%{base})
+        rate: Rate(%{quote})
       log:
         title: Log
       info:
@@ -305,9 +322,9 @@ en:
     starting: Starting
     stop: Pause
     buy: Buy
-    limit_buy: Limit buy
+    limit_buy: Limit Buy
     sell: Sell
-    limit_sell: Limit sell
+    limit_sell: Limit Sell
     for: for
     hour: Hour
     day: Day
@@ -315,6 +332,7 @@ en:
     month: Month
     next_buy: Next buy in %{countdown}
     next_sell: Next sell in %{countdown}
+    force_smart_intervals: Always use smart intervals.
 
   errors:
     unverified_request: Please refresh your browser and try again
