@@ -11,7 +11,7 @@ module ExchangeApi
           super
         end
 
-        def all_symbols
+        def fetch_all_symbols
           request = Faraday.get(PRODUCTS_URL)
 
           response = JSON.parse(request.body)

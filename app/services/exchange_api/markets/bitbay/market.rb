@@ -22,21 +22,18 @@ module ExchangeApi
           Result::Success.new(minimum_quote_price.to_f)
         end
 
-        def all_symbols
-          return Result::Success.new(Rails.cache.read(ALL_SYMBOLS_CACHE_KEY)) if Rails.cache.exist?(ALL_SYMBOLS_CACHE_KEY)
-
+        def fetch_all_symbols
           response = JSON.parse(Faraday.get(TICKER_URL).body)
-          if response['status'] != 'Ok'
-            return Result::Failure.new("Couldn't fetch Bitbay symbols", RECOVERABLE)
-          end
 
           symbols_data = response['items']
           all_symbols = symbols_data.map do |_, symbol_data|
             base, quote = symbol_data.fetch('market').fetch('code').split('-')
             MarketSymbol.new(base, quote)
           end
-          Rails.cache.write(ALL_SYMBOLS_CACHE_KEY, all_symbols, expires_in: 1.hour)
+
           Result::Success.new(all_symbols)
+        rescue StandardError
+          Result::Failure.new("Couldn't fetch Bitbay symbols", RECOVERABLE)
         end
 
         def base_decimals(symbol)
