@@ -30,12 +30,12 @@ I18n.locale = document.body.dataset.locale || I18n.defaultLocale
 if (document.getElementById('dashboard')) {
   const node = document.getElementById('current_user_subscription')
   const data = node.getAttribute('data')
-  const shouldShowLimitOrders = data === 'hodler'
+  const isHodler = data === 'hodler'
 
   document.addEventListener('DOMContentLoaded', () => {
     ReactDOM.render(
       <Provider store={store}>
-        <Dashboard shouldShowLimitOrders={shouldShowLimitOrders} />
+        <Dashboard isHodler={isHodler} />
       </Provider>,
       document.getElementById('dashboard')
     )

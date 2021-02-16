@@ -7,8 +7,10 @@ module Bots::Free::Validators
       non_hodler_symbols = bot.exchange.non_hodler_symbols
       return non_hodler_symbols unless allowed_symbols.success?
 
+      exchange_name = Exchange.find(bot.exchange_id).name.downcase
+
       bot_settings = BotSettings.new(bot.settings, user,
-                                     allowed_symbols.data, non_hodler_symbols.data)
+                                     allowed_symbols.data, non_hodler_symbols.data, exchange_name)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -24,15 +26,17 @@ module Bots::Free::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :non_hodler_symbols,
-                  :hodler, :force_smart_intervals
+                  :hodler, :force_smart_intervals, :exchange_name
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
+      HODLER_ONLY_EXCHANGES = %w[ftx].freeze
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
       validate :hodler_allowed_symbol
+      validates :exchange_name, exclusion: { in: HODLER_ONLY_EXCHANGES }, unless: :hodler
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -47,7 +51,7 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
 
-      def initialize(params, user, allowed_symbols, non_hodler_symbols)
+      def initialize(params, user, allowed_symbols, non_hodler_symbols, exchange_name)
         @interval = params['interval']
         @base = params['base']
         @quote = params['quote']
@@ -58,6 +62,7 @@ module Bots::Free::Validators
         @force_smart_intervals = params['force_smart_intervals']
         @allowed_symbols = allowed_symbols
         @non_hodler_symbols = non_hodler_symbols
+        @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
       end
 

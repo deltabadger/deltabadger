@@ -3,7 +3,7 @@ import { ExchangeButton } from '../buttons'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
-export const PickExchage = ({ handleSubmit, exchanges }) => {
+export const PickExchage = ({ handleSubmit, exchanges, shouldDisableExchange }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
@@ -14,7 +14,7 @@ export const PickExchage = ({ handleSubmit, exchanges }) => {
       <div className="row db-bot__exchanges">
         {
           exchanges.map(e =>
-            <ExchangeButton key={e.id} handleClick={handleSubmit} exchange={e} />
+            <ExchangeButton key={e.id} handleClick={handleSubmit} exchange={e} shouldDisableExchange={shouldDisableExchange}/>
           )
         }
       </div>

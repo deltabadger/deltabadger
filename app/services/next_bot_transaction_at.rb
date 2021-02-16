@@ -17,7 +17,6 @@ class NextBotTransactionAt < BaseService
               restart_delay(bot)
             end
 
-
     delay.since(last_paid_transaction(bot))
   end
 
@@ -40,10 +39,10 @@ class NextBotTransactionAt < BaseService
   def last_paid_transaction(bot)
     interval = parse_interval.call(bot)
 
-    number_of_transactions = ((bot.any_last_transaction.created_at.to_i -
-      bot.last_transaction.created_at.to_i) / interval).floor
+    number_of_transactions = ((bot.any_last_transaction.created_at -
+      bot.last_transaction.created_at) / interval).floor
 
-    Time.at(bot.last_transaction.created_at.to_i + number_of_transactions * interval).to_datetime
+    bot.last_transaction.created_at + number_of_transactions * interval
   end
 
   attr_reader :parse_interval, :calculate_restart_delay

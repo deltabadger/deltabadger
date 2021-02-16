@@ -5,6 +5,7 @@ en:
     saver: Get rid of the limits, and make an upgrade!
   subscriptions:
     upgrade: Upgrade
+    upgrade_plan: Upgrade plan
     days_left:
       one: 1 day left
       other: '%{count} days left'
@@ -52,6 +53,7 @@ en:
     about: About
     about_html: About <span class="d-none d-xl-inline">the project</span>
     dashboard: Dashboard
+    menu: Menu
     referral_program: Referral Program
     settings: Settings
   social:
@@ -113,8 +115,7 @@ en:
         easy1:
           title_html: Wait… what is DCA?
           text_html: |
-            <p>DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of the asset when the price is lower, and less of it when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price.</p>
-            <p>DCA keeps you away from the emotional rollercoaster, short-term risk, and decision making anxiety.</p>
+            <p>DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of the asset when the price is lower, and less of it when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price. DCA keeps you away from the emotional rollercoaster, short-term risk, and decision making anxiety.</p>
           chart_regular_purchases: Regular purchases
           chart_average_price: Average price
         easy2:
@@ -179,7 +180,7 @@ en:
       unpaid: Unpaid (BTC)
       update_info: Update visible info
       update_bitcoin_address: Update Bitcoin address
-      info_preview: 'Preview of the info visible for referee:'
+      info_preview: "This is what referrees will see during registration. You can add your name, and link to your website so they they're using your link. You can also leave it blank:"
       submit_info: Update visible info
       submit_bitcoin_address: Update Bitcoin address
       manual_title: How does it work?
@@ -238,8 +239,8 @@ en:
         name: 'Name of the company:'
         address: 'Address of the company:'
         vat_number: 'Vat number (optional):'
-        visible_name: Name on the preview
-        visible_link: Link
+        visible_name: Your name visible to referree (optional)
+        visible_link: Your URL (optional)
         check: Check
       user:
         email: Email
