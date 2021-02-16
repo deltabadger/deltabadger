@@ -262,10 +262,10 @@ input[disabled] + span
           color: var(--pickExchangeItemInactive) !important
           background: var(--pickExchangeItemBg) !important
           box-shadow: none !important
-        &::before
-          content: "Hodler Plan"
+        &--before
           background: var(--primary)
           color: #fff
+          text-decoration: none !important
           position: absolute
           bottom: -8px
           line-height: 18px
@@ -273,6 +273,16 @@ input[disabled] + span
           padding-left: 8px
           padding-right: 8px
           border-radius: 12px
+          &:visited
+            text-decoration: none
+            color: #fff
+          &:hover
+            text-decoration: none
+            color: #fff
+          &:active
+            text-decoration: none
+            color: #fff
+
   &__footer, &__modal
     p
       margin: 1em 3em
