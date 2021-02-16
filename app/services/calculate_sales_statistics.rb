@@ -47,7 +47,7 @@ class CalculateSalesStatistics < BaseService
 
   def usd_netto_value(payment)
     value = payment.total
-    vat_rate = @vat_rates[payment.country]
+    vat_rate = @vat_rates.fetch(payment.country, 0)
     value *= (1.0 - vat_rate)
     # constant EUR/USD rate
     value *= 1.2 if payment.currency.downcase == 'eur'
