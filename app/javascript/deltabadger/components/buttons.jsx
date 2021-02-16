@@ -39,7 +39,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     <div>
       { getType === startButtonType.CHANGED_ON_SCHEDULE &&
         <div>
-          <p className="">The new schedule will start after the remaining <b>{timeToNextTransaction}</b> of the last one is finished.</p>
+          <p>The new schedule will start after the remaining <b>{timeToNextTransaction}</b> of the last one is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -54,7 +54,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
-          <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused?
+          <p>Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused?
             The new schedule will start after the current countdown is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
@@ -70,7 +70,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.MISSED &&
         <div>
-          <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused, and continue the original time schedule?</p>
+          <p>Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused, and continue the original time schedule?</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -85,7 +85,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
-          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.</p>
+          <p>You have still <b>{timeToNextTransaction}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -190,7 +190,7 @@ export const RemoveButton = ({onClick, disabled}) => {
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
+            <p>That will remove the bot with all<br/>its historical data. Are you sure?</p>
             <div className="db-bot__modal__btn-group">
               <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary">Cancel</div>
               <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-danger">Remove completely</div>
