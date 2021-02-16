@@ -265,8 +265,37 @@ en:
       step_schedule: Schedule
       cancel: Cancel
       limit_warning: The limit order bot is an experimental feature. Not all orders will get filled. To achieve good results, you need to increase the invested amount proportionally. At the moment, Deltabadger does not yet offer any help with estimating this adjustment, so your own backtesting is necessary. Use it only if you know what you're doing.
+    buttons:
+      start:
+        changed_on_schedule:
+          info_html: |
+            The new schedule will start after the remaining <b>%{time}</b> of the last one is finished.
+          skip: Ignore it and start immediately
+          continue: I understand
+        changed_missed:
+          info_html: |
+            Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused? The new schedule will start after the current countdown is finished.
+          skip: Ignore the missed part
+          continue: Yes, buy and continue
+        missed:
+          info_html: |
+            Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused, and continue the original time schedule?
+          skip: Skip the missed part
+          continue: Yes, buy and continue
+        on_schedule:
+          info_html: |
+            You have still <b>%{time}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.
+          skip: Skip it
+          continue: Continue original schedule
+      delete:
+        text: Delete
+        warning_html: |
+          That will remove the bot with all<br>its historical data. Are you sure?
+        cancel: Cancel
+        ok: Remove completely
     add_new_bot: Add new bot
     start: Start
+    starting: Starting
     stop: Pause
     buy: Buy
     limit_buy: Limit buy
