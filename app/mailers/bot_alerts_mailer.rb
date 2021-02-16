@@ -3,6 +3,7 @@ class BotAlertsMailer < ApplicationMailer
     @user = params[:user]
     @errors = params[:errors]
     @bot = params[:bot]
+    @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
 
     mail(to: @user.email, subject: 'Something went wrong 😵')
   end
@@ -12,6 +13,7 @@ class BotAlertsMailer < ApplicationMailer
     @delay = params[:delay]
     @errors = params[:errors]
     @bot = params[:bot]
+    @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
 
     mail(to: @user.email, subject: 'Oups! Next try… 🧐')
   end

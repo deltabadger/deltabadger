@@ -3,4 +3,6 @@
 %p You can see the error in the<br>bot log. Sign in to check it.
 %p Errors:
 %blockquote
-  %b(style="color: #0a45a4;") #{@errors.inspect}
+  %b(style="color: #0a45a4;") #{@exchange_name}:#{@bot.settings.fetch('base')}#{@bot.settings.fetch('quote')}
+  %br
+  %b(style="color: #0a45a4;")#{@errors.inspect}
