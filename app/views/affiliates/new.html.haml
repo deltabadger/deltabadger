@@ -14,7 +14,8 @@
 
       %h2.db-modal-title= t('.title')
 
-      = t('affiliates.manual_html')
+      .alert.alert-success.pb-4
+        = t('affiliates.manual_html')
 
       .db-referral-program-registration
         - if errors.present?
@@ -77,7 +78,7 @@
           %h4.mb-4.pt-2= t('.visible_info')
 
           .mb-5
-            %p Preview of the info visible for referee:
+            %p= t('affiliates.show.info_preview')
             %table.table.db-table--checkout.mb-0
               %tbody.table-borderless
                 %tr.text-success

@@ -25,12 +25,12 @@
             = stats.referee_count
         .db-referral-stats__item
           .db-referral-stats__item__title
-            = stats.unpaid_commission
+            = t('.unpaid_commission')
           .db-referral-stats__item__number
             = stats.unpaid_commission
         .db-referral-stats__item
           .db-referral-stats__item__title
-            = stats.paid_commission
+            = t('.paid_commission')
           .db-referral-stats__item__number
             = stats.paid_commission
     .col-md-7{ class: ("db-referral-program-registration--inactive" if disabled) }
