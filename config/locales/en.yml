@@ -293,6 +293,13 @@ en:
           That will remove the bot with all<br>its historical data. Are you sure?
         cancel: Cancel
         ok: Remove completely
+    details:
+      stats:
+        title: Statistics
+      log:
+        title: Log
+      info:
+        title: Info
     add_new_bot: Add new bot
     start: Start
     starting: Starting
