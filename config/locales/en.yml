@@ -176,8 +176,8 @@ en:
       your_link: Your referral link
       stats: Stats
       referees: Referees
-      paid_so_far: Paid so far (BTC)
-      unpaid: Unpaid (BTC)
+      paid_commission: Paid (BTC)
+      unpaid_commission: To pay (BTC)
       update_info: Update visible info
       update_bitcoin_address: Update Bitcoin address
       info_preview: "This is what referrees will see during registration. You can add your name, and link to your website so they they're using your link. You can also leave it blank:"
@@ -196,21 +196,19 @@ en:
       invalid: The referral link seems invalid or obsolete
       already_used: You have already used a referral link
     manual_html: |
-      <div class="alert alert-success">
-        <p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p>
-        <ol>
-          <li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li>
-          <li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li>
-          <li>It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li>
-          <li>Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.</li>
-          <li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li>
-        </ol>
+      <p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p>
+      <ol>
+        <li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li>
+        <li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li>
+        <li>It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li>
+        <li>Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.</li>
+        <li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li>
+      </ol>
 
-        <p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p>
-        <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small>
-        <br>
-        <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small>
-      </div>
+      <p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p>
+      <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small>
+      <br>
+      <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small>
     apply_code:
       title: Referral Link
       accept: Accept
