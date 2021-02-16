@@ -132,7 +132,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <div className="form-group mr-2">for</div>
             <div className="form-group mr-2">
               <input
-                type="text"
+                type="tel"
                 min="1"
                 value={price}
                 onChange={e => setPrice(e.target.value)}
@@ -174,7 +174,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-2" />
-            <label>Always use smart intervals.</label>
+            <span>Always use smart intervals.</span>
           </label>
         </form>
         {isLimitOrder() &&

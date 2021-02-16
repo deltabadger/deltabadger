@@ -55,7 +55,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
           <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused?
-            The new schedule will start after the current counting is finished.</p>
+            The new schedule will start after the current countdown is finished.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -85,7 +85,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       }
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
-          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order.</p>
+          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.</p>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
@@ -93,7 +93,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
             </div>
             <div onClick={() => {
               onClickReset(true) && setOpen(false)
-            }} className="btn btn-success">Yes, follow the schedule
+            }} className="btn btn-success">Continue original schedule
             </div>
           </div>
         </div>
@@ -212,11 +212,11 @@ export const CloseButton = ({onClick}) => (
   </div>
 )
 
-export const ExchangeButton = ({ handleClick, exchange }) => {
+export const ExchangeButton = ({ handleClick, exchange, shouldDisableExchange }) => {
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}
-      onClick={() => handleClick(exchange.id)}
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${shouldDisableExchange(exchange.name) ? "hodler-only" : exchange.name.toLowerCase()}`}
+      onClick={() => handleClick(exchange.id, exchange.name)}
     >
       { exchange.name }
     </div>

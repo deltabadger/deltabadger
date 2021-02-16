@@ -90,9 +90,10 @@ Rails.application.routes.draw do
   get '/privacy_policy' => redirect('/privacy-policy')
   get '/cookies_policy' => redirect('/cookies-policy')
   get '/referral_program' => redirect('/referral-program')
-  get '*path' => redirect('/')
 
   authenticate :user, lambda { |u| u.admin? } do
     mount Sidekiq::Web => '/sidekiq'
   end
+
+  get '*path' => redirect('/')
 end
