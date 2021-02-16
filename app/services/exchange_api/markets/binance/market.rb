@@ -63,7 +63,7 @@ module ExchangeApi
           Result::Success.new(symbol_info.data['quoteAssetPrecision'])
         end
 
-        def all_symbols
+        def fetch_all_symbols
           request = @unsigned_client.get('exchangeInfo')
           exchange_info = JSON.parse(request.body)
           symbols = exchange_info['symbols']
