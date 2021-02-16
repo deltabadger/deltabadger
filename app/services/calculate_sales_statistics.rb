@@ -1,9 +1,8 @@
 class CalculateSalesStatistics < BaseService
-  def initialize
-    @paid_payments = Payment.where(status: 'paid')
-  end
-
   def call
+    @paid_payments = Payment.where(status: 'paid').includes(:user)
+    @vat_rates = VatRate.pluck(:country, :vat).to_h
+
     total_sum = sum_of_paid_payments
     sum_of_first_month = sum_of_nth_month(0)
     sum_of_second_month = sum_of_nth_month(1)
@@ -30,7 +29,7 @@ class CalculateSalesStatistics < BaseService
   end
 
   def nth_month?(payment, n)
-    shifted_creation_date = User.find(payment.user_id).created_at + n.months
+    shifted_creation_date = payment.user.created_at + n.months
 
     shifted_creation_date.month == payment.paid_at.month &&
       shifted_creation_date.year == payment.paid_at.year
@@ -48,8 +47,8 @@ class CalculateSalesStatistics < BaseService
 
   def usd_netto_value(payment)
     value = payment.total
-    vat_rate = VatRate.find_by country: payment.country
-    value *= (1.0 - vat_rate.vat)
+    vat_rate = @vat_rates[payment.country]
+    value *= (1.0 - vat_rate)
     # constant EUR/USD rate
     value *= 1.2 if payment.currency.downcase == 'eur'
 
