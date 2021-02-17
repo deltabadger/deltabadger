@@ -1,5 +1,4 @@
-- content_for :head do
-  %meta{:name => "robots", :content => "noindex"}
+- content_for :meta_robots_content, 'noindex'
 
 - profit_calculator = GetDcaProfit.new
 - today = Date.today
