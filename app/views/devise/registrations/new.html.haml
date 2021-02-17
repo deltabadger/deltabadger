@@ -1,3 +1,6 @@
+- content_for :head do
+  %meta{:name => "robots", :content => "noindex"}
+
 - profit_calculator = GetDcaProfit.new
 - today = Date.today
 .container.container--signup
