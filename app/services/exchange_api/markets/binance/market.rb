@@ -38,14 +38,14 @@ module ExchangeApi
           step_size = lot_step_size(symbol)
           return step_size unless step_size.success?
 
-          Result::Success.new(step_size.data.to_f)
+          Result::Success.new(step_size.data.to_d)
         end
 
         def quote_tick_size(symbol)
           tick_size = price_tick_size(symbol)
           return tick_size unless tick_size.success?
 
-          Result::Success.new(tick_size.data.to_f)
+          Result::Success.new(tick_size.data.to_d)
         end
 
         def quote_decimals(symbol)
@@ -84,8 +84,8 @@ module ExchangeApi
           request = @unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
           response = JSON.parse(request.body)
 
-          bid = response.fetch('bidPrice').to_f
-          ask = response.fetch('askPrice').to_f
+          bid = response.fetch('bidPrice').to_d
+          ask = response.fetch('askPrice').to_d
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
@@ -116,7 +116,7 @@ module ExchangeApi
           return Result::Success.new(0) if price_filter.nil?
 
           min_price = price_filter['minPrice']
-          Result::Success.new(min_price.to_f)
+          Result::Success.new(min_price.to_d)
         end
 
         def price_tick_size(symbol)
@@ -138,7 +138,7 @@ module ExchangeApi
           return Result::Success.new(0) if lot_filter.nil?
 
           min_lot = lot_filter['minQty']
-          Result::Success.new(min_lot.to_f)
+          Result::Success.new(min_lot.to_d)
         end
 
         def lot_step_size(symbol)
@@ -160,7 +160,7 @@ module ExchangeApi
           return Result::Success.new(0) if notional_filter.nil?
 
           min_notional = notional_filter['minNotional']
-          Result::Success.new(min_notional.to_f)
+          Result::Success.new(min_notional.to_d)
         end
 
         def find_filter(symbol_info, target_filter)
