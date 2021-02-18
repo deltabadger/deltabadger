@@ -102,7 +102,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={type}
                 onChange={e => setType(e.target.value)}
                 className="form-control db-select--buy-sell"
-                id="exampleFormControlSelect1"
               >
                 <option value="market_buy">Buy</option>
                 <option value="market_sell">Sell</option>
@@ -144,7 +143,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={quote}
                 onChange={e => setQuote(e.target.value)}
                 className="form-control"
-                id="exampleFormControlSelect1"
               >
                 {
                   validQuotesForSelectedBase().map(c =>
@@ -159,7 +157,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={interval}
                 onChange={e => setInterval(e.target.value)}
                 className="form-control"
-                id="exampleFormControlSelect1"
               >
                 <option value="hour">Hour</option>
                 <option value="day">Day</option>
