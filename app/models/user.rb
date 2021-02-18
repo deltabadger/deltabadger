@@ -63,7 +63,7 @@ class User < ApplicationRecord
   def active_referrer
     return if referrer_id.nil? || AffiliatesRepository.new.active?(id: referrer_id)
 
-    errors.add(:referrer, 'code is not valid')
+    errors.add(:referrer, :invalid)
   end
 
   def eligible_for_discount?
@@ -73,7 +73,7 @@ class User < ApplicationRecord
   def validate_email_with_sendgrid
     email_validator = SendgridMailValidator.new
     result = email_validator.call(email)
-    errors.add(:email, 'is invalid') unless result.success?
+    errors.add(:email, :invalid) unless result.success?
 
     result.success?
   end
