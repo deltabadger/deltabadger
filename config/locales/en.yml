@@ -147,7 +147,7 @@ en:
       general_questions_html: |
         For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.
       specific_questions_html: |
-        For more specific issues, send us an email: <a class="db-woowoo" href="javascript:linkTo_UnCryptMailto('nbjmup;dpoubduAefmubcbehfs/dpn')"><span>dger</span><span>b</span><span>ct@delt</span><span>cont</span></a>, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.
+        For more specific issues, send us an email: %{email}, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.
   affiliates:
     new:
       title: Referral program registration
@@ -474,6 +474,9 @@ en:
     referral_program_inactive: Your referral program is inactive
     bitcoin_address_not_updated: Bitcoin address could not be updated
     frequency_limit: Frequency limit exceeded
+    limit_reached: Free plan limit reached
+    could_not_make_order: Could not make %{exchange} order
+    invalid_api_keys: Invalid tokens
 
   activerecord:
     errors:
