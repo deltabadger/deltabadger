@@ -18,7 +18,7 @@ module Bots::Free::Validators
       if credits <= LIMITS[interval.to_sym]
         Result::Success.new
       else
-        Result::Failure.new('Frequency limit exceeded')
+        Result::Failure.new(I18n.t('errors.frequency_limit'))
       end
     end
   end

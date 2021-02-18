@@ -4,16 +4,15 @@ import { RawHTML } from '../RawHtml'
 import { Instructions } from './Instructions';
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
+import { getExchange } from '../../lib/exchanges'
 
 const apiKeyNames = exchangeName => {
-  switch (exchangeName.toLowerCase()) {
-      case 'binance': return { private: 'Secret Key', public: 'API Key', passphrase: ''};
-      case 'binance.us': return { private: 'Secret Key', public: 'API Key', passphrase: '' };
-      case 'bitbay': return { private: 'Private Key', public: 'Public Key', passphrase: '' };
-      case 'kraken': return { private: 'Private Key', public: 'API Key', passphrase: '' };
-      case 'coinbase pro': return { private: 'Secret Key', public: 'API Key', passphrase: 'Passphrase'};
-      case 'gemini': return {private: 'Secret Key', public: 'API Key', passphrase: ''}
-      default: return { private: 'Private Key', public: 'Public Key', passphrase: '' };
+  const { translation_key } = getExchange(exchangeName)
+
+  return {
+    private: I18n.t('bots.setup.' + translation_key + '.private_key'),
+    public: I18n.t('bots.setup.' + translation_key + '.public_key'),
+    passphrase: I18n.t('bots.setup.' + translation_key + '.passphrase')
   }
 }
 
