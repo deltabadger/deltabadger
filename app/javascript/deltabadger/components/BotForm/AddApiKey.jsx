@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import I18n from 'i18n-js'
-import { Instructions } from './AddApiKey/Instructions';
+import { RawHTML } from '../RawHtml'
+import { Instructions } from './Instructions';
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
@@ -64,35 +65,38 @@ export const AddApiKey = ({
           <div className="col">
             <div className="db-form__row mb-0">
               <input
+                id="api-key"
                 type="text"
                 value={key}
                 onChange={e => setKey(e.target.value)}
                 className="db-form__input"
               />
-              <label className="db-form__label">{ key_label }</label>
+              <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
             </div>
           </div>
           <div className="col">
             <div className="db-form__row mb-0">
               <input
+                id="api-secret"
                 type="text"
                 value={secret}
                 onChange={e => setSecret(e.target.value)}
                 className="db-form__input"
               />
-              <label className="db-form__label">{ secret_label }</label>
+              <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
             </div>
           </div>
           { pickedExchangeName == "Coinbase Pro" &&
             <div className="col">
               <div className="db-form__row mb-0">
                 <input
+                  id="api-passphrase"
                   type="text"
                   value={passphrase}
                   onChange={e => setPassphrase(e.target.value)}
                   className="db-form__input"
                 />
-                <label className="db-form__label">{ phrase_label }</label>
+                <label htmlFor="api-passphrase" className="db-form__label">{ phrase_label }</label>
               </div>
             </div>
           }
@@ -101,15 +105,18 @@ export const AddApiKey = ({
       { pickedExchangeName == "Kraken" &&
         <div className="db-exchange-instructions">
           <div className="alert alert--trading-agreement">
-            <p><b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.</p>
+            <RawHTML tag="p">{I18n.t('bots.setup.kraken.trading_agreement_html')}</RawHTML>
             <div className="form-check">
               <input
+                id="trading-agreement"
                 type="checkbox"
                 checked={agreement}
-                onChange={e => setAgreement(!agreement)}
+                onChange={_ => setAgreement(!agreement)}
                 className="form-check-input"
               />
-              <label className="form-check-label"><b> I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a></b>.</label>
+              <label htmlFor="trading-agreement" className="form-check-label">
+                <RawHTML tag="b">{I18n.t('bots.setup.kraken.trading_agreement_label_html')}</RawHTML>
+              </label>
             </div>
           </div>
         </div>
