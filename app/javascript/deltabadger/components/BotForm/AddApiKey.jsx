@@ -9,6 +9,8 @@ const apiKeyNames = exchangeName => {
       case 'kraken': return { private: 'Private Key', public: 'API Key', passphrase: '' };
       case 'coinbase pro': return { private: 'Secret Key', public: 'API Key', passphrase: 'Passphrase'};
       case 'gemini': return {private: 'Secret Key', public: 'API Key', passphrase: ''}
+      case 'ftx': return {private: 'Secret Key', public: 'API Key', passphrase: ''};
+      case 'bitso':  return {private: 'Secret Key', public: 'API Key', passphrase: ''};
       default: return { private: 'Private Key', public: 'Public Key', passphrase: '' };
   }
 }
