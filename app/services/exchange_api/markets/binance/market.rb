@@ -23,7 +23,7 @@ module ExchangeApi
           current_ask = current_ask_price(symbol)
           return current_ask unless current_ask.success?
 
-          minimum_price = [(minimum_lot.data * current_ask.data).to_d, minimum_notional.data].max
+          minimum_price = [(minimum_lot.data * current_ask.data * 1.1).to_d, minimum_notional.data].max
           Result::Success.new(minimum_price)
         end
 
