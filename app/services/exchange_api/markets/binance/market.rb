@@ -14,10 +14,17 @@ module ExchangeApi
         LOT_SIZE = 'LOT_SIZE'.freeze
 
         def minimum_order_price(symbol)
-          minimum_price = min_notional(symbol)
-          return minimum_price unless minimum_price.success?
+          minimum_notional = min_notional(symbol)
+          return minimum_notional unless minimum_notional.success?
 
-          Result::Success.new(minimum_price.data)
+          minimum_lot = min_lot_size(symbol)
+          return minimum_lot unless minimum_lot.success?
+
+          current_ask = current_ask_price(symbol)
+          return current_ask unless current_ask.success?
+
+          minimum_price = [(minimum_lot.data * current_ask.data).to_d, minimum_notional.data].max
+          Result::Success.new(minimum_price)
         end
 
         def minimum_order_volume(symbol)
