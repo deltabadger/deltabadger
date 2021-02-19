@@ -9,8 +9,8 @@ module ExchangeApi
           'Timeout waiting for response from backend server. Send status unknown; execution status unknown.' => Error.new('Request timed out', true),
           'Invalid API-key, IP, or permissions for action.' => Error.new('Insufficient permissions or unverified account.', false),
           'Account has insufficient balance for requested action.' => Error.new('Insufficient funds', false),
-          'Filter failure: LOT_SIZE' => Error.new('Offer funds are not exceeding minimums', true),
-          'Filter failure: MIN_NOTIONAL' => Error.new('Offer funds are not exceeding minimums', true),
+          'Filter failure: LOT_SIZE' => Error.new('Offer lot size is not exceeding minimums', true),
+          'Filter failure: MIN_NOTIONAL' => Error.new('Offer notional is not exceeding minimums', true),
           'Filter failure: PRICE_FILTER' => Error.new('Offer funds are not exceeding minimums', true)
         }
       end
