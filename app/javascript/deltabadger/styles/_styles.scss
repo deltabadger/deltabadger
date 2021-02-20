@@ -10,16 +10,6 @@ a {
 html {
   background: var(--background);
   overflow-x: hidden;
-  &.db--devise {
-    background: $background;
-    a, a:hover, a:active, a:focus {
-      color: $primary;
-    }
-    .db-modal-title,
-    .form-check-label {
-      color: $text;
-    }
-  }
 }
 body {
   font-family: $fontText;
@@ -102,8 +92,8 @@ sup {
     display: none;
   }
 }
-.question-number {
-  background: var(--success);
+.db-number {
+  background: var(--inactive);
   color: var(--white);
   display: inline-block;
   width: 1.5em;
@@ -116,6 +106,9 @@ sup {
   position: relative;
   top: -.1em;
   left: -.1em;
+  &--success {
+    background: var(--success);
+  }
 }
 .first-letter::first-letter {
   font-size: 2.9em;
@@ -472,13 +465,13 @@ sup {
 
 .db-footer--signed-in {
   padding: 1.5rem .5rem 2rem;
-  color: #678
+  color: var(--secondary)
 }
 
-.db-footer--homepage {
+.db-footer {
   padding-bottom: 3.4rem;
   a {
-    color: white;
+    color: var(--link);
     text-decoration: underline;
     display: block;
     @include media-breakpoint-down(sm) {
@@ -499,14 +492,21 @@ sup {
 .db-footer__tagline {
   position: relative;
   text-indent: 20px;
+  color: var(--link);
   &::before {
     content: "";
     display: block;
-    background: white;
+    background: var(--link);
     position: absolute;
     width: 4px;
     height: 100%;
     border-radius: 2px;
+  }
+}
+.db--guest--homepage {
+  a, .db-footer__tagline {
+    color: var(--white) !important;
+    &::before { background: var(--white) !important }
   }
 }
 
