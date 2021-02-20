@@ -9,7 +9,7 @@
     }
     &.text-danger {
       path {
-        stroke: $danger;
+        stroke: var(--danger);
         fill: transparent !important;
       }
     }
@@ -38,8 +38,8 @@
   }
   .btn-success {
     &:hover {
-      background:   darken($success,4%);
-      border-color: darken($success,4%);
+      background:   var(--success);
+      border-color: var(--success);
 
     }
   }
@@ -76,7 +76,7 @@
   }
   &.text-danger {
     path {
-      stroke: $danger;
+      stroke: var(--danger);
     }
   }
 }
