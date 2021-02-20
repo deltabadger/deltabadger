@@ -75,7 +75,7 @@ $formUnit: 20px
       padding-top: 10px
   &__label
     border-radius:  4px
-    background:     var(--white)
+    background:     var(--paper)
     color:          #678
     position:       absolute
     top:            13px
@@ -100,20 +100,20 @@ $formUnit: 20px
     &--has-icon
       padding-right: 48px
     &:focus
-      border-color: var(--primary)
+      border-color: var(--link)
       border-width: 2px
       outline: none
       padding-left: 13px
       padding-right: 13px
       &~.db-form__label
-        color: var(--primary)
+        color: var(--link)
         font-weight: bold
     &--select,&:focus,&:not([value=""])
       opacity: 1
       &~.db-form__label
         top: -9px
         font-size: 14px
-    &.is-invalid
+    &.is-invalid, &:invalid:not(:focus)
       border-color: $danger
       border-width: 2px
       &~.db-form__label
