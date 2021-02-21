@@ -18,7 +18,7 @@ body {
   overflow-x: hidden;
 }
 .db-content-body {
-  min-height: calc(100vh - 200px);
+  min-height: calc(100vh - 223px);
 }
 a:not(.btn) {
   text-decoration: underline;
@@ -486,6 +486,11 @@ sup {
       span {
         text-decoration: underline;
       }
+    }
+  }
+  &--signed-in {
+    a {
+      display: inline;
     }
   }
 }

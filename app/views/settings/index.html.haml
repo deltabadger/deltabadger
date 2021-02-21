@@ -1,11 +1,11 @@
-.row.mt-5
+.row.pt-5
   .col-md-6
     %h2 Settings
   .col-md-6
-    .db-box.mb-4
+    .db-box.mb-3
       = render "devise/shared/error_messages", resource: user
       = render partial: 'update_email_form', locals: { user: user }
-    .db-box.mb-4
+    .db-box.mb-3
       = render partial: 'update_password_form', locals: { user: user }
       -# .db-settings-section
       -#   %h2 Email notifications

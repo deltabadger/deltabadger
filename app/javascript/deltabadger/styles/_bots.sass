@@ -122,9 +122,12 @@ input
   border-radius: $box-border-radius
   box-shadow:    $boxShadowBot
   .alert
+    margin-top: 4em
     border-radius: 0
     box-shadow: none
     margin-bottom: 0
+    a
+      color: var(--primary) !important
     ol
       padding-left: 1.5em
     &--trading-agreement
@@ -283,7 +286,6 @@ input
     p
       margin: 1em 3em
   &__footer
-    margin-top: -5em
     min-height: 74px
 
 .db-bot-info__footer
@@ -311,7 +313,7 @@ input
 // bot dca1
 
 .db-bot__form
-  padding: 4em 0
+  padding: 4em 0 0
   display: flex
   flex-direction:  column
   align-items: center
