@@ -16,7 +16,7 @@
 
 
 .row.pt-5
-  .col-6
+  .col-sm-12.col-lg-6
     %h2.mb-5 Referral Program
       .db-referral-stats
         - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
@@ -36,7 +36,7 @@
           .db-referral-stats__item__number
             = stats.paid_commission
 
-  .col-md-6
+  .col-sm-12.col-lg-6
     .db-box{ class: ("db-referral-program-registration--inactive" if disabled) }
       .db-settings-section
         .db-form__row.db-form__row--input
