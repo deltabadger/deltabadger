@@ -47,6 +47,8 @@ $formUnit: 20px
     min-width: auto !important
   &-link
     transition: none
+  &-lg
+    min-width: 240px
   .db-svg-icon
     margin: 0 -6px
     width: 24px
@@ -65,6 +67,22 @@ $formUnit: 20px
     margin-bottom: 1.25*$formUnit
     position: relative
     &--input
+      &--has-http-select
+        input
+          padding-left: 5em !important
+          &:focus,&:active
+            padding-left: calc(5em - 1px) !important
+        select
+          position: absolute
+          top: 14px
+          left: 14px
+          border: none
+          appearance: none
+          opacity: 0.5
+          outline: none !important
+          background: var(--paper)
+          cursor: pointer
+
       &--referralcode
         input
           padding-left: 11em !important
@@ -131,8 +149,8 @@ $formUnit: 20px
     &.is-invalid, &:invalid:not(:focus)
       border-color: $danger
       border-width: 2px
-      padding-left: 13px;
-      padding-right: 13px;
+      padding-left: 13px
+      padding-right: 13px
       &~.db-form__label
         color: $danger
         font-weight: bold
@@ -199,3 +217,16 @@ $formUnit: 20px
 
 .form-label-check
   margin-left: 2px
+
+
+// autocomplete
+
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus
+  border-color:            var(--link)
+  -webkit-text-fill-color: var(--text)
+  -webkit-box-shadow:      0 0 0px 1000px var(--autocomplete) inset
+  transition:              background-color 5000s ease-in-out 0s
+  &~label
+    color: var(--link)
+  &~select
+    background: var(--autocomplete)
