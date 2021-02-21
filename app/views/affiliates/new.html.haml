@@ -11,23 +11,9 @@
 .row.pt-5
   .col-sm-12.col-lg-6
     %h2.mb-5 Referral program registration
-
-    .alert.alert-primary
-      %p.mt-1 Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:
-      %ol
-        %li For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.
-        %li Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).
-        %li It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.
-        %li Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.
-        %li You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.
-
-      %p
-        <em>Earning bitcoins is the best kind of dollar-cost averaging!</em>
-      %small.mb-2 <sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.
-      %br
-      %small.mb-5 <sup>2</sup> For the referee, the referral link works even if your subscription has expired.
+    = render 'layouts/referral-program-info'
   .col-sm-12.col-lg-6
-    .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
+    .db-referral-program-registration{ class: ("db-referral-program-registration--light" if disabled) }
       - if errors.present?
         %ul.pl-3
           - errors.each do |error|
@@ -70,12 +56,8 @@
               Invalid Bitcoin address
             = f.label :btc_address, 'Your Bitcoin address', class: "db-form__label"
 
-
         .db-box.mb-1
-          %h4.pb-3 <span class="db-number">3</span> Settings<sup>*</sup>
-
-          .text-danger.mb-4
-            <sup>*</sup>can't be changed later.
+          %h4.pb-3 <span class="db-number">3</span> Link <span class="text-danger">(can't be changed)</span>
 
           .db-form__row.db-form__row--input.db-form__row--input--referralcode
             = f.text_field :code, id: 'referral-code', disabled: disabled, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
@@ -90,43 +72,42 @@
         .db-box.mb-1
           %h4.pb-3 <span class="db-number">4</span> Visible info
 
-          .mb-0
-            %p This is what referees will see during registration. You can add your name and link to your website to let the referee know where the link is coming from. You can also leave it blank:
-            %table.table.db-table--checkout.mb-0
-              %tbody.table-borderless
-                %tr
-                  %td.text-success.pr-0(scope="col")
-                    <i class="material-icons-round">check_circle</i>
-                  %td(scope="col")
-                    %b.text-success Congrats! The <span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount is active.
-                    %span.db-billing-item__info
-                      %span.db-form-preview--visible_text{class: ('db-form-preview--visible_text__visible' if affiliate.visible_name.present?)}
-                        Thanks to the referral link from
-                        %b
-                          %a{href: 'javascript:;'} <span class='db-form-preview--visible_name'>#{affiliate.visible_name}</span>.
-                      Valid for the first purchase on the platform.
+          %p This is a preview of what referees will see during registration:
+          %table.table.db-table--checkout
+            %tbody.table-borderless
+              %tr
+                %td.text-success.pr-0.pl-0(scope="col")
+                  <i class="material-icons-round">check_circle</i>
+                %td(scope="col")
+                  %b.text-success <span class="db-form-label-range--discount-percent">#{presenter.discount_percent_preview}</span>% discount for the first purchase.<br>
+                  %span.db-billing-item__info
+                    %span.db-form-preview--visible_text{class: ('db-form-preview--visible_text__visible' if affiliate.visible_name.present?)}
+                      Thanks to the referral link from
+                      %b
+                        %a{href: 'javascript:;'} <span class='db-form-preview--visible_name'>#{affiliate.visible_name}</span>
 
-          .form-group
-            = f.label :visible_name, "Name on the preview"
-            = f.text_field :visible_name, class: 'form-control form-control-lg db-form-control-text--visible_name', disabled: disabled
+          %p.mb-3 You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:
 
-          .form-group
-            = f.label :visible_link, "Link"
-            .input-group
-              = f.select :visible_link_scheme, [['https://', 'https'], ['http://', 'http']], {}, class: 'form-control form-control-lg db-http-prefix-select', disabled: disabled
-              = f.text_field :visible_link, class: 'form-control form-control-lg', disabled: disabled
+          .db-form__row.db-form__row--input
+            = f.text_field :visible_name, disabled: disabled, type: 'text', value: "", class: "db-form__input db-form-control-text--visible_name", onchange: 'this.setAttribute("value", this.value);'
+            = f.label :visible_name, "Your name visible for referees", class: "db-form__label"
 
+          .db-form__row.db-form__row--input.db-form__row--input--has-http-select
+
+            = f.text_field :visible_link, disabled: disabled, type: 'text', autocomplete: 'nope', class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.select :visible_link_scheme, [['//:https', 'https'], ['//:http', 'http']], {}, disabled: disabled, class: "db-form__input--http  db-http-prefix-select", dir: "rtl"
+            = f.label :visible_link, "Your link (optional)", class: "db-form__label"
 
           - unless disabled
-            .form-check.pt-5.text-center
+            .form-check.pt-2.pb-4.text-center
               = f.check_box :check, class: "form-check-input"
               = f.label :check, "I checked everything carefully.", class: "form-check-label"
 
           - if disabled
-            .form-group.db-form-group--main-btn
+            .db-form__row.db-form__row--final-button
               %button.btn.btn-success.btn-lg{type: 'submit', disabled: true}
-                Let's start!
+                Join the program!
           - else
-            .form-group.db-form-group--main-btn
+            .db-form__row.db-form__row--final-button
               %button.btn.btn-success.btn-lg{type: 'submit'}
-                Let's start!
+                Join the program!
