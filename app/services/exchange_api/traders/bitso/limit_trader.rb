@@ -82,7 +82,7 @@ module ExchangeApi
 
             Result::Success.new(offer_id: order_id)
           else
-            error_to_failure([response.fetch('message')])
+            error_to_failure([response.fetch('error').fetch('code')])
           end
         end
 
