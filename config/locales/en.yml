@@ -3,6 +3,9 @@ en:
   welcome:
     default: Hi, welcome to deltabadger
     saver: Get rid of the limits, and make an upgrade!
+    banner_html: |
+      Welcome! You're currently on the <b>free plan with a transaction limit of $500/year</b>, but it will not be enforced for the first month. Try any schedule you want. You can also upgrade it to enjoy unlimited transactions later on. The 4-year Hodler plan additionally gives access to new experimental features (e.g. all currencies on the exchange). All feedback is appreciated. Join our
+      <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram group</a>, and follow us on <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Happy averaging!
   subscriptions:
     upgrade: Upgrade
     upgrade_plan: Upgrade plan
@@ -556,6 +559,10 @@ en:
           <b style="color: #0a45a4;">%{errors}</b>
         </blockquote>
 
+  mailer:
+    signature_html: Deltabadger Team 🧑‍🚀
+    dca_profit_html: 💡 If you started DCA into Bitcoin<br>a year ago, you're now up <span style="color:#079e60">%{dca_profit}%</span>.
+
   devise:
     mailer:
       confirmation_instructions:
@@ -591,3 +598,46 @@ en:
         template_html: |
           <p>It's done 🎉!</p>
           <p>Your password 🔑 has been changed.</p>
+
+  subscription_mailer:
+    invoice:
+      subject: Deltabadger Payment
+      template_html: |
+        <h1>Invoice</h1>
+        <p><b>Paid at:</b></p>
+        <p>%{paid_at}</p>
+        <p><b>Seller:</b></p>
+        <p>
+          Deltabadger OÜ
+          <br>
+          Pärnu mnt 158/2-88
+          <br>
+          11317 Tallinn
+          <br>
+          Estonia
+          <br>
+          Reg.No.14781461
+        </p>
+        <p><b>Buyer:</b></p>
+        <p>
+          %{first_name} %{last_name}
+          <br>
+          %{email}
+        </p>
+        <h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2>
+        <p>
+          <b>Paid:</b>
+        </p>
+        <h2>%{total_paid} %{currency}</h2>
+
+    subscription_granted:
+      subject: '%{plan_name} plan granted'
+      template_html: |
+        <p>Wow 💙,</p>
+        <p>Thanks for buying our</p>
+        <p>
+          <b>
+            %{years}-year %{plan_name} plan
+          </b>
+        </p>
+        <p>You rock! 🔥</p>

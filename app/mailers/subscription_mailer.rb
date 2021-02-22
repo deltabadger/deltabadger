@@ -3,13 +3,19 @@ class SubscriptionMailer < ApplicationMailer
     @user = params[:user]
     @subscription_plan = params[:subscription_plan]
 
-    mail(to: @user.email, subject: "#{@subscription_plan.display_name} plan granted")
+    mail(
+      to: @user.email,
+      subject: I18n.t(
+        'subscription_mailer.subscription_granted.subject',
+        plan_name: @subscription_plan.display_name
+      )
+    )
   end
 
   def invoice
     @user = params[:user]
     @payment = params[:payment]
 
-    mail(to: @user.email, subject: 'Deltabadger Payment')
+    mail(to: @user.email, subject: default_i18n_subject)
   end
 end
