@@ -18,7 +18,7 @@ export const BitsoInstructions = () => (
             <li><b>View account information</b></li>
           </ul>
         </li>
-        <li>Press <b>Save</b></li>
+        <li>Press <b>Save</b>.</li>
         <li>Copy and paste your new API keys into the form above.</li>
       </ol>
     </div>
