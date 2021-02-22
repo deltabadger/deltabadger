@@ -2,8 +2,7 @@ module ExchangeApi::MapErrors
   class Bitso < ExchangeApi::MapErrors::Base
     def errors_mapping
       {
-        #'Not enough balances' => Error.new('Insufficient funds', false),
-        #'Not approved to trade this product' => Error.new('Pair not available', false)
+        '0343' => Error.new('Insufficient funds', false)
       }.freeze
     end
   end

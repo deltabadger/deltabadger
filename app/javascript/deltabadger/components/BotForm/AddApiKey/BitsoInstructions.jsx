@@ -3,7 +3,7 @@ import React from 'react'
 export const BitsoInstructions = () => (
   <div className="db-exchange-instructions db-exchange-instructions--bitbay">
     <div className="alert alert-success mx-0" role="alert">
-      <b className="alert-heading mb-2">How to get API keys from Gemini:</b>
+      <b className="alert-heading mb-2">How to get API keys from Bitso:</b>
       <hr/>
       <ol>
         <li>Login to your <a href="https://bitso.com/" target="_blank" rel="nofollow">Bitso</a> account.</li>
