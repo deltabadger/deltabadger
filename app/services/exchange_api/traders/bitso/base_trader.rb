@@ -82,6 +82,7 @@ module ExchangeApi
         end
 
         def get_order_by_id(order_id)
+          sleep(1.0)
           path = "/v3/order_trades/#{order_id}".freeze
           url = API_URL + path
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
