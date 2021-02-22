@@ -68,6 +68,7 @@ en:
       already_signed_out: "I hate goodbyes. See you soon?"
       new:
         title: Sign in
+        forgot_password: Forgot password?
         submit: Log in
     unlocks:
       send_instructions: "You will receive an email with instructions in a few minutes."
