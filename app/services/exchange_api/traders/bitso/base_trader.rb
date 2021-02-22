@@ -61,15 +61,16 @@ module ExchangeApi
         end
 
         def parse_request(request)
-          response = JSON.parse(request.body).fetch('payload')
+          response = JSON.parse(request.body)
           if request.status == 200 && request.reason_phrase == 'OK'
+            response = response.fetch('payload')
             order_id = response.fetch('oid')
             parsed_params = get_order_by_id(order_id)
             return parsed_params unless parsed_params.success?
 
             Result::Success.new(parsed_params.data)
           else
-            error_to_failure([response.fetch('message')])
+            error_to_failure([response.fetch('error').fetch('code')])
           end
         end
 
