@@ -25,7 +25,6 @@ module ExchangeApi
           url = API_URL + path
           body = order_params.to_json
           request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
-          byebug
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
