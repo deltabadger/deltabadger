@@ -1,3 +1,2 @@
 translations:
-  - only: ["en.*", "pl.*"]
-    except: ["*.activerecord.*", "*.administrate.*", "*.faker.*"]
+  - only: ["*.bots.*", "*.cookies.*", "*.links.*"]
