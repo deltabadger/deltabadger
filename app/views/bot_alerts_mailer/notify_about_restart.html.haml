@@ -1,8 +1,1 @@
-%p Oh snap 🧐,
-%p The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in #{@delay}.
-%p All error are visible in the bot log.<br>Sign in to check it out.
-%p Errors:
-%blockquote
-  %b(style="color: #0a45a4;") #{@exchange_name}:#{@bot.settings.fetch('base')}#{@bot.settings.fetch('quote')}
-  %br
-  %b(style="color: #0a45a4;") #{@errors.inspect}
+= t('.template_html', delay: @delay, exchange: @exchange_name, base: @bot.base, quote: @bot.quote, errors: @errors.inspect)

@@ -305,7 +305,7 @@ en:
             <li>Login to your %{exchange_link} account.</li>
             <li>In user menu go to <b>Security</b> → <b>API</b>.</li>
             <li>Press <b>Generate New Key</b>.</li>
-            <li>Set permissions for the following:<br/>
+            <li>Set permissions for the following:<br>
               Funds:
               <ul>
                 <li><b>Query Funds</b></li>
@@ -484,3 +484,110 @@ en:
           attributes:
             code:
               invalid_format: has to consist of uppercase alphanumeric characters
+
+  affiliate_mailer:
+    new_btc_address_confirmation:
+      subject: Confirm new Bitcoin address 📒
+      template_html: |
+        <p>Hello 👋,</p>
+        <p>It looks like you want to change your Bitcoin address to:</p>
+        <p><b style="color: #0a45a4;">%{new_btc_address}</b></p>
+        <p>This address will be used for your payouts from our referral program.</p>
+        <p>Are you sure?</p>
+        <p style="margin: 1em 0 1.2em;">
+          <a href="%{confirmation_url}" style="color: #0a45a4;">Yes, let's change it!</a>
+        </p>
+        <p>You didn't send this request?<br>No worries! Just ignore it.</p>
+        <p>The address won't change until you access the link above.</p>
+    referrals_payout_notification:
+      subject: It's a payday! 💸
+      template_html: |
+        <p>Hello 👋,</p>
+        <p>Sweet! Your referral link is gaining traction!</p>
+        <p>We transfer a commission of</p>
+        <p style="margin: 1em 0 1.2em;">
+          ⭐ <b style="color: #0a45a4;">%{amount} BTC</b>
+        </p>
+        <p>to your Bitcoin wallet.</p>
+        <p>Thank you for expanding the<br>badger gang!</p>
+  bot_alerts_mailer:
+    first_month_ending_soon:
+      subject: First month trial ending soon!
+      template_html: |
+        <p>Hello 👋,</p>
+        <p>You have been using Deltabadger for almost a month now!</p>
+        <p>Your free unlimited trial is ending soon :( Make sure to upgrade in order to keep your heavier badgers running!</p>
+    limit_almost_reached:
+      subject: Limit almost reached ⌛
+      template_html: |
+        <p>Hello 👋,</p>
+        <p>You've almost reached the <b style="color: #0a45a4;">Saver</b> <br>plan transaciton limit.</p>
+        <p>Upgrade your plan to <b style="color: #0a45a4;">Investor</b><br> or <b style="color: #0a45a4;">Hodler</b> to make sure that your</br>bots will continue to work.</p>
+    limit_reached:
+      subject: You've reached the limit 🥳
+      template_html: |
+        <p>Hello 👋,</p>
+        <p>Oh, well done! Your <b style="color: #0a45a4;">Saver</b> plan<br>limit has been reached.</p>
+        <p>It looks like you do dollar-cost<br>averaging for a while now.</p>
+        <p>We hope you're happy about<br>the results.</p>
+        <p>Upgrade your plan to <b style="color: #0a45a4;">Investor</b><br>or <b style="color: #0a45a4;">Hodler</b> to remove all limits and<br>put your bots back to work.</p>
+    notify_about_error:
+      subject: Something went wrong 😵
+      template_html: |
+        <p>Oups… 😵</p>
+        <p>Something went wrong while<br>processing the last transaction.</p>
+        <p>You can see the error in the<br>bot log. Sign in to check it.</p>
+        <p>Errors:</p>
+        <blockquote>
+          <b style="color: #0a45a4;">%{exchange}:%{base}%{quote}</b>
+          <br>
+          <b style="color: #0a45a4;">%{errors}</b>
+        </blockquote>
+    notify_about_restart:
+      subject: Oups! Next try… 🧐
+      template_html: |
+        <p>Oh snap 🧐,</p>
+        <p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p>
+        <p>All error are visible in the bot log.<br>Sign in to check it out.</p>
+        <p>Errors:</p>
+        <blockquote>
+          <b style="color: #0a45a4;">%{exchange}:%{base}%{quote}</b>
+          <br>
+          <b style="color: #0a45a4;">%{errors}</b>
+        </blockquote>
+
+  devise:
+    mailer:
+      confirmation_instructions:
+        template_html: |
+          <p>Welcome to Deltabadger 🎉,</p>
+          <p>Automated dollar-cost averaging<br>into Bitcoin is only one click away:</p>
+          <p style="margin: 1em 0 1.2em;">
+            <a href="%{confirmation_url}" style="color: #0a45a4;">Confirm my account</a>
+          </p>
+          <p>You don't remember signing up?<br>No worries. Just ignore it.</p>
+      reset_password_instructions:
+        template_html: |
+          <p>Hello 👋,</p>
+          <p>It looks like you want to change<br/>your password 🔑. Smart move!</p>
+          <p>Let's go:</p>
+          <p style="margin: 1em 0 1.2em;">
+            <a href="%{edit_password_url}" style="color: #0a45a4;">Change my password</a>
+          <p>You didn't send this request?<br/>No worries! Just ignore it.</p>
+      unlock_instructions:
+        template_html: |
+          <p>Hello 👋,</p>
+          <p>We locked your account due to<br>a high number of unsuccessful log in attempts.</p>
+          <p>Click the link below to unlock it:</p>
+          <p style="margin: 1em 0 1.2em;">
+            <a href="%{unlock_url}" style="color: #0a45a4;">Unlock my account</a>
+          </p>
+      email_changed:
+        template_html: |
+          <p>Hello 👋,</p>
+          <p>We send this email to notify you that the email address associated with your account at Deltabadger has been changed to:</p>
+          <p><b style="color: #0a45a4;">%{email}</b></p>
+      password_change:
+        template_html: |
+          <p>It's done 🎉!</p>
+          <p>Your password 🔑 has been changed.</p>

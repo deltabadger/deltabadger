@@ -26,7 +26,7 @@
                 
                 - if devise_mapping.recoverable? && controller_name != 'passwords' && controller_name != 'registrations'
                   .db-form__info.db-form__info--right
-                    = link_to "Forgot password?", new_password_path(resource_name)
+                    = link_to t('.forgot_password'), new_password_path(resource_name)
                 = f.label :password, class: "db-form__label"
               - if devise_mapping.rememberable?
                 .db-form__row.db-form__row--check.form-check
