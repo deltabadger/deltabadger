@@ -67,10 +67,10 @@ sup {
 }
 .field_with_errors {
   input {
-    border-color: $danger !important;
+    border-color: var(--danger) !important;
     &:focus,
     &.form-check-input {
-      box-shadow: 0 0 0 3px rgba($danger,.3) !important;
+      box-shadow: 0 0 0 3px rgba(var(--danger),.3) !important;
     }
   }
   &+.invalid-feedback {
