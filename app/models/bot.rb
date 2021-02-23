@@ -2,6 +2,7 @@ class Bot < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
   has_many :transactions, dependent: :destroy
+  scope :without_deleted, -> { where.not(status: 'deleted') }
 
   STATES = %i[created working stopped deleted].freeze
   TYPES = %i[free].freeze
@@ -71,5 +72,9 @@ class Bot < ApplicationRecord
 
   def total_amount
     transactions.sum(:amount)
+  end
+
+  def destroy
+    update_attribute(:status, 'deleted')
   end
 end
