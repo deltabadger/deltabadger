@@ -13,7 +13,7 @@
     %h2.mb-5 Referral program registration
     = render 'layouts/referral-program-info'
   .col-sm-12.col-lg-6
-    .db-referral-program-registration{ class: ("db-referral-program-registration--light" if disabled) }
+    .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
       - if errors.present?
         %ul.pl-3
           - errors.each do |error|

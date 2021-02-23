@@ -702,6 +702,9 @@ sup {
 .db-referral-program-registration {
   &--inactive {
     opacity: 0.5;
+    * {
+      user-select: none;
+    }
     .form-control-range {
       -webkit-filter: none;
       filter: none;
