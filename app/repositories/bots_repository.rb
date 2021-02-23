@@ -6,6 +6,7 @@ class BotsRepository < BaseRepository
   def for_user(user)
     user
       .bots
+      .where.not(status: 'deleted')
       .includes(:exchange, :transactions)
       .all
   end

@@ -3,7 +3,7 @@ class Bot < ApplicationRecord
   belongs_to :user
   has_many :transactions, dependent: :destroy
 
-  STATES = %i[created working stopped].freeze
+  STATES = %i[created working stopped deleted].freeze
   TYPES = %i[free].freeze
 
   enum status: [*STATES]
