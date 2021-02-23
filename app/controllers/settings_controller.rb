@@ -57,7 +57,7 @@ class SettingsController < ApplicationController
   private
 
   def check_if_using(api_key, user)
-    user.bots.map(&:exchange_id).include?(api_key.exchange_id)
+    user.bots.where.not(status: 'deleted').map(&:exchange_id).include?(api_key.exchange_id)
   end
 
   def update_password_params
