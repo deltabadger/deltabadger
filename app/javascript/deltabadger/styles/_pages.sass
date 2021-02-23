@@ -34,13 +34,19 @@
     a.btn-outline-primary
       border-color: var(--link) !important
       &:hover
-        color: var(--background) !important
+        background: var(--primary) !important
+        border-color: var(--primary) !important
   &--homepage,&--brave
     .navbar
       .btn, .btn-link, .db-logo-svg-shape
         color: var(--headerHome) !important
         path
           fill: var(--headerHome)
+    .db-footer
+      a, &__tagline
+        color: var(--white)  !important
+        &::before
+          background: var(--white) !important
   body
     min-height: 100vh
 

@@ -147,12 +147,12 @@ $formUnit: 20px
         top: -9px
         font-size: 14px
     &.is-invalid, &:invalid:not(:focus)
-      border-color: $danger
+      border-color: var(--danger)
       border-width: 2px
       padding-left: 13px
       padding-right: 13px
       &~.db-form__label
-        color: $danger
+        color: var(--danger)
         font-weight: bold
       &~.db-form__info--invalid
         display: block
@@ -164,7 +164,7 @@ $formUnit: 20px
     &--invalid
       font-weight: bold
       display: none
-      color: $danger
+      color: var(--danger)
     &--right
       float: right
       padding-right: 4px
