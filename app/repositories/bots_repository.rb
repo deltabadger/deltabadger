@@ -1,12 +1,12 @@
 class BotsRepository < BaseRepository
   def by_id_for_user(user, id)
-    user.bots.find(id)
+    user.bots.without_deleted.find(id)
   end
 
   def for_user(user)
     user
       .bots
-      .where.not(status: 'deleted')
+      .without_deleted
       .includes(:exchange, :transactions)
       .all
   end
