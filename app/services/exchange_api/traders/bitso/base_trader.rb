@@ -79,15 +79,15 @@ module ExchangeApi
         end
 
         def sum_order_major(response)
-          response.inject(0) { |sum, e| sum + e.fetch('major').to_f.abs }
+          response.inject(0) { |sum, e| sum + e.fetch('major').to_d.abs }
         end
 
         def sum_order_minor(response)
-          response.inject(0) { |sum, e| sum + e.fetch('minor').to_f.abs }
+          response.inject(0) { |sum, e| sum + e.fetch('minor').to_d.abs }
         end
 
         def get_order_by_id(order_id)
-          sleep(1.0)
+          sleep(3.0)
           path = "/v3/order_trades/#{order_id}".freeze
           url = API_URL + path
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
