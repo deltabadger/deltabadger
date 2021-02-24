@@ -32,18 +32,18 @@ const VALUE_OVER_TIME_CONFIG = {
         fill: false,
         lineTension: 0.4,
         backgroundColor: 'rgba(75,192,192,0.4)',
-        borderColor: '#0a45a4',
+        borderColor: '#22439E',
         borderWidth: 2,
         borderCapStyle: 'butt',
         borderDash: [],
         borderDashOffset: 0.0,
         borderJoinStyle: 'miter',
-        pointBorderColor: '#0a45a4',
-        pointBackgroundColor: '#0a45a4',
+        pointBorderColor: '#22439E',
+        pointBackgroundColor: '#22439E',
         pointBorderWidth: 0,
         pointHoverRadius: 3,
-        pointHoverBackgroundColor: '#0a45a4',
-        pointHoverBorderColor: '#0a45a4',
+        pointHoverBackgroundColor: '#22439E',
+        pointHoverBorderColor: '#22439E',
         pointHoverBorderWidth: 2,
         pointRadius: 0,
         pointHitRadius: 10,
@@ -76,9 +76,33 @@ export const Chart = ({bot}) => {
     ]
   }
 
+  const chartOptions = {
+    scales: {
+      xAxes: [{
+        ticks: {
+          fontFamily: 'Inconsolata',
+          fontColor: '#789'
+        }
+      }],
+      yAxes: [{
+        ticks: {
+          fontFamily: 'Inconsolata',
+          fontColor: '#789'
+        }
+      }]
+    },
+    legend: {
+      labels: {
+        padding: 44,
+        fontFamily: 'Inconsolata',
+        fontColor: '#789'
+      }
+    }
+  }
+
   return (
     <div className="db-chart-container">
-      <Line data={chartData} />
+      <Line data={chartData} options={chartOptions} />
     </div>
   )
 }

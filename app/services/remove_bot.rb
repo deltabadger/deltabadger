@@ -10,7 +10,9 @@ class RemoveBot < BaseService
       Result::Failure.new('Bot is currently working. Stop bot before removing')
     else
       @bots_repository.destroy(bot.id)
-      Result::Success.new(nil)
+
+      bot.reload
+      Result::Success.new(bot)
     end
   end
 end
