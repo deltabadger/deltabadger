@@ -27,6 +27,8 @@ module ExchangeApi
           gemini_client(api_key, order_type)
         when 'ftx'
           ftx_client(api_key, order_type)
+        when 'bitso'
+          bitso_client(api_key, order_type)
         end
       end
 
@@ -109,6 +111,18 @@ module ExchangeApi
                    ExchangeApi::Traders::Ftx::LimitTrader
                  else
                    ExchangeApi::Traders::Ftx::MarketTrader
+                 end
+        client.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
+        )
+      end
+
+      def bitso_client(api_key, order_type)
+        client = if limit_trader?(order_type)
+                   ExchangeApi::Traders::Bitso::LimitTrader
+                 else
+                   ExchangeApi::Traders::Bitso::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
