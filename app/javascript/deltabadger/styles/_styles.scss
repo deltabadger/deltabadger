@@ -837,6 +837,7 @@ sup {
   height: 460px;
   &--01 {
     top: calc(var(--scroll)* 0.18px);
+    transform: scale(1.05) !important;
     @include media-breakpoint-down(sm) {
       top: calc(var(--scroll)* 0.18px - 120px);
     }
