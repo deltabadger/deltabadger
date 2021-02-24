@@ -28,6 +28,8 @@ module ExchangeApi
           Gemini::Validator.new
         when 'ftx'
           Ftx::Validator.new
+        when 'bitso'
+          Bitso::Validator.new
         end
       end
     end
