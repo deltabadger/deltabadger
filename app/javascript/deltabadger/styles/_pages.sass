@@ -1,21 +1,55 @@
-.db--guest--text
-  background: var(--white) !important
-  .btn-success
-    color: var(--white) !important
-  a, h1, .db-hi-welcome, .db-footer__tagline,.db--guest--text
-    color: var(--primary) !important
-  .db-logo-svg-shape
-    fill: var(--primary) !important
-  .db-hi-welcome
-    path
-      stroke: var(--primary) !important
-  .db-footer__tagline::before
-    background: var(--primary)
-  .db-page
-    margin-top: 120px
-  .db-social-link
-    path
-      fill: var(--primary)
+.btn:active,.btn:focus
+  box-shadow: 0 0 inherit !important
+
+.db--devise
+  background: var(--background)
+  .db-modal-title, .form-check-label
+    color: var(--text)
+  .navbar
+    .btn, .btn-link, .db-logo-svg-shape
+      color: var(--link) !important
+      path
+        fill: var(--link)
+  &.db--loggedout
+    min-height: 100vh
+    .container--signup
+      min-height: calc(100vh - 240px)
+      display: flex
+      align-items: center
+      .row
+        width: calc(100% + 30px)
+    .modal-dialog
+      margin-top: 0
+      margin-bottom: 0
+    .modal-content
+      background: var(--paper)
+.db--guest
+  min-height: 100vh
+  background: var(--primary)
+  background: linear-gradient(180deg, #903 0px, var(--primary) 120vh, #0D1A40 90%)
+  &--text
+    background: var(--background) !important
+    a.btn-primary,a.btn-success
+      color: var(--white) !important
+    a.btn-outline-primary
+      border-color: var(--link) !important
+      &:hover
+        background: var(--primary) !important
+        border-color: var(--primary) !important
+  &--homepage,&--brave
+    .navbar
+      .btn, .btn-link, .db-logo-svg-shape
+        color: var(--headerHome) !important
+        path
+          fill: var(--headerHome)
+    .db-footer
+      a, &__tagline
+        color: var(--white)  !important
+        &::before
+          background: var(--white) !important
+  body
+    min-height: 100vh
+
 .db-page
   &__body
     margin-top: 0.6em
@@ -33,3 +67,8 @@
         width: 32px
         height: 32px
         border-radius: 32px
+
+.db-signup--text
+  color: var(--link)
+.db-signup__list--item
+  display: flex
