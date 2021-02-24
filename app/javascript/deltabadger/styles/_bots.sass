@@ -1,7 +1,13 @@
 // bots
 
-input[disabled] + span
-  color: #ccc
+input
+  &[type="checkbox"]
+    &:not(:checked)
+      box-shadow: inset 0 0 15px var(--inactive)
+      filter: none
+  &[disabled]
+    &+ span
+      color: var(--inactive)
 
 .db-bots
   display: grid
@@ -118,12 +124,15 @@ input[disabled] + span
   .alert
     border-radius: 0
     box-shadow: none
-    margin-bottom: 0
+    margin-bottom: 6px
+    a
+      color: var(--primary) !important
     ol
       padding-left: 1.5em
     &--trading-agreement
       margin-top: -3rem
-      margin-bottom: 1rem
+    &-warning
+      margin-bottom: 80px
   .form-inline
     justify-content: center
     :last-child
@@ -161,6 +170,9 @@ input[disabled] + span
           border-top-left-radius:  0
     select, input
       text-align: center !important
+      &:disabled
+        background: var(--progressBar) !important
+        color: var(--text) !important
     select
       -webkit-appearance: none
       -moz-appearance: none
@@ -287,14 +299,15 @@ input[disabled] + span
   height:          38px
 
 .db-smallinfo
-  opacity: .5
   font-size: 0.8em
   margin: 2em 1.25em 2em 4.2em
+  color: var(--secondary)
   .db-svg
     &--inactive
       left: 22px
       position: absolute
-      opacity: .55
+      path
+        fill: var(--secondary)
 
 // db-showif
 
@@ -304,9 +317,9 @@ input[disabled] + span
 // bot dca1
 
 .db-bot__form
-  padding: 4em 0
+  padding: 4em 0 3em
   display: flex
-  flex-direction:  column
+  flex-direction: column
   align-items: center
   input
     text-align: right
@@ -357,17 +370,18 @@ input[disabled] + span
   text-align: center
 .btn--reset
   margin:          1em
-  color:           #bbb !important
+    left:          40px
+  color:           var(--secondary) !important
   text-decoration: none !important
   align-self:      flex-start
   width:           42px
   height:          42px
   span
-    color:       $danger
+    color:       var(--danger)
     margin-left: 7px
     opacity:     0
   &:hover
-    color: $danger !important
+    color: var(--danger) !important
     span
       opacity: 1
 
