@@ -9,6 +9,7 @@ class Exchange < ApplicationRecord
              when 'coinbase pro' then ExchangeApi::Markets::CoinbasePro::Market.new
              when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
              when 'ftx' then ExchangeApi::Markets::Ftx::Market.new
+             when 'bitso' then ExchangeApi::Markets::Bitso::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
