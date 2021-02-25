@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import LimitOrderNotice from "./LimitOrderNotice";
 import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
 
@@ -45,6 +45,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
     setQuote(validQuotes[0])
   }
+
+  useEffect(() => {
+    setFirstValidQuoteIfUnavailable()
+  }, [base]);
 
   const ResetButton = () => (
     <div
@@ -114,7 +118,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <div className="form-group mr-2">
               <select
                 value={base}
-                onChange={e => setBase(e.target.value) && setFirstValidQuoteIfUnavailable()}
+                onChange={e => setBase(e.target.value)}
                 className="form-control"
               >
                 {
