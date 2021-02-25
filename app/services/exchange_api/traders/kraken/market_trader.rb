@@ -23,7 +23,7 @@ module ExchangeApi
         private
 
         def parse_response(response)
-          sleep(0.5)
+          sleep(1.0)
           super
         end
 
