@@ -1,28 +1,3 @@
-.db--devise.db--loggedout {
-  min-height: 100vh;
-  .container--signup {
-    min-height: calc(100vh - 240px);
-    display: flex;
-    align-items: center;
-    .row {
-      width: calc(100% + 30px);
-    }
-  }
-  .modal-dialog {
-    margin-top: 0;
-    margin-bottom: 0;
-  }
-  .modal-content {
-    background: var(--white);
-  }
-}
-.db-signup--text {
-  color: var(--primary);
-}
-.db-signup__list--item {
-  display: flex;
-}
-
 // modal
 
 .db-modal-limitter {

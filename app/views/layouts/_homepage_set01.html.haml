@@ -1,7 +1,7 @@
 .db-main__section.db-main__section--secondary
   .row
     .col-sm-10.col-md-8.col-lg-6.d-none.d-lg-flex(style="flex-direction: column")
-      .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bots__item--homepage
+      .db-bots__item.db-bot.db-bot--dca.db-bot--running.db-bot--active.db-bots__item--homepage
         .db-bot__header
           .btn.btn-outline-primary
             %span.d-none.d-sm-inline= t('bots.stop')
@@ -39,8 +39,8 @@
               %path{:d => "M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"}
           .db-bot__infotext.text-success
             .db-bot__infotext__left
-              %span.d-none.d-sm-inline> Binance:
-              BATUSDT
+              %span.d-none.d-sm-inline> CoinbasePro:
+              BTCUSDT
             .db-bot__infotext__right= t('bots.next_buy', countdown: '5h 11m 23s')
         .db-bot__progress.progress.progress--thin.progress--bot-setup
           .progress-bar.bg-success{:role => "progressbar", :style => "width: 36%;"}
@@ -68,17 +68,21 @@
           %b <span class="transparent-50">&middot;</span> Binance.US
           %b <span class="transparent-50">&middot;</span> Bitbay
           -#   %b <span class="transparent-50">&middot;</span> Bitfinex
-          -#   %b <span class="transparent-50">&middot;</span> Bitmex
+          -#   %b <span class="transparent-50">&middot;</span> Bitkub
+          -#   %b <span class="transparent-50">&middot;</span> Bitpanda Pro
           -#   %b <span class="transparent-50">&middot;</span> Bitso
+          -#   %b <span class="transparent-50">&middot;</span> Bitmex
+          %b <span class="transparent-50">&middot;</span> Bitso
           -#   %b <span class="transparent-50">&middot;</span> Bitstamp
-          -#   %b <span class="transparent-50">&middot;</span> CEX.io
-          -#   %b <span class="transparent-50">&middot;</span> Coinbase
+          -#   %b <span class="transparent-50">&middot;</span> Bittrex
           %b <span class="transparent-50">&middot;</span> Coinbase Pro
-          -#   %b <span class="transparent-50">&middot;</span> Deribit
           %b <span class="transparent-50">&middot;</span> FTX
           %b <span class="transparent-50">&middot;</span> Gemini
           %b <span class="transparent-50">&middot;</span> Kraken
-          -#   %b <span class="transparent-50">&middot;</span> Nash.io
+          -#   %b <span class="transparent-50">&middot;</span> Indodax
+          -#   %b <span class="transparent-50">&middot;</span> OKcoin
+          -#   %b <span class="transparent-50">&middot;</span> Poloniex
+          -#   %b <span class="transparent-50">&middot;</span> Upbit
           -#   %b <span class="transparent-50">&middot;</span> Zebpay
         %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
           %span.mr-3
@@ -99,7 +103,7 @@
   .row.db-row--easy-chart
     .col-md-12.col-lg-6.order-lg-2
       .db-flex-centered-vertically__content--off.db-easy-chart__text
-        %h3 <span class="question-number">1</span>#{t('home.index.dca_magic.easy1.title_html')}
+        %h3 <span class="db-number db-number--success">1</span>#{t('home.index.dca_magic.easy1.title_html')}
         = t('home.index.dca_magic.easy1.text_html')
     .col-md-12.col-lg-6.order-lg-1.mb-4.d-lg-flex(style="flex-direction: column")
       = render 'layouts/svg_easy_chart_01'
@@ -107,7 +111,7 @@
   .row.db-row--easy-chart
     .col-md-12.col-lg-6.order-lg-2
       .db-flex-centered-vertically__content--off.db-easy-chart__text
-        %h3 <span class="question-number">2</span>#{t('home.index.dca_magic.easy2.title_html')}
+        %h3 <span class="db-number db-number--success">2</span>#{t('home.index.dca_magic.easy2.title_html')}
         = t('home.index.dca_magic.easy2.text_html')
     .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
       = render 'layouts/svg_easy_chart_02'
@@ -115,7 +119,7 @@
   .row.db-row--easy-chart
     .col-md-12.col-lg-6.order-lg-2
       .db-flex-centered-vertically__content--off.db-easy-chart__text
-        %h3 <span class="question-number">3</span>#{t('home.index.dca_magic.easy3.title_html')}
+        %h3 <span class="db-number db-number--success">3</span>#{t('home.index.dca_magic.easy3.title_html')}
         = t('home.index.dca_magic.easy3.text_html')
     .col-md-12.col-lg-6.order-lg-1.mb-4.d-lg-flex(style="flex-direction: column")
       = render 'layouts/svg_easy_chart_03'
@@ -123,7 +127,7 @@
   .row.db-row--easy-chart
     .col-md-12.col-lg-6.order-lg-2
       .db-flex-centered-vertically__content--off.db-easy-chart__text
-        %h3 <span class="question-number">4</span>#{t('home.index.dca_magic.easy4.title_html')}
+        %h3 <span class="db-number db-number--success">4</span>#{t('home.index.dca_magic.easy4.title_html')}
         = t('home.index.dca_magic.easy4.text_html')
     .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
       = render 'layouts/svg_easy_chart_04'

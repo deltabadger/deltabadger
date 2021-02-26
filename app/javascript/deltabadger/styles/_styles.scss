@@ -10,16 +10,6 @@ a {
 html {
   background: var(--background);
   overflow-x: hidden;
-  &.db--devise {
-    background: $background;
-    a, a:hover, a:active, a:focus {
-      color: $primary;
-    }
-    .db-modal-title,
-    .form-check-label {
-      color: $text;
-    }
-  }
 }
 body {
   font-family: $fontText;
@@ -28,7 +18,7 @@ body {
   overflow-x: hidden;
 }
 .db-content-body {
-  min-height: calc(100vh - 200px);
+  min-height: calc(100vh - 223px);
 }
 a:not(.btn) {
   text-decoration: underline;
@@ -77,10 +67,10 @@ sup {
 }
 .field_with_errors {
   input {
-    border-color: $danger !important;
+    border-color: var(--danger) !important;
     &:focus,
     &.form-check-input {
-      box-shadow: 0 0 0 3px rgba($danger,.3) !important;
+      box-shadow: 0 0 0 3px rgba(var(--danger),.3) !important;
     }
   }
   &+.invalid-feedback {
@@ -102,8 +92,8 @@ sup {
     display: none;
   }
 }
-.question-number {
-  background: var(--success);
+.db-number {
+  background: var(--inactive);
   color: var(--white);
   display: inline-block;
   width: 1.5em;
@@ -116,6 +106,9 @@ sup {
   position: relative;
   top: -.1em;
   left: -.1em;
+  &--success {
+    background: var(--success);
+  }
 }
 .first-letter::first-letter {
   font-size: 2.9em;
@@ -472,13 +465,13 @@ sup {
 
 .db-footer--signed-in {
   padding: 1.5rem .5rem 2rem;
-  color: #678
+  color: var(--secondary)
 }
 
-.db-footer--homepage {
+.db-footer {
   padding-bottom: 3.4rem;
   a {
-    color: white;
+    color: var(--link);
     text-decoration: underline;
     display: block;
     @include media-breakpoint-down(sm) {
@@ -495,18 +488,30 @@ sup {
       }
     }
   }
+  &--signed-in {
+    a {
+      display: inline;
+    }
+  }
 }
 .db-footer__tagline {
   position: relative;
   text-indent: 20px;
+  color: var(--link);
   &::before {
     content: "";
     display: block;
-    background: white;
+    background: var(--link);
     position: absolute;
     width: 4px;
     height: 100%;
     border-radius: 2px;
+  }
+}
+.db--guest--homepage {
+  a, .db-footer__tagline {
+    color: var(--white) !important;
+    &::before { background: var(--white) !important }
   }
 }
 
@@ -697,6 +702,9 @@ sup {
 .db-referral-program-registration {
   &--inactive {
     opacity: 0.5;
+    * {
+      user-select: none;
+    }
     .form-control-range {
       -webkit-filter: none;
       filter: none;
@@ -829,6 +837,7 @@ sup {
   height: 460px;
   &--01 {
     top: calc(var(--scroll)* 0.18px);
+    transform: scale(1.05) !important;
     @include media-breakpoint-down(sm) {
       top: calc(var(--scroll)* 0.18px - 120px);
     }

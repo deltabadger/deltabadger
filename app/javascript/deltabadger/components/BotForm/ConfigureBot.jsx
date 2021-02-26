@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 import LimitOrderNotice from "./LimitOrderNotice";
 import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
+import I18n from "i18n-js";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
@@ -47,6 +48,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
     setQuote(validQuotes[0])
   }
+
+  useEffect(() => {
+    setFirstValidQuoteIfUnavailable()
+  }, [base]);
 
   const ResetButton = () => (
     <div
@@ -113,7 +118,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <div className="form-group mr-2">
               <select
                 value={base}
-                onChange={e => setBase(e.target.value) && setFirstValidQuoteIfUnavailable()}
+                onChange={e => setBase(e.target.value)}
                 className="form-control"
               >
                 {
@@ -171,12 +176,12 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-2" />
-            <span>Always use smart intervals.</span>
+            <span>{I18n.t('bots.force_smart_intervals')}</span>
           </label>
         </form>
         {isLimitOrder() &&
         <span className="db-limit-bot-modifier">
-          { isSellOffer() ? 'Sell' : 'Buy' } <input
+          { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
             type="text"
             min="0"
             step="0.1"

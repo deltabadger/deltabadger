@@ -13,17 +13,15 @@
           %a.ml-2(href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow")= t('social.twitter')
 
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
-      .modal-dialog
-        .modal-content
-          .modal-body
-            %h3.db-modal-title= t('.title')
-            = form_for(resource, as: resource_name, url: confirmation_path(resource_name), html: { method: :post }) do |f|
-              = render "devise/shared/error_messages", resource: resource
-              .db-form__row
-                = f.email_field :email, autofocus: true, autocomplete: "email", value: (resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email), value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+      .db-box
+        %h3.db-modal-title= t('.title')
+        = form_for(resource, as: resource_name, url: confirmation_path(resource_name), html: { method: :post }) do |f|
+          = render "devise/shared/error_messages", resource: resource
+          .db-form__row
+            = f.email_field :email, autofocus: true, autocomplete: "email", value: (resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email), value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
 
-                = f.label :email, class: "db-form__label"
-              .db-form__row.db-form__row--final-button
-                = f.submit t('.submit'), class: "btn btn-primary btn-lg w-100"
-            .db-form__other-links
-              = render "devise/shared/links"
+            = f.label :email, class: "db-form__label"
+          .db-form__row.db-form__row--final-button
+            = f.submit t('.submit'), class: "btn btn-primary btn-lg w-100"
+        .db-form__other-links
+          = render "devise/shared/links"

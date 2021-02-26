@@ -9,6 +9,7 @@ class CalculateSalesStatistics < BaseService
     sum_of_third_month = sum_of_nth_month(2)
     rest = total_sum - (sum_of_first_month + sum_of_second_month + sum_of_third_month)
 
+    total_sum = total_sum.nonzero? || 1
     {
       first: get_percentage(sum_of_first_month / total_sum),
       second: get_percentage(sum_of_second_month / total_sum),
