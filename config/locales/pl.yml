@@ -145,7 +145,7 @@ pl:
     default: Cześć, witamy w Deltabadger
     saver: Zrób upgrade i pozbądź się limitów!
   subscriptions:
-    upgrade: Upgrade
+    upgrade: Zrób upgrade
     days_left:
       one: Pozostał jeden dzień
       few: Pozostały %{count} dni
@@ -300,14 +300,17 @@ pl:
       specific_questions_html: |
         W przypadku bardziej szczegółowych kwestii pisz na %{email}, lub wyślij wiadomość na Telegramie albo <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitterze</a>.
   affiliates:
+    your_bitcoin_address: Twój adres bitcoin
+    invalid_bitcoin_address: Nieprawidłowy adres bitcoin
     new:
       title: Rejestracja do programu polecającego
       upgrade: Aby dołączyć do naszego słynnego programu poleceń, uaktualnij do jednego
         z naszych płatnych planów.
-      referrer_info: 1. Informacje o polecającym
-      payout_address: 2. Adres do wypłat
-      program_settings: 3. Ustawienia programu
-      visible_info: 4. Widoczne informacje
+      referrer_info: Informacje o polecającym
+      payout_address: Adres do wypłat
+      program_settings_html: Link <span class="text-danger">(nie można zmienić póżniej)</span>
+      pick_referral_code: Wpisz swój kod referencyjny
+      visible_info: Widoczne informacje
       private: Osoba prywatna
       eu_company: Firma z Unii Europejskiej
       unchangable_warning: Ustawienia w tej sekcji nie mogą być później zmienione.
@@ -315,7 +318,7 @@ pl:
         <b> Zarobisz <span class="db-form-label-range--earn-percent"> %{earn_percent_preview} </span>% </b> ,
          a korzystający z linku otrzyma <b> <span class="db-form-label-range--discount-percent"> %{discount_percent_preview} </span>% rabatu </b> .
       checked: Sprawdziłem wszystko dokładnie.
-      submit: Zaczynajmy!
+      submit: Dołącz do programu!
     create:
       saver_error: Musisz dokonać upgrade'u, aby się zarejestrować
       error: Rejestracja programu referencyjnego nie powiodła się
@@ -327,12 +330,13 @@ pl:
         contact: Skontaktuj się z nami
       expired: O nie… Twoja subskrypcja wygasła. Odnów swój plan, aby nadal korzystać
         z programu.
+      link_title: Twój link
       your_link: Twój link polecający
       stats: Statystyki
       referees: Użytkownicy
       paid_so_far: Wpłacono (BTC)
       unpaid: Do wypłaty (BTC)
-      update_info: Zaktualizuj widoczny opis
+      update_info: Opis
       update_bitcoin_address: Uaktualnij adres bitcoinowy
       info_preview: 'Podgląd informacji widocznych dla korzystającego z linku:'
       submit_info: Zaktualizuj widoczny opis
@@ -340,6 +344,7 @@ pl:
       manual_title: Jak to działa?
       paid_commission: Wypłacone (BTC)
       unpaid_commission: Do wypłaty (BTC)
+      submit: Zaktualizuj
     discount:
       flash_html: |
         Witaj! ciesz się %{discount_percent}% rabatem od <span class="text-success text-success--lighter"> %{visible_name} </span>
@@ -353,7 +358,7 @@ pl:
       invalid: Link polecający wydaje się nieprawidłowy lub nieaktualny
       already_used: Użyłeś już innego linku polecającego
     manual_html: |
-      <div class="alert alert-success">
+      <div class="alert alert-primary">
        <p class="mt-1"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>
        <ol>
        <li> Dla uproszczenia cena Bitcoina wynosi ~10000 USD, rabat 10%, a Twoja marża 20%. </li>
@@ -384,6 +389,7 @@ pl:
       submit_password: Zmień hasło
       api_keys_section: Klucze API
       api_key_confirmation: Jesteś pewny?
+      current_password: Obecne hasło (dla potwierdzenia)
   forms:
     for_confirmation: (dla potwierdzenia)
     minimum_length: Co najmniej %{length} znaków
@@ -397,7 +403,7 @@ pl:
         address: 'Adres firmy:'
         vat_number: 'Numer VAT (opcjonalnie):'
         visible_name: Imię na podglądzie
-        visible_link: Link
+        visible_link: Twój link
         check: Sprawdź
       user:
         email: E-mail
@@ -408,6 +414,7 @@ pl:
         remember_me: Zapamiętaj mnie
         new_password: Nowe hasło
         new_password_confirmation: Potwierdź nowe hasło
+        password_confirmation: Potwierdź hasło
       payment:
         first_name: Imię
         last_name: Nazwisko
@@ -529,7 +536,7 @@ pl:
           są oparte na ostatnich dostępnych danych.
         csv_download_html: Powyższa tabela przedstawia tylko dziesięć ostatnich transakcji.<br>Pełny
           raport jest dostępny do pobrania w formacie CSV poniżej.
-        download_csv: Pobierz .csv
+        download_csv: Pobierz pełną historię
         date: Data
         order: Zlecenie
         amount: Ilość(%{base})
@@ -542,7 +549,7 @@ pl:
         title: Opis
         exchanges_html: |
           <p className="mt-2"><b>Giełdy</b></p>
-          <p>Deltabadger współpracuje z giełdami kryptowalut. W tej chwili wspieramy <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="nofollow" title="Bitbay">Bitbay</a>, <a href="https://pro.coinbase.com/" target="_blank" rel="nofollow">Coinbase Pro</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://ftx.com" target="_blank" rel="nofollow">FTX</a> i <a href="https://r.kraken.com/deltabadger" target="_blank" rel="nofollow" title="Kraken">Kraken</a>. Polecamy Kraken jako renomowaną giełdę, która nigdy nie została zhakowana. Użyj Bitbay, jeśli chcesz dokonywać zakupów w PLN.</p>
+          <p>Deltabadger współpracuje z giełdami kryptowalut. W tej chwili wspieramy <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="nofollow" title="Bitbay">Bitbay</a>, <a href="https://pro.coinbase.com/" target="_blank" rel="nofollow">Coinbase Pro</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://ftx.com" target="_blank" rel="nofollow">FTX</a>, <a href="https://bitso.com" target="_blank" rel="nofollow">Bitso</a> i <a href="https://r.kraken.com/deltabadger" target="_blank" rel="nofollow" title="Kraken">Kraken</a>. Polecamy Kraken jako renomowaną giełdę, która nigdy nie została zhakowana. Użyj Bitbay, jeśli chcesz dokonywać zakupów w PLN.</p>
           <p>Aby Twój bot był użyteczny, musisz najpierw zweryfikować swoje konto na giełdzie i przelać tam trochę środków.</p>
           <p>Nie trzymaj jednak swoich monet na żadnej giełdzie zbyt długo. Loguj się na swoje konto i dokonuj regularnych wypłat co najmniej raz w miesiącu.</p>
           <p>W przyszłości będziemy dodawać kolejne giełdy. Daj nam znać, jeśli jesteś zainteresowany którąś z nich.</p>

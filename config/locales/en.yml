@@ -152,13 +152,21 @@ en:
       specific_questions_html: |
         For more specific issues, send us an email: %{email}, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.
   affiliates:
+    your_bitcoin_address: Your Bitcoin address
+    invalid_bitcoin_address: Invalid Bitcoin address
+    info_preview: "This is a preview of what referees will see during registration:"
+    add_link_info: "You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:"
     new:
       title: Referral program registration
       upgrade: To join our famous referral program, upgrade to one of our paid plans.
-      referrer_info: 1. Referrer info
-      payout_address: 2. Payout address
-      program_settings: 3. Program settings
-      visible_info: 4. Visible info
+      referrer_info: Referrer info
+      payout_address: Payouts
+      program_settings_html: Link <span class="text-danger">(can't be changed)</span>
+      pick_referral_code: Pick your referral code
+      visible_info: Visible info
+      discount_preview_html: |
+        <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.<br>
+      thanks_referral: Thanks to the referral link from
       private: Private
       eu_company: EU company
       unchangable_warning: Settings in this section can't be changed later.
@@ -166,7 +174,7 @@ en:
         You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>,
         and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.
       checked: I checked everything carefully.
-      submit: Let's start!
+      submit: Join the program!
     create:
       saver_error: You have to upgrade to register
       error: Referral program registration failed
@@ -176,16 +184,15 @@ en:
         notice: It looks like this program got deactivated. Contact us if you're not sure why it happened.
         contact: Contact us
       expired: Oh no… your subscription has expired. Renew your plan to continue benefiting from your referral program.
+      link_title: Your link
       your_link: Your referral link
       stats: Stats
       referees: Referees
       paid_commission: Paid (BTC)
       unpaid_commission: To pay (BTC)
-      update_info: Update visible info
-      update_bitcoin_address: Update Bitcoin address
-      info_preview: "This is what referrees will see during registration. You can add your name, and link to your website so they they're using your link. You can also leave it blank:"
-      submit_info: Update visible info
-      submit_bitcoin_address: Update Bitcoin address
+      update_info: Info
+      update_bitcoin_address: Payout address
+      submit: Update
       manual_title: How does it work?
     discount:
       flash_html: |
@@ -228,6 +235,7 @@ en:
       submit_password: Change password
       api_keys_section: API keys
       api_key_confirmation: Are you sure?
+      current_password: Current password (for confirmation)
   forms:
     for_confirmation: (for confirmation)
     minimum_length: '%{length} characters minimum'
@@ -241,7 +249,7 @@ en:
         address: 'Address of the company:'
         vat_number: 'Vat number (optional):'
         visible_name: Your name visible to referree (optional)
-        visible_link: Your URL (optional)
+        visible_link: Your link (optional)
         check: Check
       user:
         email: Email
@@ -251,6 +259,7 @@ en:
         remember_me: Remember me
         new_password: New password
         new_password_confirmation: Confirm new password
+        password_confirmation: Password confirmation
       payment:
         first_name: Name
         last_name: Surname
@@ -421,7 +430,7 @@ en:
           The exchange API does not respond at the moment.<br>Calculations are based on the last data available.
         csv_download_html: |
           The table above shows only the last ten transactions.<br>The full report is available to download in CSV format below.
-        download_csv: 'Download .csv'
+        download_csv: 'Download full history'
         date: Date
         order: Order
         amount: Amount(%{base})
@@ -434,7 +443,7 @@ en:
         title: Info
         exchanges_html: |
           <p className="mt-2"><b>Exchanges</b></p>
-          <p>Deltabadger works with cryptoexchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="nofollow" title="Bitbay">Bitbay</a>, <a href="https://pro.coinbase.com/" target="_blank" rel="nofollow">Coinbase Pro</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://ftx.com" target="_blank" rel="nofollow">FTX</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="nofollow" title="Kraken">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>
+          <p>Deltabadger works with cryptoexchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://auth.bitbay.net/ref/Hhb7ZrAv2GrA" target="_blank" rel="nofollow" title="Bitbay">Bitbay</a>, <a href="https://pro.coinbase.com/" target="_blank" rel="nofollow">Coinbase Pro</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://ftx.com" target="_blank" rel="nofollow">FTX</a>, <a href="https://bitso.com" target="_blank" rel="nofollow">Bitso</a> and <a href="https://r.kraken.com/deltabadger" target="_blank" rel="nofollow" title="Kraken">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>
           <p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p>
           <p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>
           <p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>
