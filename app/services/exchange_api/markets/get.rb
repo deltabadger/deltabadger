@@ -27,6 +27,8 @@ module ExchangeApi
           ExchangeApi::Markets::Gemini::Market.new
         when 'ftx'
           ExchangeApi::Markets::Ftx::Market.new
+        when 'bitso'
+          ExchangeApi::Markets::Bitso::Market.new
         end
       end
     end

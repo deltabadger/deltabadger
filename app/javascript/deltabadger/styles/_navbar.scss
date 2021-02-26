@@ -1,62 +1,4 @@
-.db-guest-template {
-  position: relative;
-}
-.db {
-  &--devise {
-    .navbar {
-      .btn, .btn-link, .db-logo-svg-shape {
-        color: var(--headerDevise) !important;
-        path {
-          fill: var(--headerDevise);
-        }
-      }
-    }
-  }
-  &--guest {
-    &--homepage {
-      .navbar {
-        .btn, .btn-link, .db-logo-svg-shape {
-          color: var(--headerHome) !important;
-          path {
-            fill: var(--headerHome);
-          }
-        }
-      }
-    }
-    &--text {
-      body {
-        color: $text !important;
-      }
-      .navbar {
-        .btn, .btn-link, .db-logo-svg-shape {
-          color: var(--headerDevise) !important;
-          path {
-            fill: var(--headerDevise) !important;
-          }
-        }
-        .show {
-          .btn-menu {
-            color: var(--textPageBg) !important;
-            path {
-              fill: var(--textPageBg) !important;
-            }
-            &::after {
-              background: var(--textPageBg) !important
-            }
-          }
-        }
-      }
-    }
-  }
-}
 .db--guest {
-  body {
-    min-height: 100vh;
-  }
-  min-height: 100vh;
-  background: var(--primary);
-  background: linear-gradient(180deg, #903 0px, $primary 120vh, #0D1A40 50%);
-  background: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0px,  $primary-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 50%);
   .db-logo-svg-shape {
     fill: $textColorInverted;
   }
@@ -67,7 +9,7 @@
     }
     &.text-danger {
       path {
-        stroke: $danger;
+        stroke: var(--danger);
         fill: transparent !important;
       }
     }
@@ -96,8 +38,8 @@
   }
   .btn-success {
     &:hover {
-      background:   darken($success,4%);
-      border-color: darken($success,4%);
+      background:   var(--success);
+      border-color: var(--success);
 
     }
   }
@@ -134,7 +76,7 @@
   }
   &.text-danger {
     path {
-      stroke: $danger;
+      stroke: var(--danger);
     }
   }
 }

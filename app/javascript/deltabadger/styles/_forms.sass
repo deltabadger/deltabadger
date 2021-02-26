@@ -2,6 +2,7 @@ $formUnit: 20px
 
 .btn
   display: inline-flex
+  justify-content: center
   font-family: $fontButton
   font-weight: bold
   cursor: pointer
@@ -20,7 +21,7 @@ $formUnit: 20px
       top:       3px
       font-size: 23px
   &-link, &-outline-primary path
-    fill: var(--primary)
+    fill: var(--link)
   &-transparent
     color: #000
     background: var(--white)
@@ -46,6 +47,8 @@ $formUnit: 20px
     min-width: auto !important
   &-link
     transition: none
+  &-lg
+    min-width: 240px
   .db-svg-icon
     margin: 0 -6px
     width: 24px
@@ -63,6 +66,34 @@ $formUnit: 20px
   &__row
     margin-bottom: 1.25*$formUnit
     position: relative
+    &--input
+      &--has-http-select
+        input
+          padding-left: 5em !important
+          &:focus,&:active
+            padding-left: calc(5em - 1px) !important
+        select
+          position: absolute
+          top: 14px
+          left: 14px
+          border: none
+          appearance: none
+          opacity: 0.5
+          outline: none !important
+          background: var(--paper)
+          cursor: pointer
+
+      &--referralcode
+        input
+          padding-left: 11em !important
+        input:focus
+          padding-left: calc(11em - 1px) !important
+        .db-referral-prefix
+          color: var(--secondary)
+          pointer-events: none
+          position: absolute
+          top: 14px
+          left: 14px
     &--final-button
       margin-bottom: 0
       padding-top: 8px
@@ -75,7 +106,7 @@ $formUnit: 20px
       padding-top: 10px
   &__label
     border-radius:  4px
-    background:     var(--white)
+    background:     var(--paper)
     color:          #678
     position:       absolute
     top:            13px
@@ -85,6 +116,7 @@ $formUnit: 20px
     transition:     all 100ms ease-out
     pointer-events: none
   &__input
+    color: var(--text)
     background: none
     padding-bottom: 2px
     padding-left: 14px
@@ -100,24 +132,27 @@ $formUnit: 20px
     &--has-icon
       padding-right: 48px
     &:focus
-      border-color: var(--primary)
+      color: var(--inputTextFocus)
+      border-color: var(--link)
       border-width: 2px
       outline: none
       padding-left: 13px
       padding-right: 13px
       &~.db-form__label
-        color: var(--primary)
+        color: var(--link)
         font-weight: bold
     &--select,&:focus,&:not([value=""])
       opacity: 1
       &~.db-form__label
         top: -9px
         font-size: 14px
-    &.is-invalid
-      border-color: $danger
+    &.is-invalid, &:invalid:not(:focus)
+      border-color: var(--danger)
       border-width: 2px
+      padding-left: 13px
+      padding-right: 13px
       &~.db-form__label
-        color: $danger
+        color: var(--danger)
         font-weight: bold
       &~.db-form__info--invalid
         display: block
@@ -129,7 +164,7 @@ $formUnit: 20px
     &--invalid
       font-weight: bold
       display: none
-      color: $danger
+      color: var(--danger)
     &--right
       float: right
       padding-right: 4px
@@ -182,3 +217,16 @@ $formUnit: 20px
 
 .form-label-check
   margin-left: 2px
+
+
+// autocomplete
+
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus
+  border-color:            var(--link)
+  -webkit-text-fill-color: var(--text)
+  -webkit-box-shadow:      0 0 0px 1000px var(--autocomplete) inset
+  transition:              background-color 5000s ease-in-out 0s
+  &~label
+    color: var(--link)
+  &~select
+    background: var(--autocomplete)
