@@ -11,8 +11,7 @@
           %span.db-show--hodler
             <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-vat'>#{cost_presenter[:hodler].total_vat}</span>
     .db-checkout-summary__item.db-checkout-summary__item--sum
-      .db-checkout-summary__item__info
-        You pay
+      .db-checkout-summary__item__info= t('subscriptions.payment.you_pay')
       .db-checkout-summary__item__quote
         - if 'investor'.in?(upgrade_presenter.available_plans)
           %span.db-show--investor

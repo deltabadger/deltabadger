@@ -1,5 +1,4 @@
 %head
-  %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}
   %meta{:charset => "UTF-8"}
   %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
   %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
@@ -7,12 +6,13 @@
   = csrf_meta_tags
   = csp_meta_tag
 
-  %title Deltabadger
+  %title
+    = t('deltabadger')
 
   %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
   = stylesheet_pack_tag 'deltabadger'
 
-  %body
+  %body{ data: { locale: I18n.locale }}
     #cookie_consent
 
     = render 'layouts/navbar'

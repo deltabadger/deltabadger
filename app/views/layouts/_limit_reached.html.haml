@@ -1,7 +1,5 @@
 - if current_user.show_limit_reached_navbar?
   .container.db-alert-container--upgrade
     .alert.alert-primary.db-alert--flex
-      %span
-        <b>Congrats!</b> You have reached our free transaction limit of $500/year. To continue, upgrade to the unlimited plan.
-      %a.btn.btn-primary{href: upgrade_path}
-        %span Upgrade
+      %span= t('subscriptions.limit_reached_html')
+      = link_to t('subscriptions.upgrade'), upgrade_path, class: 'btn btn-primary'

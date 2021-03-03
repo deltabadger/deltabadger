@@ -1,69 +1,66 @@
 - unless affiliate_active
   .alert.alert-secondary.db-alert--flex
-    %span
-      It looks like this program got deactivated. Contact us if you're not sure why it happened.
+    %span= t('.deactivated.notice')
 
     %a.btn.btn-outline-secondary{href: "mailto:contact@deltabadger.com"}
-      %span Contact us
+      %span= t('.deactivated.contact')
 
 - if affiliate_active && !unlimited_active
   .alert.alert-primary.db-alert--flex
-    %span
-      Oh no… your subscription has expired. Renew your plan to continue benefiting from your referral program.
+    %span= t('.expired')
 
     %a.btn.btn-primary{href: upgrade_path}
-      %span Upgrade
+      %span= t('subscriptions.upgrade')
 
 .row.pt-5
   .col-sm-12.col-lg-6
-    %h2.mb-5 Referral Program
+    %h2.mb-5= t('.title')
     .db-referral-stats
       - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
       .db-referral-stats__item
         .db-referral-stats__item__title
-          Referees
+          = t('.referees')
         .db-referral-stats__item__number
           = stats.referee_count
       .db-referral-stats__item
         .db-referral-stats__item__title
-          To pay (BTC)
+          = t('.unpaid_commission')
         .db-referral-stats__item__number
           = stats.unpaid_commission
       .db-referral-stats__item
         .db-referral-stats__item__title
-          Paid (BTC)
+          = t('.paid_commission')
         .db-referral-stats__item__number
           = stats.paid_commission
 
   .col-sm-12.col-lg-6
     .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
-      %h4.db-modal__subtitle Your link
+      %h4.db-modal__subtitle #{t('.link_title')}
       .db-form__row.db-form__row--input.mb-0
         %input.db-form__input{ :type=>"text", :value=>ref_code_url(code: affiliate.code), :readonly=>"readonly" }
-        %label.db-form__label Your referral link
+        %label.db-form__label= t('.your_link')
 
     .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
-      %h4.db-modal__subtitle  Info
+      %h4.db-modal__subtitle  #{t('.update_info')}
       - presenter = Presenters::RefCodes::Show.new(affiliate)
-      %p This is a preview of what referees will see during registration:
+      %p= t('affiliates.info_preview')
       = render partial: 'ref_codes/show', locals: { affiliate: affiliate }
-      %p.mb-4 You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:
+      %p.mb-4 #{t('affiliates.add_link_info')}
 
       = form_with model: affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f|
         .db-form__row.db-form__row--input
           = f.text_field :visible_name, class: 'db-form__input', disabled: disabled
-          %label.db-form__label Your name visible to referee (optional)
+          %label.db-form__label #{t('helpers.label.affiliate.visible_name')}
 
         .db-form__row.db-form__row--input.db-form__row--input--has-http-select
           = f.text_field :visible_link, class: 'db-form__input', disabled: disabled
           = f.select :visible_link_scheme, [['//:https', 'https'], ['//:http', 'http']], {}, class: "db-form__input--http  db-http-prefix-select", dir: 'rtl'
-          = f.label :visible_link, 'Your link (optional)', class: 'db-form__label'
+          = f.label :visible_link, t('helpers.label.affiliate.visible_link'), class: 'db-form__label'
 
         .form-group.db-form-group--main-btn
-          = f.submit 'Update', class: 'btn btn-lg btn-primary', disabled: disabled
-
+          = f.submit t('.submit'), class: 'btn btn-lg btn-primary', disabled: disabled
     .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
-      %h4.db-modal__subtitle  Payout address
+      %h4.db-modal__subtitle  #{t('.update_bitcoin_address')}
       - if errors.present?
         %ul.pl-3
           - errors.each do |error|
@@ -73,13 +70,13 @@
         .db-form__row.db-form__row--input
           = f.text_field :btc_address, disabled: disabled, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
           .db-form__info.db-form__info--invalid
-            Invalid Bitcoin address
-          = f.label :btc_address, 'Your Bitcoin address', class: 'db-form__label'
+            #{t('affiliates.invalid_bitcoin_address')}
+          = f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label'
         .db-form__row.db-form__row--input
           = f.password_field :current_password, disabled: disabled, type: 'password', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
-          = f.label :current_password, 'Current password (for confirmation)', class: 'db-form__label'
+          = f.label :current_password, t('settings.index.current_password'), class: 'db-form__label'
 
         .form-group.db-form-group--main-btn
-          = f.submit 'Update', class: 'btn btn-lg btn-primary', disabled: disabled
+          = f.submit t('.submit'), class: 'btn btn-lg btn-primary', disabled: disabled
 
-    = render 'layouts/referral-program-info'
+    = t('affiliates.manual_html')

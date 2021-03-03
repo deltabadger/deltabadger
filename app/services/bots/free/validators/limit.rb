@@ -4,7 +4,7 @@ module Bots::Free::Validators
       return Result::Success.new if user.unlimited? || user.first_month?
 
       if user.limit_reached?
-        Result::Failure.new('Free plan limit reached')
+        Result::Failure.new(I18n.t('errors.limit_reached'))
       else
         Result::Success.new
       end

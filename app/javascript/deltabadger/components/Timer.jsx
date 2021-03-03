@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import I18n from 'i18n-js'
 import moment from 'moment';
 import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
@@ -28,9 +29,12 @@ export const Timer = ({bot, callback}) => {
 
   if (timeout) { return <Spinner /> }
 
+  const countdown = formatDuration(moment.duration(delay, 'seconds'))
+  const translation_key = settings.type === 'buy' ? 'bots.next_buy' : 'bots.next_sell'
+
   return (
     <div className="db-bot__infotext__right">
-      Next { settings.type } in { formatDuration(moment.duration(delay, 'seconds')) }
+      {I18n.t(translation_key, { countdown })}
     </div>
   )
 }

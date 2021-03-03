@@ -11,7 +11,7 @@ module Affiliates
     EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
 
     def call(user:, affiliate_params:)
-      return Result::Failure.new('You have to upgrade to register') unless user.unlimited?
+      return Result::Failure.new(I18n.t('affiliates.create.saver_error')) unless user.unlimited?
 
       affiliate_params = if affiliate_params[:type] == 'individual'
                            individual_params(affiliate_params)
@@ -28,7 +28,7 @@ module Affiliates
       Result::Failure.new(*affiliate.errors, data: affiliate)
     rescue StandardError => e
       Raven.capture_exception(e)
-      Result::Failure.new('Referral program registration failed')
+      Result::Failure.new(I18n.t('affiliates.create.error'))
     end
 
     private

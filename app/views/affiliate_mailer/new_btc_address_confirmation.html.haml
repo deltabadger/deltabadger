@@ -1,8 +1,1 @@
-%p Hello 👋,
-%p It looks like you want to change<br/>your Bitcoin address to
-%p <b style="color: #0a45a4;">#{@new_btc_address}</b>
-%p This address will be used for your<br/>payouts from our referral program.
-%p Are you sure?
-%p{:style=>"margin: 1em 0 1.2em;"}= link_to "Yes, let's change it!", confirm_btc_address_affiliate_url(@token), {:style=> "color: #0a45a4;"}
-%p You didn't send this request?<br/>No worries! Just ignore it.
-%p The address won't change until<br/>you access the link above.
+= t('.template_html', new_btc_address: @new_btc_address, confirmation_url: confirm_btc_address_affiliate_url(@token))

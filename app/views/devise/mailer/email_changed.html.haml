@@ -1,7 +1,2 @@
-%p Hello 👋,
-- if @resource.try(:unconfirmed_email?)
-  %p We send this email to notify you that the email address associated with your account at Deltabadger has been changed to:
-  %p <b style="color: #0a45a4;">#{@resource.unconfirmed_email}</b>
-- else
-  %p We send this email to notify you that the email address associated with your account at Deltabadger has been changed to:
-  %p <b style="color: #0a45a4;">#{@resource.email}</b>
+- email = @resource.try(:unconfirmed_email) || @resource(:email)
+= t('.template_html', email: email)

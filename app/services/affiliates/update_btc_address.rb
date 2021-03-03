@@ -12,12 +12,12 @@ module Affiliates
 
     def call(affiliate:, new_btc_address:) # rubocop:disable Metrics/MethodLength
       unless affiliate.program_active?
-        return Result::Failure.new('Your referral program is inactive')
+        return Result::Failure.new(I18n.t('errors.referral_program_inactive'))
       end
 
       unless Bitcoin.valid_address?(new_btc_address)
         affiliate[:btc_address] = new_btc_address
-        affiliate.errors.add(:btc_address, 'is not valid')
+        affiliate.errors.add(:btc_address, :invalid)
         return Result::Failure.new(*affiliate.errors.full_messages, data: affiliate)
       end
 
@@ -37,7 +37,7 @@ module Affiliates
       Result::Success.new
     rescue StandardError => e
       Raven.capture_exception(e)
-      Result::Failure.new('Bitcoin address could not be updated')
+      Result::Failure.new(I18n.t('errors.bitcoin_address_not_updated'))
     end
   end
 end
