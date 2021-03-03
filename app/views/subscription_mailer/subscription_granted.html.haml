@@ -1,6 +1,1 @@
-%p Wow 💙,
-%p Thanks for buying our
-%p
-  %b
-    #{@subscription_plan.years}-year #{@subscription_plan.display_name} plan
-%p You rock! 🔥
+= t('.template_html', years: @subscription_plan.years, plan_name: @subscription_plan.display_name)

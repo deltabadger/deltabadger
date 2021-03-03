@@ -13,6 +13,6 @@ class SubscriptionPlan < ApplicationRecord
   end
 
   def display_name
-    name.capitalize
+    I18n.t('subscriptions.' + name)
   end
 end

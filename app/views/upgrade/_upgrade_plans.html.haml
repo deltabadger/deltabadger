@@ -12,16 +12,14 @@
 
   - if upgrade_presenter.plan_upgrade_discount?
     .db-plans__item.db-plans__item--discount
-      .db-plans__item__name
-        Active plan discount
+      .db-plans__item__name= t('subscriptions.payment.active_plan_discount')
       .db-plans__item__amount
         .db-plans__item__amount__t.db-plans__item__amount__t--discount
           .db-show--investor
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
           .db-show--hodler
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
-      .db-plans__item__info
-        Compensation for #{current_user.plan_days_left} unused days of the Investor plan.
+      .db-plans__item__info= t('subscriptions.payment.compensation', count: current_user.plan_days_left)
 
 
 
@@ -29,8 +27,7 @@
   - if upgrade_presenter.referrer_discount?
     - discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer)
     .db-plans__item.db-plans__item--discount
-      .db-plans__item__name
-        #{discount_presenter.discount_percent}% discount
+      .db-plans__item__name= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent)
       .db-plans__item__amount
         .db-plans__item__amount__t.db-plans__item__amount__t--discount
           - if 'investor'.in?(upgrade_presenter.available_plans)
@@ -41,4 +38,4 @@
               <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-discount-percent-amount'>#{cost_presenter[:hodler].discount_percent_amount}</span>
       .db-plans__item__info
         - if discount_presenter.info?
-          Thanks to the referral link from <b><a href="#{discount_presenter.visible_path}">#{discount_presenter.visible_name}</a></b>, you get a discount for the first purchase on the platform.
+          = t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name)

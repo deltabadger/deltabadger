@@ -1,11 +1,10 @@
 .db-plans__item__name
-  Hodler
+  = t('subscriptions.hodler')
   .db-years
     - if days_left
-      .text-success
-        #{current_user.plan_days_left} days left
+      .text-success= t('subscriptions.days_left', count: current_user.plan_days_left)
     - else
-      4-year plan
+      = t('subscriptions.plan_4_year')
 .db-plans__item__amount
   - unless days_left
     - if upgrade_presenter.discount?
@@ -16,7 +15,4 @@
     - else
       .db-plans__item__amount__t
         <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'>#{cost_presenter.base_price}</span>
-.db-plans__item__info
-  DCA works best as a long-term commitment. <span class="no-brak">Four years</span> of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all tokens</b>, <b class="badge badge-limit">limit orders</b>, and access to the <b class="badge badge-referral">referral program</b>.
-
-  This plan also supports the project, so Hodlers get <b class="badge badge-priority">priority access</b> to all <b class="badge badge-priority">new features</b>.
+.db-plans__item__info= t('subscriptions.hodler_description_html')

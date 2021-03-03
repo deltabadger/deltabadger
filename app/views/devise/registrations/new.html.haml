@@ -5,28 +5,18 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      -# %h3.mb-5.mt-4.pt-2 Deltabadger automates<br>dollar-cost averaging into<br>Bitcoin and other assets.
-      %h3.mb-5.mt-4.pt-2 If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you're now up <span class="text-success">+#{profit_calculator.call(today - 365, today).data.to_i}%</span>
+      %h3.mb-5.mt-4.pt-2= t('ads.dca_profit_html', profit: profit_calculator.call(today - 365, today).data.to_i)
 
       .db-signup__list
-        .db-signup__list--item.mb-4
-          .material-icons-round check
-          .ml-2 auto-DCA on your exchange account
-        .db-signup__list--item.mb-4
-          .material-icons-round check
-          .ml-2 <i>Smart intervals</i> and five-minute setup
-        .db-signup__list--item.mb-4
-          .material-icons-round check
-          .ml-2 updates and new features every month
-        .db-signup__list--item.mb-4
-          .material-icons-round check
-          .ml-2 support and Telegram community
+        - t('ads.features').split(';').each do |feature|
+          .db-signup__list--item.mb-4
+            .material-icons-round check
+            .ml-2= raw feature
+
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
       .db-box
-        %h3.db-modal-title
-          Create
-          %span.text-success free
-          account
+        %h3.db-modal-title= t('.title_html')
+
         = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
           - if @code_present
             = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
@@ -36,10 +26,13 @@
             = f.email_field :email, autofocus: true, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
 
             .db-form__info.db-form__info--invalid
-              -if @email_suggestion
-                Email invalid! Did you mean: <b>#{@email_suggestion}</b>
+              -if @email_in_use
+                #{@email_in_use}
+                = link_to t('links.log_in'), new_session_path(resource_name)
+              -elsif @email_suggestion
+                = t('.email_suggestion_html', suggestion: @email_suggestion)
               -else
-                Email invalid!
+                = t('.email_invalid')
             = f.label :email, class: "db-form__label"
 
 
@@ -48,7 +41,7 @@
 
             - if @minimum_password_length
               .db-form__info.db-form__info--invalid
-                #{@minimum_password_length} characters minimum
+                = t('forms.minimum_length', length: @minimum_password_length)
             = f.label :password, class: "db-form__label"
 
             .db-unmask{:onclick => "unmaskPassword()"}
@@ -67,11 +60,9 @@
           .db-form__row.db-form__row--check
             = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
             = f.label :terms_and_conditions, class: "form-check-label" do
-              By continuing I agree to the
-              = link_to 'Terms of Service', terms_and_conditions_path
-              and
-              = link_to 'Privacy Policy', privacy_policy_path
-              of Deltabadger.
+              = raw t('helpers.label.user.terms_and_conditions_tooltip',
+                           terms_and_conditions: link_to(t('links.terms_and_conditions'), terms_and_conditions_path),
+                           privacy_policy: link_to(t('links.privacy_policy'), privacy_policy_path))
 
           -# .form-check.mb-4
           -#   = f.check_box :updates_agreement, class: "form-check-input db-selectable"
@@ -79,6 +70,6 @@
           -#     I agree to receive rare emails about new features and other updates.
 
           .db-form__row.db-form__row--final-button
-            = invisible_recaptcha_tags text: "Start now", class: "btn btn-success btn-lg w-100"
+            = invisible_recaptcha_tags text: t('.submit'), class: "btn btn-success btn-lg w-100"
         .db-form__other-links
           = render "devise/shared/links"

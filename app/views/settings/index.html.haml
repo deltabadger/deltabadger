@@ -1,6 +1,6 @@
 .row.pt-5
   .col-md-6
-    %h2 Settings
+    %h2= t('.title')
   .col-md-6
     .db-box.mb-3
       = render "devise/shared/error_messages", resource: user
@@ -8,5 +8,5 @@
     .db-box.mb-3
       = render partial: 'update_password_form', locals: { user: user }
     .db-box
-      %h4.db-modal__subtitle Api Keys
+      %h4.db-modal__subtitle= t('.api_keys_section')
       = render partial: 'remove_api_key', collection: api_keys, as: :api_key

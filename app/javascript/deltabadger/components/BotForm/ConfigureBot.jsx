@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import { Breadcrumbs } from './Breadcrumbs'
+import { Progressbar } from './Progressbar'
 import LimitOrderNotice from "./LimitOrderNotice";
 import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
+import I18n from "i18n-js";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
@@ -85,7 +88,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
-        <div className="db-bot__infotext--setup"><span className="db-breadcrumbs">Exchange &rarr; API Key &rarr; <em>Schedule</em></span></div>
+        <Breadcrumbs step={2} />
         <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
           <span className="d-none d-sm-inline">Start</span>
           <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
@@ -93,9 +96,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         <div className="db-bot__infotext"/>
       </div>
 
-      <div className="db-bot__progress progress progress--thin progress--bot-setup">
-        <div className="progress-bar" role="progressbar" style={{width: "66%", ariaValuenow: "66", ariaValuemin: "0", ariaValuemax: "100"}}/>
-      </div>
+      <Progressbar value={66} />
 
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
@@ -106,7 +107,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={type}
                 onChange={e => setType(e.target.value)}
                 className="form-control db-select--buy-sell"
-                id="exampleFormControlSelect1"
               >
                 <option value="market_buy">Buy</option>
                 <option value="market_sell">Sell</option>
@@ -148,7 +148,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={quote}
                 onChange={e => setQuote(e.target.value)}
                 className="form-control"
-                id="exampleFormControlSelect1"
               >
                 {
                   validQuotesForSelectedBase().map(c =>
@@ -163,7 +162,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={interval}
                 onChange={e => setInterval(e.target.value)}
                 className="form-control"
-                id="exampleFormControlSelect1"
               >
                 <option value="hour">Hour</option>
                 <option value="day">Day</option>
@@ -178,16 +176,15 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-2" />
-            <span>Always use smart intervals.</span>
+            <span>{I18n.t('bots.force_smart_intervals')}</span>
           </label>
         </form>
         {isLimitOrder() &&
         <span className="db-limit-bot-modifier">
-          { isSellOffer() ? 'Sell' : 'Buy' } <input
+          { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
             type="text"
             min="0"
             step="0.1"
-            lang="en-150"
             className="form-control"
             onChange={e => setPercentage(e.target.value)}
             placeholder="0"

@@ -1,0 +1,497 @@
+de:
+    mail: "<p>Hallo 👋,</p>\n    <p>Toll! Dein Empfehlungslink gewinnt an<br>Zugkraft!</p>\n    <p>Wir überweisen dir eine Kommission von</p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n    </p>\n    <p>auf dein Bitcoin Wallet.</p>\n    <p>Vielen Dank, dass du die<br/>Badger Gang erweiterst!</p>"
+    days_left:
+        one: '1 Tag verbleibend'
+        other: '%{count} Tage verbleibend'
+    devise:
+        confirmations:
+            confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigen.'
+            send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            new:
+                title: 'Anweisungen erneut senden'
+                submit: 'Bestätigungslink erneut zuschicken'
+        failure:
+            already_authenticated: 'Du bist bereit angemeldet.'
+            inactive: 'Dein Konto wurde noch nicht aktiviert.'
+            invalid: 'Ungültiger %{authentication_keys} oder Passwort.'
+            locked: 'Dein Konto ist gesperrt.'
+            last_attempt: 'Du hast noch einen Versuch, bevor dein Konto gesperrt wird.'
+            not_found_in_database: 'Ungültiger %{authentication_keys} oder Passwort.'
+            timeout: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an um fortzufahren.'
+            unauthenticated: 'Du musst dich erst registrieren, bevor du fortfahren kannst.'
+            unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Willkommen bei 🎉'
+                template_html: "<p>Willkommen bei Deltabadger 🎉,</p>\n<p>Automatisiertes Dollar-Cost Averaging<br>zu Bitcoin in nur einem Klick:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Mein Konto bestätigen</a>\n</p>\n<p>Du weißt nicht mehr, ob du dich angemeldet hast?<br>Keine Sorge. Ignoriere es einfach.</p>"
+            reset_password_instructions:
+                subject: 'Passwort zurücksetzen 🔑'
+                template_html: "<p>Hallo 👋,</p>\n<p>Es scheint, als wolltest du <br/>dein Passwort 🔑 ändern. Super!</p>\n<p>Los geht's:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Mein Passwort ändern</a>\n  </p>\n<p>Du hast diese Anfrage nicht gestellt?<br/>Keine Sorge! Ignoriere sie einfach.</p>"
+            unlock_instructions:
+                subject: 'Anweisungen entsperren 🔓'
+                template_html: "<p>Hallo 👋,</p>\n<p>Wir haben dein Konto aufgrund <br>einer hohen Zahl an nicht erfolgreichen Anmeldeversuchen gesperrt.</p>\n<p>Klicke unten auf den Link, um es wieder zu entsperren:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Mein Konto entsperren</a>\n</p>"
+            email_changed:
+                subject: 'Neue E-Mail-Adresse 📨'
+                template_html: "<p>Hallo 👋,</p>\n<p>Wir senden diese E-Mail, um dich zu benachrichtigen, dass die E-Mail-Adresse, die mit deinem Konto bei Deltabadger verbunden ist, geändert wurde:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+            password_change:
+                subject: 'Neues Passwort 🔑'
+                template_html: "<p>Geschafft 🎉!</p>\n<p>Dein Passwort 🔑 wurde geändert.</p>"
+        omniauth_callbacks:
+            failure: 'Wir konnten dich aufgrund von "%{reason}" nicht von %{kind} authentifizieren.'
+            success: 'Erfolgreich von %{kind} Konto authentifiziert.'
+        passwords:
+            no_token: 'Du kannst nicht auf diese Seite zugreifen, wenn du nicht von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest. Wenn du von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest, stelle bitte sicher, dass du die vollständige URL verwendet hast.'
+            send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            updated: 'Erledigt! Dein Passwort wurde geändert.'
+            updated_not_active: 'Erledigt! Dein Passwort wurde geändert.'
+            new:
+                title: 'Dein Passwort vergessen?'
+                submit: 'Anweisungen anfordern'
+            edit:
+                title: 'Dein Passwort ändern'
+                submit: 'Mein Passwort ändern'
+        registrations:
+            destroyed: 'Tschüss! Wir hoffen, dich bald wiederzusehen...'
+            signed_up: 'Schön, dich kennenzulernen!'
+            signed_up_but_inactive: 'Hi, dein Konto wurde noch nicht aktiviert. Hast du dein Postfach überprüft?'
+            signed_up_but_locked: 'Ups... Dein Konto ist gesperrt.'
+            signed_up_but_unconfirmed: 'Prüfe dein Postfach und klicke auf den Bestätigungslink.'
+            update_needs_confirmation: 'Prüfe dein Postfach und folge dem Bestätigungslink, um deine neue E-Mail-Adresse zu bestätigen.'
+            updated: 'Dein Konto wurde erfolgreich aktualisiert.'
+            updated_but_not_signed_in: 'Dein Konto wurde erfolgreich aktualisiert. Melde dich erneut an.'
+            new:
+                title_html: 'Erstelle ein <span class="text-success">kostenloses</span> Konto'
+                email_used: 'Diese E-Mail wird bereits genutzt.'
+                email_suggestion_html: 'E-Mail ungültig! Meintest du <b>%{suggestion}</b>'
+                email_invalid: 'E-Mail ungültig!'
+                submit: 'Starte jetzt'
+            edit:
+                awaiting_confirmation: 'Aktuell warten wir auf die Bestätigung von: %{email}'
+        sessions:
+            signed_in: 'Lange nicht gesehen!'
+            signed_out: 'Bis bald!'
+            already_signed_out: 'Ich hasse Abschiede. Bis bald?'
+            new:
+                title: Anmelden
+                submit: Anmelden
+                forgot_password: 'Passwort vergessen?'
+        unlocks:
+            send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            unlocked: 'Dein Konto wurde erfolgreich entsperrt. Bitte melde dich an, um fortzufahren.'
+    errors:
+        messages:
+            already_confirmed: 'wurde bereits bestätigt, bitte versuche dich anzumelden.'
+            confirmation_period_expired: 'muss innerhalb von %{period} bestätigt werden. Bitte fordere ein neues an.'
+            expired: 'ist abgelaufen. Bitte fordere ein neues an.'
+            not_found: 'nicht gefunden.'
+            not_locked: 'wurde nicht gesperrt.'
+            not_saved:
+                one: 'Aufgrund 1 Fehlers konnte diese %{resource} nicht gespeichert werden:'
+                other: 'Aufgrund von %{count} Fehlern konnte diese %{resource} nicht gespeichert werden:'
+            model_invalid: 'Validierung ist fehlgeschlagen: %{errors}'
+            inclusion: 'ist nicht in der Liste beinhaltet'
+            exclusion: 'ist reserviert'
+            invalid: 'ist ungültig'
+            confirmation: 'stimmt nicht mit %{attribute} überein'
+            accepted: 'muss akzeptiert werden'
+            empty: 'darf nicht leer bleiben'
+            blank: 'darf nicht frei bleiben'
+            present: 'muss frei sein'
+            too_long:
+                one: 'ist zu lang (Das Maximum ist ein Zeichen)'
+                other: 'ist zu lang (Das Maximum ist %{count} Zeichen)'
+            too_short:
+                one: 'ist zu kurz (Das Minimum ist ein Zeichen)'
+                other: 'ist zu kurz (Das Minimum ist %{count} Zeichen)'
+            wrong_length:
+                one: 'hat die falsche Länge (muss 1 Zeichen sein)'
+                other: 'hat die falsche Länge (muss %{count} Zeichen beinhalten)'
+            not_a_number: 'ist keine Zahl'
+            not_an_integer: 'muss eine ganze Zahl sein'
+            greater_than: 'muss größer als %{count} betragen'
+            greater_than_or_equal_to: 'muss größer oder gleich %{count} betragen'
+            equal_to: 'muss gleich %{count} sein'
+            less_than: 'muss weniger als %{count} betragen'
+            less_than_or_equal_to: 'muss weniger oder gleich %{count} betragen'
+            other_than: 'darf nicht %{count} sein'
+            in: 'muss in %{count} liegen'
+            odd: 'muss ungerade sein'
+            even: 'muss gerade sein'
+        unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
+        format: '%{attribute}%{message}'
+        referral_program_inactive: 'Dein Empfehlungsprogramm ist nicht aktiv.'
+        bitcoin_address_not_updated: 'Bitcoin-Adresse konnte nicht aktualisiert werden'
+        frequency_limit: 'Frequenzgrenze überschritten'
+        limit_reached: 'Limit des kostenlosen Plans erreicht'
+        invalid_api_keys: 'Ungültige Tokens'
+    deltabadger: Deltabadger
+    welcome:
+        default: 'Hallo, willkommen bei Deltabadger'
+        saver: 'Werde die Limits los und führe ein Upgrade durch!'
+        banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 500 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
+    subscriptions:
+        upgrade: Upgrade
+        days_left:
+            one: '1 Tag verbleibend'
+            other: ' %{count} Tage verbleibend'
+        saver: Sparer
+        investor: Investor
+        hodler: Besitzer
+        investor_description_html: 'Ein Jahr <b class="badge badge-btc">unbegrenzte Transaktionen</b> für BTC, ETH, LTC, XMR. <span class="no-break">Zugriff auf</span> das <b class="badge badge-referral">Empfehlungsprogramm</b>.'
+        hodler_description_html: "DCA funktioniert am besten als langfristige Anlage. <span class=\"no-brak\">Vier Jahre</span> <b class=\"badge badge-btc\">unbegrenzte Transaktionen</b> für <b class=\"badge badge-all\">alle Token</b>, <b class=\"badge badge-limit\">begrenzte Bestellungen</b> und Zugriff auf das <b class=\"badge badge-referral\">Empfehlungsprogramm</b>.\nDieser Plan unterstützt auch das Projekt, sodass Anleger einen <b class=\"badge badge-priority\">bevorzugten Zugriff</b> auf alle <b class=\"badge badge-priority\">neuen Funktionen</b> erhalten."
+        plan_1_year: 1-Jahr-Plan
+        plan_4_year: 4-Jahres-Plan
+        limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Limit von 500 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
+        payment:
+            billing_information: Zahlungsinformationen
+            bitcoin: Bitcoin
+            wire_transfer: Banküberweisung
+            wire_transfer_description_html: 'Um per Überweisung zu bezahlen, sende uns die Details für die Rechnung mit <b>Name</b>, <b>Nachname</b>, <b>Adresse</b>, <b>E-Mail1</b>, die du bei Deltabadger verwendest, und teile uns den Plan mit, den du kaufen möchtest, an <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+            pay_with_bitcoin: 'Zahle mit Bitcoin'
+            active_plan_discount: 'Rabatt für Pläne aktiv'
+            compensation:
+                one: 'Entschädigung für 1 ungenutzten Tag des Plans Investor.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Plans Investor'
+            discount: 'Rabatt in Höhe von %{discount_percent} %'
+            referral_discount_html: 'Mit dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
+            you_pay: 'Du zahlst'
+            payment_ordered: 'Zahlung angefordert!'
+        upgrade_plan: 'Plan upgraden'
+    links:
+        homepage: 'Link zur Homepage'
+        log_in: Anmelden
+        sign_up: Anmelden
+        log_out: Ausloggen
+        create_account: 'Erstelle ein kostenloses Konto'
+        resend_link: 'Link erneut zuschicken'
+        terms_and_conditions: AGB
+        privacy_policy: Datenschutzrichtlinie
+        cookies_policy: Cookie-Richtlinien
+        start_fast: 'Starte in 5 Minuten'
+        start_fast_longer_html: 'Starte in 5 Minuten <span class="d-none d-sm-inline">kostenlos</span>'
+        contact: Kontakt
+        about: Über
+        about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
+        dashboard: Dashboard
+        referral_program: Empfehlungsprogramm
+        settings: Einstellungen
+        menu: Menü
+    social:
+        telegram: 'Schließe dich unserer Telegram-Gruppe an'
+        twitter: 'Folge uns auf Twitter'
+        blog: 'Lies unseren Blog'
+        knowledge_base: Wissensdatenbank
+    ads:
+        automate_bitcoin_html: 'Automatisiere den Kauf von <br> Bitcoin'
+        automate_crypto_html: "Automatisiere den Kauf aller<br class=\"d-none d-sm-inline\">\nKrypto-<span class=\"d-none d-sm-inline\">währungen</span>"
+        automate_hourly: stündlich
+        automate_daily: täglich
+        automate_weekly: wöchentlich
+        dont_trade_automate_html: '<div>Handle nicht</div> <div>Automatisiere.</div>'
+        dca_bulletproof_html: 'Eine absolut sicherte Strategie zum <span class="no-break"><a href="#dcamagic">Dollar-Cost Averaging</a>.</span><br> Funktioniert mit den gängigen Börsen. <span class="no-break">Einrichtung in 5 Minuten.</span>'
+        dca_profit_html: 'Wenn du im letzten Jahr Dollar-Cost-Averaging<br>zu Bitcoin betrieben hättest,<br>hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
+        basic_free_html: "Der Plan Basic ist\nfür immer\n<b class=\"text-success text-success--lighter\">kostenlos</b>."
+        features: "Auto-DCA auf deinem Börsenkonto;\n<i>Smart-Intervalle</i> und eine Einrichtung, die nur 5 Minuten dauert;\nUpdates und neue Funktionen jeden Monat;\nSupport und Telegram-Community"
+        dca_standard: 'Dollar-Cost-Averaging zu Bitcoin ist der neue Standard für langfristige Sparer.'
+        dca_standard_html: 'Dollar-Cost-Averaging zu<br>Bitcoin ist der neue Standard<br>für langfristige Sparer.'
+        dca_standard_description_html: "<p>Wachsende Regulierungen schränken den Zugang des Einzelnen zu den Finanzmärkten ein, während Negativzinsen Anleihen und Sparkonten entwerten.</p>\n<p>In diesem Umfeld investieren sowohl Einzelpersonen als auch Unternehmen weiterhin in Bitcoin.</p>"
+        password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
+        bitwarden_title: 'Probiere Bitwarden'
+        bitwarden_text: '. Es ist kostenlos und open-source.'
+    meta:
+        title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
+        description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten. Der Basisplan ist kostenlos.'
+        og_description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten.'
+        twitter_description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten. Der Basisplan ist kostenlos. DCA könnte nicht einfacher sein.'
+        twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
+    home:
+        index:
+            title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
+            fastest_asset: 'Nutze DCA auf dem am schnellsten ansteigenden Vermögenswert.'
+            fastest_market: 'Nutze DCA auf dem am schnellsten ansteigenden Markt.'
+            connect_exchanges: 'Verbinde eine der beliebten Börsen und stelle wiederkehrende Käufe nach deinem gewünschten Zeitplan ein. Du kannst so viele Bots haben, wie du möchtest, um DCA in dein bevorzugtes Kryptowährungsportfolio aufzunehmen.'
+            testimonials:
+                header: 'Was Nutzer über uns sagen:'
+            dca_magic:
+                title_html: "Die Magie des\n<span class=\"no-break\">Dollar-Cost-</span>\n<br>Averaging in\n<span class=\"no-break\">4 einfachen Graphen</span>"
+                easy1:
+                    title_html: 'Warte... Was ist DCA?'
+                    text_html: "<p>DCA ist eine Anlagestrategie, bei der du regelmäßig einen Vermögenswert für einen festen Betrag kaufst, unabhängig von seinem Preis. Du erhältst mehr von dem Vermögenswert, wenn der Preis niedriger ist, und weniger davon, wenn der Preis höher ist. Als Ergebnis erhältst du, anstatt große kurzfristige Wetten einzugehen, einen fairen Durchschnittspreis.</p>\n<p>DCA schützt dich vor der emotionalen Achterbahn, dem kurzfristigen Risiko und der Entscheidungsangst.</p>"
+                    chart_regular_purchases: 'Reguläre Käufe'
+                    chart_average_price: Durchschnittspreis
+                easy2:
+                    title_html: 'Soll ich auf die Korrektur waren, um zu<span class="no-break">beginnen?</span>'
+                    text_html: '<p>Nein. Bei einem wertsteigernden Vermögenswert ist es immer besser, früher anzufangen, selbst an der Spitze! Schließlich wird der Preis steigen, und wer früher angefangen hat, hat am Ende einen niedrigeren Durchschnittspreis.</p>'
+                    chart_earlier: Früher
+                    chart_better_average_price: 'besserer Durchschnittspreis'
+                easy3:
+                    title_html: 'Warum ist dies besser als ein <span class="no-break">pauschales Investment</span>?'
+                    text_html: '<p>Kurzfristig kann der Kurs noch steigen, fallen oder seitwärts gehen. Pauschalen gewinnen nur im ersten Szenario. DCA gewinnt in zwei anderen. Die Magie von DCA bringt dich in den grünen Bereich, auch wenn sich der Kurs am Ende nicht verändert hat.</p>'
+                    chart_lump_sum: 'Pauschale = 5 Einheiten'
+                    chart_dca: 'DCA = 6 Einheiten'
+                easy4:
+                    title_html: 'Kann ich DCA mit RSI <span class="no-break">oder Mayer Multiple</span> verbessern?'
+                    text_html: '<p>Nicht wirklich. Oszillatoren funktionieren nicht gut in einem Aufwärtstrend. Der nächste Tiefpunkt ist oft höher als die vorherige Spitze. Es gibt keine automatisierte Strategie, die mit DCA gewinnt, denn DCA ist einfach das Investieren in den Markttrend, der mit keiner mathematischen Formel konsequent geschlagen werden kann.</p>'
+                    chart_price: Preis
+                    chart_mm: 'Mayer Multiple'
+        founder:
+            signature: 'Ich bin Jan, der Gründer von Deltabadger.'
+            telegram_invitation_html: 'Besuche und auf <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
+        confirm_registration:
+            title: Danke!
+            text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
+        contact:
+            title: Kontakt
+            general_questions_html: 'Für allgemeine Fragen versuche unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
+            specific_questions_html: 'Melde dich für spezifischere Probleme bei uns unter %{email} oder sende uns eine Nachricht auf Telegram oder <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+    affiliates:
+        new:
+            title: 'Registrierung für das Empfehlungsprogramm'
+            upgrade: 'Um an unserem berühmten Empfehlungsprogramm teilzunehmen, führe ein Upgrade auf einen unserer kostenpflichtigen Pläne durch.'
+            referrer_info: '1. Info zum Empfehlenden'
+            payout_address: '2. Auszahlungsadresse'
+            program_settings: '3. Programmeinstellungen'
+            visible_info: '4. Sichtbare Info'
+            private: Privat
+            eu_company: EU-Firma
+            unchangable_warning: 'Die Einstellungen in diesem Bereich können später nicht geändert werden.'
+            discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
+            checked: 'Ich habe mir alles genau angesehen.'
+            submit: 'Los geht''s!'
+            program_settings_html: 'Link<span class="text-danger">(kann nicht geändert werden)</span>'
+            pick_referral_code: 'Wähle deinen Empfehlungscode'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent"></span>%{discount_percent_preview} % Rabatt auf den ersten Einkauf.<br>'
+            thanks_referral: 'Mit dem Empfehlungslink von'
+        create:
+            saver_error: 'Du musst upgraden, um dich registrieren zu können'
+            error: 'Anmeldung zum Empfehlungsprogramm fehlgeschlagen'
+        show:
+            title: Empfehlungsprogramm
+            deactivated:
+                notice: 'Es scheint, als wäre dieses Programm deaktiviert worden. Kontaktiere uns, wenn du nicht weißt, was passiert ist.'
+                contact: 'Kontaktiere uns'
+            expired: 'Oh nein, dein Abo ist abgelaufen. Erneuere deinen Plan, um weiter Vorteile aus dem Empfehlungsprogramm zu nutzen.'
+            your_link: 'Dein Empfehlungslink'
+            stats: Statistiken
+            referees: Geworbene
+            paid_so_far: 'Bis jetzt bezahlt (BTC)'
+            unpaid: 'Nicht bezahlt (BTC)'
+            update_info: 'Sichtbare Info aktualisieren'
+            update_bitcoin_address: 'Bitcoin-Adresse aktualisieren'
+            info_preview: 'Vorschau auf die Info, die der Empfohlene sieht'
+            submit_info: 'Sichtbare Info aktualisieren'
+            submit_bitcoin_address: 'Bitcoin-Adresse aktualisieren'
+            manual_title: 'Wie funktioniert es?'
+            paid_commission: 'Bezahlt (BTC)'
+            unpaid_commission: 'Offen (BTC)'
+            link_title: 'Dein Link'
+            submit: Update
+        discount:
+            flash_html: 'Hallo! Viel Spaß mit dem Rabatt in Höhe von %{discount_percent} % von <span class="text-success text-success--lighter">%{visible_name}</span>'
+            congrats_html: 'Glückwunsch! Der Rabatt in Höhe von <span class="db-form-label-range--discount-percent">%{discount_percent}</span> % ist aktiv.'
+            referrer_html: 'Mit dem Empfehlungslink von <b><a href=''%{visible_link}''><span class=''db-form-preview--visible_name''>%{visible_name}</span></a></b>'
+            valid_for: 'Gültig für den ersten Kauf auf der Plattform.'
+            accepted: 'Du hast den Empfehlungslink akzeptiert'
+            invalid: 'Dieser Empfehlungslink scheint ungültig oder veraltet zu sein'
+            already_used: 'Du hast diesen Empfehlungscode bereits versendet'
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n    <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n    <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n    <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n    <li>Beim nächsten Mal kauft der Empfohlene einen 4-Jahres-Plan für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n    <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
+        apply_code:
+            title: Empfehlungslink
+            accept: Akzeptieren
+            reject: Zurück
+        btc_address_confirmation_sent: 'Bestätigungs-E-Mail versendet'
+        btc_address_changed: 'Bitcoin-Adresse geändert'
+        program_joined: 'Du bist dem Empfehlungsprogramm beigetreten'
+        your_bitcoin_address: 'Deine Bitcoin-Adresse'
+        invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
+        info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
+        add_link_info: 'Du kannst deinen Namen und einen Link zu deiner Website hinzufügen, damit der Geworbene weiß, woher der Rabatt stammt. Du kannst dieses Feld auch leer lassen:'
+    settings:
+        index:
+            title: Einstellungen
+            email_section: 'E-Mail aktualisieren'
+            submit_email: 'E-Mail aktualisieren'
+            password_section: 'Passwort aktualisieren'
+            submit_password: 'Passwort ändern'
+            api_keys_section: API-Schlüssel
+            api_key_confirmation: 'Bist du sicher?'
+            current_password: 'Aktuelles Passwort (zur Bestätigung)'
+    forms:
+        for_confirmation: '(zur Bestätigung)'
+        minimum_length: 'mind. %{length} Zeichen'
+    helpers:
+        label:
+            affiliate:
+                btc_address: BTC-Adresse
+                btc_address_tooltip: 'BTC-Adresse, an die du deine Auszahlungen erhalten möchtest.'
+                code_tooltip: 'Wähle deinen gewünschten Empfehlungscode.'
+                name: 'Firmenname:'
+                address: 'Firmenanschrift:'
+                vat_number: 'Steuernummer (optional):'
+                visible_name: 'Name auf der Vorschau'
+                visible_link: Link
+                check: Prüfen
+            user:
+                email: E-Mail
+                password: Passwort
+                current_password: 'Aktuelles Passwort'
+                terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy} von Deltabadger.'
+                remember_me: 'Daten speichern'
+                new_password: 'Neues Passwort'
+                new_password_confirmation: 'Neues Passwort bestätigen'
+                password_confirmation: Passwortbestätigung
+            payment:
+                first_name: Nachname
+                last_name: Vorname
+                birth_date: Geburtsdatum
+                country: Land
+                other: Andere
+    cookie:
+        agree: 'Ich stimme zu'
+        description: 'Wir nutzen Cookies, um alles einfacher zu gestalten.'
+        read_more: 'Weitere Informationen'
+    bots:
+        setup:
+            step_exchange: Umtauschen
+            step_api_key: API-Schlüssel
+            step_schedule: Planen
+            cancel: Abbrechen
+            limit_warning: 'Der Limit-Order-Bot ist eine experimentelle Funktion. Nicht alle Aufträge werden dadurch ausgeführt. Um gute Ergebnisse zu erzielen, musst du den investierten Betrag anteilig erhöhen. Im Moment bietet der Deltabadger noch keine Hilfe bei der Abschätzung dieser Anpassung, daher ist dein eigenes Backtesting notwendig. Verwende ihn nur, wenn du weißt, was du tust.'
+            how_to_get_keys: 'API-Keys von %{exchange} erhalten:'
+            binance:
+                instructions_html: "<ol>\n  <li>Melde dich in deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.</li>\n  <li>Benenne den neuen API-Schlüssel, indem du auf \"Erstellen\" klickst.</li>\n  <li>Bestätige mit einem einmaligen Code.</li>\n  <li>Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.</li>\n  <li>Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.18.70.231</b></li>\n  <li>Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.</li>\n  <li>Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.</li>\n  <li>Füge beide Schlüssel in die Eingabe oben ein.</li>\n</ol>"
+                private_key: 'Secret Key'
+                public_key: API-Schlüssel
+            bitbay:
+                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Einstellungen</b>.</li>\n  <li>Drücke auf <b>Neuen Schlüssel hinzufügen</b>.</li>\n  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Verlauf</b></li>\n      <li><b>Order und Marktkonfigurationen erhalten</b></li>\n      <li><b>Order prüfen und Marktkonfigurationen ändern</li></b>\n    </ul>\n  </li>\n  <li>Drücke auf <b>Erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben.</li>\n</ol>"
+                private_key: 'Private Key'
+                public_key: 'Public Key'
+            kraken:
+                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link} -Konto an.</li>\n  <li>Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.</li>\n  <li>Drücke auf <b>Neuen Schlüssel erstellen</b>.</li>\n  <li>Setze Berechtigungen für:<br/>\n    Gelder:\n    <ul>\n      <li><b>Gelder abfragen</b></li>\n    </ul>\n    Order & Trades:\n    <ul>\n      <li><b>Offene Orders & Trades abfragen</b></li>\n      <li><b>Geschlossene Orders & Trades abfragen</b></li>\n      <li><b>Order ändern</b></li>\n      <li><b>Order abbrechen/schließen</b></li>\n    </ul>\n  </li>\n  <li>Drücke auf <b>Schlüssel generieren</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in die obige Tabelle.</li>\n</ol>"
+                trading_agreement_html: '<b>Hallo!</b> Wenn dein Kraken-Konto mit einer deutschen Adresse verifiziert ist, musst du ein <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsabkommen</a> akzeptieren, um Market- und Margin-Orders zu platzieren.'
+                trading_agreement_label_html: 'Ich akzeptiere das <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsabkommen</a>.'
+                private_key: 'Private Key'
+                public_key: API-Schlüssel
+            coinbase_pro:
+                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API</b>.</li>\n  <li>Drücke auf <b>Neuer API-Schlüssel</b>.</li>\n  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Ansicht</b></li>\n      <li><b>Trade</b></li>\n    </ul>\n  </li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel und Passphrase in die Tabelle oben.</li>\n</ol>"
+                private_key: 'Secret Key'
+                public_key: API-Schlüssel
+                passphrase: Passphrase
+            gemini:
+                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Konto-Menü (obere rechte Ecke) zu <b>Einstellungen</b>.</li>\n  <li>Wähle <b>API</b> (links).</li>\n  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n  <li>Wähle im Dropdownmenü <b>Bereich</b> <b>Primär</b>.</li>\n  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n  <li>Stelle die API-Schlüssel-Einstellungen ein:\n    <ul>\n      <li><b>Trading</b></li>\n    </ul>\n  </li>\n  <li>Wähle <b>Require session heartbeat</b></li> nicht aus\n  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben.</li>\n</ol>"
+                private_key: 'Secret Key'
+                public_key: API-Schlüssel
+            ftx:
+                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe zum Einstellungsmenü (Oben in der rechten Ecken).</li>\n  <li>Scrolle runter bis zum <b>API-Schlüssel</b>-Bereich.</li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in das Formular oben.</li>\n</ol>"
+                private_key: 'Private Key'
+                public_key: 'Public Key'
+            next: Nächster
+        add_new_bot: 'Neuen Bot hinzufügen'
+        start: Starten
+        stop: Pausieren
+        buy: Kaufen
+        limit_buy: 'Limit Kauf'
+        sell: Verkaufen
+        limit_sell: 'Limit Verkauf'
+        for: für
+        hour: Stunde
+        day: Tag
+        week: Woche
+        month: Monat
+        next_buy: 'Nächster Verkauf in %{countdown}'
+        next_sell: 'Nächster Verkauf in %{countdown}'
+        buttons:
+            start:
+                changed_on_schedule:
+                    info_html: 'Der neue Zeitplan beginnt, nachdem die verbleibende <b>%{time}</b> des letzten Zeitplans beendet ist.'
+                    skip: 'Ignorieren und sofort beginnen'
+                    continue: 'Ich verstehe'
+                changed_missed:
+                    info_html: 'Möchtest du den Betrag <b>%{amount}%{quote}</b> investieren, der verpasst wurde, während der Bot pausiert war? Der neue Zeitplan beginnt, nachdem der aktuelle Countdown beendet ist.'
+                    skip: 'Den verfehlten Teil ignorieren'
+                    continue: 'Ja, kaufen und fortfahren'
+                missed:
+                    info_html: 'Möchtest du den Betrag <b>%{amount}%{quote}</b> investieren, der verpasst wurde, während der Bot pausiert war, und den ursprünglichen Zeitplan fortsetzen?'
+                    skip: 'Den verfehlten Teil überspringen'
+                    continue: 'Ja, kaufen und fortfahren'
+                on_schedule:
+                    info_html: 'Du hast noch <b>%{time}</b> bis zur nächsten Order. Du kannst diese überspringen und die nächste Order Auftrag sofort ausführen oder den ursprünglichen Countdown fortsetzen.'
+                    skip: Überspringen
+                    continue: 'Mit ursprünglichem Plan fortfahren'
+            delete:
+                text: Löschen
+                warning_html: 'Dadurch wird der Bot mit all<br> seinen Verlaufsdaten entfernt. Bist du sicher?'
+                cancel: Abbrechen
+                ok: 'Komplett entfernen'
+        details:
+            stats:
+                title: Statistiken
+                chart:
+                    total_invested: 'insgesamt investiert'
+                    value: Wert
+                bought: Gekauft
+                average_price: Durchschnittspreis
+                total_invested: 'Insgesamt investiert'
+                current_value: 'Aktueller Wert'
+                profit_loss: Gewinn/Verlust
+                exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
+                csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen.<br>Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'
+                download_csv: 'Download .csv'
+                date: Datum
+                order: Bestellung
+                amount: 'Betrag(%{base})'
+                rate: 'Rate(%{quote})'
+            log:
+                title: Log
+                date: Datum
+                errors: Fehler
+            info:
+                title: Info
+                exchanges_html: "<p className=\"mt-2\"><b>Börsen</b></p>\n<p>Deltabadger arbeitet mit Kryptowährungsbörsen. Aktuell unterstützen wir <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> und <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Wir empfehlen Kraken als eine seriöse Börse, die noch nie gehackt wurde. Verwende Bitbay, wenn du deine Käufe in PLN tätigen möchtest.</p>\n<p>Um deinen Bot nutzbar zu machen, musst du zunächst dein Tauschkonto verifizieren und etwas Geld dorthin überweisen.</p>\n<p>Bewahre deine Coins jedoch nicht zu lange bei einer Börse auf. Logge dich in dein Konto ein und nimm regelmäßig Abhebungen vor, mindestens einmal im Monat.</p>\n<p>Wir werden zukünftig weitere Börsen hinzufügen. Lass es uns wissen, falls dich eine bestimmte Börse besonders interessiert.</p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smarte Intervalle\"</b></p>\n<p>Wenn die smarten Intervalle eingeschaltet sind, führt der Deltabadger deinen gewünschten Zeitplan in den kleinsten von der Börse erlaubten Transaktionen aus. Ansonsten werden sie nur bei Bedarf verwendet.</p>\n<p className=\"mt-2\"><b>Wieso?</b></p>\n<p>Dies hat zwei Vorteile:</p>\n<p>Der häufigere Zeitplan ermöglicht es dir, die Vorteile von DCA schneller zu erleben und glättet es noch mehr.</p>\n<p>Außerdem sind manchmal smarte Intervalle notwendig. Jede Börse hat ein Limit für die Mindesttransaktionsgröße. Einige Börsen definieren es in BTC, so dass der USD-Wert im Laufe der Zeit ändert. Wenn der Betrag, den du kaufen möchtest, kleiner ist, behält Deltabadger dein gewünschtes Verhältnis bei, indem er die minimal erlaubte Größe verwendet, aber das Zeitintervall anpasst. Es schützt den Bot davor, gestoppt zu werden, wenn dein definierter Betrag unter den Schwellenwert fällt.</p>\n<p className=\"mt-2\"><b>Beispiel:</b></p>\n<p>Nehmen wir an, das aktuelle Umtauschlimit beträgt 20 $. Wenn du die Transaktionsgröße für 24 $/Tag festlegst, wird der Bot genau das tun. Wenn du es jedoch als 1 $/Stunde definierst, wird er das Verhältnis anhand der erlaubten Größe nachahmen, was 20 § alle 20 Stunden entspricht. Im Durchschnitt ergibt sich daraus das gleiche Verhältnis (24 $/Tag = 1 $/Stunde = 20 §/20Stunden)</p>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>Neu bei Dollar-Cost Averaging?</b></p>\n<p>Diese Links können dir helfen:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA für Anfänger (Video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Die Macht von DCA zu Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
+        starting: 'Wird gestartet'
+        force_smart_intervals: 'Nutze immer ideale Intervalle.'
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'muss aus alphanumerischen Zeichen in Großbuchstaben bestehen'
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: 'Neue Bitcoin-Adresse bestätigen 📒'
+            template_html: "<p>Hallo 👋,</p>\n<p>Es sieht so aus, als wolltest du deine Bitcoin-Adresse zu:</p>\n<p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p> ändern\n<p>Diese Adresse wird für deine Auszahlungen aus unserem Empfehlungsprogramm genutzt.</p>\n<p>Bist du sicher?</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Ja, lass sie uns ändern!</a>\n</p>\n<p>Du hast diese Anfrage nicht gestellt?<br>Keine Sorge! Ignoriere dies einfach.</p>\n<p>Die Adresse ändert sich nicht, bis du auf den Link oben klickst.</p>"
+        referrals_payout_notification:
+            subject: 'Es ist Zahltag! 💸'
+            template_html: "<p>Hallo 👋,</p>\n<p>Toll! Dein Empfehlungslink kommt gut an!</p>\n<p>Wir überweisen dir eine Kommission von</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>auf dein Bitcoin Wallet.</p>\n<p>Danke, dass du die <br>Badger Gang vergrößerst!</p>"
+    bot_alerts_mailer:
+        first_month_ending_soon:
+            subject: 'Der Probemonat endet bald!'
+            template_html: "<p>Hallo 👋,</p>\n<p>Du nutzt Deltabadger nun schon fast seit einem Monat!</p>\n<p>Deine kostenlose unbegrenzte Testversion endet bald. Führe ein Upgrade durch, um deine tollen Badgers am Laufen zu halten!</p>"
+        limit_almost_reached:
+            subject: 'Limit beinahe erreicht ⌛'
+            template_html: "<p>Hallo 👋,</p>\n<p>Du hast dein Transaktionslimit für deinen <b style=\"color: #0a45a4;\">Sparer-</b> <br>Plan fast erreicht.</p>\n<p>Stufe deinen Plan auf <b style=\"color: #0a45a4;\">Investor</b><br> oder <b style=\"color: #0a45a4;\">Anleger</b> hoch, um deine Bots</br>weiter am Laufen zu halten.</p>"
+        limit_reached:
+            subject: 'Du hast das Limit erreicht 🥳'
+            template_html: "<p>Hallo 👋,</p>\n<p>Oh, gut gemacht! Dein <b style=\"color: #0a45a4;\">Sparer-</b>Plan<br>-Limit ist erreicht.</p>\n<p>Du nutzt Dollar-Cost<br>-Averaging nun anscheinend schon eine Weile.</p>\n<p>Wir hoffen, dass du mit den Ergebnissen<br>zufrieden bist.</p>\n<p>Stufe deinen Plan auf <b style=\"color: #0a45a4;\">Investor</b><br>oder <b style=\"color: #0a45a4;\">Anleger</b> hoch, um alle Limits<br> zu entfernen und deine Bots wieder an die Arbeit zu schicken.</p>"
+        notify_about_error:
+            subject: 'Etwas ist schiefgelaufen 😵'
+            template_html: "<p>Ups… 😵</p>\n<p>Etwas ist während der Verarbeitung<br>der letzten Transaktion schiefgelaufen.</p>\n<p>Du kannst den Fehler im Bot Log<br>einsehen. Melde dich an, um es dir anzusehen.</p>\n<p>Fehler:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+        notify_about_restart:
+            subject: 'Ups! Nächster Versuch 🧐'
+            template_html: "<p>Oh Schreck 🧐,</p>\n<p>Der Bot konnte deine Bestellung nicht durchführen.<br>Es scheint so, als wäre dies ein Umtausch-Problem.<br>Wir versuchen es in %{delay} wieder.</p>\n<p>Alle Fehler sind im Bot Log einsehbar.<br>Melde dich an, um es dir anzusehen.</p>\n<p>Fehler:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+    mailer:
+        signature_html: 'Deltabadger Team 🧑‍🚀'
+        dca_profit_html: '💡 Wenn du vor einem Jahr mit DCA zu Bitcoin<br> begonnen hast, hast du jetzt einen Gewinn von <span style="color:#079e60">%{dca_profit} %</span>.'
+    subscription_mailer:
+        invoice:
+            subject: 'Deltabadger Zahlung'
+            template_html: "<h1>Rechnung</h1>\n<p><b>Bezahlt am:</b></p>\n<p>%{paid_at}</p>\n<p><b>Verkäufer:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  Reg-Nr. 14781461\n</p>\n<p><b>Käufer:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} Plan (%{years}-Jahre)</h2>\n<p>\n  <b>Bezahlt:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
+        subscription_granted:
+            subject: '%{plan_name}-Plan garantiert'
+            template_html: "<p>Wow 💙,</p>\n<p>Danke, dass du unseren</p>\n<p>\n  <b>\n    %{years}-Jahres-Plan %{plan_name} gekauft hast\n  </b>\n</p>\n<p>Du bist der Wahnsinn! 🔥</p>"

@@ -1,0 +1,39 @@
+export const exchanges = {
+  'binance': {
+      name: 'Binance',
+      url: 'https://www.binance.com/en/register?ref=NUYVIP6R',
+      translation_key: 'binance',
+  },
+  'binance.us': {
+      name: 'Binance.US',
+      url: 'https://www.binance.us/en/home',
+      translation_key: 'binance',
+  },
+  'bitbay': {
+      name: 'BitBay',
+      url: 'https://auth.bitbay.net/ref/Hhb7ZrAv2GrA',
+      translation_key: 'bitbay',
+  },
+  'kraken': {
+      name: 'Kraken',
+      url: 'https://r.kraken.com/deltabadger',
+      translation_key: 'kraken',
+  },
+  'coinbase pro': {
+      name: 'Coinbase',
+      url: 'https://pro.coinbase.com/',
+      translation_key: 'coinbase_pro',
+  },
+  'gemini': {
+      name: 'Gemini',
+      url: 'https://exchange.gemini.com/signin',
+      translation_key: 'gemini',
+  },
+  'ftx': {
+      name: 'FTX',
+      url: 'https://ftx.com',
+      translation_key: 'ftx',
+  },
+}
+
+export const getExchange = (exchangeName) => exchanges[exchangeName.toLowerCase()]
