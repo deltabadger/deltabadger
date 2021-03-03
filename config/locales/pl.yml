@@ -224,8 +224,8 @@ pl:
     home:
         index:
             title: 'Deltabadger | Inwestowanie w Bitcoina metodą uśredniania'
-            fastest_asset: 'Inwestuj uśredniając w najszybciej rosnące aktywo&nbsp;finansowe.'
-            fastest_market: 'Inwestuj uśredniając w najszybciej rosnący rynek&nbsp;finansowy.'
+            fastest_asset: 'Inwestuj uśredniając w najszybciej rosnące aktywo finansowe.'
+            fastest_market: 'Inwestuj uśredniając w najszybciej rosnący rynek finansowy.'
             connect_exchanges: 'Podłącz jedną z popularnych giełd i ustaw powtarzające się zakupy w wybranym odstępie czasu. Możesz uruchomić tyle botów, ile chcesz, aby inwestować uśredniając w dowolny koszyk kryptowalut.'
             testimonials:
                 header: 'Użytkownicy mówią o nas:'
