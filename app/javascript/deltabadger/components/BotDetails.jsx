@@ -6,6 +6,7 @@ import { Info } from './BotDetails/Info';
 import { isNotEmpty, isEmpty } from '../utils/array';
 
 export const BotDetails = ({ bot }) => {
+  console.log()
   const statisticsActive = isNotEmpty(bot.transactions)
   const logActive = isNotEmpty(bot.logs) && !statisticsActive
   const infoActive = isEmpty(bot.transactions) && isEmpty(bot.logs)
