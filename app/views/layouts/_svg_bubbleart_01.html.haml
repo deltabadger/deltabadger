@@ -1,56 +1,56 @@
-%img{:src => asset_pack_path("media/images/badgerart01.png")}
+-# %img{:src => asset_pack_path("media/images/badgerart01.png")}
 
--# %svg.db-homeart.db-homeart--01{ :viewbox => "0 0 445 445", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
--#   %defs
--#
--#     %rect#mask-bg(x="0" y="0" width="445" height="445" fill="var(--white)")
--#     %path#shape--badger{:d => "M105.9 333.5c1.1.8 3.2 1.2 3.5-.3.3-1.7.2-6.1-.3-13.4.5 8.6 1.8 12.9 3.8 12.9 3 0 3.6-12.9 6.4-12.9 2.8 0 2.6 15.6 6 16.3.6.1 3.6.7 4.1-1 1-3.5 1.6-16.7 1.5-39.8 1.7 3.6 4 5.8 6.8 6.4 4.3.9 7.9 0 7.9-1.6s-2.5.6-5.1-3.4c-2.7-4-4-12.9-5.6-16.2-1.1-2.3-2.5-4.2-4.1-5.7 3.5-.4 5.5-1.3 6-2.6.5-1.6-2.9-8.9-11-9.6-8.2-.6-13.1 7.5-15.2 8.6-7 3.8-10.8 15.8-10.8 25.5 0 15.3 3 5 3.6 2.8.5-1.6.8-3 1-4.2-.6 4.7-.9 8.5-1 11.5-.4 15 1.3 26 2.5 26.7z"}
--#     %path#shape--ball-in-ground{:d => "M5 181.7c2.6 0 4.8-.8 4.8-1.8v-8H0v8c0 1 2.2 1.8 5 1.8z"}
--#     %path#shape--glass{:mask=>"url(#mask--ground)", :d => "M418.3 327.6A222.3 222.3 0 00222.5 0 222.3 222.3 0 0026.7 327.5c23.2-.5 372.6-.5 391.6 0z"}
--#     %path#shape--badger-back{:d => "M114 314c2.8 0 7.4-21.5 8.2-26.6 2-11.8 2-19.5 8.7-19.5h11.7l-8-17.4c1 1-2.1 3.1-9.4 6.4-10.8 5-16.9 12.1-16 32.5.2 6.4 1.1 24.6 4.7 24.6z", :mask => "url(#mask--badger)"}
--#
--#     %mask#mask--ground
--#       %use{"xlink:href" => "#mask-bg"}
--#       %ellipse.db-homeart--01__ground{:cx => "222.5", :cy => "326", :fill => "#000", :rx => "196", :ry => "20"}
--#       %use.badger-rig01{ :fill => "#000", "xlink:href" => "#shape--badger"}
--#     %mask#mask--glass
--#       %use.db-homeart--01__glass-shape{"xlink:href" => "#shape--glass", :fill => "var(--white)"}
--#     %mask#mask--badger
--#       %use{"xlink:href" => "#shape--badger", :fill => "var(--white)"}
--#     %mask#mask--badger-inverse
--#       %use{"xlink:href" => "#mask-bg"}
--#       %use{"xlink:href" => "#shape--badger", :fill => "#000"}
--#     %mask#mask--ball-in-ground
--#       %use{"xlink:href" => "#shape--ball-in-ground", :fill => "var(--white)"}
--#
--#     %lineargradient#gradient--1{:x1 => "50%", :x2 => "50%", :y1 => "0%", :y2 => "100%"}
--#       %stop{:offset => "0%", "stop-color" => "var(--white)"}
--#       %stop.db-stop-color--success{:offset => "100%", "stop-color" => "#34CE57"}
--#
--#   %path{:mask=>"url(#mask--ground)",:d => "M222.6 444c84.8 0 158.1-47.3 196-116.8-19.5-.2-377.8-.2-392.1 0A223 223 0 00222.6 444z", :fill => "#000", "fill-opacity" => ".3"}
--#   %use.db-homeart--01__glass{"xlink:href" => "#shape--glass", :fill => "var(--white)", "fill-opacity" => "0.05"}
--#   %path.db-homeart--01__glass-shine{:mask=>"url(#mask--glass)", :fill => "#ffe", "fill-opacity" => "0.06", :d => "M252.113178,85.0754545 C239.236726,43.2642647 204.778761,16.0446101 172.507939,5.64755127 C115.654646,-12.6695223 59.5197284,-0.130617805 4.10318655,43.2642647 C67.9100226,-8.71044705 135.97286,-24.959562 208.2917,-5.4830803 C352.455752,33.342329 316.963584,206.193033 412.545295,181.600638 C426.229759,178.079737 434.856255,175.663395 439.880384,174.418771 C440.006089,175.007844 478.532878,157.450461 478.863055,158.544739 C479.034033,159.111396 443.746911,176.248794 440.84346,179.059899 C432.33312,187.299562 416.026542,204.818549 418.954051,233.076636 C426.569589,306.586403 460.730866,330.894191 521.437884,306 C453.115329,336.083997 408.096212,326.403019 386.380532,276.957065 C365.919032,230.366839 387.69041,149.607277 309.056804,174.539744 C267.038212,187.862637 267.400972,134.716527 252.113178,85.0754545 Z"}
--#   %g{:transform => "translate(175.2 146)"}
--#     %path{:d => "M44.3 138.5l.2 40.4",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M24.6 158.2l.3 20.7",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M64 118.9l.2 60",                  :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M103.4 86.4l.2 92.5",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M83.7 103.1l.2 75.8",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M123.1 65.8l.2 113.1",             :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M162.4 24.6l.3 153.7",             :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M142.8 45.2l.2 133.1",             :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %path{:d => "M182.1 4.9l.1 53.7.1 28.6.1 91.1", :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
--#     %circle{:cx => "142.8", :cy => "44.2",  :fill => "var(--white)",    :r => "4.9"}
--#     %circle{:cx => "162.4", :cy => "24.6",  :fill => "var(--white)",    :r => "4.9"}
--#     %circle{:cx => "123.1", :cy => "63.9",  :fill => "var(--white)",    :r => "4.9"}
--#     %circle{:cx => "83.7",  :cy => "103.1", :fill => "#F0FBF2", :r => "4.9"}
--#     %circle{:cx => "103.4", :cy => "83.5",  :fill => "#F8FDF9", :r => "4.9"}
--#     %circle{:cx => "64",    :cy => "118.9", :fill => "#EBFAEE", :r => "4.9"}
--#     %circle{:cx => "24.6",  :cy => "158.2", :fill => "#CAF2D3", :r => "4.9"}
--#     %circle{:cx => "44.3",  :cy => "138.5", :fill => "#E1F8E6", :r => "4.9"}
--#     %circle{:cx => "182.1", :cy => "4.9",   :fill => "var(--white)",    :r => "4.9"}
--#     %circle{:cx => "4.9",   :cy => "177.8", :fill => "#C0F5CC", :r => "4.9", :mask => "url(#mask--ball-in-ground)"}
--#   %g.db-homeart--01__badger.badger-rig01
--#     %circle.db-homeart--01__badger__ball{:fill => "#C0F5CC", :cx => "142.8", :cy => "295.3", :r => "4.9", :mask => "url(#mask--badger-inverse)"}
--#     %use.db-homeart--01__badger__body{   :fill => "#2b264c", "fill-opacity" => ".77", "xlink:href" => "#shape--badger"}
--#     %use.db-homeart--01__badger__back{   :fill => "var(--white)", "fill-opacity" => "0.3", "xlink:href" => "#shape--badger-back"}
+%svg.db-homeart.db-homeart--01{ :viewbox => "0 0 445 445", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
+  %defs
+
+    %rect#mask-bg(x="0" y="0" width="445" height="445" fill="var(--white)")
+    %path#shape--badger{:d => "M105.9 333.5c1.1.8 3.2 1.2 3.5-.3.3-1.7.2-6.1-.3-13.4.5 8.6 1.8 12.9 3.8 12.9 3 0 3.6-12.9 6.4-12.9 2.8 0 2.6 15.6 6 16.3.6.1 3.6.7 4.1-1 1-3.5 1.6-16.7 1.5-39.8 1.7 3.6 4 5.8 6.8 6.4 4.3.9 7.9 0 7.9-1.6s-2.5.6-5.1-3.4c-2.7-4-4-12.9-5.6-16.2-1.1-2.3-2.5-4.2-4.1-5.7 3.5-.4 5.5-1.3 6-2.6.5-1.6-2.9-8.9-11-9.6-8.2-.6-13.1 7.5-15.2 8.6-7 3.8-10.8 15.8-10.8 25.5 0 15.3 3 5 3.6 2.8.5-1.6.8-3 1-4.2-.6 4.7-.9 8.5-1 11.5-.4 15 1.3 26 2.5 26.7z"}
+    %path#shape--ball-in-ground{:d => "M5 181.7c2.6 0 4.8-.8 4.8-1.8v-8H0v8c0 1 2.2 1.8 5 1.8z"}
+    %path#shape--glass{:mask=>"url(#mask--ground)", :d => "M418.3 327.6A222.3 222.3 0 00222.5 0 222.3 222.3 0 0026.7 327.5c23.2-.5 372.6-.5 391.6 0z"}
+    %path#shape--badger-back{:d => "M114 314c2.8 0 7.4-21.5 8.2-26.6 2-11.8 2-19.5 8.7-19.5h11.7l-8-17.4c1 1-2.1 3.1-9.4 6.4-10.8 5-16.9 12.1-16 32.5.2 6.4 1.1 24.6 4.7 24.6z", :mask => "url(#mask--badger)"}
+
+    %mask#mask--ground
+      %use{"xlink:href" => "#mask-bg"}
+      %ellipse.db-homeart--01__ground{:cx => "222.5", :cy => "326", :fill => "#000", :rx => "196", :ry => "20"}
+      %use.badger-rig01{ :fill => "#000", "xlink:href" => "#shape--badger"}
+    %mask#mask--glass
+      %use.db-homeart--01__glass-shape{"xlink:href" => "#shape--glass", :fill => "var(--white)"}
+    %mask#mask--badger
+      %use{"xlink:href" => "#shape--badger", :fill => "var(--white)"}
+    %mask#mask--badger-inverse
+      %use{"xlink:href" => "#mask-bg"}
+      %use{"xlink:href" => "#shape--badger", :fill => "#000"}
+    %mask#mask--ball-in-ground
+      %use{"xlink:href" => "#shape--ball-in-ground", :fill => "var(--white)"}
+
+    %lineargradient#gradient--1{:x1 => "50%", :x2 => "50%", :y1 => "0%", :y2 => "100%"}
+      %stop{:offset => "0%", "stop-color" => "var(--white)"}
+      %stop.db-stop-color--success{:offset => "100%", "stop-color" => "#34CE57"}
+
+  %path{:mask=>"url(#mask--ground)",:d => "M222.6 444c84.8 0 158.1-47.3 196-116.8-19.5-.2-377.8-.2-392.1 0A223 223 0 00222.6 444z", :fill => "#000", "fill-opacity" => ".3"}
+  %use.db-homeart--01__glass{"xlink:href" => "#shape--glass", :fill => "var(--white)", "fill-opacity" => "0.05"}
+  %path.db-homeart--01__glass-shine{:mask=>"url(#mask--glass)", :fill => "#ffe", "fill-opacity" => "0.06", :d => "M252.113178,85.0754545 C239.236726,43.2642647 204.778761,16.0446101 172.507939,5.64755127 C115.654646,-12.6695223 59.5197284,-0.130617805 4.10318655,43.2642647 C67.9100226,-8.71044705 135.97286,-24.959562 208.2917,-5.4830803 C352.455752,33.342329 316.963584,206.193033 412.545295,181.600638 C426.229759,178.079737 434.856255,175.663395 439.880384,174.418771 C440.006089,175.007844 478.532878,157.450461 478.863055,158.544739 C479.034033,159.111396 443.746911,176.248794 440.84346,179.059899 C432.33312,187.299562 416.026542,204.818549 418.954051,233.076636 C426.569589,306.586403 460.730866,330.894191 521.437884,306 C453.115329,336.083997 408.096212,326.403019 386.380532,276.957065 C365.919032,230.366839 387.69041,149.607277 309.056804,174.539744 C267.038212,187.862637 267.400972,134.716527 252.113178,85.0754545 Z"}
+  %g{:transform => "translate(175.2 146)"}
+    %path{:d => "M44.3 138.5l.2 40.4",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M24.6 158.2l.3 20.7",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M64 118.9l.2 60",                  :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M103.4 86.4l.2 92.5",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M83.7 103.1l.2 75.8",              :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M123.1 65.8l.2 113.1",             :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M162.4 24.6l.3 153.7",             :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M142.8 45.2l.2 133.1",             :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %path{:d => "M182.1 4.9l.1 53.7.1 28.6.1 91.1", :stroke => "url(#gradient--1)", "stroke-linecap" => "round", "stroke-linejoin" => "round", "stroke-width" => "4"}
+    %circle{:cx => "142.8", :cy => "44.2",  :fill => "var(--white)",    :r => "4.9"}
+    %circle{:cx => "162.4", :cy => "24.6",  :fill => "var(--white)",    :r => "4.9"}
+    %circle{:cx => "123.1", :cy => "63.9",  :fill => "var(--white)",    :r => "4.9"}
+    %circle{:cx => "83.7",  :cy => "103.1", :fill => "#F0FBF2", :r => "4.9"}
+    %circle{:cx => "103.4", :cy => "83.5",  :fill => "#F8FDF9", :r => "4.9"}
+    %circle{:cx => "64",    :cy => "118.9", :fill => "#EBFAEE", :r => "4.9"}
+    %circle{:cx => "24.6",  :cy => "158.2", :fill => "#CAF2D3", :r => "4.9"}
+    %circle{:cx => "44.3",  :cy => "138.5", :fill => "#E1F8E6", :r => "4.9"}
+    %circle{:cx => "182.1", :cy => "4.9",   :fill => "var(--white)",    :r => "4.9"}
+    %circle{:cx => "4.9",   :cy => "177.8", :fill => "#C0F5CC", :r => "4.9", :mask => "url(#mask--ball-in-ground)"}
+  %g.db-homeart--01__badger.badger-rig01
+    %circle.db-homeart--01__badger__ball{:fill => "#C0F5CC", :cx => "142.8", :cy => "295.3", :r => "4.9", :mask => "url(#mask--badger-inverse)"}
+    %use.db-homeart--01__badger__body{   :fill => "#2b264c", "fill-opacity" => ".77", "xlink:href" => "#shape--badger"}
+    %use.db-homeart--01__badger__back{   :fill => "var(--white)", "fill-opacity" => "0.3", "xlink:href" => "#shape--badger-back"}
