@@ -44,8 +44,9 @@
             - unless lang == 'pl'
               %a.dropdown-item{:href => "?lang=pl"}
                 = "🇵🇱 Polski"
-            -# %a.dropdown-item{:href => "#"}
-              -# = "🇵🇹 Português"
+            - unless lang == 'pt'
+              %a.dropdown-item{:href => "?lang=pt"}
+                = "🇵🇹 Português"
             -# %a.dropdown-item{:href => "#"}
               -# = "🇷🇺 Русский"
         = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-link my-sm-0 mr-1')
