@@ -1,18 +1,21 @@
 import React, { useState } from 'react'
-import { Instructions } from './AddApiKey/Instructions';
+import I18n from 'i18n-js'
+import { RawHTML } from '../RawHtml'
+import { Instructions } from './Instructions';
+import { Breadcrumbs } from './Breadcrumbs'
+import { Progressbar } from './Progressbar'
+import { getExchange } from '../../lib/exchanges'
 
 const apiKeyNames = exchangeName => {
-  switch (exchangeName.toLowerCase()) {
-      case 'binance': return { private: 'Secret Key', public: 'API Key', passphrase: ''};
-      case 'binance.us': return { private: 'Secret Key', public: 'API Key', passphrase: '' };
-      case 'bitbay': return { private: 'Private Key', public: 'Public Key', passphrase: '' };
-      case 'kraken': return { private: 'Private Key', public: 'API Key', passphrase: '' };
-      case 'coinbase pro': return { private: 'API Secret', public: 'API Key', passphrase: 'Passphrase'};
-      case 'gemini': return {private: 'Secret Key', public: 'API Key', passphrase: ''}
-      case 'ftx': return {private: 'Secret Key', public: 'API Key', passphrase: ''};
-      case 'bitso':  return {private: 'API Secret', public: 'API Key', passphrase: ''};
-      default: return { private: 'Private Key', public: 'Public Key', passphrase: '' };
+  const { translation_key } = getExchange(exchangeName)
+
+  return {
+    private: I18n.t('bots.setup.' + translation_key + '.private_key'),
+    public: I18n.t('bots.setup.' + translation_key + '.public_key'),
+    passphrase: I18n.t('bots.setup.' + translation_key + '.passphrase')
   }
+  //case 'ftx': return {private: 'Secret Key', public: 'API Key', passphrase: ''};
+  //case 'bitso':  return {private: 'API Secret', public: 'API Key', passphrase: ''};
 }
 
 export const AddApiKey = ({
@@ -32,7 +35,7 @@ export const AddApiKey = ({
       className="btn btn-link btn--reset btn--reset-back"
     >
       <i className="material-icons-round">close</i>
-      <span>Cancel</span>
+      <span>{I18n.t('bots.setup.cancel')}</span>
     </div>
   )
 
@@ -48,52 +51,53 @@ export const AddApiKey = ({
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
       <div className="db-bot__header">
-        <div className="db-bot__infotext--setup"><span className="db-breadcrumbs">Exchange &rarr; <em>API Key</em> &rarr; Schedule</span></div>
+        <Breadcrumbs step={1} />
         <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`}>
-          <span>Next</span>
+          <span>{I18n.t('bots.setup.next')}</span>
           <svg className="db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"/></svg>
         </div>
         <div className="db-bot__infotext">
         </div>
       </div>
-      <div className="db-bot__progress progress progress--thin progress--bot-setup">
-        <div className="progress-bar" role="progressbar" style={{width: "33%", ariaValuenow: "33", ariaValuemin: "0", ariaValuemax: "100"}}></div>
-      </div>
+      <Progressbar value={33}/>
       <div className="db-bot__form db-bot__form--apikeys">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form onSubmit={_handleSubmit} className="form-row">
           <div className="col">
             <div className="db-form__row mb-0">
               <input
+                id="api-key"
                 type="text"
                 value={key}
                 onChange={e => setKey(e.target.value)}
                 className="db-form__input"
               />
-              <label className="db-form__label">{ key_label }</label>
+              <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
             </div>
           </div>
           <div className="col">
             <div className="db-form__row mb-0">
               <input
+                id="api-secret"
                 type="text"
                 value={secret}
                 onChange={e => setSecret(e.target.value)}
                 className="db-form__input"
               />
-              <label className="db-form__label">{ secret_label }</label>
+              <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
             </div>
           </div>
           { pickedExchangeName == "Coinbase Pro" &&
             <div className="col">
               <div className="db-form__row mb-0">
                 <input
+                  id="api-passphrase"
                   type="text"
                   value={passphrase}
                   onChange={e => setPassphrase(e.target.value)}
                   className="db-form__input"
                 />
-                <label className="db-form__label">{ phrase_label }</label>
+                <label htmlFor="api-passphrase" className="db-form__label">{ phrase_label }</label>
               </div>
             </div>
           }
@@ -102,15 +106,18 @@ export const AddApiKey = ({
       { pickedExchangeName == "Kraken" &&
         <div className="db-exchange-instructions">
           <div className="alert alert--trading-agreement">
-            <p><b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.</p>
+            <RawHTML tag="p">{I18n.t('bots.setup.kraken.trading_agreement_html')}</RawHTML>
             <div className="form-check">
               <input
+                id="trading-agreement"
                 type="checkbox"
                 checked={agreement}
-                onChange={e => setAgreement(!agreement)}
+                onChange={_ => setAgreement(!agreement)}
                 className="form-check-input"
               />
-              <label className="form-check-label"><b> I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a></b>.</label>
+              <label htmlFor="trading-agreement" className="form-check-label">
+                <RawHTML tag="b">{I18n.t('bots.setup.kraken.trading_agreement_label_html')}</RawHTML>
+              </label>
             </div>
           </div>
         </div>

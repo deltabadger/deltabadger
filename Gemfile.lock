@@ -185,6 +185,8 @@ GEM
       multi_xml (>= 0.5.2)
     i18n (1.6.0)
       concurrent-ruby (~> 1.0)
+    i18n-js (3.8.0)
+      i18n (>= 0.6.6)
     io-like (0.3.0)
     jaro_winkler (1.5.3)
     jbuilder (2.9.1)
@@ -431,6 +433,7 @@ DEPENDENCIES
   guard-rspec
   guard-rubocop
   haml-rails (~> 2.0)
+  i18n-js (~> 3.8.0)
   jbuilder (~> 2.5)
   kraken_ruby_client!
   letter_opener
