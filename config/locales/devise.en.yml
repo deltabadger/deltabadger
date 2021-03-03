@@ -6,6 +6,9 @@ en:
       confirmed: "Your email address has been successfully confirmed."
       send_instructions: "You will receive an email with instructions in a few minutes."
       send_paranoid_instructions: "You will receive an email with instructions in a few minutes."
+      new:
+        title: Resend instructions
+        submit: Resend confirmation link
     failure:
       already_authenticated: "You are already signed in."
       inactive: "Your account is not activated yet."
@@ -36,6 +39,12 @@ en:
       send_paranoid_instructions: "You will receive an email with instructions in a few minutes."
       updated: "Done! Your password has been changed."
       updated_not_active: "Done! Your password has been changed."
+      new:
+        title: Forgot your password?
+        submit: Send me instructions
+      edit:
+        title: Change your password
+        submit: Change my password
     registrations:
       destroyed: "Bye! We hope to see you again soon…"
       signed_up: "Nice to meet you!"
@@ -45,10 +54,22 @@ en:
       update_needs_confirmation: "Check your email and follow the confirm link to confirm your new email address."
       updated: "Your account has been updated successfully."
       updated_but_not_signed_in: "Your account has been updated successfully, sign again."
+      new:
+        title_html: Create <span class="text-success">free</span> account
+        email_used: This email is already used.
+        email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
+        email_invalid: Email invalid!
+        submit: Start now
+      edit:
+        awaiting_confirmation: 'Currently waiting confirmation for: %{email}'
     sessions:
       signed_in: "Long time no see!"
       signed_out: "See you soon!"
       already_signed_out: "I hate goodbyes. See you soon?"
+      new:
+        title: Sign in
+        forgot_password: Forgot password?
+        submit: Log in
     unlocks:
       send_instructions: "You will receive an email with instructions in a few minutes."
       send_paranoid_instructions: "You will receive an email with instructions in a few minutes."

@@ -41,7 +41,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def set_email_in_use
-    @email_in_use = 'This email is already used.' if User.where(:email => @user.email).exists?
+    @email_in_use = I18n.t('devise.registrations.new.email_used') if User.where(:email => @user.email).exists?
   end
 
   def set_email_suggestion
