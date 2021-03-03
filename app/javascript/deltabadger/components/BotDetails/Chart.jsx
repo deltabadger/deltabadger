@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import I18n from 'i18n-js'
 import moment from 'moment';
 import { Line } from 'react-chartjs-2';
 import API from '../../lib/API';
@@ -6,7 +7,7 @@ import { Spinner } from '../Spinner';
 import { isEmpty } from '../../utils/array'
 
 const TOTAL_INVESTED_CONFIG = {
-        label: 'total invested',
+        label: I18n.t('bots.details.stats.chart.total_invested'),
         fill: false,
         lineTension: 0.4,
         backgroundColor: 'rgba(25,122,122,0.4)',
@@ -28,7 +29,7 @@ const TOTAL_INVESTED_CONFIG = {
 }
 
 const VALUE_OVER_TIME_CONFIG = {
-        label: 'value',
+        label: I18n.t('bots.details.stats.chart.value'),
         fill: false,
         lineTension: 0.4,
         backgroundColor: 'rgba(75,192,192,0.4)',

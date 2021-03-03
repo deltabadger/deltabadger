@@ -1,6 +1,7 @@
 import Rails from 'rails-ujs';
 import React from 'react'
 import ReactDOM from 'react-dom'
+import I18n from 'i18n-js/index.js.erb'
 import style from '../deltabadger/styles/main.scss'
 import { CookieBanner } from '../deltabadger/components/CookieBanner';
 import { NewsletterForm } from '../deltabadger/components/NewsletterForm';
@@ -8,6 +9,8 @@ import { NewsletterForm } from '../deltabadger/components/NewsletterForm';
 require.context('../images', true)
 
 Rails.start();
+
+I18n.locale = document.body.dataset.locale || I18n.defaultLocale
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {
