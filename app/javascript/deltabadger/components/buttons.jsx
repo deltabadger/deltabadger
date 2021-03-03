@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
+import I18n from 'i18n-js'
+import { RawHTML } from './RawHtml'
 import {formatDurationRestart} from "../utils/time";
 import moment from "moment";
 
@@ -39,61 +41,60 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     <div>
       { getType === startButtonType.CHANGED_ON_SCHEDULE &&
         <div>
-          <p className="">The new schedule will start after the remaining <b>{timeToNextTransaction}</b> of the last one is finished.</p>
+          <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">Ignore it and start immediately
+            }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.changed_on_schedule.skip')}
             </div>
             <div onClick={() => {
               onClickReset(true) && setOpen(false)
-            }} className="btn btn-success">I understand
+            }} className="btn btn-success">{I18n.t('bots.buttons.start.changed_on_schedule.continue')}
             </div>
           </div>
           </div>
       }
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
-          <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused?
-            The new schedule will start after the current countdown is finished.</p>
+          <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">Ignore the missed part
+            }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.changed_missed.skip')}
             </div>
             <div onClick={() => {
               onClickReset(false, missedAmount) && setOpen(false)
-            }} className="btn btn-success">Yes, buy and continue
+            }} className="btn btn-success">{I18n.t('bots.buttons.start.changed_missed.continue')}
             </div>
           </div>
       </div>
       }
       { getType === startButtonType.MISSED &&
         <div>
-          <p className="">Do you want to invest <b>{cleverToFixed(missedAmount)} {settings.quote}</b> missed while the bot was paused, and continue the original time schedule?</p>
+          <RawHTML tag="p">{I18n.t('bots.buttons.start.missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">Skip the missed part
+            }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.missed.skip')}
             </div>
             <div onClick={() => {
               onClickReset(false, missedAmount) && setOpen(false)
-            }} className="btn btn-success">Yes, buy and continue
+            }} className="btn btn-success">{I18n.t('bots.buttons.start.missed.continue')}
             </div>
           </div>
           </div>
       }
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
-          <p className="">You have still <b>{timeToNextTransaction}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.</p>
+          <RawHTML tag="p">{I18n.t('bots.buttons.start.on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               onClickReset() && setOpen(false)
-            }} className="btn btn-outline-primary">Skip it
+            }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.on_schedule.skip')}
             </div>
             <div onClick={() => {
               onClickReset(true) && setOpen(false)
-            }} className="btn btn-success">Continue original schedule
+            }} className="btn btn-success">{I18n.t('bots.buttons.start.on_schedule.continue')}
             </div>
           </div>
         </div>
@@ -136,7 +137,9 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
          onClick={handleOnClick}
          className="btn btn-success">
         <span className="d-none d-sm-inline">Start</span>
-        <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
+        <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/>
+        </svg>
      </div>
         { isOpen &&
         <div ref={node} className="db-bot__modal">
@@ -150,12 +153,17 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
 }
 
 export const StartingButton = () => (
-  <div className="btn btn-success disabled"><span className="d-none d-sm-inline">Starting</span> <i className="material-icons-round">play_arrow</i></div>
+  <div className="btn btn-success disabled">
+    <span className="d-none d-sm-inline">{I18n.t('bots.starting')}</span>
+    <i className="material-icons-round">play_arrow</i>
+  </div>
 )
 export const StopButton = ({onClick}) => (
   <div onClick={onClick} className="btn btn-outline-primary">
-  <span className="d-none d-sm-inline">Pause</span>
-  <svg className="btn__svg-icon db-svg-icon db-svg-icon--pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/></svg>
+    <span className="d-none d-sm-inline">{I18n.t('bots.stop')}</span>
+    <svg className="btn__svg-icon db-svg-icon db-svg-icon--pause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+      <path d="M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/>
+    </svg>
   </div>
 )
 
@@ -184,16 +192,16 @@ export const RemoveButton = ({onClick, disabled}) => {
         className={`btn btn-link btn--reset text-secondary ${disabled ? 'disabled' : ''}`}
       >
         <i className="material-icons-round">close</i>
-        <span>Delete</span>
+        <span>{I18n.t('bots.buttons.delete.text')}</span>
       </div>
 
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <p className="">That will remove the bot with all<br/>its historical data. Are you sure?</p>
+            <RawHTML tag="p">{I18n.t('bots.buttons.delete.warning_html')}</RawHTML>
             <div className="db-bot__modal__btn-group">
-              <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary">Cancel</div>
-              <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-danger">Remove completely</div>
+              <div onClick={() => {setOpen(false)}} className="btn btn-outline-primary">{I18n.t('bots.buttons.delete.cancel')}</div>
+              <div onClick={() => {onClick() && setOpen(false)}} className="btn btn-danger">{I18n.t('bots.buttons.delete.ok')}</div>
             </div>
           </div>
         </div>
@@ -202,22 +210,15 @@ export const RemoveButton = ({onClick, disabled}) => {
   )
 }
 
-export const CloseButton = ({onClick}) => (
-  <div
-    onClick={onClick}
-    className="btn btn-link btn--reset"
-  >
-    <i className="material-icons-round">close</i>
-    <span>Delete</span>
-  </div>
-)
-
 export const ExchangeButton = ({ handleClick, exchange, shouldDisableExchange }) => {
+  const isDisabled = shouldDisableExchange(exchange.name)
+
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${shouldDisableExchange(exchange.name) ? "hodler-only" : exchange.name.toLowerCase()}`}
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${isDisabled ? "hodler-only" : exchange.name.toLowerCase()}`}
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
+      { isDisabled && <a href="/upgrade" className="db-bot__exchanges__item--hodler-only--before">Hodler only</a> }
       { exchange.name }
     </div>
   );
