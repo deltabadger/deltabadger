@@ -121,7 +121,7 @@ es:
             odd: 'debe ser impar'
             even: 'debe ser par'
         unverified_request: 'Actualiza tu navegador e inténtalo de nuevo.'
-        format: ''
+        format: '%{attribute}%{message}'
         referral_program_inactive: 'Tu programa de referidos está inactivo'
         bitcoin_address_not_updated: 'No se ha podido actualizar la dirección de Bitcoin'
         frequency_limit: 'Límite de frecuencia superado'
@@ -348,6 +348,7 @@ es:
                 last_name: Apellido
                 birth_date: 'Fecha de nacimiento'
                 country: País
+                other: Otro
     cookie:
         agree: 'Estoy de acuerdo'
         description: 'Utilizamos cookies para simplificar las cosas.'
@@ -387,6 +388,7 @@ es:
                 instructions_html: "<ol>\n  <li>Inicia sesión en tu cuenta %{exchange_link}.</li>\n  <li>Ve al menú de configuración (esquina superior derecha).</li>\n  <li>Desplázate hacia abajo hasta la sección <b>Clave de API</b>.</li>\n  <li>Pulsa <b>Crear clave de API</b>.</li>\n  <li>Copia y pega tus nuevas claves de API en el formulario de arriba.</li>\n</ol>"
                 private_key: 'Clave privada'
                 public_key: 'Clave pública'
+            next: Próximo
         add_new_bot: 'Añadir nuevo bot'
         start: Empezar
         stop: Pausar

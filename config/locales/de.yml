@@ -7,7 +7,6 @@ de:
         confirmations:
             confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigen.'
             send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
-            send_paranoid_instructions: ''
             new:
                 title: 'Anweisungen erneut senden'
                 submit: 'Bestätigungslink erneut zuschicken'
@@ -17,7 +16,6 @@ de:
             invalid: 'Ungültiger %{authentication_keys} oder Passwort.'
             locked: 'Dein Konto ist gesperrt.'
             last_attempt: 'Du hast noch einen Versuch, bevor dein Konto gesperrt wird.'
-            not_found_in_database: ''
             timeout: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an um fortzufahren.'
             unauthenticated: 'Du musst dich erst registrieren, bevor du fortfahren kannst.'
             unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
@@ -42,10 +40,7 @@ de:
             success: 'Erfolgreich von %{kind} Konto authentifiziert.'
         passwords:
             no_token: 'Du kannst nicht auf diese Seite zugreifen, wenn du nicht von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest. Wenn du von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest, stelle bitte sicher, dass du die vollständige URL verwendet hast.'
-            send_instructions: ''
-            send_paranoid_instructions: ''
             updated: 'Erledigt! Dein Passwort wurde geändert.'
-            updated_not_active: ''
             new:
                 title: 'Dein Passwort vergessen?'
                 submit: 'Anweisungen anfordern'
@@ -78,8 +73,6 @@ de:
                 submit: Anmelden
                 forgot_password: 'Passwort vergessen?'
         unlocks:
-            send_instructions: ''
-            send_paranoid_instructions: ''
             unlocked: 'Dein Konto wurde erfolgreich entsperrt. Bitte melde dich an, um fortzufahren.'
     errors:
         messages:
@@ -121,7 +114,6 @@ de:
             odd: 'muss ungerade sein'
             even: 'muss gerade sein'
         unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
-        format: ''
         referral_program_inactive: 'Dein Empfehlungsprogramm ist nicht aktiv.'
         bitcoin_address_not_updated: 'Bitcoin-Adresse konnte nicht aktualisiert werden'
         frequency_limit: 'Frequenzgrenze überschritten'
@@ -130,7 +122,7 @@ de:
     deltabadger: Deltabadger
     welcome:
         default: 'Hallo, willkommen bei Deltabadger'
-        saver: 'Werde die Limits los und führe ein Updgrade durch!'
+        saver: 'Werde die Limits los und führe ein Upgrade durch!'
         banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 500 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
     subscriptions:
         upgrade: Upgrade
@@ -162,7 +154,6 @@ de:
         upgrade_plan: 'Plan upgraden'
     links:
         homepage: 'Link zur Homepage'
-        log_in: ''
         sign_up: Anmelden
         log_out: Ausloggen
         create_account: 'Erstelle ein kostenloses Konto'
@@ -209,7 +200,6 @@ de:
         twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
     home:
         index:
-            title: ''
             fastest_asset: 'Nutze DCA auf dem am schnellsten ansteigenden Vermögenswert.'
             fastest_market: 'Nutze DCA auf dem am schnellsten ansteigenden Markt.'
             connect_exchanges: 'Verbinde eine der beliebten Börsen und stelle wiederkehrende Käufe nach deinem gewünschten Zeitplan ein. Du kannst so viele Bots haben, wie du möchtest, um DCA in dein bevorzugtes Kryptowährungsportfolio aufzunehmen.'
@@ -228,7 +218,7 @@ de:
                     chart_earlier: Früher
                     chart_better_average_price: 'besserer Durchschnittspreis'
                 easy3:
-                    title_html: 'Warum ist dies besser als ein <span class="no-break">pauschales Investiment</span>?'
+                    title_html: 'Warum ist dies besser als ein <span class="no-break">pauschales Investment</span>?'
                     text_html: '<p>Kurzfristig kann der Kurs noch steigen, fallen oder seitwärts gehen. Pauschalen gewinnen nur im ersten Szenario. DCA gewinnt in zwei anderen. Die Magie von DCA bringt dich in den grünen Bereich, auch wenn sich der Kurs am Ende nicht verändert hat.</p>'
                     chart_lump_sum: 'Pauschale = 5 Einheiten'
                     chart_dca: 'DCA = 6 Einheiten'
@@ -236,7 +226,7 @@ de:
                     title_html: 'Kann ich DCA mit RSI <span class="no-break">oder Mayer Multiple</span> verbessern?'
                     text_html: '<p>Nicht wirklich. Oszillatoren funktionieren nicht gut in einem Aufwärtstrend. Der nächste Tiefpunkt ist oft höher als die vorherige Spitze. Es gibt keine automatisierte Strategie, die mit DCA gewinnt, denn DCA ist einfach das Investieren in den Markttrend, der mit keiner mathematischen Formel konsequent geschlagen werden kann.</p>'
                     chart_price: Preis
-                    chart_mm: 'Mayber Multiple'
+                    chart_mm: 'Mayer Multiple'
         founder:
             signature: 'Ich bin Jan, der Gründer von Deltabadger.'
             telegram_invitation_html: 'Besuche und auf <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
@@ -244,9 +234,8 @@ de:
             title: Danke!
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
         contact:
-            title: ''
             general_questions_html: 'Für allgemeine Fragen versuche unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
-            specific_questions_html: 'Melde dich für spezifischere Proble bei uns unter %{email} oder sende uns eine Nachricht auf Telegram oder <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'Melde dich für spezifischere Probleme bei uns unter %{email} oder sende uns eine Nachricht auf Telegram oder <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
     affiliates:
         new:
             title: 'Registrierung für das Empfehlungsprogramm'
@@ -281,9 +270,7 @@ de:
             unpaid: 'Nicht bezahlt (BTC)'
             update_info: 'Sichtbare Info aktualisieren'
             update_bitcoin_address: 'Bitcoin-Adresse aktualisieren'
-            info_preview: 'Vorschau auf die Info, die der Geworbene sieht'
-            submit_info: ''
-            submit_bitcoin_address: ''
+            info_preview: 'Vorschau auf die Info, die der Empfohlene sieht'
             manual_title: 'Wie funktioniert es?'
             paid_commission: 'Bezahlt (BTC)'
             unpaid_commission: 'Offen (BTC)'
@@ -297,7 +284,7 @@ de:
             accepted: 'Du hast den Empfehlungslink akzeptiert'
             invalid: 'Dieser Empfehlungslink scheint ungültig oder veraltet zu sein'
             already_used: 'Du hast diesen Empfehlungscode bereits versendet'
-        manual_html: ''
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n    <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n    <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n    <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n    <li>Beim nächsten Mal kauft der Empfohlene einen 4-Jahres-Plan für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n    <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
         apply_code:
             title: Empfehlungslink
             accept: Akzeptieren
@@ -305,15 +292,13 @@ de:
         btc_address_confirmation_sent: 'Bestätigungs-E-Mail versendet'
         btc_address_changed: 'Bitcoin-Adresse geändert'
         program_joined: 'Du bist dem Empfehlungsprogramm beigetreten'
-        your_bitcoin_address: 'Ihre Bitcoin-Adresse'
+        your_bitcoin_address: 'Deine Bitcoin-Adresse'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         add_link_info: 'Du kannst deinen Namen und einen Link zu deiner Website hinzufügen, damit der Geworbene weiß, woher der Rabatt stammt. Du kannst dieses Feld auch leer lassen:'
     settings:
         index:
-            title: ''
             email_section: 'E-Mail aktualisieren'
-            submit_email: ''
             password_section: 'Passwort aktualisieren'
             submit_password: 'Passwort ändern'
             api_keys_section: API-Schlüssel
@@ -342,12 +327,13 @@ de:
                 remember_me: 'Daten speichern'
                 new_password: 'Neues Passwort'
                 new_password_confirmation: 'Neues Passwort bestätigen'
-                password_confirmation: ''
+                password_confirmation: Passwortbestätigung
             payment:
                 first_name: Nachname
                 last_name: Vorname
                 birth_date: Geburtsdatum
                 country: Land
+                other: Andere
     cookie:
         agree: 'Ich stimme zu'
         description: 'Wir nutzen Cookies, um alles einfacher zu gestalten.'
@@ -387,6 +373,7 @@ de:
                 instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe zum Einstellungsmenü (Oben in der rechten Ecken).</li>\n  <li>Scrolle runter bis zum <b>API-Schlüssel</b>-Bereich.</li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in das Formular oben.</li>\n</ol>"
                 private_key: 'Private Key'
                 public_key: 'Public Key'
+            next: Nächster
         add_new_bot: 'Neuen Bot hinzufügen'
         start: Starten
         stop: Pausieren
@@ -413,8 +400,7 @@ de:
                     continue: 'Ja, kaufen und fortfahren'
                 missed:
                     info_html: 'Möchtest du den Betrag <b>%{amount}%{quote}</b> investieren, der verpasst wurde, während der Bot pausiert war, und den ursprünglichen Zeitplan fortsetzen?'
-                    skip: 'Den verfehlten Teil überpringen'
-                    continue: ''
+                    skip: 'Den verfehlten Teil überspringen'
                 on_schedule:
                     info_html: 'Du hast noch <b>%{time}</b> bis zur nächsten Order. Du kannst diese überspringen und die nächste Order Auftrag sofort ausführen oder den ursprünglichen Countdown fortsetzen.'
                     skip: Überspringen
@@ -422,7 +408,6 @@ de:
             delete:
                 text: Löschen
                 warning_html: 'Dadurch wird der Bot mit all<br> seinen Verlaufsdaten entfernt. Bist du sicher?'
-                cancel: ''
                 ok: 'Komplett entfernen'
         details:
             stats:
@@ -431,7 +416,6 @@ de:
                     total_invested: 'insgesamt investiert'
                     value: Wert
                 bought: Gekauft
-                average_price: ''
                 total_invested: 'Insgesamt investiert'
                 current_value: 'Aktueller Wert'
                 profit_loss: Gewinn/Verlust
@@ -444,7 +428,6 @@ de:
                 rate: 'Rate(%{quote})'
             log:
                 title: Log
-                date: ''
                 errors: Fehler
             info:
                 title: Info
@@ -466,7 +449,7 @@ de:
             template_html: "<p>Hallo 👋,</p>\n<p>Es sieht so aus, als wolltest du deine Bitcoin-Adresse zu:</p>\n<p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p> ändern\n<p>Diese Adresse wird für deine Auszahlungen aus unserem Empfehlungsprogramm genutzt.</p>\n<p>Bist du sicher?</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Ja, lass sie uns ändern!</a>\n</p>\n<p>Du hast diese Anfrage nicht gestellt?<br>Keine Sorge! Ignoriere dies einfach.</p>\n<p>Die Adresse ändert sich nicht, bis du auf den Link oben klickst.</p>"
         referrals_payout_notification:
             subject: 'Es ist Zahltag! 💸'
-            template_html: "<p>Hallo 👋,</p>\n<p>Toll! Dein Empfehlungslink kommt gut an!</p>\n<p>Wir überweisen dir eine Kommission auf</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>dein Bitcoin Wallet.</p>\n<p>Danke, dass du die <br>Badger Gang vergrößerst!</p>"
+            template_html: "<p>Hallo 👋,</p>\n<p>Toll! Dein Empfehlungslink kommt gut an!</p>\n<p>Wir überweisen dir eine Kommission von</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>auf dein Bitcoin Wallet.</p>\n<p>Danke, dass du die <br>Badger Gang vergrößerst!</p>"
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'Der Probemonat endet bald!'
