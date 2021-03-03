@@ -348,6 +348,7 @@ fr:
                 last_name: 'Nom de famille'
                 birth_date: 'Date de naissance'
                 country: Pays
+                other: Autre
     cookie:
         agree: 'J''accepte'
         description: 'Nous utilisons des cookies pour simplifier les choses.'
@@ -387,6 +388,7 @@ fr:
                 instructions_html: "<ol>\n  <li>Connecte-toi à ton compte %{exchange_link}.</li>\n  <li>Rends-toi dans le menu des paramètres (en haut à droite).</li>\n  <li>Fais défiler vers le bas jusqu'à la section <b>Clé API</b>.</li>\n  <li>Appuie sur <b>Créer</b> une clé API.</li>\n  <li>Copie et colle tes nouvelles clés API dans le formulaire ci-dessus.</li>\n</ol>"
                 private_key: 'Clé privée'
                 public_key: 'Clé publique'
+            next: Suivant
         add_new_bot: 'Ajouter un nouveau bot'
         start: Commencer
         stop: Pause

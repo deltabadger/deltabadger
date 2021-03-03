@@ -373,7 +373,6 @@ pl:
             step_api_key: 'Klucz API'
             step_schedule: Harmonogram
             cancel: Anuluj
-            next: Dalej
             limit_warning: 'Bot zleceń limitowanych jest funkcją eksperymentalną. Nie wszystkie zlecenia zostaną zrealizowane. Aby osiągnąć dobre wyniki, należy proporcjonalnie zwiększyć inwestowaną kwotę. W tej chwili Deltabadger nie oferuje jeszcze żadnej pomocy w oszacowaniu tego dostosowania, dlatego konieczne są własne eksperymenty. Używaj, tylko jeśli wiesz co robisz.'
             how_to_get_keys: 'Jak uzyskać klucze API na %{exchange}:'
             binance:
@@ -403,6 +402,7 @@ pl:
                 instructions_html: "<ol>\n  <li>Zaloguj się do swojego konta na %{exchange_link}.</li>\n  <li>Przejdź do menu ustawień (prawy górny róg).</li>\n  <li>Przewiń w dół do sekcji <b>Klucz API</b>.</li>\n  <li>Naciśnij <b>Utwórz</b> Klucz API.</li>\n  <li>Skopiuj i wklej swój nowy klucz API do formularza powyżej.</li>\n</ol>"
                 private_key: 'Klucz Prywatny'
                 public_key: 'Klucz Publiczny'
+            next: Dalej
         add_new_bot: 'Dodaj nowego bota'
         start: Start
         stop: Wstrzymaj
