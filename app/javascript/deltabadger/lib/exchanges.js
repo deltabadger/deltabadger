@@ -34,6 +34,11 @@ export const exchanges = {
       url: 'https://ftx.com',
       translation_key: 'ftx',
   },
+  'bitso': {
+    name: 'Bitso',
+    url: 'https://bitso.com/',
+    translation_key: 'bitso'
+  }
 }
 
 export const getExchange = (exchangeName) => exchanges[exchangeName.toLowerCase()]
