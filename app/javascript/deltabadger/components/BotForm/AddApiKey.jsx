@@ -14,8 +14,6 @@ const apiKeyNames = exchangeName => {
     public: I18n.t('bots.setup.' + translation_key + '.public_key'),
     passphrase: I18n.t('bots.setup.' + translation_key + '.passphrase')
   }
-  //case 'ftx': return {private: 'Secret Key', public: 'API Key', passphrase: ''};
-  //case 'bitso':  return {private: 'API Secret', public: 'API Key', passphrase: ''};
 }
 
 export const AddApiKey = ({
