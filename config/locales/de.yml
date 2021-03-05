@@ -131,7 +131,7 @@ de:
     welcome:
         default: 'Hallo, willkommen bei Deltabadger'
         saver: 'Werde die Limits los und führe ein Upgrade durch!'
-        banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 500 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
+        banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 500 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge uns auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
     subscriptions:
         upgrade: Upgrade
         days_left:
@@ -149,7 +149,7 @@ de:
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
             wire_transfer: Banküberweisung
-            wire_transfer_description_html: 'Um per Überweisung zu bezahlen, sende uns die Details für die Rechnung mit <b>Name</b>, <b>Nachname</b>, <b>Adresse</b>, <b>E-Mail1</b>, die du bei Deltabadger verwendest, und teile uns den Plan mit, den du kaufen möchtest, an <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+            wire_transfer_description_html: 'Um per Überweisung zu bezahlen, sende uns die Details für die Rechnung mit <b>Name</b>, <b>Nachname</b>, <b>Adresse</b>, <b>E-Mail</b>, die du bei Deltabadger verwendest, und teile uns den Plan mit, den du kaufen möchtest, an <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             active_plan_discount: 'Rabatt für Pläne aktiv'
             compensation:
@@ -185,12 +185,12 @@ de:
         blog: 'Lies unseren Blog'
         knowledge_base: Wissensdatenbank
     ads:
-        automate_bitcoin_html: 'Automatisiere den Kauf von <br> Bitcoin'
-        automate_crypto_html: "Automatisiere den Kauf aller<br class=\"d-none d-sm-inline\">\nKrypto-<span class=\"d-none d-sm-inline\">währungen</span>"
+        automate_bitcoin_html: 'Automatisiere den Kauf von Bitcoin'
+        automate_crypto_html: 'Automatisiere den Kauf aller Kryptowährungen'
         automate_hourly: stündlich
         automate_daily: täglich
         automate_weekly: wöchentlich
-        dont_trade_automate_html: '<div>Handle nicht</div> <div>Automatisiere.</div>'
+        dont_trade_automate_html: '<div>Handle nicht.</div> <div>Automatisiere.</div>'
         dca_bulletproof_html: 'Eine absolut sicherte Strategie zum <span class="no-break"><a href="#dcamagic">Dollar-Cost Averaging</a>.</span><br> Funktioniert mit den gängigen Börsen. <span class="no-break">Einrichtung in 5 Minuten.</span>'
         dca_profit_html: 'Wenn du im letzten Jahr Dollar-Cost-Averaging<br>zu Bitcoin betrieben hättest,<br>hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
         basic_free_html: "Der Plan Basic ist\nfür immer\n<b class=\"text-success text-success--lighter\">kostenlos</b>."
@@ -216,14 +216,14 @@ de:
             testimonials:
                 header: 'Was Nutzer über uns sagen:'
             dca_magic:
-                title_html: "Die Magie des\n<span class=\"no-break\">Dollar-Cost-</span>\n<br>Averaging in\n<span class=\"no-break\">4 einfachen Graphen</span>"
+                title_html: "Die Magie des <span class=\"no-break\">Dollar-Cost-</span>\n<br>Averaging in 4 einfachen Graphen"
                 easy1:
                     title_html: 'Warte... Was ist DCA?'
                     text_html: "<p>DCA ist eine Anlagestrategie, bei der du regelmäßig einen Vermögenswert für einen festen Betrag kaufst, unabhängig von seinem Preis. Du erhältst mehr von dem Vermögenswert, wenn der Preis niedriger ist, und weniger davon, wenn der Preis höher ist. Als Ergebnis erhältst du, anstatt große kurzfristige Wetten einzugehen, einen fairen Durchschnittspreis.</p>\n<p>DCA schützt dich vor der emotionalen Achterbahn, dem kurzfristigen Risiko und der Entscheidungsangst.</p>"
                     chart_regular_purchases: 'Reguläre Käufe'
                     chart_average_price: Durchschnittspreis
                 easy2:
-                    title_html: 'Soll ich auf die Korrektur waren, um zu<span class="no-break">beginnen?</span>'
+                    title_html: 'Soll ich auf die Korrektur warten, um zu<span class="no-break">beginnen?</span>'
                     text_html: '<p>Nein. Bei einem wertsteigernden Vermögenswert ist es immer besser, früher anzufangen, selbst an der Spitze! Schließlich wird der Preis steigen, und wer früher angefangen hat, hat am Ende einen niedrigeren Durchschnittspreis.</p>'
                     chart_earlier: Früher
                     chart_better_average_price: 'besserer Durchschnittspreis'
@@ -239,13 +239,13 @@ de:
                     chart_mm: 'Mayer Multiple'
         founder:
             signature: 'Ich bin Jan, der Gründer von Deltabadger.'
-            telegram_invitation_html: 'Besuche und auf <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
+            telegram_invitation_html: 'Besuche uns auf <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
         confirm_registration:
             title: Danke!
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
         contact:
             title: Kontakt
-            general_questions_html: 'Für allgemeine Fragen versuche unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
+            general_questions_html: 'Für allgemeine Fragen besuche bitte unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
             specific_questions_html: 'Melde dich für spezifischere Probleme bei uns unter %{email} oder sende uns eine Nachricht auf Telegram oder <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
     affiliates:
         new:
@@ -389,19 +389,23 @@ de:
                 private_key: 'Private Key'
                 public_key: 'Public Key'
             next: Nächster
+            bitso:
+                instructions_html: "<ol>\n  <li>Melden Sie sich bei Ihrem <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso-Konto</a> an.</li>\n  <li>Im Kontomenü (oben rechts) gehen Sie auf <b>Profil</b>.</li>\n  <li>Wählen Sie <b>API</b> (linke Seite).</li>\n  <li>Drücken Sie <b>Neue API hinzufügen</b>.</li>\n  <li>Füllen Sie den <b>API-Namen</b> aus und geben Sie Ihre <b>Transaktions-PIN</b> ein.</li>\n  <li>Berechtigungen festlegen:\n    <ul>\n      <li><b>Trades durchführen</b></li>\n      <li><b>Kontostände anzeigen</b></li>\n      <li><b>Kontoinformationen anzeigen</b></li>\n    </ul>\n  </li>\n  <li>Drücken Sie <b>Speichern</b>.</li>\n  <li>Kopieren Sie Ihre neuen API-Schlüssel und fügen Sie sie in das obige Formular ein.</li>\n</ol>\n"
+                private_key: API-Geheimnis
+                public_key: API-Schlüssel
         add_new_bot: 'Neuen Bot hinzufügen'
         start: Starten
         stop: Pausieren
-        buy: Kaufen
+        buy: Kauf
         limit_buy: 'Limit Kauf'
-        sell: Verkaufen
+        sell: Verkauf
         limit_sell: 'Limit Verkauf'
         for: für
         hour: Stunde
         day: Tag
         week: Woche
         month: Monat
-        next_buy: 'Nächster Verkauf in %{countdown}'
+        next_buy: 'Nächster Kauf in %{countdown}'
         next_sell: 'Nächster Verkauf in %{countdown}'
         buttons:
             start:
@@ -451,7 +455,7 @@ de:
             info:
                 title: Info
                 exchanges_html: "<p className=\"mt-2\"><b>Börsen</b></p>\n<p>Deltabadger arbeitet mit Kryptowährungsbörsen. Aktuell unterstützen wir <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> und <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Wir empfehlen Kraken als eine seriöse Börse, die noch nie gehackt wurde. Verwende Bitbay, wenn du deine Käufe in PLN tätigen möchtest.</p>\n<p>Um deinen Bot nutzbar zu machen, musst du zunächst dein Tauschkonto verifizieren und etwas Geld dorthin überweisen.</p>\n<p>Bewahre deine Coins jedoch nicht zu lange bei einer Börse auf. Logge dich in dein Konto ein und nimm regelmäßig Abhebungen vor, mindestens einmal im Monat.</p>\n<p>Wir werden zukünftig weitere Börsen hinzufügen. Lass es uns wissen, falls dich eine bestimmte Börse besonders interessiert.</p>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smarte Intervalle\"</b></p>\n<p>Wenn die smarten Intervalle eingeschaltet sind, führt der Deltabadger deinen gewünschten Zeitplan in den kleinsten von der Börse erlaubten Transaktionen aus. Ansonsten werden sie nur bei Bedarf verwendet.</p>\n<p className=\"mt-2\"><b>Wieso?</b></p>\n<p>Dies hat zwei Vorteile:</p>\n<p>Der häufigere Zeitplan ermöglicht es dir, die Vorteile von DCA schneller zu erleben und glättet es noch mehr.</p>\n<p>Außerdem sind manchmal smarte Intervalle notwendig. Jede Börse hat ein Limit für die Mindesttransaktionsgröße. Einige Börsen definieren es in BTC, so dass der USD-Wert im Laufe der Zeit ändert. Wenn der Betrag, den du kaufen möchtest, kleiner ist, behält Deltabadger dein gewünschtes Verhältnis bei, indem er die minimal erlaubte Größe verwendet, aber das Zeitintervall anpasst. Es schützt den Bot davor, gestoppt zu werden, wenn dein definierter Betrag unter den Schwellenwert fällt.</p>\n<p className=\"mt-2\"><b>Beispiel:</b></p>\n<p>Nehmen wir an, das aktuelle Umtauschlimit beträgt 20 $. Wenn du die Transaktionsgröße für 24 $/Tag festlegst, wird der Bot genau das tun. Wenn du es jedoch als 1 $/Stunde definierst, wird er das Verhältnis anhand der erlaubten Größe nachahmen, was 20 § alle 20 Stunden entspricht. Im Durchschnitt ergibt sich daraus das gleiche Verhältnis (24 $/Tag = 1 $/Stunde = 20 §/20Stunden)</p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smarte Intervalle\"</b></p>\n<p>Wenn die smarten Intervalle eingeschaltet sind, führt der Deltabadger deinen gewünschten Zeitplan in den kleinsten von der Börse erlaubten Transaktionen aus. Ansonsten werden sie nur bei Bedarf verwendet.</p>\n<p className=\"mt-2\"><b>Wieso?</b></p>\n<p>Dies hat zwei Vorteile:</p>\n<p>Der häufigere Zeitplan ermöglicht es dir, die Vorteile von DCA schneller zu erleben und glättet es noch mehr.</p>\n<p>Außerdem sind manchmal smarte Intervalle notwendig. Jede Börse hat ein Limit für die Mindesttransaktionsgröße. Einige Börsen definieren es in BTC, so dass der USD-Wert im Laufe der Zeit ändert. Wenn der Betrag, den du kaufen möchtest, kleiner ist, behält Deltabadger dein gewünschtes Verhältnis bei, indem er die minimal erlaubte Größe verwendet, aber das Zeitintervall anpasst. Es schützt den Bot davor, gestoppt zu werden, wenn dein definierter Betrag unter den Schwellenwert fällt.</p>\n<p className=\"mt-2\"><b>Beispiel:</b></p>\n<p>Nehmen wir an, das aktuelle Umtauschlimit beträgt 20 $. Wenn du die Transaktionsgröße für 24 $/Tag festlegst, wird der Bot genau das tun. Wenn du es jedoch als 1 $/Stunde definierst, wird er das Verhältnis anhand der erlaubten Größe nachahmen, was 20 $ alle 20 Stunden entspricht. Im Durchschnitt ergibt sich daraus das gleiche Verhältnis (24 $/Tag = 1 $/Stunde = 20 $/20Stunden)</p>"
                 new_to_dca_html: "<p className=\"mt-2\"><b>Neu bei Dollar-Cost Averaging?</b></p>\n<p>Diese Links können dir helfen:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA für Anfänger (Video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Die Macht von DCA zu Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: 'Wird gestartet'
         force_smart_intervals: 'Nutze immer ideale Intervalle.'

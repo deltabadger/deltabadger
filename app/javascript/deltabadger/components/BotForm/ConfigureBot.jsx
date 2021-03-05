@@ -108,10 +108,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 onChange={e => setType(e.target.value)}
                 className="form-control db-select--buy-sell"
               >
-                <option value="market_buy">Buy</option>
-                <option value="market_sell">Sell</option>
-                <option value="limit_buy" disabled={!showLimitOrders}>Limit Buy</option>
-                <option value="limit_sell" disabled={!showLimitOrders}>Limit Sell</option>
+                <option value="market_buy">{I18n.t('bots.buy')}</option>
+                <option value="market_sell">{I18n.t('bots.sell')}</option>
+                <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
                 }
               </select>
             </div>
@@ -163,10 +163,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 onChange={e => setInterval(e.target.value)}
                 className="form-control"
               >
-                <option value="hour">Hour</option>
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
+                <option value="hour">{I18n.t('bots.hour')}</option>
+                <option value="day">{I18n.t('bots.day')}</option>
+                <option value="week">{I18n.t('bots.week')}</option>
+                <option value="month">{I18n.t('bots.month')}</option>
               </select>
             </div>
           </div>
