@@ -77,7 +77,7 @@ export const Transactions = ({ bot, active }) => {
         { bot.transactions.map(t => (
           <tr key={t.id} >
             <td scope="row">{t.created_at}</td>
-            <td>{bot.settings.type}</td>
+            <td>{translateBuyOrSell(bot.settings.type).toLowerCase()}</td>
             <td>{toFixedWithoutZeros(t.amount) || "N/A"}</td>
             <td>{toFixedWithoutZeros(t.rate) || "N/A"}</td>
           </tr>
@@ -104,4 +104,8 @@ const toFixedWithoutZeros = (x) => {
   }
 
   return parseFloat(x).toFixed(8).replace(/\.?0*$/,'');
+}
+
+const translateBuyOrSell = (side) => {
+  return side == 'buy' ? I18n.t('bots.buy') : I18n.t('bots.sell')
 }
