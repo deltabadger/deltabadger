@@ -51,8 +51,9 @@
             - unless lang == 'pt'
               %a.dropdown-item{:href => "?lang=pt"}
                 = "🇵🇹 Português"
-            -# %a.dropdown-item{:href => "#"}
-              -# = "🇷🇺 Русский"
+            - unless lang == 'ru'
+              %a.dropdown-item{:href => "?lang=ru"}
+                = "🇷🇺 Русский"
 
         .btn-group
           %button.btn.btn-link.btn-menu{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
