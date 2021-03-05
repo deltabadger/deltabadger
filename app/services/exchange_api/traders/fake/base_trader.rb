@@ -15,12 +15,26 @@ module ExchangeApi
           @market = market
         end
 
+        def fetch_order_by_id(order_id)
+          if SUCCESS
+            Result::Success.new(
+              offer_id: order_id,
+              amount: 0.00001,
+              rate: 25000
+            )
+          else
+            Result::Failure.new('Something went wrong!')
+          end
+        rescue StandardError => e
+          Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
+        end
+
         private
 
         def place_order(order_params)
           if SUCCESS
             Result::Success.new(
-              order_params
+              offer_id: order_params.fetch(:offer_id)
             )
           else
             Result::Failure.new('Something went wrong!')

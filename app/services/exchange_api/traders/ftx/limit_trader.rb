@@ -18,6 +18,17 @@ module ExchangeApi
           place_order(sell_params.data)
         end
 
+        def get_order_by_id(order_id)
+          response = super
+          return response unless response.success?
+
+          Result::Success.new(
+            response.data.merge(rate: order_params[:price], amount: order_params[:size])
+          )
+        rescue StandardError
+          Result::Failure.new('Could not make FTX order', RECOVERABLE)
+        end
+
         private
 
         def get_buy_params(symbol, price, percentage, force_smart_intervals)
@@ -66,17 +77,6 @@ module ExchangeApi
           return rate_decimals unless rate_decimals.success?
 
           Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
-        end
-
-        def place_order(order_params)
-          response = super
-          return response unless response.success?
-
-          Result::Success.new(
-            response.data.merge(rate: order_params[:price], amount: order_params[:size])
-          )
-        rescue StandardError
-          Result::Failure.new('Could not make FTX order', RECOVERABLE)
         end
 
         def parse_request(request)
