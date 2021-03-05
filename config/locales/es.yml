@@ -185,8 +185,8 @@ es:
         blog: 'Lee nuestro blog'
         knowledge_base: 'Base de conocimientos'
     ads:
-        automate_bitcoin_html: 'Automatiza la compra de <br>Bitcoin'
-        automate_crypto_html: "Automatiza la compra de cualquier<br class=\"d-none d-sm-inline\">\n<span class=\"d-none d-sm-inline\">criptomoneda</span>"
+        automate_bitcoin_html: 'Automatiza la compra <br>de Bitcoin'
+        automate_crypto_html: 'Automatiza la compra de cualquier criptomoneda'
         automate_hourly: 'cada hora'
         automate_daily: diario
         automate_weekly: semanal
@@ -216,7 +216,7 @@ es:
             testimonials:
                 header: 'Los usuarios dicen sobre nosotros:'
             dca_magic:
-                title_html: "La magia del promedio de\n<span class=\"no-break\">costes en dólares</span>\n<br>\nen\n<span class=\"no-break\">4 sencillos gráficos</span>"
+                title_html: "La magia del promedio de costes <br>\nen dólares en 4 sencillos gráficos"
                 easy1:
                     title_html: 'Espera... ¿qué es el DCA?'
                     text_html: "<p>El DCA es una estrategia de inversión en la que se compra un activo por una cantidad fija de forma regular, independientemente de su precio. Obtienes más del activo cuando el precio es más bajo y menos cuando el precio es más alto. Como resultado, en lugar de hacer grandes apuestas a corto plazo, se obtiene un precio medio justo.</p>\n<p>El DCA te aleja de la montaña rusa emocional, del riesgo a corto plazo y de la ansiedad en la toma de decisiones.</p>"
@@ -389,6 +389,10 @@ es:
                 private_key: 'Clave privada'
                 public_key: 'Clave pública'
             next: Próximo
+            bitso:
+                instructions_html: "<ol>\n  <li>Inicie sesión en su cuenta de <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a>.</li>\n  <li>En el menú de la cuenta (esquina superior derecha) vaya a <b>Perfil</b>.</li>\n  <li>Elija <b>API</b> (lado izquierdo).</li>\n  <li>Pulse <b>Añadir nueva</b> API.</li>\n  <li>Rellene el <b>nombre de la API</b> y proporcione su <b>PIN de transacción</b>.</li>\n  <li>Establezca los permisos:\n    <ul>\n      <li><b>Realice operaciones</b></li>\n      <li><b>Ver saldos</b></li>\n      <li><b>Ver información de la cuenta</b></li>\n    </ul>\n  </li>\n  <li>Pulse <b>Guardar</b>.</li>\n  <li>Copie y pegue sus nuevas claves API en el formulario anterior.</li>\n</ol>\n"
+                private_key: 'Secreto de API'
+                public_key: 'Clave API'
         add_new_bot: 'Añadir nuevo bot'
         start: Empezar
         stop: Pausar
