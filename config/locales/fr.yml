@@ -185,12 +185,12 @@ fr:
         blog: 'Lire notre blog'
         knowledge_base: 'Base de connaissances'
     ads:
-        automate_bitcoin_html: 'Automatise l''achat de <br> Bitcoin'
-        automate_crypto_html: "Automatise l'achat de toute<br class=\"d-none d-sm-inline\">\ncrypto<span class=\"d-none d-sm-inline\">monnaie</span>"
+        automate_bitcoin_html: 'Automatise l''achat de <br>Bitcoin'
+        automate_crypto_html: 'Automatise l''achat de toute cryptomonnaie'
         automate_hourly: horaire
         automate_daily: journalier
         automate_weekly: hebdomadaire
-        dont_trade_automate_html: '<div>Ne &nbsp échange.</div> <div>Automatise.</div>'
+        dont_trade_automate_html: '<div>Ne trade pas.</div> <div>Automatise.</div>'
         dca_bulletproof_html: 'Une stratégie à toute épreuve de <span class="no-break"> <a href="#dcamagic"> achats périodiques </a> . </span> <br> Fonctionne avec les échanges populaires. <span class="no-break"> Configuration en cinq minutes. </span>'
         dca_profit_html: 'Si tu avais fait des achats périodiques en <br> en Bitcoin l''année dernière, <br> tu serais maintenant en hausse <span class="text-success"> + %{profit} % </span>'
         basic_free_html: "Le plan de base est\n <b class=\"text-success text-success--lighter\"> gratuit </b>\n pour toujours."
@@ -216,7 +216,7 @@ fr:
             testimonials:
                 header: 'Les utilisateurs disent de nous :'
             dca_magic:
-                title_html: "La magie des\n <span class=\"no-break\"> achats périodiques </span>\n <br>\n dans\n <span class=\"no-break\"> 4 graphiques faciles </span>"
+                title_html: "La magie des achats périodiques <br>\n dans 4 graphiques faciles"
                 easy1:
                     title_html: 'Attendez... qu''est-ce que la DCA ?'
                     text_html: "<p> DCA est une stratégie d'investissement dans laquelle tu achètes un actif pour un montant fixe selon une périodisation régulière quel que soit son prix. Tu obtiens plus d'actif lorsque le prix est inférieur, et moins lorsque le prix est plus élevé. En conséquence, au lieu de prendre de gros paris à court terme, tu obtiens un prix moyen juste. </p>\n <p> DCA vous éloigne des montagnes russes émotionnelles, des risques à court terme et de l'anxiété liée à la prise de décision. </p>"
@@ -276,7 +276,7 @@ fr:
             expired: 'Oh non… ton abonnement a expiré. Renouvelle ton plan pour continuer à bénéficier du programme de parrainage.'
             your_link: 'Ton lien de parrainage'
             stats: Statistiques
-            referees: Parrains
+            referees: 'Membres parrainés'
             paid_so_far: 'Payé à ce jour (BTC)'
             unpaid: 'Non payé (BTC)'
             update_info: 'Mettre à jour les informations visibles'
@@ -291,9 +291,9 @@ fr:
             submit: 'Mise à jour'
         discount:
             flash_html: 'Bonjour! profite de %{discount_percent} % de réduction sur <span class="text-success text-success--lighter"> %{visible_name} </span>'
-            congrats_html: 'Félicitations! La <span class="db-form-label-range--discount-percent"> %{discount_percent} </span> % est active.'
+            congrats_html: 'Félicitations ! Le <span class="db-form-label-range--discount-percent"> %{discount_percent} </span> % est actif.'
             referrer_html: "Grâce au lien de parrainage de la part de\n <b> <a href='%{visible_link}'> <span class='db-form-preview--visible_name'> %{visible_name} </span> </a> . </b>"
-            valid_for: 'Valable pour le premier achat sur la plateforme.'
+            valid_for: 'Valable dès le premier achat sur la plateforme.'
             accepted: 'Tu as accepté le lien de parrainage'
             invalid: 'Le lien de parrainage n''est plus valide ou il est obsolète'
             already_used: 'Tu as déjà utilisé un lien de parrainage'
@@ -307,7 +307,7 @@ fr:
         program_joined: 'Tu as rejoint le programme de parrainage'
         your_bitcoin_address: 'Votre adresse Bitcoin'
         invalid_bitcoin_address: 'Adresse Bitcoin invalide'
-        info_preview: 'Voici un aperçu de ce que les arbitres verront lors de l''inscription :'
+        info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
         add_link_info: 'Tu peux ajouter ton nom et un lien vers ton site Web pour informer l''arbitre d''où provient la réduction. Mais tu peux également laisser ce champ vide :'
     settings:
         index:
@@ -389,6 +389,10 @@ fr:
                 private_key: 'Clé privée'
                 public_key: 'Clé publique'
             next: Suivant
+            bitso:
+                instructions_html: "<ol>\n  <li>Connectez-vous à votre compte <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a>.</li>\n  <li>Dans le menu du compte (en haut à droite), allez à <b>Profil</b>.</li>\n  <li>Choisissez l'<b>API</b> (à gauche).</li>\n  <li>Appuyez sur <b>Ajouter une nouvelle</b> API.</li>\n  <li>Indiquez le <b>nom</b> de l'API et fournissez votre <b>code PIN de transaction</b>.</li>\n  <li>Définissez les autorisations :\n    <ul>\n      <li><b>Effectuer des transactions</b></li>\n      <li><b>Voir les soldes</b></li>\n      <li><b>Voir les informations sur le compte</b></li>\n    </ul>\n  </li>\n  <li>Appuyez sur <b>Enregistrer</b>.</li>\n  <li>Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.</li>\n</ol>\n"
+                private_key: 'API Secret'
+                public_key: 'Clé API'
         add_new_bot: 'Ajouter un nouveau bot'
         start: Commencer
         stop: Pause
@@ -441,7 +445,7 @@ fr:
                 csv_download_html: 'Le tableau ci-dessus ne montre que les dix dernières transactions. <br> Le rapport complet peut être téléchargé au format CSV ci-dessous.'
                 download_csv: 'Télécharger .csv'
                 date: Date
-                order: Commande
+                order: Type
                 amount: 'Montant (%{base})'
                 rate: 'Taux (%{quote})'
             log:
@@ -450,11 +454,11 @@ fr:
                 errors: Erreurs
             info:
                 title: Info
-                exchanges_html: "<p className=\"mt-2\"> <b> Echanges </b> </p>\n <p> Deltabadger fonctionne avec les échanges de cryptomonnaie. Pour le moment, nous prenons en charge <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\"> Binance </a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\"> Binance.US </a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\"> Bitbay </a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\"> Coinbase Pro </a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\"> Gemini </a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\"> FTX </a> et <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\"> Kraken </a>. Nous recommandons Kraken pour son échange réputé qui n'a jamais été piraté. Utilise Bitbay si tu souhaites effectuer des achats en PLN.</p>\n <p> Pour rendre ton bot utile, tu dois d'abord vérifier ton compte d'échange et y transférer des fonds. </p>\n <p> Cependant, ne conserve pas trop longtemps tes pièces dans un échange. Connecte-toi à ton compte et effectue régulièrement des retraits au moins une fois par mois. </p>\n <p> Nous ajouterons plus d'échanges à l'avenir. Fais-nous savoir si tu es intéressé par un en particulier. </p>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>« Intervalles intelligents » </b></p>\n<p>Lorsque les intervalles intelligents sont activés, Deltabadger exécute la planification souhaitée en effectuant les plus petites transactions autorisées par la bourse. Sinon, ils ne seront utilisés qu'en cas de nécessité.</p>\n<p className=\"mt-2\"><b>Pourquoi ?</b></p>\n<p>Il y a deux avantages :</p>\n<p>Une périodicité plus fréquente te permet de profiter plus rapidement des avantages du DCA et le rend encore plus fluide.</p>\n<p>De plus, il est parfois nécessaire de prévoir des intervalles intelligents. Chaque bourse a une limite minimale par transaction. Certaines bourses la définissent dans la CTB, de sorte que la valeur du dollar change au fil du temps. Si le montant que tu veux investir est plus petit, Deltabadger conserve le ratio souhaité en utilisant le montant minimal autorisé mais en ajustant l'intervalle de temps. Il protège le bot contre un arrêt lorsque le montant que tu as défini tombe en dessous du seuil.</p>\n<p className=\"mt-2\"><b>Exemple :</b></p>\n<p>Supposons que la limite d'échange actuelle est de 20 $. Si tu fixes le volume de la transaction à 24$/jour, le bot fera exactement cela. En revanche, si tu le définis à 1 $/heure, il imitera le ratio en utilisant le volume autorisé, qui est de 20 $ toutes les 20 heures. En moyenne, on obtient le même ratio (24 $/jour = 1 $/heure = 20 $/20 heures).</p>"
+                exchanges_html: "<p className=\"mt-2\"> <b> Echanges </b> </p>\n <p> Deltabadger fonctionne avec les échanges de cryptomonnaie. Pour le moment, nous prenons en charge <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\"> Binance </a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\"> Binance.US </a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\"> Bitbay </a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\"> Coinbase Pro </a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\"> Gemini </a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\"> FTX </a> et <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\"> Kraken </a>. Nous recommandons Kraken pour son échange réputé qui n'a jamais été piraté. Utilise Bitbay si tu souhaites effectuer des achats en PLN.</p>\n <p> Pour rentre ton fonctionnel, tu dois d'abord vérifier ton compte d'échange et y transférer des fonds. </p>\n <p> Cependant, ne conserve pas trop longtemps tes monnaies dans un échange. Connecte-toi à ton compte et effectue régulièrement des retraits au moins une fois par mois. </p>\n <p> Nous ajouterons plus d'échanges à l'avenir. Fais-nous savoir si tu es intéressé par un en particulier. </p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>« Intervalles intelligents » </b></p>\n<p>Lorsque les intervalles intelligents sont activés, Deltabadger exécute la planification souhaitée en effectuant les plus petites transactions autorisées par l’échangeur. Sinon, ils ne seront utilisés qu'en cas de nécessité.</p>\n<p className=\"mt-2\"><b>Pourquoi ?</b></p>\n<p>Il y a deux avantages :</p>\n<p>Une périodicité plus fréquente te permet de profiter plus rapidement des avantages du DCA et le rend encore plus fluide.</p>\n<p>De plus, il est parfois nécessaire de prévoir des intervalles intelligents. Chaque bourse a une limite minimale par transaction. Certaines bourses la définissent dans la CTB, de sorte que la valeur du dollar change au fil du temps. Si le montant que tu veux investir est plus petit, Deltabadger conserve le ratio souhaité en utilisant le montant minimal autorisé mais en ajustant l'intervalle de temps. Il protège le bot contre un arrêt lorsque le montant que tu as défini tombe en dessous du seuil.</p>\n<p className=\"mt-2\"><b>Exemple :</b></p>\n<p>Supposons que la limite d'échange actuelle est de 20 $. Si tu fixes le volume de la transaction à 24 $/jour, le bot fera exactement cela. En revanche, si tu le définis à 1 $/heure, il imitera le ratio en utilisant le volume autorisé, qui est de 20 $ toutes les 20 heures. En moyenne, on obtient le même ratio (24 $/jour = 1 $/heure = 20 $/20 heures).</p>"
                 new_to_dca_html: "<p className=\"mt-2\"> <b> Tu ne connais pas les achats périodiques ? </b> </p>\n <p> Ces liens t'aideront : </p>\n <ul className=\"mb-5\">\n <li> <a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\"> DCA pour les débutants (vidéo) </a> </li>\n <li> <a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\"> La puissance de DCA en Bitcoin </a> </li>\n <li> <a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\"> DCA Simulator </a> </li>\n </ul>"
         starting: Commencer
-        force_smart_intervals: 'Utilisez toujours des intervalles intelligents.'
+        force_smart_intervals: 'Utilisez toujours les intervalles intelligents.'
     activerecord:
         errors:
             models:
