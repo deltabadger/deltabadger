@@ -36,5 +36,6 @@
             - unless lang == 'pt'
               %a.dropdown-item{:href => "?lang=pt"}
                 = "🇵🇹 Português"
-            -# %a.dropdown-item{:href => "#"}
-              -# = "🇷🇺 Русский"
+            - unless lang == 'ru'
+              %a.dropdown-item{:href => "?lang=ru"}
+                = "🇷🇺 Русский"
