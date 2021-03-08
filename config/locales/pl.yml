@@ -238,7 +238,7 @@ pl:
                     chart_average_price: 'Średnia cena'
                 easy2:
                     title_html: 'Czy powinienem zaczekać z rozpoczęciem na korektę?'
-                    text_html: '<p>Nie. Dla aktywów w długoterminowym trendzie wzrostowym zawsze lepiej zacząć wcześniej. Nawet na lokalnym szczycie! Ostatecznie, cena pójdzie wyżej, a kto zaczął wcześniej, kończy się z niższą ceną średnią.</p>'
+                    text_html: '<p>Nie. Dla aktywów w trendzie bocznym lub wzrostowym zawsze lepiej zacząć wcześniej. Nawet na lokalnym szczycie! Kiedy kurs wreszcie odbija, ten kto rozpoczął regularne zakupy wcześniej, kończy z lepszą ceną średnią.</p>'
                     chart_earlier: Wcześniej
                     chart_better_average_price: 'lepsza średnia cena'
                 easy3:
