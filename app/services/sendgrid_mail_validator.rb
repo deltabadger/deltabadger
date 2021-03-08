@@ -40,8 +40,8 @@ class SendgridMailValidator < BaseService
   end
 
   def is_email_valid?(response)
-    result = response.fetch('result', nil?)
-    return false if result.nil?
+    result = response.fetch('result', nil)
+    return true if result.nil?
 
     verdict = result.fetch('verdict', INVALID).to_s
     verdict != INVALID
