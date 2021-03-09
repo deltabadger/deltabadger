@@ -209,7 +209,7 @@ const BotTemplate = ({
             onChange={e => setPercentage(e.target.value)}
             placeholder="0"
             disabled={working}
-        /> % { isSellOffer() ? 'above' : 'below'} the price.<sup>*</sup></span> }
+        /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup>*</sup></span> }
       </div>
       {isLimitSelected() && <LimitOrderNotice />}
       <div className="db-bot__footer">
