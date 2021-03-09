@@ -3,7 +3,7 @@ class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_trader: ExchangeApi::Traders::Get.new,
     schedule_transaction: ScheduleTransaction.new,
-    schedule_result_fetching: ScheduleResultFetching.new,
+    fetch_order_result: FetchOrderResult.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
@@ -16,7 +16,7 @@ class MakeTransaction < BaseService
   )
     @get_exchange_trader = exchange_trader
     @schedule_transaction = schedule_transaction
-    @schedule_result_fetching = schedule_result_fetching
+    @fetch_order_result = fetch_order_result
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
@@ -41,9 +41,15 @@ class MakeTransaction < BaseService
     fixing_price = continue_params[:price]
     result = continue_schedule ? nil : perform_action(get_api(bot), bot, fixing_price)
 
-    if continue_schedule || result.success?
+    if continue_schedule #code duplication in fetch_order_result
+      bot = @bots_repository.update(bot.id, restarts: 0)
+      result = validate_limit(bot, notify)
+      check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
+      @schedule_transaction.call(bot) if result.success?
+    elsif result.success?
       offer_id = result.data.fetch(:offer_id)
-      @schedule_result_fetching.call(bot, offer_id) if result.success?
+      @bots_repository.update(bot.id, status: 'pending')
+      result = @fetch_order_result.call(bot.id, offer_id)
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
       @schedule_transaction.call(bot)
