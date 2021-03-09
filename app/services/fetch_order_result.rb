@@ -27,24 +27,24 @@ class FetchOrderResult < BaseService
     @subtract_credits = subtract_credits
   end
 
-  def call(bot_id, offer_id, notify: true, restart: true)
+  def call(bot_id, offer_id, fixing_price, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless bot.pending?
 
-    result = perform_action(get_api(bot), offer_id, bot, nil) # fix when continue schedule
+    result = perform_action(get_api(bot), offer_id, bot, fixing_price) # fix when continue schedule
+
 
     if result.success?
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0, fetch_restarts: 0)
       result = validate_limit(bot, notify)
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
     elsif !fetched?(result)
-      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1) #fetch restart
-      @schedule_result_fetching.call(bot, offer_id)
-      #@notifications.restart_occured(bot: bot, errors: result.errors) if notify
+      bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1) #fetch restart
+      @schedule_result_fetching.call(bot, offer_id, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
-      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
+      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
@@ -52,6 +52,7 @@ class FetchOrderResult < BaseService
       stop_bot(bot, notify, result.errors)
     end
 
+    bot.reload
     result
   end
 
@@ -98,7 +99,7 @@ class FetchOrderResult < BaseService
   end
 
   def fetched?(result)
-    result.data&.dig(:fetched) == true
+    result.data&.dig(:fetched).nil? || result.data&.dig(:fetched) == true
   end
 
   def recoverable?(result)
