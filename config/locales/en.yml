@@ -159,6 +159,7 @@ en:
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             you_pay: 'You pay'
             payment_ordered: 'Payment ordered!'
+            vat: "VAT"
         upgrade_plan: 'Upgrade plan'
     links:
         homepage: 'Link to the homepage'
@@ -407,6 +408,9 @@ en:
         month: Month
         next_buy: 'Next buy in %{countdown}'
         next_sell: 'Next sell in %{countdown}'
+        price: "the price"
+        above: "above"
+        below: "below"
         buttons:
             start:
                 changed_on_schedule:

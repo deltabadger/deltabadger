@@ -60,8 +60,10 @@
 
     .col-md-12.col-lg-5.offset-lg-1.db-flex-centered-vertically
       .db-flex-centered-vertically__content
-        %h2.mb-5= t('home.index.fastest_asset')
-        %p= t('home.index.connect_exchanges')
+        %h2.mb-5
+          = t('home.index.fastest_asset')
+        %p
+          = t('home.index.connect_exchanges')
 
         %p.db-list-of-exchanges
           %b <span class="transparent-50">&middot;</span> Binance
@@ -70,7 +72,6 @@
           -#   %b <span class="transparent-50">&middot;</span> Bitfinex
           -#   %b <span class="transparent-50">&middot;</span> Bitkub
           -#   %b <span class="transparent-50">&middot;</span> Bitpanda Pro
-          -#   %b <span class="transparent-50">&middot;</span> Bitso
           -#   %b <span class="transparent-50">&middot;</span> Bitmex
           %b <span class="transparent-50">&middot;</span> Bitso
           -#   %b <span class="transparent-50">&middot;</span> Bitstamp
