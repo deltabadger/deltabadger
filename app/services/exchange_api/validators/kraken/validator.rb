@@ -11,7 +11,7 @@ module ExchangeApi
           response = @client.balance
           response['error'].none?
         rescue StandardError
-          false
+          true
         end
       end
     end

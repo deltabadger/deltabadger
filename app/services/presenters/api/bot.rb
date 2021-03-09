@@ -8,7 +8,7 @@ module Presenters
       )
         @next_bot_transaction_at = next_bot_transaction_at
         @transactions_repository = transactions_repository
-        @nex_result_fetching_at = next_result_fetching_at
+        @next_result_fetching_at = next_result_fetching_at
       end
 
       def call(bot)
@@ -32,7 +32,7 @@ module Presenters
       private
 
       def next_result_fetching_timestamp(bot)
-        @nex_result_fetching_at.call(bot).to_i
+        @next_result_fetching_at.call(bot).to_i
       rescue StandardError
         nil
       end
