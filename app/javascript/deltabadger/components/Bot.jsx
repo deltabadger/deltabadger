@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import I18n from 'i18n-js'
 import { connect } from 'react-redux';
 import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
-import { Timer } from './Timer';
+import { Timer, FetchFromExchangeTimer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
@@ -136,7 +136,7 @@ const BotTemplate = ({
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
           </div>
-          { pending && nextResultFetchingTimestamp && <Timer bot={bot} callback={reload} />}
+          { pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload} />}
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
         </div>

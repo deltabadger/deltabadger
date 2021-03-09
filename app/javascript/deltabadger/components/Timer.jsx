@@ -5,21 +5,18 @@ import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
-const calculateDelay = (nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp, status) => {
-  if (status === 'working')
-    return nextTransactionTimestamp - nowTimestamp
-
-  return nextResultFetchingTimestamp - nowTimestamp
+const calculateDelay = (nextTimestamp, nowTimestamp) => {
+  return nextTimestamp - nowTimestamp
 }
 
 export const Timer = ({bot, callback}) => {
   let i = 0;
-  const { settings, status, nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp, status))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))
   const timeout = delay < 0
 
-  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
+  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
     if(timeout && i == 0) {
       if (bot) {
@@ -38,6 +35,36 @@ export const Timer = ({bot, callback}) => {
   return (
     <div className="db-bot__infotext__right">
       {I18n.t(translation_key, { countdown })}
+    </div>
+  )
+}
+
+// TODO, remove code duplication
+export const FetchFromExchangeTimer = ({bot, callback}) => {
+  let i = 0;
+  const { settings, status, nextResultFetchingTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+
+  const [delay, setDelay] = useState(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status))
+  const timeout = delay < 0
+
+  useEffect(() => { setDelay(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status))}, [bot.nextResultFetchingTimestamp])
+  useInterval(() => {
+    if(timeout && i == 0) {
+      if (bot) {
+        i = i + 1;
+        callback(bot)
+      }
+    }
+    setDelay(delay - 1)
+  }, 1000);
+
+  if (timeout) { return <Spinner /> }
+
+  const countdown = formatDuration(moment.duration(delay, 'seconds'))
+
+  return (
+    <div className="db-bot__infotext__right">
+      Waiting for exchange response.
     </div>
   )
 }
