@@ -3,10 +3,12 @@ module Presenters
     class Bot < BaseService
       def initialize(
         next_bot_transaction_at: NextBotTransactionAt.new,
-        transactions_repository: TransactionsRepository.new
+        transactions_repository: TransactionsRepository.new,
+        next_result_fetching_at: NextResultFetchingAt.new
       )
         @next_bot_transaction_at = next_bot_transaction_at
         @transactions_repository = transactions_repository
+        @nex_result_fetching_at = next_result_fetching_at
       end
 
       def call(bot)
@@ -22,11 +24,18 @@ module Presenters
           logs: logs.map(&method(:present_log)),
           stats: present_stats(bot, transactions),
           nowTimestamp: Time.now.to_i,
+          nextResultFetchingTimestamp: next_result_fetching_timestamp(bot),
           nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
 
       private
+
+      def next_result_fetching_timestamp(bot)
+        @nex_result_fetching_at.call(bot).to_i
+      rescue StandardError
+        nil
+      end
 
       def next_transaction_timestamp(bot)
         @next_bot_transaction_at.call(bot).to_i

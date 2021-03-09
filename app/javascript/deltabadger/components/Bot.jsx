@@ -2,7 +2,7 @@ import 'lodash'
 import React, { useState } from 'react';
 import I18n from 'i18n-js'
 import { connect } from 'react-redux';
-import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton } from './buttons'
+import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
@@ -33,7 +33,7 @@ const BotTemplate = ({
   reload,
   open
 }) => {
-  const { id, settings, status, exchangeName, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { id, settings, status, exchangeName, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [type, setType] = useState(settings.order_type);
   const [price, setPrice] = useState(settings.price);
@@ -45,6 +45,7 @@ const BotTemplate = ({
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
+  const pending = status === 'pending'
 
   const disableSubmit = price.trim() === ''
 
@@ -128,12 +129,14 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
-        { !isStarting && (working ? <StopButton onClick={() => handleStop(id)} /> :
-            <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}/>)  }
+        { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
+        { (!isStarting && pending) && <PendingButton /> }
+        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
           </div>
+          { pending && nextResultFetchingTimestamp && <Timer bot={bot} callback={reload} />}
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
           { !working && isNotEmpty(errors) && <Errors data={errors} /> }
         </div>

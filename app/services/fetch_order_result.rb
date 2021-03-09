@@ -27,27 +27,25 @@ class FetchOrderResult < BaseService
     @subtract_credits = subtract_credits
   end
 
-  def call(bot_id, offer_id, notify: true, restart: true, continue_params: nil)
+  def call(bot_id, offer_id, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
-    #return Result::Failure.new unless make_transaction?(bot)
+    return Result::Failure.new unless bot.pending?
 
-    if continue_params.nil?
-      continue_params = { continue_schedule: false, price: nil }
-    end
+    result = perform_action(get_api(bot), offer_id, bot, nil) # fix when continue schedule
 
-    continue_schedule = continue_params[:continue_schedule]
-    fixing_price = continue_params[:price]
-
-    result = continue_schedule ? nil : perform_action(get_api(bot), offer_id, bot, fixing_price)
-
-    if continue_schedule || result.success?
-      bot = @bots_repository.update(bot.id, restarts: 0)
+    if result.success?
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
       result = validate_limit(bot, notify)
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
+    elsif !fetched?(result)
+      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1) #fetch restart
+      @schedule_result_fetching.call(bot, offer_id)
+      #@notifications.restart_occured(bot: bot, errors: result.errors) if notify
+      result = Result::Success.new
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
-      @schedule_result_fetching.call(bot, offer_id)
+      @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
@@ -97,6 +95,10 @@ class FetchOrderResult < BaseService
   def check_if_trial_ending_soon(bot, notify)
     ending_soon_result = @validate_trial_ending_soon.call(bot.user)
     @notifications.first_month_ending_soon(bot: bot) if ending_soon_result.failure? && notify
+  end
+
+  def fetched?(result)
+    result.data&.dig(:fetched) == true
   end
 
   def recoverable?(result)

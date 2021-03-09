@@ -27,7 +27,7 @@ class StartBot < BaseService
 
     @bots_repository.update(bot.id, status: 'stopped') if result.failure?
 
-    #bot.reload
+    bot.reload
 
     if result.success?
       Result::Success.new(bot)
