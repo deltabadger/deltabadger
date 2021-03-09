@@ -6,7 +6,8 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Fake
 
-        SUCCESS = true
+        SUCCESS = false
+        FETCHED = false
 
         attr_reader :exchange_name, :bid, :ask
 
@@ -19,11 +20,13 @@ module ExchangeApi
           if SUCCESS
             Result::Success.new(
               offer_id: order_id,
-              amount: 0.00001,
+              amount: 0.00001, # TODO, change to real values
               rate: 25000
             )
-          else
+          elsif FETCHED
             Result::Failure.new('Something went wrong!')
+          else
+            Result::Failure.new('Waiting for exchange response', NOT_FETCHED)
           end
         rescue StandardError => e
           Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
@@ -32,7 +35,7 @@ module ExchangeApi
         private
 
         def place_order(order_params)
-          if SUCCESS
+          if true
             Result::Success.new(
               offer_id: order_params.fetch(:offer_id)
             )

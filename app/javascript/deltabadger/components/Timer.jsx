@@ -5,18 +5,21 @@ import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
-const calculateDelay = (nextTransactionTimestamp, nowTimestamp) => {
-  return nextTransactionTimestamp - nowTimestamp
+const calculateDelay = (nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp, status) => {
+  if (status === 'working')
+    return nextTransactionTimestamp - nowTimestamp
+
+  return nextResultFetchingTimestamp - nowTimestamp
 }
 
 export const Timer = ({bot, callback}) => {
   let i = 0;
-  const { settings, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { settings, status, nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp, status))
   const timeout = delay < 0
 
-  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp))}, [bot.nextTransactionTimestamp])
+  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nextResultFetchingTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
     if(timeout && i == 0) {
       if (bot) {
