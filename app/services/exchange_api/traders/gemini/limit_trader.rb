@@ -18,6 +18,13 @@ module ExchangeApi
           place_order(sell_params.data)
         end
 
+        def fetch_order_by_id(order_id, response_params = nil)
+          Result::Success.new(response_params)
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from Gemini')
+        end
+
         private
 
         def get_buy_params(symbol, price, percentage, force_smart_intervals)
