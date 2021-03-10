@@ -47,9 +47,8 @@ class MakeTransaction < BaseService
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
     elsif result.success?
-      offer_id = result.data.fetch(:offer_id)
       @bots_repository.update(bot.id, status: 'pending')
-      result = @fetch_order_result.call(bot.id, offer_id, fixing_price)
+      result = @fetch_order_result.call(bot.id, result.data, fixing_price)
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
       @schedule_transaction.call(bot)
