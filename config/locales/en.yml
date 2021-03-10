@@ -159,7 +159,7 @@ en:
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             you_pay: 'You pay'
             payment_ordered: 'Payment ordered!'
-            vat: "VAT"
+            vat: VAT
         upgrade_plan: 'Upgrade plan'
     links:
         homepage: 'Link to the homepage'
@@ -408,9 +408,6 @@ en:
         month: Month
         next_buy: 'Next buy in %{countdown}'
         next_sell: 'Next sell in %{countdown}'
-        price: "the price"
-        above: "above"
-        below: "below"
         buttons:
             start:
                 changed_on_schedule:
@@ -463,6 +460,9 @@ en:
                 new_to_dca_html: "<p className=\"mt-2\"><b>New to dollar-cost averaging?</b></p>\n<p>Those links will help:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: Starting
         force_smart_intervals: 'Always use smart intervals.'
+        price: 'the price'
+        above: above
+        below: below
     activerecord:
         errors:
             models:
