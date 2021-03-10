@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 class FetchOrderResult < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_trader: ExchangeApi::Traders::Get.new,
@@ -40,7 +41,7 @@ class FetchOrderResult < BaseService
       @schedule_transaction.call(bot) if result.success?
     elsif !fetched?(result)
       bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
-      @schedule_result_fetching.call(bot, offer_id, fixing_price)
+      @schedule_result_fetching.call(bot, result_params, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1, fetch_restarts: 0)
@@ -53,6 +54,10 @@ class FetchOrderResult < BaseService
 
     bot.reload
     result
+  rescue StandardError
+    @unschedule_transactions.call(bot)
+    stop_bot(bot, notify)
+    raise
   end
 
   private
@@ -63,7 +68,7 @@ class FetchOrderResult < BaseService
   end
 
   def perform_action(api, result_params, bot, price)
-    offer_id = result_params.fetch(:offer_id)
+    offer_id = get_offer_id(result_params)
     result = if already_fetched?(result_params)
                api.fetch_order_by_id(offer_id, result_params)
              else
@@ -137,5 +142,11 @@ class FetchOrderResult < BaseService
 
   def already_fetched?(result_params)
     result_params.key?(:amount)
+  end
+
+  def get_offer_id(result_params)
+    result_params.fetch(:offer_id)
+  rescue StandardError
+    result_params.fetch('offer_id')
   end
 end

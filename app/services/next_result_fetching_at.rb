@@ -12,7 +12,7 @@ class NextResultFetchingAt < BaseService
               restart_delay(bot)
             end
 
-    delay.since(Time.now)
+    delay.since(Time.now) #change to smth else
   end
 
   private
