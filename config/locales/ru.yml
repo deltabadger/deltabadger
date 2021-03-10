@@ -173,6 +173,7 @@ ru:
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
             you_pay: 'Вы платите'
             payment_ordered: 'Оплата заказана!'
+            vat: НДС
         upgrade_plan: 'Обновить план'
     links:
         homepage: 'Ссылка на домашнюю страницу'
@@ -473,6 +474,9 @@ ru:
                 new_to_dca_html: "<p className=\"mt-2\"><b>Усреднение долларовой стоимости для вас в новинку?</b></p>\n<p>Эти линки помогут вам:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA для новичков (видео)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Сила DCA для Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Симулятор DCA</a></li>\n</ul>"
         starting: Начало
         force_smart_intervals: 'Всегда используйте разумные интервалы.'
+        price: цены
+        above: выше
+        below: ниже
     activerecord:
         errors:
             models:
