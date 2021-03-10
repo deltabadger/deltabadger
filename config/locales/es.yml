@@ -159,6 +159,7 @@ es:
             referral_discount_html: 'Gracias al enlace de referencia de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
             you_pay: 'Tu pagas'
             payment_ordered: '¡Pago ordenado!'
+            vat: IVA
         upgrade_plan: 'Actualizar plan'
     links:
         homepage: 'Enlace a la página de inicio'
@@ -459,6 +460,9 @@ es:
                 new_to_dca_html: "<p className=\"mt-2\"><b>¿Eres nuevo en esto de promediar el coste en dólares?</b></p>\n<p>Estos enlaces te ayudarán:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA para principiantes (vídeo)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">El poder del DCA en Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Simulador DCA</a></li>\n</ul>"
         starting: Empezar
         force_smart_intervals: 'Usar siempre intervalos inteligentes.'
+        price: 'del precio'
+        above: 'por encima'
+        below: 'por debajo'
     activerecord:
         errors:
             models:
