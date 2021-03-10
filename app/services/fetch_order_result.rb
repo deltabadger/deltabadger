@@ -27,12 +27,11 @@ class FetchOrderResult < BaseService
     @subtract_credits = subtract_credits
   end
 
-  def call(bot_id, offer_id, fixing_price, notify: true, restart: true)
+  def call(bot_id, result_params, fixing_price, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless bot.pending?
 
-    result = perform_action(get_api(bot), offer_id, bot, fixing_price) # fix when continue schedule
-
+    result = perform_action(get_api(bot), result_params, bot, fixing_price)
 
     if result.success?
       bot = @bots_repository.update(bot.id, status: 'working', restarts: 0, fetch_restarts: 0)
@@ -40,7 +39,7 @@ class FetchOrderResult < BaseService
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
     elsif !fetched?(result)
-      bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1) #fetch restart
+      bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
       @schedule_result_fetching.call(bot, offer_id, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
@@ -63,8 +62,13 @@ class FetchOrderResult < BaseService
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
-  def perform_action(api, offer_id, bot, price)
-    result = api.fetch_order_by_id(offer_id)
+  def perform_action(api, result_params, bot, price)
+    offer_id = result_params.fetch(:offer_id)
+    result = if already_fetched?(result_params)
+               api.fetch_order_by_id(offer_id, result_params)
+             else
+               api.fetch_order_by_id(offer_id)
+             end
 
     if result.success?
       @transactions_repository.create(transaction_params(result, bot, price))
@@ -129,5 +133,9 @@ class FetchOrderResult < BaseService
 
   def fixing_transaction?(price)
     !price.nil?
+  end
+
+  def already_fetched?(result_params)
+    result_params.key?(:amount)
   end
 end

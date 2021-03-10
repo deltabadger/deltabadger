@@ -20,8 +20,7 @@ module ExchangeApi
         end
 
         def fetch_order_by_id(order_id)
-          byebug
-          order_data = orders.fetch(offer_id, nil)
+          order_data = orders.fetch(order_id, nil)
           return Result::Failure.new('Waiting for Kraken response', NOT_FETCHED) if order_data.nil?
 
           rate = placed_order_rate(order_data)
@@ -53,7 +52,7 @@ module ExchangeApi
         def parse_response(response)
           created_order = response.fetch('result')
           offer_id = created_order.fetch('txid').first
-          Result::Success.new(offer_id: offer_id)
+          { offer_id: offer_id }
         end
 
         def common_order_params(symbol)
