@@ -19,13 +19,9 @@ class MakeTransaction < BaseService
     @fetch_order_result = fetch_order_result
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
-    @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
     @notifications = notifications
-    @validate_limit = validate_limit
-    @validate_almost_limit = validate_almost_limit
     @validate_trial_ending_soon = validate_trial_ending_soon
-    @subtract_credits = subtract_credits
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
@@ -41,7 +37,7 @@ class MakeTransaction < BaseService
     fixing_price = continue_params[:price]
     result = continue_schedule ? nil : perform_action(get_api(bot), bot, fixing_price)
 
-    if continue_schedule #code duplication in fetch_order_result
+    if continue_schedule
       bot = @bots_repository.update(bot.id, restarts: 0)
       result = validate_limit(bot, notify)
       check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
@@ -91,8 +87,11 @@ class MakeTransaction < BaseService
     result
   end
 
-  # rubocop:enable Metrics/AbcSize
-  #
+  def check_if_trial_ending_soon(bot, notify)
+    ending_soon_result = @validate_trial_ending_soon.call(bot.user)
+    @notifications.first_month_ending_soon(bot: bot) if ending_soon_result.failure? && notify
+  end
+
   def stop_bot(bot, notify, errors = ['Something went wrong!'])
     bot = @bots_repository.update(bot.id, status: 'stopped')
     @notifications.error_occured(bot: bot, errors: errors) if notify
