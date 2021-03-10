@@ -10,6 +10,8 @@ class AddApiKey < BaseService
 
   def call(params)
     api_key = ApiKey.new(params)
+    saved_api_key = @api_keys_repository.save(api_key)
+    return Result::Success.new(saved_api_key)
 
     result = @api_key_validator.call(api_key)
 
