@@ -64,7 +64,7 @@ export const FetchFromExchangeTimer = ({bot, callback}) => {
 
   return (
     <div className="db-bot__infotext__right">
-      Waiting for exchange response.
+      Waiting for exchange response, { countdown }
     </div>
   )
 }

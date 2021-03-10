@@ -9,12 +9,12 @@ class ScheduleResultFetching < BaseService
     @next_result_fetching_at = next_result_fetching_at
   end
 
-  def call(bot, offer_id, fixing_price)
+  def call(bot, result_parameters, fixing_price)
     next_fetch_at = @next_result_fetching_at.call(bot)
     @fetch_result_worker.perform_at(
       next_fetch_at,
       bot.id,
-      offer_id,
+      result_parameters,
       fixing_price
     )
   end
