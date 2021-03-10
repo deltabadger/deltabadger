@@ -131,7 +131,7 @@ fr:
     welcome:
         default: 'Bonjour, bienvenue sur le site de Deltabadger'
         saver: 'Débarrassez-vous des limites et effectuez une mise à niveau !'
-        banner_html: "Bienvenue ! Tu bénéficies actuellement du <b> plan gratuit avec une limite de transaction de 500 USD / an </b>, mais il ne sera pas appliqué le premier mois. Essaie n'importe quel plan que tu veux. Tu peux également le mettre à niveau pour profiter ultérieurement de transactions illimitées. Le plan Hodler de 4 ans donne en outre accès à de nouvelles fonctionnalités expérimentales (par exemple toutes les devises de l'échange). Tous les commentaires sont appréciés. Rejoins notre\n <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\"> groupe Telegram </a> et suis-nous sur <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\"> Twitter </a>. Bon échange !"
+        banner_html: "Bienvenue ! Tu bénéficies actuellement du <b> plan gratuit avec une limite de transaction de 500 USD/an</b>, mais il ne sera pas appliqué le premier mois. Essaie n'importe quel plan que tu veux. Tu peux également le mettre à niveau pour profiter ultérieurement de transactions illimitées. Le plan Hodler de 4 ans donne en outre accès à de nouvelles fonctionnalités expérimentales (par exemple toutes les devises de l'échange). Tous les commentaires sont appréciés. Rejoins notre\n <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\"> groupe Telegram</a> et suis-nous sur <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\"> Twitter</a>. Bon échange !"
     subscriptions:
         upgrade: 'Mettre à niveau'
         days_left:
@@ -141,15 +141,15 @@ fr:
         investor: Investor
         hodler: Hodler
         investor_description_html: 'Un an de <b class="badge badge-btc"> transactions illimitées </b> pour BTC, ETH, LTC, XMR. <span class="no-break"> Accès au </span> programme de parrainage <b class="badge badge-referral"> </b>.'
-        hodler_description_html: "DCA fonctionne mieux comme un engagement à long terme. <span class=\"no-brak\"> Quatre ans </span> de <b class=\"badge badge-btc\"> transactions illimitées </b> pour <b class=\"badge badge-all\"> tous les tokens </b>, <b class=\"badge badge-limit\"> ordres à seuil de déclenchement </b> et accès au <b class=\"badge badge-referral\"> programme de parrainage </b>.\n Ce plan prend également en charge le projet. Les Hodlers bénéficient donc d'un <b class=\"badge badge-priority\"> accès prioritaire </b> à toutes les <b class=\"badge badge-priority\"> nouvelles fonctionnalités </b>."
+        hodler_description_html: "Le DCA fonctionne mieux sur un engagement à long terme. <span class=\"no-brak\"> Quatre ans </span> de <b class=\"badge badge-btc\"> transactions illimitées </b> pour <b class=\"badge badge-all\"> tous les tokens </b>, <b class=\"badge badge-limit\"> ordres à seuil de déclenchement </b> et accès au <b class=\"badge badge-referral\"> programme de parrainage </b>.\n Ce plan prend également en charge le projet. Les Hodlers bénéficient donc d'un <b class=\"badge badge-priority\"> accès prioritaire </b> à toutes les <b class=\"badge badge-priority\"> nouvelles fonctionnalités </b>."
         plan_1_year: 'Plan de 1 an'
         plan_4_year: 'Plan de 4 ans'
-        limit_reached_html: '<b> Félicitations ! </b> Tu as atteint notre limite de transactions gratuites de 500 $ / an. Pour continuer, passe au plan illimité.'
+        limit_reached_html: '<b> Félicitations ! </b> Tu as atteint notre limite de transactions gratuites de 500$/an. Pour continuer, passe au plan illimité.'
         payment:
             billing_information: 'Détails de facturation'
             bitcoin: Bitcoin
             wire_transfer: 'Virement bancaire'
-            wire_transfer_description_html: 'Pour payer par virement bancaire, envoie quelques informations de base pour la facture : <b> nom </b>, <b> nom </b>, <b> adresse physique </b>, <b> e-mail </b> utilisé chez Deltabadger, et le plan que tu souhaites acheter : <a href="mailto:sales@deltabadger.com"> sales@deltabadger.com </a>.'
+            wire_transfer_description_html: 'Pour payer par virement bancaire, envoie quelques informations de base pour la facture : <b>nom</b>, <b>prénom</b>, <b>adresse physique</b>, <b>e-mail</b> utilisé chez Deltabadger et le plan que tu souhaites acheter : <a href="mailto:sales@deltabadger.com"> sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Payer avec Bitcoin'
             active_plan_discount: 'Remise sur le plan actif'
             compensation:
@@ -159,6 +159,7 @@ fr:
             referral_discount_html: 'Grâce au lien de parrainage de <b> <a href="%{visible_link}"> %{visible_name} </a> </b>, tu bénéficies d''une réduction pour le premier achat sur la plateforme.'
             you_pay: 'Tu payes'
             payment_ordered: 'Paiement commandé !'
+            vat: TVA
         upgrade_plan: 'Mise à niveau du plan'
     links:
         homepage: 'Lien vers la page d''accueil'
@@ -185,13 +186,13 @@ fr:
         blog: 'Lire notre blog'
         knowledge_base: 'Base de connaissances'
     ads:
-        automate_bitcoin_html: 'Automatise l''achat de <br>Bitcoin'
+        automate_bitcoin_html: 'Automatise l''achat de <br>Bitcoin en'
         automate_crypto_html: 'Automatise l''achat de toute cryptomonnaie'
         automate_hourly: horaire
         automate_daily: journalier
         automate_weekly: hebdomadaire
         dont_trade_automate_html: '<div>Ne trade pas.</div> <div>Automatise.</div>'
-        dca_bulletproof_html: 'Une stratégie à toute épreuve d''<span class="no-break"><a href="#dcamagic">achats périodiques </a>. </span> <br> Fonctionne avec les échangeurs populaires. <span class="no-break"> Configuration en cinq minutes. </span>'
+        dca_bulletproof_html: 'Une stratégie à toute épreuve <span class="no-break"><a href="#dcamagic">d''achats périodiques</a>. </span> <br> Fonctionne avec les échangeurs populaires. <span class="no-break"> Configuration en cinq minutes. </span>'
         dca_profit_html: 'Si tu avais fait des achats périodiques en <br> en Bitcoin l''année dernière, <br> tu serais maintenant en hausse de <span class="text-success"> +%{profit}% </span>'
         basic_free_html: "Le plan de base est\n <b class=\"text-success text-success--lighter\"> gratuit </b>\n pour toujours."
         features: "auto-DCA sur ton compte d'échange;\n <i> Intervalles intelligents </i> et configuration en cinq minutes;\n mises à jour et nouvelles fonctionnalités chaque mois;\n support et communauté Telegram"
@@ -212,14 +213,14 @@ fr:
             title: 'Deltabadger | Achats périodiques en Bitcoin'
             fastest_asset: 'Le DCA avec votre actif préféré.'
             fastest_market: 'Le DCA avec votre actif préféré.'
-            connect_exchanges: 'Connecte-toi à l''un des échanges populaires et définis les achats récurrents selon la périodicité souhaitée. Tu peux exécuter autant de bots que tu le souhaites pour DCA dans ton portefeuille de cryptomonnaie préféré.'
+            connect_exchanges: 'Connecte-toi à l''un des échangeurs populaires et définis les achats récurrents selon la périodicité souhaitée. Tu peux exécuter autant de bots que tu le souhaites pour DCA dans ton portefeuille de cryptomonnaie préféré.'
             testimonials:
                 header: 'Ce que les utilisateurs disent de nous :'
             dca_magic:
-                title_html: "La magie des achats périodiques <br>\n dans 4 graphiques faciles"
+                title_html: "La magie des achats périodiques <br>\n avec 4 graphiques faciles"
                 easy1:
-                    title_html: 'Attendez... qu''est-ce que la DCA ?'
-                    text_html: "<p> DCA est une stratégie d'investissement dans laquelle tu achètes un actif pour un montant fixe selon une périodisation régulière quel que soit son prix. Tu obtiens plus d'actif lorsque le prix est inférieur, et moins lorsque le prix est plus élevé. En conséquence, au lieu de prendre de gros paris à court terme, tu obtiens un prix moyen juste. </p>\n <p> DCA vous éloigne des montagnes russes émotionnelles, des risques à court terme et de l'anxiété liée à la prise de décision. </p>"
+                    title_html: 'Attendez... qu''est-ce que le DCA ?'
+                    text_html: "<p> Le DCA est une stratégie d'investissement dans laquelle tu achètes un actif pour un montant fixe selon une périodisation régulière quel que soit son prix. Tu obtiens plus d'actif lorsque le prix est inférieur et moins lorsque le prix est plus élevé. En conséquence, au lieu de prendre de gros paris à court terme, tu obtiens un prix moyen lissé. </p>\n <p> Le DCA vous éloigne des montagnes russes émotionnelles, des risques à court terme et de l'anxiété liée à la prise de décision. </p>"
                     chart_regular_purchases: 'Achats réguliers'
                     chart_average_price: 'Prix moyen'
                 easy2:
@@ -228,13 +229,13 @@ fr:
                     chart_earlier: 'Plus tôt'
                     chart_better_average_price: 'meilleur prix moyen'
                 easy3:
-                    title_html: 'Pourquoi est-il préférable à un <span class="no-break"> investissement forfaitaire </span> ?'
-                    text_html: '<p> À court terme, le prix peut encore augmenter, diminuer ou varier. Le montant forfaitaire ne gagne que dans le premier scénario. DCA gagne dans deux autres. Avec la magie de DCA tu gagnes même si le prix n''a pas changé à la fin. </p>'
+                    title_html: 'Pourquoi est-il meilleur qu''un <span class="no-break"> investissement forfaitaire </span> ?'
+                    text_html: '<p> À court terme, le prix peut encore augmenter, diminuer ou varier. Le montant forfaitaire ne gagne que dans le premier scénario. Le DCA gagne dans deux autres. Avec la magie du DCA, tu gagnes même si le prix n''a pas changé à la fin. </p>'
                     chart_lump_sum: 'Montant forfaitaire = 5 unités'
                     chart_dca: 'DCA = 6 unités'
                 easy4:
-                    title_html: 'Puis-je améliorer DCA avec le RSI <span class="no-break"> ou le Multiple de Mayer </span> ?'
-                    text_html: '<p> Pas vraiment. Les oscillateurs ne fonctionnent pas bien dans une tendance à la hausse. Le résultat suivant est souvent plus haut que le résultat maximal précédent. Il n''y a pas de stratégie automatisée qui gagne avec DCA, car DCA investit simplement dans la tendance du marché et il n''y a pas de formule mathématique gagnante. </p>'
+                    title_html: 'Puis-je améliorer mon DCA avec le RSI <span class="no-break"> ou le Multiple de Mayer </span> ?'
+                    text_html: '<p> Pas vraiment. Les oscillateurs ne fonctionnent pas bien dans une tendance à la hausse. Le résultat suivant est souvent plus haut que le résultat maximal précédent. Il n''y a pas de stratégie automatisée qui gagne avec le DCA, car le DCA investit simplement dans la tendance du marché et il n''y a pas de formule mathématique gagnante. </p>'
                     chart_price: Prix
                     chart_mm: 'Multiple de Mayer'
         founder:
@@ -258,7 +259,7 @@ fr:
             private: Privé
             eu_company: 'Entreprise de l''UE'
             unchangable_warning: 'Les paramètres de cette section ne peuvent pas être modifiés ultérieurement.'
-            discount_info_html: "Tu gagneras <b> <span class=\"db-form-label-range--earn-percent\"> %{earn_percent_preview} </span> % </b>,\n et le parrain recevra <b> <span class=\"db-form-label-range--discount-percent\"> %{discount_percent_preview} </span> % de réduction </b>."
+            discount_info_html: 'Tu gagneras <b> <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b> et le parrain recevra <b> <span class="db-form-label-range--discount-percent">%{discount_percent_preview} </span>% de réduction </b>.'
             checked: 'J''ai tout vérifié soigneusement.'
             submit: 'Commençons !'
             program_settings_html: 'Lien <span class="text-danger"> (ne peut pas être modifié) </span>'
@@ -297,7 +298,7 @@ fr:
             accepted: 'Tu as accepté le lien de parrainage'
             invalid: 'Le lien de parrainage n''est plus valide ou il est obsolète'
             already_used: 'Tu as déjà utilisé un lien de parrainage'
-        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Notre programme de parrainage <b> paie jusqu'à 50 $ </b> <sup> 1 </sup> par utilisateur en BTC (en utilisant le taux d'échange de la transaction). Exemple : </p>\n <ol>\n <li> Par souci de simplicité, le prix du Bitcoin est d'environ 10000 USD, la remise est de 10 % et ta marge est de 20 %. </li>\n <li> Le membre parrainé achète un forfait d'un an pour 49,99 $, payant après la remise 44,99 $, ce qui équivaut à 0,0045 BTC. Tu gagnes 0,001 BTC (20 % de 49,99 $). </li>\n <li> Peu importe si le prix du Bitcoin change entre-temps. Ton profit est bloqué en BTC. </li>\n <li> La prochaine fois, le membre parrainé achète un plan de 4 ans pour 149,99 $ et paie 0,015 BTC. Il ou elle n'obtient plus de réduction, mais tu obtiens toujours les 20 % ce qui équivaut à 0,003 BTC. </li>\n <li> Tu continues à profiter tant que tu disposes d'un plan actif <sup> 2 </sup> et que ton bénéfice total par membre parrainé n'atteint pas 50 USD. </li>\n </ol>\n\n <p> <em> Gagner des bitcoins est le meilleur type d'achat périodique ! </em> </p>\n <small class=\"mb-2\"> <sup> 1 </sup> La limite est de 50 USD ou 50 EUR, selon la devise de la tarification. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Pour le parrain, le lien de parrainage fonctionne même si ton abonnement a expiré. </small>\n </div>"
+        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Notre programme de parrainage <b> paie jusqu'à 50$ </b> <sup> 1 </sup> par utilisateur en BTC (en utilisant le taux d'échange de la transaction). Exemple : </p>\n <ol>\n <li> Par souci de simplicité, le prix du Bitcoin est d'environ 10000 USD, la remise est de 10% et ta marge est de 20%. </li>\n <li> Le membre parrainé achète un forfait d'un an pour 49,99$, payant après la remise 44,99$, ce qui équivaut à 0,0045 BTC. Tu gagnes 0,001 BTC (20% de 49,99$). </li>\n <li> Peu importe si le prix du Bitcoin change entre-temps. Ton profit est bloqué en BTC. </li>\n <li> Plus tard, le membre parrainé achète un plan de 4 ans pour 149,99$ et paie 0,015 BTC. Il ou elle n'obtient plus de réduction, mais tu obtiens toujours les 20 % ce qui équivaut à 0,003 BTC. </li>\n <li> Tu continues à profiter tant que tu disposes d'un plan actif <sup> 2 </sup> et que ton bénéfice total par membre parrainé n'atteint pas 50 USD. </li>\n </ol>\n\n <p> <em> Gagner des bitcoins est le meilleur type d'achat périodique ! </em> </p>\n <small class=\"mb-2\"> <sup> 1 </sup> La limite est de 50 USD ou 50 EUR, selon la devise de la tarification. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Pour le parrain, le lien de parrainage fonctionne même si ton abonnement a expiré. </small>\n </div>"
         apply_code:
             title: 'Lien de parrainage'
             accept: 'J''accepte'
@@ -454,11 +455,14 @@ fr:
                 errors: Erreurs
             info:
                 title: Info
-                exchanges_html: "<p className=\"mt-2\"> <b> Échangeurs </b> </p>\n <p> Deltabadger fonctionne avec les échangeurs de crypto-monnaie. Pour le moment, nous soutenons <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX </a> et <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\"> Kraken</a>. Nous recommandons Kraken en tant qu'échangeur réputé qui n'a jamais été piraté. Utilisez Bitbay si vous souhaitez effectuer vos achats en PLN. </p>\n <p> Pour rendre votre bot fonctionnel, vous devez d'abord vérifier votre compte sur l'échangeur et y transférer des fonds. </p>\n <p> Cependant, ne conservez pas trop longtemps vos monnaies sur un échangeur. Connectez-vous à votre compte et effectuez régulièrement des retraits au moins une fois par mois. </p>\n <p> Nous ajouterons plus d'échangeur à l'avenir. Faites-nous savoir si vous êtes intéressé par un en particulier. </p>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>« Intervalles intelligents » </b></p>\n<p>Lorsque les intervalles intelligents sont activés, Deltabadger exécute la planification souhaitée en effectuant les plus petites transactions autorisées par l’échangeur. Sinon, ils ne seront utilisés qu'en cas de nécessité.</p>\n<p className=\"mt-2\"><b>Pourquoi ?</b></p>\n<p>Il y a deux avantages :</p>\n<p>Une périodicité plus fréquente te permet de profiter plus rapidement des avantages du DCA et le rend encore plus fluide.</p>\n<p>De plus, il est parfois nécessaire de prévoir des intervalles intelligents. Chaque échangeur a une limite minimale par transaction. Certains échangeurs le définissent en BTC, de sorte que la valeur du dollar change au fil du temps. Si le montant que tu veux investir est plus petit, Deltabadger conserve le ratio souhaité en utilisant le montant minimal autorisé mais en ajustant l'intervalle de temps. Il protège le bot contre un arrêt lorsque le montant que tu as défini tombe en dessous du seuil.</p>\n<p className=\"mt-2\"><b>Exemple :</b></p>\n<p>Supposons que la limite d'échange actuelle est de 20 $. Si tu fixes le volume de la transaction à 24 $/jour, le bot fera exactement cela. En revanche, si tu le définis à 1 $/heure, il imitera le ratio en utilisant le volume autorisé, qui est de 20 $ toutes les 20 heures. En moyenne, on obtient le même ratio (24 $/jour = 1 $/heure = 20 $/20 heures).</p>"
+                exchanges_html: "<p className=\"mt-2\"> <b> Échangeurs </b> </p>\n <p> Deltabadger fonctionne avec les échangeurs de crypto-monnaie. Pour le moment, nous soutenons <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> et <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\"> Kraken</a>. Nous recommandons Kraken en tant qu'échangeur réputé qui n'a jamais été piraté. Utilisez Bitbay si vous souhaitez effectuer vos achats en PLN. </p>\n <p> Pour rendre votre bot fonctionnel, vous devez d'abord vérifier votre compte sur l'échangeur et y transférer des fonds. </p>\n <p> Cependant, ne conservez pas trop longtemps vos monnaies sur un échangeur. Connectez-vous à votre compte et effectuez régulièrement des retraits au moins une fois par mois. </p>\n <p> Nous ajouterons plus d'échangeur à l'avenir. Faites-nous savoir si vous êtes intéressé par un en particulier. </p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>« Intervalles intelligents » </b></p>\n<p>Lorsque les intervalles intelligents sont activés, Deltabadger exécute la planification souhaitée en effectuant les plus petites transactions autorisées par l’échangeur. Sinon, ils ne seront utilisés qu'en cas de nécessité.</p>\n<p className=\"mt-2\"><b>Pourquoi ?</b></p>\n<p>Il y a deux avantages :</p>\n<p>Une périodicité plus fréquente te permet de profiter plus rapidement des avantages du DCA et le rend encore plus fluide.</p>\n<p>De plus, il est parfois nécessaire de prévoir des intervalles intelligents. Chaque échangeur a une limite minimale par transaction. Certains échangeurs le définissent en BTC, de sorte que la valeur du dollar change au fil du temps. Si le montant que tu veux investir est plus petit, Deltabadger conserve le ratio souhaité en utilisant le montant minimal autorisé mais en ajustant l'intervalle de temps. Il protège le bot contre un arrêt lorsque le montant que tu as défini tombe en dessous du seuil.</p>\n<p className=\"mt-2\"><b>Exemple :</b></p>\n<p>Supposons que la limite d'échange actuelle est de 20$. Si tu fixes le volume de la transaction à 24$/jour, le bot fera exactement cela. En revanche, si tu le définis à 1$/heure, il imitera le ratio en utilisant le volume autorisé, qui est de 20$ toutes les 20 heures. En moyenne, on obtient le même ratio (24$/jour = 1$/heure = 20$/20 heures).</p>"
                 new_to_dca_html: "<p className=\"mt-2\"> <b> Tu ne connais pas les achats périodiques ? </b> </p>\n <p> Ces liens t'aideront : </p>\n <ul className=\"mb-5\">\n <li> <a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\"> DCA pour les débutants (vidéo) </a> </li>\n <li> <a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\"> La puissance de DCA en Bitcoin </a> </li>\n <li> <a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\"> Simulateur DCA </a> </li>\n </ul>"
         starting: Commencer
         force_smart_intervals: 'Utilisez toujours les intervalles intelligents.'
+        price: 'du prix'
+        above: 'au dessus'
+        below: 'en dessous'
     activerecord:
         errors:
             models:
