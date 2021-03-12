@@ -6,8 +6,8 @@ module ExchangeApi
       class BaseTrader < ExchangeApi::Traders::BaseTrader
         include ExchangeApi::Clients::Fake
 
-        SUCCESS = false
-        FETCHED = false
+        SUCCESS = true
+        FETCHED = true
 
         attr_reader :exchange_name, :bid, :ask
 
@@ -31,7 +31,7 @@ module ExchangeApi
         private
 
         def place_order(order_params)
-          if true #SUCCESS
+          if SUCCESS
             Result::Success.new(
               order_params
             )

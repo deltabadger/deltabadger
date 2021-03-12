@@ -27,7 +27,6 @@ module ExchangeApi
           amount = sum_order_major(response)
           rate = (sum_order_minor(response) / amount)
 
-          # CHECK WHAT filled? SHOULD LOOK LIKE WHEN IMPLEMENTING LIMIT ORDER
           return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED) unless filled?(amount, rate)
 
           Result::Success.new(
