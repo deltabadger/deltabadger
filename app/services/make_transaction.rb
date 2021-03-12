@@ -105,5 +105,9 @@ class MakeTransaction < BaseService
     bot.working?
   end
 
+  def recoverable?(result)
+    result.data&.dig(:recoverable) == true
+  end
+
 end
 # rubocop:enable Metrics/ClassLength
