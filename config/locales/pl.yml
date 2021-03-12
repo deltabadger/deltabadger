@@ -173,6 +173,7 @@ pl:
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
             you_pay: Płacisz
             payment_ordered: 'Płatność zlecona!'
+            vat: VAT
         upgrade_plan: 'Zrób upgrade'
     links:
         homepage: 'Link do strony głównej'
@@ -199,8 +200,8 @@ pl:
         blog: 'Czytaj nasz blog'
         knowledge_base: 'Baza wiedzy'
     ads:
-        automate_bitcoin_html: 'Kupuj Bitcoina automatycznie co'
-        automate_crypto_html: 'Kupuj dowolną kryptowalutę automatycznie co'
+        automate_bitcoin_html: 'Automatycznie kupuj Bitcoina co'
+        automate_crypto_html: 'Automatycznie kupuj dowolne krypto co'
         automate_hourly: godzinę
         automate_daily: dzień
         automate_weekly: tydzień
@@ -238,7 +239,7 @@ pl:
                     chart_average_price: 'Średnia cena'
                 easy2:
                     title_html: 'Czy powinienem zaczekać z rozpoczęciem na korektę?'
-                    text_html: '<p>Nie. Dla aktywów w długoterminowym trendzie wzrostowym zawsze lepiej zacząć wcześniej. Nawet na lokalnym szczycie! Ostatecznie, cena pójdzie wyżej, a kto zaczął wcześniej, kończy się z niższą ceną średnią.</p>'
+                    text_html: '<p>Nie. Dla aktywów w trendzie bocznym lub wzrostowym zawsze lepiej zacząć wcześniej. Nawet na lokalnym szczycie! Kiedy kurs wreszcie odbija, ten kto rozpoczął regularne zakupy wcześniej, kończy z lepszą ceną średnią.</p>'
                     chart_earlier: Wcześniej
                     chart_better_average_price: 'lepsza średnia cena'
                 easy3:
@@ -277,7 +278,7 @@ pl:
             submit: Zaczynajmy!
             program_settings_html: 'Link <span class="text-danger">(nie można zmienić później)</span>'
             pick_referral_code: 'Wpisz swój kod referencyjny'
-            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> rabatu na pierwszy zakup.<br>'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu na pierwszy zakup.<br>'
             thanks_referral: 'Dzięki linkowi referencyjnemu od'
         create:
             saver_error: 'Musisz dokonać upgrade''u, aby się zarejestrować'
@@ -403,6 +404,10 @@ pl:
                 private_key: 'Klucz Prywatny'
                 public_key: 'Klucz Publiczny'
             next: Dalej
+            bitso:
+                instructions_html: "<ol>\n  <li>Zaloguj się do swojego konta <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a>.</li>\n  <li>W menu konta (prawy górny róg) przejdź do <b>Profile</b>.</li>\n  <li>Wybierz <b>API</b> (po lewej stronie).</li>\n  <li>Naciśnij <b>Add new API</b>.</li>\n  <li>Wypełnij <b>API Name</b> i podaj swój <b>Transaction PIN</b>.</li>\n  <li>Ustaw uprawnienia:\n    <ul>\n      <li><b>Perform trades</b></li>\n      <li><b>View balances</b></li>\n      <li><b>View account information</b></li>\n    </ul>\n  </li>\n  <li>Naciśnij <b>Save</b>.</li>\n  <li>Skopiuj i wklej swoje nowe klucze API do powyższego formularza.</li>\n</ol>"
+                private_key: 'API Secret'
+                public_key: 'Klucz API'
         add_new_bot: 'Dodaj nowego bota'
         start: Start
         stop: Wstrzymaj
@@ -469,6 +474,9 @@ pl:
                 new_to_dca_html: "<p className=\"mt-2\"><b>Chcesz wiedzieć więcej o uśrednianiu kosztu dolarowego?</b></p>\n<p>Te linki będą pomocne:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: Uruchamianie
         force_smart_intervals: 'Zawsze używaj inteligentnych interwałów.'
+        price: 'aktualnej ceny'
+        above: powyżej
+        below: poniżej
     activerecord:
         errors:
             models:
@@ -505,7 +513,7 @@ pl:
     subscription_mailer:
         invoice:
             subject: 'Płatność Deltabadger'
-            template_html: "<h1>Faktura</h1>\n<p><b>Zapłacono w dniu:</b></p>\n<p>%{paid_at}</p>\n<p><b>Sprzedawca:</b></p>\n<p>\n  Deltabadger OÜ\n <br>\n  Pärnu mnt 158/2-88\n <br>\n  11317 Tallinn\n <br>\n  Estonia\n <br>\n  Nr rej. 14781461\n</br></br></br></br></p>\n<p><b>Kupujący:</b></p>\n<p>\n  %{first_name} %{last_name}\n <br>\n  %{email}\n</br></p>\n<h2>Deltabadger  Plan %{plan_name} (%{years}-letni)</h2>\n<p>\n  <b>Zapłacone:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
+            template_html: "<h1>Faktura</h1>\n<p><b>Zapłacono w dniu:</b></p>\n<p>%{paid_at}</p>\n<p><b>Sprzedawca:</b></p>\n<p>\n  Deltabadger OÜ\n <br>\n  Pärnu mnt 158/2-88\n <br>\n  11317 Tallinn\n <br>\n  Estonia\n <br>\n  Nr rej. 14781461\n</p>\n<p><b>Kupujący:</b></p>\n<p>\n  %{first_name} %{last_name}\n <br>\n  %{email}\n</br></p>\n<h2>Deltabadger  Plan %{plan_name} (%{years}-letni)</h2>\n<p>\n  <b>Zapłacone:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
         subscription_granted:
             subject: 'Plan %{plan_name} został włączony'
             template_html: "<p>Wow 💙,</p>\n<p>Dziękujemy za zakup subskrypcji</p>\n<p>\n  <b>\n     Planu %{plan_name}\n  </b>\n</p>\n<p>Jesteś super! 🔥</p>"

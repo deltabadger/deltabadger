@@ -122,8 +122,8 @@ de:
             even: 'muss gerade sein'
         unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
         format: '%{attribute}%{message}'
-        referral_program_inactive: 'Dein Empfehlungsprogramm ist nicht aktiv.'
-        bitcoin_address_not_updated: 'Bitcoin-Adresse konnte nicht aktualisiert werden'
+        referral_program_inactive: 'Dein Werbeprogramm ist nicht aktiv.'
+        bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         frequency_limit: 'Frequenzgrenze überschritten'
         limit_reached: 'Limit des kostenlosen Plans erreicht'
         invalid_api_keys: 'Ungültige Tokens'
@@ -131,7 +131,7 @@ de:
     welcome:
         default: 'Hallo, willkommen bei Deltabadger'
         saver: 'Werde die Limits los und führe ein Upgrade durch!'
-        banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 500 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
+        banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 500 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge uns auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
     subscriptions:
         upgrade: Upgrade
         days_left:
@@ -149,7 +149,7 @@ de:
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
             wire_transfer: Banküberweisung
-            wire_transfer_description_html: 'Um per Überweisung zu bezahlen, sende uns die Details für die Rechnung mit <b>Name</b>, <b>Nachname</b>, <b>Adresse</b>, <b>E-Mail1</b>, die du bei Deltabadger verwendest, und teile uns den Plan mit, den du kaufen möchtest, an <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+            wire_transfer_description_html: 'Um per Überweisung zu bezahlen, sende uns die Details für die Rechnung mit <b>Name</b>, <b>Nachname</b>, <b>Adresse</b>, <b>E-Mail</b>, die du bei Deltabadger verwendest, und teile uns den Plan mit, den du kaufen möchtest, an <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             active_plan_discount: 'Rabatt für Pläne aktiv'
             compensation:
@@ -159,6 +159,7 @@ de:
             referral_discount_html: 'Mit dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
             you_pay: 'Du zahlst'
             payment_ordered: 'Zahlung angefordert!'
+            vat: Mwst
         upgrade_plan: 'Plan upgraden'
     links:
         homepage: 'Link zur Homepage'
@@ -185,12 +186,12 @@ de:
         blog: 'Lies unseren Blog'
         knowledge_base: Wissensdatenbank
     ads:
-        automate_bitcoin_html: 'Automatisiere den Kauf von <br> Bitcoin'
-        automate_crypto_html: "Automatisiere den Kauf aller<br class=\"d-none d-sm-inline\">\nKrypto-<span class=\"d-none d-sm-inline\">währungen</span>"
+        automate_bitcoin_html: 'Automatisiere den Kauf von Bitcoin'
+        automate_crypto_html: 'Automatisiere den Kauf aller Kryptowährungen'
         automate_hourly: stündlich
         automate_daily: täglich
         automate_weekly: wöchentlich
-        dont_trade_automate_html: '<div>Handle nicht</div> <div>Automatisiere.</div>'
+        dont_trade_automate_html: '<div>Handle nicht.</div> <div>Automatisiere.</div>'
         dca_bulletproof_html: 'Eine absolut sicherte Strategie zum <span class="no-break"><a href="#dcamagic">Dollar-Cost Averaging</a>.</span><br> Funktioniert mit den gängigen Börsen. <span class="no-break">Einrichtung in 5 Minuten.</span>'
         dca_profit_html: 'Wenn du im letzten Jahr Dollar-Cost-Averaging<br>zu Bitcoin betrieben hättest,<br>hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
         basic_free_html: "Der Plan Basic ist\nfür immer\n<b class=\"text-success text-success--lighter\">kostenlos</b>."
@@ -216,14 +217,14 @@ de:
             testimonials:
                 header: 'Was Nutzer über uns sagen:'
             dca_magic:
-                title_html: "Die Magie des\n<span class=\"no-break\">Dollar-Cost-</span>\n<br>Averaging in\n<span class=\"no-break\">4 einfachen Graphen</span>"
+                title_html: "Die Magie des <span class=\"no-break\">Dollar-Cost-</span>\n<br>Averaging in 4 einfachen Graphen"
                 easy1:
                     title_html: 'Warte... Was ist DCA?'
                     text_html: "<p>DCA ist eine Anlagestrategie, bei der du regelmäßig einen Vermögenswert für einen festen Betrag kaufst, unabhängig von seinem Preis. Du erhältst mehr von dem Vermögenswert, wenn der Preis niedriger ist, und weniger davon, wenn der Preis höher ist. Als Ergebnis erhältst du, anstatt große kurzfristige Wetten einzugehen, einen fairen Durchschnittspreis.</p>\n<p>DCA schützt dich vor der emotionalen Achterbahn, dem kurzfristigen Risiko und der Entscheidungsangst.</p>"
                     chart_regular_purchases: 'Reguläre Käufe'
                     chart_average_price: Durchschnittspreis
                 easy2:
-                    title_html: 'Soll ich auf die Korrektur waren, um zu<span class="no-break">beginnen?</span>'
+                    title_html: 'Soll ich auf die Korrektur warten, um zu beginnen?'
                     text_html: '<p>Nein. Bei einem wertsteigernden Vermögenswert ist es immer besser, früher anzufangen, selbst an der Spitze! Schließlich wird der Preis steigen, und wer früher angefangen hat, hat am Ende einen niedrigeren Durchschnittspreis.</p>'
                     chart_earlier: Früher
                     chart_better_average_price: 'besserer Durchschnittspreis'
@@ -239,13 +240,13 @@ de:
                     chart_mm: 'Mayer Multiple'
         founder:
             signature: 'Ich bin Jan, der Gründer von Deltabadger.'
-            telegram_invitation_html: 'Besuche und auf <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
+            telegram_invitation_html: 'Besuche uns auf <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
         confirm_registration:
             title: Danke!
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
         contact:
             title: Kontakt
-            general_questions_html: 'Für allgemeine Fragen versuche unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
+            general_questions_html: 'Für allgemeine Fragen besuche bitte unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
             specific_questions_html: 'Melde dich für spezifischere Probleme bei uns unter %{email} oder sende uns eine Nachricht auf Telegram oder <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
     affiliates:
         new:
@@ -261,9 +262,9 @@ de:
             discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
             checked: 'Ich habe mir alles genau angesehen.'
             submit: 'Los geht''s!'
-            program_settings_html: 'Link<span class="text-danger">(kann nicht geändert werden)</span>'
-            pick_referral_code: 'Wähle deinen Empfehlungscode'
-            discount_preview_html: '<span class="db-form-label-range--discount-percent"></span>%{discount_percent_preview} % Rabatt auf den ersten Einkauf.<br>'
+            program_settings_html: 'Link<span class="text-danger">(kann nachträglich nicht mehr geändert werden)</span>'
+            pick_referral_code: 'Wähle deinen Werbecode'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent"></span>%{discount_percent_preview} % Rabatt auf deinen ersten Einkauf.<br>'
             thanks_referral: 'Mit dem Empfehlungslink von'
         create:
             saver_error: 'Du musst upgraden, um dich registrieren zu können'
@@ -342,13 +343,13 @@ de:
                 remember_me: 'Daten speichern'
                 new_password: 'Neues Passwort'
                 new_password_confirmation: 'Neues Passwort bestätigen'
-                password_confirmation: Passwortbestätigung
+                password_confirmation: 'Passwort bestätigen'
             payment:
                 first_name: Nachname
                 last_name: Vorname
                 birth_date: Geburtsdatum
                 country: Land
-                other: Andere
+                other: Sonstige
     cookie:
         agree: 'Ich stimme zu'
         description: 'Wir nutzen Cookies, um alles einfacher zu gestalten.'
@@ -360,10 +361,10 @@ de:
             step_schedule: Planen
             cancel: Abbrechen
             limit_warning: 'Der Limit-Order-Bot ist eine experimentelle Funktion. Nicht alle Aufträge werden dadurch ausgeführt. Um gute Ergebnisse zu erzielen, musst du den investierten Betrag anteilig erhöhen. Im Moment bietet der Deltabadger noch keine Hilfe bei der Abschätzung dieser Anpassung, daher ist dein eigenes Backtesting notwendig. Verwende ihn nur, wenn du weißt, was du tust.'
-            how_to_get_keys: 'API-Keys von %{exchange} erhalten:'
+            how_to_get_keys: 'So erstellst du einen API-Key bei %{exchange}:'
             binance:
-                instructions_html: "<ol>\n  <li>Melde dich in deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.</li>\n  <li>Benenne den neuen API-Schlüssel, indem du auf \"Erstellen\" klickst.</li>\n  <li>Bestätige mit einem einmaligen Code.</li>\n  <li>Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.</li>\n  <li>Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.18.70.231</b></li>\n  <li>Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.</li>\n  <li>Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.</li>\n  <li>Füge beide Schlüssel in die Eingabe oben ein.</li>\n</ol>"
-                private_key: 'Secret Key'
+                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.</li>\n  <li>Benenne den neuen API-Schlüssel, indem du auf \"Erstellen\" klickst.</li>\n  <li>Bestätige mit einem einmaligen Code.</li>\n  <li>Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.</li>\n  <li>Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.18.70.231</b></li>\n  <li>Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.</li>\n  <li>Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.</li>\n  <li>Füge beide Schlüssel in die Eingabe oben ein.</li>\n</ol>"
+                private_key: API-Geheimnis
                 public_key: API-Schlüssel
             bitbay:
                 instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Einstellungen</b>.</li>\n  <li>Drücke auf <b>Neuen Schlüssel hinzufügen</b>.</li>\n  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Verlauf</b></li>\n      <li><b>Order und Marktkonfigurationen erhalten</b></li>\n      <li><b>Order prüfen und Marktkonfigurationen ändern</li></b>\n    </ul>\n  </li>\n  <li>Drücke auf <b>Erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben.</li>\n</ol>"
@@ -371,37 +372,41 @@ de:
                 public_key: 'Public Key'
             kraken:
                 instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link} -Konto an.</li>\n  <li>Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.</li>\n  <li>Drücke auf <b>Neuen Schlüssel erstellen</b>.</li>\n  <li>Setze Berechtigungen für:<br/>\n    Gelder:\n    <ul>\n      <li><b>Gelder abfragen</b></li>\n    </ul>\n    Order & Trades:\n    <ul>\n      <li><b>Offene Orders & Trades abfragen</b></li>\n      <li><b>Geschlossene Orders & Trades abfragen</b></li>\n      <li><b>Order ändern</b></li>\n      <li><b>Order abbrechen/schließen</b></li>\n    </ul>\n  </li>\n  <li>Drücke auf <b>Schlüssel generieren</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in die obige Tabelle.</li>\n</ol>"
-                trading_agreement_html: '<b>Hallo!</b> Wenn dein Kraken-Konto mit einer deutschen Adresse verifiziert ist, musst du ein <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsabkommen</a> akzeptieren, um Market- und Margin-Orders zu platzieren.'
-                trading_agreement_label_html: 'Ich akzeptiere das <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsabkommen</a>.'
+                trading_agreement_html: '<b>Hallo!</b> Wenn dein Kraken-Konto mit einer deutschen Adresse verifiziert ist, musst du eine <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsvereinbarung</a> akzeptieren, um Market- und Margin-Orders zu platzieren.'
+                trading_agreement_label_html: 'Ich akzeptiere die <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsvereinbarung</a>.'
                 private_key: 'Private Key'
                 public_key: API-Schlüssel
             coinbase_pro:
                 instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API</b>.</li>\n  <li>Drücke auf <b>Neuer API-Schlüssel</b>.</li>\n  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Ansicht</b></li>\n      <li><b>Trade</b></li>\n    </ul>\n  </li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel und Passphrase in die Tabelle oben.</li>\n</ol>"
-                private_key: 'Secret Key'
+                private_key: API-Geheimnis
                 public_key: API-Schlüssel
                 passphrase: Passphrase
             gemini:
                 instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Konto-Menü (obere rechte Ecke) zu <b>Einstellungen</b>.</li>\n  <li>Wähle <b>API</b> (links).</li>\n  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n  <li>Wähle im Dropdownmenü <b>Bereich</b> <b>Primär</b>.</li>\n  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n  <li>Stelle die API-Schlüssel-Einstellungen ein:\n    <ul>\n      <li><b>Trading</b></li>\n    </ul>\n  </li>\n  <li>Wähle <b>Require session heartbeat</b></li> nicht aus\n  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben.</li>\n</ol>"
-                private_key: 'Secret Key'
+                private_key: API-Geheimnis
                 public_key: API-Schlüssel
             ftx:
                 instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe zum Einstellungsmenü (Oben in der rechten Ecken).</li>\n  <li>Scrolle runter bis zum <b>API-Schlüssel</b>-Bereich.</li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in das Formular oben.</li>\n</ol>"
                 private_key: 'Private Key'
                 public_key: 'Public Key'
-            next: Nächster
+            next: Weiter
+            bitso:
+                instructions_html: "<ol>\n  <li>Melden dich bei deinem <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso-Konto</a> an.</li>\n  <li>Im Kontomenü (oben rechts) gehst du auf <b>Profil</b>.</li>\n  <li>Wähle <b>API</b> (linke Seite).</li>\n  <li>Drücke <b>Neue API hinzufügen</b>.</li>\n  <li>Fülle den <b>API-Namen</b> aus und gebe deinen <b>Transaktions-PIN</b> ein.</li>\n  <li>Berechtigungen festlegen:\n    <ul>\n      <li><b>Trades durchführen</b></li>\n      <li><b>Kontostände anzeigen</b></li>\n      <li><b>Kontoinformationen anzeigen</b></li>\n    </ul>\n  </li>\n  <li>Drücke <b>Speichern</b>.</li>\n  <li>Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein.</li>\n</ol>"
+                private_key: API-Geheimnis
+                public_key: API-Schlüssel
         add_new_bot: 'Neuen Bot hinzufügen'
         start: Starten
         stop: Pausieren
-        buy: Kaufen
+        buy: Kauf
         limit_buy: 'Limit Kauf'
-        sell: Verkaufen
+        sell: Verkauf
         limit_sell: 'Limit Verkauf'
         for: für
         hour: Stunde
         day: Tag
         week: Woche
         month: Monat
-        next_buy: 'Nächster Verkauf in %{countdown}'
+        next_buy: 'Nächster Kauf in %{countdown}'
         next_sell: 'Nächster Verkauf in %{countdown}'
         buttons:
             start:
@@ -441,7 +446,7 @@ de:
                 csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen.<br>Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'
                 download_csv: 'Download .csv'
                 date: Datum
-                order: Bestellung
+                order: 'Order Art'
                 amount: 'Betrag(%{base})'
                 rate: 'Rate(%{quote})'
             log:
@@ -450,11 +455,14 @@ de:
                 errors: Fehler
             info:
                 title: Info
-                exchanges_html: "<p className=\"mt-2\"><b>Börsen</b></p>\n<p>Deltabadger arbeitet mit Kryptowährungsbörsen. Aktuell unterstützen wir <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> und <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Wir empfehlen Kraken als eine seriöse Börse, die noch nie gehackt wurde. Verwende Bitbay, wenn du deine Käufe in PLN tätigen möchtest.</p>\n<p>Um deinen Bot nutzbar zu machen, musst du zunächst dein Tauschkonto verifizieren und etwas Geld dorthin überweisen.</p>\n<p>Bewahre deine Coins jedoch nicht zu lange bei einer Börse auf. Logge dich in dein Konto ein und nimm regelmäßig Abhebungen vor, mindestens einmal im Monat.</p>\n<p>Wir werden zukünftig weitere Börsen hinzufügen. Lass es uns wissen, falls dich eine bestimmte Börse besonders interessiert.</p>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smarte Intervalle\"</b></p>\n<p>Wenn die smarten Intervalle eingeschaltet sind, führt der Deltabadger deinen gewünschten Zeitplan in den kleinsten von der Börse erlaubten Transaktionen aus. Ansonsten werden sie nur bei Bedarf verwendet.</p>\n<p className=\"mt-2\"><b>Wieso?</b></p>\n<p>Dies hat zwei Vorteile:</p>\n<p>Der häufigere Zeitplan ermöglicht es dir, die Vorteile von DCA schneller zu erleben und glättet es noch mehr.</p>\n<p>Außerdem sind manchmal smarte Intervalle notwendig. Jede Börse hat ein Limit für die Mindesttransaktionsgröße. Einige Börsen definieren es in BTC, so dass der USD-Wert im Laufe der Zeit ändert. Wenn der Betrag, den du kaufen möchtest, kleiner ist, behält Deltabadger dein gewünschtes Verhältnis bei, indem er die minimal erlaubte Größe verwendet, aber das Zeitintervall anpasst. Es schützt den Bot davor, gestoppt zu werden, wenn dein definierter Betrag unter den Schwellenwert fällt.</p>\n<p className=\"mt-2\"><b>Beispiel:</b></p>\n<p>Nehmen wir an, das aktuelle Umtauschlimit beträgt 20 $. Wenn du die Transaktionsgröße für 24 $/Tag festlegst, wird der Bot genau das tun. Wenn du es jedoch als 1 $/Stunde definierst, wird er das Verhältnis anhand der erlaubten Größe nachahmen, was 20 § alle 20 Stunden entspricht. Im Durchschnitt ergibt sich daraus das gleiche Verhältnis (24 $/Tag = 1 $/Stunde = 20 §/20Stunden)</p>"
+                exchanges_html: "<p className=\"mt-2\"><b>Börsen</b></p>\n<p>Deltabadger arbeitet mit Kryptowährungsbörsen. Aktuell unterstützen wir <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> und <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Wir empfehlen Kraken als eine seriöse und sichere Börse. Verwende Bitbay, wenn du deine Käufe in PLN tätigen möchtest.</p>\n<p>Um deinen Bot verwenden zu können, musst du zunächst dein Konto bei der gewünschten Börse verifizieren und etwas Geld dorthin überweisen.</p>\n<p>Bewahre deine Coins jedoch nicht zu lange bei einer Börse auf. Logge dich in dein Konto ein und nimm regelmäßig Abhebungen vor, mindestens einmal im Monat.</p>\n<p>Wir werden zukünftig weitere Börsen hinzufügen. Lass es uns wissen, falls dich eine bestimmte Börse besonders interessiert.</p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smarte Intervalle\"</b></p>\n<p>Wenn die Option \"Smarte Intervalle\" aktiviert ist, führt Deltabadger deinen gewünschten Zeitplan in den kleinsten von der Börse erlaubten Transaktionen aus. Sonst wird dies nur bei Bedarf verwendet.</p>\n<p className=\"mt-2\"><b>Wieso?</b></p>\n<p>Dies hat zwei Vorteile:</p>\n<p>Der häufigere Zeitplan ermöglicht es dir, die Vorteile von DCA schneller zu erleben.</p>\n<p>Außerdem sind manchmal \"Smarte Intervalle\" notwendig. Jede Börse hat ein Limit für die Mindesttransaktionsgröße. Einige Börsen definieren dies in BTC, so dass der USD-Wert sich im Laufe der Zeit ändert. Wenn der Betrag, den du kaufen möchtest, kleiner ist, behält Deltabadger dein gewünschtes Verhältnis bei, indem er die minimal erlaubte Größe verwendet, aber den Zeitintervall anpasst. Es schützt den Bot davor, gestoppt zu werden, wenn dein definierter Betrag unter den Mindestbetrag fällt.</p>\n<p className=\"mt-2\"><b>Beispiel:</b></p>\n<p>Nehmen wir an, das aktuelle Kauflimit beträgt 20 $. Wenn du die Transaktionsgröße für 24 $/Tag festlegst, wird der Bot genau das tun. Wenn du es jedoch als 1 $/Stunde definierst, wird er das Verhältnis anhand der erlaubten Größe nachahmen, was 20 $ alle 20 Stunden entspricht. Im Durchschnitt ergibt sich daraus das gleiche Verhältnis (24 $/Tag = 1 $/Stunde = 20 $/20Stunden)</p>"
                 new_to_dca_html: "<p className=\"mt-2\"><b>Neu bei Dollar-Cost Averaging?</b></p>\n<p>Diese Links können dir helfen:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA für Anfänger (Video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Die Macht von DCA zu Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: 'Wird gestartet'
-        force_smart_intervals: 'Nutze immer ideale Intervalle.'
+        force_smart_intervals: 'Nutze immer "Smarte Intervalle".'
+        price: 'dem Preis'
+        above: über
+        below: unter
     activerecord:
         errors:
             models:
@@ -471,7 +479,7 @@ de:
             template_html: "<p>Hallo 👋,</p>\n<p>Toll! Dein Empfehlungslink kommt gut an!</p>\n<p>Wir überweisen dir eine Kommission von</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>auf dein Bitcoin Wallet.</p>\n<p>Danke, dass du die <br>Badger Gang vergrößerst!</p>"
     bot_alerts_mailer:
         first_month_ending_soon:
-            subject: 'Der Probemonat endet bald!'
+            subject: 'Dein Probemonat endet bald!'
             template_html: "<p>Hallo 👋,</p>\n<p>Du nutzt Deltabadger nun schon fast seit einem Monat!</p>\n<p>Deine kostenlose unbegrenzte Testversion endet bald. Führe ein Upgrade durch, um deine tollen Badgers am Laufen zu halten!</p>"
         limit_almost_reached:
             subject: 'Limit beinahe erreicht ⌛'
@@ -487,7 +495,7 @@ de:
             template_html: "<p>Oh Schreck 🧐,</p>\n<p>Der Bot konnte deine Bestellung nicht durchführen.<br>Es scheint so, als wäre dies ein Umtausch-Problem.<br>Wir versuchen es in %{delay} wieder.</p>\n<p>Alle Fehler sind im Bot Log einsehbar.<br>Melde dich an, um es dir anzusehen.</p>\n<p>Fehler:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Deltabadger Team 🧑‍🚀'
-        dca_profit_html: '💡 Wenn du vor einem Jahr mit DCA zu Bitcoin<br> begonnen hast, hast du jetzt einen Gewinn von <span style="color:#079e60">%{dca_profit} %</span>.'
+        dca_profit_html: '💡 Wenn du vor einem Jahr mit dem DCA von Bitcoin<br> begonnen hättest, hättest du jetzt einen Gewinn von <span style="color:#079e60">%{dca_profit} %</span>.'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Zahlung'
