@@ -160,7 +160,7 @@ export const StartingButton = () => (
 )
 export const PendingButton = () => (
   <div className="btn btn-success disabled">
-    <span className="d-none d-sm-inline">Pending</span>
+    <span className="d-none d-sm-inline">{I18n.t('bots.buttons.pending.text')}</span>
     <i className="material-icons-round">play_arrow</i>
   </div>
 )

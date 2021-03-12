@@ -6,19 +6,19 @@ class NextResultFetchingAt < BaseService
   end
 
   def call(bot)
-    delay = if bot.restarts.zero?
+    delay = if bot.fetch_restarts.zero?
               normal_delay
             else
               restart_delay(bot)
             end
 
-    delay.since(Time.now) #change to smth else
+    delay.since(Time.now)
   end
 
   private
 
   def restart_delay(bot)
-    @calculate_restart_delay.call(bot.restarts)
+    @calculate_restart_delay.call(bot.fetch_restarts)
   end
 
   def normal_delay
