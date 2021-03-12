@@ -439,7 +439,7 @@ en:
         ok: Remove completely
       pending:
         text: Pending
-        info_html: Waiting for exchange response
+        info_html: Processing...
     details:
       stats:
         title: Statistics
