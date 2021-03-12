@@ -86,7 +86,8 @@ let timeout = (callback) => setTimeout(() => {
 
 export const reloadBot = (currentBot) => dispatch => {
   API.getBot(currentBot.id).then(({data: reloadedBot}) => {
-    if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp) {
+    if (currentBot.nextTransactionTimestamp != reloadedBot.nextTransactionTimestamp ||
+      currentBot.nextResultFetchingTimestamp != reloadedBot.nextResultFetchingTimestamp) {
       clearTimeout(timeout)
       dispatch(botReloaded(reloadedBot))
     } else {

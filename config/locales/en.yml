@@ -437,6 +437,9 @@ en:
           That will remove the bot with all<br>its historical data. Are you sure?
         cancel: Cancel
         ok: Remove completely
+      pending:
+        text: Pending
+        info_html: Waiting for exchange response
     details:
       stats:
         title: Statistics
