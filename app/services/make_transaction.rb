@@ -35,7 +35,7 @@ class MakeTransaction < BaseService
 
     continue_schedule = continue_params[:continue_schedule]
     fixing_price = continue_params[:price]
-    result = continue_schedule ? nil : perform_action(get_api(bot), bot, fixing_price)
+    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule
 
     if continue_schedule
       bot = @bots_repository.update(bot.id, restarts: 0)

@@ -22,7 +22,7 @@ module ExchangeApi
           Result::Success.new(response_params)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch order parameters from FTX')
+          Result::Failure.new('Could not fetch order parameters from Bitso')
         end
 
         private
