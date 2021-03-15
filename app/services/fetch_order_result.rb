@@ -9,9 +9,7 @@ class FetchOrderResult < BaseService
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
-    validate_limit: Bots::Free::Validators::Limit.new,
-    validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
-    validate_trial_ending_soon: Bots::Free::Validators::TrialEndingSoon.new,
+    order_flow_helper: Helpers::OrderFlowHelper.new,
     subtract_credits: SubtractCredits.new
   )
     @get_exchange_trader = exchange_trader
@@ -22,10 +20,8 @@ class FetchOrderResult < BaseService
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
     @notifications = notifications
-    @validate_limit = validate_limit
-    @validate_almost_limit = validate_almost_limit
-    @validate_trial_ending_soon = validate_trial_ending_soon
     @subtract_credits = subtract_credits
+    @order_flow_helper = order_flow_helper
   end
 
   def call(bot_id, result_params, fixing_price, notify: true, restart: true)
@@ -36,8 +32,8 @@ class FetchOrderResult < BaseService
 
     if result.success?
       bot = @bots_repository.update(bot.id, status: 'working', restarts: 0, fetch_restarts: 0)
-      result = validate_limit(bot, notify)
-      check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
+      result = @order_flow_helper.validate_limit(bot, notify)
+      @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
     elsif !fetched?(result)
       bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
@@ -49,14 +45,14 @@ class FetchOrderResult < BaseService
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      stop_bot(bot, notify, result.errors)
+      @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     bot.reload
     result
   rescue StandardError
     @unschedule_transactions.call(bot)
-    stop_bot(bot, notify)
+    @order_flow_helper.stop_bot(bot, notify)
     raise
   end
 
@@ -75,36 +71,15 @@ class FetchOrderResult < BaseService
                api.fetch_order_by_id(offer_id)
              end
 
+    @transactions_repository.create(transaction_params(result, bot, price)) if result.success? || fetched?(result)
+
     if result.success?
-      @transactions_repository.create(transaction_params(result, bot, price))
       cost = result.data[:rate].to_f * result.data[:amount].to_f
       @subtract_credits.call(bot, cost)
       bot.reload
     end
 
     result
-  end
-
-  def stop_bot(bot, notify, errors = ['Something went wrong!'])
-    bot = @bots_repository.update(bot.id, status: 'stopped')
-    @notifications.error_occured(bot: bot, errors: errors) if notify
-  end
-
-  def validate_limit(bot, notify)
-    validate_limit_result = @validate_limit.call(bot.user)
-    if validate_limit_result.failure?
-      bot = @bots_repository.update(bot.id, status: 'stopped')
-      @notifications.limit_reached(bot: bot) if notify
-    elsif @validate_almost_limit.call(bot.user).failure? && notify
-      @notifications.limit_almost_reached(bot: bot)
-    end
-
-    validate_limit_result
-  end
-
-  def check_if_trial_ending_soon(bot, notify)
-    ending_soon_result = @validate_trial_ending_soon.call(bot.user)
-    @notifications.first_month_ending_soon(bot: bot) if ending_soon_result.failure? && notify
   end
 
   def fetched?(result)
