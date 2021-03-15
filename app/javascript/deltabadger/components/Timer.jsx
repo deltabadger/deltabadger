@@ -39,10 +39,9 @@ export const Timer = ({bot, callback}) => {
   )
 }
 
-// TODO, remove code duplication
 export const FetchFromExchangeTimer = ({bot, callback}) => {
   let i = 0;
-  const { settings, status, nextResultFetchingTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { status, nextResultFetchingTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [delay, setDelay] = useState(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status))
   const timeout = delay < 0
@@ -59,8 +58,6 @@ export const FetchFromExchangeTimer = ({bot, callback}) => {
   }, 1000);
 
   if (timeout) { return <Spinner /> }
-
-  const countdown = formatDuration(moment.duration(delay, 'seconds'))
 
   return (
     <div className="db-bot__infotext__right">

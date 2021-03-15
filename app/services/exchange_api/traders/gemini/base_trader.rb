@@ -82,8 +82,6 @@ module ExchangeApi
 
           if was_filled?(request)
             order_id = response.fetch('order_id')
-            #amount = response.fetch('executed_amount').to_f
-            #rate = response.fetch('avg_execution_price').to_f
 
             Result::Success.new(offer_id: order_id)
           else
@@ -100,7 +98,7 @@ module ExchangeApi
         end
 
         def closed?(request)
-          request.fetch('is_live') == false
+          !request.fetch('is_live')
         end
       end
     end
