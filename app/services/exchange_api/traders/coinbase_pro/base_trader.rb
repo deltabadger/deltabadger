@@ -29,7 +29,7 @@ module ExchangeApi
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
-          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless is_order_done?(response)
+          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless is_order_done?(request, response)
 
           amount = response.fetch('filled_size').to_f
           Result::Success.new(
@@ -85,7 +85,7 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-          if request.status == 200 && request.reason_phrase == 'OK'
+          if success?(request)
             order_id = response.fetch('id')
 
             Result::Success.new(offer_id: order_id)
@@ -94,8 +94,12 @@ module ExchangeApi
           end
         end
 
-        def is_order_done?(response)
-          response.fetch('status') == 'done'
+        def is_order_done?(request, response)
+          success?(request) && response.fetch('status') == 'done'
+        end
+
+        def success?(request)
+          request.status == 200 && request.reason_phrase == 'OK'
         end
       end
     end

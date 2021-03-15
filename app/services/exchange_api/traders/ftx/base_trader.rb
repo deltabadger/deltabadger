@@ -22,8 +22,9 @@ module ExchangeApi
           path = "/api/orders/#{order_id}".freeze
           url = API_URL + path
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
-          response = JSON.parse(request.body).fetch('result')
+          return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
 
+          response = JSON.parse(request.body).fetch('result')
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless closed?(response)
 
           # FTX does not return your fund, just closes order
@@ -98,6 +99,10 @@ module ExchangeApi
 
         def closed?(response)
           response.fetch('status') == 'closed'
+        end
+
+        def success?(request)
+          JSON.parse(request.body).fetch('success')
         end
       end
     end
