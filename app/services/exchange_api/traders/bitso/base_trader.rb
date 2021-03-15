@@ -22,12 +22,13 @@ module ExchangeApi
           path = "/v3/order_trades/#{order_id}".freeze
           url = API_URL + path
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
+          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED) unless success?(request)
+
           response = JSON.parse(request.body).fetch('payload')
-
           amount = sum_order_major(response)
-          rate = (sum_order_minor(response) / amount)
+          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED) unless filled?(amount)
 
-          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED) unless filled?(amount, rate)
+          rate = (sum_order_minor(response) / amount)
 
           Result::Success.new(
             offer_id: order_id,
@@ -105,8 +106,12 @@ module ExchangeApi
           response.inject(0) { |sum, e| sum + e.fetch('minor').to_d.abs }
         end
 
-        def filled?(amount, rate)
-          amount != 0.0 && rate != 0.0
+        def filled?(amount)
+          amount != 0.0
+        end
+
+        def success?(request)
+          JSON.parse(request.body).fetch('success')
         end
       end
     end
