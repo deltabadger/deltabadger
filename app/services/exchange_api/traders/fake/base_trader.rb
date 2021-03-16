@@ -7,12 +7,25 @@ module ExchangeApi
         include ExchangeApi::Clients::Fake
 
         SUCCESS = true
+        FETCHED = true
 
         attr_reader :exchange_name, :bid, :ask
 
         def initialize(exchange_name, market: ExchangeApi::Markets::Fake::Market.new)
           @exchange_name = exchange_name
           @market = market
+        end
+
+        def fetch_order_by_id(order_id, response_params = nil)
+          if SUCCESS
+            Result::Success.new(response_params)
+          elsif FETCHED
+            Result::Failure.new('Something went wrong!')
+          else
+            Result::Failure.new('Waiting for exchange response', NOT_FETCHED)
+          end
+        rescue StandardError => e
+          Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
         end
 
         private

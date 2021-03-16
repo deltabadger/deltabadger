@@ -5,18 +5,18 @@ import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
-const calculateDelay = (nextTransactionTimestamp, nowTimestamp) => {
-  return nextTransactionTimestamp - nowTimestamp
+const calculateDelay = (nextTimestamp, nowTimestamp) => {
+  return nextTimestamp - nowTimestamp
 }
 
 export const Timer = ({bot, callback}) => {
   let i = 0;
-  const { settings, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))
   const timeout = delay < 0
 
-  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp))}, [bot.nextTransactionTimestamp])
+  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
     if(timeout && i == 0) {
       if (bot) {
@@ -35,6 +35,33 @@ export const Timer = ({bot, callback}) => {
   return (
     <div className="db-bot__infotext__right">
       {I18n.t(translation_key, { countdown })}
+    </div>
+  )
+}
+
+export const FetchFromExchangeTimer = ({bot, callback}) => {
+  let i = 0;
+  const { status, nextResultFetchingTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+
+  const [delay, setDelay] = useState(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status))
+  const timeout = delay < 0
+
+  useEffect(() => { setDelay(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status))}, [bot.nextResultFetchingTimestamp])
+  useInterval(() => {
+    if(timeout && i == 0) {
+      if (bot) {
+        i = i + 1;
+        callback(bot)
+      }
+    }
+    setDelay(delay - 1)
+  }, 1000);
+
+  if (timeout) { return <Spinner /> }
+
+  return (
+    <div className="db-bot__infotext__right">
+      {I18n.t('bots.buttons.pending.info_html')}
     </div>
   )
 }
