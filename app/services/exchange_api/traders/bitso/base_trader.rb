@@ -18,6 +18,28 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
+        def fetch_order_by_id(order_id)
+          path = "/v3/order_trades/#{order_id}".freeze
+          url = API_URL + path
+          request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
+          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED) unless success?(request)
+
+          response = JSON.parse(request.body).fetch('payload')
+          amount = sum_order_major(response)
+          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED) unless filled?(amount)
+
+          rate = (sum_order_minor(response) / amount)
+
+          Result::Success.new(
+            offer_id: order_id,
+            amount: amount,
+            rate: rate
+          )
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from Bitso')
+        end
+
         private
 
         def place_order(order_params)
@@ -69,10 +91,8 @@ module ExchangeApi
           if request.status == 200 && request.reason_phrase == 'OK'
             response = response.fetch('payload')
             order_id = response.fetch('oid')
-            parsed_params = get_order_by_id(order_id)
-            return parsed_params unless parsed_params.success?
 
-            Result::Success.new(parsed_params.data)
+            Result::Success.new(offer_id: order_id)
           else
             error_to_failure([response.fetch('error').fetch('code')])
           end
@@ -86,23 +106,12 @@ module ExchangeApi
           response.inject(0) { |sum, e| sum + e.fetch('minor').to_d.abs }
         end
 
-        def get_order_by_id(order_id)
-          sleep(3.0)
-          path = "/v3/order_trades/#{order_id}".freeze
-          url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
-          response = JSON.parse(request.body).fetch('payload')
+        def filled?(amount)
+          amount != 0.0
+        end
 
-          amount = sum_order_major(response)
-          rate = (sum_order_minor(response) / amount)
-          Result::Success.new(
-            offer_id: order_id,
-            amount: amount,
-            rate: rate
-          )
-        rescue StandardError => e
-          Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch order parameters from Bitso')
+        def success?(request)
+          JSON.parse(request.body).fetch('success')
         end
       end
     end
