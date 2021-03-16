@@ -431,6 +431,9 @@ en:
                 warning_html: 'That will remove the bot with all<br>its historical data. Are you sure?'
                 cancel: Cancel
                 ok: 'Remove completely'
+            pending:
+              text: Pending
+              info_html: Processing...
         details:
             stats:
                 title: Statistics

@@ -4,7 +4,7 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   scope :without_deleted, -> { where.not(status: 'deleted') }
 
-  STATES = %i[created working stopped deleted].freeze
+  STATES = %i[created working stopped deleted pending].freeze
   TYPES = %i[free].freeze
 
   enum status: [*STATES]

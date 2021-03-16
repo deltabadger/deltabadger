@@ -19,6 +19,13 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
+        def fetch_order_by_id(order_id, response_params = nil)
+          Result::Success.new(response_params)
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from Bitbay')
+        end
+
         private
 
         def place_order(symbol, params)
