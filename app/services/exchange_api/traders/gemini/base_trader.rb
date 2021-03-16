@@ -20,6 +20,29 @@ module ExchangeApi
 
         API_URL = 'https://api.gemini.com'.freeze
 
+        def fetch_order_by_id(order_id)
+          path = '/v1/order/status'.freeze
+          url = API_URL + path
+          request_params = {
+            request: path,
+            nonce: Time.now.strftime('%s%L'),
+            order_id: order_id
+          }
+          body = request_params.to_json
+          request = Faraday.post(url, nil, headers(@api_key, @api_secret, body))
+          response = JSON.parse(request.body)
+
+          return Result::Failure.new('Waiting for Gemini response', NOT_FETCHED) unless closed?(response)
+
+          amount = response.fetch('executed_amount').to_f
+          rate = response.fetch('avg_execution_price').to_f
+          Result::Success.new(
+            offer_id: order_id,
+            amount: amount,
+            rate: rate
+          )
+        end
+
         private
 
         def place_order(order_params)
@@ -59,14 +82,8 @@ module ExchangeApi
 
           if was_filled?(request)
             order_id = response.fetch('order_id')
-            amount = response.fetch('executed_amount').to_f
-            rate = response.fetch('avg_execution_price').to_f
 
-            Result::Success.new(
-              offer_id: order_id,
-              amount: amount,
-              rate: rate
-            )
+            Result::Success.new(offer_id: order_id)
           else
             error_to_failure([response.fetch('reason')])
           end
@@ -78,6 +95,10 @@ module ExchangeApi
 
         def was_filled?(request)
           request.status == 200 && request.reason_phrase == 'OK'
+        end
+
+        def closed?(request)
+          !request.fetch('is_live')
         end
       end
     end

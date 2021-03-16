@@ -19,6 +19,23 @@ module ExchangeApi
           @options = options
         end
 
+        def fetch_order_by_id(order_id)
+          order_data = orders.fetch(order_id, nil)
+          return Result::Failure.new('Waiting for Kraken response', NOT_FETCHED) if order_data.nil?
+
+          rate = placed_order_rate(order_data)
+          amount = order_data.fetch('vol').to_f
+
+          Result::Success.new(
+            offer_id: order_id,
+            amount: amount,
+            rate: rate
+          )
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not make Kraken order', RECOVERABLE)
+        end
+
         private
 
         def place_order(order_params)
@@ -35,14 +52,7 @@ module ExchangeApi
         def parse_response(response)
           created_order = response.fetch('result')
           offer_id = created_order.fetch('txid').first
-          order_data = orders.fetch(offer_id)
-          rate = placed_order_rate(order_data)
-          amount = order_data.fetch('vol').to_f
-          {
-            offer_id: offer_id,
-            rate: rate,
-            amount: amount
-          }
+          { offer_id: offer_id }
         end
 
         def common_order_params(symbol)
