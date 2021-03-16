@@ -18,6 +18,31 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
+        def fetch_order_by_id(order_id)
+          path = "/api/orders/#{order_id}".freeze
+          url = API_URL + path
+          request = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
+          return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
+
+          response = JSON.parse(request.body).fetch('result')
+          return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless closed?(response)
+
+          # FTX does not return your fund, just closes order
+          return error_to_failure(['Not enough balances']) if insufficient_funds?(response)
+
+          amount = response.fetch('filledSize').to_f
+          rate = response.fetch('avgFillPrice').to_f
+
+          Result::Success.new(
+            offer_id: order_id,
+            amount: amount,
+            rate: rate
+          )
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from FTX')
+        end
+
         private
 
         def place_order(order_params)
@@ -57,35 +82,11 @@ module ExchangeApi
           if was_filled?(request)
             response = response.fetch('result')
             order_id = response.fetch('id')
-            parsed_params = get_order_by_id(order_id)
-            return parsed_params unless parsed_params.success?
 
-            Result::Success.new(parsed_params.data)
+            Result::Success.new(offer_id: order_id)
           else
             error_to_failure([response.fetch('error')])
           end
-        end
-
-        def get_order_by_id(order_id)
-          path = "/api/orders/#{order_id}".freeze
-          url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
-          response = JSON.parse(request.body).fetch('result')
-
-          # FTX does not return your fund, just closes order
-          return error_to_failure(['Not enough balances']) if insufficient_funds?(response)
-
-          amount = response.fetch('filledSize').to_f
-          rate = response.fetch('avgFillPrice').to_f
-
-          Result::Success.new(
-            offer_id: order_id,
-            amount: amount,
-            rate: rate
-          )
-        rescue StandardError => e
-          Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch order parameters from FTX')
         end
 
         def was_filled?(request)
@@ -94,6 +95,14 @@ module ExchangeApi
 
         def insufficient_funds?(response)
           response.fetch('status') == 'closed' && response.fetch('filledSize', 0).to_f == 0.0
+        end
+
+        def closed?(response)
+          response.fetch('status') == 'closed'
+        end
+
+        def success?(request)
+          JSON.parse(request.body).fetch('success')
         end
       end
     end

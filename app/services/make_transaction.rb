@@ -3,27 +3,23 @@ class MakeTransaction < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_trader: ExchangeApi::Traders::Get.new,
     schedule_transaction: ScheduleTransaction.new,
+    fetch_order_result: FetchOrderResult.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
-    validate_limit: Bots::Free::Validators::Limit.new,
-    validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
-    validate_trial_ending_soon: Bots::Free::Validators::TrialEndingSoon.new,
-    subtract_credits: SubtractCredits.new
+    order_flow_helper: Helpers::OrderFlowHelper.new
   )
     @get_exchange_trader = exchange_trader
     @schedule_transaction = schedule_transaction
+    @fetch_order_result = fetch_order_result
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
     @notifications = notifications
-    @validate_limit = validate_limit
-    @validate_almost_limit = validate_almost_limit
-    @validate_trial_ending_soon = validate_trial_ending_soon
-    @subtract_credits = subtract_credits
+    @order_flow_helper = order_flow_helper
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
@@ -37,26 +33,31 @@ class MakeTransaction < BaseService
 
     continue_schedule = continue_params[:continue_schedule]
     fixing_price = continue_params[:price]
-    result = continue_schedule ? nil : perform_action(get_api(bot), bot, fixing_price)
+    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule
 
-    if continue_schedule || result.success?
+    if continue_schedule
       bot = @bots_repository.update(bot.id, restarts: 0)
-      result = validate_limit(bot, notify)
-      check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
+      result = @order_flow_helper.validate_limit(bot, notify)
+      @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
+    elsif result.success?
+      @bots_repository.update(bot.id, status: 'pending')
+      result = @fetch_order_result.call(bot.id, result.data, fixing_price)
     elsif restart && recoverable?(result)
+      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
       bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      stop_bot(bot, notify, result.errors)
+      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
+      @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     result
   rescue StandardError
     @unschedule_transactions.call(bot)
-    stop_bot(bot, notify)
+    @order_flow_helper.stop_bot(bot, notify)
     raise
   end
 
@@ -83,59 +84,7 @@ class MakeTransaction < BaseService
                api.sell(settings)
              end
 
-    @transactions_repository.create(transaction_params(result, bot, price))
-
-    if result.success?
-      cost = result.data[:rate].to_f * result.data[:amount].to_f
-      @subtract_credits.call(bot, cost)
-      bot.reload
-    end
-
     result
-  end
-
-  # rubocop:enable Metrics/AbcSize
-
-  def validate_limit(bot, notify)
-    validate_limit_result = @validate_limit.call(bot.user)
-    if validate_limit_result.failure?
-      bot = @bots_repository.update(bot.id, status: 'stopped')
-      @notifications.limit_reached(bot: bot) if notify
-    elsif @validate_almost_limit.call(bot.user).failure? && notify
-      @notifications.limit_almost_reached(bot: bot)
-    end
-
-    validate_limit_result
-  end
-
-  def check_if_trial_ending_soon(bot, notify)
-    ending_soon_result = @validate_trial_ending_soon.call(bot.user)
-    @notifications.first_month_ending_soon(bot: bot) if ending_soon_result.failure? && notify
-  end
-
-  def recoverable?(result)
-    result.data&.dig(:recoverable) == true
-  end
-
-  def transaction_params(result, bot, price = nil)
-    if result.success?
-      result.data.slice(:offer_id, :rate, :amount).merge(
-        bot_id: bot.id,
-        status: :success,
-        bot_interval: bot.interval,
-        bot_price: fixing_transaction?(price) ? price : bot.price,
-        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
-      )
-    else
-      {
-        bot_id: bot.id,
-        status: :failure,
-        error_messages: result.errors,
-        bot_interval: bot.interval,
-        bot_price: fixing_transaction?(price) ? price : bot.price,
-        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
-      }
-    end
   end
 
   def fixing_transaction?(price)
@@ -146,9 +95,20 @@ class MakeTransaction < BaseService
     bot.working?
   end
 
-  def stop_bot(bot, notify, errors = ['Something went wrong!'])
-    bot = @bots_repository.update(bot.id, status: 'stopped')
-    @notifications.error_occured(bot: bot, errors: errors) if notify
+  def recoverable?(result)
+    result.data&.dig(:recoverable) == true
   end
+
+  def failed_transaction_params(result, bot, price = nil)
+    {
+      bot_id: bot.id,
+      status: :failure,
+      error_messages: result.errors,
+      bot_interval: bot.interval,
+      bot_price: fixing_transaction?(price) ? price : bot.price,
+      transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
+    }
+  end
+
 end
 # rubocop:enable Metrics/ClassLength
