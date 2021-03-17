@@ -40,6 +40,7 @@ Rails.application.routes.draw do
     end
   end
 
+  get '/cryptocurrency-dollar-cost-averaging' => redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
 
@@ -47,7 +48,7 @@ Rails.application.routes.draw do
     mount Sidekiq::Web => '/sidekiq'
   end
 
-  scope "/:lang" do
+  scope "/:lang", lang: /#{I18n.available_locales.join("|")}/ do
     namespace :upgrade do
       get '/', action: :index
       post :pay
@@ -97,9 +98,8 @@ Rails.application.routes.draw do
     get '/privacy_policy' => redirect('/privacy-policy')
     get '/cookies_policy' => redirect('/cookies-policy')
     get '/referral_program' => redirect('/referral-program')
-    get '*path' => redirect("/#{I18n.locale}")
   end
 
-  get '/' => redirect("/#{I18n.locale}")
-  get '*path' => redirect("/")
+  get '/' => redirect("/#{I18n.default_locale}")
+  get '*path' => redirect("/#{I18n.default_locale}")
 end
