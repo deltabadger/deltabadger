@@ -9,6 +9,8 @@ class GetRestartParams < BaseService
     @bots_repository = bots_repository
   end
 
+  LARGEST_TIMEOUT = 2147483647 # js timeout cannot be larger than 2^32
+
   def call(bot_id:)
     bot = @bots_repository.find(bot_id)
     if was_first_transaction_failed(bot)
@@ -74,7 +76,7 @@ class GetRestartParams < BaseService
     timeout > 1 && timeout -= 1
 
     # return in millis
-    timeout * 1000
+    [timeout * 1000, LARGEST_TIMEOUT].min
   end
 
   def was_first_transaction_failed(bot)
