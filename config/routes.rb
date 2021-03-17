@@ -97,8 +97,9 @@ Rails.application.routes.draw do
     get '/privacy_policy' => redirect('/privacy-policy')
     get '/cookies_policy' => redirect('/cookies-policy')
     get '/referral_program' => redirect('/referral-program')
+    get '*path' => redirect("/#{I18n.locale}")
   end
 
-  get '/' => redirect("/en")
-  get '*path' => redirect("/en")
+  get '/' => redirect("/#{I18n.locale}")
+  get '*path' => redirect("/")
 end
