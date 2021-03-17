@@ -19,23 +19,16 @@
           .dropdown-menu.dropdown-menu-right
             - lang = params[:lang]
             - unless lang.blank? || lang == 'en'
-              %a.dropdown-item{:href => "?lang=en"}
-                = "🇬🇧 English"
+              = link_to "🇬🇧 English", url_for(lang: 'en'), class: "dropdown-item"
             - unless lang == 'es'
-              %a.dropdown-item{:href => "?lang=es"}
-                = "🇪🇸 Español"
+              = link_to "🇪🇸 Español", url_for(lang: 'es'), class: "dropdown-item"
             - unless lang == 'fr'
-              %a.dropdown-item{:href => "?lang=fr"}
-                = "🇫🇷 Français"
+              = link_to "🇫🇷 Français", url_for(lang: 'fr'), class: "dropdown-item"
             - unless lang == 'de'
-              %a.dropdown-item{:href => "?lang=de"}
-                = "🇩🇪 Deutsch"
+              = link_to "🇩🇪 Deutsch", url_for(lang: 'de'), class: "dropdown-item"
             - unless lang == 'pl'
-              %a.dropdown-item{:href => "?lang=pl"}
-                = "🇵🇱 Polski"
+              = link_to "🇵🇱 Polski", url_for(lang: 'pl'), class: "dropdown-item"
             - unless lang == 'pt'
-              %a.dropdown-item{:href => "?lang=pt"}
-                = "🇵🇹 Português"
+              = link_to "🇵🇹 Português", url_for(lang: 'pt'), class: "dropdown-item"
             - unless lang == 'ru'
-              %a.dropdown-item{:href => "?lang=ru"}
-                = "🇷🇺 Русский"
+              = link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item"
