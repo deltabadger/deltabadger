@@ -40,7 +40,6 @@ Rails.application.routes.draw do
     end
   end
 
-  get '/cryptocurrency-dollar-cost-averaging' => redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
 
@@ -93,12 +92,13 @@ Rails.application.routes.draw do
     get '/about', to: 'home#about', as: :about
     get '/referral-program', to: 'home#referral_program', as: :referral_program
     get '/cryptocurrency-dollar-cost-averaging', to: 'home#dollar_cost_averaging', as: :dollar_cost_averaging
-
-    get '/terms_and_conditions' => redirect('/terms-and-conditions')
-    get '/privacy_policy' => redirect('/privacy-policy')
-    get '/cookies_policy' => redirect('/cookies-policy')
-    get '/referral_program' => redirect('/referral-program')
   end
+
+  get '/cryptocurrency-dollar-cost-averaging' => redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
+  get '/terms_and_conditions' => redirect("/#{I18n.default_locale}/terms-and-conditions")
+  get '/privacy_policy' => redirect("/#{I18n.default_locale}/privacy-policy")
+  get '/cookies_policy' => redirect("/#{I18n.default_locale}/cookies-policy")
+  get '/referral_program' => redirect("/#{I18n.default_locale}/referral-program")
 
   get '/' => redirect("/#{I18n.default_locale}")
   get '*path' => redirect("/#{I18n.default_locale}")
