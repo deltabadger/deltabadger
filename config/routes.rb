@@ -1,20 +1,65 @@
 require 'sidekiq/web'
 
 Rails.application.routes.draw do
+  namespace :admin do
+    resources :users, except: [:destroy]
+    resources :affiliates, except: [:destroy] do
+      get :wallet_csv, on: :collection
+      get :accounting_csv, on: :collection
+      post :mark_as_exported, on: :collection
+      post :mark_as_paid, on: :collection
+    end
+    resources :api_keys, except: [:edit, :update]
+    resources :bots
+    resources :conversion_rates
+    resources :exchanges
+    resources :transactions
+    resources :subscriptions
+    resources :subscription_plans
+    resources :payments do
+      get :csv, on: :collection
+    end
+    resources :vat_rates
+
+    get :dashboard, to: 'dashboard#index'
+
+    root to: "dashboard#index"
+  end
+
+  post '/newsletter/add_email', to: 'newsletter#add_email'
+  namespace :api do
+    get '/subscriptions/check', to: 'subscriptions#check'
+    resources :api_keys, only: [:create]
+    resources :exchanges, only: [:index]
+    resources :bots, except: [:new, :edit] do
+      post :stop, on: :member
+      post :start, on: :member
+      get :transactions_csv, to: 'transactions#csv'
+      get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
+      get :restart_params
+    end
+  end
+
+  get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
+
+  authenticate :user, lambda { |u| u.admin? } do
+    mount Sidekiq::Web => '/sidekiq'
+  end
+
   scope "/:lang" do
+    namespace :upgrade do
+      get '/', action: :index
+      post :pay
+      get :payment_success
+      post :payment_callback
+    end
+
     namespace :settings do
       get '/', action: :index
       patch :hide_welcome_banner
       patch :update_password
       patch :update_email
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
-    end
-
-    namespace :upgrade do
-      get '/', action: :index
-      post :pay
-      get :payment_success
-      post :payment_callback
     end
 
     resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
@@ -25,45 +70,6 @@ Rails.application.routes.draw do
 
     get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
     post '/ref/accept', to: 'ref_codes#accept'
-
-    namespace :admin do
-      resources :users, except: [:destroy]
-      resources :affiliates, except: [:destroy] do
-        get :wallet_csv, on: :collection
-        get :accounting_csv, on: :collection
-        post :mark_as_exported, on: :collection
-        post :mark_as_paid, on: :collection
-      end
-      resources :api_keys, except: [:edit, :update]
-      resources :bots
-      resources :conversion_rates
-      resources :exchanges
-      resources :transactions
-      resources :subscriptions
-      resources :subscription_plans
-      resources :payments do
-        get :csv, on: :collection
-      end
-      resources :vat_rates
-
-      get :dashboard, to: 'dashboard#index'
-
-      root to: "dashboard#index"
-    end
-
-    post '/newsletter/add_email', to: 'newsletter#add_email'
-    namespace :api do
-      get '/subscriptions/check', to: 'subscriptions#check'
-      resources :api_keys, only: [:create]
-      resources :exchanges, only: [:index]
-      resources :bots, except: [:new, :edit] do
-        post :stop, on: :member
-        post :start, on: :member
-        get :transactions_csv, to: 'transactions#csv'
-        get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
-        get :restart_params
-      end
-    end
 
     devise_for :users, skip: [:registrations]
 
@@ -91,12 +97,8 @@ Rails.application.routes.draw do
     get '/privacy_policy' => redirect('/privacy-policy')
     get '/cookies_policy' => redirect('/cookies-policy')
     get '/referral_program' => redirect('/referral-program')
-    get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
-
-    authenticate :user, lambda { |u| u.admin? } do
-      mount Sidekiq::Web => '/sidekiq'
-    end
-
-    get '*path' => redirect('/')
   end
+
+  get '/' => redirect("/en")
+  get '*path' => redirect("/en")
 end
