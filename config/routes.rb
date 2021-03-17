@@ -40,6 +40,7 @@ Rails.application.routes.draw do
     end
   end
 
+  get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
 
   authenticate :user, lambda { |u| u.admin? } do
@@ -90,7 +91,6 @@ Rails.application.routes.draw do
     get '/contact', to: 'home#contact', as: :contact
     get '/about', to: 'home#about', as: :about
     get '/referral-program', to: 'home#referral_program', as: :referral_program
-    get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
     get '/cryptocurrency-dollar-cost-averaging', to: 'home#dollar_cost_averaging', as: :dollar_cost_averaging
 
     get '/terms_and_conditions' => redirect('/terms-and-conditions')
