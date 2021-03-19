@@ -58,8 +58,8 @@ module Payments
         price: price,
         currency: currency,
         buyer: { email: email },
-        redirectUrl: upgrade_payment_success_url(host: HOST),
-        notificationUrl: upgrade_payment_callback_url(host: HOST),
+        redirectUrl: upgrade_payment_success_url(host: HOST, lang: I18n.locale),
+        notificationUrl: upgrade_payment_callback_url(host: HOST, lang: I18n.locale),
         extendedNotifications: true,
         token: api_key
       }.to_json
