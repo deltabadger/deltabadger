@@ -5,5 +5,8 @@
 %p Country: #{@params[:country]}
 %p User email: #{@params[:user_email]}
 %p Chosen plan: #{@params[:subscription_plan]}
--#%p Referral code: #{@referral_code}
--#%p VAT: #{@vat}
+- unless @params.fetch(:vat_number, nil).blank?
+  %p VAT number: #{@params[:vat_number]}
+%p Referral code: #{@params[:referral_code]}
+%p Discount value: #{@params[:discount]}
+%p Total price: #{@params[:price]}
