@@ -160,6 +160,7 @@ en:
             you_pay: 'You pay'
             payment_ordered: 'Payment ordered!'
             vat: VAT
+            invalid_vat_number: Invalid EU VAT number
         upgrade_plan: 'Upgrade plan'
     links:
         homepage: 'Link to the homepage'
