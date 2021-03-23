@@ -31,9 +31,15 @@ module WireTransfer
                          params[:cost_presenters][country][:investor]
                        end
       {
-        referral_code: params[:referrer].nil? ? nil : params[:referrer].code,
-        price: cost_presenter.total_price,
-        discount: (cost_presenter.base_price_with_vat.to_f - cost_presenter.total_price.to_f).round(2)
+        referral_code: get_referral_code(params),
+        discount_percent: get_discount_percentage(params),
+        vat_percent: (cost_presenter.vat.to_f * 100).to_i,
+        base_price: cost_presenter.base_price,
+        base_price_with_vat: cost_presenter.base_price_with_vat,
+        vat_amount: cost_presenter.total_vat,
+        final_price: cost_presenter.total_price,
+        discount_from_referral: cost_presenter.discount_percent_amount,
+        discount_sum: (cost_presenter.base_price_with_vat.to_f - cost_presenter.total_price.to_f).round(2)
       }
     end
 
@@ -50,6 +56,14 @@ module WireTransfer
         vat_number: params.fetch(:vat_number, nil),
         subscription_plan: plan
       }.merge(wire_transfer_price_params(additional_params, country, plan))
+    end
+
+    def get_referral_code(params)
+      params[:referrer].nil? ? nil : params[:referrer].code
+    end
+
+    def get_discount_percentage(params)
+      params[:referrer].nil? ? nil : (params[:referrer].discount_percent.to_f)*100
     end
   end
 end

@@ -9,5 +9,12 @@
   %p VAT number: #{@params[:vat_number]}
 - unless @params.fetch(:referral_code, nil).blank?
   %p Referral code: #{@params[:referral_code]}
-%p Discount value: #{@params[:discount]}
-%p Total price: #{@params[:price]}
+%p Base price: #{@params[:base_price]}
+%p Base price with VAT: #{@params[:base_price_with_vat]}
+%p Vat percent: #{@params[:vat_percent]} %
+%p Vat amount: #{@params[:vat_amount]}
+- unless @params.fetch(:discount_percent, nil).blank?
+  %p Discount percent: #{@params[:discount_percent]} %
+  %p Referral discount value: #{@params[:discount_from_referral]}
+%p Total discount value: #{@params[:discount_sum]}
+%p Final price: #{@params[:final_price]}
