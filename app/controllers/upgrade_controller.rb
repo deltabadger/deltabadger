@@ -151,7 +151,7 @@ class UpgradeController < ApplicationController
                        params[:cost_presenters][country][:investor]
                      end
     {
-      referral_code: params[:referrer].code,
+      referral_code: params[:referrer].nil? ? nil : params[:referrer].code,
       price: cost_presenter.total_price,
       discount: (cost_presenter.base_price_with_vat.to_f - cost_presenter.total_price.to_f).round(2)
     }
