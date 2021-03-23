@@ -23,14 +23,9 @@ class UpgradeController < ApplicationController
   end
 
   def pay_wire_transfer
-    params = wire_transfer_params(wire_payment_params)
-    errors = []
+    result = WireTransfer::Create.call(wire_payment_params, default_locals)
 
-    if validate_wire_params(params).success?
-      WireTransferMailer.with(
-        wire_params: params
-      ).new_wire_transfer.deliver_later
-
+    if result.success?
       render :index, locals: default_locals.merge(
         payment: new_payment,
         errors: [],
@@ -39,7 +34,7 @@ class UpgradeController < ApplicationController
     else
       render :index, locals: default_locals.merge(
         payment: new_payment,
-        errors: ['Missing parameters!']
+        errors: ['Please fill all the required fields!']
       )
     end
   end
@@ -116,45 +111,6 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :address, :country, :vat_number)
       .merge(user: current_user)
-  end
-
-  def wire_transfer_params(params)
-    additional_params = default_locals
-    country = params[:country]
-    plan = subscription_plan_repository.find(params[:subscription_plan_id]).name
-
-    {
-      first_name: params[:first_name],
-      last_name: params[:last_name],
-      address: params[:address],
-      user_email: params[:user].email,
-      country: country,
-      vat_number: params.fetch(:vat_number, nil),
-      subscription_plan: plan
-    }.merge(wire_transfer_price_params(additional_params, country, plan))
-  end
-
-  def invalid_wire_params(params)
-    params[:first_name].blank? || params[:last_name].blank? || params[:address].blank?
-  end
-
-  def validate_wire_params(params)
-    return Result::Failure.new if invalid_wire_params(params)
-
-    Result::Success.new
-  end
-
-  def wire_transfer_price_params(params, country, plan)
-    cost_presenter = if plan == 'hodler'
-                       params[:cost_presenters][country][:hodler]
-                     else
-                       params[:cost_presenters][country][:investor]
-                     end
-    {
-      referral_code: params[:referrer].nil? ? nil : params[:referrer].code,
-      price: cost_presenter.total_price,
-      discount: (cost_presenter.base_price_with_vat.to_f - cost_presenter.total_price.to_f).round(2)
-    }
   end
 
   def subscription_plan_repository
