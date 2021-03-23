@@ -30,14 +30,18 @@ class UpgradeController < ApplicationController
       WireTransferMailer.with(
         wire_params: params
       ).new_wire_transfer.deliver_later
-    else
-      errors = ['Missing parameters!']
-    end
 
-    render :index, locals: default_locals.merge(
-      payment: new_payment,
-      errors: errors
-    )
+      render :index, locals: default_locals.merge(
+        payment: new_payment,
+        errors: [],
+        after_wire_transfer: true
+      )
+    else
+      render :index, locals: default_locals.merge(
+        payment: new_payment,
+        errors: ['Missing parameters!']
+      )
+    end
   end
 
   def payment_success
@@ -67,7 +71,8 @@ class UpgradeController < ApplicationController
       referrer: referrer,
       current_plan: current_plan,
       investor_plan: investor_plan,
-      hodler_plan: hodler_plan
+      hodler_plan: hodler_plan,
+      after_wire_transfer: false
     }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan))
   end
 

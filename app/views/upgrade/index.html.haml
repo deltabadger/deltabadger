@@ -12,4 +12,4 @@
       = render partial: "upgrade_plans", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
     .col.col-sm-12.col-md-5.col-lg-5.col-xl-4
       = render partial: "upgrade_summary", locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter }
-      = render partial: "billing_form", locals: { payment: payment, errors: errors, upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters }
+      = render partial: "billing_form", locals: { payment: payment, errors: errors, upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters, after_wire_transfer: after_wire_transfer}
