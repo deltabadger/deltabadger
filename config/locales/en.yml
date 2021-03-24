@@ -351,6 +351,9 @@ en:
                 birth_date: 'Birth date'
                 country: Country
                 other: Other
+                submit_investor_order: Order Investor plan
+                submit_hodler_order: Order Hodler plan
+                business_invoice: I need business invoice.
     cookie:
         agree: 'I agree'
         description: 'We use cookies to make things simpler.'
