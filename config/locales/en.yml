@@ -148,7 +148,7 @@ en:
         payment:
             billing_information: 'Billing information'
             bitcoin: Bitcoin
-            wire_transfer: 'Wire Transfer'
+            wire_transfer: 'SEPA / Wire Transfer'
             after_wire_transfer_html: "Thank you! We'll be back to you soon! If you need further assistance, let us know: <a href='mailto:sales@deltabadger.com'>sales@deltabadger.com</a>."
             pay_with_bitcoin: 'Pay with Bitcoin'
             active_plan_discount: 'Active plan discount'
