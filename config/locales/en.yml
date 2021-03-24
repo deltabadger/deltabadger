@@ -149,7 +149,7 @@ en:
             billing_information: 'Billing information'
             bitcoin: Bitcoin
             wire_transfer: 'Wire Transfer'
-            wire_transfer_description_html: 'To pay with a wire transfer, send a basic info for the invoice: <b>name</b>, <b>surname</b>, <b>physical address</b>, <b>email</b> used at Deltabadger, and the plan you want buy: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+            after_wire_transfer_html: "Thank you! We'll be back to you soon! If you need further assistance, let us know: <a href='mailto:sales@deltabadger.com'>sales@deltabadger.com</a>."
             pay_with_bitcoin: 'Pay with Bitcoin'
             active_plan_discount: 'Active plan discount'
             compensation:
@@ -160,6 +160,7 @@ en:
             you_pay: 'You pay'
             payment_ordered: 'Payment ordered!'
             vat: VAT
+            invalid_vat_number: Invalid EU VAT number
         upgrade_plan: 'Upgrade plan'
     links:
         homepage: 'Link to the homepage'
