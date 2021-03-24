@@ -106,10 +106,24 @@ class UpgradeController < ApplicationController
       .merge(user: current_user)
   end
 
+  WIRE_TRANSFER_PARAMS = %i[
+    subscription_plan_id
+    first_name
+    last_name
+    birth_date
+    street_address
+    city
+    country
+    vat_number
+    postal_code
+    comment
+    company
+  ].freeze
+
   def wire_payment_params
     params
       .require(:payment)
-      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :address, :country, :vat_number)
+      .permit(*WIRE_TRANSFER_PARAMS)
       .merge(user: current_user)
   end
 
