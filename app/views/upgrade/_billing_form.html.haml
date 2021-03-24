@@ -4,7 +4,10 @@
       .modal-body
         %ul#payTab.nav.nav-tabs{:role => "tablist"}
           %li.nav-item
-            %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab", :class => ('active' unless after_wire_transfer)}= t('subscriptions.payment.bitcoin')
+            %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab", :class => ('active' unless after_wire_transfer)}
+              .db-card-providers
+                %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
+              //t('subscriptions.payment.bitcoin')
           %li.nav-item
             %a#log-tab.nav-link{"aria-controls" => "payWire", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payWire", :role => "tab", :class => ('active' if after_wire_transfer)}= t('subscriptions.payment.wire_transfer')
         #payTabContent.tab-content
