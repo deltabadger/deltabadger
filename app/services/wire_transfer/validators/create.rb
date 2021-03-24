@@ -9,7 +9,12 @@ module WireTransfer::Validators
     private
 
     def invalid_wire_params(params)
-      params[:first_name].blank? || params[:last_name].blank? || params[:address].blank?
+      params[:first_name].blank? ||
+        params[:last_name].blank? ||
+        params[:street_address].blank? ||
+        params[:postal_code].blank? ||
+        params[:city].blank? ||
+        params[:country].blank?
     end
   end
 end

@@ -148,7 +148,7 @@ en:
         payment:
             billing_information: 'Billing information'
             bitcoin: Bitcoin
-            wire_transfer: 'Wire Transfer'
+            wire_transfer: 'SEPA / Wire Transfer'
             after_wire_transfer_html: "Thank you! We'll be back to you soon! If you need further assistance, let us know: <a href='mailto:sales@deltabadger.com'>sales@deltabadger.com</a>."
             pay_with_bitcoin: 'Pay with Bitcoin'
             active_plan_discount: 'Active plan discount'
@@ -351,6 +351,9 @@ en:
                 birth_date: 'Birth date'
                 country: Country
                 other: Other
+                submit_investor_order: Order Investor plan
+                submit_hodler_order: Order Hodler plan
+                business_invoice: I need business invoice.
     cookie:
         agree: 'I agree'
         description: 'We use cookies to make things simpler.'

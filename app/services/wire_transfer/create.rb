@@ -50,7 +50,11 @@ module WireTransfer
       {
         first_name: params[:first_name],
         last_name: params[:last_name],
-        address: params[:address],
+        street_address: params[:street_address],
+        postal_code: params[:postal_code],
+        city: params[:city],
+        comment: params.fetch(:comment, nil),
+        company: params.fetch(:company, nil),
         user_email: params[:user].email,
         country: country,
         vat_number: params.fetch(:vat_number, nil),
