@@ -1,10 +1,13 @@
 %p New wire transfer:
 %p First name: #{@params[:first_name]}
 %p Last name: #{@params[:last_name]}
-%p Address: #{@params[:address]}
+%p Street Address: #{@params[:street_address]}
+%p City: #{@params[:city]}, Postal code: #{@params[:postal_code]}
 %p Country: #{@params[:country]}
 %p User email: #{@params[:user_email]}
 %p Chosen plan: #{@params[:subscription_plan]}
+- unless @params.fetch(:company, nil).blank?
+  %p Company: #{@params[:company]}
 - unless @params.fetch(:vat_number, nil).blank?
   %p VAT number: #{@params[:vat_number]}
 - unless @params.fetch(:referral_code, nil).blank?
@@ -18,3 +21,5 @@
   %p Referral discount value: #{@params[:discount_from_referral]}
 %p Total discount value: #{@params[:discount_sum]}
 %p Final price: #{@params[:final_price]}
+- unless @params.fetch(:comment, nil).blank?
+  %p Additional comment: #{@params[:comment]}

@@ -66,6 +66,16 @@ $formUnit: 20px
   &__row
     margin-bottom: 1.25*$formUnit
     position: relative
+    &--double
+      display: flex
+      gap: 24px
+      .db-form__row__col
+        position: relative
+        flex-grow: 1
+    textarea
+      padding-top: 12px
+      &:focus,&:active
+        padding-top: 11px
     &--input
       &--has-http-select
         input
@@ -102,6 +112,7 @@ $formUnit: 20px
         margin-right: -2px
         width:         calc(100% + 4px) !important
     &--check
+      letter-spacing: -0.025em
       margin-left: 4px
       padding-top: 10px
   &__label

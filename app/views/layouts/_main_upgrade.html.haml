@@ -105,6 +105,18 @@
         });
 
         setPrices(document.getElementById("wire_payment_country"));
+
+        if(!$("#company_checkbox").is(":checked")){
+          $("#company_fields").hide();
+        }
+
+        $("#company_checkbox").click(function() {
+            if($(this).is(":checked")) {
+              $("#company_fields").show();
+            } else {
+              $("#company_fields").hide();
+            }
+        });
       });
 
       // referral program registration
