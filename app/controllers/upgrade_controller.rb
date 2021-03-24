@@ -22,6 +22,23 @@ class UpgradeController < ApplicationController
     end
   end
 
+  def pay_wire_transfer
+    result = WireTransfer::Create.call(wire_payment_params, default_locals)
+
+    if result.success?
+      render :index, locals: default_locals.merge(
+        payment: new_payment,
+        errors: [],
+        after_wire_transfer: true
+      )
+    else
+      render :index, locals: default_locals.merge(
+        payment: new_payment,
+        errors: ['Please fill all the required fields!']
+      )
+    end
+  end
+
   def payment_success
     current_user.update!(welcome_banner_showed: true)
     flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
@@ -49,7 +66,8 @@ class UpgradeController < ApplicationController
       referrer: referrer,
       current_plan: current_plan,
       investor_plan: investor_plan,
-      hodler_plan: hodler_plan
+      hodler_plan: hodler_plan,
+      after_wire_transfer: false
     }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan))
   end
 
@@ -85,6 +103,13 @@ class UpgradeController < ApplicationController
     params
       .require(:payment)
       .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :country)
+      .merge(user: current_user)
+  end
+
+  def wire_payment_params
+    params
+      .require(:payment)
+      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :address, :country, :vat_number)
       .merge(user: current_user)
   end
 
