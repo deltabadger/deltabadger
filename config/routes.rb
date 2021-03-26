@@ -37,6 +37,7 @@ Rails.application.routes.draw do
       get :transactions_csv, to: 'transactions#csv'
       get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
       get :restart_params
+      get :smart_intervals_info
     end
   end
 

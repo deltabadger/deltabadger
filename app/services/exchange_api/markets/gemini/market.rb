@@ -57,6 +57,13 @@ module ExchangeApi
           "#{base}#{quote}"
         end
 
+        def minimum_order_parameters(symbol)
+          {
+            minimum: minimum_base_size(symbol),
+            side: BASE
+          }
+        end
+
         private
 
         def fetch_symbol(symbol)
