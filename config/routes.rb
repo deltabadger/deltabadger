@@ -51,7 +51,6 @@ Rails.application.routes.draw do
     namespace :upgrade do
       get '/', action: :index
       post :pay
-      post :pay_wire_transfer
       get :payment_success
       post :payment_callback
     end
