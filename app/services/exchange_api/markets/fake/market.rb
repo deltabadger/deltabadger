@@ -16,6 +16,13 @@ module ExchangeApi
           MINIMUM_ORDER_VOLUME
         end
 
+        def minimum_order_parameters(symbol)
+          {
+            minimum: MINIMUM_ORDER_VOLUME,
+            side: BASE
+          }
+        end
+
         private
 
         def current_bid_ask_price(_)
