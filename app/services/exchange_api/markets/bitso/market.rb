@@ -52,6 +52,13 @@ module ExchangeApi
           "#{base.downcase}_#{quote.downcase}"
         end
 
+        def minimum_order_parameters(symbol)
+          {
+            minimum: minimum_order_price(symbol),
+            side: QUOTE
+          }
+        end
+
         private
 
         def fetch_books
