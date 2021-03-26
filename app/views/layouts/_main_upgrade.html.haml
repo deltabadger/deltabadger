@@ -90,8 +90,6 @@
           $(".hodler-flat-discount").text(dataset.hfd);
           $(".hodler-discount-percent-amount").text(dataset.hdpa);
           $(".hodler-total-vat").text(dataset.htv);
-          $("#payment_country").val(select.value);
-          $("#wire_payment_country").val(select.value);
         }
 
         $("#payment_country").change(function(event) {
@@ -99,24 +97,6 @@
         });
 
         setPrices(document.getElementById("payment_country"));
-
-        $("#wire_payment_country").change(function(event) {
-          setPrices(event.target);
-        });
-
-        setPrices(document.getElementById("wire_payment_country"));
-
-        if(!$("#company_checkbox").is(":checked")){
-          $("#company_fields").hide();
-        }
-
-        $("#company_checkbox").click(function() {
-            if($(this).is(":checked")) {
-              $("#company_fields").show();
-            } else {
-              $("#company_fields").hide();
-            }
-        });
       });
 
       // referral program registration
