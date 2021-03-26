@@ -42,6 +42,13 @@ module ExchangeApi
           Result::Success.new(symbol_info.data['pair_decimals'])
         end
 
+        def minimum_order_parameters(symbol)
+          {
+            minimum: minimum_order_volume(symbol),
+            side: BASE
+          }
+        end
+
         private
 
         def altname_symbols

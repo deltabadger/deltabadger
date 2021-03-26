@@ -36,9 +36,26 @@ const API = {
     return client.request({ url, data: { api_key: ApiKeyParams }, method: 'post' }).then(data => data.data);
   },
 
+  getSmartIntervalsInfo(params, botId) {
+    const url = `${API_URL}/bots/${botId}/smart_intervals_info`;
+    const botParams = {
+      bot_type: params.botType,
+      exchange_id: params.exchangeId,
+      type: params.type,
+      order_type: params.order_type,
+      price: params.price,
+      percentage: params.percentage,
+      base: params.base,
+      quote: params.quote,
+      interval: params.interval,
+      force_smart_intervals: params.forceSmartIntervals
+    }
+    return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
+  },
+
   createBot(params) {
     const url = `${API_URL}/bots`;
-    const botParams= {
+    const botParams = {
       bot_type: params.botType,
       exchange_id: params.exchangeId,
       type: params.type,
