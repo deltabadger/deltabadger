@@ -243,8 +243,10 @@ en:
             signature: 'I''m Jan, founder of Deltabadger.'
             telegram_invitation_html: 'Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
         confirm_registration:
-            title: Thanks!
-            text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
+            title: Thank you!
+            text_html: <p>Check your mailbox and click the <b>confirmation link</b>.</p>
+            deliverability_html: <b>Important!</b> If you didn't get confirmation email, check your <b>junk folder</b>. If you still cannot find it, send me an email at %{email}.<br><br>Thanks, Jan
+
         contact:
             title: Contact
             general_questions_html: 'For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.'
@@ -258,12 +260,11 @@ en:
         no_limits: 'No limits'
         all: 'All'
         features:
-          dca: 'DCA'
-          currencies: 'Currencies'
-          referral_program: 'Referral program'
-          limit_orders: 'Limit orders'
-          exchange: 'exchange'
-
+            dca: 'DCA'
+            currencies: 'Currencies'
+            referral_program: 'Referral program'
+            limit_orders: 'Limit orders'
+            exchange: 'exchange'
     affiliates:
         new:
             title: 'Referral program registration'
