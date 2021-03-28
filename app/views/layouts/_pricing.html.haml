@@ -1,26 +1,20 @@
 .db-main__section.db-main__section--pricing.d-none.d-lg-block
-  %h2.text-center.mb-5.pb-5
-    Pricing
+  %h2.text-center.mb-5.pb-5= t('pricing.title')
   .row.db-pricing
     .col-sm-6.col-md-4.db-pricing__col.db-pricing__col--info
       .db-pricing__title
       .db-pricing__price
+      .db-pricing__feat= t('pricing.features.dca')
+      .db-pricing__feat= t('pricing.features.currencies')
+      .db-pricing__feat= t('pricing.features.referral_program')
+      .db-pricing__feat= t('pricing.features.limit_orders')
       .db-pricing__feat
-        DCA
-      .db-pricing__feat
-        Currencies
-      .db-pricing__feat
-        Referral program
-      .db-pricing__feat
-        Limit orders
-      .db-pricing__feat
-        FTX (exchange)
+        FTX (#{t('pricing.features.exchange')})
 
     .col-sm-6.col-md-3.db-pricing__col
-      .db-pricing__title= "Saver"
-      .db-pricing__price.text-success= "Free"
-      .db-pricing__feat
-        up to $500/year
+      .db-pricing__title= t('subscriptions.saver')
+      .db-pricing__price.text-success= t('pricing.free')
+      .db-pricing__feat= t('pricing.free_limit')
       .db-pricing__feat
         BTC, ETH, LTC, XMR
       .db-pricing__feat
@@ -31,11 +25,10 @@
         .material-icons-round.db-pricing__feat__no= "remove"
 
     .col-sm-6.col-md-3.db-pricing__col
-      .db-pricing__title= "Investor"
+      .db-pricing__title= t('subscriptions.investor')
       .db-pricing__price
-        $49<small>.99<span>/year</span></small>
-      .db-pricing__feat
-        No limits
+        $49<small>.99<span>/#{t('pricing.per_year')}</span></small>
+      .db-pricing__feat= t('pricing.no_limits')
       .db-pricing__feat
         BTC, ETH, LTC, XMR
       .db-pricing__feat
@@ -46,13 +39,11 @@
         .material-icons-round.db-pricing__feat__no= "remove"
 
     .col-sm-6.col-md-2.db-pricing__col
-      .db-pricing__title= "Hodler"
+      .db-pricing__title= t('subscriptions.hodler')
       .db-pricing__price
-        $149<small>.99<span>/4y</span></small>
-      .db-pricing__feat
-        No limits
-      .db-pricing__feat
-        All
+        $149<small>.99<span>/#{t('pricing.per_4_years')}</span></small>
+      .db-pricing__feat= t('pricing.no_limits')
+      .db-pricing__feat= t('pricing.all')
       .db-pricing__feat
         .material-icons-round= "check"
       .db-pricing__feat
