@@ -245,7 +245,7 @@ en:
         confirm_registration:
             title: Thank you!
             text_html: <p>Check your mailbox and click the <b>confirmation link</b>.</p>
-            deliverability_html: <b>Important!</b> If you didn't get confirmation email, check your <b>junk folder</b>. If you still cannot find it, send me an email at %{email}.<br><br>Thanks, Jan
+            deliverability_html: <b>This is very important!</b><br></br> If you didn't get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, send me an email at %{email}. <br><br>Thanks, Jan
 
         contact:
             title: Contact
