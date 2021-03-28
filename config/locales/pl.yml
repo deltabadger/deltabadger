@@ -262,6 +262,20 @@ pl:
             title: Kontakt
             general_questions_html: 'W przypadku pytań ogólnych spróbuj naszego <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">kanału na Telegramie</a>. To zazwyczaj najszybszy sposób na uzyskanie odpowiedzi. Wszystkie opinie, pomysły na produkty i prośby o dodanie giełdy są mile widziane.'
             specific_questions_html: 'W przypadku bardziej szczegółowych kwestii pisz na %{email}, lub wyślij wiadomość na Telegramie albo <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitterze</a>.'
+    pricing:
+        title: 'Plany'
+        per_year: 'rok'
+        per_4_years: '4 lata'
+        free: 'Darmowy'
+        free_limit: 'do 500€/rok'
+        no_limits: 'Bez ograniczeń'
+        all: 'Wszystkie'
+        features:
+          dca: 'DCA'
+          currencies: 'Waluty'
+          referral_program: 'Program referencyjny'
+          limit_orders: 'Zlecenia z limitem ceny'
+          exchange: 'giełda'
     affiliates:
         new:
             title: 'Rejestracja do programu polecającego'
