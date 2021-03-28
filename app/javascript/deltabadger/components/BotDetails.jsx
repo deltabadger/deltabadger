@@ -34,7 +34,6 @@ export const BotDetails = ({ bot }) => {
     }
   ];
 
-
   const buildTab = ({ label, active, id, tabpanelId }, index) => (
     <li className="nav-item" key={index}>
       <a
