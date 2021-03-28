@@ -1,0 +1,852 @@
+.table
+  color: var(--text)
+p
+  marign-bottom: 1.6rem
+a
+  color: var(--link)
+  &:hover
+    color: var(--link)
+html
+  background: var(--background)
+  overflow-x: hidden
+body
+  font-family: $fontText
+  background:  none
+  color: var(--text)
+  overflow-x: hidden
+  font-size:  1.6rem
+.db-content-body
+  min-height: calc(100vh - 22.3rem)
+a:not(.btn)
+  text-decoration: underline
+.btn
+  font-size: 1.6rem
+  padding:   .6rem 1.2rem
+.btn-lg
+  font-size: 2rem
+  padding:   .8rem 2rem
+.dropdown-item
+  padding: .4rem 2.4rem .4rem 1.4rem
+.form-control
+  padding:     .6rem 1.2rem
+  font-size:   1.6rem
+  line-height: 2.4rem
+  height:      3.8rem
+.form-check-input
+  position:    absolute
+  margin-top:  .48rem
+  margin-left: -2rem
+
+.m
+  &r
+    &-1
+
+  &b
+    &-5
+      margin-bottom: 4.8rem !important
+
+h1,h2,h3,h4,h5,h6
+  font-family: $fontHeader
+h1
+  font-size:   4.8rem
+  line-height: 1.33
+  @include media-breakpoint-down(lg)
+    font-size: 4rem
+  @include media-breakpoint-down(sm)
+    font-size: 3.2rem
+  @include media-breakpoint-down(xs)
+    font-size: 3.6rem
+
+h2,.db-page h1
+  font-size: 3.2rem
+  line-height: 1.4
+  @include media-breakpoint-down(lg)
+    font-size: 3.2rem
+  @include media-breakpoint-down(sm)
+    font-size: 2.8rem
+  @include media-breakpoint-down(xs)
+    font-size: 2.4rem
+
+h3
+  font-size: 2.6rem
+  line-height: 1.5
+  @include media-breakpoint-down(sm)
+    font-size: 2.3rem
+  @include media-breakpoint-down(xs)
+    font-size: 2rem
+
+h4
+  font-size: 2.4rem
+  line-height: 1.5
+.main-graph-info
+  @include media-breakpoint-down(md)
+    font-size: 1.8rem
+  @include media-breakpoint-down(sm)
+    font-size: 2rem
+  @include media-breakpoint-down(xs)
+    font-size: 2.2rem
+
+.form-control-range,
+[type="radio"],
+[type="checkbox"]
+  filter: brightness(0.9) contrast(1.5) saturate(0.6)
+sup
+  position: relative
+  top: -.25em
+.field_with_errors
+  input
+    border-color: var(--danger) !important
+    &:focus,
+    &.form-check-input
+      box-shadow: 0 0 0 .3rem rgba(var(--danger),.3) !important
+
+  &+.invalid-feedback
+    display: block
+
+.form-control-lg
+  padding-left: 0.7em
+  padding-right: 0.6em
+.transparent-50
+  opacity: .2
+.no-break
+  white-space: nowrap !important
+.db-middot
+  &:last-child
+    display: none
+
+.db-number
+  background: var(--inactive)
+  color: var(--white)
+  display: inline-block
+  width: 1.5em
+  height: 1.5em
+  line-height: 1.6em
+  border-radius: 2em
+  text-align: center
+  margin-right: .4em
+  font-size: 0.9em
+  position: relative
+  top: -.1em
+  left: -.1em
+  &--success
+    background: var(--success)
+
+.first-letter::first-letter
+  font-size: 2.9em
+  display: block
+  float: left
+  line-height: 1.05
+  color: var(--primary)
+  padding-right: 0.2em
+  font-family: "Varela Round"
+
+// bootstrap overrides
+.container
+  padding-left: 3rem
+  padding-right: 3rem
+  @include media-breakpoint-down(md)
+    max-width: none
+    padding-left: 3rem
+    padding-right: 3rem
+
+.db-product-menu
+  background: white
+  color: var(--primary)
+  svg
+    *
+      fill: var(--primary)
+
+.db-relative
+  position: relative
+
+.db--guest
+  .db-group-cta__avatar,
+  .db-group-cta__bubble,
+  .btn-success,
+  .db-dca-bot-image,
+  .alert,
+  #cookie_consent
+    box-shadow: $boxShadowHome
+
+  .alert
+    position: absolute
+    width: calc(100% - 3rem)
+    left: 1.5rem
+
+  .btn-lg
+    min-width: 12rem !important
+
+.db-guest--brave
+.db-main
+  color: var(--white)
+  &__section
+    @include media-breakpoint-down(sm)
+      margin-bottom: -5rem
+
+    p
+      font-size: 1.6rem
+
+    a:not(.btn)
+      color: var(--white)
+
+    @include media-breakpoint-down(md)
+      .text-center
+        text-align: left !important
+
+    &--how-it-works
+      position: relative
+
+    &--centered
+      display:         flex
+      justify-content: center
+      align-items:     center
+
+    &--primary
+      display:         flex
+      flex-direction:  column
+      justify-content: center
+      padding:         20rem 0
+      //height:          50vh
+      &--first
+        padding: 0 0 20rem
+        min-height: calc(30vh + 60rem)
+        //max-height: 80rem
+        .db-homeart
+          z-index: -1
+
+        @include media-breakpoint-down(md)
+          min-height: 0
+          padding: 5vh 0
+
+        @include media-breakpoint-only(md)
+          margin-top: 15rem
+          margin-bottom: 15rem
+          svg
+            float: right
+            margin-top: -20rem
+
+      &--last
+        padding-top:    8vh !important
+        padding-bottom: 16vh !important
+        min-height:     calc(30vh + 54rem)
+        @include media-breakpoint-down(md)
+          min-height: 0
+          padding: 18rem 0
+
+    &--secondary
+      padding-bottom: 25rem
+      @include media-breakpoint-down(md)
+        padding-bottom: 18rem
+
+      &--last
+        padding-bottom: 0
+
+.db-dca-bot-image
+  width:         100%
+  border-radius: $box-border-radius
+  overflow:      hidden
+  align-self:    center
+
+.db-has-chart-art
+  position:      relative
+.db-homepage-svg-chart
+  position:     absolute
+  width:        calc(100% - 2rem)
+  margin-left:  1rem
+  margin-right: 1rem
+  bottom:       0
+.candlestick,
+.line,
+.circle-a
+  @include media-breakpoint-down(sm)
+    stroke-width: 0.25rem !important
+
+.circle-a, .circle-b
+  @include media-breakpoint-down(sm)
+    r: 0.25rem !important
+
+.db-dca-info
+  padding-bottom: 28rem
+  color:          $textColorInverted
+  @include media-breakpoint-down(sm)
+    padding-bottom: 15rem !important
+
+  @include media-breakpoint-down(md)
+    padding-bottom: 18rem !important
+
+.row--newsletter
+  align-items: center
+.db-newsletter--form
+  display: flex
+  .form-group
+    &:first-child
+      flex-grow: 1
+
+    &+.form-group
+      margin-left: 1rem
+
+  .btn.disabled
+    opacity: 1
+    border-color: var(--primary)
+
+.newsletter-form-feedback
+  i
+    opacity: 0
+
+.d-flex__vertical-align
+  align-self: center
+.text-small
+  font-size: .75em
+
+// db-anim-rotator
+.db-anim-rotator
+  display:     inline-block
+  height:      1em
+  position:    relative
+  width:       3.05em
+  top:        -.5rem
+  text-align:  left
+  span
+    width:     5.05em
+    display:   block
+    height:    1em
+    animation: homepageTextShift 9s ease-in-out 0s infinite
+    position:  absolute
+    opacity:   0
+
+.db-anim-rotator--1
+  animation-delay: 0s !important
+.db-anim-rotator--2
+  animation-delay: 3s !important
+.db-anim-rotator--3
+  animation-delay: 6s !important
+
+@keyframes homepageTextShift
+  0%
+    top: -2.1rem
+    opacity: 0
+    text-shadow: 0 0 0 rgba(255,255,255,1)
+  3%
+    top:   .7rem
+    opacity: 1
+    text-shadow: 0 0 0 rgba(255,255,255,0)
+  32%
+    top:   .7rem
+    opacity: 1
+    text-shadow: 0 0 0 rgba(255,255,255,0)
+  35%
+    top:  3.5rem
+    opacity: 0
+    text-shadow: 0 0 0 rgba(255,255,255,0)
+  66%
+    top:  3.5rem
+    opacity: 0
+    text-shadow: 0 0 0 rgba(255,255,255,0)
+  67%
+    top: -2.1rem
+    opacity: 0
+    text-shadow: 0 0 0 rgba(255,255,255,0)
+  100%
+    top: -2.1rem
+    opacity: 0
+    text-shadow: 0 0 0 rgba(255,255,255,0)
+
+// free
+
+.text-success--lighter
+  color: $successLighter !important
+  color: #{'color(display-p3 0.0375 0.82 0.476) !important'}
+  //text-shadow: 0 0 2rem rgba(0,0,0,.2)
+.text-danger--lighter
+  color: #fc5565 !important
+  //text-shadow: 0 0 2rem rgba(0,0,0,.2)
+
+// intro image
+.db-intro-image-container
+  position:        relative
+  justify-content: center
+  align-items:     center
+  display:         flex
+.db-intro-image
+  width:         100%
+  height:        auto
+  border-radius: $box-border-radius
+  border:        .1rem solid rgba(0,0,0,.1)
+  box-shadow:    0 0 2rem rgba(0,0,0,.075)
+
+@include media-breakpoint-down(md)
+  .db-intro-image
+    display: none
+
+// page
+.db-page
+  margin-bottom: 12rem
+  a
+    color: white
+    text-decoration: underline
+
+  li
+    margin-top: 1em
+
+  .db-ol
+    counter-reset: item
+    & > li
+      counter-increment: item
+
+    & ol
+      & > li
+        display: block
+        &:before
+          content: counters(item, ".") ". "
+          margin-left: -4rem
+
+
+  .blockquote
+    padding: 1em 1em .25em 1.1em
+    font-style: italic
+    position: relative
+    &::before
+      content: "”"
+      font-size: 6em
+      font-style: normal
+      position: absolute
+      top: 0
+      left: -.05em
+      line-height: .9
+      opacity: .2
+
+// settings
+.db-content__box
+  background:    white
+  padding:       2rem
+  border-radius: $box-border-radius
+  border:        .1rem solid #cfd6df
+  box-shadow: $boxShadowBox
+.db-content__box--settings
+  padding:       2rem 1.5rem 0
+  .col-md
+    padding-left: 1rem
+    padding-right: 1rem
+
+.db-remove-api-key
+  position: relative
+  path
+    fill: var(--primary)
+
+  &:hover
+    path
+      fill: var(--primary)
+
+.db-settings-section
+  margin-bottom: 4rem
+.db-setting__button-container
+  display: flex
+  justify-content: center
+  margin-top: 2rem
+
+// footer
+.db-footer--signed-in
+  padding: 1.5rem .5rem 2rem
+  color: var(--secondary)
+
+.db-footer
+  padding-bottom: 3.4rem
+  a
+    color: var(--link)
+    text-decoration: underline
+    display: block
+    @include media-breakpoint-down(sm)
+      line-height: 4.8rem
+
+    &.db-social-link
+      text-decoration: none
+      svg
+        width: 1.6rem
+        height: 1.6rem
+
+      span
+        text-decoration: underline
+
+  &--signed-in
+    a
+      display: inline
+
+.db-footer__tagline
+  position: relative
+  text-indent: 2rem
+  color: var(--link)
+  &::before
+    content: ""
+    display: block
+    background: var(--link)
+    position: absolute
+    width: .4rem
+    height: 100%
+    border-radius: .2rem
+
+.db--guest--homepage
+  a, .db-footer__tagline
+    color: var(--white) !important
+    &::before
+      background: var(--white) !important
+
+.db-minifooter
+  width: 100%
+  text-align: center
+  padding-top: 6rem
+  opacity: .5
+
+// Contact
+.db-woowoo
+  display: inline-flex
+  flex-direction: row-reverse
+  justify-content: flex-end
+  span
+    &:first-child
+      &:after
+        content: ".com"
+
+    &:not(:first-child)
+      &:after
+        content: "a"
+
+
+// Supported exchanges
+.db-supported-exchanges
+  margin-top:      8rem
+  margin-bottom: -12rem
+  text-align: center
+  @include media-breakpoint-down(sm)
+    display: none
+
+.db-supported-exchange
+  width: 20rem
+  padding: 4rem
+  @include media-breakpoint-down(xs)
+    width: 15rem
+    padding: 3rem
+
+// limit reached
+.alert
+  padding: 1.6rem 2.5rem
+  box-shadow: $boxShadowAlert
+  .close
+    align-self: baseline
+    margin-left: 1em
+    opacity: 0.8
+    text-shadow: none
+    color: inherit
+
+.db-alert--flex
+  display: flex
+  justify-content: space-between
+  align-items: center
+  .btn
+    position: relative
+    right: -1rem
+
+// db-tooltip
+.db-has-tooltip
+  position: relative
+  &:hover
+    .db-tooltip
+      opacity: 1
+      left: -23rem
+
+  &.db-icon-verified
+    .db-tooltip
+      width: 14rem
+      left: -15rem
+
+    &:hover
+      text-decoration: none
+      .db-tooltip
+      //left: -14rem
+
+.db-tooltip
+  pointer-events: none
+  opacity: 0
+  transition: 250ms ease-in-out
+  position: absolute
+  background: white
+  padding: .5rem
+  border-radius: $box-border-radius
+  border: .1rem solid #cfd6df
+  left: -22rem
+  top: 0
+  z-index: 10000
+  width: 22rem
+  color: #444
+  font-weight: normal
+  &::before
+    content: ""
+    border: .1rem solid transparent
+    border-right-color: #cfd6df
+    border-bottom-color: #cfd6df
+    top: 1.2rem
+    display: block
+    position: absolute
+    right: -.5rem
+    width: 1rem
+    height: 1rem
+    transform: rotate(-45deg)
+    background: white
+
+// .db-infoblocks
+.db-row--how-does-it-work
+  .db-infoblocks__img
+    justify-content: flex-start !important
+    @include media-breakpoint-down(sm)
+      justify-content: center !important
+
+  svg
+    width: 10rem !important
+
+  @include media-breakpoint-up(sm)
+    padding: 0 2.3rem
+    border-radius: $box-border-radius
+    margin-left: -2.5rem
+    margin-right: -2.5rem
+
+  @include media-breakpoint-up(md)
+    //border: .2rem dashed $textColorInverted
+
+  @include media-breakpoint-up(xl)
+    padding: 0 3.3rem
+    margin-left: -3.5rem
+    margin-right: -3.5rem
+
+.db-infoblocks
+  h5
+    margin-bottom: 1em
+    @include media-breakpoint-up(sm)
+      //text-align: center
+
+  p
+    margin-bottom: 1.3rem
+    @include media-breakpoint-up(xl)
+      margin-bottom: 2rem
+
+  a
+    color: var(--white)
+    text-decoration: underline
+
+.db-infoblocks__img
+  display: flex
+  justify-content: center
+  img
+    width: 20rem
+
+.db-art
+  width: 100%
+.db-infoblocks__item
+  margin-bottom: 3rem
+// referral program
+.db-referral-program-registration
+  &--inactive
+    opacity: 0.5
+    *
+      user-select: none
+
+    .form-control-range
+      -webkit-filter: none
+      filter: none
+
+    a, button, input
+      cursor: default !important
+
+    a:hover
+      text-decoration: none
+      color: var(--primary)
+
+.db-referral-code-input
+  text-transform: uppercase
+.db-http-prefix-select
+  max-width: 11.2rem // 141
+  // background: #ced4da !important
+  // border-color: #ced4da !important
+  // border-right: .8rem solid #ced4da !important
+
+//
+.db-group-cta
+  z-index: 1000
+  position: fixed
+  bottom: 4rem
+  right: 4rem
+  color: var(--white)
+  line-height: 2rem
+  white-space: nowrap
+  a
+    font-weight: bold
+    color: var(--white)
+    text-decoration: underline
+
+  .btn-xl
+    height: 5rem
+    position: absolute
+    right: -10rem
+    padding: 1.15rem 0
+    border-radius: 5rem
+    text-decoration: none
+    font-size: 1rem
+    line-height: 2.8rem
+    transition: opacity 150ms ease-in, bottom 300ms ease-in, color 300ms ease-in
+    animation: bounce 500ms ease-in-out infinite alternate
+    font-weight: normal
+    width: 50vw
+    min-width: 68rem !important
+    @include media-breakpoint-down(md)
+      display: none
+
+    svg
+      width: 4rem
+      height: 2rem
+      position: relative
+      path
+        transition: stroke 300ms ease-in
+        animation: bounce_svg 500ms ease-in-out infinite alternate
+
+
+.has-been-scrolled .db-group-cta .btn-xl
+  opacity: 0
+
+@keyframes bounce
+	0%
+    bottom: .4rem
+    color: rgba(255,255,255,1)
+	100%
+    bottom: 1.6rem
+    color: rgba(255,255,255,.6)
+
+@keyframes bounce_svg
+	0%
+    stroke: rgba(255,255,255,1)
+	100%
+    stroke: rgba(255,255,255,.6)
+
+.btn-xl
+  transition: opacity 200ms ease-in-out
+  pointer-events: none
+.db-opacity-100
+  opacity: 1
+  pointer-events: all
+.db-group-cta__avatar
+  width: 7rem
+  height: 7rem
+  overflow: hidden
+  border-radius: 4rem
+  img
+    width: 100%
+
+.db-group-cta__bubble
+  position: absolute
+  bottom: 0
+  right: 8rem
+  padding: 1.8rem 1.8rem 1.8rem 2.5rem
+  border-radius: 4rem
+  border: .2rem solid white
+  background: transparent
+  backdrop-filter: blur(.8rem)
+@-moz-document url-prefix()
+  .db-group-cta__bubble
+    background: var(--primary)
+
+.db-group-cta__arrow-forward
+  display: inline-block
+  width: 3rem
+  *
+    fill: white
+
+// homeart
+.db-flex-centered-vertically
+  display: flex
+  align-items: center
+.db-homeart
+  position: relative
+  width: 46rem
+  height: 46rem
+  &--01
+    top: calc(var(--scroll)* .018rem)
+    transform: scale(1.05) !important
+    @include media-breakpoint-down(sm)
+      top: calc(var(--scroll)* .018rem - 12rem)
+
+    transform: scale(1) translateY(calc(var(--pulsing)* -.5rem))
+    &__ground
+      transform-origin: 0 74%
+      transform: scaleY(calc(2 - (var(--scroll) + var(--pulsing)*20) * 0.0022))
+
+    .badger-rig01
+      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -.0007rem))
+
+    &__glass-shine
+      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * .01rem))
+
+    &__glass-shape
+      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -.01rem))
+
+  &--02
+    top: calc(var(--scroll-a)* -.01rem)
+    transform: scale(1) translateY(calc(var(--pulsing)* -.5rem))
+    &__ground
+      transform-origin: 0 74%
+      transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0022))
+
+    &__underground
+      // fill: linear-gradient(180deg, #903 0, var(--primary) 120vh, #0D1A40 100%)
+      // fill: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0,  var(--primary)-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%)
+
+    &__badger
+      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -.0007rem))
+
+    &__glass-shine
+      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * .01rem))
+
+    &__glass-shape
+      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -.01rem))
+
+.db-stop-color--success
+  stop-color: #{'color(display-p3 0.0275 0.62 0.376)'} !important
+.db-deep-space
+  position: absolute
+  top: calc(var(--scroll)* .022rem - 50vh)
+  left: -8rem
+.db-4-easy-charts-title
+  margin-bottom: 10rem
+  @include media-breakpoint-down(md)
+    margin-bottom: 0
+    h2
+      margin-bottom: 3rem
+      text-align: left !important
+
+    br
+      display: none
+
+.db-row--easy-chart
+  margin-bottom: 6rem
+  min-height: 30rem
+.db-easy-chart__text
+  text-align: left
+  padding-top: 2rem
+  padding-left: 9rem
+  padding-right: 0
+  @include media-breakpoint-down(md)
+    padding-left: 0
+    padding-right: 0
+
+  h3
+    margin-bottom: 2rem
+
+  p
+    margin-bottom: 3rem
+    @include media-breakpoint-down(md)
+
+.db-squareart
+  width: 20rem
+  height: 20rem
+.db-list-of-exchanges
+  overflow: hidden
+  b
+    white-space: nowrap
+    position: relative
+    left: -1em

@@ -46,6 +46,13 @@
 
       gtag('config', 'UA-60645901-3');
 
+      // scaling
+
+      $("html").css("font-size", Math.min(Math.max($(this).width()/180, 10), 12) + "px");
+      window.addEventListener('resize', function(event){
+        $("html").css("font-size", Math.min(Math.max($(this).width()/180, 10), 12) + "px");
+      });
+
       //
 
       let root = document.documentElement;
@@ -53,7 +60,7 @@
       window.addEventListener("scroll", function() {
         const distance = window.scrollY;
         root.style.setProperty('--scroll', distance);
-        root.style.setProperty('--scroll-a', distance - 4300); // 1700
+        root.style.setProperty('--scroll-a', distance - 440 * Math.min(Math.max($("html").width()/180, 10), 12)); // 1700
 
         if (distance > 10) {
           root.classList.add("has-been-scrolled");

@@ -1,11 +1,11 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      %h3.mb-5.mt-4.pt-2= t('ads.password_managers_html')
+      %h3.db-modal-companion-title= t('ads.password_managers_html')
       .db-signup__list
-        .db-signup__list--item.mb-4
+        .db-signup__list__item
           .material-icons-round check
-          %a.ml-2(href="https://bitwarden.com/" target="_blank" ref="nofollow")= t('ads.bitwarden_title')
+          %a.db-signup__list__item__text(href="https://bitwarden.com/" target="_blank" ref="nofollow")= t('ads.bitwarden_title')
           = t('ads.bitwarden_text')
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
       .db-box

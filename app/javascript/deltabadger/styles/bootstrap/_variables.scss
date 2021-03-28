@@ -180,7 +180,7 @@ $emphasized-link-hover-darken-percentage: 15% !default;
 //
 // Style p element.
 
-$paragraph-margin-bottom:   1rem !default;
+$paragraph-margin-bottom:   1.6rem !default;
 
 
 // Grid breakpoints
@@ -205,10 +205,10 @@ $grid-breakpoints: (
 // Define the maximum width of `.container` for different screen sizes.
 
 $container-max-widths: (
-  sm: 540px,
-  md: 720px,
-  lg: 960px,
-  xl: 1140px
+  sm: 54rem,
+  md: 72rem,
+  lg: 96rem,
+  xl: 114rem
 ) !default;
 
 @include _assert-ascending($container-max-widths, "$container-max-widths");
@@ -219,7 +219,7 @@ $container-max-widths: (
 // Set the number of columns and specify the width of the gutters.
 
 $grid-columns:                12 !default;
-$grid-gutter-width:           30px !default;
+$grid-gutter-width:           3rem !default;
 
 
 // Components
@@ -229,7 +229,7 @@ $grid-gutter-width:           30px !default;
 $line-height-lg:              1.5 !default;
 $line-height-sm:              1.5 !default;
 
-$border-width:                1px !default;
+$border-width:                .1rem !default;
 $border-color:                $gray-300 !default;
 
 $border-radius:               .25rem !default;
@@ -275,7 +275,7 @@ $font-family-monospace:       SFMono-Regular, Menlo, Monaco, Consolas, "Liberati
 $font-family-base:            $font-family-sans-serif !default;
 // stylelint-enable value-keyword-case
 
-$font-size-base:              1rem !default; // Assumes the browser default, typically `16px`
+$font-size-base:              1rem !default; // Assumes the browser default, typically `1.6rem`
 $font-size-lg:                $font-size-base * 1.25 !default;
 $font-size-sm:                $font-size-base * .875 !default;
 
@@ -426,11 +426,11 @@ $btn-line-height-lg:          $input-btn-line-height-lg !default;
 $btn-border-width:            $input-btn-border-width !default;
 
 $btn-font-weight:             $font-weight-normal !default;
-$btn-box-shadow:              inset 0 1px 0 rgba($white, .15), 0 1px 1px rgba($black, .075) !default;
+$btn-box-shadow:              inset 0 .1rem 0 rgba($white, .15), 0 .1rem .1rem rgba($black, .075) !default;
 $btn-focus-width:             $input-btn-focus-width !default;
 $btn-focus-box-shadow:        $input-btn-focus-box-shadow !default;
 $btn-disabled-opacity:        .65 !default;
-$btn-active-box-shadow:       inset 0 3px 5px rgba($black, .125) !default;
+$btn-active-box-shadow:       inset 0 .3rem .5rem rgba($black, .125) !default;
 
 $btn-link-disabled-color:     $gray-600 !default;
 
@@ -471,7 +471,7 @@ $input-disabled-bg:                     $gray-200 !default;
 $input-color:                           $gray-700 !default;
 $input-border-color:                    $gray-400 !default;
 $input-border-width:                    $input-btn-border-width !default;
-$input-box-shadow:                      inset 0 1px 1px rgba($black, .075) !default;
+$input-box-shadow:                      inset 0 .1rem .1rem rgba($black, .075) !default;
 
 $input-border-radius:                   $border-radius !default;
 $input-border-radius-lg:                $border-radius-lg !default;
@@ -507,7 +507,7 @@ $form-check-input-margin-x:             .25rem !default;
 $form-check-inline-margin-x:            .75rem !default;
 $form-check-inline-input-margin-x:      .3125rem !default;
 
-$form-grid-gutter-width:                10px !default;
+$form-grid-gutter-width:                1rem !default;
 $form-group-margin-bottom:              1rem !default;
 
 $input-group-addon-color:               $input-color !default;
@@ -572,7 +572,7 @@ $custom-select-color:               $input-color !default;
 $custom-select-disabled-color:      $gray-600 !default;
 $custom-select-bg:                  $input-bg !default;
 $custom-select-disabled-bg:         $gray-200 !default;
-$custom-select-bg-size:             8px 10px !default; // In pixels because image dimensions
+$custom-select-bg-size:             .8rem 1rem !default; // In pixels because image dimensions
 $custom-select-indicator-color:     $gray-800 !default;
 $custom-select-indicator:           str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3e%3cpath fill='#{$custom-select-indicator-color}' d='M2 0L0 2h4zm0 5L0 3h4z'/%3e%3c/svg%3e"), "#", "%23") !default;
 $custom-select-background:          $custom-select-indicator no-repeat right $custom-select-padding-x center / $custom-select-bg-size !default; // Used so we can have multiple background elements (e.g., arrow and feedback icon)
@@ -584,7 +584,7 @@ $custom-select-feedback-icon-size:          $input-height-inner-half $input-heig
 $custom-select-border-width:        $input-border-width !default;
 $custom-select-border-color:        $input-border-color !default;
 $custom-select-border-radius:       $border-radius !default;
-$custom-select-box-shadow:          inset 0 1px 2px rgba($black, .075) !default;
+$custom-select-box-shadow:          inset 0 .1rem .2rem rgba($black, .075) !default;
 
 $custom-select-focus-border-color:  $input-focus-border-color !default;
 $custom-select-focus-width:         $input-focus-width !default;
@@ -613,7 +613,7 @@ $custom-range-thumb-bg:                      $component-active-bg !default;
 $custom-range-thumb-border:                  0 !default;
 $custom-range-thumb-border-radius:           1rem !default;
 $custom-range-thumb-box-shadow:              0 .1rem .25rem rgba($black, .1) !default;
-$custom-range-thumb-focus-box-shadow:        0 0 0 1px $body-bg, $input-focus-box-shadow !default;
+$custom-range-thumb-focus-box-shadow:        0 0 0 .1rem $body-bg, $input-focus-box-shadow !default;
 $custom-range-thumb-focus-box-shadow-width:  $input-focus-width !default; // For focus box shadow issue in IE/Edge
 $custom-range-thumb-active-bg:               lighten($component-active-bg, 35%) !default;
 $custom-range-thumb-disabled-bg:             $gray-500 !default;
@@ -841,7 +841,7 @@ $card-columns-margin:               $card-spacer-y !default;
 // Tooltips
 
 $tooltip-font-size:                 $font-size-sm !default;
-$tooltip-max-width:                 200px !default;
+$tooltip-max-width:                 20rem !default;
 $tooltip-color:                     $white !default;
 $tooltip-bg:                        $black !default;
 $tooltip-border-radius:             $border-radius !default;
@@ -867,7 +867,7 @@ $form-feedback-tooltip-border-radius: $tooltip-border-radius !default;
 
 $popover-font-size:                 $font-size-sm !default;
 $popover-bg:                        $white !default;
-$popover-max-width:                 276px !default;
+$popover-max-width:                 27.6rem !default;
 $popover-border-width:              $border-width !default;
 $popover-border-color:              rgba($black, .2) !default;
 $popover-border-radius:             $border-radius-lg !default;
@@ -891,13 +891,13 @@ $popover-arrow-outer-color:         fade-in($popover-border-color, .05) !default
 
 // Toasts
 
-$toast-max-width:                   350px !default;
+$toast-max-width:                   35rem !default;
 $toast-padding-x:                   .75rem !default;
 $toast-padding-y:                   .25rem !default;
 $toast-font-size:                   .875rem !default;
 $toast-color:                       null !default;
 $toast-background-color:            rgba($white, .85) !default;
-$toast-border-width:                1px !default;
+$toast-border-width:                .1rem !default;
 $toast-border-color:                rgba(0, 0, 0, .1) !default;
 $toast-border-radius:               .25rem !default;
 $toast-box-shadow:                  0 .25rem .75rem rgba($black, .1) !default;
@@ -952,12 +952,12 @@ $modal-header-padding-y:            1rem !default;
 $modal-header-padding-x:            1rem !default;
 $modal-header-padding:              $modal-header-padding-y $modal-header-padding-x !default; // Keep this for backwards compatibility
 
-$modal-xl:                          1140px !default;
-$modal-lg:                          800px !default;
-$modal-md:                          500px !default;
-$modal-sm:                          300px !default;
+$modal-xl:                          114rem !default;
+$modal-lg:                          80rem !default;
+$modal-md:                          50rem !default;
+$modal-sm:                          30rem !default;
 
-$modal-fade-transform:              translate(0, -50px) !default;
+$modal-fade-transform:              translate(0, -5rem) !default;
 $modal-show-transform:              none !default;
 $modal-transition:                  transform .3s ease-out !default;
 
@@ -1024,7 +1024,7 @@ $thumbnail-bg:                      $body-bg !default;
 $thumbnail-border-width:            $border-width !default;
 $thumbnail-border-color:            $gray-300 !default;
 $thumbnail-border-radius:           $border-radius !default;
-$thumbnail-box-shadow:              0 1px 2px rgba($black, .075) !default;
+$thumbnail-box-shadow:              0 .1rem .2rem rgba($black, .075) !default;
 
 
 // Figures
@@ -1057,17 +1057,17 @@ $carousel-control-opacity:           .5 !default;
 $carousel-control-hover-opacity:     .9 !default;
 $carousel-control-transition:        opacity .15s ease !default;
 
-$carousel-indicator-width:           30px !default;
-$carousel-indicator-height:          3px !default;
-$carousel-indicator-hit-area-height: 10px !default;
-$carousel-indicator-spacer:          3px !default;
+$carousel-indicator-width:           3rem !default;
+$carousel-indicator-height:          .3rem !default;
+$carousel-indicator-hit-area-height: 1rem !default;
+$carousel-indicator-spacer:          .3rem !default;
 $carousel-indicator-active-bg:       $white !default;
 $carousel-indicator-transition:      opacity .6s ease !default;
 
 $carousel-caption-width:             70% !default;
 $carousel-caption-color:             $white !default;
 
-$carousel-control-icon-width:        20px !default;
+$carousel-control-icon-width:        2rem !default;
 
 $carousel-control-prev-icon-bg:      str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='#{$carousel-control-color}' viewBox='0 0 8 8'%3e%3cpath d='M5.25 0l-4 4 4 4 1.5-1.5-2.5-2.5 2.5-2.5-1.5-1.5z'/%3e%3c/svg%3e"), "#", "%23") !default;
 $carousel-control-next-icon-bg:      str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='#{$carousel-control-color}' viewBox='0 0 8 8'%3e%3cpath d='M2.75 0l-1.5 1.5 2.5 2.5-2.5 2.5 1.5 1.5 4-4-4-4z'/%3e%3c/svg%3e"), "#", "%23") !default;
@@ -1092,7 +1092,7 @@ $spinner-border-width-sm: .2em !default;
 $close-font-size:                   $font-size-base * 1.5 !default;
 $close-font-weight:                 $font-weight-bold !default;
 $close-color:                       $black !default;
-$close-text-shadow:                 0 1px 0 $white !default;
+$close-text-shadow:                 0 .1rem 0 $white !default;
 
 
 // Code
@@ -1107,7 +1107,7 @@ $kbd-color:                         $white !default;
 $kbd-bg:                            $gray-900 !default;
 
 $pre-color:                         $gray-900 !default;
-$pre-scrollable-max-height:         340px !default;
+$pre-scrollable-max-height:         34rem !default;
 
 
 // Utilities
