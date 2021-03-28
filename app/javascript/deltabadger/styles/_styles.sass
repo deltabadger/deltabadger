@@ -206,19 +206,19 @@ sup
       flex-direction:  column
       justify-content: center
       padding:         20rem 0
-      //height:          50vh
       &--first
-        padding: 0 0 20rem
-        min-height: calc(30vh + 60rem)
-        //max-height: 80rem
+        padding: 12rem 0 20rem
+        height: calc(100vh - 12rem)
+        max-height: calc(100vw - 24rem)
+
         .db-homeart
           z-index: -1
 
         @include media-breakpoint-down(md)
-          min-height: 0
-          padding:    5vh 0
-
+          max-height: auto
+          padding:    30vh 0
         @include media-breakpoint-only(md)
+          max-height:    auto
           margin-top:    15rem
           margin-bottom: 15rem
           svg
@@ -789,7 +789,7 @@ sup
       transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -.01rem))
 
   &--02
-    top: calc(var(--scroll-a)* -.005rem)
+    top: calc(var(--scroll-a)* .005rem)
     transform: scale(1) translateY(calc(var(--pulsing)* -.5rem))
     &__ground
       transform-origin: 0 74%
