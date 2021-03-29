@@ -18,11 +18,11 @@
   &.db--loggedout
     min-height: 100vh
     .container--signup
-      min-height: calc(100vh - 240px)
+      min-height: calc(100vh - 24rem)
       display: flex
       align-items: center
       .row
-        width: calc(100% + 30px)
+        width: calc(100% + 3rem)
     .modal-dialog
       margin-top: 0
       margin-bottom: 0
@@ -31,7 +31,7 @@
 .db--guest
   min-height: 100vh
   background: var(--primary)
-  background: linear-gradient(180deg, #903 0px, var(--primary) 120vh, #0D1A40 90%)
+  background: linear-gradient(180deg, #903 0, var(--primary) 120vh, #0D1A40 90%)
   &--text
     background: var(--background) !important
     a
@@ -72,14 +72,19 @@
     &__author
       display: none
       margin-top: 1em
-      line-height: 32px
+      line-height: 3.2rem
       margin-bottom: 3em
       img
-        width: 32px
-        height: 32px
-        border-radius: 32px
+        width: 3.2rem
+        height: 3.2rem
+        border-radius: 3.2rem
 
-.db-signup--text
-  color: var(--link)
-.db-signup__list--item
-  display: flex
+.db-signup
+  &--text
+    color: var(--link)
+  &__list
+    &__item
+      display: flex
+      margin-bottom: 2.4rem
+      &__text
+        margin-left: .75rem
