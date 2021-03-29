@@ -9,8 +9,7 @@
               %path{:d => "M8 19a2 2 0 002-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"}
           .db-bot__infotext.text-success
             .db-bot__infotext__left
-              %span.d-none.d-sm-inline> Kraken:
-              BTCUSD
+              %span.d-none.d-sm-inline Kraken: BTCUSD
             .db-bot__infotext__right= t('bots.next_buy', countdown: '13h 50m 38s')
         .db-bot__progress.progress.progress--thin.progress--bot-setup
           .progress-bar.bg-success{:role => "progressbar", :style => "width: 66%;"}
@@ -132,6 +131,8 @@
         = t('home.index.dca_magic.easy4.text_html')
     .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
       = render 'layouts/svg_easy_chart_04'
+
+= render 'layouts/pricing'
 
 .db-main__section.db-main__section--primary.db-main__section--primary--last
   .row.row--newsletter

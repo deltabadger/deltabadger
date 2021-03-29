@@ -9,27 +9,27 @@
     display: none
 .db-plans
   &__item
-    padding: 24px 30px
+    padding: 2.4rem 3rem
     background: var(--white)
-    margin-bottom: 10px
+    margin-bottom: 1rem
     cursor: pointer
     display: grid
-    border-radius: 8px
+    border-radius: .8rem
     position: relative
     overflow: hidden
     grid:
       template:
-        columns: auto 100px
-        rows: 50px auto auto
+        columns: auto 10rem
+        rows: 5rem auto auto
     &--saver
       grid:
         template:
-          rows: 50px auto auto !important
+          rows: 5rem auto auto !important
     &--investor, &--hodler
-      //min-height: 230px
+      //min-height: 23rem
       grid:
         template:
-          rows: 80px auto auto
+          rows: 8rem auto auto
 
     .badge
       background: var(--planBadge)
@@ -40,20 +40,20 @@
       cursor: default
       background: none
     &--current
-      min-height: 113px
+      min-height: 11.3rem
       margin-bottom: 0
       color: var(--text)
     &--discount
-      margin-top: -10px
+      margin-top: -1rem
       .db-plans__item__name, .db-plans__item__amount
         color: var(--success)
     &__name
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
-      font-size: 21px
+      font-size: 2.1rem
       .db-years
         display: block
-        font-size: 16px
+        font-size: 1.6rem
     &__amount
       font-family: "Varela Round", Inconsolata, monospace
       text-align: right
@@ -63,7 +63,7 @@
           color: var(--success)
         &--discount,
         &--previous
-          font-size: 21px
+          font-size: 2.1rem
           font-weight: bold
         &--previous
           text-decoration: line-through
@@ -87,23 +87,23 @@
             end: 2
 
 .db-plan--selected
-  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
+  box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   color: var(--planSelectedTxt)
   cursor: default
   background: var(--planSelectedBg)
-  border: 1px solid var(--planSelectedBorder)
+  border: .1rem solid var(--planSelectedBorder)
   .badge
     background: var(--planSelectedBadge)
     color: var(--planSelectedTxt)
 .db-plan--other
-  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.05)
+  box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   background: var(--planBg)
-  border: 1px solid var(--planBorder) !important
+  border: .1rem solid var(--planBorder) !important
 .db-plan-radio
   display: none
 
 .db-checkout
-  min-height: calc(100vh - 223px)
+  min-height: calc(100vh - 22.3rem)
   @include media-breakpoint-down(sm)
     display: block
 
@@ -130,12 +130,12 @@
 .db-checkout-summary
   background: var(--paper) !important
   border-color: var(--paperBorder) !important
-  margin-bottom: 10px
+  margin-bottom: 1rem
   display: flex
   flex-direction: row
   text-align: right
   &__item
-    padding: 25px 30px
+    padding: 2.5rem 3rem
     &--vat
       color: #678
       width: 100%
@@ -163,13 +163,13 @@
               color: var(--focus)
 
 .db-pay-button
-  margin-top: 35px
-  margin-bottom: 5px
+  margin-top: 3.5rem
+  margin-bottom: .5rem
 
 #payTab
   background: var(--paperBorder)
-  border-radius: 10px 10px 0 0
-  margin: -33px
+  border-radius: 1rem 1rem 0 0
+  margin: -3.3rem
   margin-bottom: 0
   border-bottom-color: transparent
   a
@@ -179,7 +179,7 @@
     width: 50%
     text-align: center
   .nav-link
-    border-radius: 8px 8px 0 0
+    border-radius: .8rem .8rem 0 0
     background: none
     border-bottom: 0
     height: 100%
@@ -194,40 +194,40 @@
       border-color: transparent
 
 #payTabContent
-  padding-top: 28px
+  padding-top: 2.8rem
 
 .db-card-providers
   display: flex
   align-items: center
   justify-content: center
-  height: 40px
-  gap: 4px
+  height: 4rem
+  gap: .4rem
   &__item
-    height: 24px
+    height: 2.4rem
     width: auto
     &--visa
-      height: 20px
+      height: 2rem
       @media (prefers-color-scheme: dark)
         filter: brightness(10)
     &--mastercard
-      height: 30px
-      width:  46px
+      height: 3rem
+      width:  4.6rem
     &--bitcoin
-      height: 30px
+      height: 3rem
       &-lightning
-        height: 30px
+        height: 3rem
 
 .db-zen
-  padding-right: 4px
-  padding-top: 12px
+  padding-right: .4rem
+  padding-top: 1.2rem
   display: flex
-  line-height: 20px
+  line-height: 2rem
   justify-content: flex-end
   color: var(--text)
   text-decoration: none !important
   &__logo
-    margin-left: 8px
-    width: 20px
-    height: 20px
+    margin-left: .8rem
+    width: 2rem
+    height: 2rem
     path
       fill: var(--text)

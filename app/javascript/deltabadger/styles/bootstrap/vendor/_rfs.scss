@@ -13,8 +13,8 @@ $rfs-base-font-size: 1.25rem !default;
 $rfs-font-size-unit: rem !default;
 
 // Breakpoint at where font-size starts decreasing if screen width is smaller
-$rfs-breakpoint: 1200px !default;
-$rfs-breakpoint-unit: px !default;
+$rfs-breakpoint: 120rem !default;
+$rfs-breakpoint-unit: rem !default;
 
 // Resize font-size based on screen height and width
 $rfs-two-dimensional: false !default;

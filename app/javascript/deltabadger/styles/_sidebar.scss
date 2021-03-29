@@ -2,14 +2,14 @@
   background:    var(--background);
   margin-left:   1em !important;
   margin-bottom: 1em !important;
-  border-radius: 4px;
-  max-width:     220px;
+  border-radius: .4rem;
+  max-width:     22rem;
 }
 .db-sidebar {
-  border: 1px solid #cfd6df;
+  border: .1rem solid #cfd6df;
   margin:  0;
   padding: 0;
-  height:  calc(100vh - 90px);
+  height:  calc(100vh - 9rem);
   .nav-tabs {
     border: 0;
   }
@@ -18,7 +18,7 @@
   }
   .nav-item {
     width: 100%;
-    border-width: 2px;
+    border-width: .2rem;
     &:hover {
       background-color: #e1e1e1;
     }
@@ -34,11 +34,11 @@
   bottom:      0;
   margin:      0 1em;
   width:       calc(100% - 2em);
-  line-height: 40px;
-  border-top:  1px solid $borderColorLight;
+  line-height: 4rem;
+  border-top:  .1rem solid $borderColorLight;
   color:       $textColorLight;
 }
 
 .db-menu-icon {
-  line-height: 10px;
+  line-height: 1rem;
 }

@@ -5,13 +5,13 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      %h3.mb-5.mt-4.pt-2= t('ads.dca_profit_html', profit: profit_calculator.call(today - 365, today).data.to_i)
+      %h3.db-modal-companion-title= t('ads.dca_profit_html', profit: profit_calculator.call(today - 365, today).data.to_i)
 
       .db-signup__list
         - t('ads.features').split(';').each do |feature|
-          .db-signup__list--item.mb-4
+          .db-signup__list__item
             .material-icons-round check
-            .ml-2= raw feature
+            %div.db-signup__list__item__text= raw feature
 
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
       .db-box
@@ -57,7 +57,7 @@
                 }
               }
 
-          .db-form__row.db-form__row--check
+          .db-form__row.db-form__row--check.ml-0
             = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
             = f.label :terms_and_conditions, class: "form-check-label" do
               = raw t('helpers.label.user.terms_and_conditions_tooltip',
