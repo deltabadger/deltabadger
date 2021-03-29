@@ -67,6 +67,13 @@
         })
       })
 
+      // scaling
+
+      $("html").css("font-size", Math.min(Math.max($(this).width()/170, 10), 15) + "px");
+      window.addEventListener('resize', function(event){
+        $("html").css("font-size", Math.min(Math.max($(this).width()/170, 10), 15) + "px");
+      });
+
       // payments eu/non-eu
 
       $(document).ready(function(){

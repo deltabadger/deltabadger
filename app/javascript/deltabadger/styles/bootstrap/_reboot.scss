@@ -22,13 +22,6 @@
   box-sizing: border-box; // 1
 }
 
-html {
-  font-family: sans-serif; // 2
-  line-height: 1.15; // 3
-  -webkit-text-size-adjust: 100%; // 4
-  -webkit-tap-highlight-color: rgba($black, 0); // 5
-}
-
 // Shim for "new" HTML5 structural elements to display correctly (IE10, older browsers)
 // TODO: remove in v5
 // stylelint-disable-next-line selector-list-comma-newline-after
@@ -306,8 +299,8 @@ button {
 //
 // Credit: https://github.com/suitcss/base/
 button:focus {
-  outline: 1px dotted;
-  outline: 5px auto -webkit-focus-ring-color;
+  outline: .1rem dotted;
+  outline: .5rem auto -webkit-focus-ring-color;
 }
 
 input,
@@ -437,7 +430,7 @@ progress {
   // `.form-control` class can properly style them. Note that this cannot simply
   // be added to `.form-control` as it's not specific enough. For details, see
   // https://github.com/twbs/bootstrap/issues/11586.
-  outline-offset: -2px; // 2. Correct the outline style in Safari.
+  outline-offset: -.2rem; // 2. Correct the outline style in Safari.
   -webkit-appearance: none;
 }
 

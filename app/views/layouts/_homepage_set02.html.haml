@@ -22,6 +22,7 @@
                 %option{:value => "sell"}= t('bots.sell')
             .form-group.mr-2 BTC
             = t('bots.for')
+            = " "
             .form-group.mr-2
               %input.form-control.db-input--dca-amount{:disabled => "disabled", :type => "text", :value => "1"}/
             .form-group.mr-2 USD /
@@ -132,6 +133,8 @@
         = t('home.index.dca_magic.easy4.text_html')
     .col-md-12.col-lg-6.mb-4.d-lg-flex(style="flex-direction: column")
       = render 'layouts/svg_easy_chart_04'
+
+= render 'layouts/pricing'
 
 .db-main__section.db-main__section--primary.db-main__section--primary--last
   .row.row--newsletter

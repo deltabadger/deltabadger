@@ -3,7 +3,7 @@
 input
   &[type="checkbox"]
     &:not(:checked)
-      box-shadow: inset 0 0 15px var(--inactive)
+      box-shadow: inset 0 0 1.5rem var(--inactive)
       filter: none
   &[disabled]
     &+ span
@@ -23,7 +23,7 @@ input
       height: fit-content
       color: var(--text)
       border-radius: $box-border-radius !important
-      padding-bottom: 15px !important
+      padding-bottom: 1.5rem !important
     &--data
       @include media-breakpoint-up(xl)
         grid-column-start: 2
@@ -35,10 +35,10 @@ input
       .db-spinner-positioner
         display: flex
         justify-content: center
-        padding: 20px 40px 40px
-        margin-bottom: 20px
+        padding: 2rem 4rem 4rem
+        margin-bottom: 2rem
       th:first-child, td:first-child
-        padding-left: 1.5rem !important
+        padding-left: 2.4rem !important
       .tab-content
         z-index:  2
         position: relative
@@ -47,9 +47,10 @@ input
           color: var(--link)
           background: var(--paper)
           text-decoration: none !important
-          padding-left: 1.5rem
-          padding-right: 1.5rem
-          margin-right: 2px
+          padding-top:  .8rem
+          padding-left: 2.4rem
+          padding-right: 2.4rem
+          margin-right: .2rem
           position: relative
           &:not(.active)
             background:   transparent
@@ -58,7 +59,7 @@ input
               background:   var(--paperBorder)
           &.active
             cursor: default
-            padding-bottom: 9px
+            padding-bottom: .9rem
             border-bottom-width: 0
             color: var(--text)
             border-color: var(--paperBorder)
@@ -68,42 +69,47 @@ input
             &::before
               content:     ""
               display:     block
-              height:      10px
+              height:      1rem
               background:  var(--paper)
-              left:       -5px
+              left:       -.5rem
               position:    absolute
-              width:       calc(100% + 10px)
-              bottom:     -10px
+              width:       calc(100% + 1rem)
+              bottom:     -1rem
         &:first-child
           .nav-link
             &.active
               &::before
-                left:       -1px
-                border-left: 1px solid var(--paperBorder)
-                bottom:     -10px
+                left:       -.1rem
+                border-left: .1rem solid var(--paperBorder)
+                bottom:     -1rem
             &:not(.active)
               &:hover
                 &::before
                   content:    ""
                   z-index:   -1
                   display:    block
-                  width:      10px
-                  height:     10px
+                  width:      1rem
+                  height:     1rem
                   background: var(--paperBorder)
-                  left:      -1px
+                  left:      -.1rem
                   position:   absolute
-                  bottom:    -11px
+                  bottom:    -1.1rem
       .nav-link
         border-top-right-radius: $box-border-radius
         border-top-left-radius:  $box-border-radius
       .nav-tabs
         border-bottom: 0
       .tab-pane
-        padding-top:   1em
-        border:        1px solid var(--paperBorder)
+        padding:       1.6rem 0 0
+        border:        .1rem solid var(--paperBorder)
         background:    var(--paper)
         border-radius: $box-border-radius
         box-shadow:    $boxShadowBot
+        p
+          padding-left: 2.4rem
+          padding-right: 2.4rem
+          &.mt-2
+            margin-top: 2.4rem
     .db-form
       &__input
         &:focus
@@ -118,13 +124,13 @@ input
   position:      relative
   overflow:      hidden
   background:    var(--paper)
-  border:        1px solid var(--paperBorder)
+  border:        .1rem solid var(--paperBorder)
   border-radius: $box-border-radius
   box-shadow:    $boxShadowBot
   .alert
     border-radius: 0
     box-shadow: none
-    margin-bottom: 6px
+    margin-bottom: .6rem
     a
       color: var(--primary) !important
     ol
@@ -132,7 +138,7 @@ input
     &--trading-agreement
       margin-top: -3rem
     &-warning
-      margin-bottom: 80px
+      margin-bottom: 8rem
   .form-inline
     justify-content: center
     :last-child
@@ -155,17 +161,17 @@ input
       border-bottom-right-radius: 0
       border-bottom-left-radius:  0
       border-bottom:              0
-      margin-bottom:             -40px
-      padding-bottom:             40px
+      margin-bottom:             -4rem
+      padding-bottom:             4rem
       &+.db-bots__item--data
         background:                 var(--paper)
-        border-right:               1px solid var(--paperBorder)
-        border-left:                1px solid var(--paperBorder)
+        border-right:               .1rem solid var(--paperBorder)
+        border-left:                .1rem solid var(--paperBorder)
         border-bottom-right-radius: $box-border-radius
         border-bottom-left-radius:  $box-border-radius
         .nav, .tab-pane
-          margin-left:            -1px
-          margin-right:           -1px
+          margin-left:            -.1rem
+          margin-right:           -.1rem
           border-top-right-radius: 0
           border-top-left-radius:  0
     select, input
@@ -177,7 +183,7 @@ input
       -webkit-appearance: none
       -moz-appearance: none
       appearance: none
-      text-indent: 1px
+      text-indent: .1rem
       text-indent: 0
       text-align-last:center
   &--setup-finished, &--setup
@@ -189,13 +195,13 @@ input
       .db-showif--pick-exchange
         display: block
   &--collapsed
-    height:   76px
+    height:   7.6rem
     overflow: hidden
     cursor:   pointer
   &__progress
-    height: 4px
+    height: .4rem
     position: absolute
-    top: 70px
+    top: 7rem
     left: 0
     right: 0
     border-radius: 0
@@ -210,13 +216,13 @@ input
     flex-direction: row-reverse
     padding:        $bot-gutter-width/2 $bot-gutter-width/1.2 $bot-gutter-width/2 $bot-gutter-width/1.2
     .btn
-      right:        -10px
+      right:        -1rem
       position:      relative
     .db-bot__modal .btn
       right: 0
   &__infotext
     border-radius:   $btn-border-radius
-    line-height:     20px
+    line-height:     2rem
     width:           100%
     pointer-events:  none
     position:        relative
@@ -225,16 +231,16 @@ input
     display:         flex
     justify-content: space-between
     align-items:     center
-    min-height:      40px
+    min-height:      4rem
     &__left
       text-transform: uppercase
       color:          var(--text)
     &--setup
       text-align: left
       position: absolute
-      width: calc(100% - 50px)
-      line-height: 40px
-      left: 25px
+      width: calc(100% - 5rem)
+      line-height: 4rem
+      left: 2.5rem
   &__alert
     text-align: center
     position: absolute
@@ -242,12 +248,12 @@ input
     left: 1.5rem
     right: 1.5rem
   &__exchanges
-    padding: 28px 24px 10px
+    padding: 2.8rem 2.4rem 1rem
     margin: 0 !important
     justify-content: space-between
     &__item
       text-align:      center
-      max-width:       calc((100% - 32px)/3)
+      max-width:       calc((100% - 3.2rem)/3)
       height:          4em
       display:         flex
       justify-content: center
@@ -255,13 +261,13 @@ input
       border-radius:   $box-border-radius
       background:      var(--pickExchangeItemBg)
       color:           var(--pickExchangeItemTxt)
-      margin-bottom:   16px
+      margin-bottom:   1.6rem
       cursor:          pointer
       font-size:       1em
       font-weight:     bold
       font-family:     "Varela Round"
       @include media-breakpoint-down(sm)
-        max-width: calc((100% - 16px)/2)
+        max-width: calc((100% - 1.6rem)/2)
       &:hover
         background-color: var(--primary)
         color:            var(--pickExchangeItemSelect)
@@ -279,12 +285,12 @@ input
           color: #fff
           text-decoration: none !important
           position: absolute
-          bottom: -8px
-          line-height: 18px
-          font-size: 12px
-          padding-left: 8px
-          padding-right: 8px
-          border-radius: 12px
+          bottom: -.8rem
+          line-height: 1.8rem
+          font-size: 1.2rem
+          padding-left: .8rem
+          padding-right: .8rem
+          border-radius: 1.2rem
           &:visited
             text-decoration: none
             color: #fff
@@ -300,21 +306,21 @@ input
       margin: 1em 3em
   &__footer
     margin-top: -5em
-    min-height: 74px
+    min-height: 7.4rem
 
 .db-bot-info__footer
   display:         flex
   justify-content: space-between
   margin:          0 $bot-gutter-width/1.4 $bot-gutter-width/2
-  height:          38px
+  height:          3.8rem
 
 .db-smallinfo
-  font-size: 0.8em
-  margin: 2em 1.25em 2em 4.2em
+  font-size: 1.4rem
+  margin: 2rem 1.25rem 2rem 4.2rem
   color: var(--secondary)
   .db-svg
     &--inactive
-      left: 22px
+      left: 2.2rem
       position: absolute
       path
         fill: var(--secondary)
@@ -335,8 +341,8 @@ input
     text-align: right
 
 .db-bot__form--apikeys
-  padding-left: 20px
-  padding-right: 20px
+  padding-left: 2rem
+  padding-right: 2rem
   .form-row
     width: 100%
   .form-group
@@ -347,7 +353,7 @@ input
     max-width: none !important
 
 .db-bot__modal
-  border-radius: 7px
+  border-radius: .7rem
   position: absolute
   width: 100%
   height: 100%
@@ -355,11 +361,11 @@ input
   left: 0
   display: flex
   align-items: center
-  backdrop-filter: blur(2px) grayscale(.1)
+  backdrop-filter: blur(.2rem) grayscale(.1)
   background: var(--botModalBackground)
-  border-radius: 7px
+  border-radius: .7rem
   display: flex
-  height: calc(100% - 0px)
+  height: calc(100%)
   justify-content: center
   left: 0
   position: absolute
@@ -370,8 +376,8 @@ input
     display: flex
     flex-wrap: wrap
     justify-content: center
-    gap: 20px
-    padding: 20px
+    gap: 2rem
+    padding: 2rem
     .btn
       padding-right: 1em
       padding-left: 1em
@@ -380,15 +386,15 @@ input
   text-align: center
 .btn--reset
   margin:          1em
-    left:          40px
+    left:          4rem
   color:           var(--secondary) !important
   text-decoration: none !important
   align-self:      flex-start
-  width:           42px
-  height:          42px
+  width:           4.2rem
+  height:          4.2rem
   span
     color:       var(--danger)
-    margin-left: 7px
+    margin-left: .7rem
     opacity:     0
   &:hover
     color: var(--danger) !important
@@ -411,12 +417,12 @@ input
 // chart
 
 .db-chart-container
-  margin: 25px 15px
+  margin: 2.5rem 1.5rem
   max-width: 100%
 
 .db-limit-bot-modifier
-  margin-top: 40px
-  margin-bottom: -20px
+  margin-top: 4rem
+  margin-bottom: -2rem
   input
     width: 3.1em
     display: inline-block
@@ -433,7 +439,7 @@ input
     color: var(--text)
 
 .db-add-more-bots
-  height: 40px
+  height: 4rem
 .db-select--buy-sell
   max-width: 7.8em
 .db-input--dca-amount

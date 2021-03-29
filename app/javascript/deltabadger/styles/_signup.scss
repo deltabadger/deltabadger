@@ -3,7 +3,7 @@
 .db-modal-limitter {
   display: flex;
   align-items: baseline;
-  padding-top: 50px;
+  padding-top: 5rem;
 }
 .db-modal-positioner {
   width:           100%;
@@ -11,13 +11,13 @@
   justify-content: center;
   align-items:     center;
   display:         flex;
-  min-height: 440px;
+  min-height: 44rem;
 }
 
 .modal-content {
   // background: none;
-  border: 1px solid #cfd6df;
-  box-shadow: 1px 1px 10px rgba(0,0,0,.05)
+  border: .1rem solid #cfd6df;
+  box-shadow: .1rem .1rem 1rem rgba(0,0,0,.05)
 }
 .db--loggedin {
   .modal-content {
@@ -29,7 +29,7 @@
 .db--loggedout {
   .modal-content {
     .btn-lg {
-      min-width: 180px;
+      min-width: 18rem;
       justify-content: center;
     }
   }
@@ -43,10 +43,14 @@
 
 .db-modal-title {
   text-align:    center;
-  margin-bottom: 2rem;
+  margin-bottom: 3.2rem;
+}
+.db-modal-companion-title {
+  padding-top: 3.2rem;
+  margin-bottom: 4.8rem;
 }
 .db-modal__subtitle {
-  margin-bottom: 2rem;
+  margin-bottom: 3.2rem;
   text-align: center;
 }
 .db-form-group--main-btn {
