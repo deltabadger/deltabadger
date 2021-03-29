@@ -24,7 +24,7 @@ en:
         mailer:
             confirmation_instructions:
                 subject: 'Welcome to Deltabadger 🎉'
-                template_html: "<p>Welcome to Deltabadger 🎉,</p>\n<p>Automated dollar-cost averaging<br>into Bitcoin is only one click away:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Confirm my account</a>\n</p>\n<p>You don't remember signing up?<br>No worries. Just ignore it.</p>"
+                template_html: "<p>Welcome to Deltabadger 🎉,</p>\n<p>To confirm your account<br>click the link below:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Confirm my account</a>\n</p>\n<p>You don't remember signing up?<br>No worries. Just ignore it.</p>"
             reset_password_instructions:
                 subject: 'Password reset 🔑'
                 template_html: "<p>Hello 👋,</p>\n<p>It looks like you want to change<br/>your password 🔑. Smart move!</p>\n<p>Let's go:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Change my password</a>\n  </p>\n<p>You didn't send this request?<br/>No worries! Just ignore it.</p>"
@@ -243,12 +243,28 @@ en:
             signature: 'I''m Jan, founder of Deltabadger.'
             telegram_invitation_html: 'Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
         confirm_registration:
-            title: Thanks!
-            text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
+            title: Thank you!
+            text_html: <p>Check your mailbox and click the <b>confirmation link</b>.</p>
+            deliverability_html: <b>This is very important!</b><br></br> If you didn't get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, send me an email at %{email}. <br><br>Thanks, Jan
+
         contact:
             title: Contact
             general_questions_html: 'For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.'
             specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+    pricing:
+        title: 'Pricing'
+        per_year: 'y'
+        per_4_years: '4y'
+        free: 'Free'
+        free_limit: 'up to $500/year'
+        no_limits: 'No limits'
+        all: 'All'
+        features:
+            dca: 'DCA'
+            currencies: 'Currencies'
+            referral_program: 'Referral program'
+            limit_orders: 'Limit orders'
+            exchange: 'exchange'
     affiliates:
         new:
             title: 'Referral program registration'
@@ -462,9 +478,9 @@ en:
                 errors: Errors
             info:
                 title: Info
-                exchanges_html: "<p className=\"mt-2\"><b>Exchanges</b></p>\n<p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> and <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>\n<p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p>\n<p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>\n<p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smart intervals\"</b></p>\n<p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p>\n<p className=\"mt-2\"><b>Why?</b></p>\n<p>There are two benefits:</p>\n<p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p>\n<p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>\n<p className=\"mt-2\"><b>Example:</b></p>\n<p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>New to dollar-cost averaging?</b></p>\n<p>Those links will help:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
+                exchanges_html: "<p class=\"mt-2\"><b>Exchanges</b></p>\n<p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> and <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>\n<p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p>\n<p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>\n<p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>"
+                smart_intervals_html: "<p class=\"mt-2\"><b>\"Smart intervals\"</b></p>\n<p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p>\n<p class=\"mt-2\"><b>Why?</b></p>\n<p>There are two benefits:</p>\n<p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p>\n<p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>\n<p class=\"mt-2\"><b>Example:</b></p>\n<p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>"
+                new_to_dca_html: "<p class=\"mt-2\"><b>New to dollar-cost averaging?</b></p>\n<p>Those links will help:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: Starting
         force_smart_intervals: 'Always use smart intervals.'
         price: 'the price'
