@@ -24,7 +24,7 @@ en:
         mailer:
             confirmation_instructions:
                 subject: 'Welcome to Deltabadger 🎉'
-                template_html: "<p>Welcome to Deltabadger 🎉,</p>\n<p>Automated dollar-cost averaging<br>into Bitcoin is only one click away:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Confirm my account</a>\n</p>\n<p>You don't remember signing up?<br>No worries. Just ignore it.</p>"
+                template_html: "<p>Welcome to Deltabadger 🎉,</p>\n<p>To confirm your account<br>click the link below:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Confirm my account</a>\n</p>\n<p>You don't remember signing up?<br>No worries. Just ignore it.</p>"
             reset_password_instructions:
                 subject: 'Password reset 🔑'
                 template_html: "<p>Hello 👋,</p>\n<p>It looks like you want to change<br/>your password 🔑. Smart move!</p>\n<p>Let's go:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Change my password</a>\n  </p>\n<p>You didn't send this request?<br/>No worries! Just ignore it.</p>"
