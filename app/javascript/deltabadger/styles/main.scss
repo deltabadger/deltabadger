@@ -1,3 +1,7 @@
+:root {
+  font-size: 10px;
+}
+
 @import 'bootstrap/bootstrap';
 @import 'variables';
 @import 'styles';
@@ -13,6 +17,7 @@
 @import 'dropdown';
 @import 'referral-stats';
 @import 'alerts';
+@import 'pricing';
 @import 'charts';
 @import 'modal';
 @import 'eapps-twitter-feed';
