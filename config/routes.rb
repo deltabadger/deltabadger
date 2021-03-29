@@ -47,7 +47,7 @@ Rails.application.routes.draw do
     mount Sidekiq::Web => '/sidekiq'
   end
 
-  scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/, :defaults => {:lang => I18n.default_locale} do
+  scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
     namespace :upgrade do
       get '/', action: :index
       post :pay
