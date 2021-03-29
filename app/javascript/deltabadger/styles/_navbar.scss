@@ -21,6 +21,12 @@
         display: none;
       }
     }
+    @include media-breakpoint-down(sm) {
+      width: 50px;
+      svg {
+        width: 60px;
+      }
+    }
   }
   .navbar,
   .row--intro {

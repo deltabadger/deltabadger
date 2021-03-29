@@ -40,7 +40,6 @@ a:not(.btn)
 .m
   &r
     &-1
-
   &b
     &-5
       margin-bottom: 4.8rem !important
@@ -99,7 +98,6 @@ sup
     &:focus,
     &.form-check-input
       box-shadow: 0 0 0 .3rem rgba(var(--danger),.3) !important
-
   &+.invalid-feedback
     display: block
 
@@ -141,6 +139,7 @@ sup
   font-family: "Varela Round"
 
 // bootstrap overrides
+
 .container
   padding-left: 3rem
   padding-right: 3rem
@@ -182,25 +181,19 @@ sup
   &__section
     @include media-breakpoint-down(sm)
       margin-bottom: -5rem
-
     p
       font-size: 1.6rem
-
     a:not(.btn)
       color: var(--white)
-
     @include media-breakpoint-down(md)
       .text-center
         text-align: left !important
-
     &--how-it-works
       position: relative
-
     &--centered
       display:         flex
       justify-content: center
       align-items:     center
-
     &--primary
       display:         flex
       flex-direction:  column
@@ -210,10 +203,8 @@ sup
         padding: 12rem 0 20rem
         height: calc(100vh - 12rem)
         max-height: calc(100vw - 24rem)
-
         .db-homeart
           z-index: -1
-
         @include media-breakpoint-down(md)
           max-height: auto
           padding:    30vh 0
@@ -224,15 +215,17 @@ sup
           svg
             float:       right
             margin-top: -20rem
-
+        @include media-breakpoint-down(sm)
+          min-height: 100vh
+          padding-top: 44rem
       &--last
         padding-top:    8vh !important
         padding-bottom: 16vh !important
-        min-height:     calc(30vh + 54rem)
+        height:         calc(100vh - 20rem)
+        max-height:      100vw !important
         @include        media-breakpoint-down(md)
           min-height:   0
           padding:      18rem 0
-
     &--secondary
       padding-bottom:   25rem
       @include          media-breakpoint-down(md)
@@ -243,13 +236,11 @@ sup
         padding-bottom: 5rem
       &--last
         padding-bottom: 0
-
 .db-dca-bot-image
   width:         100%
   border-radius: $box-border-radius
   overflow:      hidden
   align-self:    center
-
 .db-has-chart-art
   position:      relative
 .db-homepage-svg-chart
@@ -263,11 +254,9 @@ sup
 .circle-a
   @include media-breakpoint-down(sm)
     stroke-width: 0.25rem !important
-
 .circle-a, .circle-b
   @include media-breakpoint-down(sm)
     r: 0.25rem !important
-
 .db-dca-info
   padding-bottom: 28rem
   color:          $textColorInverted
@@ -276,7 +265,6 @@ sup
 
   @include media-breakpoint-down(md)
     padding-bottom: 18rem !important
-
 .row--newsletter
   align-items: center
 .db-newsletter--form
@@ -284,18 +272,14 @@ sup
   .form-group
     &:first-child
       flex-grow: 1
-
     &+.form-group
       margin-left: 1rem
-
   .btn.disabled
     opacity: 1
     border-color: var(--primary)
-
 .newsletter-form-feedback
   i
     opacity: 0
-
 .d-flex__vertical-align
   align-self: center
 .text-small
@@ -783,17 +767,17 @@ sup
       transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -.0007rem))
 
     &__glass-shine
-      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * .01rem))
+      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * .005rem))
 
     &__glass-shape
-      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -.01rem))
+      transform: translateY(calc((var(--scroll) + var(--pulsing)*20) * -.005rem))
 
   &--02
-    top: calc(var(--scroll-a)* .005rem)
+    top: calc(var(--scroll-a)* .001rem)
     transform: scale(1) translateY(calc(var(--pulsing)* -.5rem))
     &__ground
       transform-origin: 0 74%
-      transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0022))
+      transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0012))
 
     &__underground
       // fill: linear-gradient(180deg, #903 0, var(--primary) 120vh, #0D1A40 100%)
@@ -803,10 +787,10 @@ sup
       transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -.0007rem))
 
     &__glass-shine
-      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * .01rem))
+      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * .005rem))
 
     &__glass-shape
-      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -.01rem))
+      transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -.005rem))
 
 .db-stop-color--success
   stop-color: #{'color(display-p3 0.0275 0.62 0.376)'} !important
