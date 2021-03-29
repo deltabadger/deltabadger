@@ -48,9 +48,9 @@
 
       // scaling
 
-      $("html").css("font-size", Math.min(Math.max($(this).width()/170, 10), 15) + "px");
+      $("html").css("font-size", Math.min(Math.max($(this).width()/170, 10), 13.125) + "px");
       window.addEventListener('resize', function(event){
-        $("html").css("font-size", Math.min(Math.max($(this).width()/170, 10), 15) + "px");
+        $("html").css("font-size", Math.min(Math.max($(this).width()/170, 10), 13.125) + "px");
       });
 
       //
@@ -60,7 +60,7 @@
       window.addEventListener("scroll", function() {
         const distance = window.scrollY;
         root.style.setProperty('--scroll', distance);
-        root.style.setProperty('--scroll-a', distance - 480 * Math.min(Math.max($("html").width()/170, 10), 15)); // 1700
+        root.style.setProperty('--scroll-a', distance - 480 * Math.min(Math.max($("html").width()/170, 10), 13.125)); // 1700
 
         if (distance > 10) {
           root.classList.add("has-been-scrolled");
