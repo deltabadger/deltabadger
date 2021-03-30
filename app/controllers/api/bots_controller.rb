@@ -73,7 +73,7 @@ module Api
       render json: result, status: 200
     end
 
-    def smart_intervals_info(params)
+    def smart_intervals_info
       result = GetSmartIntervalsInfo.call(params)
 
       if result.success?

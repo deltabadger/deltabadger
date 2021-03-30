@@ -58,10 +58,17 @@ module ExchangeApi
         end
 
         def minimum_order_parameters(symbol)
-          {
-            minimum: minimum_base_size(symbol),
+          minimum = minimum_base_size(symbol)
+          return minimum unless minimum.success?
+
+          ask = current_ask_price(symbol)
+          return ask unless ask.success?
+
+          Result::Success.new(
+            minimum: minimum.data,
+            minimum_quote: minimum.data * ask.data,
             side: BASE
-          }
+          )
         end
 
         private

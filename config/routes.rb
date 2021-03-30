@@ -31,13 +31,13 @@ Rails.application.routes.draw do
     get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
+    get :smart_intervals_info, to: 'bots#smart_intervals_info'
     resources :bots, except: [:new, :edit] do
       post :stop, on: :member
       post :start, on: :member
       get :transactions_csv, to: 'transactions#csv'
       get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
       get :restart_params
-      get :smart_intervals_info
     end
   end
 
