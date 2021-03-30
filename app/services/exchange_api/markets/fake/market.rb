@@ -17,10 +17,15 @@ module ExchangeApi
         end
 
         def minimum_order_parameters(symbol)
-          {
-            minimum: MINIMUM_ORDER_VOLUME,
-            side: BASE
-          }
+          if SUCCESS
+            Result::Success.new(
+              minimum: MINIMUM_ORDER_VOLUME,
+              minimum_quote: @bid * MINIMUM_ORDER_VOLUME,
+              side: BASE
+            )
+          else
+            Result::Failure.new
+          end
         end
 
         private

@@ -6,7 +6,7 @@ import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
 
-export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, getSmartIntervalsInfo, disable, errors }) => {
+export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
 
   const compareSymbols = (x, y) => {
@@ -35,6 +35,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [price, setPrice] = useState("");
   const [base, setBase] = useState(BASES[0]);
   const [quote, setQuote] = useState(QUOTES[0]);
+  const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(true);
@@ -95,15 +96,22 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       botType: 'free',
     }
 
-    getSmartIntervalsInfo(botParams).then((data) => {
-      if (data.will_triger_smart_intervals) {
+    return handleSmartIntervalsInfo(botParams).then((data) => {
+      if (data.data.will_trigger_smart_intervals) {
+        const minimumOrderParams = {
+          value: data.data.minimum,
+          currency: data.data.side === 'base' ? base : quote,
+          showQuote: data.data.side === 'base',
+          quoteValue: data.data.minimum_quote
+        }
+        setMinimumOrderParams(minimumOrderParams)
         setOpen(true);
       }
     })
-
   }
 
   const _handleSubmit = (evt) => {
+    setOpen(false)
     evt.preventDefault();
     const botParams = {
       type,
@@ -127,15 +135,14 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <RawHTML tag="p">Dupa biskupa</RawHTML>
+            <RawHTML tag="p">{`For ${base}${quote}, this exchange has minimum order size of <b>${minimumOrderParams.value}${minimumOrderParams.currency}</b> (~${minimumOrderParams.quoteValue}${quote}). Deltabadger may execute this schedule using ${minimumOrderParams.value}${minimumOrderParams.currency} orders, and adjusting the time interval to match your schedule. We call it "smart intervals". `}</RawHTML>
             <div className="db-bot__modal__btn-group">
               <div onClick={() => {
                 setOpen(false)
               }} className="btn btn-outline-primary">Cancel
               </div>
-              <div onClick={() => {
-                _handleSubmit && setOpen(false)
-              }} className="btn btn-success">I understand
+              <div onClick={_handleSubmit} className="btn btn-success">
+                I understand
               </div>
             </div>
           </div>
