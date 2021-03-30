@@ -94,7 +94,8 @@ export const BotForm = ({
     const typeParams = getOfferTypeParams(botParams.type)
     const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
 
-    API.getSmartIntervalsInfo(params).then((data) => {
+    return API.getSmartIntervalsInfo(params).then((data) => {
+      console.log('BotForm', data)
       return data
     })
   }
@@ -151,7 +152,7 @@ export const BotForm = ({
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureBotHandler}
-          getSmartIntervalsInfo={getSmartIntervalsInfo}
+          handleSmartIntervalsInfo={getSmartIntervalsInfo}
           disable={isCreatingBot}
           errors={errors}
         />
