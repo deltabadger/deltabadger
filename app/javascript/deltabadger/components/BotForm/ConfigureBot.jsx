@@ -83,6 +83,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const disableSubmit = disable || price.trim() === ''
 
+  const renameCurrency = (currency) => {
+    return shouldRename(currentExchange.name) ? renameSymbol(currency) : currency
+  }
+
   const _handleSmartIntervalsInfo = (evt) => {
     evt.preventDefault();
     const botParams = {
@@ -97,12 +101,12 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
 
     return handleSmartIntervalsInfo(botParams).then((data) => {
-      if (data.data.will_trigger_smart_intervals) {
+      if (data.data.willTriggerSmartIntervals) {
         const minimumOrderParams = {
           value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
-          currency: data.data.side === 'base' ? base : quote,
+          currency: data.data.side === 'base' ? renameCurrency(base) : renameCurrency(quote),
           showQuote: data.data.side === 'base',
-          quoteValue: data.data.minimum_quote
+          quoteValue: data.data.minimumQuote
         }
         setMinimumOrderParams(minimumOrderParams)
         setOpen(true);
@@ -133,7 +137,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
   const getApproximateValue = (params) => {
-    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${quote})` : ""
+    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote)})` : ""
   }
 
   return (
@@ -141,7 +145,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: base, quote: quote, exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
+            <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(base), quote: renameCurrency(quote), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
             <div className="db-bot__modal__btn-group">
               <div onClick={() => {
                 setOpen(false)
