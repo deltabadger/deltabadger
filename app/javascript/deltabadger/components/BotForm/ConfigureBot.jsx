@@ -38,7 +38,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
-  const [forceSmartIntervals, setForceSmartIntervals] = useState(true);
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -99,13 +99,15 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     return handleSmartIntervalsInfo(botParams).then((data) => {
       if (data.data.will_trigger_smart_intervals) {
         const minimumOrderParams = {
-          value: data.data.minimum,
+          value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
           currency: data.data.side === 'base' ? base : quote,
           showQuote: data.data.side === 'base',
           quoteValue: data.data.minimum_quote
         }
         setMinimumOrderParams(minimumOrderParams)
         setOpen(true);
+      } else {
+        _handleSubmit(evt)
       }
     })
   }
@@ -130,12 +132,16 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
+  const getApproximateValue = (params) => {
+    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${quote})` : ""
+  }
+
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <RawHTML tag="p">{`For ${base}${quote}, this exchange has minimum order size of <b>${minimumOrderParams.value}${minimumOrderParams.currency}</b> (~${minimumOrderParams.quoteValue}${quote}). Deltabadger may execute this schedule using ${minimumOrderParams.value}${minimumOrderParams.currency} orders, and adjusting the time interval to match your schedule. We call it "smart intervals". `}</RawHTML>
+            <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: base, quote: quote, exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
             <div className="db-bot__modal__btn-group">
               <div onClick={() => {
                 setOpen(false)
