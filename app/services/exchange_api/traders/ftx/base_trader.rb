@@ -61,7 +61,7 @@ module ExchangeApi
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
-          volume = (price / rate).ceil(volume_decimals.data)
+          volume = (price / rate).floor(volume_decimals.data)
           min_volume = @market.minimum_base_size(symbol)
           return min_volume unless min_volume.success?
 
