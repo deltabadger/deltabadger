@@ -398,6 +398,8 @@ en:
                 instructions_html: "<ol>\n  <li>Login to your <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a> account.</li>\n  <li>In account menu (top right corner) go to <b>Profile</b>.</li>\n  <li>Pick <b>API</b> (left side).</li>\n  <li>Press <b>Add new API</b>.</li>\n  <li>Fill <b>API Name</b> and provide your <b>Transaction PIN</b>.</li>\n  <li>Set Permissions:\n    <ul>\n      <li><b>Perform trades</b></li>\n      <li><b>View balances</b></li>\n      <li><b>View account information</b></li>\n    </ul>\n  </li>\n  <li>Press <b>Save</b>.</li>\n  <li>Copy and paste your new API keys into the form above.</li>\n</ol>\n"
                 private_key: 'API Secret'
                 public_key: 'API Key'
+            smart_intervals:
+                info_html: "For %{base}%{quote}, %{exchangeName} has minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it \"smart intervals\". "
         add_new_bot: 'Add new bot'
         start: Start
         stop: Pause
