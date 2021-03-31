@@ -11,9 +11,9 @@ class GetSmartIntervalsInfo < BaseService
     smart_intervals = params[:force_smart_intervals]
     Result::Success.new(
       minimum: minimum_order_params.data[:minimum],
-      minimum_quote: get_minimum_quote_price(minimum_order_params.data).round(2),
+      minimumQuote: get_minimum_quote_price(minimum_order_params.data).round(2),
       side: minimum_order_params.data[:side],
-      will_trigger_smart_intervals: smart_intervals?(price, minimum_order_params.data, smart_intervals)
+      willTriggerSmartIntervals: smart_intervals?(price, minimum_order_params.data, smart_intervals)
     )
   end
 

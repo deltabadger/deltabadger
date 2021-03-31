@@ -24,7 +24,7 @@ module ExchangeApi
               side: BASE
             )
           else
-            Result::Failure.new
+            Result::Failure.new('Something went wrong!', RECOVERABLE)
           end
         end
 

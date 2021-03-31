@@ -95,8 +95,9 @@ export const BotForm = ({
     const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
 
     return API.getSmartIntervalsInfo(params).then((data) => {
-      console.log('BotForm', data)
       return data
+    }).catch((data) => {
+      return {data: { willTriggerSmartIntervals: false }}
     })
   }
 
