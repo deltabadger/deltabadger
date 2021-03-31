@@ -50,9 +50,8 @@ const API = {
       interval: params.interval,
       force_smart_intervals: params.forceSmartIntervals
     }
-    console.log(botParams)
+
     return client.request({ url, params: botParams , method: 'get' }).then(data => {
-      console.log('API', data.data)
       return data.data});
   },
 
