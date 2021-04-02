@@ -149,12 +149,20 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote, currentExchange.name)})` : ""
   }
 
+  const getSmartIntervalsInfo = () => {
+    if (forceSmartIntervals) {
+      return I18n.t('bots.setup.smart_intervals.info_html.force_smart_intervals', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
+    }
+
+    return I18n.t('bots.setup.smart_intervals.info_html.other', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
+  }
+
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
+            <RawHTML tag="p">{getSmartIntervalsInfo()}</RawHTML>
             <label className="form-inline mx-4 mt-4 mb-2">
               <input
                 type="checkbox"

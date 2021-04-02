@@ -14,7 +14,7 @@ export const startButtonType = {
 }
 let timeout;
 
-export const StartButton = ({settings, getRestartType, onClickReset, handleSmartIntervalsInfo, setShowInfo, exchangeName}) => {
+export const StartButton = ({settings, getRestartType, onClickReset, handleSmartIntervalsInfo, setShowInfo, exchangeName, newSettings}) => {
   const [isOpen, setOpen] = useState(false)
   const [isInfoOpen, setInfoOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
@@ -110,6 +110,9 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
 
   const _handleSmartIntervalsInfo = () => {
     const botParams = {...settings, exchangeName: exchangeName}
+    botParams.price = newSettings.price
+    botParams.forceSmartIntervals = newSettings.forceSmartIntervals
+
     return handleSmartIntervalsInfo(botParams).then((data) => {
       if (data.data.showSmartIntervalsInfo) {
         const minimumOrderParams = {
@@ -170,6 +173,14 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
     return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(settings.quote, exchangeName)})` : ""
   }
 
+  const getSmartIntervalsInfo = () => {
+    if (newSettings.forceSmartIntervals) {
+      return I18n.t('bots.setup.smart_intervals.info_html.force_smart_intervals', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
+    }
+
+    return I18n.t('bots.setup.smart_intervals.info_html.other', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
+  }
+
   return(
     <div>
      <div
@@ -183,7 +194,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
       { isInfoOpen &&
       <div ref={node} className="db-bot__modal">
         <div className="db-bot__modal__content">
-          <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
+          <RawHTML tag="p">{getSmartIntervalsInfo()}</RawHTML>
           <label className="form-inline mx-4 mt-4 mb-2">
             <input
               type="checkbox"
