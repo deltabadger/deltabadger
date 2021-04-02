@@ -184,7 +184,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
       <div ref={node} className="db-bot__modal">
         <div className="db-bot__modal__content">
           <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
-          <label className="form-inline mx-4 mt-4 mb-0">
+          <label className="form-inline mx-4 mt-4 mb-2">
             <input
               type="checkbox"
               checked={dontShowInfo}

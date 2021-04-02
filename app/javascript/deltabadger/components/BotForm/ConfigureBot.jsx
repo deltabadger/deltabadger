@@ -155,7 +155,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
             <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
-            <label className="form-inline mx-4 mt-4 mb-0">
+            <label className="form-inline mx-4 mt-4 mb-2">
               <input
                 type="checkbox"
                 checked={dontShowInfo}
