@@ -127,13 +127,22 @@ const BotTemplate = ({
     clearBotErrors(id)
   }
 
+  const newSettings = () => {
+    const out = {
+      price: price.trim(),
+      forceSmartIntervals: forceSmartIntervals
+    }
+
+    return out
+  }
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
         { (!isStarting && pending) && <PendingButton /> }
-        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={getSmartIntervalsInfo} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName}/> }
+        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={getSmartIntervalsInfo} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
