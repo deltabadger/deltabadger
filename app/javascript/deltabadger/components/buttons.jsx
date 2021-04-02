@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import I18n from 'i18n-js'
 import { RawHTML } from './RawHtml'
 import {formatDurationRestart} from "../utils/time";
+import {renameCurrency} from "../utils/symbols";
 import moment from "moment";
 
 export const startButtonType = {
@@ -13,11 +14,14 @@ export const startButtonType = {
 }
 let timeout;
 
-export const StartButton = ({settings, getRestartType, onClickReset}) => {
+export const StartButton = ({settings, getRestartType, onClickReset, handleSmartIntervalsInfo, setShowInfo, exchangeName}) => {
   const [isOpen, setOpen] = useState(false)
+  const [isInfoOpen, setInfoOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
   const [missedAmount, setMissedAmount] = useState(0.0)
+  const [minimumOrderParams, setMinimumOrderParams] = useState({});
+  const [dontShowInfo, setDontShowInfo] = useState(false)
   const node = useRef()
 
   const handleClickOutside = e => {
@@ -25,6 +29,7 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
       return;
     }
     setOpen(false)
+    setInfoOpen(false)
     clearTimeout(timeout)
   };
 
@@ -103,7 +108,37 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     )
   }
 
-  const handleOnClick = () => {
+  const _handleSmartIntervalsInfo = () => {
+    const botParams = {...settings, exchangeName: exchangeName}
+    return handleSmartIntervalsInfo(botParams).then((data) => {
+      if (data.data.showSmartIntervalsInfo) {
+        const minimumOrderParams = {
+          value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
+          currency: data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName),
+          showQuote: data.data.side === 'base',
+          quoteValue: data.data.minimumQuote
+        }
+        setMinimumOrderParams(minimumOrderParams)
+        setInfoOpen(true);
+      } else {
+        _handleRestarts()
+      }
+    })
+  }
+
+  const _setShowSmartIntervalsInfo = () => {
+    setShowInfo()
+  }
+
+  const _handleInfoSubmit = (evt) => {
+    if (dontShowInfo) {
+      _setShowSmartIntervalsInfo()
+    }
+
+    _handleRestarts()
+  }
+
+  const _handleRestarts = () => {
     getRestartType().then((data) => {
       switch (data.restartType) {
         case startButtonType.FAILED:
@@ -131,24 +166,52 @@ export const StartButton = ({settings, getRestartType, onClickReset}) => {
     };
   }, []);
 
+  const getApproximateValue = (params) => {
+    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(settings.quote, exchangeName)})` : ""
+  }
+
   return(
     <div>
      <div
-         onClick={handleOnClick}
+         onClick={_handleSmartIntervalsInfo}
          className="btn btn-success">
         <span className="d-none d-sm-inline">Start</span>
         <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/>
         </svg>
      </div>
-        { isOpen &&
-        <div ref={node} className="db-bot__modal">
-          <div className="db-bot__modal__content">
-            <SmarterRestartButtons />
+      { isInfoOpen &&
+      <div ref={node} className="db-bot__modal">
+        <div className="db-bot__modal__content">
+          <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
+          <label className="form-inline mx-4 mt-4 mb-0">
+            <input
+              type="checkbox"
+              checked={dontShowInfo}
+              onChange={() => setDontShowInfo(!dontShowInfo)}
+              className="mr-2" />
+            <span>{I18n.t('bots.setup.smart_intervals.dont_show_again')}</span>
+          </label>
+          <div className="db-bot__modal__btn-group">
+            <div onClick={() => {
+              setInfoOpen(false)
+            }} className="btn btn-outline-primary">Cancel
+            </div>
+            <div onClick={_handleInfoSubmit} className="btn btn-success">
+              I understand
+            </div>
           </div>
         </div>
-        }
-     </div>
+      </div>
+      }
+      { isOpen &&
+      <div ref={node} className="db-bot__modal">
+        <div className="db-bot__modal__content">
+          <SmarterRestartButtons />
+        </div>
+      </div>
+      }
+   </div>
   )
 }
 

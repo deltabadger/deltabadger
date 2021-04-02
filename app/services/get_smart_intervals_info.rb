@@ -1,6 +1,6 @@
 class GetSmartIntervalsInfo < BaseService
-  def call(params)
-    exchange_id = params[:exchange_id]
+  def call(params, user)
+    exchange_id = get_exchange_id(params)
     exchange_market = ExchangeApi::Markets::Get.call(exchange_id)
     symbol = exchange_market.symbol(params[:base], params[:quote])
 
@@ -13,13 +13,19 @@ class GetSmartIntervalsInfo < BaseService
       minimum: minimum_order_params.data[:minimum],
       minimumQuote: get_minimum_quote_price(minimum_order_params.data).round(2),
       side: minimum_order_params.data[:side],
-      willTriggerSmartIntervals: smart_intervals?(price, minimum_order_params.data, smart_intervals)
+      showSmartIntervalsInfo: smart_intervals?(user, price, minimum_order_params.data, smart_intervals)
     )
+  end
+
+  def set_show_smart_intervals(user)
+    user.update(show_smart_intervals_info: false)
   end
 
   private
 
-  def smart_intervals?(price, minimum_order_params, force_smart_intervals)
+  def smart_intervals?(user, price, minimum_order_params, force_smart_intervals)
+    return false unless user.show_smart_intervals_info
+
     force_smart_intervals == 'true' || price <= get_minimum_quote_price(minimum_order_params)
   end
 
@@ -27,5 +33,12 @@ class GetSmartIntervalsInfo < BaseService
     return minimum_order_params[:minimum_quote].to_f if minimum_order_params[:side] == 'base'
 
     minimum_order_params[:minimum].to_f
+  end
+
+  def get_exchange_id(params)
+    exchange_id = params[:exchange_id]
+    return Exchange.find_by(name: params[:exchange_name]).id if exchange_id.nil?
+
+    exchange_id
   end
 end

@@ -97,8 +97,12 @@ export const BotForm = ({
     return API.getSmartIntervalsInfo(params).then((data) => {
       return data
     }).catch((data) => {
-      return {data: { willTriggerSmartIntervals: false }}
+      return {data: { showSmartIntervalsInfo: false }}
     })
+  }
+
+  const setShowSmartIntervalsInfo = () => {
+    API.setShowSmartIntervalsInfo().then(data => data)
   }
 
   const configureBotHandler = (botParams) => {
@@ -154,6 +158,7 @@ export const BotForm = ({
           handleReset={resetFormToStep(1)}
           handleSubmit={configureBotHandler}
           handleSmartIntervalsInfo={getSmartIntervalsInfo}
+          setShowInfo={setShowSmartIntervalsInfo}
           disable={isCreatingBot}
           errors={errors}
         />

@@ -79,6 +79,19 @@ export const fetchRestartParams = (id) => dispatch => (
   })
 )
 
+export const getSmartIntervalsInfo = (botParams) => {
+  return API.getSmartIntervalsInfo(botParams).then((data) => {
+    return data
+  }).catch((data) => {
+    return {data: {showSmartIntervalsInfo: false}}
+  })
+}
+
+export const setShowSmartIntervalsInfo = () => {
+  API.setShowSmartIntervalsInfo().then(data => data)
+
+}
+
 let timeout = (callback) => setTimeout(() => {
   callback()
 }, 2000)
