@@ -2,11 +2,11 @@ import React, {useState, useEffect, useRef} from 'react'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 import LimitOrderNotice from "./LimitOrderNotice";
-import {shouldRename, renameSymbol, getSpecialSymbols} from "../../utils/symbols";
+import {shouldRename, renameSymbol, getSpecialSymbols, renameCurrency} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
 
-export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, disable, errors }) => {
+export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
 
   const compareSymbols = (x, y) => {
@@ -38,6 +38,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
+  const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const node = useRef()
 
@@ -83,10 +84,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const disableSubmit = disable || price.trim() === ''
 
-  const renameCurrency = (currency) => {
-    return shouldRename(currentExchange.name) ? renameSymbol(currency) : currency
-  }
-
   const _handleSmartIntervalsInfo = (evt) => {
     evt.preventDefault();
     const botParams = {
@@ -101,10 +98,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
 
     return handleSmartIntervalsInfo(botParams).then((data) => {
-      if (data.data.willTriggerSmartIntervals) {
+      if (data.data.showSmartIntervalsInfo) {
         const minimumOrderParams = {
           value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
-          currency: data.data.side === 'base' ? renameCurrency(base) : renameCurrency(quote),
+          currency: data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name),
           showQuote: data.data.side === 'base',
           quoteValue: data.data.minimumQuote
         }
@@ -114,6 +111,18 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         _handleSubmit(evt)
       }
     })
+  }
+
+  const _setShowSmartIntervalsInfo = () => {
+    setShowInfo()
+  }
+
+  const _handleInfoSubmit = (evt) => {
+    if (dontShowInfo) {
+      _setShowSmartIntervalsInfo()
+    }
+
+    _handleSubmit(evt)
   }
 
   const _handleSubmit = (evt) => {
@@ -137,7 +146,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
   const getApproximateValue = (params) => {
-    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote)})` : ""
+    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote, currentExchange.name)})` : ""
   }
 
   return (
@@ -145,13 +154,22 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(base), quote: renameCurrency(quote), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
+            <RawHTML tag="p">{I18n.t('bots.setup.smart_intervals.info_html', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})}</RawHTML>
+            <label className="form-inline mx-4 mt-4 mb-0">
+              <input
+                type="checkbox"
+                checked={dontShowInfo}
+                onChange={() => setDontShowInfo(!dontShowInfo)}
+                className="mr-2" />
+              <span>{I18n.t('bots.setup.smart_intervals.dont_show_again')}</span>
+            </label>
+
             <div className="db-bot__modal__btn-group">
               <div onClick={() => {
                 setOpen(false)
               }} className="btn btn-outline-primary">Cancel
               </div>
-              <div onClick={_handleSubmit} className="btn btn-success">
+              <div onClick={_handleInfoSubmit} className="btn btn-success">
                 I understand
               </div>
             </div>

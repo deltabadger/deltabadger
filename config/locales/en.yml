@@ -399,6 +399,7 @@ en:
                 private_key: 'API Secret'
                 public_key: 'API Key'
             smart_intervals:
+                dont_show_again: "Don't show again"
                 info_html: "For %{base}%{quote}, %{exchangeName} has minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it \"smart intervals\". "
         add_new_bot: 'Add new bot'
         start: Start
