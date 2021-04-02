@@ -39,19 +39,21 @@ const API = {
   getSmartIntervalsInfo(params) {
     const url = `${API_URL}/smart_intervals_info`;
     const botParams = {
-      bot_type: params.botType,
-      exchange_id: params.exchangeId,
-      type: params.type,
-      order_type: params.order_type,
-      price: params.price,
-      percentage: params.percentage,
+      exchange_id: params.exchangeId || null,
+      exchange_name: params.exchangeName || null,
       base: params.base,
       quote: params.quote,
-      interval: params.interval,
       force_smart_intervals: params.forceSmartIntervals
     }
 
     return client.request({ url, params: botParams , method: 'get' }).then(data => {
+      return data.data});
+  },
+
+  setShowSmartIntervalsInfo() {
+    const url = `${API_URL}/set_show_smart_intervals_info`;
+
+    return client.request({ url, params: {} , method: 'post' }).then(data => {
       return data.data});
   },
 

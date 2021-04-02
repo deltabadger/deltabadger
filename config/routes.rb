@@ -32,6 +32,7 @@ Rails.application.routes.draw do
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     get :smart_intervals_info, to: 'bots#smart_intervals_info'
+    post :set_show_smart_intervals_info, to: 'bots#set_show_smart_intervals_info'
     resources :bots, except: [:new, :edit] do
       post :stop, on: :member
       post :start, on: :member
