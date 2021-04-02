@@ -41,6 +41,7 @@ const API = {
     const botParams = {
       exchange_id: params.exchangeId || null,
       exchange_name: params.exchangeName || null,
+      price: params.price,
       base: params.base,
       quote: params.quote,
       force_smart_intervals: params.forceSmartIntervals
