@@ -16,7 +16,9 @@ import {
   editBot,
   openBot,
   clearErrors,
-  fetchRestartParams
+  fetchRestartParams,
+  getSmartIntervalsInfo,
+  setShowSmartIntervalsInfo
 } from '../bot_actions'
 
 const BotTemplate = ({
@@ -131,7 +133,7 @@ const BotTemplate = ({
         { isStarting && <StartingButton /> }
         { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
         { (!isStarting && pending) && <PendingButton /> }
-        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}/> }
+        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={getSmartIntervalsInfo} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
