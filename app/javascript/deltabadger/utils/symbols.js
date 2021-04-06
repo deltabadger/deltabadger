@@ -11,3 +11,7 @@ export const getSpecialSymbols = (name, isBase) => {
 
     return isBase ? [BTC, 'ETH'] : ['EUR', 'USD']
 }
+
+export const renameCurrency = (currency, exchange) => {
+    return shouldRename(exchange) ? renameSymbol(currency) : currency
+}
