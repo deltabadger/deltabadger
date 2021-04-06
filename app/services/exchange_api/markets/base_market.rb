@@ -2,6 +2,8 @@ module ExchangeApi
   module Markets
     class BaseMarket
       RECOVERABLE = { data: { recoverable: true }.freeze }.freeze
+      BASE = 'base'
+      QUOTE = 'quote'
 
       def current_price(symbol)
         result = current_bid_ask_price(symbol)
@@ -48,6 +50,10 @@ module ExchangeApi
       end
 
       def quote_decimals(_symbol)
+        raise NotImplementedError
+      end
+
+      def minimum_order_parameters(_symbol)
         raise NotImplementedError
       end
 

@@ -42,6 +42,20 @@ module ExchangeApi
           Result::Success.new(symbol_info.data['pair_decimals'])
         end
 
+        def minimum_order_parameters(symbol)
+          minimum = minimum_order_volume(symbol)
+          return minimum unless minimum.success?
+
+          ask = current_ask_price(symbol)
+          return ask unless ask.success?
+
+          Result::Success.new(
+            minimum: minimum.data,
+            minimum_quote: minimum.data * ask.data,
+            side: BASE
+          )
+        end
+
         private
 
         def altname_symbols
