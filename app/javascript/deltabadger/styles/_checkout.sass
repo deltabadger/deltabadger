@@ -50,10 +50,11 @@
     &__name
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
+      @include textAdjust(2)
       font-size: 2.1rem
       .db-years
         display: block
-        font-size: 1.6rem
+        font-size: 1.5rem
     &__amount
       font-family: "Varela Round", Inconsolata, monospace
       text-align: right
@@ -65,6 +66,7 @@
         &--previous
           font-size: 2.1rem
           font-weight: bold
+          @include textAdjust(2)
         &--previous
           text-decoration: line-through
     &__info
@@ -146,6 +148,7 @@
     &__quote
       font-family: "Varela Round", Inconsolata, monospace
       font-weight: bold
+      @include textAdjust(2)
   &+.modal-dialog
     .modal-content
       background: var(--paper) !important
