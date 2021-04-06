@@ -16,6 +16,18 @@ module ExchangeApi
           MINIMUM_ORDER_VOLUME
         end
 
+        def minimum_order_parameters(symbol)
+          if SUCCESS
+            Result::Success.new(
+              minimum: MINIMUM_ORDER_VOLUME,
+              minimum_quote: @bid * MINIMUM_ORDER_VOLUME,
+              side: BASE
+            )
+          else
+            Result::Failure.new('Something went wrong!', RECOVERABLE)
+          end
+        end
+
         private
 
         def current_bid_ask_price(_)
