@@ -5,6 +5,7 @@ $formUnit: 2rem
   justify-content: center
   font-family: $fontButton
   font-weight: bold
+  @include textAdjust(2)
   cursor: pointer
   box-shadow: $boxShadowHome
   &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover),&.disabled
@@ -152,6 +153,7 @@ $formUnit: 2rem
       &~.db-form__label
         color: var(--link)
         font-weight: bold
+        @include textAdjust(2)
     &--select,&:focus,&:not([value=""])
       opacity: 1
       &~.db-form__label
@@ -165,6 +167,7 @@ $formUnit: 2rem
       &~.db-form__label
         color: var(--danger)
         font-weight: bold
+        @include textAdjust(2)
       &~.db-form__info--invalid
         display: block
   &__info
@@ -174,6 +177,7 @@ $formUnit: 2rem
     margin-bottom: -.4rem
     &--invalid
       font-weight: bold
+      @include textAdjust(2)
       display: none
       color: var(--danger)
     &--right
@@ -181,6 +185,7 @@ $formUnit: 2rem
       padding-right: .4rem
     a
       font-weight: bold
+      @include textAdjust(2)
       text-decoration: none
       &:hover
         text-decoration: underline
