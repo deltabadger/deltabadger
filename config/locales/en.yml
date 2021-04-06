@@ -172,7 +172,7 @@ en:
         terms_and_conditions: 'Terms & Conditions'
         privacy_policy: 'Privacy Policy'
         cookies_policy: 'Cookies Policy'
-        start_fast: 'Start in 5 minutes'
+        start_fast: 'Start 5-minute setup'
         start_fast_longer_html: 'Start <span class="d-none d-sm-inline">for free</span> in 5 minutes'
         contact: Contact
         about: About
@@ -188,12 +188,12 @@ en:
         knowledge_base: 'Knowledge base'
     ads:
         automate_bitcoin_html: 'Automate buying <br> Bitcoin'
-        automate_crypto_html: "Automate buying any<br class=\"d-none d-sm-inline\">\ncrypto<span class=\"d-none d-sm-inline\">currency</span>"
+        automate_crypto_html: 'Automate <span class="no-break">buying any</span> crypto<span class=\"d-none d-sm-inline\">currency</span>'
         automate_hourly: hourly
         automate_daily: daily
         automate_weekly: weekly
         dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
-        dca_bulletproof_html: 'A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span><br> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>'
+        dca_bulletproof_html: 'A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span><br>Works with any cryptocurrency or token.<br>'
         dca_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you''re now up <span class="text-success">+%{profit}%</span>'
         basic_free_html: "The basic plan is\n<b class=\"text-success text-success--lighter\">free</b>\nforever."
         features: "auto-DCA on your exchange account;\n<i>Smart intervals</i> and five-minute setup;\nupdates and new features every month;\nsupport and Telegram community"
@@ -214,9 +214,9 @@ en:
             title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
             fastest_asset: 'DCA into the fastest appreciating asset.'
             fastest_market: 'DCA into the fastest appreciating market.'
-            connect_exchanges: 'Connect one of popular exchanges and set recurring purchases on your desired schedule. You can run as many bots as you want to DCA into your favorite cryptocurrency portfolio.'
+            connect_exchanges: 'Connect with popular exchanges and set recurring purchases, for your desired schedule. You can run as many bots as you want to DCA into your favorite cryptocurrency portfolio.'
             testimonials:
-                header: 'Users say about us:'
+                header: 'What people are saying:'
             dca_magic:
                 title_html: "The magic of\n<span class=\"no-break\">dollar-cost</span>\n<br>\naveraging in\n<span class=\"no-break\">4 easy charts</span>"
                 easy1:
@@ -225,7 +225,7 @@ en:
                     chart_regular_purchases: 'Regular purchases'
                     chart_average_price: 'Average price'
                 easy2:
-                    title_html: 'Should I wait for correction <span class="no-break">to start?</span>'
+                    title_html: 'Should I wait for a correction <span class="no-break">to start?</span>'
                     text_html: '<p>No. For an appreciating asset, it''s always better to start earlier, even at the top! Eventually, the price will go higher, and whoever started earlier ends up with lower average price.</p>'
                     chart_earlier: Earlier
                     chart_better_average_price: 'better average price'
@@ -253,13 +253,15 @@ en:
             specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
     pricing:
         title: 'Pricing'
-        per_year: 'y'
-        per_4_years: '4y'
+        per_year: 'year'
+        per_4_years: '4 years'
         free: 'Free'
         free_limit: 'up to $500/year'
         no_limits: 'No limits'
         all: 'All'
         features:
+            name: 'Plan'
+            price: 'Price'
             dca: 'DCA'
             currencies: 'Currencies'
             referral_program: 'Referral program'
