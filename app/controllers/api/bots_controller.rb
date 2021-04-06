@@ -73,6 +73,20 @@ module Api
       render json: result, status: 200
     end
 
+    def smart_intervals_info
+      result = GetSmartIntervalsInfo.call(params, current_user)
+
+      if result.success?
+        render json: result, status: 200
+      else
+        render json: { errors: result.errors }, status: 422
+      end
+    end
+
+    def set_show_smart_intervals_info
+      GetSmartIntervalsInfo.new.set_show_smart_intervals(current_user)
+    end
+
     def continue
       result = StartBot.call(params[:id], bot_continue_params[:continue_schedule])
 
