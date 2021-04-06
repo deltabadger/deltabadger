@@ -1,29 +1,47 @@
 - content_for :head do
   //
+
 - content_for :html_class do
   db--guest--homepage
 
 %main.container.db-main
   .db-main__section.db-main__section--primary.db-main__section--primary--first
     .row
-      .col-md-12.col-lg-6.col-xl-7.db-flex-centered-vertically
+      .col-md-6.col-lg-6.col-xl-7.db-flex-centered-vertically
         .db-flex-centered-vertically__content
           %h1.mb-5
             = t('ads.automate_bitcoin_html')
-            %span.db-anim-rotator
+            %span.d-md-none
+              = t('ads.automate_hourly') + ", "
+              = t('ads.automate_daily') + ", "
+              = t('ads.automate_weekly')
+            %span.db-anim-rotator.d-none.d-md-inline-block
               %span.db-anim-rotator--1= t('ads.automate_hourly')
               %span.db-anim-rotator--2= t('ads.automate_daily')
               %span.db-anim-rotator--3= t('ads.automate_weekly')
-          %p= t('ads.dca_bulletproof_html')
-          %p= t('ads.basic_free_html')
-
+          %p
+            = t('ads.dca_bulletproof_html')
+            = t('ads.basic_free_html')
           %a.btn.btn-success.btn-lg.my-2.my-sm-0.mt-4.mt-sm-4.btn--get-started{:href => new_user_registration_path}
             %span.mr-3= t('links.start_fast')
             %svg.db-bot__svg-icon.db-svg-icon.db-svg-icon--arrow-forward{:xmlns => "http://www.w3.org/2000/svg", :viewBox => "0 0 24 24"}
               %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
-      .col-md-12.col-lg-6.col-xl-5.d-lg-flex
-        = render 'layouts/svg_bubbleart_01'
+          .db-se
+            .db-se__info
+              Supported exchanges:
+            %img.db-se__item.db-se__item--binance{:src => asset_pack_path("media/images/ex_binance.svg"), :alt => "Binance Auto-DCA"}
+            %img.db-se__item.db-se__item--coinbase{:src => asset_pack_path("media/images/ex_coinbase.svg"), :alt => "Coinbase Auto-DCA"}
+            %img.db-se__item.db-se__item--gemini{:src => asset_pack_path("media/images/ex_gemini.svg"), :alt => "Binance Auto-DCA"}
+            %img.db-se__item.db-se__item--kraken{:src => asset_pack_path("media/images/ex_kraken.svg"), :alt => "Kraken Auto-DCA"}
+            %img.db-se__item.db-se__item--ftx{:src => asset_pack_path("media/images/ex_ftx.svg"), :alt => "FTX Auto-DCA"}
+            %img.db-se__item.db-se__item--bitso{:src => asset_pack_path("media/images/ex_bitso.svg"), :alt => "Bitso Auto-DCA"}
+            %img.db-se__item.db-se__item--bitbay{:src => asset_pack_path("media/images/ex_bitbay.svg"), :alt => "Bitbay Auto-DCA"}
 
-  = render 'layouts/homepage_set01'
+      .col-md-6.col-lg-6.col-xl-5.d-lg-flex
+        %img.db-home-app-img.db-show-day{:src => asset_pack_path("media/images/app-day.png"), :alt => "Automated Dollar-Cost Averaging on Binance, Gemini and Kraken."}
+        %img.db-home-app-img.db-show-night{:src => asset_pack_path("media/images/app-night.png"), :alt => "Automated Dollar-Cost Averaging on Binance, Gemini and Kraken."}
+        //= render 'layouts/svg_bubbleart_01'
+
+  = render 'layouts/homepage_set02'
 
 = render 'layouts/founder_cta'

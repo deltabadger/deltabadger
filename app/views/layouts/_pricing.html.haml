@@ -1,9 +1,11 @@
 .db-main__section.db-main__section--pricing.d-none.d-lg-block
-  %h2.text-center.mb-5.pb-5= t('pricing.title')
+  %h2.text-center.mb-5= t('pricing.title')
   .row.db-pricing
-    .col-sm-6.col-md-4.db-pricing__col.db-pricing__col--info
+    .col-sm-6.col-md-3.db-pricing__col.db-pricing__col--info
       .db-pricing__title
+        %small= t('pricing.features.name')
       .db-pricing__price
+        %small= t('pricing.features.price')
       .db-pricing__feat= t('pricing.features.dca')
       .db-pricing__feat= t('pricing.features.currencies')
       .db-pricing__feat= t('pricing.features.referral_program')
@@ -38,7 +40,7 @@
       .db-pricing__feat
         .material-icons-round.db-pricing__feat__no= "remove"
 
-    .col-sm-6.col-md-2.db-pricing__col
+    .col-sm-6.col-md-3.db-pricing__col
       .db-pricing__title= t('subscriptions.hodler')
       .db-pricing__price
         $149<small>.99<span>/#{t('pricing.per_4_years')}</span></small>
