@@ -1,6 +1,13 @@
 .db-pricing
+  background: rgba(255,255,255,.03)
+  border-radius: 2rem
+  margin: 0
   &__col
     white-space: nowrap
+    padding: 3rem
+    &:first-child
+    &:not(:first-child)
+      border-left: 1px solid #fff
     &--info
       opacity:   .5
   &__title
@@ -11,8 +18,8 @@
   &__price
     font-family: $fontBrand
     font-size:   3.2rem
-    height:      12rem
     line-height: 12rem
+    height:      12rem
     small
       font-size: .65em
       span
