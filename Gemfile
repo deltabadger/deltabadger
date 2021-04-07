@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-ruby '2.6.5'
+ruby '~>2.6'
 
 gem "administrate"
 gem "attr_encrypted", "~> 3.1.0"
@@ -14,7 +14,7 @@ gem 'haml-rails', '~> 2.0'
 gem 'jbuilder', '~> 2.5'
 gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 3.11'
-gem 'rails', '~> 5.2.3'
+gem 'rails', '~> 5.2.5'
 gem 'sass-rails', '~> 5.0'
 gem 'sidekiq'
 gem 'uglifier', '>= 1.3.0'
