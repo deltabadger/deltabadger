@@ -167,7 +167,7 @@ sup
   line-height: 1.05
   color: var(--primary)
   padding-right: 0.2em
-  font-family: "Varela Round"
+  font-family: Varela
 
 // bootstrap overrides
 
@@ -234,12 +234,14 @@ sup
         padding:       8rem 0 20rem
         height:        calc(100vh - 12rem)
         max-height:    calc(100vw - 24rem)
+        min-height:    60rem
         .db-homeart
           z-index: -1
         @include media-breakpoint-up(lg)
           img
-            max-width: 1100px
-            max-height: 687px
+            max-width: 110rem
+            max-height: 65rem
+            //min-width: 43rem
         @include media-breakpoint-down(md)
           max-height: auto
           padding:    28vh 0
@@ -261,7 +263,7 @@ sup
         padding-top:    10vh !important
         padding-bottom: 10vh !important
         height:         calc(100vh - 20rem)
-        min-height:     50vw
+        min-height:     70rem
         *:first-child
           justify-content: center
         img
