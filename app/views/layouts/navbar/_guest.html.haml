@@ -4,7 +4,7 @@
   .container
     %nav.navbar.navbar-expand-lg.navbar-light
       %a.navbar-brand{:href => root_path, :title => t('links.homepage')}
-        %svg.align-top{:width => "8.4rem", :height => "3rem", :viewBox => "0 0 84 30", :xmlns => "http://www.w3.org/2000/svg"}
+        %svg.align-top{:width => "84", :height => "30", :viewBox => "0 0 84 30", :xmlns => "http://www.w3.org/2000/svg"}
           %g.db-logo-svg-shape{:fill => "var(--navbarLink)", "fill-rule" => "evenodd"}
             %path{:d => "M67.9 0c3.35 0 5.81 1.03 8.09 3.02l2.1 1.84.86.77 3.87 3.42A3.38 3.38 0 0180.46 15H63.15a2.62 2.62 0 00-2.34 3.78c1.03 2.05 2.56 5.06 4.12 8.02.4.78.25 1.92-.52 2.6-.9.8-2.25.81-3.18-.1l-4.25-4.16-.53-.51-3.93-3.87-.24-.24c-.98-.99-2.37-.93-3.34 0l-4.19 4.09-.53.51-4.37 4.28c-.76.75-2.26.88-3.15-.1a2.19 2.19 0 01-.35-2.56c.92-1.59 2.3-3.94 3.93-6.81.12-.22.12-.94-.53-.94h-6.58a1503 1503 0 01-6.06 3.43l-.3.17-.15.08c-.57.32-.8.81-.42 1.54.38.74.66 1.28 1.21 2.3.3.56.62 1.4.07 2.38A2.24 2.24 0 0125.57 30a2.1 2.1 0 01-1.6-.65c-.25-.26-3.25-3.01-4.76-4.82-.19-.22-.4-.78-.2-1.57.03-.11.07-.26.14-.45l.08-.25c.28-.82.8-2.21 1.55-4.16A855.21 855.21 0 019.1 29.4a2.23 2.23 0 01-3.42-2.8l8.66-14.17a807.75 807.75 0 00-10.1 4.55c-.77.36-2 .9-2.54.9-.55 0-1.16-.22-1.52-.9-.36-.68-.17-1.6.88-2.32C11.54 7.51 15.98 4.56 18.27 3.02A17.76 17.76 0 0128.2 0H67.9zm-.1 3H28.06c-2.92 0-5.6.89-7.78 2.31-.77.5-1.85 1.23-3.25 2.2h59.42a195.72 195.72 0 00-2.58-2.33A8.62 8.62 0 0067.81 3z"}
         = render 'layouts/devise_messages'
@@ -16,7 +16,7 @@
             - else
               %span.db-hi-welcome__default
                 = t('welcome.default')
-          %svg{:width => "3.8rem", :height => "1.4rem", :viewBox => "0 0 38 14", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
+          %svg{:width => "38", :height => "14", :viewBox => "0 0 38 14", :version => "1.1", :xmlns => "http://www.w3.org/2000/svg", "xmlns:xlink" => "http://www.w3.org/1999/xlink"}
             %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke="#0a45a4" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
       %div.form-inline.ml-auto
         .btn-group
@@ -25,7 +25,7 @@
               = 'EN'
             - else
               = params[:lang].to_s.upcase
-            %svg.ml-0.btn__svg-icon.db-svg-icon{:width => "2rem", :height => "2rem", :viewBox => "0 0 24 24", :xmlns => "http://www.w3.org/2000/svg"}
+            %svg.ml-0.btn__svg-icon.db-svg-icon{:width => "20", :height => "20", :viewBox => "0 0 24 24", :xmlns => "http://www.w3.org/2000/svg"}
               %path{:d => "M7.71,9.29l3.88,3.88l3.88-3.88c0.39-0.39,1.02-0.39,1.41,0l0,0c0.39,0.39,0.39,1.02,0,1.41l-4.59,4.59 c-0.39,0.39-1.02,0.39-1.41,0L6.29,10.7c-0.39-0.39-0.39-1.02,0-1.41l0,0C6.68,8.91,7.32,8.9,7.71,9.29z"}
           .dropdown-menu.dropdown-menu-right
             - lang = params[:lang]
