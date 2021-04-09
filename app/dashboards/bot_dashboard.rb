@@ -18,7 +18,6 @@ class BotDashboard < Administrate::BaseDashboard
     updated_at: Field::DateTime,
     bot_type: Field::String.with_options(searchable: false),
     type: Field::String,
-    currency: Field::String,
     interval: Field::String,
     price: Field::String,
     total_amount: Field::Number
@@ -33,7 +32,6 @@ class BotDashboard < Administrate::BaseDashboard
     id
     status
     exchange
-    currency
     price
     interval
     type
