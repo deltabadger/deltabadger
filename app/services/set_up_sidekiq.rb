@@ -6,15 +6,11 @@ class SetUpSidekiq
   end
 
   def fill_sidekiq_queue
-    Bot.all.each do |bot|
-      if working?(bot)
-        @schedule_transaction.call(bot)
-      end
+    Bot.working.each do |bot|
+      @schedule_transaction.call(bot)
     end
 
     true
-  rescue StandardError => e
-    false
   end
 
   private
