@@ -35,7 +35,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = response.data['quote_increment'].to_i
+          result = GetNumberOfDecimalPoints.call(response.data['min_order_size'])
 
           Result::Success.new(result)
         rescue StandardError
