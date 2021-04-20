@@ -9,6 +9,14 @@ const calculateDelay = (nextTimestamp, nowTimestamp) => {
   return nextTimestamp - nowTimestamp
 }
 
+const calculateInterval = (delay) => {
+  if (delay >= 0) {
+    return 1000
+  } else {
+    return Math.min(Math.abs(delay) * 1000, 20000)
+  }
+}
+
 export const Timer = ({bot, callback}) => {
   let i = 0;
   const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
@@ -25,7 +33,7 @@ export const Timer = ({bot, callback}) => {
       }
     }
     setDelay(delay - 1)
-  }, 1000);
+  }, calculateInterval(delay));
 
   if (timeout) { return <Spinner /> }
 
