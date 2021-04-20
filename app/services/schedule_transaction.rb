@@ -11,17 +11,18 @@ class ScheduleTransaction < BaseService
     @next_bot_transaction_at = next_bot_transaction_at
   end
 
-  def call(bot)
+  def call(bot, first_transaction: false, continue_params: nil)
     if bot.restarts.zero? && bot.delay.positive?
       bot = decrease_delay(bot)
     elsif bot.restarts.positive?
       bot = increase_delay(bot)
     end
 
-    next_transaction_at = next_bot_transaction_at.call(bot)
+    next_transaction_at = next_bot_transaction_at.call(bot, first_transaction: first_transaction)
     make_transaction_worker.perform_at(
       next_transaction_at,
-      bot.id
+      bot.id,
+      continue_params
     )
   end
 
