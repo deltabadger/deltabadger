@@ -174,6 +174,8 @@ pl:
             you_pay: Płacisz
             payment_ordered: 'Płatność zlecona!'
             vat: VAT
+            after_wire_transfer_html: 'Dziękujemy! Wkrótce do Ciebie wrócimy! Jeśli potrzebujesz dalszej pomocy, daj nam znać: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            invalid_vat_number: 'Nieprawidłowy numer VAT UE'
         upgrade_plan: 'Zrób upgrade'
     links:
         homepage: 'Link do strony głównej'
@@ -225,7 +227,7 @@ pl:
     home:
         index:
             title: 'Deltabadger | Inwestowanie w Bitcoina metodą uśredniania'
-            fastest_asset: 'Inwestuj uśredniając w najszybciej rosnące aktywo finansowe.'
+            fastest_asset: 'Inwestuj uśredniając w najszybciej rosnące aktywum finansowe.'
             fastest_market: 'Inwestuj uśredniając w najszybciej rosnący rynek finansowy.'
             connect_exchanges: 'Podłącz jedną z popularnych giełd i ustaw powtarzające się zakupy w wybranym odstępie czasu. Możesz uruchomić tyle botów, ile chcesz, aby inwestować uśredniając w dowolny koszyk kryptowalut.'
             testimonials:
@@ -258,24 +260,11 @@ pl:
         confirm_registration:
             title: Dzięki!
             text_html: 'Sprawdź swoją skrzynkę pocztową i kliknij na <b>link potwierdzający</b>, który do Ciebie wysłaliśmy. Następnie przejdź do strony logowania.'
+            deliverability_html: '<b>To ważne! </b><br></br> Jeśli nie otrzymałeś emaila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
         contact:
             title: Kontakt
             general_questions_html: 'W przypadku pytań ogólnych spróbuj naszego <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">kanału na Telegramie</a>. To zazwyczaj najszybszy sposób na uzyskanie odpowiedzi. Wszystkie opinie, pomysły na produkty i prośby o dodanie giełdy są mile widziane.'
             specific_questions_html: 'W przypadku bardziej szczegółowych kwestii pisz na %{email}, lub wyślij wiadomość na Telegramie albo <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitterze</a>.'
-    pricing:
-        title: 'Plany'
-        per_year: 'rok'
-        per_4_years: '4 lata'
-        free: 'Darmowy'
-        free_limit: 'do 500€/rok'
-        no_limits: 'Bez ograniczeń'
-        all: 'Wszystkie'
-        features:
-          dca: 'DCA'
-          currencies: 'Waluty'
-          referral_program: 'Program referencyjny'
-          limit_orders: 'Zlecenia z limitem ceny'
-          exchange: 'giełda'
     affiliates:
         new:
             title: 'Rejestracja do programu polecającego'
@@ -378,6 +367,9 @@ pl:
                 birth_date: 'Data urodzenia'
                 country: Kraj
                 other: Inny
+                submit_investor_order: 'Zamów plan inwestor'
+                submit_hodler_order: 'Zamów plan Hodler'
+                business_invoice: 'Potrzebuję faktury biznesowej.'
     cookie:
         agree: 'Zgadzam się'
         description: 'Używamy ciasteczek, aby upraszczać rzeczy.'
@@ -391,7 +383,7 @@ pl:
             limit_warning: 'Bot zleceń limitowanych jest funkcją eksperymentalną. Nie wszystkie zlecenia zostaną zrealizowane. Aby osiągnąć dobre wyniki, należy proporcjonalnie zwiększyć inwestowaną kwotę. W tej chwili Deltabadger nie oferuje jeszcze żadnej pomocy w oszacowaniu tego dostosowania, dlatego konieczne są własne eksperymenty. Używaj, tylko jeśli wiesz co robisz.'
             how_to_get_keys: 'Jak uzyskać klucze API na %{exchange}:'
             binance:
-                instructions_html: "<ol>\n  <li>Zaloguj się do swojego konta %{exchange_link}.</li>\n  <li>W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Zarządzania API</b>.</li>\n  <li>Nadaj nazwę nowemu kluczowi API naciskając \"Create\".</li>\n  <li>Potwierdź utworzenie za pomocą jednorazowego kodu(ów).</li>\n  <li>Upewnij się, że opcja \" <b>Enable Spot & Margin Trading</b> \" jest zaznaczona.</li>\n  <li>Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, kliknij <b>Edit restrictions</b>, zaznacz <b>Restrict access to trusted IPs only (Recommended)</b> i dodaj ten IP w następnym kroku: <b>3.18.70.231</b></li>\n  <li>Naciśnij <b>Zapisz</b> i potwierdź kolejnym kodem jednorazowym, jeśli to konieczne.</li>\n  <li>Pamiętaj, że Secret Key jest widoczny tylko podczas tworzenia, więc upewnij się, że skopiowałeś oba klucze przed opuszczeniem widoku.</li>\n  <li>Wklej oba klucze do danych wejściowych powyżej.</li>\n</ol>"
+                instructions_html: "<ol>\n  <li>Zaloguj się do swojego konta %{exchange_link}.</li>\n  <li>W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Ustawienia API</b>.</li>\n  <li>Nadaj nazwę nowemu kluczowi API i kliknij\"Utworzenie klucza API\".</li>\n  <li>Potwierdź utworzenie za pomocą jednorazowego kodu(ów).</li>\n  <li>Upewnij się, że opcja <b>Włącz Handel Spot i Margin</b> jest zaznaczona.</li>\n  <li>Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, kliknij <b>Edit restrictions</b>, zaznacz <b>Restrict access to trusted IPs only (Recommended)</b> i dodaj ten IP w następnym kroku: <b>3.18.70.231</b></li>\n  <li>Naciśnij <b>Zapisz</b> i potwierdź kolejnym kodem jednorazowym, jeśli to konieczne.</li>\n  <li>Pamiętaj, że Secret Key jest widoczny tylko podczas tworzenia, więc upewnij się, że skopiowałeś oba klucze przed opuszczeniem widoku.</li>\n  <li>Wklej oba klucze do danych wejściowych powyżej.</li>\n</ol>"
                 private_key: 'Klucz Sekretny'
                 public_key: 'Klucz API'
             bitbay:
@@ -422,6 +414,11 @@ pl:
                 instructions_html: "<ol>\n  <li>Zaloguj się do swojego konta <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a>.</li>\n  <li>W menu konta (prawy górny róg) przejdź do <b>Profile</b>.</li>\n  <li>Wybierz <b>API</b> (po lewej stronie).</li>\n  <li>Naciśnij <b>Add new API</b>.</li>\n  <li>Wypełnij <b>API Name</b> i podaj swój <b>Transaction PIN</b>.</li>\n  <li>Ustaw uprawnienia:\n    <ul>\n      <li><b>Perform trades</b></li>\n      <li><b>View balances</b></li>\n      <li><b>View account information</b></li>\n    </ul>\n  </li>\n  <li>Naciśnij <b>Save</b>.</li>\n  <li>Skopiuj i wklej swoje nowe klucze API do powyższego formularza.</li>\n</ol>"
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
+            smart_intervals:
+                dont_show_again: 'Nie pokazuj ponownie'
+                info_html:
+                    force_smart_intervals: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger wykona ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>. '
+                    other: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger może wykonać ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>. '
         add_new_bot: 'Dodaj nowego bota'
         start: Start
         stop: Wstrzymaj
@@ -459,6 +456,9 @@ pl:
                 warning_html: 'Spowoduje to usunięcie bota wraz z jego wszystkimi<br>danymi historycznymi. Czy jesteś pewien?'
                 cancel: Anuluj
                 ok: 'Usuń całkowicie'
+            pending:
+                text: 'W trakcie…'
+                info_html: Przetwarzanie...
         details:
             stats:
                 title: Statystyki
@@ -483,9 +483,9 @@ pl:
                 errors: Błędy
             info:
                 title: Opis
-                exchanges_html: "<p class=\"mt-2\"><b>Giełdy</b></p>\n<p>Deltabadger współpracuje z giełdami kryptowalut. W tej chwili wspieramy <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> i <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Polecamy Kraken jako renomowaną giełdę, która nigdy nie została zhakowana. Użyj Bitbay, jeśli chcesz dokonywać zakupów w PLN.</p>\n<p>Aby Twój bot był użyteczny, musisz najpierw zweryfikować swoje konto na giełdzie i przelać tam trochę środków.</p>\n<p>Nie trzymaj jednak swoich monet na żadnej giełdzie zbyt długo. Loguj się na swoje konto i dokonuj regularnych wypłat co najmniej raz w miesiącu.</p>\n<p>W przyszłości będziemy dodawać kolejne giełdy. Daj nam znać, jeśli jesteś zainteresowany którąś z nich.</p>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>\"Inteligentne interwały\"</b></p>\n<p>Gdy inteligentne interwały są włączone, Deltabadger wykonuje żądany harmonogram w najmniejszych transakcjach dozwolonych przez giełdę. W przeciwnym razie będą one wykorzystywane tylko w razie potrzeby.</p>\n<p class=\"mt-2\"><b>Dlaczego?</b></p>\n<p>Istnieją dwie korzyści:</p>\n<p>Częstszy harmonogram pozwala szybciej doświadczyć korzyści płynących z DCA i jeszcze bardziej je wygładza.</p>\n<p>Poza tym, czasami inteligentne interwały są konieczne. Każda giełda ma minimalną wielkość dozwolonej transakcji. Niektóre giełdy określają limit w BTC, więc wartość w walucie tradycyjnej zmienia się w czasie. Jeśli zdefiniowana kwota mniejsza niż limit, Deltabadger użyje minimalnej dozwolonej wielkości, dostosowując interwał czasowy tak, żeby osiągnąć statystycznie ten sam efekt. Chroni to bota przed zatrzymaniem, gdy zdefiniowana kwota spadnie poniżej dopuszczonego progu.</p>\n<p class=\"mt-2\"><b>Przykład:</b></p>\n<p>Powiedzmy, że aktualny limit wymiany wynosi $20. Jeśli ustawisz harmonogram $24/dzień, bot raz dziennie kupi bitcoiny za $24. Jeśli jednak zdefiniujesz go jako $1/godzinę, będzie on naśladował stosunek przy użyciu dozwolonej wielkości, która równa się $20, kupując raz na 20 godzin. Średnio daje to taki sam stosunek ($24/dzień = $1/godzina = $20/20 godzin).</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>Chcesz wiedzieć więcej o uśrednianiu kosztu dolarowego?</b></p>\n<p>Te linki będą pomocne:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
+                exchanges_html: "<p className=\"mt-2\"><b>Giełdy</b></p>\n<p>Deltabadger współpracuje z giełdami kryptowalut. W tej chwili wspieramy <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> i <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Polecamy Kraken jako renomowaną giełdę, która nigdy nie została zhakowana. Użyj Bitbay, jeśli chcesz dokonywać zakupów w PLN.</p>\n<p>Aby Twój bot był użyteczny, musisz najpierw zweryfikować swoje konto na giełdzie i przelać tam trochę środków.</p>\n<p>Nie trzymaj jednak swoich monet na żadnej giełdzie zbyt długo. Loguj się na swoje konto i dokonuj regularnych wypłat co najmniej raz w miesiącu.</p>\n<p>W przyszłości będziemy dodawać kolejne giełdy. Daj nam znać, jeśli jesteś zainteresowany którąś z nich.</p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>\"Inteligentne interwały\"</b></p>\n<p>Gdy inteligentne interwały są włączone, Deltabadger wykonuje żądany harmonogram w najmniejszych transakcjach dozwolonych przez giełdę. W przeciwnym razie będą one wykorzystywane tylko w razie potrzeby.</p>\n<p className=\"mt-2\"><b>Dlaczego?</b></p>\n<p>Istnieją dwie korzyści:</p>\n<p>Częstszy harmonogram pozwala szybciej doświadczyć korzyści płynących z DCA i jeszcze bardziej je wygładza.</p>\n<p>Poza tym, czasami inteligentne interwały są konieczne. Każda giełda ma minimalną wielkość dozwolonej transakcji. Niektóre giełdy określają limit w BTC, więc wartość w walucie tradycyjnej zmienia się w czasie. Jeśli zdefiniowana kwota mniejsza niż limit, Deltabadger użyje minimalnej dozwolonej wielkości, dostosowując interwał czasowy tak, żeby osiągnąć statystycznie ten sam efekt. Chroni to bota przed zatrzymaniem, gdy zdefiniowana kwota spadnie poniżej dopuszczonego progu.</p>\n<p className=\"mt-2\"><b>Przykład:</b></p>\n<p>Powiedzmy, że aktualny limit wymiany wynosi $20. Jeśli ustawisz harmonogram $24/dzień, bot raz dziennie kupi bitcoiny za $24. Jeśli jednak zdefiniujesz go jako $1/godzinę, będzie on naśladował stosunek przy użyciu dozwolonej wielkości, która równa się $20, kupując raz na 20 godzin. Średnio daje to taki sam stosunek ($24/dzień = $1/godzina = $20/20 godzin).</p>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>Chcesz wiedzieć więcej o uśrednianiu kosztu dolarowego?</b></p>\n<p>Te linki będą pomocne:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: Uruchamianie
         force_smart_intervals: 'Zawsze używaj inteligentnych interwałów.'
         price: 'aktualnej ceny'
@@ -531,3 +531,19 @@ pl:
         subscription_granted:
             subject: 'Plan %{plan_name} został włączony'
             template_html: "<p>Wow 💙,</p>\n<p>Dziękujemy za zakup subskrypcji</p>\n<p>\n  <b>\n     Planu %{plan_name}\n  </b>\n</p>\n<p>Jesteś super! 🔥</p>"
+    pricing:
+        title: Cennik
+        per_year: rok
+        per_4_years: '4 lata'
+        free: Darmowy
+        free_limit: 'do $500/rok'
+        no_limits: 'Bez ograniczeń'
+        all: Wszystkie
+        features:
+            dca: DCA
+            currencies: Waluty
+            referral_program: 'Program referencyjny'
+            limit_orders: 'Zlecenia z limitem ceny'
+            exchange: giełda
+            name: Plan
+            price: Cena
