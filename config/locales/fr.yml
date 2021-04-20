@@ -160,6 +160,8 @@ fr:
             you_pay: 'Tu payes'
             payment_ordered: 'Paiement commandé !'
             vat: TVA
+            after_wire_transfer_html: 'Merci ! Nous reviendrons bientôt vers vous ! Si vous avez besoin d''aide, faites-le nous savoir : <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            invalid_vat_number: 'Numéro de TVA européen non valide'
         upgrade_plan: 'Mise à niveau du plan'
     links:
         homepage: 'Lien vers la page d''accueil'
@@ -244,6 +246,7 @@ fr:
         confirm_registration:
             title: 'Merci !'
             text_html: 'Vérifie ta boîte aux lettres et clique sur le <b> lien de confirmation </b> que nous vous avons envoyé. Rends-toi ensuite sur la page de connexion.'
+            deliverability_html: '<b> C''est très important ! </b> <br> </br> Si vous n''avez pas reçu l''e-mail de confirmation, vérifiez votre <b> dossier indésirable </b>. Si vous ne le trouvez toujours pas, envoyez-moi un e-mail à %{email}. <br> <br> Merci, Jan'
         contact:
             title: Contact
             general_questions_html: 'Pour des questions d''ordre général, merci d''essayer notre <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow"> chaîne Telegram </a>. C''est généralement le moyen le plus rapide d''obtenir une réponse. Aussi : tous les commentaires, idées de produits et demandes d''échange sont les bienvenus.'
@@ -350,6 +353,9 @@ fr:
                 birth_date: 'Date de naissance'
                 country: Pays
                 other: Autre
+                submit_investor_order: 'Acheter le plan ''Investor'''
+                submit_hodler_order: 'Acheter le plan ''Holder'''
+                business_invoice: 'J''ai besoin d''une facture professionnelle.'
     cookie:
         agree: 'J''accepte'
         description: 'Nous utilisons des cookies pour simplifier les choses.'
@@ -394,6 +400,11 @@ fr:
                 instructions_html: "<ol>\n  <li>Connectez-vous à votre compte <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a>.</li>\n  <li>Dans le menu du compte (en haut à droite), allez à <b>Profil</b>.</li>\n  <li>Choisissez l'<b>API</b> (à gauche).</li>\n  <li>Appuyez sur <b>Ajouter une nouvelle</b> API.</li>\n  <li>Indiquez le <b>nom</b> de l'API et fournissez votre <b>code PIN de transaction</b>.</li>\n  <li>Définissez les autorisations :\n    <ul>\n      <li><b>Effectuer des transactions</b></li>\n      <li><b>Voir les soldes</b></li>\n      <li><b>Voir les informations sur le compte</b></li>\n    </ul>\n  </li>\n  <li>Appuyez sur <b>Enregistrer</b>.</li>\n  <li>Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.</li>\n</ol>"
                 private_key: 'API Secret'
                 public_key: 'Clé API'
+            smart_intervals:
+                dont_show_again: 'Ne plus afficher'
+                info_html:
+                    force_smart_intervals: 'Pour %{base}%{quote}, %{exchangeName} a une taille d''ordre minimale de <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger exécutera ce programme en utilisant les ordres %{minimumValue}%{minimumCurrency}, et en ajustant l''intervalle de temps pour correspondre à votre programme. Nous appelons cela des <i>intervalles intelligents</i>.'
+                    other: 'Pour %{base}%{quote}, %{exchangeName} a une taille d''ordre minimale de <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger exécutera ce programme en utilisant les ordres %{minimumValue}%{minimumCurrency}, et en ajustant l''intervalle de temps pour correspondre à votre programme. Nous appelons cela des <i>intervalles intelligents</i>.'
         add_new_bot: 'Ajouter un nouveau bot'
         start: Commencer
         stop: Pause
@@ -431,6 +442,9 @@ fr:
                 warning_html: 'Cela supprimera le bot avec toutes <br> ses données historiques. Es-tu sûr ?'
                 cancel: Annuler
                 ok: 'Supprimer complètement'
+            pending:
+                text: 'En attente'
+                info_html: Traitement...
         details:
             stats:
                 title: Statistiques
@@ -455,13 +469,13 @@ fr:
                 errors: Erreurs
             info:
                 title: Info
-                exchanges_html: "<p class=\"mt-2\"> <b> Échangeurs </b> </p>\n <p> Deltabadger fonctionne avec les échangeurs de crypto-monnaie. Pour le moment, nous soutenons <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> et <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\"> Kraken</a>. Nous recommandons Kraken en tant qu'échangeur réputé qui n'a jamais été piraté. Utilisez Bitbay si vous souhaitez effectuer vos achats en PLN. </p>\n <p> Pour rendre votre bot fonctionnel, vous devez d'abord vérifier votre compte sur l'échangeur et y transférer des fonds. </p>\n <p> Cependant, ne conservez pas trop longtemps vos monnaies sur un échangeur. Connectez-vous à votre compte et effectuez régulièrement des retraits au moins une fois par mois. </p>\n <p> Nous ajouterons plus d'échangeur à l'avenir. Faites-nous savoir si vous êtes intéressé par un en particulier. </p>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>« Intervalles intelligents » </b></p>\n<p>Lorsque les intervalles intelligents sont activés, Deltabadger exécute la planification souhaitée en effectuant les plus petites transactions autorisées par l’échangeur. Sinon, ils ne seront utilisés qu'en cas de nécessité.</p>\n<p class=\"mt-2\"><b>Pourquoi ?</b></p>\n<p>Il y a deux avantages :</p>\n<p>Une périodicité plus fréquente te permet de profiter plus rapidement des avantages du DCA et le rend encore plus fluide.</p>\n<p>De plus, il est parfois nécessaire de prévoir des intervalles intelligents. Chaque échangeur a une limite minimale par transaction. Certains échangeurs le définissent en BTC, de sorte que la valeur du dollar change au fil du temps. Si le montant que tu veux investir est plus petit, Deltabadger conserve le ratio souhaité en utilisant le montant minimal autorisé mais en ajustant l'intervalle de temps. Il protège le bot contre un arrêt lorsque le montant que tu as défini tombe en dessous du seuil.</p>\n<p class=\"mt-2\"><b>Exemple :</b></p>\n<p>Supposons que la limite d'échange actuelle est de 20$. Si tu fixes le volume de la transaction à 24$/jour, le bot fera exactement cela. En revanche, si tu le définis à 1$/heure, il imitera le ratio en utilisant le volume autorisé, qui est de 20$ toutes les 20 heures. En moyenne, on obtient le même ratio (24$/jour = 1$/heure = 20$/20 heures).</p>"
-                new_to_dca_html: "<p class=\"mt-2\"> <b> Tu ne connais pas les achats périodiques ? </b> </p>\n <p> Ces liens t'aideront : </p>\n <ul class=\"mb-5\">\n <li> <a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\"> DCA pour les débutants (vidéo) </a> </li>\n <li> <a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\"> La puissance de DCA en Bitcoin </a> </li>\n <li> <a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\"> Simulateur DCA </a> </li>\n </ul>"
+                exchanges_html: "<p className=\"mt-2\"> <b> Échangeurs </b> </p>\n <p> Deltabadger fonctionne avec les échangeurs de crypto-monnaie. Pour le moment, nous soutenons <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> et <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\"> Kraken</a>. Nous recommandons Kraken en tant qu'échangeur réputé qui n'a jamais été piraté. Utilisez Bitbay si vous souhaitez effectuer vos achats en PLN. </p>\n <p> Pour rendre votre bot fonctionnel, vous devez d'abord vérifier votre compte sur l'échangeur et y transférer des fonds. </p>\n <p> Cependant, ne conservez pas trop longtemps vos monnaies sur un échangeur. Connectez-vous à votre compte et effectuez régulièrement des retraits au moins une fois par mois. </p>\n <p> Nous ajouterons plus d'échangeur à l'avenir. Faites-nous savoir si vous êtes intéressé par un en particulier. </p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>« Intervalles intelligents » </b></p>\n<p>Lorsque les intervalles intelligents sont activés, Deltabadger exécute la planification souhaitée en effectuant les plus petites transactions autorisées par l’échangeur. Sinon, ils ne seront utilisés qu'en cas de nécessité.</p>\n<p className=\"mt-2\"><b>Pourquoi ?</b></p>\n<p>Il y a deux avantages :</p>\n<p>Une périodicité plus fréquente te permet de profiter plus rapidement des avantages du DCA et le rend encore plus fluide.</p>\n<p>De plus, il est parfois nécessaire de prévoir des intervalles intelligents. Chaque échangeur a une limite minimale par transaction. Certains échangeurs le définissent en BTC, de sorte que la valeur du dollar change au fil du temps. Si le montant que tu veux investir est plus petit, Deltabadger conserve le ratio souhaité en utilisant le montant minimal autorisé mais en ajustant l'intervalle de temps. Il protège le bot contre un arrêt lorsque le montant que tu as défini tombe en dessous du seuil.</p>\n<p className=\"mt-2\"><b>Exemple :</b></p>\n<p>Supposons que la limite d'échange actuelle est de 20$. Si tu fixes le volume de la transaction à 24$/jour, le bot fera exactement cela. En revanche, si tu le définis à 1$/heure, il imitera le ratio en utilisant le volume autorisé, qui est de 20$ toutes les 20 heures. En moyenne, on obtient le même ratio (24$/jour = 1$/heure = 20$/20 heures).</p>"
+                new_to_dca_html: "<p className=\"mt-2\"> <b> Tu ne connais pas les achats périodiques ? </b> </p>\n <p> Ces liens t'aideront : </p>\n <ul className=\"mb-5\">\n <li> <a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\"> DCA pour les débutants (vidéo) </a> </li>\n <li> <a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\"> La puissance de DCA en Bitcoin </a> </li>\n <li> <a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\"> Simulateur DCA </a> </li>\n </ul>"
         starting: Commencer
         force_smart_intervals: 'Utilisez toujours les intervalles intelligents.'
         price: 'du prix'
-        above: 'au dessus'
+        above: au-dessus
         below: 'en dessous'
     activerecord:
         errors:
@@ -503,3 +517,19 @@ fr:
         subscription_granted:
             subject: 'Plan %{plan_name} accordé'
             template_html: "<p> Super💙, </p>\n <p> Merci d'avoir acheté notre </p>\n <p>\n <b>\n %{years} -an %{plan_name}\n </b>\n </p>\n <p> Tu es génial ! 🔥 </p>"
+    pricing:
+        title: Tarification
+        per_year: an
+        per_4_years: '4 ans'
+        free: Gratuit
+        free_limit: 'jusqu''à 500$/an'
+        no_limits: 'Pas de limites'
+        all: Tout
+        features:
+            dca: DCA
+            currencies: Devises
+            referral_program: 'Programme de parrainage'
+            limit_orders: 'ordres limites'
+            exchange: échangeur
+            name: Plan
+            price: Prix
