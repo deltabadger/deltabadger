@@ -13,7 +13,7 @@ const calculateInterval = (delay) => {
   if (delay >= 0) {
     return 1000
   } else {
-    return Math.min(Math.abs(delay) * 1000, 20000)
+    return Math.abs(delay) * 1000
   }
 }
 
