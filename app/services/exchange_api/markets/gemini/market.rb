@@ -35,7 +35,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = GetNumberOfDecimalPoints.call(response.data['min_order_size'])
+          result = GetNumberOfDecimalPoints.call(response.data['tick_size'])
 
           Result::Success.new(result)
         rescue StandardError
