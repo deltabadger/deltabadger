@@ -1,6 +1,7 @@
 class RemoveBot < BaseService
-  def initialize(bots_repository: BotsRepository.new)
+  def initialize(bots_repository: BotsRepository.new, unschedule_transactions: UnscheduleTransactions.new)
     @bots_repository = bots_repository
+    @unschedule_transactions = unschedule_transactions
   end
 
   def call(bot_id:, user:)
@@ -9,6 +10,7 @@ class RemoveBot < BaseService
     if bot.working?
       Result::Failure.new('Bot is currently working. Stop bot before removing')
     else
+      @unschedule_transactions.call(bot)
       @bots_repository.destroy(bot.id)
 
       bot.reload
