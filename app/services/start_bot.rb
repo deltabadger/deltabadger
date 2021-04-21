@@ -23,9 +23,9 @@ class StartBot < BaseService
     end
 
     @bots_repository.update(bot.id, status: 'pending')
-    @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
-
     bot.reload
+
+    @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
 
     Result::Success.new(bot)
   end

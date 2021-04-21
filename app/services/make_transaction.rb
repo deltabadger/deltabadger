@@ -44,7 +44,6 @@ class MakeTransaction < BaseService
       result = @order_flow_helper.validate_limit(bot, notify)
       @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
-      bot.reload
     elsif result.success?
       @bots_repository.update(bot.id, status: 'pending')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)

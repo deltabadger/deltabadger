@@ -2,7 +2,7 @@ class UnscheduleTransactions < BaseService
   def call(bot)
     queue = Sidekiq::ScheduledSet.new
     queue.each do |job|
-      job.delete
+      job.delete if delete?(job, bot)
     end
   end
 
