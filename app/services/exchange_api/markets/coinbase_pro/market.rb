@@ -43,7 +43,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = number_of_decimal_points(response.data['base_increment'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['base_increment'].to_f)
 
           Result::Success.new(result)
         end
@@ -52,7 +52,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = number_of_decimal_points(response.data['quote_increment'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['quote_increment'].to_f)
 
           Result::Success.new(result)
         end
@@ -96,13 +96,6 @@ module ExchangeApi
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
           Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", RECOVERABLE)
-        end
-
-        def number_of_decimal_points(number)
-          number_str = number.to_s
-          return 0 unless number_str.include? '.'
-
-          number_str.split('.')[1].length
         end
       end
     end
