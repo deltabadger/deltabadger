@@ -31,12 +31,16 @@ class MakeTransaction < BaseService
       continue_params = { continue_schedule: false, price: nil }
     end
 
-    continue_schedule = continue_params[:continue_schedule]
-    fixing_price = continue_params[:price]
+    if continue_params.instance_of?(String)
+      continue_params = eval(continue_params)
+    end
+
+    continue_schedule = continue_params["continue_schedule"]
+    fixing_price = continue_params["price"]
     result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule
 
     if continue_schedule
-      bot = @bots_repository.update(bot.id, restarts: 0)
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
       result = @order_flow_helper.validate_limit(bot, notify)
       @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
@@ -92,7 +96,7 @@ class MakeTransaction < BaseService
   end
 
   def make_transaction?(bot)
-    bot.working?
+    bot.working? || bot.pending?
   end
 
   def recoverable?(result)
