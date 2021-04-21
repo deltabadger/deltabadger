@@ -43,7 +43,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = number_of_decimal_points(response.data['base_increment'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['base_increment'].to_f)
 
           Result::Success.new(result)
         end
@@ -52,7 +52,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = number_of_decimal_points(response.data['quote_increment'].to_f)
+          result = GetNumberOfDecimalPoints.call(response.data['quote_increment'].to_f)
 
           Result::Success.new(result)
         end
