@@ -97,13 +97,6 @@ module ExchangeApi
         rescue StandardError
           Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", RECOVERABLE)
         end
-
-        def number_of_decimal_points(number)
-          number_str = number.to_s
-          return 0 unless number_str.include? '.'
-
-          number_str.split('.')[1].length
-        end
       end
     end
   end
