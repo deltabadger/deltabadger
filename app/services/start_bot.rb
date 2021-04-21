@@ -1,11 +1,11 @@
 class StartBot < BaseService
   def initialize(
-    make_transaction: MakeTransaction.new,
+    schedule_transaction: ScheduleTransaction.new,
     bots_repository: BotsRepository.new,
     validate_limit: Bots::Free::Validators::Limit.new
   )
 
-    @make_transaction = make_transaction
+    @schedule_transaction = schedule_transaction
     @bots_repository = bots_repository
     @validate_limit = validate_limit
   end
@@ -22,18 +22,12 @@ class StartBot < BaseService
       return validate_limit_result
     end
 
-    result = @make_transaction.call(bot.id, notify: false,
-                                            restart: false, continue_params: continue_params)
-
-    @bots_repository.update(bot.id, status: 'stopped') if result.failure?
-
+    @bots_repository.update(bot.id, status: 'pending')
     bot.reload
 
-    if result.success?
-      Result::Success.new(bot)
-    else
-      Result::Failure.new(*result.errors)
-    end
+    @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
+
+    Result::Success.new(bot)
   end
 
   private

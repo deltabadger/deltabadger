@@ -7,7 +7,8 @@ class NextBotTransactionAt < BaseService
     @calculate_restart_delay = calculate_restart_delay
   end
 
-  def call(bot)
+  def call(bot, first_transaction: false)
+    return DateTime.now if first_transaction
     return nil unless bot.transactions.exists?
     return bot.last_transaction.created_at if manual_restart_failed_bot?(bot)
 
