@@ -40,7 +40,7 @@ class FetchOrderResult < BaseService
       @schedule_result_fetching.call(bot, result_params, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
-      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
