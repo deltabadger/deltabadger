@@ -325,6 +325,7 @@ en:
         btc_address_confirmation_sent: 'Confirmation email sent'
         btc_address_changed: 'Bitcoin address changed'
         program_joined: 'You have joined the referral program'
+        current_bitcoin_address: 'Current Bitcoin address'
         your_bitcoin_address: 'Your Bitcoin address'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
         info_preview: 'This is a preview of what referees will see during registration:'
