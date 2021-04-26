@@ -66,7 +66,6 @@ class AffiliatesController < ApplicationController
   private
 
   attr_reader :affiliate
-  attr_accessor :current_password
 
   def fetch_affiliate!
     @affiliate = current_user.affiliate
