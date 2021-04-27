@@ -21,6 +21,13 @@ module ExchangeApi
         private
 
         def get_buy_params(symbol, price, force_smart_intervals)
+          limit_only = @market.limit_only?(symbol)
+          return limit_only unless limit_only.success?
+
+          if limit_only.data
+            return get_limit_only_params(symbol, price, force_smart_intervals, 'buy')
+          end
+
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals)
           return price_above_minimums unless price_above_minimums.success?
 
@@ -33,6 +40,13 @@ module ExchangeApi
         end
 
         def get_sell_params(symbol, price, force_smart_intervals)
+          limit_only = @market.limit_only?(symbol)
+          return limit_only unless limit_only.success?
+
+          if limit_only.data
+            return get_limit_only_params(symbol, price, force_smart_intervals, 'sell')
+          end
+
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals)
           return price_above_minimums unless price_above_minimums.success?
 
@@ -44,8 +58,37 @@ module ExchangeApi
           )
         end
 
-        def common_order_params(symbol)
-          super.merge(type: 'market')
+        def get_limit_only_params(symbol, price, force_smart_intervals, side)
+          rate = @market.current_bid_price(symbol)
+          return rate unless rate.success?
+
+          percentage = side == 'buy' ? 0.5 : -0.5
+
+          limit_rate = rate_percentage(symbol, rate.data, percentage)
+          return limit_rate unless limit_rate.success?
+
+          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals)
+          return volume unless volume.success?
+
+          Result::Success
+            .new(common_order_params(symbol, true)
+              .merge(
+               side: side,
+               size: volume.data,
+               price: limit_rate.data
+              )
+            )
+        end
+
+        def rate_percentage(symbol, rate, percentage)
+          rate_decimals = @market.quote_decimals(symbol)
+          return rate_decimals unless rate_decimals.success?
+
+          Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
+        end
+
+        def common_order_params(symbol, limit_only = false)
+          super.merge(type: limit_only ? 'limit' : 'market')
         end
       end
     end

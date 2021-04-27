@@ -80,7 +80,7 @@ module ExchangeApi
           Result::Success.new([min_volume.data, volume].max)
         end
 
-        def common_order_params(symbol)
+        def common_order_params(symbol, limit_only = false)
           {
             product_id: symbol
           }
