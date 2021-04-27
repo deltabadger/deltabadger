@@ -72,6 +72,13 @@ module ExchangeApi
           )
         end
 
+        def limit_only?(symbol)
+          response = fetch_symbol(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data['limit_only'])
+        end
+
         private
 
         def fetch_symbol(symbol)
