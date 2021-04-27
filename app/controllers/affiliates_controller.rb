@@ -82,7 +82,7 @@ class AffiliatesController < ApplicationController
     confirmation_password = params[:affiliate][:current_password]
     return if current_user.valid_password?(confirmation_password)
 
-    affiliate.errors.add(:current_password)
+    affiliate.errors.add(:current_password, 'is incorrect.')
 
     render :show, locals: default_show_locals.merge(
       affiliate: affiliate, errors: affiliate.errors.full_messages
