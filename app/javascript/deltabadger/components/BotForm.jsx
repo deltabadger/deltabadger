@@ -5,11 +5,15 @@ import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
+import {ValidatingApiKey} from "./BotForm/ValidatingApiKey";
+import {InvalidApiKey} from "./BotForm/InvalidApiKey";
 
 const STEPS = [
   'closed_form',
   'pick_exchange',
   'add_api_key' ,
+  'validating_api_key',
+  'invalid_api_key',
   'configure_bot',
 ]
 
@@ -29,13 +33,28 @@ export const BotForm = ({
 
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
   const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
+  const pendingExchangesIds = exchanges.filter(e => e.pending).map(e => e.id)
+  let invalidExchangesIds = exchanges.filter(e => e.invalid).map(e => e.id)
   const shouldDisableHodlerOnlyExchange = (name) => {
     return !isHodler && ['ftx'].includes(name.toLowerCase())
   }
 
   const chooseStep = step => {
-    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return step + 1 }
+    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
+    if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
+    if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
+      setTimeout(() => loadExchanges(), 3000)
+      return 3
+    }
+
+    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
+    if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
+
     if ((STEPS[step] == 'closed_form') && open) { return step + 1 }
+
+    if((STEPS[step] == 'validating_api_key')) {
+      setTimeout(() => loadExchanges(), 3000)
+    }
 
     return step;
   }
@@ -76,9 +95,32 @@ export const BotForm = ({
     API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(3)
-      loadExchanges()
     }).catch(() => {
       setErrors("Wrong keys or insufficient permissions.")
+    })
+  }
+  
+  const setPendingStatus = () => {
+    const idx = exchanges.findIndex(e => e.id === form.exchangeId)
+    exchanges[idx].invalid = false
+    exchanges[idx].pending = true
+  }
+
+  const revalidateApiKeyHandler = () => {
+    API.revalidateApiKey({exchangeId: form.exchangeId }).then(response => {
+      setErrors([])
+      setPendingStatus()
+      setStep(3)
+    }).catch(() => {
+      setErrors("Wrong keys or insufficient permissions.")
+    })
+  }
+
+  const removeApiKeyHandler = () => {
+    API.removeApiKey({exchangeId: form.exchangeId }).then(response => {
+      setErrors([])
+      setStep(2)
+      loadExchanges()
     })
   }
 
@@ -150,6 +192,15 @@ export const BotForm = ({
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
           errors={errors}
+        />
+      case 'validating_api_key':
+        return <ValidatingApiKey/>
+      case 'invalid_api_key':
+        return <InvalidApiKey
+          pickedExchangeName={pickedExchange.name}
+          handleReset={resetFormToStep(1)}
+          handleTryAgain={revalidateApiKeyHandler}
+          handleRemove={removeApiKeyHandler}
         />
       case 'configure_bot':
         return <ConfigureBot
