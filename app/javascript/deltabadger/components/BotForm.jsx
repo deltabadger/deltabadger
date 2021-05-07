@@ -5,8 +5,6 @@ import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
-import {ValidatingApiKey} from "./BotForm/ValidatingApiKey";
-import {InvalidApiKey} from "./BotForm/InvalidApiKey";
 
 const STEPS = [
   'closed_form',
@@ -108,6 +106,7 @@ export const BotForm = ({
 
   const revalidateApiKeyHandler = () => {
     API.revalidateApiKey({exchangeId: form.exchangeId }).then(response => {
+      loadExchanges()
       setErrors([])
       setPendingStatus()
       setStep(3)
@@ -191,16 +190,27 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          errors={errors}
-        />
-      case 'validating_api_key':
-        return <ValidatingApiKey/>
-      case 'invalid_api_key':
-        return <InvalidApiKey
-          pickedExchangeName={pickedExchange.name}
-          handleReset={resetFormToStep(1)}
           handleTryAgain={revalidateApiKeyHandler}
           handleRemove={removeApiKeyHandler}
+          status={'add_api_key'}
+        />
+      case 'validating_api_key':
+        return <AddApiKey
+          pickedExchangeName={pickedExchange.name}
+          handleReset={resetFormToStep(1)}
+          handleSubmit={addApiKeyHandler}
+          handleTryAgain={revalidateApiKeyHandler}
+          handleRemove={removeApiKeyHandler}
+          status={'validating_api_key'}
+        />
+      case 'invalid_api_key':
+        return <AddApiKey
+          pickedExchangeName={pickedExchange.name}
+          handleReset={resetFormToStep(1)}
+          handleSubmit={addApiKeyHandler}
+          handleTryAgain={revalidateApiKeyHandler}
+          handleRemove={removeApiKeyHandler}
+          status={'invalid_api_key'}
         />
       case 'configure_bot':
         return <ConfigureBot
