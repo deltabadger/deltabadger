@@ -105,10 +105,10 @@ export const BotForm = ({
   }
 
   const revalidateApiKeyHandler = () => {
+    setPendingStatus()
     API.revalidateApiKey({exchangeId: form.exchangeId }).then(response => {
       loadExchanges()
       setErrors([])
-      setPendingStatus()
       setStep(3)
     }).catch(() => {
       setErrors("Wrong keys or insufficient permissions.")
