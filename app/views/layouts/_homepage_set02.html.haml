@@ -1,3 +1,26 @@
+
+.db-main__section.db-main__section--secondary
+  .row.db-case-studies
+    .col-12.col-md-4
+      .db-case-study
+        %img.db-case-study__avatar{:src => asset_pack_path("media/images/avatar-mary.jpeg"), :alt => "Jan"}
+        %h5.db-case-study__badge= t('home.index.case_studies.investor.badge')
+        %h4.db-case-study__name= t('home.index.case_studies.investor.title_html')
+        %p= t('home.index.case_studies.investor.story')
+    .col-12.col-md-4
+      .db-case-study
+        %img.db-case-study__avatar{:src => asset_pack_path("media/images/avatar-thomas.jpeg"), :alt => "Jan"}
+        %h5.db-case-study__badge= t('home.index.case_studies.hodler.badge')
+        %h4.db-case-study__name= t('home.index.case_studies.hodler.title_html')
+        %p= t('home.index.case_studies.hodler.story')
+    .col-12.col-md-4
+      .db-case-study
+        %img.db-case-study__avatar{:src => asset_pack_path("media/images/avatar-badger666.png"), :alt => "Jan"}
+        %h5.db-case-study__badge= t('home.index.case_studies.trader.badge')
+        %h4.db-case-study__name= t('home.index.case_studies.trader.title_html')
+        %p= t('home.index.case_studies.trader.story')
+
+
 .db-main__section.db-main__section--secondary
   .row
     .col-sm-10.col-md-8.col-lg-6.d-none.d-lg-flex(style="flex-direction: column")
@@ -69,7 +92,7 @@
             %path{:d => "M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"}
 
 .db-main__section.db-main__section--secondary
-  %h2.text-center.mb-5= t('home.index.testimonials.header')
+  %h2.db-tweets__header.text-center.mb-5= t('home.index.testimonials.header_html')
   %script{:defer => "defer", :src => "https://apps.elfsight.com/p/platform.js"}
   .elfsight-app-19648b4d-c598-4175-8075-6ac466f2e818
 
