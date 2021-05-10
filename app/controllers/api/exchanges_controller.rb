@@ -2,7 +2,9 @@ module Api
   class ExchangesController < Api::BaseController
     def index
       build_data = lambda do |exchange|
-        owned = current_user.exchanges.select(:id)
+        pending = current_user.pending_exchanges
+        invalid = current_user.invalid_exchanges
+        owned = current_user.owned_exchanges
         symbols_query = current_user.subscription_name == 'hodler' ? exchange.symbols : exchange.non_hodler_symbols
         symbols = symbols_query.success? ? symbols_query.data : []
         all_symbols = exchange.symbols.or([])
@@ -11,7 +13,9 @@ module Api
           name: exchange.name,
           symbols: symbols,
           all_symbols: all_symbols,
-          owned: exchange.in?(owned)
+          owned: exchange.in?(owned),
+          pending: exchange.in?(pending),
+          invalid: exchange.in?(invalid)
         }
       end
 
