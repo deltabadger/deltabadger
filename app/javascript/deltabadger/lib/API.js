@@ -36,22 +36,6 @@ const API = {
     return client.request({ url, data: { api_key: ApiKeyParams }, method: 'post' }).then(data => data.data);
   },
 
-  revalidateApiKey(params) {
-    const url = `${API_URL}/revalidate_api_key`;
-    const revalidateParams = {
-      exchange_id: params.exchangeId
-    }
-    return client.request({ url, data: revalidateParams, method: 'post' }).then(data => data.data);
-  },
-
-  removeApiKey(params) {
-    const url = `${API_URL}/remove_api_key`;
-    const revalidateParams = {
-      exchange_id: params.exchangeId
-    }
-    return client.request({ url, data: revalidateParams, method: 'post' }).then(data => data.data);
-  },
-
   getSmartIntervalsInfo(params) {
     const url = `${API_URL}/smart_intervals_info`;
     const botParams = {
