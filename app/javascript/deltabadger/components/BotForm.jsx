@@ -89,37 +89,23 @@ export const BotForm = ({
     setStep(2)
   }
 
+  const setPendingStatus = () => {
+    const idx = exchanges.findIndex(e => e.id === form.exchangeId)
+    if (idx === -1){
+      return
+    }
+
+    exchanges[idx].invalid = false
+    exchanges[idx].pending = true
+  }
+
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
+    setPendingStatus()
     API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(3)
     }).catch(() => {
       setErrors("Wrong keys or insufficient permissions.")
-    })
-  }
-  
-  const setPendingStatus = () => {
-    const idx = exchanges.findIndex(e => e.id === form.exchangeId)
-    exchanges[idx].invalid = false
-    exchanges[idx].pending = true
-  }
-
-  const revalidateApiKeyHandler = () => {
-    setPendingStatus()
-    API.revalidateApiKey({exchangeId: form.exchangeId }).then(response => {
-      loadExchanges()
-      setErrors([])
-      setStep(3)
-    }).catch(() => {
-      setErrors("Wrong keys or insufficient permissions.")
-    })
-  }
-
-  const removeApiKeyHandler = () => {
-    API.removeApiKey({exchangeId: form.exchangeId }).then(response => {
-      setErrors([])
-      setStep(2)
-      loadExchanges()
     })
   }
 
@@ -190,8 +176,6 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          handleTryAgain={revalidateApiKeyHandler}
-          handleRemove={removeApiKeyHandler}
           status={'add_api_key'}
         />
       case 'validating_api_key':
@@ -199,8 +183,6 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          handleTryAgain={revalidateApiKeyHandler}
-          handleRemove={removeApiKeyHandler}
           status={'validating_api_key'}
         />
       case 'invalid_api_key':
@@ -208,8 +190,6 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          handleTryAgain={revalidateApiKeyHandler}
-          handleRemove={removeApiKeyHandler}
           status={'invalid_api_key'}
         />
       case 'configure_bot':
