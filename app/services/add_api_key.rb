@@ -1,23 +1,20 @@
 class AddApiKey < BaseService
   def initialize(
-    api_key_validator: ApiKeyValidator.new,
-    api_keys_repository: ApiKeysRepository.new
+    api_keys_repository: ApiKeysRepository.new,
+    validator_worker: ApiKeyValidatorWorker
   )
 
-    @api_key_validator = api_key_validator
     @api_keys_repository = api_keys_repository
+    @validator_worker = validator_worker
   end
 
   def call(params)
-    api_key = ApiKey.new(params)
+    saved_api_key = @api_keys_repository.save(ApiKey.new(params.merge(status: 'pending')))
+    @validator_worker.perform_at(
+      Time.now,
+      saved_api_key.id
+    )
 
-    result = @api_key_validator.call(api_key)
-
-    if result.success?
-      saved_api_key = @api_keys_repository.save(api_key)
-      Result::Success.new(saved_api_key)
-    else
-      Result::Failure.new(*result.errors)
-    end
+    Result::Success.new(saved_api_key)
   end
 end
