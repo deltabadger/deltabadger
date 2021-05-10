@@ -30,8 +30,6 @@ Rails.application.routes.draw do
   namespace :api do
     get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
-    post :revalidate_api_key, to: 'api_keys#revalidate_api_key'
-    post :remove_api_key, to: 'api_keys#remove'
     resources :exchanges, only: [:index]
     get :smart_intervals_info, to: 'bots#smart_intervals_info'
     post :set_show_smart_intervals_info, to: 'bots#set_show_smart_intervals_info'
