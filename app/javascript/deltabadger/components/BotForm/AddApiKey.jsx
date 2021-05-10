@@ -61,7 +61,7 @@ export const AddApiKey = ({
         }
         { status == 'validating_api_key' &&
           <div>
-            <div className="db-bot__infotext__right">Validating</div>
+            <div className="db-bot__infotext__right">{I18n.t('bots.setup.validating')}</div>
             <Spinner />
           </div>
         }
@@ -72,7 +72,7 @@ export const AddApiKey = ({
       <div className="db-bot__form db-bot__form--apikeys">
         {status == 'invalid_api_key' &&
           <div className="db-bot__alert text-danger">
-            Validation failed. Try again or generate new keys.
+            {I18n.t('bots.setup.error_info')}
           </div>
         }
         <form onSubmit={_handleSubmit} className="form-row">
