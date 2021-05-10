@@ -48,6 +48,21 @@ class User < ApplicationRecord
     referrer if eligible_for_discount?
   end
 
+  def owned_exchanges
+    owned_ids = api_keys.where(status: 'correct').pluck(:exchange_id)
+    exchanges.select(:id).where(id: owned_ids)
+  end
+
+  def pending_exchanges
+    owned_ids = api_keys.where(status: 'pending').pluck(:exchange_id)
+    exchanges.select(:id).where(id: owned_ids)
+  end
+
+  def invalid_exchanges
+    owned_ids = api_keys.where(status: 'incorrect').pluck(:exchange_id)
+    exchanges.select(:id).where(id: owned_ids)
+  end
+
   private
 
   def active_subscription
