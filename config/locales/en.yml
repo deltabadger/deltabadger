@@ -257,6 +257,9 @@ en:
                     text_html: '<p>Not really. Oscillators don''t work well in an upward trend. The next bottom is often higher than the previous top. There is no automated strategy that wins with DCA, because DCA is simply investing in the market trend which can''t be beaten consistently with any math formula.</p>'
                     chart_price: Price
                     chart_mm: 'Mayer Multiple'
+            ceo_note:
+                note: "I started Deltabadger, and I am vocal about Bitcoin because I believe it is one of the most empowering and democratizing world inventions of our times. Money should be neutral. The value of your hard-acquired savings shouldn't depend on politicians. Everybody has the right to benefit from global economic growth. Only hard money with limited supply can offer such exposure for everybody on this planet."
+                photo_by: "Photo by Alifia Harina from Pexels"
         founder:
             signature: 'I''m Jan, founder of Deltabadger.'
             telegram_invitation_html: 'Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
