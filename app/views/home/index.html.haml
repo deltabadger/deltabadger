@@ -43,5 +43,19 @@
         //= render 'layouts/svg_bubbleart_01'
 
   = render 'layouts/homepage_set02'
+.db-ceo-note
+  %main.container
+    = render 'layouts/ceo-note'
 
+%main.container.db-main
+
+  = render 'layouts/pricing'
+
+  .db-main__section.db-main__section--primary.db-main__section--primary--last
+    .row.row--newsletter
+      .col-md-6.col-lg-6.col-xl-7.db-flex-centered-vertically
+        = render 'layouts/svg_bubbleart_02'
+      .col-md-6.col-lg-6.col-xl-5.d-lg-flex
+        .db-flex-centered-vertically__content
+          = render 'layouts/home/info-bitcoin-standard'
 = render 'layouts/founder_cta'

@@ -68,6 +68,8 @@ $background-dark-p3: #123
   --boxBackground:            #fff
 
 @media (prefers-color-scheme: light)
+  .db-darkmode-only
+    display: none
   \:root
     --text:                     #234
     --paper:                    #fff
@@ -106,6 +108,8 @@ $background-dark-p3: #123
     --boxBackground:            #fff
 
 @media (prefers-color-scheme: dark)
+  .db-lightmode-only
+    display: none
   \:root
     --text:                #abc
     --paper:               #234
