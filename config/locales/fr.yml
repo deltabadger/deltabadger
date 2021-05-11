@@ -218,6 +218,7 @@ fr:
             connect_exchanges: 'Connecte-toi à l''un des échangeurs populaires et définis les achats récurrents selon la périodicité souhaitée. Tu peux exécuter autant de bots que tu le souhaites pour DCA dans ton portefeuille de cryptomonnaie préféré.'
             testimonials:
                 header: 'Ce que les utilisateurs disent de nous :'
+                header_html: 'Que dit <svg alt="Twitter" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg>:'
             dca_magic:
                 title_html: "La magie des achats périodiques <br>\n avec 4 graphiques faciles"
                 easy1:
@@ -240,6 +241,12 @@ fr:
                     text_html: '<p> Pas vraiment. Les oscillateurs ne fonctionnent pas bien dans une tendance à la hausse. Le résultat suivant est souvent plus haut que le résultat maximal précédent. Il n''y a pas de stratégie automatisée qui gagne avec le DCA, car le DCA investit simplement dans la tendance du marché et il n''y a pas de formule mathématique gagnante. </p>'
                     chart_price: Prix
                     chart_mm: 'Multiple de Mayer'
+            case_studies:
+                trader:
+                    story: 'Sur FTX, il créait un portefeuille qui comprend des actions Tesla et Coinbase ainsi que de nombreuses cryptomonnaies. Il utilise des robots pour accumuler des positions flottantes (swing positions) et les vendre lorsqu''elles sont rentables.'
+            ceo_note:
+                note: 'J''ai créé Deltabadger, et je m''exprime sur le bitcoin parce que je pense que c''est l''une des inventions mondiales les plus autonomes et les plus démocratiques de notre époque. L''argent devrait être neutre. La valeur de vos économies durement acquises ne devrait pas dépendre des politiciens. Tout le monde a le droit de bénéficier de la croissance économique mondiale. Seule une monnaie forte à offre limitée peut offrir une telle exposition à tous les habitants de cette planète.'
+                photo_by: 'Photo par Alifia Harina de Pexels'
         founder:
             signature: 'Je suis Jan, fondateur de Deltabadger.'
             telegram_invitation_html: 'Rejoins-nous sur <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group"> Telegram </a>'
@@ -522,14 +529,14 @@ fr:
         per_year: an
         per_4_years: '4 ans'
         free: Gratuit
-        free_limit: 'jusqu''à 500$/an'
-        no_limits: 'Pas de limites'
+        free_limit: 'Jusqu''à 500$/an'
+        no_limits: 'Aucunes limites'
         all: Tout
         features:
             dca: DCA
             currencies: Devises
             referral_program: 'Programme de parrainage'
-            limit_orders: 'ordres limites'
+            limit_orders: 'Ordres limites'
             exchange: échangeur
             name: Plan
             price: Prix

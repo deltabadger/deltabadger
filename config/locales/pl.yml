@@ -176,6 +176,14 @@ pl:
             vat: VAT
             after_wire_transfer_html: 'Dziękujemy! Wkrótce do Ciebie wrócimy! Jeśli potrzebujesz dalszej pomocy, daj nam znać: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
+            account_holder: Odbiorca
+            routing_number: 'Numer routingowy'
+            account_number: 'Numer konta'
+            account_type: 'Typ konta'
+            wire_transfer_fill_form: 'Wypełnij powyższy formularz, aby kontynuować...'
+            eu_bank_country: Belgia
+            bank_address: 'Adres banku'
+            paid_with_wire_transfer: 'Zrobiłem przelew'
         upgrade_plan: 'Zrób upgrade'
     links:
         homepage: 'Link do strony głównej'
@@ -232,6 +240,7 @@ pl:
             connect_exchanges: 'Podłącz jedną z popularnych giełd i ustaw powtarzające się zakupy w wybranym odstępie czasu. Możesz uruchomić tyle botów, ile chcesz, aby inwestować uśredniając w dowolny koszyk kryptowalut.'
             testimonials:
                 header: 'Użytkownicy mówią o nas:'
+                header_html: 'To mówi <svg alt="Twitter" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg>'
             dca_magic:
                 title_html: 'Magia inwestowania przez uśrednianie<br>w czterech prostych wykresach'
                 easy1:
@@ -254,6 +263,22 @@ pl:
                     text_html: '<p>Nie za bardzo. Oscylatory nie działają dobrze w trendzie wzrostowym. Następny dołek jest często wyżej niż poprzedni szczyt. Nie istnieje żadna zautomatyzowana strategia, która wygrywa z DCA, ponieważ DCA jest po prostu inwestowaniem w trend rynkowy, którego nie da się konsekwentnie przebić za pomocą żadnej formuły matematycznej.</p>'
                     chart_price: Cena
                     chart_mm: 'Mayer Multiple'
+            case_studies:
+                investor:
+                    badge: Inwestor
+                    title_html: 'Anna inwestuje w Bitcoina ze <b class="text-success text-success--lighter">spokojem umysłu</b>.'
+                    story: 'Cotygodniowy przelew bankowy zasila konto na Bitbay na 100 zł. Następnie bot wydaje je na Bitcoina w małych zleceniach. Inwestowanie na autopilocie.'
+                hodler:
+                    badge: Hodler
+                    title_html: 'Damian cieszy się zaawansowaną kontrolą i <b class="text-success text-success--lighter">zerowymi opłatami</b>.'
+                    story: 'Ma bota używającgo zleceń z limitem, który ustawia je  0.1% poniżej aktualnej ceny. Na Binance, to znosi zarówno spread i opłaty transakcyjne dając gwarancję najlepszej ceny.'
+                trader:
+                    badge: Trader
+                    title_html: 'KryptoPolak uśrednia do 30 <b class="text-success text-success--lighter">różnych tokenów</b>.'
+                    story: 'Na FTX buduje portfel, który zawiera akcje Tesli i Coinbase wraz z wieloma kryptowalutami. Używa botów do akumulacji pozycji i sprzedawania ich, gdy są na plusie.'
+            ceo_note:
+                note: 'Stworzyłem Deltabadgera, i często mówię o Bitcoinie, ponieważ wierzę, że jest to jeden z najbardziej demokratyzujących świat wynalazków naszych czasów. Pieniądz powinien być neutralny. Siła nabywcza twoich ciężko zdobytych oszczędności nie powinna zależeć od polityków. Każdy ma prawo do bezpośredniego uczestniczenia w zysku z globalnego wzrostu gospodarczego. Tylko zdecentralizowany pieniądz o ograniczonej podaży może dać taką ekspozycję wszystkim mieszkańcom planety.'
+                photo_by: 'Zdjęcie: Alifia Harina z Pexels'
         founder:
             signature: 'Cześć, jestem Jan, twórca Deltabadgera.'
             telegram_invitation_html: 'Dołącz do naszej anglojęzycznej grupy na <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegramie</a>'
@@ -327,6 +352,7 @@ pl:
         invalid_bitcoin_address: 'Adres bitcoinowy został zmieniony'
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
+        current_bitcoin_address: 'Aktualny adres Bitcoin'
     settings:
         index:
             title: Ustawienia
@@ -419,6 +445,8 @@ pl:
                 info_html:
                     force_smart_intervals: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger wykona ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>. '
                     other: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger może wykonać ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>. '
+            validating: Weryfikacja
+            error_info: 'Walidacja nie powiodła się. Spróbuj ponownie lub stwórz nowe klucze.'
         add_new_bot: 'Dodaj nowego bota'
         start: Start
         stop: Wstrzymaj
