@@ -55,6 +55,7 @@ Rails.application.routes.draw do
       post :pay
       get :payment_success
       post :payment_callback
+      post :wire_transfer
     end
 
     namespace :settings do
