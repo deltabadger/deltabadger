@@ -17,6 +17,10 @@ class User < ApplicationRecord
 
   delegate :unlimited?, to: :subscription
 
+  TYPES = %i[false other eu].freeze
+
+  enum pending_wire_transfer: [*TYPES]
+
   def subscription
     @subscription ||= active_subscription
   end

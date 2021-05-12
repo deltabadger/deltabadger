@@ -1,6 +1,6 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: [:payment_callback]
+  protect_from_forgery except: [:payment_callback, :wire_transfer]
 
   def index
     render :index, locals: default_locals.merge(
@@ -33,6 +33,20 @@ class UpgradeController < ApplicationController
     Payments::Update.call(params['data'] || params)
 
     render json: {}
+  end
+
+  def wire_transfer
+    wire_params = wire_transfer_params
+
+    UpgradeSubscriptionWorker.perform_at(
+      15.minutes.since(Time.now),
+      wire_params[:user].id,
+      wire_params[:subscription_plan_id]
+    )
+
+    wire_params[:user].update(pending_wire_transfer: eu?(wire_params) ? 'eu' : 'other')
+
+    redirect_to dashboard_path
   end
 
   private
@@ -88,6 +102,13 @@ class UpgradeController < ApplicationController
       .merge(user: current_user)
   end
 
+  def wire_transfer_params
+    params
+      .require(:payment)
+      .permit(:subscription_plan_id, :first_name, :last_name, :country)
+      .merge(user: current_user)
+  end
+
   def subscription_plan_repository
     @subscription_plan_repository ||= SubscriptionPlansRepository.new
   end
@@ -106,5 +127,9 @@ class UpgradeController < ApplicationController
 
   def hodler_plan
     @hodler_plan ||= subscription_plan_repository.hodler
+  end
+
+  def eu?(params)
+    params[:country].downcase != 'other'
   end
 end
