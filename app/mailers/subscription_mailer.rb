@@ -12,6 +12,15 @@ class SubscriptionMailer < ApplicationMailer
     )
   end
 
+  def after_wire_transfer
+    #@user = params[:user]
+
+    mail(
+      to: 'placeholder@test.com',
+      subject: 'Title'
+    )
+  end
+
   def invoice
     @user = params[:user]
     @payment = params[:payment]
