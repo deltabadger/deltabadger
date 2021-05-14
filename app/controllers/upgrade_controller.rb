@@ -41,12 +41,22 @@ class UpgradeController < ApplicationController
     UpgradeSubscriptionWorker.perform_at(
       15.minutes.since(Time.now),
       wire_params[:user].id,
-      wire_params[:subscription_plan_id]
+      wire_params[:subscription_plan_id],
+      wire_params[:first_name]
+    )
+
+    notifications = Notifications::Subscription.new
+    notifications.wire_transfer_summary(
+      email: wire_params[:user].email,
+      subscription_plan: SubscriptionPlan.find(wire_params[:subscription_plan_id]).name,
+      first_name: wire_params[:first_name],
+      last_name: wire_params[:last_name],
+      country: wire_params[:country]
     )
 
     wire_params[:user].update(pending_wire_transfer: eu?(wire_params) ? 'eu' : 'other')
 
-    redirect_to dashboard_path
+    index
   end
 
   private

@@ -81,7 +81,7 @@
             $("#please_fill_wire_form").addClass("db-form__row--hidden");
             $("#please_fill_wire_form").removeClass("db-form__row--visible");
 
-            if( document.getElementById("payment_country_wire").value.toLowerCase() === 'other' || "#{current_user.pending_wire_transfer}" === "other"){
+            if( (document.getElementById("payment_country_wire").value.toLowerCase() === 'other' && "#{current_user.pending_wire_transfer}" !== "eu") || "#{current_user.pending_wire_transfer}" === "other"){
               $("#wire_form_other").addClass("db-form__row--visible");
               $("#wire_form_other").removeClass("db-form__row--hidden");
               $("#wire_form_eu").removeClass("db-form__row--visible");
