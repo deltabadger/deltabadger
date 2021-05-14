@@ -167,6 +167,7 @@ en:
             account_number: 'Account number'
             account_type: 'Account type'
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'
+            wire_transfer_pending: 'Thanks! Your account will be activated soon. We’ll be back to you soon by email.'
             eu_bank_country: Belgium
             bank_address: 'Bank address'
             paid_with_wire_transfer: 'I made SEPA transfer'
