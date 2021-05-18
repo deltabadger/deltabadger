@@ -184,6 +184,7 @@ pl:
             eu_bank_country: Belgia
             bank_address: 'Adres banku'
             paid_with_wire_transfer: 'Zrobiłem przelew'
+            wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'
         upgrade_plan: 'Zrób upgrade'
     links:
         homepage: 'Link do strony głównej'
