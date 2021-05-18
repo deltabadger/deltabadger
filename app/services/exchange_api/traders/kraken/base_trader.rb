@@ -21,7 +21,13 @@ module ExchangeApi
 
         def fetch_order_by_id(order_id)
           order_data = orders.fetch(order_id, nil)
-          return Result::Failure.new('Waiting for Kraken response', NOT_FETCHED) if order_data.nil?
+
+          if order_data.nil?
+            res = @client.send :post_private, 'QueryOrders', txid: order_id
+            order_data =  res.dig('result').fetch(order_id, nil)
+          end
+
+          return Result::Failure.new('Waiting for Kraken response', NOT_FETCHED) if opened?(order_data)
 
           rate = placed_order_rate(order_data)
           amount = order_data.fetch('vol').to_f
@@ -81,6 +87,10 @@ module ExchangeApi
 
         def orders
           raise NotImplementedError
+        end
+
+        def opened?(order_data)
+          order_data.nil? || order_data.fetch('status') != 'closed'
         end
       end
     end
