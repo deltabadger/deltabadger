@@ -46,7 +46,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          result = response.data['tick_size'].to_i
+          result = GetNumberOfDecimalPoints.call(response.data['quote_increment'])
 
           Result::Success.new(result)
         rescue StandardError
