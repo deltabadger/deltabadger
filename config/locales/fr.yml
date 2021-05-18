@@ -162,6 +162,15 @@ fr:
             vat: TVA
             after_wire_transfer_html: 'Merci ! Nous reviendrons bientôt vers vous ! Si vous avez besoin d''aide, faites-le nous savoir : <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             invalid_vat_number: 'Numéro de TVA européen non valide'
+            account_holder: 'Titulaire du compte'
+            routing_number: 'Numéro de routage'
+            account_number: 'Numéro de compte'
+            account_type: 'Type de compte'
+            wire_transfer_fill_form: 'Veuillez remplir le formulaire ci-dessus pour procéder...'
+            eu_bank_country: Belgique
+            bank_address: 'Adresse de la banque'
+            paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
+            wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail.'
         upgrade_plan: 'Mise à niveau du plan'
     links:
         homepage: 'Lien vers la page d''accueil'
@@ -242,7 +251,17 @@ fr:
                     chart_price: Prix
                     chart_mm: 'Multiple de Mayer'
             case_studies:
+                investor:
+                    badge: Investor
+                    title_html: 'Léa investit dans le bitcoin en <b class="text-success text-success--lighter">toute sérénité</b>.'
+                    story: 'Elle a créé un virement bancaire hebdomadaire récurrent de 100€ sur son compte Gemini. Puis son robot le dépense en bitcoins par petits achats, ce qui rend sa stratégie d''investissement sans effort.'
+                hodler:
+                    badge: Hodler
+                    title_html: 'Simon bénéficie d''un contrôle avancé et <b class="text-success text-success--lighter">d''aucuns frais</b>.'
+                    story: 'Il utilise un robot d''ordre limite qui passe des ordres de 0,1% en dessous du prix actuel. Sur Binance, il compense entièrement les frais de spread et ceux des teneurs de marché (market maker), ce qui lui permet de toujours obtenir le meilleur prix.'
                 trader:
+                    badge: Tradeur
+                    title_html: 'Cryptocat44 fait de la DCA avec 30 <b class="text-success text-success--lighter">tokens différents</b>.'
                     story: 'Sur FTX, il créait un portefeuille qui comprend des actions Tesla et Coinbase ainsi que de nombreuses cryptomonnaies. Il utilise des robots pour accumuler des positions flottantes (swing positions) et les vendre lorsqu''elles sont rentables.'
             ceo_note:
                 note: 'J''ai créé Deltabadger, et je m''exprime sur le bitcoin parce que je pense que c''est l''une des inventions mondiales les plus autonomes et les plus démocratiques de notre époque. L''argent devrait être neutre. La valeur de vos économies durement acquises ne devrait pas dépendre des politiciens. Tout le monde a le droit de bénéficier de la croissance économique mondiale. Seule une monnaie forte à offre limitée peut offrir une telle exposition à tous les habitants de cette planète.'
@@ -320,6 +339,7 @@ fr:
         invalid_bitcoin_address: 'Adresse Bitcoin invalide'
         info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
         add_link_info: 'Tu peux ajouter ton nom et un lien vers ton site Web pour informer le membre parrainé d''où provient la réduction. Mais tu peux également laisser ce champ vide :'
+        current_bitcoin_address: 'Adresse Bitcoin actuelle'
     settings:
         index:
             title: Paramètres
@@ -412,6 +432,8 @@ fr:
                 info_html:
                     force_smart_intervals: 'Pour %{base}%{quote}, %{exchangeName} a une taille d''ordre minimale de <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger exécutera ce programme en utilisant les ordres %{minimumValue}%{minimumCurrency}, et en ajustant l''intervalle de temps pour correspondre à votre programme. Nous appelons cela des <i>intervalles intelligents</i>.'
                     other: 'Pour %{base}%{quote}, %{exchangeName} a une taille d''ordre minimale de <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger exécutera ce programme en utilisant les ordres %{minimumValue}%{minimumCurrency}, et en ajustant l''intervalle de temps pour correspondre à votre programme. Nous appelons cela des <i>intervalles intelligents</i>.'
+            validating: 'En cours de validation'
+            error_info: 'La validation a échoué. Essayez à nouveau ou générez de nouvelles clés.'
         add_new_bot: 'Ajouter un nouveau bot'
         start: Commencer
         stop: Pause
