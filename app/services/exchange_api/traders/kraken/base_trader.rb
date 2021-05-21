@@ -42,12 +42,6 @@ module ExchangeApi
           Result::Failure.new('Could not make Kraken order', RECOVERABLE)
         end
 
-        protected
-
-        def opened?(order_data)
-          order_data.nil? || order_data.fetch('status') != 'closed'
-        end
-
         private
 
         def place_order(order_params)
@@ -95,6 +89,9 @@ module ExchangeApi
           raise NotImplementedError
         end
 
+        def opened?(order_data)
+          order_data.nil? || order_data.fetch('status') != 'closed'
+        end
       end
     end
   end
