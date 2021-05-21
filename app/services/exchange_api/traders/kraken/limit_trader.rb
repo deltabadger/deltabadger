@@ -20,6 +20,12 @@ module ExchangeApi
           place_order(sell_params.data)
         end
 
+        protected
+
+        def opened?(order_data)
+          order_data.nil?
+        end
+
         private
 
         def orders
