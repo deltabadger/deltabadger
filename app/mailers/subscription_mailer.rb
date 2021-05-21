@@ -16,11 +16,15 @@ class SubscriptionMailer < ApplicationMailer
     @user = params[:user]
     @subscription_plan = params[:subscription_plan]
     @name = params[:name]
+    @type = params[:type]
+    @amount = params[:amount]
 
     mail(
       to: @user.email,
       subject: @subscription_plan.display_name + ' plan granted!'
-    )
+    ) do |format|
+      format.html { render layout: 'plain_mail' }
+    end
   end
 
   def invoice
@@ -36,9 +40,10 @@ class SubscriptionMailer < ApplicationMailer
     @first_name = params[:first_name]
     @last_name = params[:last_name]
     @country = params[:country]
+    @amount = params[:amount]
 
     mail(
-      to: 'mailjanka@deltabadger.com',
+      to: 'jan@deltabadger.com',
       subject: 'New wire transfer'
     )
   end

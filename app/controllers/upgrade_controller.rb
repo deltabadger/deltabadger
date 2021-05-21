@@ -36,13 +36,25 @@ class UpgradeController < ApplicationController
   end
 
   def wire_transfer
-    wire_params = wire_transfer_params
+    wire_params = wire_transfer_params.merge(default_locals)
+    plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
+    cost_presenter = if plan == 'hodler'
+                       wire_params[:cost_presenters][wire_params[:country]][:hodler]
+                     else
+                       wire_params[:cost_presenters][wire_params[:country]][:investor]
+                     end
+
+    email_params = {
+      name: wire_params[:first_name],
+      type: wire_params[:country],
+      amount: cost_presenter.total_price
+    }
 
     UpgradeSubscriptionWorker.perform_at(
       15.minutes.since(Time.now),
       wire_params[:user].id,
       wire_params[:subscription_plan_id],
-      wire_params[:first_name]
+      email_params
     )
 
     notifications = Notifications::Subscription.new
@@ -51,7 +63,8 @@ class UpgradeController < ApplicationController
       subscription_plan: SubscriptionPlan.find(wire_params[:subscription_plan_id]).name,
       first_name: wire_params[:first_name],
       last_name: wire_params[:last_name],
-      country: wire_params[:country]
+      country: wire_params[:country],
+      amount: cost_presenter.total_price
     )
 
     wire_params[:user].update(pending_wire_transfer: eu?(wire_params) ? 'eu' : 'other')

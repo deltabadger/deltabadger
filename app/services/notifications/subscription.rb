@@ -14,9 +14,15 @@ module Notifications
         .deliver_later
     end
 
-    def after_wire_transfer(user:, subscription_plan:, name:)
+    def after_wire_transfer(user:, subscription_plan:, name:, type:, amount:)
       SubscriptionMailer
-        .with(user: user, subscription_plan: subscription_plan, name: name)
+        .with(
+          user: user,
+          subscription_plan: subscription_plan,
+          name: name,
+          type: type,
+          amount: amount
+        )
         .after_wire_transfer
         .deliver_later
     end
@@ -26,7 +32,8 @@ module Notifications
       subscription_plan:,
       first_name:,
       last_name:,
-      country:
+      country:,
+      amount:
     )
       SubscriptionMailer
         .with(
@@ -34,7 +41,8 @@ module Notifications
           subscription_plan: subscription_plan,
           first_name: first_name,
           last_name: last_name,
-          country: country
+          country: country,
+          amount: amount
         )
         .wire_transfer_summary
         .deliver_later

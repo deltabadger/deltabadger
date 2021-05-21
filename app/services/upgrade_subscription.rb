@@ -7,11 +7,16 @@ class UpgradeSubscription < BaseService
     @subscriptions_repository = subscriptions_repository
   end
 
-  def call(user_id, subscription_plan_id, name)
+  def call(user_id, subscription_plan_id, email_params)
     user = User.find(user_id)
     subscription_plan = @subscriptions_repository.find(subscription_plan_id)
 
-    @subscribe_plan.call(user: user, subscription_plan: subscription_plan, name: name)
+    @subscribe_plan.call(
+      user: user,
+      subscription_plan: subscription_plan,
+      email_params: email_params
+    )
+
     user.update(pending_wire_transfer: 'false')
   end
 end
