@@ -181,7 +181,8 @@ ActiveRecord::Schema.define(version: 2021_05_12_124756) do
     t.bigint "referrer_id"
     t.decimal "current_referrer_profit", default: "0.0", null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
-    t.integer "pending_wire_transfer", default: 0, null: false
+    t.string "pending_wire_transfer"
+    t.integer "pending_plan_id"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
