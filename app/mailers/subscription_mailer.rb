@@ -12,10 +12,40 @@ class SubscriptionMailer < ApplicationMailer
     )
   end
 
+  def after_wire_transfer
+    @user = params[:user]
+    @subscription_plan = params[:subscription_plan]
+    @name = params[:name]
+    @type = params[:type]
+    @amount = params[:amount]
+
+    mail(
+      to: @user.email,
+      from: 'jan@deltabadger.com',
+      subject: @subscription_plan.display_name + ' plan granted!'
+    ) do |format|
+      format.html { render layout: 'plain_mail' }
+    end
+  end
+
   def invoice
     @user = params[:user]
     @payment = params[:payment]
 
     mail(to: @user.email, subject: default_i18n_subject)
+  end
+
+  def wire_transfer_summary
+    @email = params[:email]
+    @subscription_plan = params[:subscription_plan]
+    @first_name = params[:first_name]
+    @last_name = params[:last_name]
+    @country = params[:country]
+    @amount = params[:amount]
+
+    mail(
+      to: 'jan@deltabadger.com',
+      subject: 'New wire transfer'
+    )
   end
 end

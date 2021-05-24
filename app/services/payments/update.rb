@@ -35,7 +35,12 @@ module Payments
       return unless just_paid
 
       @notifications.invoice(payment: payment)
-      @subscribe_plan.call(user: payment.user, subscription_plan: payment.subscription_plan)
+      @subscribe_plan.call(
+        user: payment.user,
+        subscription_plan: payment.subscription_plan,
+        name: nil
+      )
+
       @grant_commission.call(referee: payment.user, payment: payment)
     end
 

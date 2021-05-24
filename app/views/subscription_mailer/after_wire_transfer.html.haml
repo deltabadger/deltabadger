@@ -1,0 +1,77 @@
+Hi #{@name},
+%br
+%br
+Thanks. I will check the payment in a few days, but activated your #{@subscription_plan.display_name} plan already.
+%br
+I will appreciate if you could send me the transfer confirmation.
+%br
+%br
+Best,
+%br
+Jan
+%br
+%br
+PS If you didn’t pay yet, please, send #{@amount}#{@type == 'Other' ? '$' : '€'}  to
+%br
+%br
+- if @type == 'Other'
+  Account holder
+  %br
+  Deltabadger OÜ
+  %br
+  %br
+  Routing number
+  %br
+  084009519
+  %br
+  %br
+  Account number
+  %br
+  9600 0000 0051 1836
+  %br
+  %br
+  Account type
+  %br
+  Checking
+  %br
+  %br
+  Bank address
+  %br
+  TransferWise
+  %br
+  19 W 24th Street
+  %br
+  New York NY 10010
+  %br
+  United States
+  %br
+
+- else
+  Account holder
+  %br
+  Deltabadger OÜ
+  %br
+  %br
+  BIC
+  %br
+  TRWIBEB1XXX
+  %br
+  %br
+  IBAN (Belgium)
+  %br
+  BE83 9670 6500 4615
+  %br
+  %br
+  Bank address
+  %br
+  Avenue Louise 54, Room S52
+  %br
+  Brussels
+  %br
+  1050
+  %br
+  Belgium
+  %br
+
+
+
