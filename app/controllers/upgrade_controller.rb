@@ -1,6 +1,6 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: [:payment_callback]
+  protect_from_forgery except: [:payment_callback, :wire_transfer]
 
   def index
     render :index, locals: default_locals.merge(
@@ -33,6 +33,46 @@ class UpgradeController < ApplicationController
     Payments::Update.call(params['data'] || params)
 
     render json: {}
+  end
+
+  def wire_transfer
+    wire_params = wire_transfer_params.merge(default_locals)
+    plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
+    cost_presenter = if plan == 'hodler'
+                       wire_params[:cost_presenters][wire_params[:country]][:hodler]
+                     else
+                       wire_params[:cost_presenters][wire_params[:country]][:investor]
+                     end
+
+    email_params = {
+      name: wire_params[:first_name],
+      type: wire_params[:country],
+      amount: cost_presenter.total_price
+    }
+
+    UpgradeSubscriptionWorker.perform_at(
+      15.minutes.since(Time.now),
+      wire_params[:user].id,
+      wire_params[:subscription_plan_id],
+      email_params
+    )
+
+    notifications = Notifications::Subscription.new
+    notifications.wire_transfer_summary(
+      email: wire_params[:user].email,
+      subscription_plan: SubscriptionPlan.find(wire_params[:subscription_plan_id]).name,
+      first_name: wire_params[:first_name],
+      last_name: wire_params[:last_name],
+      country: wire_params[:country],
+      amount: cost_presenter.total_price
+    )
+
+    wire_params[:user].update(
+      pending_wire_transfer: wire_params[:country],
+      pending_plan_id: wire_params[:subscription_plan_id]
+    )
+
+    index
   end
 
   private
@@ -88,6 +128,13 @@ class UpgradeController < ApplicationController
       .merge(user: current_user)
   end
 
+  def wire_transfer_params
+    params
+      .require(:payment)
+      .permit(:subscription_plan_id, :first_name, :last_name, :country)
+      .merge(user: current_user)
+  end
+
   def subscription_plan_repository
     @subscription_plan_repository ||= SubscriptionPlansRepository.new
   end
@@ -107,4 +154,5 @@ class UpgradeController < ApplicationController
   def hodler_plan
     @hodler_plan ||= subscription_plan_repository.hodler
   end
+
 end
