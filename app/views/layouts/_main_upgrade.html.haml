@@ -80,6 +80,8 @@
               document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
             $("#please_fill_wire_form").addClass("db-form__row--hidden");
             $("#please_fill_wire_form").removeClass("db-form__row--visible");
+            $("#wire_costs").addClass("db-form__row--visible");
+            $("#wire_costs").removeClass("db-form__row--hidden");
 
             if ("#{current_user.pending_wire_transfer}" !== "") {
               $("#payment_country").val("#{current_user.pending_wire_transfer}");
@@ -104,6 +106,8 @@
             $("#wire_form_eu").addClass("db-form__row--hidden");
             $("#wire_form_other").removeClass("db-form__row--visible");
             $("#wire_form_other").addClass("db-form__row--hidden");
+            $("#wire_costs").removeClass("db-form__row--visible");
+            $("#wire_costs").addClass("db-form__row--hidden");
           }
         }
 
