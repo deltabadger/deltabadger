@@ -157,20 +157,26 @@
 
         $("#payment_first_name_wire").change(function(event) {
           document.getElementById("payment_first_name").value = event.target.value;
+          document.getElementById("payment_first_name").defaultValue = event.target.value;
+
           showPreview(event.target);
         });
 
         $("#payment_last_name_wire").change(function(event) {
           document.getElementById("payment_last_name").value = event.target.value;
+          document.getElementById("payment_last_name").defaultValue = event.target.value;
+
           showPreview(event.target);
         });
 
         $("#payment_first_name").change(function(event) {
           document.getElementById("payment_first_name_wire").value = event.target.value;
+          document.getElementById("payment_first_name_wire").defaultValue = event.target.value;
         });
 
         $("#payment_last_name").change(function(event) {
           document.getElementById("payment_last_name_wire").value = event.target.value;
+          document.getElementById("payment_last_name_wire").defaultValue = event.target.value;
         });
 
         showPreview(document.getElementById("payment_country_wire").value);
