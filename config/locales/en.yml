@@ -170,7 +170,11 @@ en:
             eu_bank_country: Belgium
             bank_address: 'Bank address'
             paid_with_wire_transfer: 'I made SEPA transfer'
+            paid_with_wire_transfer_other: 'I made wire transfer'
             wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
+            wire_cost_investor_html: "Please, send <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-total-price'>%{price}</span> to the following bank account:"
+            wire_cost_hodler_html: "Please, send <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-price'>%{price}</span> to the following bank account:"
+            wire_cost_pending_html: 'If you didn’t make a payment yet, send %{sign}%{price} to the following bank account:'
         upgrade_plan: 'Upgrade plan'
     links:
         homepage: 'Link to the homepage'

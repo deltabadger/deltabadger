@@ -92,16 +92,15 @@
                   - else
                     - price = cost_presenters[current_user.pending_wire_transfer][:investor].total_price
 
-                  If you didn’t make a payment yet, send #{current_user.pending_wire_transfer.downcase == 'other' ? '$' : '€'}#{price} to the following bank account:
+                  = t('subscriptions.payment.wire_cost_pending_html', sign: current_user.pending_wire_transfer.downcase == 'other' ? '$' : '€', price: price)
               - else
                 .db-form__row--hidden{:id => 'wire_costs'}
                   - if 'investor'.in?(upgrade_presenter.available_plans)
                     %span.db-show--investor
-                      Please, send <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-total-price'>#{cost_presenters[payment.country][:investor].total_price}</span> to the following bank account:
+                      = t('subscriptions.payment.wire_cost_investor_html', price: cost_presenters[payment.country][:investor].total_price)
                   - if 'hodler'.in?(upgrade_presenter.available_plans)
                     %span.db-show--hodler
-                      Please, send <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-price'>#{cost_presenters[payment.country][:hodler].total_price}</span> to the following bank account:
-
+                      = t('subscriptions.payment.wire_cost_hodler_html', price: cost_presenters[payment.country][:hodler].total_price)
 
               .db-form__row--hidden{:id => 'wire_form_eu'}
 
@@ -139,4 +138,4 @@
                 - unless pending_wire_transfer
                   .db-form__row.db-form__row--final-button
                     %button.btn.btn-success.btn-lg.w-100.px-1{:type => "submit"}
-                      %span.mr-0 I made wire transfer
+                      %span.mr-0= t('subscriptions.payment.paid_with_wire_transfer_other')
