@@ -17,6 +17,9 @@ class UpgradeSubscription < BaseService
       email_params: email_params
     )
 
-    user.update(pending_wire_transfer: 'false')
+    user.update(
+      pending_wire_transfer: nil,
+      pending_plan_id: nil
+    )
   end
 end

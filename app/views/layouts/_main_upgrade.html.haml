@@ -77,11 +77,16 @@
 
           if ((newValue !== "" &&
               document.getElementById("payment_first_name_wire").value !== "" &&
-              document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "false") {
+              document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
             $("#please_fill_wire_form").addClass("db-form__row--hidden");
             $("#please_fill_wire_form").removeClass("db-form__row--visible");
 
-            if( (document.getElementById("payment_country_wire").value.toLowerCase() === 'other' && "#{current_user.pending_wire_transfer}" !== "eu") || "#{current_user.pending_wire_transfer}" === "other"){
+            if ("#{current_user.pending_wire_transfer}" !== "") {
+              $("#payment_country").val("#{current_user.pending_wire_transfer}");
+              $("#payment_country_wire").val("#{current_user.pending_wire_transfer}");
+            }
+
+            if( (document.getElementById("payment_country_wire").value.toLowerCase() === 'other') || "#{current_user.pending_wire_transfer}" === "other"){
               $("#wire_form_other").addClass("db-form__row--visible");
               $("#wire_form_other").removeClass("db-form__row--hidden");
               $("#wire_form_eu").removeClass("db-form__row--visible");
@@ -147,11 +152,21 @@
         setPrices(document.getElementById("payment_country_wire"));
 
         $("#payment_first_name_wire").change(function(event) {
+          document.getElementById("payment_first_name").value = event.target.value;
           showPreview(event.target);
         });
 
         $("#payment_last_name_wire").change(function(event) {
+          document.getElementById("payment_last_name").value = event.target.value;
           showPreview(event.target);
+        });
+
+        $("#payment_first_name").change(function(event) {
+          document.getElementById("payment_first_name_wire").value = event.target.value;
+        });
+
+        $("#payment_last_name").change(function(event) {
+          document.getElementById("payment_last_name_wire").value = event.target.value;
         });
 
         showPreview(document.getElementById("payment_country_wire").value);

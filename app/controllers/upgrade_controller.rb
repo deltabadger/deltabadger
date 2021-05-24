@@ -67,7 +67,10 @@ class UpgradeController < ApplicationController
       amount: cost_presenter.total_price
     )
 
-    wire_params[:user].update(pending_wire_transfer: eu?(wire_params) ? 'eu' : 'other')
+    wire_params[:user].update(
+      pending_wire_transfer: wire_params[:country],
+      pending_plan_id: wire_params[:subscription_plan_id]
+    )
 
     index
   end
@@ -152,7 +155,4 @@ class UpgradeController < ApplicationController
     @hodler_plan ||= subscription_plan_repository.hodler
   end
 
-  def eu?(params)
-    params[:country].downcase != 'other'
-  end
 end
