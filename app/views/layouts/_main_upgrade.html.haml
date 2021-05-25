@@ -172,11 +172,15 @@
         $("#payment_first_name").change(function(event) {
           document.getElementById("payment_first_name_wire").value = event.target.value;
           document.getElementById("payment_first_name_wire").defaultValue = event.target.value;
+
+          showPreview(event.target);
         });
 
         $("#payment_last_name").change(function(event) {
           document.getElementById("payment_last_name_wire").value = event.target.value;
           document.getElementById("payment_last_name_wire").defaultValue = event.target.value;
+
+          showPreview(event.target);
         });
 
         showPreview(document.getElementById("payment_country_wire").value);
