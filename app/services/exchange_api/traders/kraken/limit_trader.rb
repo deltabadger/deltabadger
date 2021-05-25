@@ -80,6 +80,10 @@ module ExchangeApi
         def common_order_params(symbol)
           super(symbol).merge(ordertype: 'limit')
         end
+
+        def opened?(order_data)
+          order_data.nil?
+        end
       end
     end
   end
