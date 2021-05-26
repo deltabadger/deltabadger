@@ -6,11 +6,13 @@ module Payments
     def initialize(
       payments_repository: PaymentsRepository.new,
       notifications: Notifications::Subscription.new,
+      fomo_notifications: Notifications::FomoEvents.new,
       subscribe_plan: SubscribePlan.new,
       grant_commission: Affiliates::GrantCommission.new
     )
       @payments_repository = payments_repository
       @notifications = notifications
+      @fomo_notifications = fomo_notifications
       @subscribe_plan = subscribe_plan
       @grant_commission = grant_commission
     end
@@ -42,6 +44,12 @@ module Payments
       )
 
       @grant_commission.call(referee: payment.user, payment: payment)
+
+      @fomo_notifications.plan_bought(
+        first_name: payment.first_name,
+        country: payment.country,
+        plan_name: payment.subscription_plan.name
+      )
     end
 
     private

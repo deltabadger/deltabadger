@@ -210,3 +210,9 @@
           $(".db-form-preview--visible_name").text(e.target.value);
         })
        });
+
+      if("#{current_user.subscription_name}" !== "hodler" && "#{current_user.subscription_name}" !== "investor") {
+        fomo.trigger('start')
+      } else {
+        fomo.trigger('stop')
+      }
