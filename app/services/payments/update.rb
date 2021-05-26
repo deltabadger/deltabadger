@@ -38,7 +38,7 @@ module Payments
       @subscribe_plan.call(
         user: payment.user,
         subscription_plan: payment.subscription_plan,
-        name: nil
+        email_params: nil
       )
 
       @grant_commission.call(referee: payment.user, payment: payment)
