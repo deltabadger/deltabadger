@@ -1,5 +1,6 @@
 !!!
 %html.db--devise.db--loggedout{:lang => I18n.locale}
+  <script type="text/javascript" src="https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js" async></script>
   %head
     %meta{:charset => "UTF-8"}
     %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
@@ -49,3 +50,5 @@
         $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
         $("html").css("--font-wght-adjustment",  Math.min(Math.max(915000/($(this).width() + 600), 290), 400) - 290 + "");
       });
+
+      fomo.trigger('start')
