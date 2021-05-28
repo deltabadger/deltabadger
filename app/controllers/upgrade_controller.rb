@@ -72,6 +72,12 @@ class UpgradeController < ApplicationController
       pending_plan_id: wire_params[:subscription_plan_id]
     )
 
+    Notifications::FomoEvents.new.plan_bought(
+      first_name: wire_params[:first_name],
+      ip_address: request.remote_ip,
+      plan_name: plan
+    )
+
     index
   end
 
