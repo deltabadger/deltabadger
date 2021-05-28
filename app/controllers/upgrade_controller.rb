@@ -30,8 +30,7 @@ class UpgradeController < ApplicationController
   end
 
   def payment_callback
-    callback_params = params['data'] || params
-    Payments::Update.call(callback_params.merge(ip_address: request.remote_ip))
+    Payments::Update.call(params['data'] || params)
 
     render json: {}
   end
