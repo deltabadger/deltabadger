@@ -24,9 +24,10 @@ module ExchangeApi
 
           if order_data.nil?
             res = @client.send :post_private, 'QueryOrders', txid: order_id
-            order_data =  res.dig('result').fetch(order_id, nil)
+            order_data = res.dig('result').fetch(order_id, nil)
           end
 
+          return error_to_failure([order_data.fetch('reason')]) if canceled?(order_data)
           return Result::Failure.new('Waiting for Kraken response', NOT_FETCHED) if opened?(order_data)
 
           rate = placed_order_rate(order_data)
@@ -91,6 +92,10 @@ module ExchangeApi
 
         def opened?(order_data)
           order_data.nil? || order_data.fetch('status') != 'closed'
+        end
+
+        def canceled?(order_data)
+          !order_data.nil? && order_data.fetch('status') == 'canceled'
         end
       end
     end
