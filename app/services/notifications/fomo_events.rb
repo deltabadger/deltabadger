@@ -10,12 +10,11 @@ module Notifications
       @client = Fomo.new(AUTHORIZATION_TOKEN)
     end
 
-    def plan_bought(first_name:, country:, plan_name:)
+    def plan_bought(first_name:, ip_address:, plan_name:)
       event = FomoEvent.new
       event.event_type_id = plan_name == 'hodler' ? HODLER_TEMPLATE_ID : INVESTOR_TEMPLATE_ID
       event.first_name = first_name
-      event.ip_address = country
-      #event.country = country
+      event.ip_address = ip_address
 
       @client.create_event(event)
     end

@@ -47,7 +47,7 @@ module Payments
 
       @fomo_notifications.plan_bought(
         first_name: payment.first_name,
-        country: payment.country,
+        ip_address: request.remote_ip,
         plan_name: payment.subscription_plan.name
       )
     end

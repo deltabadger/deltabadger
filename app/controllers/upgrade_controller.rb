@@ -74,7 +74,7 @@ class UpgradeController < ApplicationController
 
     Notifications::FomoEvents.new.plan_bought(
       first_name: wire_params[:first_name],
-      country: request.remote_ip, #wire_params[:country],
+      ip_address: request.remote_ip,
       plan_name: plan
     )
 
