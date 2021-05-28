@@ -47,7 +47,7 @@ module Payments
 
       @fomo_notifications.plan_bought(
         first_name: payment.first_name,
-        ip_address: request.remote_ip,
+        ip_address: params.fetch('ip_address', params[:ip_address]),
         plan_name: payment.subscription_plan.name
       )
     end
