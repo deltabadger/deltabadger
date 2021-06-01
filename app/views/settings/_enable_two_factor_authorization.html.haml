@@ -1,0 +1,36 @@
+%h4.db-modal__subtitle #{"Two Factor Authorization"}
+= form_for(user, url: settings_update_two_fa_path) do |f|
+  -#.db-form__row.db-form__row--input
+  -#  = check_box_tag 'two_fa_enabled', 1, user.two_fa_activated
+  -#  Two Factor Authorization Enabled
+  .form-group.db-form-group--main-btn
+    -# = f.submit "#{user.otp_module_enabled? ? 'Disable' : 'Enable'} 2FA", class: "btn btn-lg btn-primary"
+    = link_to "#{user.otp_module_enabled?  ? 'Disable' : 'Enable'} Two Factor", '#two_factor', data: { toggle: :modal }, class: "btn btn-lg btn-primary"
+
+#two_factor.modal.fade
+  = form_for :user, url: settings_update_two_fa_path, html: { class: 'form-inline' }  do |f|
+    .modal-dialog
+      .modal-content
+        .modal-header
+          %button.close{"aria-hidden" => "true", "data-dismiss" => "modal", type: "button"} ×
+          %h4.modal-title
+            = user.otp_module_enabled? ? 'Disable' : 'Enable'
+            Two Factor Authentication
+        .modal-body
+          - unless user.otp_module_enabled?
+            - qr = RQRCode::QRCode.new(user.provisioning_uri, size: 10, level: :h )
+            %table.qr{align: "center"}
+              - qr.modules.each_index do |x|
+                %tr
+                  - qr.modules.each_index do |y|
+                    -# if  -#qr.checked?(x,y)
+                    -if true
+                      %td.black
+                    - else
+                      %td.white
+            %hr/
+          .form-group
+            .text-center
+              = f.text_field :otp_code_token, placeholder: 'Verify Token', class: 'form-control input-lg'
+        .modal-footer
+          = f.submit "Update", class: 'btn btn-lg btn-block btn-primary'
