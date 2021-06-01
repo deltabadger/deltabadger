@@ -54,6 +54,13 @@ class SettingsController < ApplicationController
     end
   end
 
+  def update_two_fa
+    two_fa_activated = params[:two_fa_enabled]
+    current_user.update(two_fa_activated: two_fa_activated)
+
+    redirect_to settings_path
+  end
+
   private
 
   def check_if_using(api_key, user)
