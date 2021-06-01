@@ -59,10 +59,10 @@
             %form#new_payment.new_payment{"accept-charset" => "UTF-8", :action => "/en/upgrade/wire_transfer", :method => "post"}
               - if 'investor'.in?(upgrade_presenter.available_plans)
                 - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
-                %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected}
+                %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected}
               - if 'hodler'.in?(upgrade_presenter.available_plans)
                 - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
-                %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
+                %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
 
               .db-form__row
                 %input#payment_first_name.db-form__input{:autocomplete => "given-name", :id => 'wire', :name => "payment[first_name]", :onchange => "this.setAttribute(\"value\", this.value);", :type => "text", :value => "", :disabled => pending_wire_transfer}
