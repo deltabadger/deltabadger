@@ -49,6 +49,8 @@
           $(".db-plan-hodler").removeClass("db-plan--selected")
           $(".db-checkout").addClass("db-checkout--investor");
           $(".db-checkout").removeClass("db-checkout--hodler");
+          document.getElementById("payment_plan_investor_wire").checked = true;
+          document.getElementById("payment_plan_hodler_wire").checked = false;
         })
         $(".db-plan-hodler").click(function(){
           $("#payment_plan_hodler").click()
@@ -58,6 +60,8 @@
           $(".db-plan-investor").removeClass("db-plan--selected")
           $(".db-checkout").addClass("db-checkout--hodler");
           $(".db-checkout").removeClass("db-checkout--investor");
+          document.getElementById("payment_plan_investor_wire").checked = false;
+          document.getElementById("payment_plan_hodler_wire").checked = true;
         })
       })
 
