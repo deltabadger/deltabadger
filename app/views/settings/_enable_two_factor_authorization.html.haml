@@ -1,33 +1,32 @@
-%h4.db-modal__subtitle #{"Two Factor Authorization"}
+%h4.db-modal__subtitle #{"Second Factor Authentication"}
 - url = user.otp_module_enabled? ? settings_disable_two_fa_path : settings_enable_two_fa_path
 = form_for(user, url: url) do |f|
   .form-group.db-form-group--main-btn
-    = link_to "#{user.otp_module_enabled?  ? 'Disable' : 'Enable'} Two Factor", '#two_factor', data: { toggle: :modal }, class: "btn btn-lg btn-primary"
+    = link_to "#{user.otp_module_enabled?  ? 'Disable' : 'Enable'} 2FA", '#two_factor', data: { toggle: :modal }, class: "btn btn-lg btn-success"
 
 #two_factor.modal.fade
   - url = user.otp_module_enabled? ? settings_disable_two_fa_path : settings_enable_two_fa_path
   = form_for :user, url: url, html: { class: 'form-inline' }  do |f|
     .modal-dialog{ id: "modal-dialog"}
       .modal-content{ id: "modal-content"}
-        .modal-header
-          %button.close{"aria-hidden" => "true", "data-dismiss" => "modal", type: "button"} ×
-          %h4.modal-title
-            = user.otp_module_enabled? ? 'Disable' : 'Enable'
-            Two Factor Authentication
         .modal-body
-          - unless user.otp_module_enabled?
-            - qr = RQRCode::QRCode.new(user.provisioning_uri, size: 10, level: :h )
-            %table.qr{align: "center"}
-              - qr.to_s.split("\n").each do |line|
-                %tr
-                  - line.split("").each do |sign|
-                    - if sign == 'x'
-                      %td.black
-                    - else
-                      %td.white
-            %hr/
-          .form-group
-            .text-center
-              = f.text_field :otp_code_token, placeholder: 'Verify Token', class: 'form-control input-lg'
-        .modal-footer
-          = f.submit "Update", class: 'btn btn-lg btn-block btn-primary'
+          %h4.db-modal__subtitle
+            = user.otp_module_enabled? ? 'Disable' : 'Enable'
+            Second Factor Authentication
+          .db-form__row
+            .qrcode-wrapper
+              .qrcode
+                - unless user.otp_module_enabled?
+                  - qr = RQRCode::QRCode.new(user.provisioning_uri, size: 10, level: :h )
+                  %table.qr{align: "center"}
+                    - qr.to_s.split("\n").each do |line|
+                      %tr
+                        - line.split("").each do |sign|
+                          - if sign == 'x'
+                            %td.black
+                          - else
+                            %td.white
+          .db-form__row
+            = f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.label :"Enter 2FA code", class: "db-form__label"
+          = f.submit (user.otp_module_enabled? ? 'Disable' : 'Enable' + " 2FA"), class: 'btn btn-lg btn-block btn-success'
