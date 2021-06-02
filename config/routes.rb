@@ -63,7 +63,8 @@ Rails.application.routes.draw do
       patch :hide_welcome_banner
       patch :update_password
       patch :update_email
-      patch :update_two_fa
+      patch :enable_two_fa
+      patch :disable_two_fa
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
