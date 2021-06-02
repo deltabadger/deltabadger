@@ -11,8 +11,11 @@
       .modal-content{ id: "modal-content"}
         .modal-body
           %h4.db-modal__subtitle
-            = user.otp_module_enabled? ? 'Disable' : 'Enable'
-            Second Factor Authentication
+            2FA
+            %button.close{"aria-hidden" => "true", "data-dismiss" => "modal", type: "button"} ×
+          .db-form__row.text-center.pb-4
+            = "Current status:"
+            %b= user.otp_module_enabled? ? 'Enabled' : 'Disabled'
           .db-form__row
             .qrcode-wrapper
               .qrcode
