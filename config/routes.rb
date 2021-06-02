@@ -63,8 +63,8 @@ Rails.application.routes.draw do
       patch :hide_welcome_banner
       patch :update_password
       patch :update_email
-      patch :enable_two_fa
-      patch :disable_two_fa
+      post :enable_two_fa
+      post :disable_two_fa
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
@@ -77,7 +77,7 @@ Rails.application.routes.draw do
     get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
     post '/ref/accept', to: 'ref_codes#accept'
 
-    devise_for :users, skip: [:registrations]
+    devise_for :users, controllers: { sessions: 'users/sessions' }, skip: [:registrations]
 
     as :user do
       scope :users do

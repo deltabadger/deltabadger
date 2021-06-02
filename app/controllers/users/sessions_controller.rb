@@ -11,12 +11,12 @@ class Users::SessionsController < Devise::SessionsController
           continue_sign_in(resource, resource_name)
         else
           sign_out resource
-          redirect_to root_url, alert: 'Bad Credentials Supplied.'
+          redirect_to new_user_session_path, alert: 'Bad Credentials Supplied.'
         end
 
       else
         sign_out resource
-        redirect_to root_url, alert: 'Your account needs to supply a token.'
+        redirect_to new_user_session_path, alert: 'Your account needs to supply a token.'
       end
 
     end
