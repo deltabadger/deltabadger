@@ -3,6 +3,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby '~>2.6'
 
+gem 'active_model_otp'
 gem "administrate"
 gem "attr_encrypted", "~> 3.1.0"
 gem 'bootsnap', '>= 1.1.0', require: false
@@ -16,6 +17,7 @@ gem 'jbuilder', '~> 2.5'
 gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 3.11'
 gem 'rails', '~> 5.2.5'
+gem 'rqrcode'
 gem 'sass-rails', '~> 5.0'
 gem 'sidekiq'
 gem 'uglifier', '>= 1.3.0'

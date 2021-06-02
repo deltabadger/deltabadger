@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_05_12_124756) do
+ActiveRecord::Schema.define(version: 2021_06_01_134055) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -183,6 +183,8 @@ ActiveRecord::Schema.define(version: 2021_05_12_124756) do
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "pending_wire_transfer"
     t.integer "pending_plan_id"
+    t.string "otp_secret_key"
+    t.integer "otp_module", default: 0
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
