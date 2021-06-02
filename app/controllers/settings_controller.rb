@@ -54,6 +54,32 @@ class SettingsController < ApplicationController
     end
   end
 
+  def enable_two_fa
+    user = current_user
+    if user.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+      user.update(otp_module: 'enabled')
+      redirect_to settings_path
+    else
+      render :index, locals: {
+        user: current_user,
+        api_keys: current_user.api_keys
+      }
+    end
+  end
+
+  def disable_two_fa
+    user = current_user
+    if user.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+      user.update(otp_module: 'disabled')
+      redirect_to settings_path
+    else
+      render :index, locals: {
+        user: current_user,
+        api_keys: current_user.api_keys
+      }
+    end
+  end
+
   private
 
   def check_if_using(api_key, user)
