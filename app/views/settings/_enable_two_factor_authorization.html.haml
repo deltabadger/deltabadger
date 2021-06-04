@@ -15,7 +15,7 @@
             %button.close{"aria-hidden" => "true", "data-dismiss" => "modal", type: "button"} ×
           .db-form__row.text-center.pb-4
             = t('helpers.label.settings.current_status')
-            %b= user.otp_module_enabled? ? t('helpers.label.settings.enabled') : t('helpers.label.settings.disabled')
+            %b{ class: user.otp_module_enabled? ? 'text-success' : 'text-secondary'}= user.otp_module_enabled? ? t('helpers.label.settings.enabled') : t('helpers.label.settings.disabled')
           .db-form__row
             .qrcode-wrapper
               .qrcode
@@ -31,5 +31,5 @@
                             %td.white
           .db-form__row
             = f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-            = f.label t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
+            = f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
           = f.submit (user.otp_module_enabled? ? t('helpers.label.settings.disable_two_fa') : t('helpers.label.settings.enable_two_fa')), class: 'btn btn-lg btn-block btn-success'
