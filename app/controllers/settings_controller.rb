@@ -60,7 +60,11 @@ class SettingsController < ApplicationController
       user.update(otp_module: 'enabled')
       redirect_to settings_path
     else
-      redirect_to settings_path, alert: "Bad code suplied"
+      render :index, locals: {
+        user: current_user,
+        api_keys: current_user.api_keys,
+        wrong_code: true
+      }
     end
   end
 
@@ -70,7 +74,11 @@ class SettingsController < ApplicationController
       user.update(otp_module: 'disabled')
       redirect_to settings_path
     else
-      redirect_to settings_path, alert: I18n.t('errors.messages.wrong_two_fa_token')
+      render :index, locals: {
+        user: current_user,
+        api_keys: current_user.api_keys,
+        wrong_code: true
+      }
     end
   end
 
