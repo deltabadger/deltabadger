@@ -51,7 +51,7 @@
   }
 }
 .navbar {
-  z-index: 10000;
+  position: relative;
   padding: 4rem 0;
   @include media-breakpoint-down(md) {
       padding: 2.5rem 0;
@@ -97,6 +97,16 @@
   background: none !important;
   .navbar-brand {
     margin-left: 0;
+    svg {
+      width: 8.4rem;
+      height: 3rem;
+    }
+    .db-hi-welcome {
+      svg {
+        width: 3.8rem;
+        height: 1.4rem;
+      }
+    }
   }
   &__close {
     width:  3rem;
