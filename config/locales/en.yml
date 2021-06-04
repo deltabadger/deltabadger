@@ -352,6 +352,7 @@ en:
             title: Settings
             email_section: 'Update email'
             submit_email: 'Update email'
+            two_factor_section: 'Second Factor Authentication'
             password_section: 'Update password'
             submit_password: 'Change password'
             api_keys_section: 'API keys'
@@ -390,6 +391,13 @@ en:
                 submit_investor_order: 'Order Investor plan'
                 submit_hodler_order: 'Order Hodler plan'
                 business_invoice: 'I need business invoice.'
+            settings:
+                enable_two_fa: 'Enable 2FA'
+                disable_two_fa: 'Disable 2FA'
+                current_status: "Current status:"
+                enabled: 'Enabled'
+                disabled: 'Disabled'
+                enter_two_fa_code: "Enter 2FA code"
     cookie:
         agree: 'I agree'
         description: 'We use cookies to make things simpler.'
