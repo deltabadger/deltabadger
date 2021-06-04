@@ -32,4 +32,16 @@
           .db-form__row
             = f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             = f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
+            - if wrong_code
+              .db-form__info.db-form__info--invalid{style: 'display: block'}
+                = t('errors.messages.wrong_two_fa_token')
+            = f.label t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
           = f.submit (user.otp_module_enabled? ? t('helpers.label.settings.disable_two_fa') : t('helpers.label.settings.enable_two_fa')), class: 'btn btn-lg btn-block btn-success'
+
+:javascript
+  // settings
+  if ("#{wrong_code}" === "true"){
+    $(document).ready(function(){
+      $('#two_factor').modal('show');
+    })
+  }
