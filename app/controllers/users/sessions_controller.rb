@@ -3,7 +3,12 @@ class Users::SessionsController < Devise::SessionsController
     self.resource = warden.authenticate!(auth_options)
 
     if resource&.otp_module_disabled?
-      continue_sign_in(resource, resource_name)
+      if params[:user][:otp_code_token].empty?
+        continue_sign_in(resource, resource_name)
+      else
+        sign_out resource
+        redirect_to new_user_session_path, alert: I18n.t('errors.messages.bad_credentials')
+      end
 
     elsif resource&.otp_module_enabled?
       if params[:user][:otp_code_token].size.positive?
@@ -11,12 +16,12 @@ class Users::SessionsController < Devise::SessionsController
           continue_sign_in(resource, resource_name)
         else
           sign_out resource
-          redirect_to new_user_session_path, alert: 'Bad Credentials Supplied.'
+          redirect_to new_user_session_path, alert: I18n.t('errors.messages.bad_credentials')
         end
 
       else
         sign_out resource
-        redirect_to new_user_session_path, alert: 'Your account needs to supply a token.'
+        redirect_to new_user_session_path, alert: I18n.t('errors.messages.empty_two_fa_token')
       end
 
     end
