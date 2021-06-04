@@ -20,7 +20,7 @@
             .qrcode-wrapper
               .qrcode
                 - unless user.otp_module_enabled?
-                  - qr = RQRCode::QRCode.new(user.provisioning_uri(account = nil, options = {issuer: 'deltabadger.com'}), size: 10, level: :h )
+                  - qr = RQRCode::QRCode.new(user.provisioning_uri(account = nil, options = {issuer: 'deltabadger.com'}), size: 12, level: :h )
                   %table.qr{align: "center"}
                     - qr.to_s.split("\n").each do |line|
                       %tr
