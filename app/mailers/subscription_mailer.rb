@@ -43,9 +43,12 @@ class SubscriptionMailer < ApplicationMailer
     @country = params[:country]
     @amount = params[:amount]
 
+    res = ActiveRecord::Base.connection.execute("SELECT nextval('wire_transfer_id_seq')")
+    id = res[0]["nextval"]
+
     mail(
       to: 'jan@deltabadger.com',
-      subject: 'New wire transfer'
+      subject: "New wire transfer, ##{id}"
     )
   end
 end
