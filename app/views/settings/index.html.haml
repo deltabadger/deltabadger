@@ -7,6 +7,9 @@
       = render partial: 'update_email_form', locals: { user: user }
     .db-box.mb-3
       = render partial: 'update_password_form', locals: { user: user }
+    .db-box.mb-3
+      - wrong_code = !wrong_code.nil?
+      = render partial: 'enable_two_factor_authorization', locals: { user: user, wrong_code: wrong_code }
     .db-box
       %h4.db-modal__subtitle= t('.api_keys_section')
       = render partial: 'remove_api_key', collection: api_keys, as: :api_key
