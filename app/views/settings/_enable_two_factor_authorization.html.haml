@@ -29,6 +29,11 @@
                             %td.black
                           - else
                             %td.white
+          - unless user.otp_module_enabled?
+            .mb-4.text-center
+              Scan QR code or copy the code below:
+              %strong.text-center
+                #{user.otp_secret_key}
           .db-form__row
             = f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             = f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
