@@ -398,6 +398,7 @@ en:
                 enabled: 'Enabled'
                 disabled: 'Disabled'
                 enter_two_fa_code: "Enter 2FA code"
+                scan_code_info: 'Scan QR code or copy the code below:'
     cookie:
         agree: 'I agree'
         description: 'We use cookies to make things simpler.'
