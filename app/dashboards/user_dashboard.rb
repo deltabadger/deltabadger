@@ -33,7 +33,9 @@ class UserDashboard < Administrate::BaseDashboard
     welcome_banner_showed: Field::Boolean,
     limit_reached?: Field::Boolean,
     referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
-    current_referrer_profit: Field::Number
+    current_referrer_profit: Field::Number,
+    otp_secret_key: Field::String,
+    otp_module: Field::Select.with_options(collection: %w[disabled enabled])
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -67,6 +69,7 @@ class UserDashboard < Administrate::BaseDashboard
     created_at
     updated_at
     unconfirmed_email
+    otp_module
     admin
     terms_and_conditions
     updates_agreement
@@ -83,6 +86,7 @@ class UserDashboard < Administrate::BaseDashboard
     confirmed_at
     confirmation_sent_at
     unconfirmed_email
+    otp_module
     admin
     terms_and_conditions
     updates_agreement
