@@ -6,19 +6,19 @@ class Users::SessionsController < Devise::SessionsController
       if params[:user][:otp_code_token].empty?
         continue_sign_in(resource, resource_name)
       else
-        abort_sign_in(I18n.t('errors.messages.bad_credentials'))
+        abort_sign_in(I18n.t('errors.messages.bad_credentials'), :email)
       end
 
     elsif resource&.otp_module_enabled?
-      if params[:user][:otp_code_token].size.present?
+      if params[:user][:otp_code_token].present?
         if resource.authenticate_otp(params[:user][:otp_code_token], drift: 60)
           continue_sign_in(resource, resource_name)
         else
-          abort_sign_in(I18n.t('errors.messages.bad_credentials'))
+          abort_sign_in(I18n.t('errors.messages.bad_credentials'), :email)
         end
 
       else
-        abort_sign_in(I18n.t('errors.messages.empty_two_fa_token'))
+        abort_sign_in(I18n.t('errors.messages.empty_two_fa_token'), :otp_code_token)
       end
 
     end
@@ -33,8 +33,10 @@ class Users::SessionsController < Devise::SessionsController
     respond_with resource, location: after_sign_in_path_for(resource)
   end
 
-  def abort_sign_in(error_message)
+  def abort_sign_in(error_message, field)
     sign_out resource
-    redirect_to new_user_session_path, alert: error_message
+    resource.errors.add(field, :invalid)
+    @error_message = error_message
+    respond_with resource, location: new_user_session_path
   end
 end
