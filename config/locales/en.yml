@@ -120,7 +120,7 @@ en:
             in: 'must be in %{count}'
             odd: 'must be odd'
             even: 'must be even'
-            bad_credentials: 'Bad Credentials Supplied'
+            bad_credentials: 'Bad credentials supplied'
             empty_two_fa_token: 'You need to supply a token'
             wrong_two_fa_token: 'Supplied code is wrong'
         unverified_request: 'Please refresh your browser and try again'

@@ -29,6 +29,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
         end
       end
 
+      byebug
       set_email_in_use
       set_email_suggestion
     end

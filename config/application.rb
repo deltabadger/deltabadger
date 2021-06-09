@@ -42,5 +42,7 @@ module Deltabadger
       config.dsn = ENV['SENTRY_DSN']
       config.environments = %w[ production ]
     end
+
+    config.autoload_paths << Rails.root.join('lib')
   end
 end
