@@ -6,7 +6,7 @@ class Users::SessionsController < Devise::SessionsController
       if params[:user][:otp_code_token].empty?
         continue_sign_in(resource, resource_name)
       else
-        abort_sign_in(I18n.t('errors.messages.bad_credentials'), :email)
+        abort_sign_in(I18n.t('errors.messages.bad_credentials_with_code'), :email)
       end
 
     elsif resource&.otp_module_enabled?
@@ -14,11 +14,11 @@ class Users::SessionsController < Devise::SessionsController
         if resource.authenticate_otp(params[:user][:otp_code_token], drift: 60)
           continue_sign_in(resource, resource_name)
         else
-          abort_sign_in(I18n.t('errors.messages.bad_credentials'), :email)
+          abort_sign_in(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
         end
 
       else
-        abort_sign_in(I18n.t('errors.messages.empty_two_fa_token'), :otp_code_token)
+        abort_sign_in(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
       end
 
     end
