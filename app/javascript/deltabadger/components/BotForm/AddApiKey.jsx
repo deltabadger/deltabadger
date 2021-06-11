@@ -85,6 +85,7 @@ export const AddApiKey = ({
                 onChange={e => setKey(e.target.value)}
                 className="db-form__input"
                 disabled={disableFormFields}
+                autoComplete="off"
               />
               <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
             </div>
@@ -98,6 +99,7 @@ export const AddApiKey = ({
                 onChange={e => setSecret(e.target.value)}
                 className="db-form__input"
                 disabled={disableFormFields}
+                autoComplete="off"
               />
               <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
             </div>

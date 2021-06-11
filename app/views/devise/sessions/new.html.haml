@@ -1,4 +1,6 @@
 - content_for :meta_robots_content, 'noindex'
+- resource.errors.add(:email, :invalid) if flash[:alert].present?
+- flash[:alert] = nil if flash[:alert].present?
 
 .container.container--signup
   .row
@@ -20,6 +22,8 @@
             .db-form__info.db-form__info--invalid
               - if @error_message
                 #{@error_message}
+              - else
+                = t('errors.messages.bad_credentials')
             = f.label :email, class: "db-form__label"
           .db-form__row
             = f.password_field :password, autocomplete: "current-password", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
@@ -34,7 +38,7 @@
               = f.label :remember_me, class: "form-check-label"
 
           .db-form__row
-            = f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :otp_code_token, autocomplete: 'off', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             .db-form__info.db-form__info--invalid
               - if @error_message
                 #{@error_message}

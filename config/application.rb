@@ -43,6 +43,5 @@ module Deltabadger
       config.environments = %w[ production ]
     end
 
-    config.autoload_paths << Rails.root.join('lib')
   end
 end
