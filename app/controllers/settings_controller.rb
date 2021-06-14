@@ -60,6 +60,8 @@ class SettingsController < ApplicationController
       user.update(otp_module: 'enabled')
       redirect_to settings_path
     else
+      current_user.errors.add(:current_password, :invalid)
+      current_user.errors.add(:otp_code_token, :invalid)
       render :index, locals: {
         user: current_user,
         api_keys: current_user.api_keys,
