@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, {useEffect, useState} from 'react'
 import I18n from 'i18n-js'
 import { RawHTML } from '../RawHtml'
 import { Instructions } from './Instructions';
@@ -49,6 +49,16 @@ export const AddApiKey = ({
 
   const { public: key_label, private: secret_label, passphrase: phrase_label } = apiKeyNames(pickedExchangeName);
 
+  useEffect(() => {
+    if (status == 'invalid_api_key') {
+      document.getElementById('api-key').setCustomValidity("Error")
+      document.getElementById('api-secret').setCustomValidity("Error")
+      if (pickedExchangeName == 'Coinbase Pro') {
+        document.getElementById('api-passphrase').setCustomValidity("Error")
+      }
+    }
+  })
+
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
       <div className="db-bot__header">
@@ -70,11 +80,6 @@ export const AddApiKey = ({
       </div>
       <Progressbar value={33}/>
       <div className="db-bot__form db-bot__form--apikeys">
-        {status == 'invalid_api_key' &&
-          <div className="db-bot__alert text-danger">
-            {I18n.t('bots.setup.error_info')}
-          </div>
-        }
         <form onSubmit={_handleSubmit} className="form-row">
           <div className="col">
             <div className="db-form__row mb-0">
@@ -87,6 +92,9 @@ export const AddApiKey = ({
                 disabled={disableFormFields}
                 autoComplete="off"
               />
+              <div className="db-form__info db-form__info--invalid">
+                {I18n.t('bots.setup.error_info')}
+              </div>
               <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
             </div>
           </div>
@@ -101,6 +109,8 @@ export const AddApiKey = ({
                 disabled={disableFormFields}
                 autoComplete="off"
               />
+              <div className="db-form__info db-form__info--invalid">
+              </div>
               <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
             </div>
           </div>
