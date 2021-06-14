@@ -30,6 +30,6 @@ class TransactionsRepository < BaseRepository
   def total_btc_by_type(type)
     model.joins(:bot)
          .where("bots.settings->>'type' = ? AND bots.settings->>'base' IN (?)", type, BTC)
-         .sum(:amount)
+         .sum(:amount).ceil(8)
   end
 end
