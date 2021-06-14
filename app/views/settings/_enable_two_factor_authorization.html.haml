@@ -1,12 +1,12 @@
 %h4.db-modal__subtitle #{t('settings.index.two_factor_section')}
 - url = user.otp_module_enabled? ? settings_disable_two_fa_path : settings_enable_two_fa_path
-= form_for(user, url: url) do |f|
+= form_for(user, url: url, :method => :post) do |f|
   .form-group.db-form-group--main-btn
     = link_to (user.otp_module_enabled? ? t('helpers.label.settings.disable_two_fa') : t('helpers.label.settings.enable_two_fa')), '#two_factor', data: { toggle: :modal }, class: "btn btn-lg btn-success"
 
 #two_factor.modal.fade
   - url = user.otp_module_enabled? ? settings_disable_two_fa_path : settings_enable_two_fa_path
-  = form_for :user, url: url, html: { class: 'form-inline' }  do |f|
+  = form_for user, url: url, html: { class: 'form-inline' }, :method => :post do |f|
     .modal-dialog{ id: "modal-dialog"}
       .modal-content{ id: "modal-content"}
         .modal-body
@@ -34,12 +34,12 @@
               = t('helpers.label.settings.scan_code_info')
             .mb-5.text-center
               %b #{user.otp_secret_key}
-          .db-form__row
+
+          .db-form__row.db-form__row--input
             = f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            .db-form__info.db-form__info--invalid
+              = t('errors.messages.wrong_two_fa_token')
             = f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
-            - if wrong_code
-              .db-form__info.db-form__info--invalid{style: 'display: block'}
-                = t('errors.messages.wrong_two_fa_token')
             = f.label t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label"
           = f.submit (user.otp_module_enabled? ? t('helpers.label.settings.disable_two_fa') : t('helpers.label.settings.enable_two_fa')), class: 'btn btn-lg btn-block btn-success'
 
