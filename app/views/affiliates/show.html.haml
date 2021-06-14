@@ -61,11 +61,6 @@
           = f.submit t('.submit'), class: 'btn btn-lg btn-primary', disabled: disabled
     .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
       %h4.db-modal__subtitle  #{t('.update_bitcoin_address')}
-      - if errors.present?
-        %ul.pl-3
-          - errors.each do |error|
-            %li.text-danger= error
-
       = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
         .db-form__row.db-form__row--input
           = f.password_field :current_address, disabled: true, type: 'text', autocomplete: 'nope', value: affiliate.btc_address, class: 'db-form__input'
@@ -77,6 +72,8 @@
           = f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label'
         .db-form__row.db-form__row--input
           = f.password_field :current_password, disabled: disabled, type: 'password', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
+          .db-form__info.db-form__info--invalid
+            Password is invalid
           = f.label :current_password, t('settings.index.current_password'), class: 'db-form__label'
 
         .form-group.db-form-group--main-btn

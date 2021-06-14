@@ -14,11 +14,6 @@
           #payBitcoin.tab-pane.show{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => ('active' unless pending_wire_transfer)}
             %h4.mb-4= t('subscriptions.payment.billing_information')
             = form_for payment, url: upgrade_pay_path do |f|
-              - if errors.present?
-                %ul.pl-3
-                  - errors.each do |error|
-                    %li.text-danger= error
-
               - if 'investor'.in?(upgrade_presenter.available_plans)
                 - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
                 %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected, :class => ('disabled' if pending_wire_transfer)}
@@ -28,14 +23,20 @@
 
               .db-form__row
                 = f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", onchange: 'this.setAttribute("value", this.value);'
+                .db-form__info.db-form__info--invalid
+                  = t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank')
                 = f.label :first_name, class: 'db-form__label'
 
               .db-form__row
                 = f.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", onchange: 'this.setAttribute("value", this.value);'
+                .db-form__info.db-form__info--invalid
+                  = t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank')
                 = f.label :last_name, class: 'db-form__label'
 
               .db-form__row
                 = f.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date', onchange: 'this.setAttribute("value", this.value);'
+                .db-form__info.db-form__info--invalid
+                  = t('helpers.label.payment.birth_date') + ' ' + t('errors.messages.blank')
                 = f.label :birth_date, class: 'db-form__label'
 
               .db-form__row
@@ -46,6 +47,8 @@
                     - if translated_name == 'Other'
                       - translated_name = t('helpers.label.payment.other')
                     = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+                .db-form__info.db-form__info--invalid
+                  = t('helpers.label.payment.country') + ' ' + t('errors.messages.blank')
                 = f.label :country, class: 'db-form__label'
 
               .db-form__row.db-form__row--final-button
