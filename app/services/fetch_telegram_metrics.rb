@@ -18,6 +18,6 @@ class FetchTelegramMetrics < BaseService
     output_metrics
   rescue StandardError => e
     Raven.capture_exception(e)
-    { membersCounter: 'Unavailable' }
+    { membersCounter: nil }
   end
 end
