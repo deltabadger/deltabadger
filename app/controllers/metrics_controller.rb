@@ -15,8 +15,6 @@ class MetricsController < ApplicationController
       membersCounter: res.fetch('result')
     }
 
-    # FIXME: Move to CORS before release
-    response.set_header('Access-Control-Allow-Origin', '*')
     render json: { data: output_params }.to_json
   end
 
