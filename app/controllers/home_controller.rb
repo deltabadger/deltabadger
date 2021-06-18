@@ -29,14 +29,7 @@ class HomeController < ApplicationController
       return
     end
 
-    if request.referer.nil?
-      cookies[:alternative_landing] = { value: false }
-    end
-
-    if cookies[:alternative_landing].present? && cookies[:alternative_landing] == 'true'
-      redirect_to dollar_cost_averaging_path
-      return
-    end
+    redirect_to new_user_session_path
   end
 
   def dollar_cost_averaging
