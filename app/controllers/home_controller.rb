@@ -6,7 +6,6 @@ class HomeController < ApplicationController
     cookies_policy
     contact
     about
-    dollar_cost_averaging
     confirm_registration
 
   ].freeze
@@ -30,10 +29,6 @@ class HomeController < ApplicationController
     end
 
     redirect_to new_user_session_path
-  end
-
-  def dollar_cost_averaging
-    cookies[:alternative_landing] = { value: true }
   end
 
   def confirm_registration
