@@ -199,7 +199,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
-          <div className="form-inline mx-4">
+          <div className="form-inline db-bot__form__schedule">
             <div className="form-group mr-2">
               <select
                 value={type}
@@ -268,27 +268,45 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               </select>
             </div>
           </div>
-          <label className="form-inline mx-4 mt-4 mb-0">
+
+          <label
+            className="alert alert-secondary db-alert--annotation db-alert--always-use form-inline"
+            disabled={!forceSmartIntervals}
+          >
             <input
               type="checkbox"
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
-              className="mr-2" />
+              className="mr-4"
+            />
             <span>{I18n.t('bots.force_smart_intervals')}</span>
+
+            <input
+              type="tel"
+              className="form-control"
+            />
+
           </label>
+
+          {isLimitOrder() &&
+          <span className="db-limit-bot-modifier alert alert-warning db-alert--annotation">
+            { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
+              type="tel"
+              min="0"
+              step="0.1"
+              className="form-control"
+              onChange={e => setPercentage(e.target.value)}
+              placeholder="0"
+              /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
+
+            {isLimitOrder() && <LimitOrderNotice />}
+
+          </span> }
+
         </form>
-        {isLimitOrder() &&
-        <span className="db-limit-bot-modifier">
-          { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
-            type="text"
-            min="0"
-            step="0.1"
-            className="form-control"
-            onChange={e => setPercentage(e.target.value)}
-            placeholder="0"
-            /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup></span> }
+
       </div>
-      {isLimitOrder() && <LimitOrderNotice />}
+
       <div className="db-bot__footer">
         <ResetButton />
       </div>
