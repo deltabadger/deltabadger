@@ -1,6 +1,65 @@
 .alert
-  padding: 2rem 2.5rem 2.4rem
+  padding: 1rem 2.5rem
+  [type="checkbox"]
+    position: relative
+    top: .25rem
+  [type="tel"]
+    margin: 1rem .5rem
+    display: inline !important
+    min-width: 7rem
   &-primary
     color:            var(--alertPrimaryTxt)
     background-color: var(--alertPrimaryBg)
     border-color:     var(--alertPrimaryBorder)
+  &-secondary
+    background-color: var(--alertPrimaryBg)
+    color:            var(--alertPrimaryTxt)
+    border-color:     var(--alertSecondaryBorder)
+    &[disabled]
+      background-color: var(--alertSecondaryBg)
+
+
+// input sizing
+
+.input-sizer,
+.input-sizer::after
+  box-sizing: border-box
+
+.input-sizer
+  display: inline-grid
+  vertical-align: top
+  align-items: center
+  position: relative
+  background: #eee
+  border-bottom: 2px solid
+  &.stacked
+    align-items: stretch
+    &::after,
+    input,
+    textarea
+      grid-area: 2 / 1
+
+
+  &::after,
+  input,
+  textarea
+    width: auto
+    min-width: 1em
+    grid-area: 1 / 2
+    font: inherit
+    padding: 0.25em
+    margin: 0
+    resize: none
+    background: none
+    appearance: none
+    border: none
+
+  &::after
+    content: attr(data-value) ' '
+    visibility: hidden
+    white-space: pre-wrap
+
+  &:focus-within
+    textarea:focus,
+    input:focus
+      outline: none
