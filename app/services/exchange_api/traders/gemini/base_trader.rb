@@ -57,7 +57,7 @@ module ExchangeApi
           Result::Failure.new('Could not make Gemini order', RECOVERABLE)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
@@ -65,7 +65,7 @@ module ExchangeApi
           min_volume = @market.minimum_base_size(symbol)
           return min_volume unless min_volume.success?
 
-          return Result::Success.new(min_volume.data) if force_smart_intervals
+          return Result::Success.new([smart_intervals_value, min_volume.data].max) if force_smart_intervals
 
           Result::Success.new([min_volume.data, volume].max)
         end
