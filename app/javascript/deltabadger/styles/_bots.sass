@@ -128,17 +128,15 @@ input
   border-radius: $box-border-radius
   box-shadow:    $boxShadowBot
   .alert
-    border-radius: 0
+    border-radius: .5rem
+    margin: 0 1rem 1rem
     box-shadow: none
-    margin-bottom: .6rem
     a
       color: var(--primary) !important
     ol
       padding-left: 1.5em
     &--trading-agreement
       margin-top: -3rem
-    &-warning
-      margin-bottom: 8rem
   .form-inline
     justify-content: center
     :last-child
@@ -306,7 +304,7 @@ input
     p
       margin: 1em 3em
   &__footer
-    margin-top: -5em
+    margin-top: -.5em
     min-height: 7.4rem
 
 .db-bot-info__footer
@@ -334,10 +332,14 @@ input
 // bot dca1
 
 .db-bot__form
-  padding: 4em 0 3em
+  padding: 7rem 0 0
   display: flex
   flex-direction: column
-  align-items: center
+  align-items: stretch
+  &__schedule
+    margin-bottom: 7rem
+  form
+    width: 100%
   input
     text-align: right
 
@@ -387,11 +389,11 @@ input
   text-align: center
 .btn--reset
   margin:          1em
-    left:          4rem
+  left:            4rem
   color:           var(--secondary) !important
   text-decoration: none !important
   align-self:      flex-start
-  width:           4.2rem
+  width:           7.4rem
   height:          4.2rem
   span
     color:       var(--danger)
@@ -410,11 +412,6 @@ input
     color: var(--primary) !important
     color: var(--primary-p3) !important
 
-.db-exchange
-  &-instructions
-    &+.db-bot__footer
-      margin-top: 0
-
 // chart
 
 .db-chart-container
@@ -428,11 +425,16 @@ input
     width: 3.1em
     display: inline-block
 
-.db-alert--annotation
-  display: block
-  &:first-line
-    text-indent: -1em
+.db-alert
+  &--annotation
+    min-height: 4rem
+    display: block
+    &:first-line
 
+      text-indent: -1em
+  &--always-use
+    input
+      max-width: 7rem
 .db-breadcrumbs
   color: var(--linkInactive)
   em
