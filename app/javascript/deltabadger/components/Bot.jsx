@@ -8,6 +8,7 @@ import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import { shouldRename, renameSymbol} from "../utils/symbols";
+import { RawHTML } from './RawHtml'
 
 import {
   reloadBot,
@@ -42,6 +43,7 @@ const BotTemplate = ({
   const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
   const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value);
 
   const colorClass = settings.type === 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
@@ -99,7 +101,8 @@ const BotTemplate = ({
       id: bot.id,
       price: price.trim(),
       forceSmartIntervals,
-      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
+      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined,
+      smartIntervalsValue
     }
 
     const continueParams = {
@@ -134,6 +137,11 @@ const BotTemplate = ({
     }
 
     return out
+  }
+
+  const handleSmartIntervalsValueChange = (e) => {
+    setSmartIntervalsValue(e.target.value)
+    console.log("CHANGED", smartIntervalsValue)
   }
 
   return (
@@ -214,14 +222,8 @@ const BotTemplate = ({
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-4"
               />
-            <span disabled={working}>{I18n.t('bots.force_smart_intervals')}
-
-            <input
-              type="tel"
-              className="form-control"
-              disabled={working}
-            />
-            </span>
+            <RawHTML tag="span">{I18n.t('bots.force_smart_intervals_html', {onChange: 'handleSmartIntervalsValueChange'})}
+            </RawHTML>
           </label>
 
           {isLimitSelected() &&

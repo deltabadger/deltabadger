@@ -37,11 +37,11 @@ module ExchangeApi
           Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
         end
 
-        def transaction_price(symbol, price, force_smart_intervals)
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
           min_price = @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
 
-          return Result::Success.new(min_price.data) if force_smart_intervals
+          return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
           Result::Success.new([min_price.data, price].max)
         end

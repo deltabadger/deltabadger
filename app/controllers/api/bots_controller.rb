@@ -123,10 +123,19 @@ module Api
         .permit(*BOT_PARAMS)
     end
 
+    BOT_UPDATE_PARAMS = %i[
+      order_type
+      price
+      percentage
+      interval
+      force_smart_intervals
+      smart_intervals_value
+    ].freeze
+
     def bot_update_params
       params
         .require(:bot)
-        .permit(:order_type, :interval, :price, :percentage, :force_smart_intervals)
+        .permit(*BOT_UPDATE_PARAMS)
         .merge(id: params[:id])
     end
 

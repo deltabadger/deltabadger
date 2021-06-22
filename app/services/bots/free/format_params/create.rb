@@ -10,6 +10,7 @@ module Bots
           quote
           interval
           force_smart_intervals
+          smart_intervals_value
         ].freeze
 
         def call(params)

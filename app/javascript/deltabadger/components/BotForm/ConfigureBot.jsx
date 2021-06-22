@@ -40,6 +40,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [percentage, setPercentage] = useState("0");
   const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(false);
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -92,6 +93,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       quote,
       interval,
       forceSmartIntervals,
+      smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
@@ -134,11 +136,20 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       quote,
       interval,
       forceSmartIntervals,
+      smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
     }
     !disableSubmit && handleSubmit(botParams);
+  }
+
+  const _handle= (evt) => {
+    if (dontShowInfo) {
+      _setShowSmartIntervalsInfo()
+    }
+
+    _handleSubmit(evt)
   }
 
   const isLimitOrder = () => type === 'limit_buy' || type === 'limit_sell'
@@ -279,7 +290,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               className="mr-4"
             />
-            <span>{I18n.t('bots.force_smart_intervals')}</span>
+            <RawHTML tag="span">{I18n.t('bots.force_smart_intervals_html')}
+            </RawHTML>
 
             <input
               type="tel"
