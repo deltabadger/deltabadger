@@ -44,11 +44,11 @@ module ExchangeApi
           }
         end
 
-        def transaction_price(symbol, price, force_smart_intervals)
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
           min_price = @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
 
-          return min_price if force_smart_intervals
+          return [smart_intervals_value, min_price].max if force_smart_intervals
 
           Result::Success.new([price, min_price.data].max)
         end

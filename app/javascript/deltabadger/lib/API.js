@@ -83,6 +83,7 @@ const API = {
       percentage: params.percentage,
       interval: params.interval,
       force_smart_intervals: params.forceSmartIntervals,
+      smart_intervals_value: params.smartIntervalsValue
     }
 
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);

@@ -4,9 +4,9 @@ module ExchangeApi
   module Traders
     module Binance
       class LimitTrader < ExchangeApi::Traders::Binance::BaseTrader
-        def buy(base:, quote:, price:, percentage:, force_smart_intervals:)
+        def buy(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
           symbol = @market.symbol(base, quote)
-          final_price = transaction_price(symbol, price, force_smart_intervals)
+          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
           return final_price unless final_price.success?
 
           buy_params = get_buy_params(symbol, final_price.data, percentage)
@@ -15,9 +15,9 @@ module ExchangeApi
           place_order(buy_params.data)
         end
 
-        def sell(base:, quote:, price:, percentage:, force_smart_intervals:)
+        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
           symbol = @market.symbol(base, quote)
-          final_price = transaction_price(symbol, price, force_smart_intervals)
+          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
           return final_price unless final_price.success?
 
           sell_params = get_sell_params(symbol, final_price.data, percentage)
