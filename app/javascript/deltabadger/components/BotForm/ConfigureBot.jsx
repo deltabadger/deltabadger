@@ -210,12 +210,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
+
           <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-2">
+            <div className="form-group mr-3">
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
-                className="form-control db-select--buy-sell"
+                className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
               >
                 <option value="market_buy">{I18n.t('bots.buy')}</option>
                 <option value="market_sell">{I18n.t('bots.sell')}</option>
@@ -224,11 +225,11 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 }
               </select>
             </div>
-            <div className="form-group mr-2">
+            <div className="form-group mr-3">
               <select
                 value={base}
                 onChange={e => setBase(e.target.value)}
-                className="form-control"
+                className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
               >
                 {
                   BASES.map(c =>
@@ -242,21 +243,22 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 }
               </select>
             </div>
-            <div className="form-group mr-2">{I18n.t('bots.for')}</div>
-            <div className="form-group mr-2">
+            <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+            <div className="form-group mr-3">
               <input
                 type="tel"
                 min="1"
+                size={(price.length > 0) ? price.length : 3 }
                 value={price}
                 onChange={e => setPrice(e.target.value)}
-                className="form-control db-input--dca-amount"
+                className="bot-input bot-input--sizable bot-input--paper-bg"
               />
             </div>
             <div className="form-group mr-2">
               <select
                 value={quote}
                 onChange={e => setQuote(e.target.value)}
-                className="form-control"
+                className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
               >
                 {
                   validQuotesForSelectedBase().map(c =>
@@ -266,11 +268,11 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               </select>
             </div>
             <div className="form-group mr-2">/</div>
-            <div className="form-group mr-2">
+            <div className="form-group">
               <select
                 value={interval}
                 onChange={e => setInterval(e.target.value)}
-                className="form-control"
+                className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
               >
                 <option value="hour">{I18n.t('bots.hour')}</option>
                 <option value="day">{I18n.t('bots.day')}</option>
@@ -281,39 +283,38 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
           </div>
 
           <label
-            className="alert alert-secondary db-alert--annotation db-alert--always-use form-inline"
+            className="alert alert-primary"
             disabled={!forceSmartIntervals}
           >
             <input
               type="checkbox"
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
-              className="mr-4"
             />
-            <RawHTML tag="span">{I18n.t('bots.force_smart_intervals_html')}
+            <RawHTML tag="div">{I18n.t('bots.force_smart_intervals_html')}
             </RawHTML>
-
-            <input
-              type="tel"
-              className="form-control"
-            />
-
           </label>
 
           {isLimitOrder() &&
-          <span className="db-limit-bot-modifier alert alert-warning db-alert--annotation">
-            { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
-              type="tel"
-              min="0"
-              step="0.1"
-              className="form-control"
-              onChange={e => setPercentage(e.target.value)}
-              placeholder="0"
-              /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
 
-            {isLimitOrder() && <LimitOrderNotice />}
+          <label
+            className="alert alert-primary"
+          >
+            <div>
 
-          </span> }
+              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
+                type="tel"
+                size={(percentage.length > 0) ? percentage.length : 3 }
+                value={percentage}
+                className="bot-input bot-input--sizable"
+                onChange={e => setPercentage(e.target.value)}
+                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
+
+              {isLimitOrder() && <small><LimitOrderNotice /></small>}
+
+            </div>
+
+          </label> }
 
         </form>
 
