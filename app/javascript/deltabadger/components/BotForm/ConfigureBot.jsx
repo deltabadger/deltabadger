@@ -40,7 +40,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [percentage, setPercentage] = useState("0");
   const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(false);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(0);
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -130,6 +130,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const _handleSubmit = (evt) => {
     setOpen(false)
     evt.preventDefault();
+    console.log(smartIntervalsValue)
     const botParams = {
       type,
       base,
@@ -160,12 +161,20 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote, currentExchange.name)})` : ""
   }
 
+  const getSmartIntervalCurrency = (params) => {
+    return params.showQuote ? renameCurrency(quote, currentExchange.name) : renameCurrency(base, currentExchange.name)
+  }
+
   const getSmartIntervalsInfo = () => {
     if (forceSmartIntervals) {
       return I18n.t('bots.setup.smart_intervals.info_html.force_smart_intervals', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
     }
 
     return I18n.t('bots.setup.smart_intervals.info_html.other', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
+  }
+
+  const splitTranslation = (s) => {
+    return s.split('<split></split>')
   }
 
   return (
@@ -291,8 +300,16 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
             />
-            <RawHTML tag="div">{I18n.t('bots.force_smart_intervals_html')}
-            </RawHTML>
+            <div>
+              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: getSmartIntervalCurrency(minimumOrderParams)}))[0]}
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={smartIntervalsValue}
+                onChange={e => setSmartIntervalsValue(e.target.value)}
+              />
+              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: getSmartIntervalCurrency(minimumOrderParams)}))[1]}
+            </div>
           </label>
 
           {isLimitOrder() &&
