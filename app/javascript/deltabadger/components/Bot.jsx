@@ -215,13 +215,15 @@ const BotTemplate = ({
             className="alert alert-primary"
             disabled={!forceSmartIntervals}
           >
-            <input
-              type="checkbox"
-              checked={forceSmartIntervals}
-              onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
-            />
-            <RawHTML tag="div">{I18n.t('bots.force_smart_intervals_html', {onChange: 'handleSmartIntervalsValueChange'})}
-            </RawHTML>
+            <div>
+              <input
+                type="checkbox"
+                checked={forceSmartIntervals}
+                onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+              />
+              <RawHTML tag="div">{I18n.t('bots.force_smart_intervals_html', {onChange: 'handleSmartIntervalsValueChange'})}</RawHTML>
+            </div>
+
           </label>
 
           {isLimitSelected() &&
