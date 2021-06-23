@@ -37,7 +37,7 @@ class GetSmartIntervalsInfo < BaseService
 
   def get_exchange_id(params)
     exchange_id = params[:exchange_id]
-    return Exchange.find_by(name: params[:exchange_name]).id if exchange_id.nil?
+    return Exchange.where('LOWER(name) = ?', params[:exchange_name].downcase)[0].id if exchange_id.nil?
 
     exchange_id
   end

@@ -214,23 +214,25 @@ const BotTemplate = ({
             className="alert alert-primary"
             disabled={!forceSmartIntervals}
           >
-            <div >
+          <div >
             <input
               type="checkbox"
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               disabled={working}
             />
-            {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[0]}
-            <input
-              type="tel"
-              className="bot-input bot-input--sizable"
-              value={smartIntervalsValue}
-              onChange={e => setSmartIntervalsValue(e.target.value)}
-              disabled={working}
-            />
-            {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}
+            <div>
+              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[0]}
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={smartIntervalsValue}
+                onChange={e => setSmartIntervalsValue(e.target.value)}
+                disabled={working}
+              />
+              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}
             </div>
+          </div>
           </label>
 
           {isLimitSelected() &&
