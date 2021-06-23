@@ -1,7 +1,8 @@
 .alert
-  padding: 1rem 2.4rem
+  padding: 2rem 2.4rem
   [type="checkbox"]
     height: 4rem
+    width: 2rem
     &:not(:checked)
       box-shadow: none !important
   &-primary
@@ -23,7 +24,6 @@
   margin-right: -.3rem
   background-color: var(--botInputBg)
   border:          none
-  //border-bottom:   0.2rem solid var(--text)
   border-right:    1rem solid transparent
   border-left:    1rem solid transparent
   border-radius:   2rem
@@ -60,3 +60,17 @@
     flex-direction: row
     gap: 2rem
     line-height: 4rem
+    &__regular-text
+      line-height: 3rem
+    &-trading-agreement
+      .form-check-input
+        height: 2rem
+        width: 2rem
+      .form-check
+        padding-left: 0 !important
+        display: flex
+        align-items: center
+        gap: 1.5rem
+      .form-check-input
+        position: relative
+        margin: 0 !important
