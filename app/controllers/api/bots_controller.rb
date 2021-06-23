@@ -115,6 +115,7 @@ module Api
       interval
       bot_type
       force_smart_intervals
+      smart_intervals_value
     ].freeze
 
     def bot_create_params
