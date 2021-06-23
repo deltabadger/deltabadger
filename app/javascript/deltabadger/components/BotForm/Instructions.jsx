@@ -13,10 +13,12 @@ export const Instructions = ({ exchangeName }) => {
 
   return (
     <div className="db-exchange-instructions">
-      <div className="alert alert-success mx-0" role="alert">
-        <b className="alert-heading mb-2">{I18n.t('bots.setup.how_to_get_keys', {exchange: name})}</b>
-        <hr/>
-        <RawHTML>{I18n.t('bots.setup.' + translation_key + '.instructions_html', { exchange_link: anchor})}</RawHTML>
+      <div className="alert alert-success" role="alert">
+        <div className="alert__regular-text">
+          <b className="alert-heading mb-2">{I18n.t('bots.setup.how_to_get_keys', {exchange: name})}</b>
+          <hr/>
+          <RawHTML>{I18n.t('bots.setup.' + translation_key + '.instructions_html', { exchange_link: anchor})}</RawHTML>
+        </div>
       </div>
     </div>
   )
