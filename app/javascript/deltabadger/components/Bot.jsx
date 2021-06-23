@@ -170,7 +170,7 @@ const BotTemplate = ({
               <select
                 value={type}
                 onChange={handleTypeChange}
-                className="form-control db-select--buy-sell"
+                className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
                 disabled={working}
               >
                 {isSellOffer() ? <>
@@ -188,10 +188,10 @@ const BotTemplate = ({
             <div className="form-group mr-2">
               <input
                 type="tel"
-                min="1"
+                size={ (price.length > 0 ) ? price.length : 3 }
                 value={price}
+                className="bot-input bot-input--sizable bot-input--paper-bg"
                 onChange={e => setPrice(e.target.value)}
-                className="form-control db-input--dca-amount"
                 disabled={working}
               />
             </div>
@@ -199,7 +199,7 @@ const BotTemplate = ({
             <div className="form-group mr-2">
               <select
                 value={interval}
-                className="form-control"
+                className="bot-input bot-input--select bot-input--interval  bot-input--paper-bg"
                 onChange={e => setInterval(e.target.value)}
                 disabled={working}
               >
@@ -212,36 +212,38 @@ const BotTemplate = ({
           </div>
 
           <label
-            className="alert alert-secondary db-alert--annotation db-alert--always-use form-inline"
+            className="alert alert-primary"
             disabled={!forceSmartIntervals}
           >
             <input
               type="checkbox"
               checked={forceSmartIntervals}
-              disabled={working}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
-              className="mr-4"
-              />
-            <RawHTML tag="span">{I18n.t('bots.force_smart_intervals_html', {onChange: 'handleSmartIntervalsValueChange'})}
+            />
+            <RawHTML tag="div">{I18n.t('bots.force_smart_intervals_html', {onChange: 'handleSmartIntervalsValueChange'})}
             </RawHTML>
           </label>
 
           {isLimitSelected() &&
-          <span className="db-limit-bot-modifier alert alert-warning db-alert--annotation">
-            { isSellOffer() ? 'Sell' : 'Buy' } <input
-              type="tel"
-              min="0"
-              step="0.1"
-              value={percentage}
-              className="form-control"
-              onChange={e => setPercentage(e.target.value)}
-              placeholder="0"
-              disabled={working}
-          /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup>*</sup>
 
-          <LimitOrderNotice />
+          <label
+            className="alert alert-primary"
+          >
+            <div>
 
-          </span> }
+              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
+                type="tel"
+                size={ 3 }
+                className="bot-input bot-input--sizable"
+                onChange={e => setPercentage(e.target.value)}
+                disabled={working}
+              /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup>*</sup>
+
+              <small><LimitOrderNotice /></small>
+
+            </div>
+
+          </label> }
 
         </form>
 
