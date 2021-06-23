@@ -10,8 +10,8 @@
 .row.pt-5
   .col-sm-12.col-lg-6
     %h2= t('.title')
-    = t('affiliates.manual_html')
-
+    .alert.alert-success.mt-5
+      = t('affiliates.manual_html')
   .col-sm-12.col-lg-6
     .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
       - if errors.present?
