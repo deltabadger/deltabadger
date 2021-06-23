@@ -70,7 +70,8 @@ const API = {
       base: params.base,
       quote: params.quote,
       interval: params.interval,
-      force_smart_intervals: params.forceSmartIntervals
+      force_smart_intervals: params.forceSmartIntervals,
+      smart_intervals_value: params.smartIntervalsValue
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
