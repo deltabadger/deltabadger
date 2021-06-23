@@ -40,7 +40,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [percentage, setPercentage] = useState("0");
   const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(0);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(minimumOrderParams.value);
+  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -85,8 +86,18 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const disableSubmit = disable || price.trim() === ''
 
-  const _handleSmartIntervalsInfo = (evt) => {
-    evt.preventDefault();
+  const getMinimumOrderParams = (data) => {
+    const minimumOrderParams = {
+      value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
+      currency: data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name),
+      showQuote: data.data.side === 'base',
+      quoteValue: data.data.minimumQuote
+    }
+
+    return minimumOrderParams
+  }
+
+  const getBotParams = () => {
     const botParams = {
       type,
       base,
@@ -99,21 +110,36 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       botType: 'free',
     }
 
+    return botParams
+  }
+
+  const _handleSmartIntervalsInfo = (evt) => {
+    evt.preventDefault();
+    const botParams = getBotParams()
+
     return handleSmartIntervalsInfo(botParams).then((data) => {
       if (data.data.showSmartIntervalsInfo) {
-        const minimumOrderParams = {
-          value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
-          currency: data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name),
-          showQuote: data.data.side === 'base',
-          quoteValue: data.data.minimumQuote
-        }
-        setMinimumOrderParams(minimumOrderParams)
+        setMinimumOrderParams(getMinimumOrderParams(data))
         setOpen(true);
       } else {
         _handleSubmit(evt)
       }
     })
   }
+
+  useEffect(() => {
+    async function fetchSmartIntervalsInfo()  {
+      const data = await handleSmartIntervalsInfo(getBotParams())
+      const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
+      const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
+
+      setMinimumOrderParams(getMinimumOrderParams(data))
+      setSmartIntervalsValue(minimum)
+      setCurrencyOfMinimum(currency)
+    }
+
+    fetchSmartIntervalsInfo()
+  }, []);
 
   const _setShowSmartIntervalsInfo = () => {
     setShowInfo()
@@ -159,10 +185,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const getApproximateValue = (params) => {
     return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote, currentExchange.name)})` : ""
-  }
-
-  const getSmartIntervalCurrency = (params) => {
-    return params.showQuote ? renameCurrency(quote, currentExchange.name) : renameCurrency(base, currentExchange.name)
   }
 
   const getSmartIntervalsInfo = () => {
@@ -301,14 +323,15 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
             />
             <div>
-              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: getSmartIntervalCurrency(minimumOrderParams)}))[0]}
+              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
+                min={minimumOrderParams.value}
               />
-              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: getSmartIntervalCurrency(minimumOrderParams)}))[1]}
+              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}
             </div>
           </label>
 
