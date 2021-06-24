@@ -5,9 +5,6 @@ input
     &:not(:checked)
       box-shadow: inset 0 0 1.5rem var(--inactive)
       filter:     none
-  &[disabled]
-    &+ span
-      color: var(--inactive)
 
 .db-bots
   display:        grid
@@ -44,6 +41,7 @@ input
         position: relative
       .nav-item
         .nav-link
+          padding: 0.5rem 1rem .8rem
           color:           var(--link)
           background:      var(--paper)
           text-decoration: none !important
@@ -69,19 +67,19 @@ input
             &::before
               content:     ""
               display:     block
-              height:      1rem
+              height:      1.8rem
               background:  var(--paper)
               left:       -.5rem
               position:    absolute
               width:       calc(100% + 1rem)
-              bottom:     -1rem
+              bottom:     -1.8rem
         &:first-child
           .nav-link
             &.active
               &::before
                 left:       -.1rem
                 border-left: .1rem solid var(--paperBorder)
-                bottom:     -1rem
+                bottom:     -1.8rem
             &:not(.active)
               &:hover
                 &::before
@@ -89,7 +87,7 @@ input
                   z-index:   -1
                   display:    block
                   width:      1rem
-                  height:     1rem
+                  height:     1.8rem
                   background: var(--paperBorder)
                   left:      -.1rem
                   position:   absolute
@@ -249,7 +247,7 @@ input
       display:         flex
       justify-content: center
       align-items:     center
-      border-radius:   $box-border-radius
+      border-radius:   $small-box-border-radius
       background:      var(--pickExchangeItemBg)
       color:           var(--pickExchangeItemTxt)
       margin-bottom:   1.6rem

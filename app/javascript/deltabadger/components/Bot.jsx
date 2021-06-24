@@ -45,11 +45,13 @@ const BotTemplate = ({
   const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value);
 
-  const colorClass = settings.type === 'buy' ? 'success' : 'danger'
-  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
   const pending = status === 'pending'
+
+  const colorClass = settings.type === 'buy' ? 'success' : 'danger'
+  const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
+  const botRunningClass = working ? 'bot--running' : 'bot--stopped'
 
   const disableSubmit = price.trim() === ''
 
@@ -144,7 +146,7 @@ const BotTemplate = ({
   }
 
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass}`}>
+    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       <div className="db-bot__header">
         { isStarting && <StartingButton /> }
         { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
@@ -152,7 +154,7 @@ const BotTemplate = ({
         { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={getSmartIntervalsInfo} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
-            <span className="d-none d-sm-inline">{ exchangeName }:</span>{baseName}{quoteName}
+            { exchangeName }:{baseName}{quoteName}
           </div>
           { pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload} />}
           { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
@@ -194,7 +196,7 @@ const BotTemplate = ({
                 disabled={working}
               />
             </div>
-            <div className="form-group mr-2"> {quoteName} /</div>
+            <div className="form-group mr-2"> {quoteName} / </div>
             <div className="form-group mr-2">
               <select
                 value={interval}
@@ -221,15 +223,15 @@ const BotTemplate = ({
               disabled={working}
             />
             <div>
-              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[0]}
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[0]}</RawHTML>
               <input
                 type="tel"
-                className="bot-input bot-input--sizable"
+                className="bot-input bot-input--sizable hide-when-disabled"
 
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 disabled={working}
               />
-              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}</RawHTML>
             </div>
           </label>
 
