@@ -505,7 +505,7 @@ ru:
                 download_csv: 'Загрузить .csv'
                 date: Дата
                 order: Ордер
-                amount: 'Количество(%{base})'
+                amount: 'Количество (%{base})'
                 rate: 'Цена(%{quote})'
             log:
                 title: Журнал
