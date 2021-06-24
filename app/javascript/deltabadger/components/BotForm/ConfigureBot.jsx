@@ -323,7 +323,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
             />
             <div>
-              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -331,7 +331,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 min={minimumOrderParams.value}
               />
-              {splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
             </div>
           </label>
 
