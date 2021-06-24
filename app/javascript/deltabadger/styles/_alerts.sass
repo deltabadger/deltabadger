@@ -15,11 +15,21 @@
       color:            var(--alertPrimaryTxtDisabled)
       background-color: var(--alertPrimaryBgDisabled)
       border-color:     var(--alertPrimaryBorderDisabled)
+      .hide-when-disabled
+        display: none
       .bot-input
         background: var(--botInputBgPaper)
   small
     line-height: 2rem
 
+input:disabled, select:disabled
+  opacity: 1
+  color: var(--text)
+  appearance: none
+
+.bot--running
+  .alert
+    display: none !important
 
 .bot-input
   margin-left:     -.3rem
@@ -37,9 +47,6 @@
   text-align:       center
   &:invalid
     border:         2px solid $danger
-  &[disabled]
-    background:     none
-    border-color:   none
   &::selection
     color: var(--botInputTxtSelect)
     background:     none
@@ -57,7 +64,7 @@
 
 .db-bot
   .alert
-    border-radius:  1rem
+    border-radius:  $small-box-border-radius
     display:        flex
     flex-direction: row
     gap:            2rem

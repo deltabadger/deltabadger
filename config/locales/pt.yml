@@ -446,8 +446,9 @@ pt:
         day: Dia
         week: Semana
         month: Mês
-        next_buy: 'Próxima compra em %{countdown}'
-        next_sell: 'Próxima venda em %{countdown}'
+        next_buy: 'Próxima compra em'
+        next_sell: 'Próxima venda em'
+        counter: '%{countdown}'
         buttons:
             start:
                 changed_on_schedule:
