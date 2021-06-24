@@ -460,8 +460,9 @@ ru:
         day: День
         week: Неделя
         month: Месяц
-        next_buy: 'Следующая покупка через %{countdown}'
-        next_sell: 'Следующая продажа через %{countdown}'
+        next_buy: 'Следующая покупка через'
+        next_sell: 'Следующая продажа через'
+        counter: '%{countdown}'
         buttons:
             start:
                 changed_on_schedule:
