@@ -197,7 +197,7 @@ const BotTemplate = ({
               />
             </div>
             <div className="form-group mr-2"> {quoteName} / </div>
-            <div className="form-group mr-2">
+            <div className="form-group">
               <select
                 value={interval}
                 className="bot-input bot-input--select bot-input--interval  bot-input--paper-bg"
