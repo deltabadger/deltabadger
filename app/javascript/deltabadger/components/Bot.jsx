@@ -226,7 +226,7 @@ const BotTemplate = ({
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
-                value={smartIntervalsValue}
+                
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 disabled={working}
               />
