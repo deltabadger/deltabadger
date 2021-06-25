@@ -33,6 +33,15 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
     clearTimeout(timeout)
   };
 
+  const _handleSubmit = (continueSchedule = false, fixing_price = null) => {
+    if(!isOpen) {
+      return;
+    }
+
+    setOpen(false)
+    onClickReset(continueSchedule, fixing_price)
+  }
+
   const cleverToFixed = (amount) => {
     if (amount >= 1) {
       return parseFloat(amount).toFixed(2);
@@ -49,11 +58,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
           <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
-              onClickReset() && setOpen(false)
+              _handleSubmit()
             }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.changed_on_schedule.skip')}
             </div>
             <div onClick={() => {
-              onClickReset(true) && setOpen(false)
+              _handleSubmit(true)
             }} className="btn btn-success">{I18n.t('bots.buttons.start.changed_on_schedule.continue')}
             </div>
           </div>
@@ -64,11 +73,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
           <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
-              onClickReset() && setOpen(false)
+              _handleSubmit()
             }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.changed_missed.skip')}
             </div>
             <div onClick={() => {
-              onClickReset(false, missedAmount) && setOpen(false)
+              _handleSubmit(false, missedAmount)
             }} className="btn btn-success">{I18n.t('bots.buttons.start.changed_missed.continue')}
             </div>
           </div>
@@ -79,11 +88,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
           <RawHTML tag="p">{I18n.t('bots.buttons.start.missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
-              onClickReset() && setOpen(false)
+              _handleSubmit()
             }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.missed.skip')}
             </div>
             <div onClick={() => {
-              onClickReset(false, missedAmount) && setOpen(false)
+              _handleSubmit(false, missedAmount)
             }} className="btn btn-success">{I18n.t('bots.buttons.start.missed.continue')}
             </div>
           </div>
@@ -94,11 +103,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
           <RawHTML tag="p">{I18n.t('bots.buttons.start.on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
-              onClickReset() && setOpen(false)
+              _handleSubmit()
             }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.on_schedule.skip')}
             </div>
             <div onClick={() => {
-              onClickReset(true) && setOpen(false)
+              _handleSubmit(true)
             }} className="btn btn-success">{I18n.t('bots.buttons.start.on_schedule.continue')}
             </div>
           </div>
