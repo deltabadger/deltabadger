@@ -118,6 +118,12 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   }
 
   const _handleInfoSubmit = (evt) => {
+    if(!isOpen){
+      return;
+    }
+
+    setOpen(false)
+
     if (dontShowInfo) {
       _setShowSmartIntervalsInfo()
     }
