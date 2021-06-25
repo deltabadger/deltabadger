@@ -5,8 +5,9 @@
     height:     2rem
     width:      2rem
     margin-top: 1rem
-    &:not(:checked)
+    &:not(:checked), &:not(:checked):hover
       box-shadow: none !important
+      mix-blend-mode: luminosity
   &-primary
     color:            var(--alertPrimaryTxt)
     background-color: var(--alertPrimaryBg)
@@ -22,13 +23,13 @@
   small
     line-height: 2rem
 
-input:disabled, select:disabled
+select:disabled, input:disabled
   opacity: 1
   color: var(--text)
-  appearance: none
+  appearance: none !important
 
 .bot--running
-  .alert
+  .hide-when-running, .alert[disabled]
     display: none !important
 
 .bot-input
@@ -64,6 +65,7 @@ input:disabled, select:disabled
 
 .db-bot
   .alert
+    user-select:    none
     border-radius:  $small-box-border-radius
     display:        flex
     flex-direction: row
