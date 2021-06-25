@@ -218,6 +218,7 @@ const BotTemplate = ({
           >
             <input
               type="checkbox"
+              className="hide-when-running"
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
               disabled={working}
@@ -227,12 +228,21 @@ const BotTemplate = ({
               <input
                 type="tel"
                 className="bot-input bot-input--sizable hide-when-disabled"
-
+                size="3"
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 disabled={working}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}</RawHTML>
-            </div>
+
+
+                <small className="hide-when-running d-block">
+                  <br />
+                  <sup>*</sup>Orders size on Kraken is defined in BTC, and the minimum size is 0.00001.
+                </small>
+              </div>
+
+
+
           </label>
 
           {isLimitSelected() &&
@@ -248,9 +258,9 @@ const BotTemplate = ({
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
                 disabled={working}
-              /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup>*</sup>
+              /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup className="hide-when-running">*</sup>
 
-              <small><LimitOrderNotice /></small>
+              <small className="hide-when-running"><LimitOrderNotice /></small>
 
             </div>
 
