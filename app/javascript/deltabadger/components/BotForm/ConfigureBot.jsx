@@ -300,10 +300,9 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             </div>
             <div className="form-group mr-2">/</div>
             <div className="form-group">
-              <select
-                value={interval}
-                onChange={e => setInterval(e.target.value)}
-                className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
+              <select value={interval}
+                      onChange={e => setInterval(e.target.value)}
+                      className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
               >
                 <option value="hour">{I18n.t('bots.hour')}</option>
                 <option value="day">{I18n.t('bots.day')}</option>
@@ -323,10 +322,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
-                className="bot-input bot-input--sizable"
+                className="bot-input bot-input--sizable hide-when-disabled"
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 min={minimumOrderParams.value}
