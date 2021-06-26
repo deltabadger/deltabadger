@@ -228,16 +228,18 @@ const BotTemplate = ({
               <input
                 type="tel"
                 className="bot-input bot-input--sizable hide-when-disabled"
-                size="3"
+                value={ smartIntervalsValue }
+                size={3}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 disabled={working}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}</RawHTML>
 
 
-                <small className="hide-when-running d-block">
-                  <br />
-                  <sup>*</sup>Orders size on Kraken is defined in BTC, and the minimum size is 0.00001.
+                <small className="hide-when-running hide-when-disabled">
+                  <div>
+                    <sup>*</sup>Orders size on Kraken is defined in BTC, and the minimum size is 0.00001.
+                  </div>
                 </small>
               </div>
 
@@ -254,7 +256,8 @@ const BotTemplate = ({
 
               { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
                 type="tel"
-                size={ 3 }
+                value={percentage}
+                size={ (percentage.length > 0) ? percentage.length : 3 }
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
                 disabled={working}
