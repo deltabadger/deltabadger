@@ -51,6 +51,9 @@ module ExchangeApi
         def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
           volume = (price / rate).ceil(8)
           min_volume = @market.minimum_order_volume(symbol)
+
+          smart_intervals_value = min_volume if smart_intervals_value.nil?
+
           return Result::Success.new([smart_intervals_value, min_volume].max) if force_smart_intervals
 
           Result::Success.new([min_volume, volume].max)

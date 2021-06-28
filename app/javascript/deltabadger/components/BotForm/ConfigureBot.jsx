@@ -40,7 +40,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [percentage, setPercentage] = useState("0");
   const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(minimumOrderParams.value);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(0.0);
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
   const node = useRef()
 
@@ -196,7 +196,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   }
 
   const splitTranslation = (s) => {
-    return s.split('<split></split>')
+    return s.split(/<split>.*<\/split>/)
   }
 
   return (
@@ -328,10 +328,17 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 className="bot-input bot-input--sizable hide-when-disabled"
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
+                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
                 min={minimumOrderParams.value}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
             </div>
+
+            <small className="hide-when-running hide-when-disabled">
+              <div>
+                <sup>*</sup>Orders size on {currentExchange.name} is defined in {currencyOfMinimum}, and the minimum size is {minimumOrderParams.value}.
+              </div>
+            </small>
           </label>
 
           {isLimitOrder() &&

@@ -65,6 +65,8 @@ module ExchangeApi
           min_volume = @market.minimum_base_size(symbol)
           return min_volume unless min_volume.success?
 
+          smart_intervals_value = min_volume.data if smart_intervals_value.nil?
+
           return Result::Success.new([smart_intervals_value, min_volume.data].max) if force_smart_intervals
 
           Result::Success.new([min_volume.data, volume].max)
