@@ -1,5 +1,5 @@
 import 'lodash'
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import I18n from 'i18n-js'
 import { connect } from 'react-redux';
 import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
@@ -7,7 +7,7 @@ import { Timer, FetchFromExchangeTimer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
-import { shouldRename, renameSymbol} from "../utils/symbols";
+import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
 
 import {
@@ -31,6 +31,7 @@ const BotTemplate = ({
   handleRemove,
   handleClick,
   handleEdit,
+  fetchMinimums,
   fetchRestartParams,
   clearBotErrors,
   reload,
@@ -43,7 +44,9 @@ const BotTemplate = ({
   const [percentage, setPercentage] = useState(settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
   const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? 0.0 : settings.smart_intervals_value);
+  const [minimumOrderParams, setMinimumOrderParams] = useState({});
+  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -142,8 +145,47 @@ const BotTemplate = ({
   }
 
   const splitTranslation = (s) => {
-    return s.split('<split></split>')
+    return s.split(/<split>.*<\/split>/)
   }
+
+  const getBotParams = () => {
+    return {
+      type,
+      exchangeName: exchangeName,
+      base: settings.base,
+      quote: settings.quote,
+      interval: settings.interval,
+      forceSmartIntervals,
+      smartIntervalsValue,
+      price: price.trim(),
+      botType: 'free',
+    }
+  }
+
+  const getMinimumOrderParams = (data) => {
+    return {
+      value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
+      currency: data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName),
+      showQuote: data.data.side === 'base',
+      quoteValue: data.data.minimumQuote
+    }
+  }
+
+  useEffect(() => {
+    async function fetchSmartIntervalsInfo()  {
+      const data = await fetchMinimums(getBotParams())
+      const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
+      const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
+
+      setMinimumOrderParams(getMinimumOrderParams(data))
+      if (smartIntervalsValue == 0.0) {
+        setSmartIntervalsValue(minimum)
+      }
+      setCurrencyOfMinimum(currency)
+    }
+
+    fetchSmartIntervalsInfo()
+  }, []);
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
@@ -151,7 +193,7 @@ const BotTemplate = ({
         { isStarting && <StartingButton /> }
         { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
         { (!isStarting && pending) && <PendingButton /> }
-        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={getSmartIntervalsInfo} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
+        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={fetchMinimums} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             { exchangeName }:{baseName}{quoteName}
@@ -224,24 +266,23 @@ const BotTemplate = ({
               disabled={working}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable hide-when-disabled"
                 value={smartIntervalsValue}
-                size={3}
+                size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 disabled={working}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: quoteName}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
-
-                <small className="hide-when-running hide-when-disabled">
-                  <div>
-                    <sup>*</sup>Orders size on Kraken is defined in BTC, and the minimum size is 0.00001.
-                  </div>
-                </small>
-              </div>
+              <small className="hide-when-running hide-when-disabled">
+                <div>
+                  <sup>*</sup>Orders size on {exchangeName} is defined in {currencyOfMinimum}, and the minimum size is {minimumOrderParams.value}.
+                </div>
+              </small>
+            </div>
 
 
 
@@ -290,6 +331,7 @@ const mapDispatchToProps = ({
   handleStop: stopBot,
   handleRemove: removeBot,
   handleEdit: editBot,
+  fetchMinimums: getSmartIntervalsInfo,
   handleClick: openBot,
   clearBotErrors: clearErrors,
   fetchRestartParams: fetchRestartParams
