@@ -293,7 +293,7 @@ const BotTemplate = ({
                 type="tel"
                 className="bot-input bot-input--sizable hide-when-disabled"
                 value={smartIntervalsValue}
-                size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 8 }
+                size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 5 }
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
                 disabled={working}
@@ -321,7 +321,7 @@ const BotTemplate = ({
               { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
                 type="tel"
                 value={percentage}
-                size={ (percentage.length > 0) ? percentage.length : 3 }
+                size={ (percentage.length > 0) ? percentage.length : 1 }
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
                 onBlur={validatePercentage}

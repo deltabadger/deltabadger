@@ -274,17 +274,17 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
-                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 8 }
+                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 5 }
                 min={minimumOrderParams.value}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
-            </div>
 
-            <small className="hide-when-running hide-when-disabled">
-              <div>
-                <sup>*</sup>{getSmartIntervalsDisclaimer()}
-              </div>
-            </small>
+              <small className="hide-when-running hide-when-disabled">
+                <div>
+                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+                </div>
+              </small>
+            </div>
           </label>
 
           {isLimitOrder() &&
