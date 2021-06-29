@@ -57,12 +57,13 @@ module ExchangeApi
           min_price = @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
 
-          smart_intervals_value = min_price.data if smart_intervals_value.nil?
-
-          return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
-
           quote_decimals = @market.quote_decimals(symbol)
           return quote_decimals unless quote_decimals.success?
+
+          smart_intervals_value = min_price.data if smart_intervals_value.nil?
+          smart_intervals_value = smart_intervals_value.ceil(quote_decimals.data)
+
+          return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
           Result::Success.new([min_price.data, price].max.ceil(quote_decimals.data).to_d)
         end
@@ -78,6 +79,7 @@ module ExchangeApi
           min_volume = [min_base.data, (min_quote.data / rate).ceil(8)].max.to_d
 
           smart_intervals_value = min_volume if smart_intervals_value.nil?
+          smart_intervals_value = smart_intervals_value.ceil(8)
 
           return Result::Success.new([smart_intervals_value, min_volume].max) if force_smart_intervals
 

@@ -41,7 +41,7 @@ const BotTemplate = ({
 
   const [type, setType] = useState(settings.order_type);
   const [price, setPrice] = useState(settings.price);
-  const [percentage, setPercentage] = useState(settings.percentage);
+  const [percentage, setPercentage] = useState(settings.percentage == null ? 0.0 : settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
   const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? 0.0 : settings.smart_intervals_value);
@@ -193,7 +193,7 @@ const BotTemplate = ({
         { isStarting && <StartingButton /> }
         { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
         { (!isStarting && pending) && <PendingButton /> }
-        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} handleSmartIntervalsInfo={fetchMinimums} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
+        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
         <div className={`db-bot__infotext text-${colorClass}`}>
           <div className="db-bot__infotext__left">
             { exchangeName }:{baseName}{quoteName}
