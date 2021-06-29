@@ -34,7 +34,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
       return parseFloat(amount).toFixed(2);
     }
 
-    return parseFloat(amount).toFixed(3);
+    return parseFloat(amount);
   }
 
   const SmarterRestartButtons = () => {
