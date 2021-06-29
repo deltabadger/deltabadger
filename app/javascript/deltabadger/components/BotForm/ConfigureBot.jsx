@@ -130,6 +130,12 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
   }
 
+  const validatePercentage = () => {
+    if (isNaN(percentage) || percentage < 0){
+      setPercentage(0)
+    }
+  }
+
   const _handleSubmit = (evt) => {
     evt.preventDefault();
     console.log(smartIntervalsValue)
@@ -153,6 +159,14 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const splitTranslation = (s) => {
     return s.split(/<split>.*<\/split>/)
+  }
+
+  const getSmartIntervalsDisclaimer = () => {
+    if (minimumOrderParams.showQuote) {
+      return I18n.t('bots.smart_intervals_disclaimer_base', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+    } else {
+      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+    }
   }
 
   return (
@@ -260,7 +274,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
-                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
+                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 8 }
                 min={minimumOrderParams.value}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
@@ -268,7 +282,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
             <small className="hide-when-running hide-when-disabled">
               <div>
-                <sup>*</sup>Orders size on {currentExchange.name} is defined in {currencyOfMinimum}, and the minimum size is {minimumOrderParams.value}.
+                <sup>*</sup>{getSmartIntervalsDisclaimer()}
               </div>
             </small>
           </label>
@@ -286,6 +300,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 value={percentage}
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
+                onBlur={validatePercentage}
                 /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
 
               {isLimitOrder() && <small><LimitOrderNotice /></small>}
