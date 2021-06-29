@@ -124,6 +124,12 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     fetchSmartIntervalsInfo()
   }, []);
 
+  const validateSmartIntervalsValue = () => {
+    if (isNaN(smartIntervalsValue) || smartIntervalsValue < minimumOrderParams.value){
+      setSmartIntervalsValue(minimumOrderParams.value)
+    }
+  }
+
   const _handleSubmit = (evt) => {
     evt.preventDefault();
     console.log(smartIntervalsValue)
@@ -253,6 +259,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 className="bot-input bot-input--sizable hide-when-disabled"
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
+                onBlur={validateSmartIntervalsValue}
                 size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
                 min={minimumOrderParams.value}
               />
