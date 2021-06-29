@@ -45,7 +45,7 @@ module Bots::Free::Validators
       validates :smart_intervals_value, numericality: { only_float: true, greater_than: 0 }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
-        greater_than: 0,
+        greater_than_or_equal_to: 0,
         smaller_than: 100
       }
       validate :hodler_if_limit_order

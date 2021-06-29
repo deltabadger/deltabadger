@@ -195,6 +195,20 @@ const BotTemplate = ({
     }
   }
 
+  const validatePercentage = () => {
+    if (isNaN(percentage) || percentage < 0){
+      setPercentage(0)
+    }
+  }
+
+  const getSmartIntervalsDisclaimer = () => {
+    if (minimumOrderParams.showQuote) {
+      return I18n.t('bots.smart_intervals_disclaimer_base', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+    } else {
+      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+    }
+  }
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       <div className="db-bot__header">
@@ -279,7 +293,7 @@ const BotTemplate = ({
                 type="tel"
                 className="bot-input bot-input--sizable hide-when-disabled"
                 value={smartIntervalsValue}
-                size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
+                size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 8 }
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
                 disabled={working}
@@ -288,7 +302,7 @@ const BotTemplate = ({
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
-                  <sup>*</sup>Orders size on {exchangeName} is defined in {currencyOfMinimum}, and the minimum size is {minimumOrderParams.value}.
+                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
                 </div>
               </small>
             </div>
@@ -310,6 +324,7 @@ const BotTemplate = ({
                 size={ (percentage.length > 0) ? percentage.length : 3 }
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
+                onBlur={validatePercentage}
                 disabled={working}
               /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup className="hide-when-running">*</sup>
 
