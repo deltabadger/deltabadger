@@ -66,6 +66,7 @@ module ExchangeApi
           return min_volume unless min_volume.success?
 
           smart_intervals_value = min_volume.data if smart_intervals_value.nil?
+          smart_intervals_value = smart_intervals_value.floor(volume_decimals.data)
 
           return Result::Success.new([smart_intervals_value, min_volume.data].max) if force_smart_intervals
 

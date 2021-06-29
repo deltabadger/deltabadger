@@ -31,9 +31,6 @@ module ExchangeApi
         end
 
         def common_order_params(symbol, price, force_smart_intervals, smart_intervals_value)
-          quote_decimals = @market.quote_decimals(symbol)
-          return quote_decimals unless quote_decimals.success?
-
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
           return price_above_minimums unless price_above_minimums.success?
 
