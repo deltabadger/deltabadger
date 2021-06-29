@@ -30,7 +30,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const ALL_BASES = sortSymbols(uniqueArray(currentExchange.all_symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
   const OTHER_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
-  const [isOpen, setOpen] = useState(false);
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
   const [base, setBase] = useState(BASES[0]);
@@ -38,7 +37,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
-  const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState(0.0);
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
@@ -74,7 +72,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     if (node.current && node.current.contains(e.target)) {
       return;
     }
-    setOpen(false)
   };
 
   useEffect(() => {
@@ -113,20 +110,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     return botParams
   }
 
-  const _handleSmartIntervalsInfo = (evt) => {
-    evt.preventDefault();
-    const botParams = getBotParams()
-
-    return handleSmartIntervalsInfo(botParams).then((data) => {
-      if (data.data.showSmartIntervalsInfo) {
-        setMinimumOrderParams(getMinimumOrderParams(data))
-        setOpen(true);
-      } else {
-        _handleSubmit(evt)
-      }
-    })
-  }
-
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await handleSmartIntervalsInfo(getBotParams())
@@ -141,20 +124,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     fetchSmartIntervalsInfo()
   }, []);
 
-  const _setShowSmartIntervalsInfo = () => {
-    setShowInfo()
-  }
-
-  const _handleInfoSubmit = (evt) => {
-    if (dontShowInfo) {
-      _setShowSmartIntervalsInfo()
-    }
-
-    _handleSubmit(evt)
-  }
-
   const _handleSubmit = (evt) => {
-    setOpen(false)
     evt.preventDefault();
     console.log(smartIntervalsValue)
     const botParams = {
@@ -171,29 +141,9 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     !disableSubmit && handleSubmit(botParams);
   }
 
-  const _handle= (evt) => {
-    if (dontShowInfo) {
-      _setShowSmartIntervalsInfo()
-    }
-
-    _handleSubmit(evt)
-  }
-
   const isLimitOrder = () => type === 'limit_buy' || type === 'limit_sell'
 
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
-
-  const getApproximateValue = (params) => {
-    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote, currentExchange.name)})` : ""
-  }
-
-  const getSmartIntervalsInfo = () => {
-    if (forceSmartIntervals) {
-      return I18n.t('bots.setup.smart_intervals.info_html.force_smart_intervals', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
-    }
-
-    return I18n.t('bots.setup.smart_intervals.info_html.other', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
-  }
 
   const splitTranslation = (s) => {
     return s.split(/<split>.*<\/split>/)
@@ -201,35 +151,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
-      { isOpen &&
-        <div ref={node} className="db-bot__modal">
-          <div className="db-bot__modal__content">
-            <RawHTML tag="p">{getSmartIntervalsInfo()}</RawHTML>
-            <label className="form-inline mx-4 mt-4 mb-2">
-              <input
-                type="checkbox"
-                checked={dontShowInfo}
-                onChange={() => setDontShowInfo(!dontShowInfo)}
-                className="mr-2" />
-              <span>{I18n.t('bots.setup.smart_intervals.dont_show_again')}</span>
-            </label>
-
-            <div className="db-bot__modal__btn-group">
-              <div onClick={() => {
-                setOpen(false)
-              }} className="btn btn-outline-primary">Cancel
-              </div>
-              <div onClick={_handleInfoSubmit} className="btn btn-success">
-                I understand
-              </div>
-            </div>
-          </div>
-        </div>
-      }
 
       <div className="db-bot__header">
         <Breadcrumbs step={2} />
-        <div onClick={_handleSmartIntervalsInfo} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
           <span className="d-none d-sm-inline">Start</span>
           <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
         </div>
