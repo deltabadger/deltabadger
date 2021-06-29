@@ -66,6 +66,7 @@ const BotTemplate = ({
       interval,
       price: price.trim(),
       forceSmartIntervals,
+      smartIntervalsValue,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
     }
 
@@ -74,6 +75,7 @@ const BotTemplate = ({
       interval: settings.interval,
       price: settings.price.trim(),
       forceSmartIntervals: settings.force_smart_intervals,
+      smartIntervalsValue: settings.smartIntervalsValue,
       percentage: settings.order_type === 'limit' ? percentage.trim() : undefined
     }
 
@@ -187,6 +189,12 @@ const BotTemplate = ({
     fetchSmartIntervalsInfo()
   }, []);
 
+  const validateSmartIntervalsValue = () => {
+    if (isNaN(smartIntervalsValue) || smartIntervalsValue < minimumOrderParams.value){
+      setSmartIntervalsValue(minimumOrderParams.value)
+    }
+  }
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       <div className="db-bot__header">
@@ -273,6 +281,7 @@ const BotTemplate = ({
                 value={smartIntervalsValue}
                 size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
                 onChange={e => setSmartIntervalsValue(e.target.value)}
+                onBlur={validateSmartIntervalsValue}
                 disabled={working}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
