@@ -270,7 +270,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
-                className="bot-input bot-input--sizable hide-when-disabled"
+                className="bot-input bot-input--sizable"
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
