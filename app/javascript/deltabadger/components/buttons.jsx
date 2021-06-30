@@ -14,14 +14,11 @@ export const startButtonType = {
 }
 let timeout;
 
-export const StartButton = ({settings, getRestartType, onClickReset, handleSmartIntervalsInfo, setShowInfo, exchangeName, newSettings}) => {
+export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo, exchangeName, newSettings}) => {
   const [isOpen, setOpen] = useState(false)
-  const [isInfoOpen, setInfoOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
   const [missedAmount, setMissedAmount] = useState(0.0)
-  const [minimumOrderParams, setMinimumOrderParams] = useState({});
-  const [dontShowInfo, setDontShowInfo] = useState(false)
   const node = useRef()
 
   const handleClickOutside = e => {
@@ -29,7 +26,6 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
       return;
     }
     setOpen(false)
-    setInfoOpen(false)
     clearTimeout(timeout)
   };
 
@@ -47,7 +43,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
       return parseFloat(amount).toFixed(2);
     }
 
-    return parseFloat(amount).toFixed(3);
+    return parseFloat(parseFloat(amount).toFixed(8));
   }
 
   const SmarterRestartButtons = () => {
@@ -117,39 +113,6 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
     )
   }
 
-  const _handleSmartIntervalsInfo = () => {
-    const botParams = {...settings, exchangeName: exchangeName}
-    botParams.price = newSettings.price
-    botParams.forceSmartIntervals = newSettings.forceSmartIntervals
-
-    return handleSmartIntervalsInfo(botParams).then((data) => {
-      if (data.data.showSmartIntervalsInfo) {
-        const minimumOrderParams = {
-          value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
-          currency: data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName),
-          showQuote: data.data.side === 'base',
-          quoteValue: data.data.minimumQuote
-        }
-        setMinimumOrderParams(minimumOrderParams)
-        setInfoOpen(true);
-      } else {
-        _handleRestarts()
-      }
-    })
-  }
-
-  const _setShowSmartIntervalsInfo = () => {
-    setShowInfo()
-  }
-
-  const _handleInfoSubmit = (evt) => {
-    if (dontShowInfo) {
-      _setShowSmartIntervalsInfo()
-    }
-
-    _handleRestarts()
-  }
-
   const _handleRestarts = () => {
     getRestartType().then((data) => {
       switch (data.restartType) {
@@ -178,52 +141,16 @@ export const StartButton = ({settings, getRestartType, onClickReset, handleSmart
     };
   }, []);
 
-  const getApproximateValue = (params) => {
-    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(settings.quote, exchangeName)})` : ""
-  }
-
-  const getSmartIntervalsInfo = () => {
-    if (newSettings.forceSmartIntervals) {
-      return I18n.t('bots.setup.smart_intervals.info_html.force_smart_intervals', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
-    }
-
-    return I18n.t('bots.setup.smart_intervals.info_html.other', {base: renameCurrency(settings.base, exchangeName), quote: renameCurrency(settings.quote, exchangeName), exchangeName: exchangeName, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
-  }
-
   return(
     <div>
      <div
-         onClick={_handleSmartIntervalsInfo}
+         onClick={_handleRestarts}
          className="btn btn-success">
         <span className="d-none d-sm-inline">Start</span>
         <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/>
         </svg>
      </div>
-      { isInfoOpen &&
-      <div ref={node} className="db-bot__modal">
-        <div className="db-bot__modal__content">
-          <RawHTML tag="p">{getSmartIntervalsInfo()}</RawHTML>
-          <label className="form-inline mx-4 mt-4 mb-2">
-            <input
-              type="checkbox"
-              checked={dontShowInfo}
-              onChange={() => setDontShowInfo(!dontShowInfo)}
-              className="mr-2" />
-            <span>{I18n.t('bots.setup.smart_intervals.dont_show_again')}</span>
-          </label>
-          <div className="db-bot__modal__btn-group">
-            <div onClick={() => {
-              setInfoOpen(false)
-            }} className="btn btn-outline-primary">Cancel
-            </div>
-            <div onClick={_handleInfoSubmit} className="btn btn-success">
-              I understand
-            </div>
-          </div>
-        </div>
-      </div>
-      }
       { isOpen &&
       <div ref={node} className="db-bot__modal">
         <div className="db-bot__modal__content">
