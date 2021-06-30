@@ -164,10 +164,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     if (minimumOrderParams.showQuote) {
       return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      const sentences = I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match( /[^\.!\?]+[\.!\?]+/g );
-
-      // float number inside sentence
-      return sentences.length === 2 ? sentences[1] : sentences[1]+sentences[2]
+      const re = new RegExp(`The minimum.*${currencyOfMinimum}\\.`, 'g')
+      return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match(re)[0];
     }
   }
 
