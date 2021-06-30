@@ -33,7 +33,7 @@ const VALUE_OVER_TIME_CONFIG = {
         fill: false,
         lineTension: 0.4,
         backgroundColor: 'rgba(75,192,192,0.4)',
-        borderColor: '#22439E',
+        borderColor: '#3457b9',
         borderWidth: 2,
         borderCapStyle: 'butt',
         borderDash: [],

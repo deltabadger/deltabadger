@@ -42,6 +42,10 @@ class Bot < ApplicationRecord
     settings.fetch('force_smart_intervals', false)
   end
 
+  def smart_intervals_value
+    settings.fetch('smart_intervals_value')
+  end
+
   def market?
     order_type == 'market'
   end

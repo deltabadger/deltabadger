@@ -119,6 +119,7 @@
       // referral program registration
 
       $(document).ready(function(){
+
         $(".radio--eu-company").click(function(){
           $(".db-form-group--eu-company").addClass("db-form-group--eu-company__visible");
         });
@@ -130,7 +131,7 @@
           var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
           $(".db-form-label-range--discount-percent").text(discountPercent);
           $(".db-form-label-range--earn-percent").text(earnPercent);
-        })
+        });
         $(".db-form-control-text--visible_name").on('input', function(e){
           if (e.target.value.trim()) {
            $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
@@ -138,8 +139,9 @@
            $(".db-form-preview--visible_text").removeClass("db-form-preview--visible_text__visible");
           }
           $(".db-form-preview--visible_name").text(e.target.value);
-        })
-       });
+        });
+
+      });
 
       if("#{current_user.subscription_name}" !== "hodler" && "#{current_user.subscription_name}" !== "investor") {
         fomo.trigger('start')

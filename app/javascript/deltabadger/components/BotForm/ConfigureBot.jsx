@@ -30,7 +30,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const ALL_BASES = sortSymbols(uniqueArray(currentExchange.all_symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
   const OTHER_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
-  const [isOpen, setOpen] = useState(false);
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
   const [base, setBase] = useState(BASES[0]);
@@ -38,8 +37,9 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0");
-  const [dontShowInfo, setDontShowInfo] = useState(false)
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
+  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -72,7 +72,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     if (node.current && node.current.contains(e.target)) {
       return;
     }
-    setOpen(false)
   };
 
   useEffect(() => {
@@ -84,55 +83,60 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const disableSubmit = disable || price.trim() === ''
 
-  const _handleSmartIntervalsInfo = (evt) => {
-    evt.preventDefault();
+  const getMinimumOrderParams = (data) => {
+    const minimumOrderParams = {
+      value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
+      currency: data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name),
+      showQuote: data.data.side === 'base',
+      quoteValue: data.data.minimumQuote
+    }
+
+    return minimumOrderParams
+  }
+
+  const getBotParams = () => {
     const botParams = {
       type,
       base,
       quote,
       interval,
       forceSmartIntervals,
+      smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
     }
 
-    return handleSmartIntervalsInfo(botParams).then((data) => {
-      if (data.data.showSmartIntervalsInfo) {
-        const minimumOrderParams = {
-          value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
-          currency: data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name),
-          showQuote: data.data.side === 'base',
-          quoteValue: data.data.minimumQuote
-        }
-        setMinimumOrderParams(minimumOrderParams)
-        setOpen(true);
-      } else {
-        _handleSubmit(evt)
-      }
-    })
+    return botParams
   }
 
-  const _setShowSmartIntervalsInfo = () => {
-    setShowInfo()
+  useEffect(() => {
+    async function fetchSmartIntervalsInfo()  {
+      const data = await handleSmartIntervalsInfo(getBotParams())
+      const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
+      const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
+
+      setMinimumOrderParams(getMinimumOrderParams(data))
+      setSmartIntervalsValue(minimum.toString())
+      setCurrencyOfMinimum(currency)
+    }
+
+    fetchSmartIntervalsInfo()
+  }, []);
+
+  const validateSmartIntervalsValue = () => {
+    if (isNaN(smartIntervalsValue) || smartIntervalsValue < minimumOrderParams.value){
+      setSmartIntervalsValue(minimumOrderParams.value)
+    }
   }
 
-  const _handleInfoSubmit = (evt) => {
-    if(!isOpen){
-      return;
+  const validatePercentage = () => {
+    if (isNaN(percentage) || percentage < 0){
+      setPercentage(0)
     }
-
-    setOpen(false)
-
-    if (dontShowInfo) {
-      _setShowSmartIntervalsInfo()
-    }
-
-    _handleSubmit(evt)
   }
 
   const _handleSubmit = (evt) => {
-    setOpen(false)
     evt.preventDefault();
     const botParams = {
       type,
@@ -140,6 +144,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       quote,
       interval,
       forceSmartIntervals,
+      smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
@@ -151,49 +156,25 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
-  const getApproximateValue = (params) => {
-    return params.showQuote ? ` (~${minimumOrderParams.quoteValue}${renameCurrency(quote, currentExchange.name)})` : ""
+  const splitTranslation = (s) => {
+    return s.split(/<split>.*<\/split>/)
   }
 
-  const getSmartIntervalsInfo = () => {
-    if (forceSmartIntervals) {
-      return I18n.t('bots.setup.smart_intervals.info_html.force_smart_intervals', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
+  const getSmartIntervalsDisclaimer = () => {
+    if (minimumOrderParams.showQuote) {
+      return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+    } else {
+      const re = new RegExp(`The minimum.*${currencyOfMinimum}\\.`, 'g')
+      return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match(re)[0];
     }
-
-    return I18n.t('bots.setup.smart_intervals.info_html.other', {base: renameCurrency(base, currentExchange.name), quote: renameCurrency(quote, currentExchange.name), exchangeName: currentExchange.name, minimumValue: minimumOrderParams.value, minimumCurrency: minimumOrderParams.currency, approximatedQuote: getApproximateValue(minimumOrderParams)})
   }
 
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
-      { isOpen &&
-        <div ref={node} className="db-bot__modal">
-          <div className="db-bot__modal__content">
-            <RawHTML tag="p">{getSmartIntervalsInfo()}</RawHTML>
-            <label className="form-inline mx-4 mt-4 mb-2">
-              <input
-                type="checkbox"
-                checked={dontShowInfo}
-                onChange={() => setDontShowInfo(!dontShowInfo)}
-                className="mr-2" />
-              <span>{I18n.t('bots.setup.smart_intervals.dont_show_again')}</span>
-            </label>
-
-            <div className="db-bot__modal__btn-group">
-              <div onClick={() => {
-                setOpen(false)
-              }} className="btn btn-outline-primary">Cancel
-              </div>
-              <div onClick={_handleInfoSubmit} className="btn btn-success">
-                I understand
-              </div>
-            </div>
-          </div>
-        </div>
-      }
 
       <div className="db-bot__header">
         <Breadcrumbs step={2} />
-        <div onClick={_handleSmartIntervalsInfo} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
+        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
           <span className="d-none d-sm-inline">Start</span>
           <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
         </div>
@@ -205,12 +186,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
-          <div className="form-inline mx-4">
-            <div className="form-group mr-2">
+
+          <div className="form-inline db-bot__form__schedule">
+            <div className="form-group mr-3">
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
-                className="form-control db-select--buy-sell"
+                className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
               >
                 <option value="market_buy">{I18n.t('bots.buy')}</option>
                 <option value="market_sell">{I18n.t('bots.sell')}</option>
@@ -219,11 +201,11 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 }
               </select>
             </div>
-            <div className="form-group mr-2">
+            <div className="form-group mr-3">
               <select
                 value={base}
                 onChange={e => setBase(e.target.value)}
-                className="form-control"
+                className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
               >
                 {
                   BASES.map(c =>
@@ -237,21 +219,22 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 }
               </select>
             </div>
-            <div className="form-group mr-2">{I18n.t('bots.for')}</div>
-            <div className="form-group mr-2">
+            <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+            <div className="form-group mr-3">
               <input
                 type="tel"
                 min="1"
+                size={(price.length > 0) ? price.length : 3 }
                 value={price}
                 onChange={e => setPrice(e.target.value)}
-                className="form-control db-input--dca-amount"
+                className="bot-input bot-input--sizable bot-input--paper-bg"
               />
             </div>
             <div className="form-group mr-2">
               <select
                 value={quote}
                 onChange={e => setQuote(e.target.value)}
-                className="form-control"
+                className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
               >
                 {
                   validQuotesForSelectedBase().map(c =>
@@ -261,11 +244,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               </select>
             </div>
             <div className="form-group mr-2">/</div>
-            <div className="form-group mr-2">
-              <select
-                value={interval}
-                onChange={e => setInterval(e.target.value)}
-                className="form-control"
+            <div className="form-group">
+              <select value={interval}
+                      onChange={e => setInterval(e.target.value)}
+                      className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
               >
                 <option value="hour">{I18n.t('bots.hour')}</option>
                 <option value="day">{I18n.t('bots.day')}</option>
@@ -274,27 +256,63 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               </select>
             </div>
           </div>
-          <label className="form-inline mx-4 mt-4 mb-0">
+
+          <label
+            className="alert alert-primary"
+            disabled={!forceSmartIntervals}
+          >
             <input
               type="checkbox"
               checked={forceSmartIntervals}
               onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
-              className="mr-2" />
-            <span>{I18n.t('bots.force_smart_intervals')}</span>
+            />
+            <div>
+            <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={smartIntervalsValue}
+                onChange={e => setSmartIntervalsValue(e.target.value)}
+                onBlur={validateSmartIntervalsValue}
+                size={smartIntervalsValue.length}
+                min={minimumOrderParams.value}
+              />
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+
+              <small className="hide-when-running hide-when-disabled">
+                <div>
+                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+                </div>
+              </small>
+            </div>
           </label>
+
+          {isLimitOrder() &&
+
+          <label
+            className="alert alert-primary"
+          >
+            <div>
+
+              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
+                type="tel"
+                size={(percentage.length > 0) ? percentage.length : 3 }
+                value={percentage}
+                className="bot-input bot-input--sizable"
+                onChange={e => setPercentage(e.target.value)}
+                onBlur={validatePercentage}
+                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
+
+              {isLimitOrder() && <small><LimitOrderNotice /></small>}
+
+            </div>
+
+          </label> }
+
         </form>
-        {isLimitOrder() &&
-        <span className="db-limit-bot-modifier">
-          { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
-            type="text"
-            min="0"
-            step="0.1"
-            className="form-control"
-            onChange={e => setPercentage(e.target.value)}
-            placeholder="0"
-            /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup></span> }
+
       </div>
-      {isLimitOrder() && <LimitOrderNotice />}
+
       <div className="db-bot__footer">
         <ResetButton />
       </div>
