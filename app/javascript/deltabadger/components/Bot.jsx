@@ -44,7 +44,7 @@ const BotTemplate = ({
   const [percentage, setPercentage] = useState(settings.percentage == null ? 0.0 : settings.percentage);
   const [interval, setInterval] = useState(settings.interval);
   const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? 0.0 : settings.smart_intervals_value);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? "0" : settings.smart_intervals_value);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
 
@@ -180,8 +180,8 @@ const BotTemplate = ({
       const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
-      if (smartIntervalsValue == 0.0) {
-        setSmartIntervalsValue(minimum)
+      if (smartIntervalsValue === "0") {
+        setSmartIntervalsValue(minimum.toString())
       }
       setCurrencyOfMinimum(currency)
     }
@@ -203,9 +203,12 @@ const BotTemplate = ({
 
   const getSmartIntervalsDisclaimer = () => {
     if (minimumOrderParams.showQuote) {
-      return I18n.t('bots.smart_intervals_disclaimer_base', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+      return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+      const sentences = I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match( /[^\.!\?]+[\.!\?]+/g );
+
+      // float number inside sentence
+      return sentences.length === 2 ? sentences[1] : sentences[1]+sentences[2]
     }
   }
 
@@ -293,7 +296,7 @@ const BotTemplate = ({
                 type="tel"
                 className="bot-input bot-input--sizable"
                 value={smartIntervalsValue}
-                size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 5 }
+                size={smartIntervalsValue.length}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
                 disabled={working}
