@@ -5,9 +5,6 @@ input
     &:not(:checked)
       box-shadow: inset 0 0 1.5rem var(--inactive)
       filter:     none
-  &[disabled]
-    &+ span
-      color: var(--inactive)
 
 .db-bots
   display:        grid
@@ -44,6 +41,7 @@ input
         position: relative
       .nav-item
         .nav-link
+          padding: 0.5rem 1rem .8rem
           color:           var(--link)
           background:      var(--paper)
           text-decoration: none !important
@@ -69,19 +67,19 @@ input
             &::before
               content:     ""
               display:     block
-              height:      1rem
+              height:      1.8rem
               background:  var(--paper)
               left:       -.5rem
               position:    absolute
               width:       calc(100% + 1rem)
-              bottom:     -1rem
+              bottom:     -1.8rem
         &:first-child
           .nav-link
             &.active
               &::before
                 left:       -.1rem
                 border-left: .1rem solid var(--paperBorder)
-                bottom:     -1rem
+                bottom:     -1.8rem
             &:not(.active)
               &:hover
                 &::before
@@ -89,7 +87,7 @@ input
                   z-index:   -1
                   display:    block
                   width:      1rem
-                  height:     1rem
+                  height:     1.8rem
                   background: var(--paperBorder)
                   left:      -.1rem
                   position:   absolute
@@ -127,18 +125,6 @@ input
   border:        .1rem solid var(--paperBorder)
   border-radius: $box-border-radius
   box-shadow:    $boxShadowBot
-  .alert
-    border-radius: 0
-    box-shadow: none
-    margin-bottom: .6rem
-    a
-      color: var(--primary) !important
-    ol
-      padding-left: 1.5em
-    &--trading-agreement
-      margin-top: -3rem
-    &-warning
-      margin-bottom: 8rem
   .form-inline
     justify-content: center
     :last-child
@@ -174,18 +160,9 @@ input
           margin-right:           -.1rem
           border-top-right-radius: 0
           border-top-left-radius:  0
-    select, input
-      text-align: center !important
       &:disabled
         background: var(--progressBar) !important
         color: var(--text) !important
-    select
-      -webkit-appearance: none
-      -moz-appearance: none
-      appearance: none
-      text-indent: .1rem
-      text-indent: 0
-      text-align-last:center
   &--setup-finished, &--setup
     &+.db-bots__item--data
       .db-showif--setup
@@ -195,16 +172,20 @@ input
       .db-showif--pick-exchange
         display: block
   &--collapsed
-    height:   7.6rem
+    height:   7.5rem
     overflow: hidden
     cursor:   pointer
+    .db-bot__progress
+      left: .46rem
+      right: .46rem
+      border-radius: 0
   &__progress
     height: .4rem
     position: absolute
-    top: 7rem
-    left: 0
-    right: 0
-    border-radius: 0
+    top: 6.9rem
+    left: 1.5rem
+    right: 1.5rem
+    border-radius: 1rem
     background: var(--progressBar)
     *
       transition: all 200ms linear
@@ -248,7 +229,7 @@ input
     left: 1.5rem
     right: 1.5rem
   &__exchanges
-    padding: 2.8rem 2.4rem 1rem
+    padding: 1.9rem 1.6rem 0.1rem
     margin: 0 !important
     justify-content: space-between
     &__item
@@ -258,7 +239,7 @@ input
       display:         flex
       justify-content: center
       align-items:     center
-      border-radius:   $box-border-radius
+      border-radius:   $small-box-border-radius
       background:      var(--pickExchangeItemBg)
       color:           var(--pickExchangeItemTxt)
       margin-bottom:   1.6rem
@@ -306,8 +287,7 @@ input
     p
       margin: 1em 3em
   &__footer
-    margin-top: -5em
-    min-height: 7.4rem
+    margin-top: -.4em
 
 .db-bot-info__footer
   display:         flex
@@ -334,24 +314,23 @@ input
 // bot dca1
 
 .db-bot__form
-  padding: 4em 0 3em
+  padding: 7rem 0 0
   display: flex
   flex-direction: column
-  align-items: center
-  input
-    text-align: right
+  align-items: stretch
+  &__schedule
+    margin-bottom: 7rem
+  form
+    width: auto
 
 .db-bot__form--apikeys
   padding-left: 2rem
   padding-right: 2rem
+  padding-bottom: 7rem !important
   .form-row
-    width: 100%
+    width: auto
   .form-group
     margin-bottom: 0
-  input
-    width: 100% !important
-    text-align: left
-    max-width: none !important
 
 .db-bot__modal
   border-radius: .7rem
@@ -386,12 +365,13 @@ input
 .db-bot__modal__content
   text-align: center
 .btn--reset
-  margin:          1em
-    left:          4rem
+  justify-content: start !important
+  margin:          0.7rem 1.4rem 1.6rem
+  left:            4rem
   color:           var(--secondary) !important
   text-decoration: none !important
   align-self:      flex-start
-  width:           4.2rem
+  width:           10rem
   height:          4.2rem
   span
     color:       var(--danger)
@@ -410,11 +390,6 @@ input
     color: var(--primary) !important
     color: var(--primary-p3) !important
 
-.db-exchange
-  &-instructions
-    &+.db-bot__footer
-      margin-top: 0
-
 // chart
 
 .db-chart-container
@@ -424,15 +399,12 @@ input
 .db-limit-bot-modifier
   margin-top: 4rem
   margin-bottom: -2rem
-  input
-    width: 3.1em
-    display: inline-block
-
-.db-alert--annotation
-  display: block
-  &:first-line
-    text-indent: -1em
-
+.db-alert
+  &--annotation
+    min-height: 4rem
+    display: block
+    &:first-line
+      text-indent: -1em
 .db-breadcrumbs
   color: var(--linkInactive)
   em

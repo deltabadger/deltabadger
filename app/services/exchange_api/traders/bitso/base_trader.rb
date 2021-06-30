@@ -53,19 +53,22 @@ module ExchangeApi
           Result::Failure.new('Could not make Bitso order', RECOVERABLE)
         end
 
-        def transaction_price(symbol, price, force_smart_intervals)
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
           min_price = @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
-
-          return Result::Success.new(min_price.data) if force_smart_intervals
 
           quote_decimals = @market.quote_decimals(symbol)
           return quote_decimals unless quote_decimals.success?
 
+          smart_intervals_value = min_price.data if smart_intervals_value.nil?
+          smart_intervals_value = smart_intervals_value.ceil(quote_decimals.data)
+
+          return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
+
           Result::Success.new([min_price.data, price].max.ceil(quote_decimals.data).to_d)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
           volume = (price / rate).ceil(8)
           min_base = @market.minimum_base_size(symbol)
           return min_base unless min_base.success?
@@ -75,7 +78,10 @@ module ExchangeApi
 
           min_volume = [min_base.data, (min_quote.data / rate).ceil(8)].max.to_d
 
-          return Result::Success.new(min_volume) if force_smart_intervals
+          smart_intervals_value = smart_intervals_value.nil? ? min_volume : (smart_intervals_value / rate)
+          smart_intervals_value = smart_intervals_value.ceil(8)
+
+          return Result::Success.new([smart_intervals_value, min_volume].max) if force_smart_intervals
 
           Result::Success.new([min_volume, volume].max.to_d)
         end
