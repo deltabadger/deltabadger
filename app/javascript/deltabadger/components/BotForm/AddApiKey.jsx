@@ -132,8 +132,8 @@ export const AddApiKey = ({
         </form>
       </div>
       { pickedExchangeName == "Kraken" &&
-        <div className="db-exchange-instructions">
-          <div className="alert alert--trading-agreement">
+        <div className="alert alert-primary alert-trading-agreement">
+          <div className="alert__regular-text">
             <RawHTML tag="p">{I18n.t('bots.setup.kraken.trading_agreement_html')}</RawHTML>
             <div className="form-check">
               <input

@@ -26,7 +26,7 @@ module Bots::Free::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :non_hodler_symbols,
-                  :hodler, :force_smart_intervals, :exchange_name
+                  :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
@@ -42,14 +42,16 @@ module Bots::Free::Validators
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
       validates :force_smart_intervals, inclusion: { in: [true, false] }
+      validates :smart_intervals_value, numericality: { only_float: true, greater_than: 0 }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
-        greater_than: 0,
+        greater_than_or_equal_to: 0,
         smaller_than: 100
       }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
       validate :interval_within_limit
+      validate :smart_intervals_above_minimum
 
       def initialize(params, user, allowed_symbols, non_hodler_symbols, exchange_name)
         @interval = params['interval']
@@ -60,10 +62,12 @@ module Bots::Free::Validators
         @price = params['price']&.to_f
         @percentage = params['percentage']&.to_f
         @force_smart_intervals = params['force_smart_intervals']
+        @smart_intervals_value = params['smart_intervals_value']
         @allowed_symbols = allowed_symbols
         @non_hodler_symbols = non_hodler_symbols
         @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
+        @minimum = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data[:minimum].to_f
       end
 
       private
@@ -102,6 +106,13 @@ module Bots::Free::Validators
         return if order_type == 'market' || (order_type == 'limit' && percentage.present?)
 
         errors.add(:base, 'Specify percentage when creating a limit order')
+      end
+
+      def smart_intervals_above_minimum
+        return unless @force_smart_intervals
+        return if @smart_intervals_value.to_f >= @minimum.to_f
+
+        errors.add(:smart_intervals_value, " should be greater than #{@minimum}")
       end
     end
   end
