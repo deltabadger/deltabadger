@@ -138,7 +138,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const _handleSubmit = (evt) => {
     evt.preventDefault();
-    console.log(smartIntervalsValue)
     const botParams = {
       type,
       base,
