@@ -291,7 +291,7 @@ const BotTemplate = ({
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
-                className="bot-input bot-input--sizable hide-when-disabled"
+                className="bot-input bot-input--sizable"
                 value={smartIntervalsValue}
                 size={(smartIntervalsValue != null && smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 5 }
                 onChange={e => setSmartIntervalsValue(e.target.value)}
