@@ -78,7 +78,7 @@ module ExchangeApi
 
           min_volume = [min_base.data, (min_quote.data / rate).ceil(8)].max.to_d
 
-          smart_intervals_value = min_volume if smart_intervals_value.nil?
+          smart_intervals_value = smart_intervals_value.nil? ? min_volume : (smart_intervals_value / rate)
           smart_intervals_value = smart_intervals_value.ceil(8)
 
           return Result::Success.new([smart_intervals_value, min_volume].max) if force_smart_intervals
