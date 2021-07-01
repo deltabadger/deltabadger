@@ -12,6 +12,7 @@ class GetSmartIntervalsInfo < BaseService
     smart_intervals = params[:force_smart_intervals]
     Result::Success.new(
       minimum: minimum_order_params.data[:minimum],
+      minimum_limit: minimum_order_params.data.fetch(:minimum_limit, nil),
       minimumQuote: get_minimum_quote_price(minimum_order_params.data).round(2),
       side: minimum_order_params.data[:side],
       showSmartIntervalsInfo: smart_intervals?(user, price, minimum_order_params.data, smart_intervals)
