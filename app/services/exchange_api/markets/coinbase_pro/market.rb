@@ -65,8 +65,12 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
+          minimum_limit = minimum_base_size(symbol)
+          return minimum_limit unless minimum_limit.success?
+
           Result::Success.new(
             minimum: minimum.data,
+            minimum_limit: minimum_limit.data,
             minimum_quote: minimum.data,
             side: QUOTE
           )

@@ -67,7 +67,7 @@ module Bots::Free::Validators
         @non_hodler_symbols = non_hodler_symbols
         @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
-        @minimum = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data[:minimum].to_f
+        @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
       end
 
       private
@@ -110,6 +110,12 @@ module Bots::Free::Validators
 
       def smart_intervals_above_minimum
         return unless @force_smart_intervals
+
+        @minimum = @minimums[:minimum].to_f
+        if @exchange_name.downcase == 'coinbase pro'
+          @minimum = @minimums[:minimum_limit].to_f
+        end
+
         return if @smart_intervals_value.to_f >= @minimum.to_f
 
         errors.add(:smart_intervals_value, " should be greater than #{@minimum}")
