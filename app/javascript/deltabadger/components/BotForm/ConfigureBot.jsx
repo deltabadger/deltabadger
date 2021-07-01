@@ -113,6 +113,11 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await handleSmartIntervalsInfo(getBotParams())
+      if (currentExchange.name === 'Coinbase Pro' && isLimitOrder()) {
+        data.data.minimum = data.data.minimum_limit
+        data.data.side = 'base'
+      }
+
       const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
 
@@ -122,7 +127,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
 
     fetchSmartIntervalsInfo()
-  }, []);
+  }, [base, quote, type]);
 
   const validateSmartIntervalsValue = () => {
     if (isNaN(smartIntervalsValue) || smartIntervalsValue < minimumOrderParams.value){
