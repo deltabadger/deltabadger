@@ -135,7 +135,7 @@ en:
         bitcoin_address_not_updated: 'Bitcoin address could not be updated'
         frequency_limit: 'Frequency limit exceeded'
         limit_reached: 'Free plan limit reached'
-        invalid_api_keys: 'Invalid tokens'
+        invalid_api_keys: 'Wrong keys or insufficient permissions.'
     deltabadger: Deltabadger
     welcome:
         default: 'Hi, welcome to Deltabadger'
