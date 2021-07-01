@@ -76,7 +76,7 @@ const BotTemplate = ({
       price: settings.price.trim(),
       forceSmartIntervals: settings.force_smart_intervals,
       smartIntervalsValue: settings.smartIntervalsValue,
-      percentage: settings.order_type === 'limit' ? percentage.trim() : undefined
+      percentage: settings.order_type === 'limit' ? percentage && percentage.trim() : undefined
     }
 
     return !_.isEqual(newSettings, oldSettings)
@@ -176,18 +176,23 @@ const BotTemplate = ({
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await fetchMinimums(getBotParams())
+      if (exchangeName === 'Coinbase Pro' && isLimitSelected()) {
+        data.data.minimum = data.data.minimum_limit
+        data.data.side = 'base'
+      }
+
       const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
-      if (smartIntervalsValue === "0") {
+      if (smartIntervalsValue === "0" || exchangeName === 'Coinbase Pro') {
         setSmartIntervalsValue(minimum.toString())
       }
       setCurrencyOfMinimum(currency)
     }
 
     fetchSmartIntervalsInfo()
-  }, []);
+  }, [type]);
 
   const validateSmartIntervalsValue = () => {
     if (isNaN(smartIntervalsValue) || smartIntervalsValue < minimumOrderParams.value){
