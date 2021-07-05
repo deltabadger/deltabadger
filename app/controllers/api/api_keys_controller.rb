@@ -20,6 +20,13 @@ module Api
       end
     end
 
+    def remove_invalid_keys
+      api_key = current_user.api_keys.find_by(exchange_id: invalid_key_params[:exchange_id])
+      return if api_key.nil? || !api_key.incorrect?
+
+      remove(api_key)
+    end
+
     private
 
     def revalidate_api_key(api_key)
@@ -41,6 +48,10 @@ module Api
 
     def api_key_params
       params.require(:api_key).permit(:key, :secret, :passphrase, :exchange_id, :german_trading_agreement)
+    end
+
+    def invalid_key_params
+      params.permit(:exchange_id)
     end
 
     def same_keys?(params, api_key)
