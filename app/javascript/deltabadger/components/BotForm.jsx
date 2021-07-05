@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import API from '../lib/API'
+import I18n from 'i18n-js'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
@@ -105,8 +106,12 @@ export const BotForm = ({
       setErrors([])
       setStep(3)
     }).catch(() => {
-      setErrors("Wrong keys or insufficient permissions.")
+      setErrors(I18n.t('errors.invalid_api_keys'))
     })
+  }
+
+  const removeInvalidApiKeys = () => {
+    API.removeInvalidApiKeys({ exchangeId: form.exchangeId })
   }
 
   const getOfferTypeParams = (type) => {
@@ -176,6 +181,7 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
+          handleRemove={removeInvalidApiKeys}
           status={'add_api_key'}
         />
       case 'validating_api_key':
@@ -183,6 +189,7 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
+          handleRemove={removeInvalidApiKeys}
           status={'validating_api_key'}
         />
       case 'invalid_api_key':
@@ -190,6 +197,7 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
+          handleRemove={removeInvalidApiKeys}
           status={'invalid_api_key'}
         />
       case 'configure_bot':
