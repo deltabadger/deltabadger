@@ -36,6 +36,12 @@ const API = {
     return client.request({ url, data: { api_key: ApiKeyParams }, method: 'post' }).then(data => data.data);
   },
 
+  removeInvalidApiKeys(params) {
+    const url = `${API_URL}/remove_invalid_keys`;
+
+    return client.request({ url, data: { exchange_id: params.exchangeId }, method: 'post' });
+  },
+
   getSmartIntervalsInfo(params) {
     const url = `${API_URL}/smart_intervals_info`;
     const botParams = {
