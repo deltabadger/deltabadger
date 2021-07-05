@@ -58,7 +58,6 @@ export const AddApiKey = ({
         document.getElementById('api-passphrase').setCustomValidity("Error")
       }
 
-      console.log("REMOVING")
       handleRemove()
     }
   })
