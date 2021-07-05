@@ -21,6 +21,7 @@ export const AddApiKey = ({
   pickedExchangeName,
   handleReset,
   handleSubmit,
+  handleRemove,
   status
 }) => {
   const [key, setKey] = useState("");
@@ -56,6 +57,9 @@ export const AddApiKey = ({
       if (pickedExchangeName == 'Coinbase Pro') {
         document.getElementById('api-passphrase').setCustomValidity("Error")
       }
+
+      console.log("REMOVING")
+      handleRemove()
     }
   })
 
