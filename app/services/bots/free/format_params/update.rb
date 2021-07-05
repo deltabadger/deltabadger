@@ -2,9 +2,18 @@ module Bots
   module Free
     module FormatParams
       class Update < BaseService
+        BOT_UPDATE_PARAMS = %i[
+          order_type
+          price
+          percentage
+          interval
+          force_smart_intervals
+          smart_intervals_value
+        ].freeze
+
         def call(bot, params)
           bot_settings = bot.settings.merge(
-            params.slice(:order_type, :price, :interval, :percentage, :force_smart_intervals)
+            params.slice(*BOT_UPDATE_PARAMS)
           )
 
           {
