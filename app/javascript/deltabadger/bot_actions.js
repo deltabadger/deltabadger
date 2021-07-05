@@ -29,6 +29,11 @@ const botRemoved = (id) => ({
   payload: id
 })
 
+const fetchedMinimums = (data) => ({
+  type: 'MINIMUMS_FETCHED',
+  payload: data
+})
+
 const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: errors}})
 
 export const clearErrors = (id) => setErrors({ id, errors: [] })
@@ -79,11 +84,12 @@ export const fetchRestartParams = (id) => dispatch => (
   })
 )
 
-export const getSmartIntervalsInfo = (botParams) => {
+export const getSmartIntervalsInfo = (botParams) => dispatch => {
   return API.getSmartIntervalsInfo(botParams).then((data) => {
+    dispatch(fetchedMinimums(data))
     return data
   }).catch((data) => {
-    return {data: {showSmartIntervalsInfo: false}}
+    dispatch(fetchedMinimums({data: {showSmartIntervalsInfo: false}}))
   })
 }
 

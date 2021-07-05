@@ -18,7 +18,7 @@ class Users::SessionsController < Devise::SessionsController
         end
 
       else
-        abort_sign_in(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
+        abort_sign_in(I18n.t('errors.messages.empty_two_fa_token'), :otp_code_token)
       end
 
     end
