@@ -26,7 +26,6 @@ class SendgridMailValidator < BaseService
   private
 
   def get_response(email)
-    byebug
     cache_key = "#{CACHE_KEY_BASE}_#{email.to_s}"
     if Rails.cache.exist?(cache_key)
       response = Rails.cache.read(cache_key)
