@@ -5,13 +5,7 @@ class SendgridMailValidator < BaseService
   CACHE_KEY_BASE = 'sendgrid_response_cache_key'.freeze
 
   def call(email)
-    cache_key = "#{CACHE_KEY_BASE}_#{email.to_s}"
-    if Rails.cache.exist?(cache_key)
-      response = Rails.cache.read(cache_key)
-    else
-      response = JSON.parse(Faraday.post(EMAIL_VALIDATION_URL, request_body(email).to_json, headers).body)
-      Rails.cache.write(cache_key, response, expires_in: 24.hour)
-    end
+    response = get_response(email)
 
     return Result::Failure.new('Invalid Email') unless is_email_valid?(response)
 
@@ -22,6 +16,17 @@ class SendgridMailValidator < BaseService
   end
 
   def get_suggestion(email)
+    response = get_response(email)
+    suggestion(response)
+  rescue StandardError => e
+    Raven.capture_exception(e)
+    nil
+  end
+
+  private
+
+  def get_response(email)
+    byebug
     cache_key = "#{CACHE_KEY_BASE}_#{email.to_s}"
     if Rails.cache.exist?(cache_key)
       response = Rails.cache.read(cache_key)
@@ -30,13 +35,8 @@ class SendgridMailValidator < BaseService
       Rails.cache.write(cache_key, response, expires_in: 24.hour)
     end
 
-    suggestion(response)
-  rescue StandardError => e
-    Raven.capture_exception(e)
-    nil
+    response
   end
-
-  private
 
   def headers
     api_key = ENV.fetch('SENDGRID_VALIDATION_API_KEY')
