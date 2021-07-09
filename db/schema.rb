@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_06_22_103823) do
+ActiveRecord::Schema.define(version: 2021_07_09_124902) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -141,6 +141,7 @@ ActiveRecord::Schema.define(version: 2021_06_22_103823) do
     t.datetime "updated_at", null: false
     t.decimal "credits"
     t.boolean "limit_almost_reached_sent", default: false
+    t.datetime "first_month_ending_sent_at"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
