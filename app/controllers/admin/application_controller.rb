@@ -18,7 +18,7 @@ module Admin
     end
 
     def default_sorting_attribute
-      get_order_column(model_name)
+      get_sorting_attribute(model_name)
     end
 
     def default_sorting_direction
@@ -27,7 +27,7 @@ module Admin
 
     private
 
-    def get_order_column(model_name)
+    def get_sorting_attribute(model_name)
       %i[payment user].include?(model_name) ? :created_at : :id
     end
 
