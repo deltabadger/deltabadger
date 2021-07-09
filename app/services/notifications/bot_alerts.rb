@@ -52,6 +52,12 @@ module Notifications
     end
 
     def first_month_ending_soon(bot:)
+      subscription = bot.user.subscription
+
+      return nil unless was_sent_more_than_day_ago?(subscription.first_month_ending_sent_at)
+
+      subscriptions_repository.update(subscription.id, first_month_ending_sent_at: Date.current)
+
       BotAlertsMailer.with(
         bot: bot,
         user: bot.user
@@ -59,6 +65,10 @@ module Notifications
     end
 
     private
+
+    def was_sent_more_than_day_ago?(notification_sent_at)
+      notification_sent_at.nil? || notification_sent_at < (Date.current - 1.days)
+    end
 
     attr_reader :subscriptions_repository, :calculate_restart_delay, :format_readable_duration
   end
