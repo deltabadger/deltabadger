@@ -8,7 +8,6 @@ module Admin
   class ApplicationController < Administrate::ApplicationController
     before_action :authenticate_user!
     before_action :authenticate_admin
-    before_action :default_order_by_id
 
     def authenticate_admin
       redirect_to dashboard_path if !current_user.admin?
@@ -18,12 +17,18 @@ module Admin
       raise NotImplementedError
     end
 
+    def default_sorting_attribute
+      get_sorting_attribute(model_name)
+    end
+
+    def default_sorting_direction
+      :desc
+    end
+
     private
 
-    def default_order_by_id
-      params[model_name] ||= {}
-      params[model_name][:order] ||= 'id'
-      params[model_name][:direction] ||= 'desc'
+    def get_sorting_attribute(model_name)
+      %i[payment user].include?(model_name) ? :created_at : :id
     end
 
     # Override this value to specify the number of elements to display at a time
