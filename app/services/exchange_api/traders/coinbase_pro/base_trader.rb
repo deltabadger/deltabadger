@@ -30,8 +30,11 @@ module ExchangeApi
           response = JSON.parse(request.body)
 
           return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless is_order_done?(request, response)
+          return error_to_failure(['Order was canceled']) if canceled?(response)
 
           amount = response.fetch('filled_size').to_f
+          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless filled?(amount)
+
           Result::Success.new(
             offer_id: order_id,
             amount: amount,
@@ -109,6 +112,14 @@ module ExchangeApi
 
         def success?(request)
           request.status == 200 && request.reason_phrase == 'OK'
+        end
+
+        def canceled?(response)
+          response.fetch('done_reason', nil) == 'canceled'
+        end
+
+        def filled?(amount)
+          amount != 0.0
         end
       end
     end
