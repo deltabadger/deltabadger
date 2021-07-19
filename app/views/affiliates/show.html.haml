@@ -37,7 +37,7 @@
     .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
       %h4.db-modal__subtitle #{t('.link_title')}
       .db-form__row.db-form__row--input.mb-0
-        %input.db-form__input{ :type=>"text", :value=>ref_code_url(code: affiliate.code), :readonly=>"readonly" }
+        %input.db-form__input{ :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: affiliate.code), :readonly=>"readonly" }
         %label.db-form__label= t('.your_link')
 
     .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
