@@ -350,7 +350,7 @@ pl:
         btc_address_changed: 'Adres bitcoinowy został zmieniony'
         program_joined: 'Przystąpiłeś do programu referencyjnego'
         your_bitcoin_address: 'Twój adres bitcoinowy'
-        invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
+        invalid_bitcoin_address: 'Adres bitcoinowy został zmieniony'
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
         current_bitcoin_address: 'Aktualny adres Bitcoin'
