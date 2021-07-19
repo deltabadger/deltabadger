@@ -105,7 +105,6 @@ Rails.application.routes.draw do
   get '/privacy_policy' => redirect("/#{I18n.default_locale}/privacy-policy")
   get '/cookies_policy' => redirect("/#{I18n.default_locale}/cookies-policy")
   get '/referral_program' => redirect("/#{I18n.default_locale}/referral-program")
-  get '/ref/*' => redirect("/#{I18n.default_locale}/users/sign_up")
   get '/' => redirect("/#{I18n.default_locale}")
   get '*path' => redirect("/#{I18n.default_locale}")
 end
