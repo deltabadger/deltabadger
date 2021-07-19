@@ -2,7 +2,7 @@ class RefCodesController < ApplicationController
   def apply_code
     if !user_signed_in?
       session[:code] = code
-      return redirect_to root_path
+      return redirect_to new_user_registration_path
     end
 
     affiliate = find_affiliate(code)
