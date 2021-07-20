@@ -51,6 +51,9 @@ Rails.application.routes.draw do
     mount Sidekiq::Web => '/sidekiq'
   end
 
+  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
+  post '/ref/accept', to: 'ref_codes#accept'
+
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
     namespace :upgrade do
       get '/', action: :index
@@ -76,8 +79,6 @@ Rails.application.routes.draw do
       patch :update_btc_address
     end
 
-    get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
-    post '/ref/accept', to: 'ref_codes#accept'
 
     devise_for :users, controllers: { sessions: 'users/sessions' }, skip: [:registrations]
 
