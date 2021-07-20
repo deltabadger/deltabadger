@@ -99,6 +99,7 @@ Rails.application.routes.draw do
     get '/contact', to: 'home#contact', as: :contact
     get '/about', to: 'home#about', as: :about
     get '/referral-program', to: 'home#referral_program', as: :referral_program
+    get '/ref/:code', to: 'ref_codes#apply_code'
   end
 
   get '/cryptocurrency-dollar-cost-averaging' => redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
