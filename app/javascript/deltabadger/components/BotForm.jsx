@@ -38,6 +38,10 @@ export const BotForm = ({
     return !isHodler && ['ftx'].includes(name.toLowerCase())
   }
 
+  const keyExists = (exchangeId) => {
+    return [...ownedExchangesIds, ...invalidExchangesIds, ...pendingExchangesIds].includes(exchangeId)
+  }
+
   const chooseStep = step => {
     if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
@@ -50,6 +54,10 @@ export const BotForm = ({
     if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
 
     if ((STEPS[step] == 'closed_form') && open) { return step + 1 }
+
+    if ((STEPS[step] == 'validating_api_key') && !keyExists(form.exchangeId)) {
+      return 4
+    }
 
     if((STEPS[step] == 'validating_api_key')) {
       setTimeout(() => loadExchanges(), 3000)
