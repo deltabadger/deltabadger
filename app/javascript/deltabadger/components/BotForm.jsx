@@ -39,7 +39,7 @@ export const BotForm = ({
   }
 
   const keyExists = (exchangeId) => {
-    return (ownedExchangesIds.includes(exchangeId) || invalidExchangesIds.includes(exchangeId) || pendingExchangesIds.includes(exchangeId))
+    return [...ownedExchangesIds, ...invalidExchangesIds, ...pendingExchangesIds].includes(exchangeId)
   }
 
   const chooseStep = step => {
