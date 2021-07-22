@@ -49,7 +49,7 @@ class MakeTransaction < BaseService
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
     elsif restart && recoverable?(result)
       @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
-      bot = @bots_repository.update(bot.id, restarts: bot.restarts + 1)
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
