@@ -7,7 +7,9 @@ Rails.application.configure do
   config.cache_classes = false
 
   # Do not eager load code on boot.
-  config.eager_load = false
+# FIXME: Eager loading is enabled for Sidekiq because Kraken::Validator is not autoloaded. Review why this is happening: https://guides.rubyonrails.org/v5.2/autoloading_and_reloading_constants.html#autoloading-algorithms
+# config.eager_load = false
+  config.eager_load = Sidekiq.server?
 
   # Show full error reports.
   config.consider_all_requests_local = true
