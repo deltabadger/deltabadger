@@ -24,6 +24,15 @@ module ExchangeApi
         end
       end
 
+      def caching_client(url_base, expire_time = 30.second)
+        Faraday.new(url: url_base) do |builder|
+          builder.use :manual_cache,
+                      expires_in: expire_time,
+                      logger: Rails.logger
+          builder.adapter Faraday.default_adapter
+        end
+      end
+
       def signed_client(api_key, api_secret, url_base)
         Faraday.new(url: url_base) do |conn|
           conn.headers['X-MBX-APIKEY'] = api_key
