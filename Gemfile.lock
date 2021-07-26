@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/jonatack/kraken_ruby_client
-  revision: 560a3229d0de85c11c23fea39cadcfed79c8ce9e
+  revision: 16f23743fff5dbc000c64205e467ac63d2e8197a
   specs:
     kraken_ruby_client (0.0.1)
       curb (~> 0.9)
@@ -140,23 +140,11 @@ GEM
       railties (>= 5.0.0)
     faker (2.18.0)
       i18n (>= 1.6, < 2)
-    faraday (1.5.0)
-      faraday-em_http (~> 1.0)
-      faraday-em_synchrony (~> 1.0)
-      faraday-excon (~> 1.1)
-      faraday-httpclient (~> 1.0.1)
-      faraday-net_http (~> 1.0)
-      faraday-net_http_persistent (~> 1.1)
-      faraday-patron (~> 1.0)
+    faraday (0.17.4)
       multipart-post (>= 1.2, < 3)
-      ruby2_keywords (>= 0.0.4)
-    faraday-em_http (1.0.0)
-    faraday-em_synchrony (1.0.0)
-    faraday-excon (1.1.0)
-    faraday-httpclient (1.0.1)
-    faraday-net_http (1.0.1)
-    faraday-net_http_persistent (1.1.0)
-    faraday-patron (1.0.0)
+    faraday-manual-cache (0.4.0)
+      activesupport (>= 3.0.0)
+      faraday (~> 0.9)
     ffi (1.15.3)
     ffi-compiler (1.0.1)
       ffi (>= 1.0.0)
@@ -165,13 +153,13 @@ GEM
     formatador (0.3.0)
     globalid (0.4.2)
       activesupport (>= 4.2.0)
-    guard (2.17.0)
+    guard (2.18.0)
       formatador (>= 0.2.4)
       listen (>= 2.7, < 4.0)
       lumberjack (>= 1.0.12, < 2.0)
       nenv (~> 0.1)
       notiffany (~> 0.0)
-      pry (>= 0.9.12)
+      pry (>= 0.13.0)
       shellany (~> 0.0)
       thor (>= 0.18.1)
     guard-compat (1.2.1)
@@ -262,7 +250,7 @@ GEM
       shellany (~> 0.0)
     orm_adapter (0.5.0)
     parallel (1.20.1)
-    parser (3.0.1.1)
+    parser (3.0.2.0)
       ast (~> 2.4.1)
     pg (1.2.3)
     pry (0.14.1)
@@ -304,11 +292,11 @@ GEM
       thor (>= 0.19.0, < 2.0)
     rainbow (3.0.0)
     raindrops (0.19.2)
-    rake (13.0.3)
+    rake (13.0.6)
     rb-fsevent (0.11.0)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    recaptcha (5.8.0)
+    recaptcha (5.8.1)
       json
     redis (4.3.1)
     regexp_parser (2.1.1)
@@ -349,11 +337,10 @@ GEM
       ruby-progressbar (~> 1.7)
       unicode-display_width (>= 1.4.0, < 1.7)
     ruby-progressbar (1.11.0)
-    ruby2_keywords (0.0.4)
     ruby_dep (1.5.0)
     ruby_parser (3.16.0)
       sexp_processor (~> 4.15, >= 4.15.1)
-    rubyzip (2.3.1)
+    rubyzip (2.3.2)
     sass (3.7.4)
       sass-listen (~> 4.0.0)
     sass-listen (4.0.0)
@@ -383,8 +370,8 @@ GEM
     sendinblue (2.4)
       httparty
       json
-    sentry-raven (3.1.2)
-      faraday (>= 1.0)
+    sentry-raven (2.13.0)
+      faraday (>= 0.7.6, < 1.0)
     sexp_processor (4.15.3)
     shellany (0.0.1)
     sidekiq (6.2.1)
@@ -454,6 +441,7 @@ DEPENDENCIES
   factory_bot_rails
   faker
   faraday
+  faraday-manual-cache
   fomo
   guard-rspec
   guard-rubocop
