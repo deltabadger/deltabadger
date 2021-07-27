@@ -88,7 +88,7 @@ module ExchangeApi
 
         def current_bid_ask_price(symbol)
           url = "https://bitbay.net/API/Public/#{symbol}/ticker.json"
-          response = JSON.parse(Faraday.get(url).body)
+          response = JSON.parse(@non_caching_client.get(url).body)
 
           bid = response.fetch('bid').to_f
           ask = response.fetch('ask').to_f
