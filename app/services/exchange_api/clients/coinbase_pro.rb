@@ -2,6 +2,7 @@ module ExchangeApi
   module Clients
     module CoinbasePro
       include BaseFaraday
+      
       def headers(api_key, api_secret, passphrase, body, request_path, method = 'GET')
         timestamp = Time.now.utc.to_i.to_s
         signature = signature(api_secret, request_path, body, timestamp, method)
@@ -30,4 +31,3 @@ module ExchangeApi
     end
   end
 end
-

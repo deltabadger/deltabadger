@@ -2,6 +2,7 @@ module ExchangeApi
   module Clients
     module Binance
       include BaseFaraday
+      
       AddTimestamp = Struct.new(:app, :api_secret) do
         def call(env)
           timestamp = DateTime.now.strftime('%Q')
