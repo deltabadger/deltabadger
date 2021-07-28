@@ -6,11 +6,11 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Bitbay
 
-        TICKER_URL = 'https://api.bitbay.net'.freeze
+        API_URL = 'https://api.bitbay.net'.freeze
 
         def initialize
-          @base_client = base_client(TICKER_URL)
-          @caching_client = caching_client(TICKER_URL)
+          @base_client = base_client(API_URL)
+          @caching_client = caching_client(API_URL)
         end
 
         def minimum_order_price(symbol)

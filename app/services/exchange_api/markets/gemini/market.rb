@@ -5,11 +5,11 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Gemini
 
-        BASE_URL = 'https://api.gemini.com'.freeze
+        API_URL = 'https://api.gemini.com'.freeze
 
         def initialize
-          @base_client = base_client(BASE_URL)
-          @caching_client = caching_client(BASE_URL)
+          @base_client = base_client(API_URL)
+          @caching_client = caching_client(API_URL)
         end
         def fetch_all_symbols
           request = @caching_client.get('/v1/symbols')
