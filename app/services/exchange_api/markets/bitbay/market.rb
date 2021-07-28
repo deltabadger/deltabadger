@@ -9,7 +9,7 @@ module ExchangeApi
         TICKER_URL = 'https://api.bitbay.net'.freeze
 
         def initialize
-          @non_caching_client = non_caching_client(TICKER_URL)
+          @base_client = base_client(TICKER_URL)
           @caching_client = caching_client(TICKER_URL)
         end
 
@@ -27,7 +27,7 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          response = JSON.parse(@non_caching_client.get('rest/trading/ticker').body)
+          response = JSON.parse(@base_client.get('rest/trading/ticker').body)
 
           symbols_data = response['items']
           all_symbols = symbols_data.map do |_, symbol_data|
@@ -88,7 +88,7 @@ module ExchangeApi
 
         def current_bid_ask_price(symbol)
           url = "https://bitbay.net/API/Public/#{symbol}/ticker.json"
-          response = JSON.parse(@non_caching_client.get(url).body)
+          response = JSON.parse(@base_client.get(url).body)
 
           bid = response.fetch('bid').to_f
           ask = response.fetch('ask').to_f
