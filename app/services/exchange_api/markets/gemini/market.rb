@@ -47,7 +47,6 @@ module ExchangeApi
 
         def quote_decimals(symbol)
           response = fetch_symbol(symbol)
-
           return response unless response.success?
 
           result = GetNumberOfDecimalPoints.call(response.data['quote_increment'])
