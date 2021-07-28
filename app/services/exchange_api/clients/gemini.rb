@@ -2,6 +2,7 @@ module ExchangeApi
   module Clients
     module Gemini
       include BaseFaraday
+      
       def headers(api_key, api_secret, body)
         b64_body = Base64.strict_encode64(body)
         digest = OpenSSL::Digest.new('sha384')
