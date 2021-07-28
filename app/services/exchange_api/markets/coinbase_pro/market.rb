@@ -5,12 +5,12 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::CoinbasePro
 
-        PRODUCTS_URL = 'https://api.pro.coinbase.com'.freeze
+        API_URL = 'https://api.pro.coinbase.com'.freeze
 
         def initialize
           super
-          @base_client = base_client(PRODUCTS_URL)
-          @caching_client = caching_client(PRODUCTS_URL)
+          @base_client = base_client(API_URL)
+          @caching_client = caching_client(API_URL)
         end
 
         def fetch_all_symbols
