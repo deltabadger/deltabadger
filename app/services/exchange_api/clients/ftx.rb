@@ -1,6 +1,7 @@
 module ExchangeApi
   module Clients
     module Ftx
+      include BaseFaraday
       API_URL = 'https://ftx.com'.freeze
 
       def headers(api_key, api_secret, body, request_path, method = 'GET')

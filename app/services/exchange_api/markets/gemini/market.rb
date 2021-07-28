@@ -5,12 +5,14 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Gemini
 
-        BASE_URL = 'https://api.gemini.com/v1'.freeze
+        BASE_URL = 'https://api.gemini.com'.freeze
 
+        def initialize
+          @base_client = base_client(BASE_URL)
+          @caching_client = caching_client(BASE_URL)
+        end
         def fetch_all_symbols
-          symbols_url = BASE_URL + '/symbols'
-          request = Faraday.get(symbols_url)
-
+          request = @caching_client.get('/v1/symbols')
           response = JSON.parse(request.body)
           market_symbols = response.map do |symbol_info|
             base = get_base(symbol_info)
@@ -44,6 +46,7 @@ module ExchangeApi
 
         def quote_decimals(symbol)
           response = fetch_symbol(symbol)
+
           return response unless response.success?
 
           result = GetNumberOfDecimalPoints.call(response.data['quote_increment'])
@@ -74,8 +77,7 @@ module ExchangeApi
         private
 
         def fetch_symbol(symbol)
-          url = BASE_URL + "/symbols/details/#{symbol}"
-          request = Faraday.get(url)
+          request = @caching_client.get("/v1/symbols/details/#{symbol}")
           response = JSON.parse(request.body)
 
           Result::Success.new(response)
@@ -84,9 +86,7 @@ module ExchangeApi
         end
 
         def current_bid_ask_price(symbol)
-          url = BASE_URL + "/pubticker/#{symbol}"
-          request = Faraday.get(url)
-
+          request = @base_client.get("/v1/pubticker/#{symbol}")
           response = JSON.parse(request.body)
 
           bid = response['bid'].to_f

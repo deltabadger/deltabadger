@@ -5,14 +5,16 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::CoinbasePro
 
-        PRODUCTS_URL = 'https://api.pro.coinbase.com/products'.freeze
+        PRODUCTS_URL = 'https://api.pro.coinbase.com'.freeze
 
         def initialize
           super
+          @base_client = base_client(PRODUCTS_URL)
+          @caching_client = caching_client(PRODUCTS_URL)
         end
 
         def fetch_all_symbols
-          request = Faraday.get(PRODUCTS_URL)
+          request = @caching_client.get('/products')
 
           response = JSON.parse(request.body)
           market_symbols = response.map do |symbol_info|
@@ -86,8 +88,7 @@ module ExchangeApi
         private
 
         def fetch_symbol(symbol)
-          url = PRODUCTS_URL + "/#{symbol}"
-          request = Faraday.get(url)
+          request = @caching_client.get("/products/#{symbol}")
           response = JSON.parse(request.body)
 
           Result::Success.new(response)
@@ -96,11 +97,8 @@ module ExchangeApi
         end
 
         def current_bid_ask_price(symbol)
-          url = PRODUCTS_URL + "/#{symbol}/book"
-          request = Faraday.get(url)
-
+          request = @base_client.get("/products/#{symbol}/book")
           response = JSON.parse(request.body)
-
           bid = response['bids'][0][0].to_f
           ask = response['asks'][0][0].to_f
 

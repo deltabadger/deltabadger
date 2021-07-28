@@ -5,7 +5,8 @@ module ExchangeApi
         include ExchangeApi::Clients::Kraken
 
         def initialize
-          @client = get_client('anything', 'anything')
+          @base_client = get_base_client('anything', 'anything')
+          @caching_client = get_caching_client('anything', 'anything')
         end
 
         def minimum_order_volume(symbol)
@@ -16,7 +17,7 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          symbols = @client.asset_pairs
+          symbols = @caching_client.asset_pairs
           alt_names = altname_symbols
           market_symbols = symbols['result'].map do |_symbol, data|
             base = alt_names[data['base']]
@@ -59,12 +60,12 @@ module ExchangeApi
         private
 
         def altname_symbols
-          symbols = @client.assets
+          symbols = @caching_client.assets
           Hash[symbols['result'].map.collect { |name, data| [name, data['altname']] }]
         end
 
         def fetch_symbol(symbol)
-          response = @client.asset_pairs(symbol)
+          response = @caching_client.asset_pairs(symbol)
           found_symbol = response['result'].first[1] # Value of the only hash element
           Result::Success.new(found_symbol)
         rescue StandardError
@@ -72,7 +73,7 @@ module ExchangeApi
         end
 
         def current_bid_ask_price(symbol)
-          response = @client.ticker(symbol)
+          response = @base_client.ticker(symbol)
           result = response['result']
           key = result.keys.first # The result should contain only one key
           rates = result[key]

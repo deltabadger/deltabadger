@@ -6,7 +6,7 @@ module ExchangeApi
         include ExchangeApi::Clients::Binance
 
         def initialize(url_base:)
-          @unsigned_client = unsigned_client(url_base)
+          @base_client = base_client(url_base)
           @caching_client = caching_client(url_base)
         end
 
@@ -72,7 +72,7 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          request = @unsigned_client.get('exchangeInfo')
+          request = @base_client.get('exchangeInfo')
           exchange_info = JSON.parse(request.body)
           symbols = exchange_info['symbols']
 
@@ -100,7 +100,7 @@ module ExchangeApi
         private
 
         def current_bid_ask_price(symbol)
-            request = @unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
+          request = @base_client.get('ticker/bookTicker', { symbol: symbol }, {})
           response = JSON.parse(request.body)
 
           bid = response.fetch('bidPrice').to_d
