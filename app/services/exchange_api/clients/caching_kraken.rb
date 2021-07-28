@@ -6,7 +6,7 @@ module ExchangeApi
         return Rails.cache.read(url) if Rails.cache.exist?(url)
 
         http = Curl.get(url, opts)
-        Rails.cache.write(url, parse_response(http), expires_in: ENV['DEFAULT_CACHING_TIME'])
+        Rails.cache.write(url, parse_response(http), expires_in: ENV['DEFAULT_MARKET_CACHING_TIME'])
         parse_response(http)
       end
     end
