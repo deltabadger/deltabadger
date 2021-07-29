@@ -1,6 +1,8 @@
 module ExchangeApi
   module Clients
     module Bitso
+      include BaseFaraday
+
       API_URL = 'https://api.bitso.com'.freeze
 
       def headers(api_key, api_secret, body, request_path, method = 'GET')
@@ -22,6 +24,7 @@ module ExchangeApi
         # create a sha256 hmac with the secret
         OpenSSL::HMAC.hexdigest('sha256', api_secret, what)
       end
+
     end
   end
 end

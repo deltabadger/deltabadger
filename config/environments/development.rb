@@ -9,7 +9,7 @@ Rails.application.configure do
   # Do not eager load code on boot.
 # FIXME: Eager loading is enabled for Sidekiq because Kraken::Validator is not autoloaded. Review why this is happening: https://guides.rubyonrails.org/v5.2/autoloading_and_reloading_constants.html#autoloading-algorithms
 # config.eager_load = false
-  config.eager_load = Sidekiq.server?
+  config.eager_load = false
 
   # Show full error reports.
   config.consider_all_requests_local = true
@@ -61,4 +61,6 @@ Rails.application.configure do
   config.action_mailer.delivery_method = :letter_opener
   config.action_mailer.perform_deliveries = true
   config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
+
+
 end
