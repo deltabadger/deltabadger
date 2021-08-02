@@ -6,10 +6,13 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Ftx
 
-        def fetch_all_symbols
-          symbols_url = API_URL + '/api/markets'
-          request = Faraday.get(symbols_url)
+        def initialize
+          @base_client = base_client(API_URL)
+          @caching_client = caching_client(API_URL)
+        end
 
+        def fetch_all_symbols
+          request = @caching_client.get('/api/markets')
           response = JSON.parse(request.body)
           market_symbols = response.fetch('result').map do |symbol_info|
             base = get_base(symbol_info)
@@ -81,18 +84,21 @@ module ExchangeApi
 
         private
 
-        def fetch_symbol(symbol)
-          url = API_URL + "/api/markets/#{symbol}"
-          request = Faraday.get(url)
+        def fetch_symbol(symbol, cached = true)
+          client = get_client(cached)
+          request = client.get("/api/markets/#{symbol}")
           response = JSON.parse(request.body)
-
           Result::Success.new(response.fetch('result'))
         rescue StandardError
           Result::Failure.new("Couldn't fetch chosen symbol from FTX", RECOVERABLE)
         end
 
+        def get_client(cached = true)
+          cached ? @caching_client : @base_client
+        end
+
         def current_bid_ask_price(symbol)
-          response = fetch_symbol(symbol)
+          response = fetch_symbol(symbol, false)
           return response unless response.success?
 
           response = response.data
