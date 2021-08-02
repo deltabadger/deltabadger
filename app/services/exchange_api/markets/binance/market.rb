@@ -6,7 +6,8 @@ module ExchangeApi
         include ExchangeApi::Clients::Binance
 
         def initialize(url_base:)
-          @unsigned_client = unsigned_client(url_base)
+          @base_client = base_client(url_base)
+          @caching_client = caching_client(url_base)
         end
 
         PRICE_FILTER = 'PRICE_FILTER'.freeze
@@ -71,7 +72,7 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          request = @unsigned_client.get('exchangeInfo')
+          request = @base_client.get('exchangeInfo')
           exchange_info = JSON.parse(request.body)
           symbols = exchange_info['symbols']
 
@@ -99,7 +100,7 @@ module ExchangeApi
         private
 
         def current_bid_ask_price(symbol)
-          request = @unsigned_client.get('ticker/bookTicker', { symbol: symbol }, {})
+          request = @base_client.get('ticker/bookTicker', { symbol: symbol }, {})
           response = JSON.parse(request.body)
 
           bid = response.fetch('bidPrice').to_d
@@ -189,15 +190,11 @@ module ExchangeApi
         end
 
         def fetch_symbol_info(symbol)
-          cache_key = exchange_info_cache_key(symbol)
-          return Result::Success.new(Rails.cache.read(cache_key)) if Rails.cache.exist?(cache_key)
-
-          request = @unsigned_client.get('exchangeInfo')
+          request = @caching_client.get('exchangeInfo')
           response = JSON.parse(request.body)
           found_symbol = find_symbol_in_exchange_info(symbol, response)
           return found_symbol unless found_symbol.success?
 
-          Rails.cache.write(cache_key, found_symbol.data, expires_in: 1.hour)
           Result::Success.new(found_symbol.data)
         end
       end

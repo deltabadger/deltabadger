@@ -21,6 +21,8 @@ class Result
   end
 
   def ==(other)
+    return false unless other.is_a?(Result)
+
     data == other.data && errors == other.errors
   end
 
