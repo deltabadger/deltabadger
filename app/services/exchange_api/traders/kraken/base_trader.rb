@@ -13,7 +13,7 @@ module ExchangeApi
           map_errors: ExchangeApi::MapErrors::Kraken.new,
           options: {}
         )
-          @client = get_client(api_key, api_secret)
+          @client = get_base_client(api_key, api_secret)
           @market = market
           @map_errors = map_errors
           @options = options
