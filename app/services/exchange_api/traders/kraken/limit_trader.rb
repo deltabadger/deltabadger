@@ -48,8 +48,8 @@ module ExchangeApi
 
           Result::Success.new(common_order_params(symbol).merge(
                                 type: 'buy',
-                                volume: volume.data,
-                                price: limit_rate.data
+                                volume: scientific_to_decimal(volume.data),
+                                price: scientific_to_decimal(limit_rate.data)
                               ))
         end
 
@@ -65,7 +65,7 @@ module ExchangeApi
 
           Result::Success.new(common_order_params(symbol).merge(
                                 type: 'sell',
-                                volume: volume.data,
+                                volume: BigDecimal.new(volume.data).to_s('F'),
                                 price: limit_rate.data
                               ))
         end
