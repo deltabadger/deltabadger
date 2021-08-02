@@ -7,6 +7,10 @@ module ExchangeApi
         include ExchangeApi::Clients::Bitso
 
         BOOKS_CACHE_KEY = 'bitso_books_cache_key'.freeze
+        def initialize
+          @base_client = base_client(API_URL)
+          @caching_client = caching_client(API_URL)
+        end
 
         def fetch_all_symbols
           response = fetch_books
@@ -66,15 +70,10 @@ module ExchangeApi
         private
 
         def fetch_books
-          return Result::Success.new(Rails.cache.read(BOOKS_CACHE_KEY)) if Rails.cache.exist?(BOOKS_CACHE_KEY)
-
-          symbols_url = API_URL + '/v3/available_books/'
-          request = Faraday.get(symbols_url)
+          request = @caching_client.get('/v3/available_books/')
           response = JSON.parse(request.body)
-
           return Result::Failure.new("Couldn't fetch Bitso books", RECOVERABLE) unless response.fetch('success', false)
 
-          Rails.cache.write(BOOKS_CACHE_KEY, response, expires_in: 1.hour)
           Result::Success.new(response)
         rescue StandardError
           Result::Failure.new("Couldn't fetch Bitso books", RECOVERABLE)
@@ -91,8 +90,7 @@ module ExchangeApi
         end
 
         def fetch_symbol(symbol)
-          url = API_URL + '/v3/ticker/'
-          request = Faraday.get(url, 'book': symbol)
+          request = @base_client.get('/v3/ticker/', 'book': symbol)
           response = JSON.parse(request.body)
 
           Result::Success.new(response.fetch('payload'))

@@ -1,7 +1,8 @@
 module ExchangeApi
   module Clients
     module Binance
-
+      include BaseFaraday
+      
       AddTimestamp = Struct.new(:app, :api_secret) do
         def call(env)
           timestamp = DateTime.now.strftime('%Q')
@@ -15,12 +16,6 @@ module ExchangeApi
           signature = OpenSSL::HMAC.hexdigest('sha256', api_secret, env.url.query)
           env.url.query = "#{env.url.query}&signature=#{signature}"
           app.call env
-        end
-      end
-
-      def unsigned_client(url_base)
-        Faraday.new(url: url_base) do |conn|
-          conn.adapter Faraday.default_adapter
         end
       end
 

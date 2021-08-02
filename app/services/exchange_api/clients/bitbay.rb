@@ -1,6 +1,8 @@
 module ExchangeApi
   module Clients
     module Bitbay
+      include BaseFaraday
+
       def headers(api_key, api_secret, body)
         timestamp = Time.now.to_i.to_s
         post = api_key + timestamp.to_s + body.to_s

@@ -13,7 +13,7 @@ module ExchangeApi
           map_errors: ExchangeApi::MapErrors::Kraken.new,
           options: {}
         )
-          @client = get_client(api_key, api_secret)
+          @client = get_base_client(api_key, api_secret)
           @market = market
           @map_errors = map_errors
           @options = options
@@ -99,6 +99,10 @@ module ExchangeApi
 
         def canceled?(order_data)
           !order_data.nil? && order_data.fetch('status') == 'canceled'
+        end
+
+        def scientific_to_decimal(number)
+          BigDecimal(number.to_s).to_s('F')
         end
       end
     end
