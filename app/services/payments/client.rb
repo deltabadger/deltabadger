@@ -53,11 +53,21 @@ module Payments
       price = params.fetch(:price)
       currency = params.fetch(:currency)
       email = params.fetch(:email)
-
+      order_id = params.fetch(:order_id)
+      name = params.fetch(:name)
+      birth_date = params.fetch(:birth_date)
+      country = params.fetch(:country)
+      item_description = params.fetch(:item_description)
       {
         price: price,
         currency: currency,
-        buyer: { email: email },
+        orderId: order_id,
+        buyer: { email: email,
+                 name: name,
+                 # It is passed as phone because BTCPay server doesn't accept birth date and we don't need a phone anyway
+                 phone: birth_date,
+                 country: country },
+        itemDesc: item_description,
         redirectUrl: upgrade_payment_success_url(host: HOST, lang: I18n.locale),
         notificationUrl: upgrade_payment_callback_url(host: HOST, lang: I18n.locale),
         extendedNotifications: true,
