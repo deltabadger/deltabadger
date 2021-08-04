@@ -129,6 +129,8 @@ const BotTemplate = ({
 
   const isSellOffer = () => settings.type === 'sell'
 
+  const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
+
   const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
   const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote
 
@@ -176,7 +178,7 @@ const BotTemplate = ({
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await fetchMinimums(getBotParams())
-      if (exchangeName === 'Coinbase Pro' && isLimitSelected()) {
+      if (isLimitOrderDefinedInBase(exchangeName) && isLimitSelected()) {
         data.data.minimum = data.data.minimum_limit
         data.data.side = 'base'
       }
@@ -185,7 +187,7 @@ const BotTemplate = ({
       const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
-      if (smartIntervalsValue === "0" || exchangeName === 'Coinbase Pro') {
+      if (smartIntervalsValue === "0" || isLimitOrderDefinedInBase(exchangeName)) {
         setSmartIntervalsValue(minimum.toString())
       }
       setCurrencyOfMinimum(currency)
