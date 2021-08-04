@@ -2,6 +2,7 @@ module Payments
   class Create < BaseService
     CURRENCY_EU = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
     CURRENCY_OTHER = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
+    PAYMENT_SEQUENCE_ID = "'payments_id_seq'".freeze
 
     def initialize(
       client: Payments::Client.new,
@@ -16,7 +17,7 @@ module Payments
     end
 
     def call(params)
-      order_id = ActiveRecord::Base.connection.execute("SELECT nextval('payments_id_seq')")[0]['nextval']
+      order_id = get_sequenced_id
       payment = Payment.new(params.merge(id: order_id))
       user = params.fetch(:user)
       validation_result = @payment_validator.call(payment, user)
@@ -43,6 +44,11 @@ module Payments
       payment_result
     end
 
+    # HACK: It is needed to know the new record id before creating it
+    def get_sequenced_id
+      ActiveRecord::Base.connection.execute("SELECT nextval(#{PAYMENT_SEQUENCE_ID})")[0]['nextval']
+    end
+
     private
 
     def create_payment(payment, user, cost_calculator)
@@ -53,7 +59,7 @@ module Payments
         order_id: payment.id,
         name: "#{payment.first_name} #{payment.last_name}",
         country: payment.country,
-        item_description: payment.subscription_plan_id == 2 ? 'Investor Plan Upgrade' : 'Hodler Plan Upgrade',
+        item_description: SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize + ' Plan Upgrade',
         birth_date: payment.birth_date
       )
     end
