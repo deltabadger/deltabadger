@@ -28,14 +28,13 @@ module ExchangeApi
           response = JSON.parse(request.body)
 
           return Result::Failure.new('Waiting for KuCoin response', NOT_FETCHED) unless is_order_done?(request, response)
-          return error_to_failure(['Order was canceled']) if canceled?(response)
 
-          amount = response.fetch('size').to_f
+          amount = response['data'].fetch('dealSize').to_f
 
           Result::Success.new(
             offer_id: order_id,
             amount: amount,
-            rate: (response.fetch('price').to_f / amount)
+            rate: (response['data'].fetch('dealFunds').to_f / amount)
           )
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -106,7 +105,7 @@ module ExchangeApi
         end
 
         def is_order_done?(request, response)
-          success?(request, response) && response.fetch('isActive') == false
+          success?(request, response) && response['data'].fetch('isActive') == false
         end
 
         def success?(request, response)
