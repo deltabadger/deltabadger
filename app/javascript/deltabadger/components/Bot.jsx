@@ -187,7 +187,7 @@ const BotTemplate = ({
       const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
-      if (smartIntervalsValue === "0" || isLimitOrderDefinedInBase(exchangeName)) {
+      if (smartIntervalsValue === "0") {
         setSmartIntervalsValue(minimum.toString())
       }
       setCurrencyOfMinimum(currency)
