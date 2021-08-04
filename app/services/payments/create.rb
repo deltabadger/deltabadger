@@ -16,7 +16,8 @@ module Payments
     end
 
     def call(params)
-      payment = Payment.new(params)
+      order_id = ActiveRecord::Base.connection.execute("SELECT nextval('payments_id_seq')")[0]['nextval']
+      payment = Payment.new(params.merge(id: order_id))
       user = params.fetch(:user)
       validation_result = @payment_validator.call(payment, user)
 
@@ -25,12 +26,12 @@ module Payments
       cost_calculator = get_cost_calculator(payment, user)
 
       payment_result = create_payment(payment, user, cost_calculator)
-
       if payment_result.success?
         crypto_total = payment_result.data[:crypto_total]
         @payments_repository.create(
           payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
             .merge(
+              id: order_id,
               currency: currency(payment),
               discounted: cost_calculator.discount_percent.positive?,
               commission: cost_calculator.commission,
@@ -39,7 +40,6 @@ module Payments
             .merge(params)
         )
       end
-
       payment_result
     end
 
@@ -49,7 +49,12 @@ module Payments
       @client.create_payment(
         price: cost_calculator.total_price.to_s,
         currency: currency(payment),
-        email: user.email
+        email: user.email,
+        order_id: payment.id,
+        name: "#{payment.first_name} #{payment.last_name}",
+        country: payment.country,
+        item_description: payment.subscription_plan_id == 2 ? 'Investor Plan Upgrade' : 'Hodler Plan Upgrade',
+        birth_date: payment.birth_date
       )
     end
 
