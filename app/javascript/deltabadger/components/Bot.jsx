@@ -168,7 +168,7 @@ const BotTemplate = ({
 
   const getMinimumOrderParams = (data) => {
     return {
-      value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
+      value: data.data.minimum,
       currency: data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName),
       showQuote: data.data.side === 'base',
       quoteValue: data.data.minimumQuote
@@ -183,7 +183,7 @@ const BotTemplate = ({
         data.data.side = 'base'
       }
 
-      const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
+      const minimum = data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
