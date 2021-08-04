@@ -85,7 +85,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const getMinimumOrderParams = (data) => {
     const minimumOrderParams = {
-      value: data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum,
+      value: data.data.minimum,
       currency: data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name),
       showQuote: data.data.side === 'base',
       quoteValue: data.data.minimumQuote
@@ -118,7 +118,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         data.data.side = 'base'
       }
 
-      const minimum = data.data.minimum >= 1 ? Math.floor(data.data.minimum) : data.data.minimum
+      const minimum = data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
