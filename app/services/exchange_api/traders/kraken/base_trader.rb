@@ -100,10 +100,6 @@ module ExchangeApi
         def canceled?(order_data)
           !order_data.nil? && order_data.fetch('status') == 'canceled'
         end
-
-        def scientific_to_decimal(number)
-          BigDecimal(number.to_s).to_s('F')
-        end
       end
     end
   end
