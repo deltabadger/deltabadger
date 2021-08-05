@@ -35,7 +35,7 @@ module ExchangeApi
 
           Result::Success.new(common_order_params(symbol).merge(
             type: 'buy',
-            volume: scientific_to_decimal(volume.data)
+            volume: ConvertScientificToDecimal.new.call(volume.data)
           ))
         end
 
@@ -48,7 +48,7 @@ module ExchangeApi
 
           Result::Success.new(common_order_params(symbol).merge(
             type: 'sell',
-            volume: scientific_to_decimal(volume.data)
+            volume: ConvertScientificToDecimal.new.call(volume.data)
           ))
         end
 

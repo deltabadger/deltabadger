@@ -10,6 +10,7 @@ class Exchange < ApplicationRecord
              when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
              when 'ftx' then ExchangeApi::Markets::Ftx::Market.new
              when 'bitso' then ExchangeApi::Markets::Bitso::Market.new
+             when 'kucoin' then ExchangeApi::Markets::Kucoin::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
