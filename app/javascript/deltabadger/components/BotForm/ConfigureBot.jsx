@@ -113,7 +113,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await handleSmartIntervalsInfo(getBotParams())
-      if (currentExchange.name === 'Coinbase Pro' && isLimitOrder()) {
+      if (isLimitOrderDefinedInBase(currentExchange.name) && isLimitOrder()) {
         data.data.minimum = data.data.minimum_limit
         data.data.side = 'base'
       }
@@ -160,6 +160,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const isLimitOrder = () => type === 'limit_buy' || type === 'limit_sell'
 
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
+
+  const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
 
   const splitTranslation = (s) => {
     return s.split(/<split>.*<\/split>/)

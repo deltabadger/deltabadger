@@ -17,6 +17,10 @@ const apiKeyNames = exchangeName => {
   }
 }
 
+const isPassphraseRequired = exchangeName => {
+  return ['Coinbase Pro', 'KuCoin'].includes(exchangeName)
+}
+
 export const AddApiKey = ({
   pickedExchangeName,
   handleReset,
@@ -39,7 +43,7 @@ export const AddApiKey = ({
     </div>
   )
 
-  const disableSubmit = key == '' || secret == '' || (pickedExchangeName == 'Coinbase Pro' && passphrase == '')
+  const disableSubmit = key == '' || secret == '' || (isPassphraseRequired(pickedExchangeName)  && passphrase == '')
 
   const disableFormFields = status == 'validating_api_key'
 
@@ -54,7 +58,7 @@ export const AddApiKey = ({
     if (status == 'invalid_api_key') {
       document.getElementById('api-key').setCustomValidity("Error")
       document.getElementById('api-secret').setCustomValidity("Error")
-      if (pickedExchangeName == 'Coinbase Pro') {
+      if (isPassphraseRequired(pickedExchangeName)) {
         document.getElementById('api-passphrase').setCustomValidity("Error")
       }
 
@@ -117,7 +121,7 @@ export const AddApiKey = ({
               <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
             </div>
           </div>
-          { pickedExchangeName == "Coinbase Pro" &&
+          { isPassphraseRequired(pickedExchangeName) &&
             <div className="col">
               <div className="db-form__row mb-0">
                 <input
