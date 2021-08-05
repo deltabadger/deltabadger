@@ -29,6 +29,8 @@ module ExchangeApi
           ExchangeApi::Markets::Ftx::Market.new
         when 'bitso'
           ExchangeApi::Markets::Bitso::Market.new
+        when 'kucoin'
+          ExchangeApi::Markets::Kucoin::Market.new
         end
       end
     end
