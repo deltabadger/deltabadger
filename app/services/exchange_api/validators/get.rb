@@ -30,6 +30,8 @@ module ExchangeApi
           Ftx::Validator.new
         when 'bitso'
           Bitso::Validator.new
+        when 'kucoin'
+          Kucoin::Validator.new
         end
       end
     end
