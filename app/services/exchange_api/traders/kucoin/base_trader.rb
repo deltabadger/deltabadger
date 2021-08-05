@@ -51,7 +51,6 @@ module ExchangeApi
 
           parse_request(request)
         rescue StandardError => e
-          puts e
           Raven.capture_exception(e)
           Result::Failure.new('Could not make KuCoin order', RECOVERABLE)
         end
@@ -105,7 +104,7 @@ module ExchangeApi
         end
 
         def is_order_done?(request, response)
-          success?(request, response) && response['data'].fetch('isActive') == false
+          success?(request, response) && !response['data'].fetch('isActive')
         end
 
         def success?(request, response)
