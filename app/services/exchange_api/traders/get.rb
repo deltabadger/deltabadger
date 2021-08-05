@@ -29,6 +29,8 @@ module ExchangeApi
           ftx_client(api_key, order_type)
         when 'bitso'
           bitso_client(api_key, order_type)
+        when 'kucoin'
+          kucoin_client(api_key, order_type)
         end
       end
 
@@ -90,7 +92,7 @@ module ExchangeApi
         client.new(
           api_key: api_key.key,
           api_secret: api_key.secret,
-          passphrase: api_key.passphrase,
+          passphrase: api_key.passphrase
         )
       end
 
@@ -127,6 +129,19 @@ module ExchangeApi
         client.new(
           api_key: api_key.key,
           api_secret: api_key.secret
+        )
+      end
+
+      def kucoin_client(api_key, order_type)
+        client = if limit_trader?(order_type)
+                   ExchangeApi::Traders::Kucoin::LimitTrader
+                 else
+                   ExchangeApi::Traders::Kucoin::MarketTrader
+                 end
+        client.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret,
+          passphrase: api_key.passphrase
         )
       end
 
