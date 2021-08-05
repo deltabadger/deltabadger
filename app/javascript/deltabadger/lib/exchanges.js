@@ -38,6 +38,11 @@ export const exchanges = {
     name: 'Bitso',
     url: 'https://bitso.com/',
     translation_key: 'bitso'
+  },
+  'kucoin': {
+    name: 'KuCoin',
+    url: 'https://kucoin.com/',
+    translation_key: 'kucoin'
   }
 }
 
