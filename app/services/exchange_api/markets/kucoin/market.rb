@@ -108,7 +108,7 @@ module ExchangeApi
           symbol_details = symbols.data.fetch('data').detect { |s| s.fetch('symbol') == symbol }
           Result::Success.new(symbol_details)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitso symbol", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbol", RECOVERABLE)
         end
 
         def fetch_ticker(symbol)
