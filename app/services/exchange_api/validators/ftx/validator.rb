@@ -10,9 +10,9 @@ module ExchangeApi
 
         def validate_credentials(api_key:, api_secret:)
           headers = if @url.include? 'us'
-                      headers_us(api_key, api_secret, '', '/api/account')
+                      headers_us(api_key, api_secret, nil, '/api/account')
                     else
-                      headers_eu(api_key, api_secret, '', '/api/account')
+                      headers_eu(api_key, api_secret,nil, '/api/account')
                     end
           request = Faraday.get(@url, nil, headers)
           return false if request.status != 200

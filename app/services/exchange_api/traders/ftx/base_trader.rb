@@ -24,9 +24,9 @@ module ExchangeApi
           path = "/api/orders/#{order_id}".freeze
           url = @url_base + path
           headers = if url.include? 'us'
-                      headers_us(@api_key, @api_secret, '', path)
+                      headers_us(@api_key, @api_secret, '', path, 'GET')
                     else
-                      headers_eu(@api_key, @api_secret, '', path)
+                      headers_eu(@api_key, @api_secret, '', path, 'GET')
                     end
           request = Faraday.get(url, nil, headers)
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
@@ -58,9 +58,9 @@ module ExchangeApi
 
           body = order_params.to_json
           headers = if url.include? 'us'
-                      headers_us(@api_key, @api_secret, '', path, 'POST')
+                      headers_us(@api_key, @api_secret, body, path, 'POST')
                     else
-                      headers_eu(@api_key, @api_secret, '', path, 'POST')
+                      headers_eu(@api_key, @api_secret, body, path, 'POST')
                     end
           request = Faraday.post(url, body, headers)
           puts 'Headers:', headers
