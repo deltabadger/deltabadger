@@ -3,7 +3,15 @@ module ExchangeApi
     module Ftx
       include BaseFaraday
 
-      def headers_eu(api_key, api_secret, body, request_path, method = 'GET')
+      def get_headers(url, api_key, api_secret, body, request_path, method = 'GET')
+        if url.include? 'us'
+          headers_us(api_key, api_secret, body, request_path, method)
+        else
+          headers_eu(api_key, api_secret, body, request_path, method)
+        end
+      end
+
+      def headers_eu(api_key, api_secret, body, request_path, method)
         timestamp = GetTimestamp.call
         signature = build_signature(api_secret, request_path, body, timestamp, method)
         {
@@ -13,7 +21,7 @@ module ExchangeApi
           'Content-Type': 'application/json'
         }
       end
-      def headers_us(api_key, api_secret, body, request_path, method = 'GET')
+      def headers_us(api_key, api_secret, body, request_path, method)
         timestamp = GetTimestamp.call
         signature = build_signature(api_secret, request_path, body, timestamp, method)
         {

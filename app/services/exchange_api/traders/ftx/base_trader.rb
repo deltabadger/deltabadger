@@ -23,11 +23,7 @@ module ExchangeApi
         def fetch_order_by_id(order_id)
           path = "/api/orders/#{order_id}".freeze
           url = @url_base + path
-          headers = if url.include? 'us'
-                      headers_us(@api_key, @api_secret, '', path, 'GET')
-                    else
-                      headers_eu(@api_key, @api_secret, '', path, 'GET')
-                    end
+          headers = get_headers(url, @api_key, @api_secret, '', path, 'GET')
           request = Faraday.get(url, nil, headers)
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
 
@@ -57,13 +53,8 @@ module ExchangeApi
           url = @url_base + path
 
           body = order_params.to_json
-          headers = if url.include? 'us'
-                      headers_us(@api_key, @api_secret, body, path, 'POST')
-                    else
-                      headers_eu(@api_key, @api_secret, body, path, 'POST')
-                    end
+          headers = get_headers(url, @api_key, @api_secret, body, path, 'POST')
           request = Faraday.post(url, body, headers)
-          puts 'Headers:', headers
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
