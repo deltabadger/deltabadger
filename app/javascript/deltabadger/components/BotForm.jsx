@@ -35,7 +35,7 @@ export const BotForm = ({
   const pendingExchangesIds = exchanges.filter(e => e.pending).map(e => e.id)
   let invalidExchangesIds = exchanges.filter(e => e.invalid).map(e => e.id)
   const shouldDisableHodlerOnlyExchange = (name) => {
-    return !isHodler && ['ftx'].includes(name.toLowerCase())
+    return !isHodler && ['ftx','ftx.us'].includes(name.toLowerCase())
   }
 
   const keyExists = (exchangeId) => {
