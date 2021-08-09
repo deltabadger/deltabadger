@@ -31,12 +31,10 @@ module Bots::Free::Validators
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
       ORDER_TYPES = %w[market limit].freeze
-      HODLER_ONLY_EXCHANGES = %w[ftx].freeze
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
       validate :hodler_allowed_symbol
-      validates :exchange_name, exclusion: { in: HODLER_ONLY_EXCHANGES }, unless: :hodler
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
