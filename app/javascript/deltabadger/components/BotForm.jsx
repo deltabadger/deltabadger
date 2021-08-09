@@ -34,9 +34,6 @@ export const BotForm = ({
   const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
   const pendingExchangesIds = exchanges.filter(e => e.pending).map(e => e.id)
   let invalidExchangesIds = exchanges.filter(e => e.invalid).map(e => e.id)
-  const shouldDisableHodlerOnlyExchange = (name) => {
-    return !isHodler && ['ftx'].includes(name.toLowerCase())
-  }
 
   const keyExists = (exchangeId) => {
     return [...ownedExchangesIds, ...invalidExchangesIds, ...pendingExchangesIds].includes(exchangeId)
@@ -90,10 +87,6 @@ export const BotForm = ({
   }
 
   const pickExchangeHandler = (id, name) => {
-    if (shouldDisableHodlerOnlyExchange(name)){
-      return;
-    }
-
     setFormState({...form, exchangeId: id})
     setStep(2)
   }
@@ -182,7 +175,6 @@ export const BotForm = ({
           }}
           handleSubmit={pickExchangeHandler}
           exchanges={exchanges}
-          shouldDisableExchange={shouldDisableHodlerOnlyExchange}
         />
       case 'add_api_key':
         return <AddApiKey
