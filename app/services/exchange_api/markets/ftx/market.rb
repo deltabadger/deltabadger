@@ -6,9 +6,9 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Ftx
 
-        def initialize
-          @base_client = base_client(API_URL)
-          @caching_client = caching_client(API_URL)
+        def initialize(url_base:)
+          @base_client = base_client(url_base)
+          @caching_client = caching_client(url_base)
         end
 
         def fetch_all_symbols

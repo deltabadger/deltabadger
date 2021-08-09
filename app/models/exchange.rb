@@ -1,5 +1,6 @@
 class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
+  include ExchangeApi::FtxEnum
   def symbols
     market = case name.downcase
              when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
@@ -8,7 +9,8 @@ class Exchange < ApplicationRecord
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              when 'coinbase pro' then ExchangeApi::Markets::CoinbasePro::Market.new
              when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
-             when 'ftx' then ExchangeApi::Markets::Ftx::Market.new
+             when 'ftx' then ExchangeApi::Markets::Ftx::Market.new(url_base: FTX_EU_URL_BASE)
+             when 'ftx.us' then ExchangeApi::Markets::Ftx::Market.new(url_base: FTX_US_URL_BASE)
              when 'bitso' then ExchangeApi::Markets::Bitso::Market.new
              when 'kucoin' then ExchangeApi::Markets::Kucoin::Market.new
              when 'bitfinex' then ExchangeApi::Markets::Bitfinex::Market.new
