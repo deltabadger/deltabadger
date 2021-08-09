@@ -11,6 +11,8 @@ module ExchangeApi
         end
       end
 
+      private
+
       def headers_eu(api_key, api_secret, body, request_path, method)
         timestamp = GetTimestamp.call
         signature = build_signature(api_secret, request_path, body, timestamp, method)
@@ -21,6 +23,7 @@ module ExchangeApi
           'Content-Type': 'application/json'
         }
       end
+
       def headers_us(api_key, api_secret, body, request_path, method)
         timestamp = GetTimestamp.call
         signature = build_signature(api_secret, request_path, body, timestamp, method)
@@ -31,8 +34,6 @@ module ExchangeApi
           'Content-Type': 'application/json'
         }
       end
-
-      private
 
       def build_signature(api_secret, request_path = '', body = '', timestamp = nil, method = 'GET')
         body = body.to_json if body.is_a?(Hash)
