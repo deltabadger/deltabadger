@@ -112,7 +112,7 @@ module Bots::Free::Validators
         return unless @force_smart_intervals
 
         @minimum = @minimums[:minimum].to_f
-        if limit_minimum_in_base?(@exchange_name)
+        if limit_minimum_in_base?(@exchange_name, order_type)
           @minimum = @minimums[:minimum_limit].to_f
         end
 
@@ -121,8 +121,8 @@ module Bots::Free::Validators
         errors.add(:smart_intervals_value, " should be greater than #{@minimum}")
       end
 
-      def limit_minimum_in_base?(exchange_name)
-        ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
+      def limit_minimum_in_base?(exchange_name, order_type)
+        order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
       end
     end
   end
