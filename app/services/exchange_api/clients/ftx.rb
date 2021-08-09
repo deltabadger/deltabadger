@@ -2,10 +2,18 @@ module ExchangeApi
   module Clients
     module Ftx
       include BaseFaraday
-      
-      API_URL = 'https://ftx.com'.freeze
 
-      def headers(api_key, api_secret, body, request_path, method = 'GET')
+      def get_headers(url, api_key, api_secret, body, request_path, method = 'GET')
+        if url.include? 'ftx.us'
+          headers_us(api_key, api_secret, body, request_path, method)
+        else
+          headers_eu(api_key, api_secret, body, request_path, method)
+        end
+      end
+
+      private
+
+      def headers_eu(api_key, api_secret, body, request_path, method)
         timestamp = GetTimestamp.call
         signature = build_signature(api_secret, request_path, body, timestamp, method)
         {
@@ -16,7 +24,16 @@ module ExchangeApi
         }
       end
 
-      private
+      def headers_us(api_key, api_secret, body, request_path, method)
+        timestamp = GetTimestamp.call
+        signature = build_signature(api_secret, request_path, body, timestamp, method)
+        {
+          'FTXUS-SIGN': signature,
+          'FTXUS-TS': timestamp,
+          'FTXUS-KEY': api_key,
+          'Content-Type': 'application/json'
+        }
+      end
 
       def build_signature(api_secret, request_path = '', body = '', timestamp = nil, method = 'GET')
         body = body.to_json if body.is_a?(Hash)
