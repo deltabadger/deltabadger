@@ -24,7 +24,6 @@ module ExchangeApi
           url = PRIVATE_API_URL + path
           body = { id: [order_id] }.to_json
           request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path))
-          puts request.body
           response = JSON.parse(request.body)
 
           status = response[0][13]
@@ -51,11 +50,9 @@ module ExchangeApi
           url = PRIVATE_API_URL + path
           body = order_params.to_json
           request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path))
-          puts request.body
 
           parse_request(request)
-        rescue StandardError => e
-          puts e
+        rescue StandardError
           Raven.capture_exception(e)
           Result::Failure.new('Could not make Bitfinex order', RECOVERABLE)
         end
