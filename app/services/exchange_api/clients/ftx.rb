@@ -4,7 +4,7 @@ module ExchangeApi
       include BaseFaraday
 
       def get_headers(url, api_key, api_secret, body, request_path, method = 'GET')
-        if url.include? 'us'
+        if url.include? 'ftx.us'
           headers_us(api_key, api_secret, body, request_path, method)
         else
           headers_eu(api_key, api_secret, body, request_path, method)
