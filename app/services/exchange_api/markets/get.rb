@@ -2,6 +2,7 @@ module ExchangeApi
   module Markets
     class Get < BaseService
       include ExchangeApi::BinanceEnum
+      include ExchangeApi::FtxEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -26,7 +27,9 @@ module ExchangeApi
         when 'gemini'
           ExchangeApi::Markets::Gemini::Market.new
         when 'ftx'
-          ExchangeApi::Markets::Ftx::Market.new
+          ExchangeApi::Markets::Ftx::Market.new(url_base: FTX_EU_URL_BASE)
+        when 'ftx.us'
+          ExchangeApi::Markets::Ftx::Market.new(url_base: FTX_US_URL_BASE)
         when 'bitso'
           ExchangeApi::Markets::Bitso::Market.new
         when 'kucoin'

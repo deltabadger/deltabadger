@@ -2,6 +2,7 @@ module ExchangeApi
   module Traders
     class Get < BaseService
       include ExchangeApi::BinanceEnum
+      include ExchangeApi::FtxEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -26,7 +27,9 @@ module ExchangeApi
         when 'gemini'
           gemini_client(api_key, order_type)
         when 'ftx'
-          ftx_client(api_key, order_type)
+          ftx_client(api_key, order_type, FTX_EU_URL_BASE)
+        when 'ftx.us'
+          ftx_client(api_key, order_type, FTX_US_URL_BASE)
         when 'bitso'
           bitso_client(api_key, order_type)
         when 'kucoin'
@@ -110,7 +113,7 @@ module ExchangeApi
         )
       end
 
-      def ftx_client(api_key, order_type)
+      def ftx_client(api_key, order_type, url_base)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Ftx::LimitTrader
                  else
@@ -118,7 +121,8 @@ module ExchangeApi
                  end
         client.new(
           api_key: api_key.key,
-          api_secret: api_key.secret
+          api_secret: api_key.secret,
+          url_base: url_base
         )
       end
 
