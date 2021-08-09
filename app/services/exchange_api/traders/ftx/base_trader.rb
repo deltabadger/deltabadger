@@ -9,19 +9,22 @@ module ExchangeApi
         def initialize(
           api_key:,
           api_secret:,
-          market: ExchangeApi::Markets::Ftx::Market.new,
+          url_base:,
+          market: ExchangeApi::Markets::Ftx::Market,
           map_errors: ExchangeApi::MapErrors::Ftx.new
         )
           @api_key = api_key
           @api_secret = api_secret
-          @market = market
+          @url_base = url_base
+          @market = market.new(url_base: url_base)
           @map_errors = map_errors
         end
 
         def fetch_order_by_id(order_id)
           path = "/api/orders/#{order_id}".freeze
-          url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
+          url = @url_base + path
+          headers = get_headers(url, @api_key, @api_secret, '', path, 'GET')
+          request = Faraday.get(url, nil, headers)
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
 
           response = JSON.parse(request.body).fetch('result')
@@ -47,10 +50,11 @@ module ExchangeApi
 
         def place_order(order_params)
           path = '/api/orders'.freeze
-          url = API_URL + path
-          body = order_params.to_json
+          url = @url_base + path
 
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
+          body = order_params.to_json
+          headers = get_headers(url, @api_key, @api_secret, body, path, 'POST')
+          request = Faraday.post(url, body, headers)
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)

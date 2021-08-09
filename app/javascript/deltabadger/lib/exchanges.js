@@ -34,6 +34,11 @@ export const exchanges = {
       url: 'https://ftx.com',
       translation_key: 'ftx',
   },
+  'ftx.us': {
+    name: 'FTX.US',
+    url: 'https://ftx.us',
+    translation_key  : 'ftx',
+    },
   'bitso': {
     name: 'Bitso',
     url: 'https://bitso.com/',
