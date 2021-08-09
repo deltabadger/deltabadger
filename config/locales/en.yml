@@ -450,10 +450,14 @@ en:
                 private_key: 'API Secret'
                 public_key: 'API Key'
             kucoin:
-                instructions_html: "<ol>\n  <li>Login to your %{exchange_link} account.</li>\n  <li>In account menu (top right corner next to language picker) go to <b>API Management</b>.</li>\n  <li>Press <b>Create API</b>.</li>\n <li>If you crate your API keys for the first time, set and save <b>Trading Password</b>.</li>\n  <li>Provide <b>API Name</b>.</li>\n <li>Provide and save <b>API Passphrase</b>.</li>\n <li>Set permissions for:\n    <ul>\n      <li><b>General</b></li>\n      <li><b>Trade</b></li>\n    </ul>\n  </li>\n <li>If you want to restrict access to the key only for Deltabadger set <b>IP Restriction</b> to yes and add this IP: <b>3.18.70.231</b></li>\n  <li>Press <b>Next</b>.</li>\n <li>Confirm creation of API keys by Trading Password and 2FA.</li>\n <li>Copy and paste your new API keys and Passphrase into the form above.</li>\n</ol>"
+                instructions_html: "<ol>\n  <li>Log into your %{exchange_link} account.</li>\n  <li>In the account menu (top right corner next to language picker) go to <b>API Management</b>.</li>\n  <li>Press <b>Create API</b>.</li>\n <li>If you crate your API keys for the first time, set and save <b>Trading Password</b>.</li>\n  <li>Provide <b>API Name</b>.</li>\n <li>Provide and save <b>API Passphrase</b>.</li>\n <li>Set permissions for:\n    <ul>\n      <li><b>General</b></li>\n      <li><b>Trade</b></li>\n    </ul>\n  </li>\n <li>If you want to restrict access to the key only for Deltabadger set <b>IP Restriction</b> to yes and add this IP: <b>3.18.70.231</b></li>\n  <li>Press <b>Next</b>.</li>\n <li>Confirm creation of API keys by Trading Password and 2FA.</li>\n <li>Copy and paste your new API keys and Passphrase into the form above.</li>\n</ol>"
                 private_key: 'API Secret'
                 public_key: 'API Key'
                 passphrase: Passphrase
+            bitfinex:
+                instructions_html: "<ol>\n  <li>Log into your %{exchange_link} account.</li>\n  <li>In the account menu (top right corner) go to <b>API Keys</b>.</li>\n  <li>Go to <b>Create New Key</b>.</li>\n <li>Set permissions for:\n    <ul>\n      <li><b>Get orders and statuses.</b></li>\n      <li><b>Create and cancel orders.</b></li>\n    </ul>\n  </li>\n <li>Provide <b>Label</b> to your API key.</li>\n <li>Press <b>Generate API key</b>.</li>\n <li>Copy and paste your new API keys into the form above.</li>\n</ol>"
+                private_key: 'API Secret'
+                public_key: 'API Key'
             smart_intervals:
                 dont_show_again: 'Don''t show again'
                 info_html:

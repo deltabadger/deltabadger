@@ -31,6 +31,8 @@ module ExchangeApi
           ExchangeApi::Markets::Bitso::Market.new
         when 'kucoin'
           ExchangeApi::Markets::Kucoin::Market.new
+        when 'bitfinex'
+          ExchangeApi::Markets::Bitfinex::Market.new
         end
       end
     end

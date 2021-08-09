@@ -29,7 +29,7 @@ module ExchangeApi
 
           Result::Success.new(
             common_order_params(symbol).merge(
-              amount: volume.data
+              amount: volume.data.to_d
             )
           )
         end
@@ -43,7 +43,7 @@ module ExchangeApi
 
           Result::Success.new(
             common_order_params(symbol).merge(
-              amount: -volume.data
+              amount: -volume.data.to_d
             )
           )
         end
