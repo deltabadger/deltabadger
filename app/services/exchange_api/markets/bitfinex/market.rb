@@ -33,13 +33,6 @@ module ExchangeApi
           Result::Success.new(response.data[1][3].to_d)
         end
 
-        def minimum_base_size(symbol)
-          response = fetch_symbol(symbol)
-          return response unless response.success?
-
-          Result::Success.new(response.data['baseMinSize'].to_d)
-        end
-
         def symbol(base, quote)
           return "#{base}:#{quote}" if base.length > 3 || quote.length > 3
 
@@ -47,17 +40,16 @@ module ExchangeApi
         end
 
         def minimum_order_parameters(symbol)
-          minimum = minimum_quote_size(symbol)
+          minimum = minimum_order_size(symbol)
           return minimum unless minimum.success?
 
-          minimum_limit = minimum_base_size(symbol)
-          return minimum_limit unless minimum_limit.success?
+          ask = current_ask_price(symbol)
+          return ask unless ask.success?
 
           Result::Success.new(
             minimum: minimum.data,
-            minimum_limit: minimum_limit.data,
-            minimum_quote: minimum.data,
-            side: QUOTE
+            minimum_quote: minimum.data * ask.data,
+            side: BASE
           )
         end
 
@@ -100,8 +92,7 @@ module ExchangeApi
           ask = response[0][3].to_d
 
           Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError => e
-          puts e
+        rescue StandardError
           Result::Failure.new("Couldn't fetch bid/ask price from Bitfinex", RECOVERABLE)
         end
 

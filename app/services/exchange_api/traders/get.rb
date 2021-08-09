@@ -31,6 +31,8 @@ module ExchangeApi
           bitso_client(api_key, order_type)
         when 'kucoin'
           kucoin_client(api_key, order_type)
+        when 'bitfinex'
+          bitfinex_client(api_key, order_type)
         end
       end
 
@@ -142,6 +144,18 @@ module ExchangeApi
           api_key: api_key.key,
           api_secret: api_key.secret,
           passphrase: api_key.passphrase
+        )
+      end
+
+      def bitfinex_client(api_key, order_type)
+        client = if limit_trader?(order_type)
+                   ExchangeApi::Traders::Bitfinex::LimitTrader
+                 else
+                   ExchangeApi::Traders::Bitfinex::MarketTrader
+                 end
+        client.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
         )
       end
 

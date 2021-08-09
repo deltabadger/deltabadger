@@ -43,6 +43,11 @@ export const exchanges = {
     name: 'KuCoin',
     url: 'https://kucoin.com/',
     translation_key: 'kucoin'
+  },
+  'bitfinex': {
+    name: 'Bitfinex',
+    url: 'https://bitfinex.com/',
+    translation_key: 'bitfinex'
   }
 }
 

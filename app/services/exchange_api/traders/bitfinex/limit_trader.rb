@@ -32,7 +32,7 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_percentage = limit_buy_percentage(percentage)
-          limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
+          limit_rate = rate_percentage(rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
           volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value)
@@ -40,7 +40,7 @@ module ExchangeApi
 
           Result::Success
             .new(common_order_params(symbol).merge(
-                   amount: volume.data,
+                   amount: volume.data.to_d,
                    price: limit_rate.data
                  ))
         end
@@ -50,7 +50,7 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_percentage = limit_sell_percentage(percentage)
-          limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
+          limit_rate = rate_percentage(rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
           volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value)
@@ -59,16 +59,13 @@ module ExchangeApi
           Result::Success
             .new(common_order_params(symbol)
                    .merge(
-                     amount: -volume.data,
+                     amount: -volume.data.to_d,
                      price: limit_rate.data
                    ))
         end
 
-        def rate_percentage(symbol, rate, percentage)
-          #rate_decimals = @market.quote_decimals(symbol)
-          #return rate_decimals unless rate_decimals.success?
-
-          Result::Success.new((rate * (1 + percentage / 100))) # .ceil(rate_decimals.data))
+        def rate_percentage(rate, percentage)
+          Result::Success.new((rate * (1 + percentage / 100)))
         end
 
         def place_order(order_params)
@@ -76,7 +73,7 @@ module ExchangeApi
           return response unless response.success?
 
           Result::Success.new(
-            response.data.merge(rate: order_params[:price], amount: order_params[:amount])
+            response.data.merge(rate: order_params[:price], amount: order_params[:amount].abs)
           )
         rescue StandardError
           Result::Failure.new('Could not make Bitfinex order', RECOVERABLE)
