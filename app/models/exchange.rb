@@ -11,6 +11,7 @@ class Exchange < ApplicationRecord
              when 'ftx' then ExchangeApi::Markets::Ftx::Market.new
              when 'bitso' then ExchangeApi::Markets::Bitso::Market.new
              when 'kucoin' then ExchangeApi::Markets::Kucoin::Market.new
+             when 'bitfinex' then ExchangeApi::Markets::Bitfinex::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
