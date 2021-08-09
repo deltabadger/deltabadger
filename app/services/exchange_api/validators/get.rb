@@ -2,6 +2,7 @@ module ExchangeApi
   module Validators
     class Get < BaseService
       include ExchangeApi::BinanceEnum
+      include ExchangeApi::FtxEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def initialize(exchanges_repository: ExchangesRepository.new)
@@ -27,7 +28,9 @@ module ExchangeApi
         when 'gemini'
           Gemini::Validator.new
         when 'ftx'
-          Ftx::Validator.new
+          Ftx::Validator.new(url_base: FTX_EU_URL_BASE)
+        when 'ftx.us'
+          Ftx::Validator.new(url_base: FTX_US_URL_BASE)
         when 'bitso'
           Bitso::Validator.new
         when 'kucoin'
