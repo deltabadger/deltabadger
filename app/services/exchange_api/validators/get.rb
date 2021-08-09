@@ -32,6 +32,8 @@ module ExchangeApi
           Bitso::Validator.new
         when 'kucoin'
           Kucoin::Validator.new
+        when 'bitfinex'
+          Bitfinex::Validator.new
         end
       end
     end
