@@ -7,6 +7,7 @@ Exchange.find_or_create_by!(name: 'Gemini')
 Exchange.find_or_create_by!(name: 'FTX')
 Exchange.find_or_create_by!(name: 'Bitso')
 Exchange.find_or_create_by!(name: 'KuCoin')
+Exchange.find_or_create_by!(name: 'FTX.US')
 Exchange.find_or_create_by!(name: 'Bitfinex')
 
 _saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 500)

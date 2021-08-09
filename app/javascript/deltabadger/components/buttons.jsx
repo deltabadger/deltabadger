@@ -226,15 +226,13 @@ export const RemoveButton = ({onClick, disabled}) => {
   )
 }
 
-export const ExchangeButton = ({ handleClick, exchange, shouldDisableExchange }) => {
-  const isDisabled = shouldDisableExchange(exchange.name)
+export const ExchangeButton = ({ handleClick, exchange }) => {
 
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${isDisabled ? "hodler-only" : exchange.name.toLowerCase()}`}
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
-      { isDisabled && <a href="/upgrade" className="db-bot__exchanges__item--hodler-only--before">Hodler only</a> }
       { exchange.name }
     </div>
   );
