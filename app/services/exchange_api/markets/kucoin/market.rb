@@ -72,7 +72,7 @@ module ExchangeApi
         end
 
         def symbol(base, quote)
-          "#{base}-#{quote}"
+          "#{base.upcase}-#{quote.upcase}"
         end
 
         def minimum_order_parameters(symbol)
