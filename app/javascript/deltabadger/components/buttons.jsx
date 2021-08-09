@@ -230,7 +230,7 @@ export const ExchangeButton = ({ handleClick, exchange }) => {
 
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--`}
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
       { exchange.name }
