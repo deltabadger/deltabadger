@@ -17,7 +17,18 @@ class BotsRepository < BaseRepository
       .count
   end
 
+  def list_top_five
+    most_popular_bots(5)
+  end
+
   def model
     Bot
   end
+
+  private
+
+  def most_popular_bots(amount)
+    model.group("bots.settings->>'base'").order(count: :desc).limit(amount).count
+  end
+
 end
