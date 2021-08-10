@@ -4,7 +4,7 @@ module ExchangeApi
       class Validator < BaseValidator
         include ExchangeApi::Clients::Kucoin
         FAKE_ORDER_ID = '9' * 10
-        ORDER_NOT_FOUND_CODE = "400100".freeze
+        ORDER_NOT_FOUND_CODE = '400100'.freeze
 
         def validate_credentials(api_key:, api_secret:, passphrase:)
           path = "/api/v1/orders/#{FAKE_ORDER_ID}"
