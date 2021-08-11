@@ -53,6 +53,11 @@ export const exchanges = {
     name: 'Bitfinex',
     url: 'https://bitfinex.com/',
     translation_key: 'bitfinex'
+  },
+  'bitstamp': {
+    name: 'Bitstamp',
+    url: 'https://bitstamp.net/',
+    translation_key: 'bitstamp'
   }
 }
 
