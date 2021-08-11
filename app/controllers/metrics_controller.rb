@@ -13,9 +13,9 @@ class MetricsController < ApplicationController
     render json: { data: output_params }.to_json
   end
 
-  def top_five_bots
-    top_five_bots = BotsRepository.new.list_top_five
-    bots_array = top_five_bots.map do |key, value|
+  def top_ten_bots
+    top_ten_bots = BotsRepository.new.list_top_ten
+    bots_array = top_ten_bots.map do |key, value|
       BotCount.new(key, value)
     end
     render json: bots_array.to_json

@@ -17,8 +17,8 @@ class BotsRepository < BaseRepository
       .count
   end
 
-  def list_top_five
-    most_popular_bots(5)
+  def list_top_ten
+    most_popular_bots(10)
   end
 
   def model
@@ -28,7 +28,7 @@ class BotsRepository < BaseRepository
   private
 
   def most_popular_bots(amount)
-    model.group("bots.settings->>'base'").order(count: :desc).limit(amount).count
+    model.group("bots.settings->>'base'").where(status: "working").order(count: :desc).limit(amount).count
   end
 
 end
