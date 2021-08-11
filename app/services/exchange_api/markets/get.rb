@@ -36,6 +36,8 @@ module ExchangeApi
           ExchangeApi::Markets::Kucoin::Market.new
         when 'bitfinex'
           ExchangeApi::Markets::Bitfinex::Market.new
+        when 'bitstamp'
+          ExchangeApi::Markets::Bitstamp::Market.new
         end
       end
     end

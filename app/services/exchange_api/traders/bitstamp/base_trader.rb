@@ -32,6 +32,7 @@ module ExchangeApi
           url = API_URL + path
           body = order_params.to_query
           request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
+          response = JSON.parse(request.body)
 
           parse_response(response)
         rescue StandardError => e
@@ -60,7 +61,10 @@ module ExchangeApi
         end
 
         def parse_response(response)
-          return error_to_failure([response['reason']]) if error?(response)
+          if error?(response)
+            error_message = @map_errors.error_regex_mapping(response['reason'])
+            return error_to_failure([error_message])
+          end
 
           Result::Success.new(
             offer_id: response['id'],
