@@ -32,7 +32,6 @@ class MetricsController < ApplicationController
         found = true
         new_bot.is_up = true if new_index < old_index
       end
-      puts found
       new_bot.is_up = true unless found
     end
     Rails.cache.write(TOP_BOTS_KEY, new_top_bots, expires_in: 25.hour)
