@@ -15,7 +15,7 @@ class MetricsController < ApplicationController
   end
 
   def top_ten_bots
-    render json: Rails.cache.exist?(TOP_BOTS_KEY) ? Rails.cache.read(TOP_BOTS_KEY).to_json : top_bots_update
+    Rails.cache.exist?(TOP_BOTS_KEY) ? (render json: Rails.cache.read(TOP_BOTS_KEY).to_json) : top_bots_update
   end
 
   def top_bots_update
@@ -29,11 +29,10 @@ class MetricsController < ApplicationController
       old_top_bots.each_with_index do |old_bot, old_index|
         next unless new_bot.name == old_bot.name
 
-        if new_index < old_index
-          new_bot.is_up = true
-          found = true
-        end
+        found = true
+        new_bot.is_up = true if new_index < old_index
       end
+      puts found
       new_bot.is_up = true unless found
     end
     Rails.cache.write(TOP_BOTS_KEY, new_top_bots, expires_in: 25.hour)
