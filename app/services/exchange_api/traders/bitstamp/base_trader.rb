@@ -82,7 +82,7 @@ module ExchangeApi
         end
 
         def error?(response)
-          response['status'].present? && response['status'] == 'error'
+          response['status'] && response['status'] == 'error'
         end
 
         def get_path(type, side, symbol)
