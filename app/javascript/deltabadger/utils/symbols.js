@@ -1,8 +1,12 @@
 const KRAKEN = 'Kraken'
+const SYMBOLS_MAP = {
+    XDG:'DOGE',
+    XBT:'BTC'
+}
 export const shouldRename = (name) => name === KRAKEN
 
 export const renameSymbol = (s) => {
-    return s.replace(/^XBT/, 'BTC')
+    return s in SYMBOLS_MAP ? SYMBOLS_MAP[s] : s
 }
 
 export const getSpecialSymbols = (name, isBase) => {
