@@ -1,4 +1,8 @@
 class BotsRepository < BaseRepository
+  SYMBOLS_HASH = {
+    'XDG': 'DOGE',
+    'XBT': 'BTC'
+  }.freeze
   def by_id_for_user(user, id)
     user.bots.without_deleted.find(id)
   end
@@ -28,7 +32,18 @@ class BotsRepository < BaseRepository
   private
 
   def most_popular_bots(amount)
-    model.group("bots.settings->>'base'").where(status: "working").order(count: :desc).limit(amount).count
+    all_bots_hash = Bot.group("bots.settings->>'base'")
+                       .order(count: :desc)
+                       .count
+    fetched_symbols_bots_hash = all_bots_hash.each do |key, value|
+      SYMBOLS_HASH.each do |symbol_key, symbol_value|
+        if key == symbol_key.to_s
+          all_bots_hash[symbol_value.to_s] += value
+          all_bots_hash.delete(symbol_key.to_s)
+        end
+      end
+    end
+    fetched_symbols_bots_hash.sort_by { |_key, value| -value }[0..amount - 1]
   end
 
 end
