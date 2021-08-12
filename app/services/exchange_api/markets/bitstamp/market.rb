@@ -5,6 +5,7 @@ module ExchangeApi
     module Bitstamp
       class Market < BaseMarket
         include ExchangeApi::Clients::Bitstamp
+        MIN_PRICE_MULTIPLIER = 1.005
 
         def initialize
           @base_client = base_client(API_URL)
@@ -38,7 +39,7 @@ module ExchangeApi
           return min_price unless min_price.success?
 
           # multiply min_price to ensure that base will exceed minimums
-          min_price = min_price.data * 1.005
+          min_price = min_price.data * MIN_PRICE_MULTIPLIER
           bid = current_bid_price(symbol)
           return bid unless bid.success?
 
