@@ -6,7 +6,6 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Bitso
 
-        BOOKS_CACHE_KEY = 'bitso_books_cache_key'.freeze
         def initialize
           @base_client = base_client(API_URL)
           @caching_client = caching_client(API_URL)
