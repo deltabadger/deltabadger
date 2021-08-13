@@ -31,6 +31,7 @@ gem 'sentry-raven'
 gem 'bitcoin-ruby', git: 'https://github.com/lian/bitcoin-ruby', branch: 'master', require: 'bitcoin'
 gem 'recaptcha'
 gem 'i18n-js', '~> 3.8.0'
+gem 'telegram-bot', '~> 0.14.4'
 
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
