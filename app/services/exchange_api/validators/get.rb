@@ -37,6 +37,8 @@ module ExchangeApi
           Kucoin::Validator.new
         when 'bitfinex'
           Bitfinex::Validator.new
+        when 'bitstamp'
+          Bitstamp::Validator.new
         end
       end
     end
