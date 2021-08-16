@@ -33,11 +33,7 @@ class BotsRepository < BaseRepository
   end
 
   def top_ten_bots
-    if Rails.cache.exist?(TOP_BOTS_KEY)
-      Rails.cache.read(TOP_BOTS_KEY).empty? ? Rails.cache.read(TOP_BOTS_KEY) : top_bots_update
-    else
-      top_bots_update
-    end
+    Rails.cache.exist?(TOP_BOTS_KEY) ? Rails.cache.read(TOP_BOTS_KEY) : top_bots_update
   end
 
   def top_bots_update
@@ -53,7 +49,6 @@ class BotsRepository < BaseRepository
     top_bots_array.each_with_index do |new_bot, new_index|
       old_index = old_top_bots.index { |bot| bot[:name] == new_bot[:name] }
       new_bot[:is_up] = is_up(new_index, old_index)
-      puts is_up(new_index, old_index)
     end
     Rails.cache.write(TOP_BOTS_KEY, top_bots_array, expires_in: 25.hour)
     top_bots_array
