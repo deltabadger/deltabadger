@@ -42,16 +42,10 @@ class SettingsController < ApplicationController
   def remove_api_key
     user = current_user
     api_key = user.api_keys.find(params[:id])
+    stop_bots_in_use(api_key, user) if api_key
+    api_key.destroy!
 
-    if api_key && !check_if_using(api_key, user)
-      api_key.destroy!
-      redirect_to settings_path
-    else
-      render :index, locals: {
-        user: current_user,
-        api_keys: current_user.api_keys
-      }
-    end
+    redirect_to settings_path
   end
 
   def enable_two_fa
@@ -86,8 +80,11 @@ class SettingsController < ApplicationController
 
   private
 
-  def check_if_using(api_key, user)
-    user.bots.without_deleted.map(&:exchange_id).include?(api_key.exchange_id)
+  def stop_bots_in_use(api_key, user)
+    user.bots.without_deleted.each do |bot|
+      byebug
+      StopBot.call(bot.id) if bot.exchange_id == api_key.exchange_id
+    end
   end
 
   def update_password_params

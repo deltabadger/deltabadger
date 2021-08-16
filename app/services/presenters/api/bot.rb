@@ -19,6 +19,7 @@ module Presenters
           id: bot.id,
           settings: bot.settings,
           exchangeName: bot.exchange.name,
+          exchangeId: bot.exchange.id,
           status: bot.status,
           transactions: transactions.first(10).map(&method(:present_transaction)),
           logs: logs.map(&method(:present_log)),

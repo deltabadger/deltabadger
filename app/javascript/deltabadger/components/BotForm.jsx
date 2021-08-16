@@ -6,6 +6,7 @@ import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
+import { removeInvalidApiKeys } from "./helpers";
 
 const STEPS = [
   'closed_form',
@@ -111,10 +112,6 @@ export const BotForm = ({
     })
   }
 
-  const removeInvalidApiKeys = () => {
-    API.removeInvalidApiKeys({ exchangeId: form.exchangeId })
-  }
-
   const getOfferTypeParams = (type) => {
     const [order_type, offer_type] = type.split('_')
     return {
@@ -181,7 +178,7 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          handleRemove={removeInvalidApiKeys}
+          handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'add_api_key'}
         />
       case 'validating_api_key':
@@ -189,7 +186,7 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          handleRemove={removeInvalidApiKeys}
+          handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'validating_api_key'}
         />
       case 'invalid_api_key':
@@ -197,7 +194,7 @@ export const BotForm = ({
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
           handleSubmit={addApiKeyHandler}
-          handleRemove={removeInvalidApiKeys}
+          handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'invalid_api_key'}
         />
       case 'configure_bot':

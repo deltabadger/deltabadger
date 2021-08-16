@@ -9,8 +9,11 @@ import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
+import { AddApiKey } from "./BotForm/AddApiKey";
+import { removeInvalidApiKeys } from "./helpers";
 
 import {
+  loadBots,
   reloadBot,
   stopBot,
   removeBot,
@@ -21,6 +24,15 @@ import {
   getSmartIntervalsInfo,
   setShowSmartIntervalsInfo
 } from '../bot_actions'
+import API from "../lib/API";
+
+const apiKeyStatus = {
+  ADD: 'add_api_key',
+  VALIDATING: 'validating_api_key',
+  INVALID: 'invalid_api_key'
+}
+
+let apiKeyTimeout;
 
 const BotTemplate = ({
   showLimitOrders,
@@ -37,7 +49,7 @@ const BotTemplate = ({
   reload,
   open
 }) => {
-  const { id, settings, status, exchangeName, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [type, setType] = useState(settings.order_type);
   const [price, setPrice] = useState(settings.price);
@@ -47,6 +59,8 @@ const BotTemplate = ({
   const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? "0" : settings.smart_intervals_value);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
+  const [apiKeyExists, setApiKeyExists] = useState(true)
+  const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -217,26 +231,75 @@ const BotTemplate = ({
     }
   }
 
+  const keyExists = () => {
+    API.getExchanges().then(data => {
+      const exchange = data.data.find(e => exchangeId === e.id) || {owned: false, pending: false, invalid: false}
+      console.log(exchange)
+      setApiKeyExists(exchange.owned)
+
+      if (exchange.owned) {
+        loadBots().then(() => reloadBot(id))
+        clearTimeout(apiKeyTimeout)
+      } else if (exchange.pending) {
+        setApiKeysState(apiKeyStatus["VALIDATING"])
+        apiKeyTimeout = setTimeout(() => keyExists(), 3000)
+      } else if (exchange.invalid) {
+        clearTimeout(apiKeyTimeout)
+        setApiKeysState(apiKeyStatus["INVALID"])
+      }
+    })
+  }
+
+  useEffect(() => {
+    keyExists()
+  }, []);
+
+  const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
+    setApiKeysState(apiKeyStatus["VALIDATING"])
+    API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: exchangeId }).then(response => {
+      apiKeyTimeout = setTimeout(() => keyExists(), 3000)
+      //setErrors([])
+    }).catch(() => {
+      setApiKeysState(apiKeyStatus["INVALID"])
+      setErrors(I18n.t('errors.invalid_api_keys'))
+    })
+  }
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
-      <div className="db-bot__header">
-        { isStarting && <StartingButton /> }
-        { (!isStarting && working) && <StopButton onClick={() => handleStop(id)} /> }
-        { (!isStarting && pending) && <PendingButton /> }
-        { (! isStarting && !working && !pending) && <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit} setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/> }
-        <div className={`db-bot__infotext text-${colorClass}`}>
-          <div className="db-bot__infotext__left">
-            { exchangeName }:{baseName}{quoteName}
+      { apiKeyExists &&
+        <div className="db-bot__header">
+          {isStarting && <StartingButton/>}
+          {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
+          {(!isStarting && pending) && <PendingButton/>}
+          {(!isStarting && !working && !pending) &&
+          <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}
+                       setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/>}
+          <div className={`db-bot__infotext text-${colorClass}`}>
+            <div className="db-bot__infotext__left">
+              {exchangeName}:{baseName}{quoteName}
+            </div>
+            {pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload}/>}
+            {working && nextTransactionTimestamp && <Timer bot={bot} callback={reload}/>}
+            {!working && isNotEmpty(errors) && <Errors data={errors}/>}
           </div>
-          { pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload} />}
-          { working && nextTransactionTimestamp && <Timer bot={bot} callback={reload} /> }
-          { !working && isNotEmpty(errors) && <Errors data={errors} /> }
         </div>
-      </div>
+      }
 
       <ProgressBar bot={bot} />
 
-      <div className="db-bot__form">
+      { !apiKeyExists &&
+      <AddApiKey
+        pickedExchangeName={exchangeName}
+        handleReset={null}
+        handleSubmit={addApiKeyHandler}
+        handleRemove={() => removeInvalidApiKeys(exchangeId)}
+        status={apiKeysState}
+        botView={{baseName, quoteName}}
+      />
+      }
+      { apiKeyExists &&
+        <div className="db-bot__form">
         <form>
           <div className="form-inline db-bot__form__schedule">
             <div className="form-group mr-2">
@@ -261,14 +324,14 @@ const BotTemplate = ({
             <div className="form-group mr-2">
               <input
                 type="tel"
-                size={ (price.length > 0 ) ? price.length : 3 }
+                size={(price.length > 0) ? price.length : 3}
                 value={price}
                 className="bot-input bot-input--sizable bot-input--paper-bg"
                 onChange={e => setPrice(e.target.value)}
                 disabled={working}
               />
             </div>
-            <div className="form-group mr-2"> {quoteName} / </div>
+            <div className="form-group mr-2"> {quoteName} /</div>
             <div className="form-group">
               <select
                 value={interval}
@@ -296,7 +359,8 @@ const BotTemplate = ({
               disabled={working}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <RawHTML
+                tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -306,7 +370,8 @@ const BotTemplate = ({
                 onBlur={validateSmartIntervalsValue}
                 disabled={working}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+              <RawHTML
+                tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
@@ -314,7 +379,6 @@ const BotTemplate = ({
                 </div>
               </small>
             </div>
-
 
 
           </label>
@@ -326,26 +390,28 @@ const BotTemplate = ({
           >
             <div>
 
-              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
-                type="tel"
-                value={percentage}
-                size={ (percentage.length > 0) ? percentage.length : 1 }
-                className="bot-input bot-input--sizable"
-                onChange={e => setPercentage(e.target.value)}
-                onBlur={validatePercentage}
-                disabled={working}
-              /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup className="hide-when-running">*</sup>
+              {isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy')} <input
+              type="tel"
+              value={percentage}
+              size={(percentage.length > 0) ? percentage.length : 1}
+              className="bot-input bot-input--sizable"
+              onChange={e => setPercentage(e.target.value)}
+              onBlur={validatePercentage}
+              disabled={working}
+            /> % {isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup
+              className="hide-when-running">*</sup>
 
-              <small className="hide-when-running"><LimitOrderNotice /></small>
+              <small className="hide-when-running"><LimitOrderNotice/></small>
 
             </div>
 
-          </label> }
+          </label>}
 
         </form>
 
       </div>
 
+      }
       <div className="db-bot__footer" hidden={working}>
         <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
       </div>
