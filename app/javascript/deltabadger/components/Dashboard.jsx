@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, {useEffect, useState} from 'react'
 import { connect } from 'react-redux';
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
@@ -8,8 +8,9 @@ import {
   startBot,
   openBot,
   closeAllBots,
-  loadBots
+  loadBots, reloadBot
 } from '../bot_actions'
+import API from "../lib/API";
 
 const DashboardTemplate = ({
   isHodler,
@@ -22,8 +23,18 @@ const DashboardTemplate = ({
   loadBots
 }) => {
 
+  const [exchanges, setExchanges] = useState([]);
+
   useEffect(() => {
     loadBots(true)
+  }, [])
+
+  const _fetchExchanges = () => {
+    API.getExchanges().then(data => setExchanges(data.data))
+  }
+
+  useEffect( () => {
+    _fetchExchanges()
   }, [])
 
   const buildBotsList = (botsToRender, b) => {
@@ -34,6 +45,8 @@ const DashboardTemplate = ({
         bot={b}
         open={currentBot && (b.id == currentBot.id)}
         errors={errors[b.id]}
+        fetchExchanges={_fetchExchanges}
+        exchanges={exchanges}
       />
     )
 
