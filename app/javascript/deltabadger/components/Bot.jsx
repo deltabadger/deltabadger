@@ -13,7 +13,6 @@ import { AddApiKey } from "./BotForm/AddApiKey";
 import { removeInvalidApiKeys } from "./helpers";
 
 import {
-  loadBots,
   reloadBot,
   stopBot,
   removeBot,
@@ -47,7 +46,9 @@ const BotTemplate = ({
   fetchRestartParams,
   clearBotErrors,
   reload,
-  open
+  open,
+  fetchExchanges,
+  exchanges
 }) => {
   const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
@@ -232,33 +233,30 @@ const BotTemplate = ({
   }
 
   const keyExists = () => {
-    API.getExchanges().then(data => {
-      const exchange = data.data.find(e => exchangeId === e.id) || {owned: false, pending: false, invalid: false}
-      console.log(exchange)
-      setApiKeyExists(exchange.owned)
+    const exchange = exchanges.find(e => exchangeId === e.id) || {owned: false, pending: false, invalid: false}
+    setApiKeyExists(exchange.owned)
 
-      if (exchange.owned) {
-        loadBots().then(() => reloadBot(id))
-        clearTimeout(apiKeyTimeout)
-      } else if (exchange.pending) {
-        setApiKeysState(apiKeyStatus["VALIDATING"])
-        apiKeyTimeout = setTimeout(() => keyExists(), 3000)
-      } else if (exchange.invalid) {
-        clearTimeout(apiKeyTimeout)
-        setApiKeysState(apiKeyStatus["INVALID"])
-      }
-    })
+    if (exchange.owned) {
+      clearTimeout(apiKeyTimeout)
+
+    } else if (exchange.pending) {
+      setApiKeysState(apiKeyStatus["VALIDATING"])
+      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
+
+    } else if (exchange.invalid) {
+      clearTimeout(apiKeyTimeout)
+      setApiKeysState(apiKeyStatus["INVALID"])
+    }
   }
 
   useEffect(() => {
     keyExists()
-  }, []);
+  }, [exchanges, open]);
 
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
     API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: exchangeId }).then(response => {
-      apiKeyTimeout = setTimeout(() => keyExists(), 3000)
-      //setErrors([])
+      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
     }).catch(() => {
       setApiKeysState(apiKeyStatus["INVALID"])
       setErrors(I18n.t('errors.invalid_api_keys'))
