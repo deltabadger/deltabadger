@@ -82,7 +82,6 @@ class SettingsController < ApplicationController
 
   def stop_bots_in_use(api_key, user)
     user.bots.without_deleted.each do |bot|
-      byebug
       StopBot.call(bot.id) if bot.exchange_id == api_key.exchange_id
     end
   end

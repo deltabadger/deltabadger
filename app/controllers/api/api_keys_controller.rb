@@ -13,6 +13,7 @@ module Api
                  AddApiKey.call(keys_params)
                end
 
+      reload_all_bots(result.data, current_user)
       if result.success?
         render json: { data: true }, status: 201
       else
@@ -56,6 +57,12 @@ module Api
 
     def same_keys?(params, api_key)
       params[:key] == api_key.key && params[:secret] == api_key.secret
+    end
+
+    def reload_all_bots(api_key, user)
+      user.bots.without_deleted.each do |bot|
+        bot.reload if bot.exchange_id == api_key.exchange_id
+      end
     end
   end
 end
