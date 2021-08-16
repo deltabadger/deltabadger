@@ -96,4 +96,5 @@ Rails.application.configure do
     user_name: ENV['MAILER_SMTP_USERNAME'],
     password: ENV['MAILER_SMTP_PASSWORD']
   }
+  routes.default_url_options = {host: ENV['MAIN_PAGE_URL'], protocol: 'https'}
 end
