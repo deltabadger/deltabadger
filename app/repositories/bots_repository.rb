@@ -51,19 +51,19 @@ class BotsRepository < BaseRepository
     end
     old_top_bots = Rails.cache.exist?(TOP_BOTS_KEY) ? Rails.cache.read(TOP_BOTS_KEY) : top_bots_array
     top_bots_array.each_with_index do |new_bot, new_index|
-      found = false
       old_index = old_top_bots.index { |bot| bot[:name] == new_bot[:name] }
-      unless old_index.nil?
-        found = true
-        new_bot[:is_up] = true if new_index < old_index
-      end
-      new_bot[:is_up] = true unless found
+      new_bot[:is_up] = is_up(new_index, old_index)
+      puts is_up(new_index, old_index)
     end
     Rails.cache.write(TOP_BOTS_KEY, top_bots_array, expires_in: 25.hour)
     top_bots_array
   end
 
   private
+
+  def is_up(new_index, old_index)
+    old_index.nil? || new_index < old_index
+  end
 
   def most_popular_bots(amount)
     all_bots_hash = Bot.group("bots.settings->>'base'")
