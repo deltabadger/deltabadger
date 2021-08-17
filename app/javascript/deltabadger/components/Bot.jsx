@@ -31,8 +31,6 @@ const apiKeyStatus = {
   INVALID: 'invalid_api_key'
 }
 
-let apiKeyTimeout;
-
 const BotTemplate = ({
   showLimitOrders,
   bot,
@@ -48,7 +46,8 @@ const BotTemplate = ({
   reload,
   open,
   fetchExchanges,
-  exchanges
+  exchanges,
+  apiKeyTimeout
 }) => {
   const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
@@ -256,7 +255,7 @@ const BotTemplate = ({
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
     API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: exchangeId }).then(response => {
-      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
+      fetchExchanges()
     }).catch(() => {
       setApiKeysState(apiKeyStatus["INVALID"])
     })

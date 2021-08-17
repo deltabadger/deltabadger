@@ -25,7 +25,8 @@ export const BotForm = ({
   callbackAfterOpening,
   callbackAfterClosing,
   exchanges,
-  fetchExchanges
+  fetchExchanges,
+  apiKeyTimeout
 }) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
@@ -45,7 +46,7 @@ export const BotForm = ({
     if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
     if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
-      setTimeout(() => fetchExchanges(), 3000)
+      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
       return 3
     }
 
@@ -59,7 +60,7 @@ export const BotForm = ({
     }
 
     if((STEPS[step] == 'validating_api_key')) {
-      setTimeout(() => fetchExchanges(), 3000)
+      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
     }
 
     return step;
@@ -98,6 +99,7 @@ export const BotForm = ({
     API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(3)
+      fetchExchanges()
     }).catch(() => {
       setErrors(I18n.t('errors.invalid_api_keys'))
     })
@@ -165,6 +167,7 @@ export const BotForm = ({
           exchanges={exchanges}
         />
       case 'add_api_key':
+        clearTimeout(apiKeyTimeout)
         return <AddApiKey
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}
@@ -181,6 +184,7 @@ export const BotForm = ({
           status={'validating_api_key'}
         />
       case 'invalid_api_key':
+        clearTimeout(apiKeyTimeout)
         return <AddApiKey
           pickedExchangeName={pickedExchange.name}
           handleReset={resetFormToStep(1)}

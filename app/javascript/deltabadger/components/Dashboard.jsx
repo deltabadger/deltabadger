@@ -12,6 +12,8 @@ import {
 } from '../bot_actions'
 import API from "../lib/API";
 
+let apiKeyTimeout;
+
 const DashboardTemplate = ({
   isHodler,
   bots = [],
@@ -47,6 +49,7 @@ const DashboardTemplate = ({
         errors={errors[b.id]}
         fetchExchanges={fetchExchanges}
         exchanges={exchanges}
+        apiKeyTimeout={apiKeyTimeout}
       />
     )
 
@@ -71,6 +74,7 @@ const DashboardTemplate = ({
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
         exchanges={exchanges}
         fetchExchanges={fetchExchanges}
+        apiKeyTimeout={apiKeyTimeout}
       />
     </div>
   )
