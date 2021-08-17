@@ -1,4 +1,5 @@
 require 'sidekiq/web'
+require 'telegram/bot'
 
 Rails.application.routes.draw do
   namespace :admin do
@@ -109,4 +110,6 @@ Rails.application.routes.draw do
   get '/referral_program' => redirect("/#{I18n.default_locale}/referral-program")
   get '/' => redirect("/#{I18n.default_locale}")
   get '*path' => redirect("/#{I18n.default_locale}")
+
+  telegram_webhook TelegramWebhooksController
 end
