@@ -32,7 +32,8 @@ export const AddApiKey = ({
   const [key, setKey] = useState("");
   const [secret, setSecret] = useState("");
   const [passphrase, setPassphrase] = useState("");
-  const [agreement, setAgreement] = useState(false)
+  const [agreement, setAgreement] = useState(false);
+  const uniqueId = new Date().getTime();
 
   const ResetButton = () => (
     <div
@@ -56,11 +57,11 @@ export const AddApiKey = ({
   const { public: key_label, private: secret_label, passphrase: phrase_label } = apiKeyNames(pickedExchangeName);
 
   useEffect(() => {
-    if (status == 'invalid_api_key') {
-      document.getElementById('api-key').setCustomValidity("Error")
-      document.getElementById('api-secret').setCustomValidity("Error")
+    if (status === 'invalid_api_key') {
+      document.getElementById(`api-key${uniqueId}`).setCustomValidity("Error")
+      document.getElementById(`api-secret${uniqueId}`).setCustomValidity("Error")
       if (isPassphraseRequired(pickedExchangeName)) {
-        document.getElementById('api-passphrase').setCustomValidity("Error")
+        document.getElementById(`api-passphrase${uniqueId}`).setCustomValidity("Error")
       }
 
       handleRemove()
@@ -97,7 +98,7 @@ export const AddApiKey = ({
           <div className="col">
             <div className="db-form__row mb-0">
               <input
-                id="api-key"
+                id={`api-key${uniqueId}`}
                 type="text"
                 value={key}
                 onChange={e => setKey(e.target.value)}
@@ -114,7 +115,7 @@ export const AddApiKey = ({
           <div className="col">
             <div className="db-form__row mb-0">
               <input
-                id="api-secret"
+                id={`api-secret${uniqueId}`}
                 type="text"
                 value={secret}
                 onChange={e => setSecret(e.target.value)}
@@ -131,7 +132,7 @@ export const AddApiKey = ({
             <div className="col">
               <div className="db-form__row mb-0">
                 <input
-                  id="api-passphrase"
+                  id={`api-passphrase${uniqueId}`}
                   type="text"
                   value={passphrase}
                   onChange={e => setPassphrase(e.target.value)}
