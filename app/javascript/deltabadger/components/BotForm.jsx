@@ -99,7 +99,6 @@ export const BotForm = ({
     API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(3)
-      fetchExchanges()
     }).catch(() => {
       setErrors(I18n.t('errors.invalid_api_keys'))
     })
