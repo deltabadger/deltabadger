@@ -29,12 +29,12 @@ const DashboardTemplate = ({
     loadBots(true)
   }, [])
 
-  const _fetchExchanges = () => {
+  const fetchExchanges = () => {
     API.getExchanges().then(data => setExchanges(data.data))
   }
 
   useEffect( () => {
-    _fetchExchanges()
+    fetchExchanges()
   }, [])
 
   const buildBotsList = (botsToRender, b) => {
@@ -45,7 +45,7 @@ const DashboardTemplate = ({
         bot={b}
         open={currentBot && (b.id == currentBot.id)}
         errors={errors[b.id]}
-        fetchExchanges={_fetchExchanges}
+        fetchExchanges={fetchExchanges}
         exchanges={exchanges}
       />
     )
@@ -69,6 +69,8 @@ const DashboardTemplate = ({
         }}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
+        exchanges={exchanges}
+        fetchExchanges={fetchExchanges}
       />
     </div>
   )

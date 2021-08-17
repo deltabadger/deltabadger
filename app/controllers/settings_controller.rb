@@ -42,7 +42,7 @@ class SettingsController < ApplicationController
   def remove_api_key
     user = current_user
     api_key = user.api_keys.find(params[:id])
-    stop_bots_in_use(api_key, user) if api_key
+    stop_working_bots(api_key, user) if api_key
     api_key.destroy!
 
     redirect_to settings_path
@@ -80,7 +80,7 @@ class SettingsController < ApplicationController
 
   private
 
-  def stop_bots_in_use(api_key, user)
+  def stop_working_bots(api_key, user)
     user.bots.without_deleted.each do |bot|
       StopBot.call(bot.id) if bot.exchange_id == api_key.exchange_id
     end
