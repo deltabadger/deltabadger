@@ -23,11 +23,12 @@ export const BotForm = ({
   currentBot,
   callbackAfterCreation,
   callbackAfterOpening,
-  callbackAfterClosing
+  callbackAfterClosing,
+  exchanges,
+  fetchExchanges
 }) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
-  const [exchanges, setExchanges] = useState([]);
   const [errors, setErrors] = useState("");
   const [isCreatingBot, setCreatingBot] = useState(false);
 
@@ -44,7 +45,7 @@ export const BotForm = ({
     if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
     if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
-      setTimeout(() => loadExchanges(), 3000)
+      setTimeout(() => fetchExchanges(), 3000)
       return 3
     }
 
@@ -58,21 +59,11 @@ export const BotForm = ({
     }
 
     if((STEPS[step] == 'validating_api_key')) {
-      setTimeout(() => loadExchanges(), 3000)
+      setTimeout(() => fetchExchanges(), 3000)
     }
 
     return step;
   }
-
-  const loadExchanges = () => {
-    API.getExchanges().then(data => {
-      setExchanges(data.data)
-    })
-  }
-
-  useEffect(() => {
-    loadExchanges()
-  }, []);
 
   useEffect(() => {
     if (currentBot) {
