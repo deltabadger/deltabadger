@@ -251,7 +251,7 @@ const BotTemplate = ({
 
   useEffect(() => {
     keyExists()
-  }, [exchanges, open]);
+  }, [exchanges]);
 
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
@@ -259,7 +259,6 @@ const BotTemplate = ({
       apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
     }).catch(() => {
       setApiKeysState(apiKeyStatus["INVALID"])
-      setErrors(I18n.t('errors.invalid_api_keys'))
     })
   }
 
@@ -287,15 +286,16 @@ const BotTemplate = ({
       <ProgressBar bot={bot} />
 
       { !apiKeyExists &&
-      <AddApiKey
-        pickedExchangeName={exchangeName}
-        handleReset={null}
-        handleSubmit={addApiKeyHandler}
-        handleRemove={() => removeInvalidApiKeys(exchangeId)}
-        status={apiKeysState}
-        botView={{baseName, quoteName}}
-      />
+        <AddApiKey
+          pickedExchangeName={exchangeName}
+          handleReset={null}
+          handleSubmit={addApiKeyHandler}
+          handleRemove={() => removeInvalidApiKeys(exchangeId)}
+          status={apiKeysState}
+          botView={{baseName, quoteName}}
+        />
       }
+
       { apiKeyExists &&
         <div className="db-bot__form">
         <form>
@@ -357,8 +357,7 @@ const BotTemplate = ({
               disabled={working}
             />
             <div>
-              <RawHTML
-                tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -368,8 +367,7 @@ const BotTemplate = ({
                 onBlur={validateSmartIntervalsValue}
                 disabled={working}
               />
-              <RawHTML
-                tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
@@ -377,7 +375,6 @@ const BotTemplate = ({
                 </div>
               </small>
             </div>
-
 
           </label>
 

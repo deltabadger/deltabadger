@@ -73,7 +73,7 @@ export const AddApiKey = ({
         { !botView && <Breadcrumbs step={1} /> }
         { (status == 'add_api_key' || status == 'invalid_api_key') &&
           <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`}>
-            <span>{botView ? 'Set' : I18n.t('bots.setup.next')}</span>
+            <span>{botView ? I18n.t('bots.setup.set') : I18n.t('bots.setup.next')}</span>
             <svg className="db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"/></svg>
           </div>
         }
