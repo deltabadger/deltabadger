@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, {useEffect, useState} from 'react'
 import { connect } from 'react-redux';
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
@@ -8,8 +8,11 @@ import {
   startBot,
   openBot,
   closeAllBots,
-  loadBots
+  loadBots, reloadBot
 } from '../bot_actions'
+import API from "../lib/API";
+
+let apiKeyTimeout;
 
 const DashboardTemplate = ({
   isHodler,
@@ -22,8 +25,18 @@ const DashboardTemplate = ({
   loadBots
 }) => {
 
+  const [exchanges, setExchanges] = useState([]);
+
   useEffect(() => {
     loadBots(true)
+  }, [])
+
+  const fetchExchanges = () => {
+    API.getExchanges().then(data => setExchanges(data.data))
+  }
+
+  useEffect( () => {
+    fetchExchanges()
   }, [])
 
   const buildBotsList = (botsToRender, b) => {
@@ -34,6 +47,9 @@ const DashboardTemplate = ({
         bot={b}
         open={currentBot && (b.id == currentBot.id)}
         errors={errors[b.id]}
+        fetchExchanges={fetchExchanges}
+        exchanges={exchanges}
+        apiKeyTimeout={apiKeyTimeout}
       />
     )
 
@@ -56,6 +72,9 @@ const DashboardTemplate = ({
         }}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
+        exchanges={exchanges}
+        fetchExchanges={fetchExchanges}
+        apiKeyTimeout={apiKeyTimeout}
       />
     </div>
   )
