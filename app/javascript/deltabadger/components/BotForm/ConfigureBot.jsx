@@ -161,6 +161,14 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
 
+  const setLimitOrderCheckbox = () => {
+    if (isLimitOrder()) {
+      isSellOffer() ? setType('market_sell') : setType('market_buy')
+    } else {
+      isSellOffer() ? setType('limit_sell') : setType('limit_buy')
+    }
+  }
+
   const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
 
   const splitTranslation = (s) => {
@@ -294,13 +302,17 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             </div>
           </label>
 
-          {isLimitOrder() &&
-
           <label
             className="alert alert-primary"
+            disabled={!showLimitOrders || !isLimitOrder()}
           >
+            <input
+              type="checkbox"
+              checked={isLimitOrder()}
+              onChange={setLimitOrderCheckbox}
+              disabled={!showLimitOrders}
+            />
             <div>
-
               { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
                 type="tel"
                 size={(percentage.length > 0) ? percentage.length : 3 }
@@ -308,13 +320,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
                 onBlur={validatePercentage}
+                disabled={!showLimitOrders || !isLimitOrder()}
                 /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
 
-              {isLimitOrder() && <small><LimitOrderNotice /></small>}
-
+              { isLimitOrder() && <small><LimitOrderNotice /></small> }
+              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
-
-          </label> }
+          </label>
 
         </form>
 
