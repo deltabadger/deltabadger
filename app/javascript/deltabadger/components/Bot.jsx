@@ -387,9 +387,10 @@ const BotTemplate = ({
           >
             <input
               type="checkbox"
+              className="hide-when-running"
               checked={isLimitSelected()}
               onChange={setLimitOrderCheckbox}
-              disabled={!showLimitOrders}
+              disabled={working || !showLimitOrders}
             />
             <div>
               {isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy')} <input
