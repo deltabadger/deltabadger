@@ -74,6 +74,10 @@ const BotTemplate = ({
 
   const isLimitSelected = () => type === 'limit'
 
+  const setLimitOrderCheckbox = () => {
+    isLimitSelected() ? setType('market') : setType('limit')
+  }
+
   const hasConfigurationChanged = () => {
     const newSettings= {
       order_type: type,
@@ -377,13 +381,18 @@ const BotTemplate = ({
 
           </label>
 
-          {isLimitSelected() &&
-
           <label
             className="alert alert-primary"
+            disabled={!showLimitOrders || !isLimitSelected()}
           >
+            <input
+              type="checkbox"
+              className="hide-when-running"
+              checked={isLimitSelected()}
+              onChange={setLimitOrderCheckbox}
+              disabled={working || !showLimitOrders}
+            />
             <div>
-
               {isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy')} <input
               type="tel"
               value={percentage}
@@ -391,15 +400,15 @@ const BotTemplate = ({
               className="bot-input bot-input--sizable"
               onChange={e => setPercentage(e.target.value)}
               onBlur={validatePercentage}
-              disabled={working}
+              disabled={working || !showLimitOrders || !isLimitSelected()}
             /> % {isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup
               className="hide-when-running">*</sup>
 
-              <small className="hide-when-running"><LimitOrderNotice/></small>
-
+              { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }
+              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
 
-          </label>}
+          </label>
 
         </form>
 
