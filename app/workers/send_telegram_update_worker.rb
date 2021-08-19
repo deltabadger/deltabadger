@@ -1,8 +1,13 @@
 class SendTelegramUpdateWorker
   include Sidekiq::Worker
-  def perform(once = false, reschedule_hour = 8)
+  def perform(reschedule_hour = 8)
     BotsRepository.new.send_top_bots_update
-    next_time = Time.new(Time.now.year, Time.now.month, Time.now.day + 1, reschedule_hour - 2)
-    SendTelegramUpdateWorker.perform_at(next_time, once) unless once
+    next_day = (Time.now + 1.day)
+    reschedule_hour -= (Time.now.in_time_zone('Europe/Warsaw').utc_offset / 1.hour)
+    next_time = Time.new(next_day.year,
+                         next_day.month,
+                         next_day.day,
+                         reschedule_hour)
+    SendTelegramUpdateWorker.perform_at(next_time)
   end
 end
