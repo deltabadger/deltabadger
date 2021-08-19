@@ -24,10 +24,6 @@ class BotsRepository < BaseRepository
       .count
   end
 
-  def list_top_ten
-    most_popular_bots(10)
-  end
-
   def model
     Bot
   end
@@ -36,8 +32,26 @@ class BotsRepository < BaseRepository
     Rails.cache.exist?(TOP_BOTS_KEY) ? Rails.cache.read(TOP_BOTS_KEY) : top_bots_update
   end
 
+  def top_bots_text(update = false)
+    reply_text = "<b>Top 10 currencies by the number of bots:</b>\n"
+    top_bots = update ? top_bots_update : top_ten_bots
+    return '<b>No bots are working at the moment.</b>' if top_bots.empty?
+
+    top_bots.each_with_index { |data, index|
+      reply_text += "\n#{index + 1}. #{data[:name]} - #{data[:counter]} "
+      reply_text += '⬆️' if data[:is_up]
+    }
+    reply_text
+  end
+
+  def send_top_bots_update
+    Telegram.bot.send_message(chat_id: ENV['TELEGRAM_GROUP_ID'],
+                              text: top_bots_text(true),
+                              parse_mode: 'html')
+  end
+
   def top_bots_update
-    top_ten_bots = list_top_ten
+    top_ten_bots = most_popular_bots(10)
     top_bots_array = top_ten_bots.map do |key, value|
       {
         name: key,
