@@ -236,7 +236,8 @@ const BotTemplate = ({
   }
 
   const keyExists = () => {
-    const exchange = exchanges.find(e => exchangeId === e.id) || {owned: false, pending: false, invalid: false}
+    // we have to assume that the key exists to fix unnecessary form rendering
+    const exchange = exchanges.find(e => exchangeId === e.id) || {owned: true, pending: false, invalid: false}
     setApiKeyExists(exchange.owned)
 
     if (exchange.owned) {
