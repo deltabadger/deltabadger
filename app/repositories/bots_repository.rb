@@ -35,7 +35,12 @@ class BotsRepository < BaseRepository
   def top_bots_text(update = false)
     reply_text = "<b>Top 10 currencies by the number of bots:</b>\n"
     top_bots = update ? top_bots_update : top_ten_bots
-    return '<b>No bots are working at the moment.</b>' if top_bots.empty?
+    if top_bots.empty?
+      return {
+        reply_text: '<b>No bots are working at the moment.</b>',
+        changed: false
+      }
+    end
 
     top_bots.each_with_index do |data, index|
       reply_text += "\n#{index + 1}. #{data[:name]} - #{data[:counter]} "
