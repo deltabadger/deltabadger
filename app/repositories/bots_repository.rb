@@ -41,7 +41,7 @@ class BotsRepository < BaseRepository
       reply_text += "\n#{index + 1}. #{data[:name]} - #{data[:counter]} "
       reply_text += '⬆️' if data[:is_up]
     end
-    changed = top_bots.find{ |bot| bot[:is_up] == true }.present?
+    changed = top_bots.find { |bot| bot[:is_up] }.present?
     {
       reply_text: reply_text,
       changed: changed
