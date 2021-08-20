@@ -37,14 +37,11 @@ class BotsRepository < BaseRepository
     top_bots = update ? top_bots_update : top_ten_bots
     return '<b>No bots are working at the moment.</b>' if top_bots.empty?
 
-    changed = false
     top_bots.each_with_index do |data, index|
       reply_text += "\n#{index + 1}. #{data[:name]} - #{data[:counter]} "
-      if data[:is_up]
-        reply_text += '⬆️'
-        changed = true
-      end
+      reply_text += '⬆️' if data[:is_up]
     end
+    changed = top_bots.find{ |bot| bot[:is_up] == true }.present?
     {
       reply_text: reply_text,
       changed: changed
