@@ -46,6 +46,15 @@ class Bot < ApplicationRecord
     settings.fetch('smart_intervals_value')
   end
 
+  def price_range_enabled
+    settings.fetch('price_range_enabled')
+  end
+
+  def price_range
+    price_range_arr = settings.fetch('price_range_enabled')
+    { low: price_range_arr[0], high: price_range_arr[1] }
+  end
+
   def market?
     order_type == 'market'
   end
