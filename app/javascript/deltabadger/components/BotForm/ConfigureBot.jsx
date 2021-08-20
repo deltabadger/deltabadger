@@ -40,6 +40,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
+  const [priceRangeEnabled, setPriceRangeEnabled] = useState(false)
+  const [priceRange, setPriceRange] = useState({ low: '', high: '' })
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -153,6 +155,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
+      priceRangeEnabled,
+      priceRange
     }
     !disableSubmit && handleSubmit(botParams);
   }
@@ -325,6 +329,37 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
               { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
+            </div>
+          </label>
+
+          <label
+            className="alert alert-primary"
+            disabled={!priceRangeEnabled}
+          >
+            <input
+              type="checkbox"
+              checked={priceRangeEnabled}
+              onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
+            />
+            <div>
+              <RawHTML tag="span">{'Buy only in the price range from '}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={priceRange.low}
+                onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
+                size={Math.max(priceRange.low.length, 1)}
+              />
+
+              <RawHTML tag="span">{' to '}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={priceRange.high}
+                onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
+                size={ Math.max(priceRange.high.length, 1) }
+              />
+              <RawHTML tag="span">{" " + quote}</RawHTML>
             </div>
           </label>
 

@@ -26,7 +26,8 @@ module Bots::Free::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :non_hodler_symbols,
-                  :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name
+                  :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name,
+                  :price_range_enabled, :price_range
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell].freeze
@@ -41,6 +42,12 @@ module Bots::Free::Validators
       validates :price, numericality: { only_float: true, greater_than: 0 }
       validates :force_smart_intervals, inclusion: { in: [true, false] }
       validates :smart_intervals_value, numericality: { only_float: true, greater_than: 0 }
+      validates :price_range_enabled, inclusion: {in: [true, false]}
+      validates :price_range[0], numericality: { only_float: true, greater_than_or_equal_to: 0 }
+      validates :price_range[1], numericality: {
+        only_float: true,
+        greater_than: :price_range[0]
+      }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
         greater_than_or_equal_to: 0,
