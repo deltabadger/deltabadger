@@ -37,17 +37,24 @@ class BotsRepository < BaseRepository
     top_bots = update ? top_bots_update : top_ten_bots
     return '<b>No bots are working at the moment.</b>' if top_bots.empty?
 
-    top_bots.each_with_index { |data, index|
+    top_bots.each_with_index do |data, index|
       reply_text += "\n#{index + 1}. #{data[:name]} - #{data[:counter]} "
       reply_text += '⬆️' if data[:is_up]
+    end
+    changed = top_bots.find { |bot| bot[:is_up] }.present?
+    {
+      reply_text: reply_text,
+      changed: changed
     }
-    reply_text
   end
 
   def send_top_bots_update
-    Telegram.bot.send_message(chat_id: ENV['TELEGRAM_GROUP_ID'],
-                              text: top_bots_text(true),
-                              parse_mode: 'html')
+    top_bots_text = top_bots_text(true)
+    if should_send_update(top_bots_text[:changed])
+      Telegram.bot.send_message(chat_id: ENV['TELEGRAM_GROUP_ID'],
+                                text: top_bots_text[:reply_text],
+                                parse_mode: 'html')
+    end
   end
 
   def top_bots_update
@@ -69,6 +76,10 @@ class BotsRepository < BaseRepository
   end
 
   private
+
+  def should_send_update(changed)
+    Time.now.monday? || changed
+  end
 
   def is_up(new_index, old_index)
     old_index.nil? || new_index < old_index
