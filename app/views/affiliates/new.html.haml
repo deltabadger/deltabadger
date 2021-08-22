@@ -9,18 +9,31 @@
 
 .row.pt-5
   .col-sm-12.col-lg-6
-    %h2= t('.title')
+    .db-box.mb-3.db-referral-program-registration
+      %h4.db-modal__subtitle
+        = t('.share_html')
+        %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
+      .db-form__row.db-form__row--input.mb-0
+        %input.db-form__input{:readonly => "readonly", :type => "text", :value => "https://deltabadger.com/ref/xD8z1"}/
+        %label.db-form__label Your referral link
+      .form-group.mb-0.mt-5
+        %b= t('.discount_info_html', earn_percent_preview: 20, discount_percent_preview: 10)
+
+
     .alert.alert-success.mt-5
       = t('affiliates.manual_html')
   .col-sm-12.col-lg-6
     .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
       - if errors.present?
         %ul.pl-3
-          - errors.each do |error|
+          - errors.each do |error|d
             %li.text-danger= error
 
       = form_with model: affiliate, local: true, url: affiliate_path do |f|
-        .db-box.mb-1
+
+        %h2.mb-4= t('.title')
+        %p.mb-5= t('.title_info')
+        .db-box.mb-3
           %h4.mb-4
             %span.db-number 1
             = t('.referrer_info')
@@ -50,7 +63,7 @@
               =t('subscriptions.payment.invalid_vat_number')
             = f.label :vat_number, "VAT number (optional)", class: "db-form__label"
 
-        .db-box.mb-1
+        .db-box.mb-3
           %h4.pb-3
             %span.db-number 2
             = t('.payout_address')
@@ -61,22 +74,17 @@
               #{t('affiliates.invalid_bitcoin_address')}
             = f.label :btc_address, t('affiliates.your_bitcoin_address'), class: "db-form__label"
 
-        .db-box.mb-1
+        .db-box.mb-3
           %h4.pb-3
             %span.db-number 3
             = t('.program_settings_html')
 
-          .db-form__row.db-form__row--input.db-form__row--input--referralcode
+          .db-form__row.db-form__row--input.db-form__row--input--referralcode.mb-0
             = f.text_field :code, id: 'referral-code', disabled: disabled, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             .db-referral-prefix= "deltabadger.com/ref/"
             = f.label :code, t('.pick_referral_code'), class: "db-form__label"
 
-          .form-group.mb-0
-            = f.label :discount_percent do
-              = t('.discount_info_html', earn_percent_preview: presenter.earn_percent_preview, discount_percent_preview: presenter.discount_percent_preview)
-            = f.range_field :discount_percent, in: (presenter.min_discount_percent)..(presenter.max_discount_percent), value: presenter.discount_percent, step: presenter.percent_step, data: { sum: presenter.bonus_percent }, class: "db-form-control-range--discount-ratio form-control-range", style: "direction: rtl", disabled: disabled
-
-        .db-box.mb-1
+        .db-box.mb-3
           %h4.pb-3
             %span.db-number 4
             = t('.visible_info')
