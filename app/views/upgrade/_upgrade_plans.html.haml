@@ -1,6 +1,6 @@
 - if upgrade_presenter.upgrade_available?
 
-  %h4.mb-4.mt-5.pb-4 Prolong or upgrade your plan:
+  %h4.mb-4.mt-5.pb-4= t('subscriptions.prolong_upgrade')
 
   -# - if 'investor'.in?(upgrade_presenter.available_plans)
   - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
