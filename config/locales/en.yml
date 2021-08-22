@@ -144,14 +144,16 @@ en:
     subscriptions:
         upgrade: Upgrade
         prolong_upgrade: 'Prolong or upgrade your plan'
+        maximalist_title: 'Bitcoin Maximalist discount 50%'
+        maximalist_info: 'If you buy only Bitcoin you pay half of the regular price.'
         days_left:
             one: '1 day left'
             other: '%{count} days left'
         saver: Saver
         investor: Investor
         hodler: Hodler
-        investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b> for BTC, ETH, LTC, XMR. <span class="no-break">Access to</span> the <b class="badge badge-referral">referral program</b>.'
-        hodler_description_html: "DCA works best as a long-term commitment. <span class=\"no-brak\">Four years</span> of <b class=\"badge badge-btc\">unlimited transactions</b> for <b class=\"badge badge-all\">all tokens</b>, <b class=\"badge badge-limit\">limit orders</b>, and access to the <b class=\"badge badge-referral\">referral program</b>.\nThis plan also supports the project, so Hodlers get <b class=\"badge badge-priority\">priority access</b> to all <b class=\"badge badge-priority\">new features</b>."
+        investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b> for BTC, ETH, LTC, XMR.'
+        hodler_description_html: "DCA works best as a long-term commitment. <span class=\"no-brak\">Four years</span> of <b class=\"badge badge-btc\">unlimited transactions</b> for <b class=\"badge badge-all\">all tokens</b>, <b class=\"badge badge-limit\">limit orders</b>.\nThis plan also supports the project, so Hodlers get <b class=\"badge badge-priority\">priority access</b> to all <b class=\"badge badge-priority\">new features</b>."
         plan_1_year: '1-year plan'
         plan_4_year: '4-year plan'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $500/year. To continue, upgrade to the unlimited plan.'

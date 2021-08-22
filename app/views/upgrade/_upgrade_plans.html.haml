@@ -12,6 +12,23 @@
   .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
     = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
+  %label.db-plans__item.db-plans__item--discount.db-plans__item--discount--maxi(disabled)
+    .db-plans__item__name
+      %input(type="checkbox")
+      = t('subscriptions.maximalist_title')
+    .db-plans__item__amount
+      .db-plans__item__amount__t.db-plans__item__amount__t--discount
+        .db-show--investor
+          %span.db-show--eu -€
+          %span.db-show--other -$
+          %span.investor-flat-discount-with-vat 20.13
+        .db-show--hodler
+          %span.db-show--eu -€
+          %span.db-show--other -$
+          %span.hodler-flat-discount-with-vat 20.13
+    .db-plans__item__info= t('subscriptions.maximalist_info')
+
+
   - if upgrade_presenter.plan_upgrade_discount?
     .db-plans__item.db-plans__item--discount
       .db-plans__item__name= t('subscriptions.payment.active_plan_discount')
@@ -22,6 +39,7 @@
           .db-show--hodler
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
       .db-plans__item__info= t('subscriptions.payment.compensation', count: current_user.plan_days_left)
+
 
 
   - if upgrade_presenter.referrer_discount?
