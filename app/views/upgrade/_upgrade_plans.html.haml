@@ -1,14 +1,16 @@
 - if upgrade_presenter.upgrade_available?
 
-  - if 'investor'.in?(upgrade_presenter.available_plans)
-    - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
-    .db-plans__item.db-plans__item--investor.db-plan-investor{class: "db-plan--#{investor_selected ? 'selected' : 'other'}"}
-      = render partial: 'investor_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
+  %h4.mb-4.mt-5.pb-4 Prolong or upgrade your plan:
 
-  - if 'hodler'.in?(upgrade_presenter.available_plans)
-    - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
-    .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
-      = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
+  -# - if 'investor'.in?(upgrade_presenter.available_plans)
+  - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
+  .db-plans__item.db-plans__item--investor.db-plan-investor{class: "db-plan--#{investor_selected ? 'selected' : 'other'}"}
+    = render partial: 'investor_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
+
+  -# - if 'hodler'.in?(upgrade_presenter.available_plans)
+  - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
+  .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
+    = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
   - if upgrade_presenter.plan_upgrade_discount?
     .db-plans__item.db-plans__item--discount
@@ -20,8 +22,6 @@
           .db-show--hodler
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
       .db-plans__item__info= t('subscriptions.payment.compensation', count: current_user.plan_days_left)
-
-
 
 
   - if upgrade_presenter.referrer_discount?
