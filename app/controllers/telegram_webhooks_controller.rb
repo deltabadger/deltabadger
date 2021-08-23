@@ -16,6 +16,6 @@ class TelegramWebhooksController < Telegram::Bot::UpdatesController
 
   def top10!(*)
     reply_text = BotsRepository.new.top_bots_text
-    respond_with :message, text: reply_text, parse_mode: 'html'
+    respond_with :message, text: reply_text[:reply_text], parse_mode: 'html'
   end
 end
