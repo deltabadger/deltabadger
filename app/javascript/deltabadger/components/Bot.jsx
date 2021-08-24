@@ -171,7 +171,7 @@ const BotTemplate = ({
   }
 
   const splitTranslation = (s) => {
-    return s.split(/<split>.*<\/split>/)
+    return s.split(/<split>.*?<\/split>/)
   }
 
   const getBotParams = () => {
@@ -427,7 +427,7 @@ const BotTemplate = ({
               onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
             />
             <div>
-              <RawHTML tag="span">{'Buy only in the price range from '}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -437,7 +437,7 @@ const BotTemplate = ({
                 size={Math.max(priceRange.low.length, 1)}
               />
 
-              <RawHTML tag="span">{' to '}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[1]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -446,7 +446,7 @@ const BotTemplate = ({
                 disabled={working}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{" " + settings.quote}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[2]}</RawHTML>
             </div>
           </label>
 
