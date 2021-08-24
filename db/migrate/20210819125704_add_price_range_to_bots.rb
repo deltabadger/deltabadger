@@ -5,7 +5,7 @@ class AddPriceRangeToBots < ActiveRecord::Migration[5.2]
         execute <<~SQL
         UPDATE bots
         SET settings = settings || jsonb_build_object('price_range_enabled', false,
-                                                      'price_range', jsonb_build_array(null, null))
+                                                      'price_range', jsonb_build_array(0, 0))
 
         SQL
       end

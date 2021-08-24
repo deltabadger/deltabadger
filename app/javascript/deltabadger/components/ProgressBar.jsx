@@ -9,7 +9,7 @@ const ProgressBarLine = ({colorClass, progress }) => (
 )
 
 export const ProgressBar = ({bot}) => {
-  const { settings, status, nextTransactionTimestamp, transactions } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { settings, status, nextTransactionTimestamp, transactions, skippedTransactions} = bot || {settings: {}, stats: {}, transactions: [], skippedTransactions: [], logs: []}
   const colorClass = settings.type == 'buy' ? 'success' : 'danger'
   const working = status == 'working'
 
@@ -17,10 +17,17 @@ export const ProgressBar = ({bot}) => {
 
   const [progress, setProgress] = useState(0)
 
+  const getLastTransactionTimestamp = () => {
+    const lastTransactionsTimestamp = ([...transactions].shift() || {}).created_at_timestamp
+    const lastSkippedTransactionTimestamp = ([...skippedTransactions].shift() || {}).created_at_timestamp
+
+    return Math.max(...[lastTransactionsTimestamp, lastSkippedTransactionTimestamp].filter(Number.isFinite))
+  }
+
   const calculateProgress = () => {
     const now  = new moment()
     const nowTimestamp = now.unix()
-    const lastTransactionTimestamp = ([...transactions].shift() || {}).created_at_timestamp
+    const lastTransactionTimestamp = getLastTransactionTimestamp()
     const prog = (nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)
     return (prog) * 100
   }

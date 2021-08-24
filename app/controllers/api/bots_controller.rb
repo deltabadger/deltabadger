@@ -117,13 +117,12 @@ module Api
       force_smart_intervals
       smart_intervals_value
       price_range_enabled
-      price_range
     ].freeze
 
     def bot_create_params
       params
         .require(:bot)
-        .permit(*BOT_PARAMS)
+        .permit(*BOT_PARAMS, price_range: [])
     end
 
     BOT_UPDATE_PARAMS = %i[
@@ -133,12 +132,13 @@ module Api
       interval
       force_smart_intervals
       smart_intervals_value
+      price_range_enabled
     ].freeze
 
     def bot_update_params
       params
         .require(:bot)
-        .permit(*BOT_UPDATE_PARAMS)
+        .permit(*BOT_UPDATE_PARAMS, price_range: [])
         .merge(id: params[:id])
     end
 
