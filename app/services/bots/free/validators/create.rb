@@ -125,8 +125,7 @@ module Bots::Free::Validators
       end
 
       def validate_price_range
-        return unless @price_range_enabled
-        return if price_range_valid?
+        return if !@price_range_enabled || price_range_valid?
 
         errors.add(:price_range, ' is invalid')
       end
