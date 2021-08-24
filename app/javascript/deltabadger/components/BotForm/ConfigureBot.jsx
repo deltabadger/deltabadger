@@ -176,7 +176,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
 
   const splitTranslation = (s) => {
-    return s.split(/<split>.*<\/split>/)
+    return s.split(/<split>.*?<\/split>/)
   }
 
   const getSmartIntervalsDisclaimer = () => {
@@ -342,7 +342,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
             />
             <div>
-              <RawHTML tag="span">{'Buy only in the price range from '}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -351,7 +351,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 size={Math.max(priceRange.low.length, 1)}
               />
 
-              <RawHTML tag="span">{' to '}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[1]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -359,7 +359,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{" " + quote}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[2]}</RawHTML>
             </div>
           </label>
 
