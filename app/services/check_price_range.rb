@@ -13,7 +13,7 @@ class CheckPriceRange < BaseService
                    end
     return current_rate unless current_rate.success?
 
-    current_rate = current_rate_for_limit(current_rate, bot) if limit?(bot)
+    current_rate = current_rate_for_limit(current_rate, bot) if bot.limit?
     amount = CalculateTransactionQuantity.new.call(bot, current_rate.data)
     return amount unless amount.success?
 
@@ -27,16 +27,11 @@ class CheckPriceRange < BaseService
   private
 
   def price_within_range?(current_rate, bot)
-    bot.price_range[1].to_f >= current_rate &&
-      current_rate >= bot.price_range[0].to_f
+    current_rate.between?(bot.price_range[0].to_f, bot.price_range[1].to_f)
   end
 
   def current_rate_for_limit(current_rate, bot)
     percentage = bot.buyer? ? -bot.percentage.to_f : bot.percentage.to_f
     Result::Success.new(current_rate.data * (1 + percentage / 100))
-  end
-
-  def limit?(bot)
-    bot.order_type == 'limit'
   end
 end

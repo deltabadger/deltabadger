@@ -23,7 +23,7 @@ class CalculateTransactionQuantity < BaseService
   private
 
   def base?(minimum_params, bot)
-    (bot.type == 'limit' && limit_defined_in_base?(minimum_params)) ||
+    (bot.limit? && limit_defined_in_base?(minimum_params)) ||
       minimum_params[:side] == BASE
   end
 

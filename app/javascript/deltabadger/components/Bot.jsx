@@ -60,7 +60,7 @@ const BotTemplate = ({
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
   const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled)
-  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0] + '', high: settings.price_range[1] + '' })
+  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0].toString(), high: settings.price_range[1].toString() })
   const [apiKeyExists, setApiKeyExists] = useState(true)
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
