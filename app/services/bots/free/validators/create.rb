@@ -42,12 +42,7 @@ module Bots::Free::Validators
       validates :price, numericality: { only_float: true, greater_than: 0 }
       validates :force_smart_intervals, inclusion: { in: [true, false] }
       validates :smart_intervals_value, numericality: { only_float: true, greater_than: 0 }
-      validates :price_range_enabled, inclusion: {in: [true, false]}
-      validates :price_range[0], numericality: { only_float: true, greater_than_or_equal_to: 0 }
-      validates :price_range[1], numericality: {
-        only_float: true,
-        greater_than: :price_range[0]
-      }
+      validates :price_range_enabled, inclusion: { in: [true, false] }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
         greater_than_or_equal_to: 0,
@@ -57,6 +52,7 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
       validate :smart_intervals_above_minimum
+      validate :validate_price_range
 
       def initialize(params, user, allowed_symbols, non_hodler_symbols, exchange_name)
         @interval = params['interval']
@@ -68,6 +64,8 @@ module Bots::Free::Validators
         @percentage = params['percentage']&.to_f
         @force_smart_intervals = params['force_smart_intervals']
         @smart_intervals_value = params['smart_intervals_value']
+        @price_range_enabled = params['price_range_enabled']
+        @price_range = params['price_range']
         @allowed_symbols = allowed_symbols
         @non_hodler_symbols = non_hodler_symbols
         @exchange_name = exchange_name
@@ -124,6 +122,19 @@ module Bots::Free::Validators
         return if @smart_intervals_value.to_f >= @minimum.to_f
 
         errors.add(:smart_intervals_value, " should be greater than #{@minimum}")
+      end
+
+      def validate_price_range
+        return unless @price_range_enabled
+        return if price_range_valid?
+
+        errors.add(:price_range, ' is invalid')
+      end
+
+      def price_range_valid?
+        @price_range.length == 2 &&
+          @price_range[0].to_f >= 0 &&
+          @price_range[1].to_f >= @price_range[0].to_f
       end
 
       def limit_minimum_in_base?(exchange_name, order_type)
