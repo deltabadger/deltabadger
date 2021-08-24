@@ -12,7 +12,8 @@ module Presenters
       end
 
       def call(bot)
-        transactions = @transactions_repository.successful_for_bot(bot)
+        transactions = @transactions_repository.for_bot_by_status(bot, status: :success)
+        skipped_transactions = @transactions_repository.for_bot_by_status(bot, status: :skipped)
         logs = @transactions_repository.for_bot(bot, limit: 10)
 
         {
@@ -22,6 +23,7 @@ module Presenters
           exchangeId: bot.exchange.id,
           status: bot.status,
           transactions: transactions.first(10).map(&method(:present_transaction)),
+          skippedTransactions: skipped_transactions.first(10).map(&method(:present_transaction)),
           logs: logs.map(&method(:present_log)),
           stats: present_stats(bot, transactions),
           nowTimestamp: Time.now.to_i,

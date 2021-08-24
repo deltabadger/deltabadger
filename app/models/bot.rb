@@ -51,8 +51,7 @@ class Bot < ApplicationRecord
   end
 
   def price_range
-    price_range_arr = settings.fetch('price_range_enabled')
-    { low: price_range_arr[0], high: price_range_arr[1] }
+    settings.fetch('price_range')
   end
 
   def market?
@@ -76,7 +75,7 @@ class Bot < ApplicationRecord
   end
 
   def last_successful_transaction
-    transactions.where(status: 'success', transaction_type: 'REGULAR').sort_by(&:created_at).last
+    transactions.where(status: %w[success skipped], transaction_type: 'REGULAR').sort_by(&:created_at).last
   end
 
   def any_last_transaction
