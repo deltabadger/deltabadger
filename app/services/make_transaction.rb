@@ -9,7 +9,8 @@ class MakeTransaction < BaseService
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
-    order_flow_helper: Helpers::OrderFlowHelper.new
+    order_flow_helper: Helpers::OrderFlowHelper.new,
+    check_price_range: CheckPriceRange.new
   )
     @get_exchange_trader = exchange_trader
     @schedule_transaction = schedule_transaction
@@ -20,6 +21,7 @@ class MakeTransaction < BaseService
     @api_keys_repository = api_keys_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
+    @check_price_range = check_price_range
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
@@ -27,27 +29,29 @@ class MakeTransaction < BaseService
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
-    if continue_params.nil?
-      continue_params = { continue_schedule: false, price: nil }
+    continue_params = extract_continue_params(continue_params)
+
+    continue_schedule = continue_params['continue_schedule']
+    fixing_price = continue_params['price']
+    range_check_result = @check_price_range.call(bot)
+
+    if range_check_result.success? && !range_check_result.data[:valid]
+      continue_schedule = true
+      skip_if_not_in_range(bot, range_check_result.data)
     end
 
-    if continue_params.instance_of?(String)
-      continue_params = eval(continue_params)
-    end
-
-    continue_schedule = continue_params["continue_schedule"]
-    fixing_price = continue_params["price"]
-    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule
+    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
 
     if continue_schedule
       bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
       result = @order_flow_helper.validate_limit(bot, notify)
       @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       @schedule_transaction.call(bot) if result.success?
-    elsif result.success?
+    elsif result&.success?
       @bots_repository.update(bot.id, status: 'pending')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
-    elsif restart && recoverable?(result)
+    elsif restart && (!range_check_result.success? || recoverable?(result))
+      result = range_check_result if result.nil?
       @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
@@ -90,6 +94,28 @@ class MakeTransaction < BaseService
              end
 
     result
+  end
+
+  def extract_continue_params(continue_params)
+    return { continue_schedule: false, price: nil } if continue_params.nil?
+
+    return eval(continue_params) if continue_params.instance_of?(String)
+
+    continue_params
+  end
+
+  def skip_if_not_in_range(bot, result)
+    transaction_params = {
+      bot_id: bot.id,
+      status: :skipped,
+      rate: result[:rate],
+      amount: result[:amount],
+      bot_interval: bot.interval,
+      bot_price: bot.price,
+      transaction_type: 'REGULAR'
+    }
+
+    @transactions_repository.create(transaction_params)
   end
 
   def fixing_transaction?(price)

@@ -79,7 +79,7 @@ const API = {
       force_smart_intervals: params.forceSmartIntervals,
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
-      price_range: params.priceRange
+      price_range: [params.priceRange.low, params.priceRange.high]
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
@@ -92,7 +92,9 @@ const API = {
       percentage: params.percentage,
       interval: params.interval,
       force_smart_intervals: params.forceSmartIntervals,
-      smart_intervals_value: params.smartIntervalsValue
+      smart_intervals_value: params.smartIntervalsValue,
+      price_range_enabled: params.priceRangeEnabled,
+      price_range: [params.priceRange.low, params.priceRange.high]
     }
 
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);

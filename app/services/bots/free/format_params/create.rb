@@ -12,11 +12,11 @@ module Bots
           force_smart_intervals
           smart_intervals_value
           price_range_enabled
+          price_range
         ].freeze
 
         def call(params)
           bot_settings = params.slice(*BOT_SETTING_PARAMS)
-                               .merge(price_range: price_range_to_array(params))
           {
             user: params[:user],
             exchange_id: params[:exchange_id],
@@ -24,12 +24,6 @@ module Bots
             settings: bot_settings,
             settings_changed_at: Time.now
           }
-        end
-
-        private
-
-        def price_range_to_array(params)
-          [params[:price_range][:low], params[:price_range][:high]]
         end
       end
     end

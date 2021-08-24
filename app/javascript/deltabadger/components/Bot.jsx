@@ -60,7 +60,7 @@ const BotTemplate = ({
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
   const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled)
-  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0], high: settings.price_range[1] })
+  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0] + '', high: settings.price_range[1] + '' })
   const [apiKeyExists, setApiKeyExists] = useState(true)
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
@@ -75,7 +75,6 @@ const BotTemplate = ({
   const disableSubmit = price.trim() === ''
 
   const isLimitSelected = () => type === 'limit'
-  console.log("PRICE RANGE", priceRange.low)
 
   const setLimitOrderCheckbox = () => {
     isLimitSelected() ? setType('market') : setType('limit')
@@ -130,7 +129,9 @@ const BotTemplate = ({
       price: price.trim(),
       forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined,
-      smartIntervalsValue
+      smartIntervalsValue,
+      priceRangeEnabled,
+      priceRange
     }
 
     const continueParams = {
@@ -421,6 +422,7 @@ const BotTemplate = ({
           >
             <input
               type="checkbox"
+              className="hide-when-running"
               checked={priceRangeEnabled}
               onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
             />
@@ -431,6 +433,7 @@ const BotTemplate = ({
                 className="bot-input bot-input--sizable"
                 value={priceRange.low}
                 onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
+                disabled={working}
                 size={Math.max(priceRange.low.length, 1)}
               />
 
@@ -440,9 +443,10 @@ const BotTemplate = ({
                 className="bot-input bot-input--sizable"
                 value={priceRange.high}
                 onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
+                disabled={working}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{" " + quote}</RawHTML>
+              <RawHTML tag="span">{" " + settings.quote}</RawHTML>
             </div>
           </label>
 
