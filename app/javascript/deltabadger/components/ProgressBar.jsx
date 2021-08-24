@@ -28,7 +28,7 @@ export const ProgressBar = ({bot}) => {
     const now  = new moment()
     const nowTimestamp = now.unix()
     const lastTransactionTimestamp = getLastTransactionTimestamp()
-    const prog = (nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)
+    const prog = 1.0 - parseFloat(nextTransactionTimestamp - nowTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp) //(nowTimestamp - lastTransactionTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp)
     return (prog) * 100
   }
 
