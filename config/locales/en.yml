@@ -541,6 +541,7 @@ en:
         starting: Starting
         force_smart_intervals_html: "Always use smart intervals with orders of <split>$100</split> %{currency} each."
         smart_intervals_disclaimer: "Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}."
+        price_range_html: "Buy only in the price range from  <split>$100</split> to <split>$1000</split> %{currency}."
         price: 'the price'
         above: above
         below: below

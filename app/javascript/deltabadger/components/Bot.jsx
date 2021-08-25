@@ -59,6 +59,8 @@ const BotTemplate = ({
   const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? "0" : settings.smart_intervals_value);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
+  const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled)
+  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0].toString(), high: settings.price_range[1].toString() })
   const [apiKeyExists, setApiKeyExists] = useState(true)
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
@@ -127,7 +129,9 @@ const BotTemplate = ({
       price: price.trim(),
       forceSmartIntervals,
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined,
-      smartIntervalsValue
+      smartIntervalsValue,
+      priceRangeEnabled,
+      priceRange
     }
 
     const continueParams = {
@@ -167,7 +171,7 @@ const BotTemplate = ({
   }
 
   const splitTranslation = (s) => {
-    return s.split(/<split>.*<\/split>/)
+    return s.split(/<split>.*?<\/split>/)
   }
 
   const getBotParams = () => {
@@ -409,6 +413,41 @@ const BotTemplate = ({
               { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
 
+          </label>
+
+
+          <label
+            className="alert alert-primary"
+            disabled={!priceRangeEnabled}
+          >
+            <input
+              type="checkbox"
+              className="hide-when-running"
+              checked={priceRangeEnabled}
+              onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
+            />
+            <div>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[0]}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={priceRange.low}
+                onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
+                disabled={working}
+                size={Math.max(priceRange.low.length, 1)}
+              />
+
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[1]}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={priceRange.high}
+                onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
+                disabled={working}
+                size={ Math.max(priceRange.high.length, 1) }
+              />
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[2]}</RawHTML>
+            </div>
           </label>
 
         </form>
