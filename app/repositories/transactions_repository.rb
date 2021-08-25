@@ -5,8 +5,8 @@ class TransactionsRepository < BaseRepository
     bot.transactions.limit(limit).order(id: :desc)
   end
 
-  def successful_for_bot(bot, limit: nil)
-    bot.transactions.where(status: :success).limit(limit).order(created_at: :desc)
+  def for_bot_by_status(bot, limit: nil, status: :success)
+    bot.transactions.where(status: status).limit(limit).order(created_at: :desc)
   end
 
   def count_by_status_and_exchange(status, exchange)

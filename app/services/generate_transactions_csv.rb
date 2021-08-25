@@ -26,7 +26,7 @@ class GenerateTransactionsCsv < BaseService
   end
 
   def call(bot)
-    transactions = @transactions_repository.for_bot(bot)
+    transactions = @transactions_repository.for_bot_by_status(bot, status: :success)
     formatted_data = transactions.map { |t| @format_output.call(t) }
     @generate_csv.call(formatted_data)
   end
