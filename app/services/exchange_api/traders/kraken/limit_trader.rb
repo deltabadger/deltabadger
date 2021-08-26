@@ -20,6 +20,13 @@ module ExchangeApi
           place_order(sell_params.data)
         end
 
+        def fetch_order_by_id(order_id, response_params = nil)
+          Result::Success.new(response_params)
+        rescue StandardError => e
+          Raven.capture_exception(e)
+          Result::Failure.new('Could not fetch order parameters from Kraken')
+        end
+
         private
 
         def orders
@@ -81,8 +88,15 @@ module ExchangeApi
           super(symbol).merge(ordertype: 'limit')
         end
 
-        def opened?(order_data)
-          order_data.nil?
+        def place_order(order_params)
+          response = super
+          return response unless response.success?
+
+          Result::Success.new(
+            response.data.merge(rate: order_params[:price], amount: order_params[:volume])
+          )
+        rescue StandardError
+          Result::Failure.new('Could not make Kraken order', RECOVERABLE)
         end
       end
     end
