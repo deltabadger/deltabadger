@@ -1,23 +1,22 @@
-- if upgrade_presenter.upgrade_available?
-  .db-checkout-summary.modal-content
-    .db-checkout-summary__item.db-checkout-summary__item--vat
-      .db-checkout-summary__item__info
-        = '+' + t('subscriptions.payment.vat')
-        <span class='vat-percent'>#{cost_presenter[:hodler].vat_integer}</span>%
-      .db-checkout-summary__item__quote
-        - if 'investor'.in?(upgrade_presenter.available_plans)
-          %span.db-show--investor
-            <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-total-vat'>#{cost_presenter[:investor].total_vat}</span>
-        - if 'hodler'.in?(upgrade_presenter.available_plans)
-          %span.db-show--hodler
-            <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-vat'>#{cost_presenter[:hodler].total_vat}</span>
-    .db-checkout-summary__item.db-checkout-summary__item--sum
-      .db-checkout-summary__item__info= t('subscriptions.payment.you_pay')
-      .db-checkout-summary__item__quote
-        - if 'investor'.in?(upgrade_presenter.available_plans)
-          %span.db-show--investor
-            = render partial: 'upgrade_summary_plan', locals: { plan: 'investor', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
+.db-checkout-summary.modal-content
+  .db-checkout-summary__item.db-checkout-summary__item--vat
+    .db-checkout-summary__item__info
+      = '+' + t('subscriptions.payment.vat')
+      <span class='vat-percent'>#{cost_presenter[:hodler].vat_integer}</span>%
+    .db-checkout-summary__item__quote
+      - if 'investor'.in?(upgrade_presenter.available_plans)
+        %span.db-show--investor
+          <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-total-vat'>#{cost_presenter[:investor].total_vat}</span>
+      - if 'hodler'.in?(upgrade_presenter.available_plans)
+        %span.db-show--hodler
+          <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-vat'>#{cost_presenter[:hodler].total_vat}</span>
+  .db-checkout-summary__item.db-checkout-summary__item--sum
+    .db-checkout-summary__item__info= t('subscriptions.payment.you_pay')
+    .db-checkout-summary__item__quote
+      - if 'investor'.in?(upgrade_presenter.available_plans)
+        %span.db-show--investor
+          = render partial: 'upgrade_summary_plan', locals: { plan: 'investor', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
 
-        - if 'hodler'.in?(upgrade_presenter.available_plans)
-          %span.db-show--hodler
-            = render partial: 'upgrade_summary_plan', locals: { plan: 'hodler', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
+      - if 'hodler'.in?(upgrade_presenter.available_plans)
+        %span.db-show--hodler
+          = render partial: 'upgrade_summary_plan', locals: { plan: 'hodler', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }

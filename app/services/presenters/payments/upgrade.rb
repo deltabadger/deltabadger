@@ -15,15 +15,11 @@ module Presenters
         @current_plan_name ||= current_plan.name
       end
 
-      def upgrade_available?
-        current_plan.name != 'hodler'
-      end
-
       def available_plans
         @available_plans ||= case current_plan.name
                              when 'saver' then %w[investor hodler]
-                             when 'investor' then ['hodler']
-                             else []
+                             when 'investor' then %w[investor hodler]
+                             else %w[hodler]
                              end
       end
 
@@ -35,16 +31,8 @@ module Presenters
         payment.subscription_plan_id == hodler_plan.id ? 'hodler' : 'investor'
       end
 
-      def discount?
-        referrer_discount? || plan_upgrade_discount?
-      end
-
       def referrer_discount?
         referrer.present?
-      end
-
-      def plan_upgrade_discount?
-        current_plan.name != 'saver'
       end
     end
   end

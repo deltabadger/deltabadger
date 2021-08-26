@@ -7,11 +7,11 @@ class SubscribePlan < BaseService
     @notifications = notifications
   end
 
-  def call(user:, subscription_plan:, email_params: nil)
+  def call(user:, subscription_plan:, email_params: nil, start_time: Time.current)
     @subscriptions_repository.create(
       user_id: user.id,
       subscription_plan_id: subscription_plan.id,
-      end_time: Time.current + subscription_plan.duration,
+      end_time: start_time + subscription_plan.duration,
       credits: subscription_plan.credits
     )
 
