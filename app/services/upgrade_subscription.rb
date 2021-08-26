@@ -26,7 +26,8 @@ class UpgradeSubscription < BaseService
   end
 
   def start_time(current_subscription, subscription_plan_id)
-    return current_subscription.end_time if current_subscription.id == subscription_plan_id
+    return current_subscription.end_time if current_subscription.subscription_plan.id ==
+                                            subscription_plan_id.to_i
 
     Time.current
   end

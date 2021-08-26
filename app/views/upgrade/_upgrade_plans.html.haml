@@ -8,7 +8,7 @@
   .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
     = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
-- if upgrade_presenter.current_plan_name != 'saver'
+- if upgrade_presenter.current_plan_name == 'investor'
   .db-plans__item.db-plans__item--discount.db-plan-active-discount
     .db-plans__item__name= t('subscriptions.payment.active_plan_discount')
     .db-plans__item__amount
