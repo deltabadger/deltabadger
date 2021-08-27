@@ -418,13 +418,14 @@ const BotTemplate = ({
 
           <label
             className="alert alert-primary"
-            disabled={!priceRangeEnabled}
+            disabled={!showLimitOrders || !priceRangeEnabled}
           >
             <input
               type="checkbox"
               className="hide-when-running"
               checked={priceRangeEnabled}
               onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
+              disabled={working || !showLimitOrders}
             />
             <div>
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[0]}</RawHTML>
@@ -433,7 +434,7 @@ const BotTemplate = ({
                 className="bot-input bot-input--sizable"
                 value={priceRange.low}
                 onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
-                disabled={working}
+                disabled={working || !showLimitOrders}
                 size={Math.max(priceRange.low.length, 1)}
               />
 
@@ -443,10 +444,11 @@ const BotTemplate = ({
                 className="bot-input bot-input--sizable"
                 value={priceRange.high}
                 onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
-                disabled={working}
+                disabled={working || !showLimitOrders}
                 size={ Math.max(priceRange.high.length, 1) }
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[2]}</RawHTML>
+              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
 
