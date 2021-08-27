@@ -1,4 +1,5 @@
-%h4.mb-4.mt-5.pb-4= t('subscriptions.prolong_upgrade')
+- if upgrade_presenter.current_plan_name != 'saver'
+  %h4.mb-4.mt-5.pb-4= t('subscriptions.prolong_upgrade')
 
 - if 'investor'.in?(upgrade_presenter.available_plans)
   - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
