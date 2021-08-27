@@ -21,11 +21,15 @@ module Payments
       base_price = eu ? subscription_plan.cost_eu : subscription_plan.cost_other
       current_plan_base_price = eu ? current_plan.cost_eu : current_plan.cost_other
 
-      flat_discount = @flat_discount_calculator.call(
-        current_plan_base_price: current_plan_base_price,
-        current_plan_years: current_plan.years,
-        days_left: days_left
-      )
+      flat_discount = if subscription_plan.name == current_plan.name
+                        0
+                      else
+                        @flat_discount_calculator.call(
+                          current_plan_base_price: current_plan_base_price,
+                          current_plan_years: current_plan.years,
+                          days_left: days_left
+                        )
+                      end
 
       @cost_calculator.new(
         base_price: base_price,
