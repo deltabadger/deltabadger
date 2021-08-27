@@ -11,6 +11,8 @@ module Bots
           interval
           force_smart_intervals
           smart_intervals_value
+          price_range_enabled
+          price_range
         ].freeze
 
         def call(params)

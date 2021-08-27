@@ -15,14 +15,6 @@ class SubscriptionPlansRepository < BaseRepository
     find_by_name!(model::HODLER)
   end
 
-  def upgrade?(old_plan, new_plan)
-    plans = [model::SAVER, model::INVESTOR, model::HODLER]
-    old_plan_index = plans.index(old_plan.name)
-    new_plan_index = plans.index(new_plan.name)
-
-    new_plan_index > old_plan_index
-  end
-
   private
 
   def plan_cache
