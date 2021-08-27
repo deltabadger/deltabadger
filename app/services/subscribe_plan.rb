@@ -7,7 +7,9 @@ class SubscribePlan < BaseService
     @notifications = notifications
   end
 
-  def call(user:, subscription_plan:, email_params: nil, start_time: Time.current)
+  def call(user:, subscription_plan:, email_params: nil)
+    start_time = start_time(user.subscription, subscription_plan.id)
+
     @subscriptions_repository.create(
       user_id: user.id,
       subscription_plan_id: subscription_plan.id,
@@ -34,5 +36,12 @@ class SubscribePlan < BaseService
 
   def wire_transfer?(params)
     !params.nil?
+  end
+
+  def start_time(current_subscription, subscription_plan_id)
+    return current_subscription.end_time if current_subscription.subscription_plan.id ==
+                                            subscription_plan_id.to_i
+
+    Time.current
   end
 end
