@@ -20,7 +20,7 @@ module Payments
       order_id = get_sequenced_id
       payment = Payment.new(params.merge(id: order_id))
       user = params.fetch(:user)
-      validation_result = @payment_validator.call(payment, user)
+      validation_result = @payment_validator.call(payment)
 
       return validation_result if validation_result.failure?
 

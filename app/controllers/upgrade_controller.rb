@@ -84,7 +84,7 @@ class UpgradeController < ApplicationController
   private
 
   def new_payment
-    subscription_plan_id = current_plan.id == investor_plan.id ? hodler_plan.id : investor_plan.id
+    subscription_plan_id = current_plan.id != saver_plan.id ? hodler_plan.id : investor_plan.id
     Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
   end
 

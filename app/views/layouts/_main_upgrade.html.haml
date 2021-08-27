@@ -49,6 +49,11 @@
           $(".db-plan-hodler").removeClass("db-plan--selected")
           $(".db-checkout").addClass("db-checkout--investor");
           $(".db-checkout").removeClass("db-checkout--hodler");
+          if ("#{current_user.subscription_name}" === "investor") {
+            $(".db-plan-active-discount").addClass("db-plans__item--hide");
+          } else {
+            $(".db-plan-active-discount").removeClass("db-plans__item--hide");
+          }
           document.getElementById("payment_plan_investor_wire").checked = true;
           document.getElementById("payment_plan_hodler_wire").checked = false;
         })
@@ -60,6 +65,11 @@
           $(".db-plan-investor").removeClass("db-plan--selected")
           $(".db-checkout").addClass("db-checkout--hodler");
           $(".db-checkout").removeClass("db-checkout--investor");
+          if ("#{current_user.subscription_name}" === "hodler") {
+            $(".db-plan-active-discount").addClass("db-plans__item--hide");
+          } else {
+            $(".db-plan-active-discount").removeClass("db-plans__item--hide");
+          }
           document.getElementById("payment_plan_investor_wire").checked = false;
           document.getElementById("payment_plan_hodler_wire").checked = true;
         })

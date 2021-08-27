@@ -7,7 +7,7 @@
       = t('subscriptions.plan_1_year')
 .db-plans__item__amount
   - unless days_left
-    - if upgrade_presenter.discount?
+    - if cost_presenter.base_price != cost_presenter.flat_discounted_price
       .db-plans__item__amount__t.db-plans__item__amount__t--previous
         <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-base-price'>#{cost_presenter.base_price}</span>
       .db-plans__item__amount__t.db-plans__item__amount__t--new
