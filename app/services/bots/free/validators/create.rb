@@ -52,6 +52,7 @@ module Bots::Free::Validators
       validate :percentage_if_limit_order
       validate :interval_within_limit
       validate :smart_intervals_above_minimum
+      validate :hodler_if_price_range
       validate :validate_price_range
 
       def initialize(params, user, allowed_symbols, non_hodler_symbols, exchange_name)
@@ -138,6 +139,12 @@ module Bots::Free::Validators
 
       def limit_minimum_in_base?(exchange_name, order_type)
         order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
+      end
+
+      def hodler_if_price_range
+        return if hodler || !@price_range_enabled
+
+        errors.add(:base, 'Price range is an hodler-only functionality')
       end
     end
   end

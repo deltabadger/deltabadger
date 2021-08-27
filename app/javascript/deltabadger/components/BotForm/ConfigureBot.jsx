@@ -334,12 +334,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
           <label
             className="alert alert-primary"
-            disabled={!priceRangeEnabled}
+            disabled={!showLimitOrders || !priceRangeEnabled}
           >
             <input
               type="checkbox"
               checked={priceRangeEnabled}
               onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
+              disabled={!showLimitOrders}
             />
             <div>
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[0]}</RawHTML>
@@ -348,6 +349,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 className="bot-input bot-input--sizable"
                 value={priceRange.low}
                 onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
+                disabled={!showLimitOrders}
                 size={Math.max(priceRange.low.length, 1)}
               />
 
@@ -357,9 +359,11 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 className="bot-input bot-input--sizable"
                 value={priceRange.high}
                 onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
+                disabled={!showLimitOrders}
                 size={ Math.max(priceRange.high.length, 1) }
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[2]}</RawHTML>
+              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
 
