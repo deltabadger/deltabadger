@@ -7,7 +7,7 @@ class UpgradeSubscription < BaseService
     @subscriptions_repository = subscriptions_repository
   end
 
-  def call(user_id, subscription_plan_id, email_params)
+  def call(user_id, subscription_plan_id, email_params, payment_id)
     user = User.find(user_id)
     subscription_plan = @subscriptions_repository.find(subscription_plan_id)
 
@@ -16,6 +16,11 @@ class UpgradeSubscription < BaseService
       subscription_plan: subscription_plan,
       email_params: email_params
     )
+
+    unless payment_id.nil?
+      payment = Payment.find(payment_id)
+      payment.update(status: :paid)
+    end
 
     user.update(
       pending_wire_transfer: nil,

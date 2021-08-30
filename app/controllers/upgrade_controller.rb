@@ -50,11 +50,17 @@ class UpgradeController < ApplicationController
       amount: cost_presenter.total_price
     }
 
+    payment = Payments::Create.new.wire_transfer(
+      wire_params,
+      cost_presenter.discount_percent_amount.to_f.positive?
+    )
+
     UpgradeSubscriptionWorker.perform_at(
       15.minutes.since(Time.now),
       wire_params[:user].id,
       wire_params[:subscription_plan_id],
-      email_params
+      email_params,
+      payment.id
     )
 
     notifications = Notifications::Subscription.new
