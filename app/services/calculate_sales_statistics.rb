@@ -30,6 +30,8 @@ class CalculateSalesStatistics < BaseService
   end
 
   def nth_month?(payment, n)
+    return false unless payment.total.present?
+
     shifted_creation_date = payment.user.created_at + n.months
 
     shifted_creation_date.month == payment.paid_at.month &&
@@ -47,6 +49,8 @@ class CalculateSalesStatistics < BaseService
   end
 
   def usd_netto_value(payment)
+    return 0.0 unless payment.total.present?
+
     value = payment.total
     vat_rate = @vat_rates.fetch(payment.country, 0)
     value /= (1.0 + vat_rate)
