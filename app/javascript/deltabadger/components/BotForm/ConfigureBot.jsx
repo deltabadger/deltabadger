@@ -41,7 +41,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
   const [priceRangeEnabled, setPriceRangeEnabled] = useState(false)
-  const [priceRange, setPriceRange] = useState({ low: '', high: '' })
+  const [priceRange, setPriceRange] = useState({ low: '0', high: '0' })
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -328,7 +328,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
-              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
+              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
 
@@ -363,7 +363,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 size={ Math.max(priceRange.high.length, 1) }
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[2]}</RawHTML>
-              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
+              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
 
