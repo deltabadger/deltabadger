@@ -249,6 +249,7 @@ const BotTemplate = ({
 
     } else if (exchange.pending) {
       setApiKeysState(apiKeyStatus["VALIDATING"])
+      clearTimeout(apiKeyTimeout)
       apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
 
     } else if (exchange.invalid) {
