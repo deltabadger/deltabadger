@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_07_09_124902) do
+ActiveRecord::Schema.define(version: 2021_08_31_122439) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -21,7 +21,7 @@ ActiveRecord::Schema.define(version: 2021_07_09_124902) do
     t.string "name"
     t.string "address"
     t.string "vat_number"
-    t.string "btc_address", null: false
+    t.string "btc_address"
     t.string "code", null: false
     t.string "visible_name"
     t.string "visible_link"
@@ -38,6 +38,7 @@ ActiveRecord::Schema.define(version: 2021_07_09_124902) do
     t.decimal "exported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "paid_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
     t.string "visible_link_scheme", default: "https", null: false
+    t.string "old_code"
     t.index ["code"], name: "index_affiliates_on_code", unique: true
     t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
     t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true
@@ -186,6 +187,8 @@ ActiveRecord::Schema.define(version: 2021_07_09_124902) do
     t.integer "pending_plan_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
+    t.string "provider"
+    t.string "uid"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true

@@ -1,12 +1,3 @@
-- disabled = !current_user.unlimited?
-
-- if disabled
-  .alert.alert-primary.db-alert--flex
-    %span= t('.upgrade')
-
-    %a.btn.btn-primary{href: upgrade_path}
-      %span= t('subscriptions.upgrade')
-
 .row.pt-5
   .col-sm-12.col-lg-6
     .db-box.mb-3.db-referral-program-registration
@@ -14,7 +5,7 @@
         = t('.share_html')
         %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
       .db-form__row.db-form__row--input.mb-0
-        %input.db-form__input{:readonly => "readonly", :type => "text", :value => "https://deltabadger.com/ref/xD8z1"}/
+        %input.db-form__input{ :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: 'affiliate.code',lang: nil), :readonly=>"readonly" }
         %label.db-form__label Your referral link
       .form-group.mb-0.mt-5
         %b= t('.discount_info_html', earn_percent_preview: 20, discount_percent_preview: 10)
@@ -23,7 +14,7 @@
     .alert.alert-success.mt-5
       = t('affiliates.manual_html')
   .col-sm-12.col-lg-6
-    .db-referral-program-registration{ class: ("db-referral-program-registration--inactive" if disabled) }
+    .db-referral-program-registration
       - if errors.present?
         %ul.pl-3
           - errors.each do |error|d
@@ -43,22 +34,22 @@
 
           .form-group.mb-0
             .form-check.form-check-inline
-              = f.radio_button :type, "individual", checked: presenter.individual?, class: "mr-2 radio--private", disabled: disabled
+              = f.radio_button :type, "individual", checked: presenter.individual?, class: "mr-2 radio--private"
               = f.label :type, t('.private'), value: "individual", class: "form-check-label"
             .form-check.form-check-inline
-              = f.radio_button :type, "eu_company", checked: !presenter.individual?, class: "mr-2 radio--eu-company", disabled: disabled
+              = f.radio_button :type, "eu_company", checked: !presenter.individual?, class: "mr-2 radio--eu-company"
               = f.label :type, t('.eu_company'), value: "eu_company", class: "form-check-label"
 
           .db-form__row.db-form__row--input.db-form-group--eu-company.mt-4{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-            = f.text_field :name, disabled: disabled, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :name, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             = f.label :name, "Name of the company", class: "db-form__label"
 
           .db-form__row.db-form__row--input.db-form-group--eu-company{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-            = f.text_field :address, disabled: disabled, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :address, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             = f.label :address, "Address of the company", class: "db-form__label"
 
           .db-form__row.db-form__row--input.db-form-group--eu-company.mb-0{ class: ("db-form-group--eu-company__visible" unless presenter.individual?) }
-            = f.text_field :vat_number, disabled: disabled, pattern: '^(ATU[0-9]{8}|BE0[0-9]{9}|BG[0-9]{9,10}|CY[0-9]{8}L|CZ[0-9]{8,10}|DE[0-9]{9}|DK[0-9]{8}|EE[0-9]{9}|(EL|GR)[0-9]{9}|ES[0-9A-Z][0-9]{7}[0-9A-Z]|FI[0-9]{8}|FR[0-9A-Z]{2}[0-9]{9}|GB([0-9]{9}([0-9]{3})?|[A-Z]{2}[0-9]{3})|HU[0-9]{8}|IE[0-9]S[0-9]{5}L|IT[0-9]{11}|LT([0-9]{9}|[0-9]{12})|LU[0-9]{8}|LV[0-9]{11}|MT[0-9]{8}|NL[0-9]{9}B[0-9]{2}|PL[0-9]{10}|PT[0-9]{9}|RO[0-9]{2,10}|SE[0-9]{12}|SI[0-9]{8}|SK[0-9]{10})$', type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :vat_number, pattern: '^(ATU[0-9]{8}|BE0[0-9]{9}|BG[0-9]{9,10}|CY[0-9]{8}L|CZ[0-9]{8,10}|DE[0-9]{9}|DK[0-9]{8}|EE[0-9]{9}|(EL|GR)[0-9]{9}|ES[0-9A-Z][0-9]{7}[0-9A-Z]|FI[0-9]{8}|FR[0-9A-Z]{2}[0-9]{9}|GB([0-9]{9}([0-9]{3})?|[A-Z]{2}[0-9]{3})|HU[0-9]{8}|IE[0-9]S[0-9]{5}L|IT[0-9]{11}|LT([0-9]{9}|[0-9]{12})|LU[0-9]{8}|LV[0-9]{11}|MT[0-9]{8}|NL[0-9]{9}B[0-9]{2}|PL[0-9]{10}|PT[0-9]{9}|RO[0-9]{2,10}|SE[0-9]{12}|SI[0-9]{8}|SK[0-9]{10})$', type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             .db-form__info.db-form__info--invalid
               =t('subscriptions.payment.invalid_vat_number')
             = f.label :vat_number, "VAT number (optional)", class: "db-form__label"
@@ -69,7 +60,7 @@
             = t('.payout_address')
 
           .db-form__row.db-form__row--input.mb-0
-            = f.text_field :btc_address, disabled: disabled, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :btc_address, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             .db-form__info.db-form__info--invalid
               #{t('affiliates.invalid_bitcoin_address')}
             = f.label :btc_address, t('affiliates.your_bitcoin_address'), class: "db-form__label"
@@ -80,7 +71,7 @@
             = t('.program_settings_html')
 
           .db-form__row.db-form__row--input.db-form__row--input--referralcode.mb-0
-            = f.text_field :code, id: 'referral-code', disabled: disabled, type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :code, id: 'referral-code', type: 'text', autocomplete: 'nope', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             .db-referral-prefix= "deltabadger.com/ref/"
             = f.label :code, t('.pick_referral_code'), class: "db-form__label"
 
@@ -106,25 +97,19 @@
           %p.mb-3 #{t('affiliates.add_link_info')}
 
           .db-form__row.db-form__row--input
-            = f.text_field :visible_name, disabled: disabled, type: 'text', value: "", class: "db-form__input db-form-control-text--visible_name", onchange: 'this.setAttribute("value", this.value);'
+            = f.text_field :visible_name, type: 'text', value: "", class: "db-form__input db-form-control-text--visible_name", onchange: 'this.setAttribute("value", this.value);'
             = f.label :visible_name, t('helpers.label.affiliate.visible_name'), class: "db-form__label"
 
           .db-form__row.db-form__row--input.db-form__row--input--has-http-select
 
-            = f.text_field :visible_link, disabled: disabled, type: 'text', autocomplete: 'nope', class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-            = f.select :visible_link_scheme, [['//:https', 'https'], ['//:http', 'http']], {}, disabled: disabled, class: "db-form__input--http  db-http-prefix-select", dir: "rtl"
+            = f.text_field :visible_link, type: 'text', autocomplete: 'nope', class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.select :visible_link_scheme, [['//:https', 'https'], ['//:http', 'http']], {}, class: "db-form__input--http  db-http-prefix-select", dir: "rtl"
             = f.label :visible_link, t('helpers.label.affiliate.visible_link'), class: "db-form__label"
 
-          - unless disabled
-            .form-check.pt-2.pb-4.text-center
-              = f.check_box :check, class: "form-check-input"
-              = f.label :check, t('.checked'), class: "form-check-label"
+          .form-check.pt-2.pb-4.text-center
+            = f.check_box :check, class: "form-check-input"
+            = f.label :check, t('.checked'), class: "form-check-label"
 
-          - if disabled
-            .db-form__row.db-form__row--final-button
-              %button.btn.btn-success.btn-lg{type: 'submit', disabled: true}
-                = t('.submit')
-          - else
-            .db-form__row.db-form__row--final-button
-              %button.btn.btn-success.btn-lg{type: 'submit'}
-                = t('.submit')
+          .db-form__row.db-form__row--final-button
+            %button.btn.btn-success.btn-lg{type: 'submit'}
+              = t('.submit')
