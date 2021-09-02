@@ -37,8 +37,8 @@ module ExchangeApi
           Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
         end
 
-        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
-          min_price = is_legacy ? @market.minimum_order_price(symbol) : @market.minimum_order_price(symbol,true)
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          min_price = price_in_quote ? @market.minimum_order_price(symbol) : @market.minimum_order_price(symbol,!price_in_quote)
           return min_price unless min_price.success?
 
           smart_intervals_value = min_price.data if smart_intervals_value.nil?
@@ -46,16 +46,22 @@ module ExchangeApi
           return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
           rate_decimals = @market.base_decimals(symbol).data
+          return rate_decimals unless rate_decimals.success?
+
           result = [min_price.data, price].max
           result = result.ceil(rate_decimals)
           Result::Success.new(result)
         end
 
-        def transaction_volume(symbol, price, rate)
+        def transaction_volume(symbol, price, limit_rate, price_in_quote)
           rate_decimals = @market.base_decimals(symbol)
           return rate_decimals unless rate_decimals.success?
 
-          Result::Success.new((price / rate).ceil(rate_decimals.data))
+          current_market_rate = @market.current_bid_price(symbol)
+          return current_market_rate unless current_market_rate.success?
+
+          price *= current_market_rate.data unless price_in_quote
+          Result::Success.new((price / limit_rate).ceil(rate_decimals.data))
         end
 
         def common_order_params

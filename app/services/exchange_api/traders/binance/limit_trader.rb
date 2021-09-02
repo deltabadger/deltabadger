@@ -17,9 +17,9 @@ module ExchangeApi
 
         def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
           symbol = @market.symbol(base, quote)
-          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
+          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           return final_price unless final_price.success?
-          sell_params = get_sell_params(symbol, final_price.data, percentage, is_legacy)
+          sell_params = get_sell_params(symbol, final_price.data, percentage, price_in_quote)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
@@ -43,18 +43,18 @@ module ExchangeApi
           Result::Success.new(common_params.data.merge(side: 'BUY'))
         end
 
-        def get_sell_params(symbol, price, percentage, is_legacy)
-          common_params = common_order_params(symbol, price, percentage, is_legacy)
+        def get_sell_params(symbol, price, percentage, price_in_quote)
+          common_params = common_order_params(symbol, price, percentage, price_in_quote)
           return common_params unless common_params.success?
 
           Result::Success.new(common_params.data.merge(side: 'SELL'))
         end
 
-        def common_order_params(symbol, price, percentage, is_legacy)
+        def common_order_params(symbol, price, percentage, price_in_quote)
           rate = limit_rate(symbol, percentage)
           return rate unless rate.success?
 
-          quantity = transaction_volume(symbol, price, rate.data, is_legacy)
+          quantity = transaction_volume(symbol, price, rate.data, price_in_quote)
           return quantity unless quantity.success?
 
           parsed_quantity = parse_base(symbol, quantity.data)
