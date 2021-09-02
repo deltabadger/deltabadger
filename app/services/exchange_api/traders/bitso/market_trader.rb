@@ -10,7 +10,7 @@ module ExchangeApi
         end
 
         def sell(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
-          sell_params = get_params(base, quote, price, force_smart_intervals, 'sell', smart_intervals_value, price_in_quote)
+          sell_params = get_params(base, quote, price, force_smart_intervals, 'sell', smart_intervals_value, is_legacy)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
