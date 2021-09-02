@@ -69,13 +69,13 @@ class AffiliatesController < ApplicationController
 
   def fetch_affiliate!
     @affiliate = current_user.affiliate
-    return unless @affiliate.nil?
+    return unless @affiliate&.btc_address.blank?
 
     redirect_to new_affiliate_path
   end
 
   def ensure_no_affiliate!
-    redirect_to affiliate_path unless current_user.affiliate.nil?
+    redirect_to affiliate_path unless current_user.affiliate&.btc_address.blank?
   end
 
   def validate_password!

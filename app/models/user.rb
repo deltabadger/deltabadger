@@ -1,5 +1,5 @@
 class User < ApplicationRecord
-  after_create :active_subscription
+  after_create :active_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
@@ -76,6 +76,20 @@ class User < ApplicationRecord
       sub.end_time = now + saver_plan.duration
       sub.credits = saver_plan.credits
     end
+  end
+
+  def set_affiliate
+    affiliate_params = ActionController::Parameters.new(
+      type: 'individual',
+      discount_percent: 0.10,
+      btc_address: nil,
+      code: SecureRandom.hex(8)
+    )
+
+    Affiliates::Create.call(
+      user: self,
+      affiliate_params: affiliate_params
+    )
   end
 
   def active_referrer

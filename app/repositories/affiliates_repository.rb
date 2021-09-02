@@ -6,8 +6,8 @@ class AffiliatesRepository < BaseRepository
   def find_active_by_code(code)
     return unless code
 
-    affiliate = model.active.find_by(code: code.upcase)
-    return unless affiliate&.user&.unlimited?
+    affiliate = find_affiliate(code.upcase)
+    return unless affiliate&.user.present?
 
     affiliate
   end
@@ -48,5 +48,14 @@ class AffiliatesRepository < BaseRepository
 
   def total_paid
     model.sum(:paid_crypto_commission)
+  end
+
+  private
+
+  def find_affiliate(code)
+    affiliate = model.active.find_by(code: code)
+    return affiliate if affiliate.present?
+
+    model.active.find_by(old_code: code)
   end
 end
