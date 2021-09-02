@@ -13,7 +13,7 @@ module ExchangeApi
           @caching_client = caching_client(API_URL)
         end
 
-        def minimum_order_price(symbol)
+        def minimum_order_price(symbol, for_base = false)
           if symbol.include? '-BTC'
             thousand_satoshis = 0.00001
             return Result::Success.new(thousand_satoshis)
@@ -22,7 +22,7 @@ module ExchangeApi
           response = fetch_symbol(symbol)
           return response unless response.success?
 
-          minimum_quote_price = response.data.dig('ticker', 'market', 'second', 'minOffer')
+          minimum_quote_price = response.data.dig('ticker', 'market', for_base ? 'first' : 'second', 'minOffer')
           Result::Success.new(minimum_quote_price.to_f)
         end
 
