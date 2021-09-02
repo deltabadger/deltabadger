@@ -425,7 +425,7 @@ const BotTemplate = ({
               disabled={working || !showLimitOrders}
             />
             <div>
-              {isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy')} <input
+              {isSellOffer() ? I18n.t('bots.sell') : (isLegacySell() ? I18n.t('bots.sell') : I18n.t('bots.buy'))} <input
               type="tel"
               value={percentage}
               size={(percentage.length > 0) ? percentage.length : 1}
@@ -433,7 +433,7 @@ const BotTemplate = ({
               onChange={e => setPercentage(e.target.value)}
               onBlur={validatePercentage}
               disabled={working || !showLimitOrders || !isLimitSelected()}
-            /> % {isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup
+            /> % {isSellOffer() ? I18n.t('bots.above') : (isLegacySell() ? I18n.t('bots.above') :I18n.t('bots.below'))} {I18n.t('bots.price')}.<sup
               className="hide-when-running">*</sup>
 
               { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }

@@ -44,8 +44,8 @@ module ExchangeApi
           }
         end
 
-        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
-          if is_legacy
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          if price_in_quote
             min_price = @market.minimum_order_price(symbol)
           else
             min_price = Result::Success.new([@market.minimum_order_volume(symbol).data,
@@ -57,7 +57,7 @@ module ExchangeApi
 
           return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
-          if is_legacy
+          if price_in_quote
             Result::Success.new([price, min_price.data].max)
           else
             base_step_size = @market.base_step_size(symbol)
@@ -68,11 +68,11 @@ module ExchangeApi
           end
         end
 
-        def transaction_volume(symbol, price, rate, is_legacy)
+        def transaction_volume(symbol, price, rate, price_in_quote)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          volume = is_legacy ? chosen_volume(symbol, price, rate) : Result::Success.new(price)
+          volume = price_in_quote ? chosen_volume(symbol, price, rate) : Result::Success.new(price)
           return volume unless volume.success?
 
           Result::Success.new([volume.data, min_volume.data].max)

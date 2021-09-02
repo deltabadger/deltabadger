@@ -34,21 +34,21 @@ module ExchangeApi
           return volume unless volume.success?
 
           Result::Success.new(common_order_params(symbol).merge(
-            type: 'buy',
-            volume: ConvertScientificToDecimal.new.call(volume.data)
+                                type: 'buy',
+                                volume: ConvertScientificToDecimal.new.call(volume.data)
           ))
         end
 
-        def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
+        def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(symbol, price, rate.data, force_smart_intervals, smart_intervals_value, is_legacy)
+          volume = smart_volume(symbol, price, rate.data, force_smart_intervals, smart_intervals_value, price_in_quote)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params(symbol).merge(
-            type: 'sell',
-            volume: ConvertScientificToDecimal.new.call(volume.data)
+                                type: 'sell',
+                                volume: ConvertScientificToDecimal.new.call(volume.data)
           ))
         end
 
