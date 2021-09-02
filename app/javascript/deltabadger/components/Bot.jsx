@@ -150,6 +150,7 @@ const BotTemplate = ({
   )
 
   const isSellOffer = () => settings.type === 'sell'
+  const isLegacySell = () => settings.type === 'sell_old'
 
   const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
 
@@ -321,23 +322,48 @@ const BotTemplate = ({
                     <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
                   </>
                   : <>
-                    <option value="market">{I18n.t('bots.buy')}</option>
-                    <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                    {isLegacySell() ?<>
+                          <option value="market">{I18n.t('bots.sell')}</option>
+                          <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                        </> :
+                        <>
+                          <option value="market">{I18n.t('bots.buy')}</option>
+                          <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                        </>}
                   </>
                 }
               </select>
             </div>
-            <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
-            <div className="form-group mr-2">
-              <input
-                type="tel"
-                size={(price.length > 0) ? price.length : 3}
-                value={price}
-                className="bot-input bot-input--sizable bot-input--paper-bg"
-                onChange={e => setPrice(e.target.value)}
-                disabled={working}
-              />
-            </div>
+            {isSellOffer()?
+                <>
+                  <div className="form-group mr-2">
+                    <input
+                        type="tel"
+                        size={(price.length > 0) ? price.length : 3}
+                        value={price}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                        onChange={e => setPrice(e.target.value)}
+                        disabled={working}
+                    />
+                  </div>
+                  <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                </>
+                :
+                <>
+                  <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">
+                    <input
+                        type="tel"
+                        size={(price.length > 0) ? price.length : 3}
+                        value={price}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                        onChange={e => setPrice(e.target.value)}
+                        disabled={working}
+                    />
+                  </div>
+                </>
+
+            }
             <div className="form-group mr-2"> {quoteName} /</div>
             <div className="form-group">
               <select

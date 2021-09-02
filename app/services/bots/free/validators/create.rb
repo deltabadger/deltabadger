@@ -30,7 +30,7 @@ module Bots::Free::Validators
                   :price_range_enabled, :price_range
 
       INTERVALS = %w[month week day hour].freeze
-      TYPES = %w[buy sell].freeze
+      TYPES = %w[buy sell sell_old].freeze
       ORDER_TYPES = %w[market limit].freeze
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true

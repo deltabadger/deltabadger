@@ -220,44 +220,81 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 }
               </select>
             </div>
-            <div className="form-group mr-3">
-              <select
-                value={base}
-                onChange={e => setBase(e.target.value)}
-                className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
-              >
-                {
-                  BASES.map(c =>
-                    (<option key={c} value={c}>{renameSymbol(c)}</option>)
-                  )
-                }
-                {
-                  OTHER_BASES.map(c =>
-                    (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
-                  )
-                }
-              </select>
-            </div>
-            <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-            <div className="form-group mr-3">
-              <input
-                type="tel"
-                min="1"
-                size={(price.length > 0) ? price.length : 3 }
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-                className="bot-input bot-input--sizable bot-input--paper-bg"
-              />
-            </div>
+            {isSellOffer()?
+                <>
+                  <div className="form-group mr-3">
+                    <input
+                        type="tel"
+                        min="1"
+                        size={(price.length > 0) ? price.length : 3 }
+                        value={price}
+                        onChange={e => setPrice(e.target.value)}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                    />
+                  </div>
+                  <div className="form-group mr-3">
+                    <select
+                        value={base}
+                        onChange={e => setBase(e.target.value)}
+                        className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                    >
+                      {
+                        BASES.map(c =>
+                            (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                        )
+                      }
+                      {
+                        OTHER_BASES.map(c =>
+                            (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
+                        )
+                      }
+                    </select>
+                  </div>
+                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+                </>
+                :
+                <>
+                  <div className="form-group mr-3">
+                    <select
+                        value={base}
+                        onChange={e => setBase(e.target.value)}
+                        className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                    >
+                      {
+                        BASES.map(c =>
+                            (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                        )
+                      }
+                      {
+                        OTHER_BASES.map(c =>
+                            (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
+                        )
+                      }
+                    </select>
+                  </div>
+                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-3">
+                    <input
+                        type="tel"
+                        min="1"
+                        size={(price.length > 0) ? price.length : 3 }
+                        value={price}
+                        onChange={e => setPrice(e.target.value)}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                    />
+                  </div>
+                </>
+
+            }
             <div className="form-group mr-2">
               <select
-                value={quote}
-                onChange={e => setQuote(e.target.value)}
-                className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                  value={quote}
+                  onChange={e => setQuote(e.target.value)}
+                  className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
               >
                 {
                   validQuotesForSelectedBase().map(c =>
-                    (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                      (<option key={c} value={c}>{renameSymbol(c)}</option>)
                   )
                 }
               </select>

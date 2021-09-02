@@ -50,7 +50,7 @@ module ExchangeApi
           limit_rate = rate_percentage(symbol, rate.data, -percentage)
           return limit_rate unless limit_rate.success?
 
-          price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
+          price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, true)
           return price_above_minimums unless price_above_minimums.success?
 
           amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data)
@@ -63,22 +63,18 @@ module ExchangeApi
                               ))
         end
 
-        def get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value)
+        def get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value, is_legacy)
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
           limit_rate = rate_percentage(symbol, rate.data, percentage)
           return limit_rate unless limit_rate.success?
 
-          price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
+          price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value,is_legacy)
           return price_above_minimums unless price_above_minimums.success?
-
-          amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data)
-          return amount unless amount.success?
-
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
-                                amount: amount.data,
+                                amount: price_above_minimums.data,
                                 rate: limit_rate.data
                               ))
         end

@@ -107,5 +107,5 @@ const toFixedWithoutZeros = (x) => {
 }
 
 const translateBuyOrSell = (side) => {
-  return side == 'buy' ? I18n.t('bots.buy') : I18n.t('bots.sell')
+  return side === 'buy' ? I18n.t('bots.buy') : I18n.t('bots.sell')
 }

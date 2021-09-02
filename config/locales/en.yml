@@ -521,6 +521,7 @@ en:
                     total_invested: 'total invested'
                     value: value
                 bought: Bought
+                sold: Sold
                 average_price: 'Average price'
                 total_invested: 'Total invested'
                 current_value: 'Current value'
