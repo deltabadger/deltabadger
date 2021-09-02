@@ -39,7 +39,7 @@ module ExchangeApi
           )
         end
 
-        def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
+        def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           limit_only = @market.limit_only?(symbol)
           return limit_only unless limit_only.success?
 
@@ -47,10 +47,10 @@ module ExchangeApi
             return get_limit_only_params(symbol, price, force_smart_intervals, 'sell', smart_intervals_value)
           end
 
-          price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
+          price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           return price_above_minimums unless price_above_minimums.success?
 
-          if is_legacy
+          if price_in_quote
             Result::Success.new(
               common_order_params(symbol).merge(
                 funds: price_above_minimums.data.to_f,
