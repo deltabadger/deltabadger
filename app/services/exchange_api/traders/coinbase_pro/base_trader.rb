@@ -58,11 +58,11 @@ module ExchangeApi
           Result::Failure.new('Could not make Coinbase order', RECOVERABLE)
         end
 
-        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
-          min_price = @market.minimum_order_price(symbol)
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
+          min_price = !is_legacy ? @market.minimum_base_size(symbol) : @market.minimum_order_price(symbol)
           return min_price unless min_price.success?
 
-          price_decimals = @market.quote_decimals(symbol)
+          price_decimals = !is_legacy ? @market.base_decimals(symbol) : @market.quote_decimals(symbol)
           return price_decimals unless price_decimals.success?
 
           smart_intervals_value = min_price.data if smart_intervals_value.nil?
@@ -73,11 +73,11 @@ module ExchangeApi
           Result::Success.new([min_price.data, price.floor(price_decimals.data)].max)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, is_legacy)
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
-          volume = (price / rate).ceil(volume_decimals.data)
+          volume = !is_legacy ? price.ceil(volume_decimals.data) : (price / rate).ceil(volume_decimals.data)
           min_volume = @market.minimum_base_size(symbol)
           return min_volume unless min_volume.success?
 

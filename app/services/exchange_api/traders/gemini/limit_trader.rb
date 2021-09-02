@@ -35,7 +35,7 @@ module ExchangeApi
           limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
-          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value)
+          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value, true)
           return volume unless volume.success?
 
           Result::Success
@@ -46,7 +46,7 @@ module ExchangeApi
                  ))
         end
 
-        def get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value)
+        def get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value, is_legacy:)
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
@@ -54,7 +54,7 @@ module ExchangeApi
           limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
-          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value)
+          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value, is_legacy)
           return volume unless volume.success?
 
           Result::Success

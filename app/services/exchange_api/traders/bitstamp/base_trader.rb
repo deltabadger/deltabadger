@@ -40,15 +40,15 @@ module ExchangeApi
           Result::Failure.new('Could not make Bitstamp order', RECOVERABLE)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, is_legacy)
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
-          volume = (price / rate).ceil(volume_decimals.data)
+          volume = (!is_legacy ? price : (price / rate)).ceil(volume_decimals.data)
           min_base = @market.minimum_base_size(symbol)
           return min_base unless min_base.success?
 
-          smart_intervals_value = smart_intervals_value.nil? ? min_base.data : (smart_intervals_value / rate)
+          smart_intervals_value = smart_intervals_value.nil? ? min_base.data : smart_intervals_value
           smart_intervals_value = smart_intervals_value.ceil(volume_decimals.data)
 
           return Result::Success.new([smart_intervals_value, min_base.data].max) if force_smart_intervals
