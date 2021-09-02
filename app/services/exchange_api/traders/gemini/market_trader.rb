@@ -39,11 +39,11 @@ module ExchangeApi
           )
         end
 
-        def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
+        def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(symbol, price, rate.data, force_smart_intervals, smart_intervals_value, is_legacy)
+          volume = smart_volume(symbol, price, rate.data, force_smart_intervals, smart_intervals_value, price_in_quote)
           return volume unless volume.success?
 
           price = rate_percentage(symbol, rate.data, -0.5)
