@@ -36,7 +36,7 @@ module ExchangeApi
           rate = @market.current_bid_price(symbol)
           return rate unless rate.success?
 
-          volume = smart_volume(symbol, price, rate.data, force_smart_intervals, smart_intervals_value)
+          volume = smart_volume(symbol, price, rate.data, force_smart_intervals, smart_intervals_value, true )
           return volume unless volume.success?
 
           Result::Success.new(common_order_params.merge(amount: volume.data, rate: rate.data))

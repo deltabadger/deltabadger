@@ -71,6 +71,13 @@ module ExchangeApi
           Result::Success.new(symbol_info.data['quoteAssetPrecision'])
         end
 
+        def base_tick_size_decimals(symbol)
+          symbol_info = fetch_symbol_info(symbol)
+          return symbol_info unless symbol_info.success?
+
+          Result::Success.new(symbol_info.data['baseAssetPrecision'])
+        end
+
         def fetch_all_symbols
           request = @base_client.get('exchangeInfo')
           exchange_info = JSON.parse(request.body)
