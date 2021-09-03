@@ -7,7 +7,6 @@ import { Spinner } from '../Spinner';
 import { isEmpty } from '../../utils/array'
 
 const TOTAL_INVESTED_CONFIG = {
-        label: I18n.t('bots.details.stats.chart.total_invested'),
         fill: false,
         lineTension: 0.4,
         backgroundColor: 'rgba(25,122,122,0.4)',
@@ -29,7 +28,6 @@ const TOTAL_INVESTED_CONFIG = {
 }
 
 const VALUE_OVER_TIME_CONFIG = {
-        label: I18n.t('bots.details.stats.chart.value'),
         fill: false,
         lineTension: 0.4,
         backgroundColor: 'rgba(75,192,192,0.4)',
@@ -69,11 +67,13 @@ export const Chart = ({bot}) => {
   const totalInvested = data.map(el => el[1])
   const currentValue = data.map(el => el[2])
 
+  const value_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.chart.total_invested') : I18n.t('bots.details.stats.current_value_sold', {base: bot.settings.base})
+  const invested_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.chart.value') : I18n.t('bots.details.stats.bought')
   const chartData = {
     labels: labels,
     datasets: [
-      {...TOTAL_INVESTED_CONFIG, data: totalInvested },
-      {...VALUE_OVER_TIME_CONFIG, data: currentValue }
+      {...TOTAL_INVESTED_CONFIG,  label: invested_label, data: totalInvested },
+      {...VALUE_OVER_TIME_CONFIG, label: value_label, data: currentValue }
     ]
   }
 
@@ -106,4 +106,8 @@ export const Chart = ({bot}) => {
       <Line data={chartData} options={chartOptions} />
     </div>
   )
+}
+
+const isBuyingBot = (type) => {
+    return type === 'buy'
 }
