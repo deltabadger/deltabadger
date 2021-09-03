@@ -525,6 +525,7 @@ en:
                 average_price: 'Average price'
                 total_invested: 'Total invested'
                 current_value: 'Current value'
+                current_value_sold: 'Current value of the %{base} sold'
                 profit_loss: Profit/Loss
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 csv_download_html: 'The table above shows only the last ten transactions.<br>The full report is available to download in CSV format below.'
