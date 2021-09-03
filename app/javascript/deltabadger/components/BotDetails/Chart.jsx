@@ -5,6 +5,7 @@ import { Line } from 'react-chartjs-2';
 import API from '../../lib/API';
 import { Spinner } from '../Spinner';
 import { isEmpty } from '../../utils/array'
+import {renameSymbol, shouldRename} from "../../utils/symbols";
 
 const TOTAL_INVESTED_CONFIG = {
         fill: false,
@@ -67,7 +68,9 @@ export const Chart = ({bot}) => {
   const totalInvested = data.map(el => el[1])
   const currentValue = data.map(el => el[2])
 
-  const value_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.chart.total_invested') : I18n.t('bots.details.stats.current_value_sold', {base: bot.settings.base})
+  const { exchangeName } = bot;
+  const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
+  const value_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.chart.total_invested') : I18n.t('bots.details.stats.current_value_sold', {base: base})
   const invested_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.chart.value') : I18n.t('bots.details.stats.bought')
   const chartData = {
     labels: labels,
