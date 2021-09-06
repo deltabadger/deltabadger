@@ -42,11 +42,16 @@ export const BotForm = ({
     return [...ownedExchangesIds, ...invalidExchangesIds, ...pendingExchangesIds].includes(exchangeId)
   }
 
+  const clearAndSetTimeout = () => {
+    clearTimeout(apiKeyTimeout)
+    apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
+  }
+
   const chooseStep = step => {
     if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
     if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
-      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
+      clearAndSetTimeout()
       return 3
     }
 
@@ -60,7 +65,7 @@ export const BotForm = ({
     }
 
     if((STEPS[step] == 'validating_api_key')) {
-      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
+      clearAndSetTimeout()
     }
 
     return step;

@@ -46,6 +46,14 @@ class Bot < ApplicationRecord
     settings.fetch('smart_intervals_value')
   end
 
+  def price_range_enabled
+    settings.fetch('price_range_enabled')
+  end
+
+  def price_range
+    settings.fetch('price_range')
+  end
+
   def market?
     order_type == 'market'
   end
@@ -67,7 +75,7 @@ class Bot < ApplicationRecord
   end
 
   def last_successful_transaction
-    transactions.where(status: 'success', transaction_type: 'REGULAR').sort_by(&:created_at).last
+    transactions.where(status: %w[success skipped], transaction_type: 'REGULAR').sort_by(&:created_at).last
   end
 
   def any_last_transaction
