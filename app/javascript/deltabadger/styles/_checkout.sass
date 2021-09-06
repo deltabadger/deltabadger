@@ -1,4 +1,6 @@
 .db--upgrade
+  .navbar
+    height: 12rem !important
   &__show
     display: none
   .db--upgrade__show
@@ -14,7 +16,7 @@
     margin-bottom: 1rem
     cursor: pointer
     display: grid
-    border-radius: .8rem
+    border-radius: 1.6rem
     position: relative
     overflow: hidden
     grid:
@@ -40,13 +42,40 @@
       cursor: default
       background: none
     &--current
+      border: 1px solid var(--text)
       min-height: 11.3rem
       margin-bottom: 0
       color: var(--text)
     &--discount
       margin-top: -1rem
+      &--maxi
+        margin-top: 1rem
+        background: #f7931b
+        color: #fff !important
+        &[disabled]
+          height: 8.4rem
+          border: 1px solid var(--secondary)
+          background: none !important
+          color: var(--secondary) !important
+          .db-plans__item__info
+            display: none
+          .db-plans__item__name,
+          .db-plans__item__amount__t
+            color: var(--secondary) !important
+        .db-plans__item__name,
+        .db-plans__item__amount__t
+          color: #fff !important
+        [type="checkbox"]
+          margin-right: 1rem
+          width: 2.4rem
+          height: 2.4rem
+          position: relative
+          top: .4rem
+          box-shadow: none !important
       .db-plans__item__name, .db-plans__item__amount
         color: var(--success)
+    &--hide
+      display: none
     &__name
       font-family: Varela, Inconsolata, monospace
       font-weight: bold
@@ -171,7 +200,7 @@
 
 #payTab
   background: var(--paperBorder)
-  border-radius: 1rem 1rem 0 0
+  border-radius: 1.6rem 1.6rem 0 0
   margin: -3.1rem
   margin-bottom: 0
   border-bottom-color: transparent
@@ -182,7 +211,7 @@
     width: 50%
     text-align: center
   .nav-link
-    border-radius: .8rem .8rem 0 0
+    border-radius: 1.6rem 1.6rem 0 0
     background: none
     border-bottom: 0
     height: 100%

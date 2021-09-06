@@ -20,7 +20,7 @@ module Payments
       order_id = get_sequenced_id
       payment = Payment.new(params.merge(id: order_id))
       user = params.fetch(:user)
-      validation_result = @payment_validator.call(payment, user)
+      validation_result = @payment_validator.call(payment)
 
       return validation_result if validation_result.failure?
 
@@ -42,6 +42,21 @@ module Payments
         )
       end
       payment_result
+    end
+
+    # create empty payment when wire transfer
+    def wire_transfer(params, discounted)
+      @payments_repository.create(
+        id: get_sequenced_id,
+        status: :pending,
+        user: params[:user],
+        first_name: params[:first_name],
+        last_name: params[:last_name],
+        country: params[:country],
+        subscription_plan_id: params[:subscription_plan_id],
+        birth_date: Time.now.strftime('%d/%m/%Y'),
+        discounted: discounted
+      )
     end
 
     # HACK: It is needed to know the new record id before creating it

@@ -1,41 +1,42 @@
-- if upgrade_presenter.upgrade_available?
+- if upgrade_presenter.current_plan_name != 'saver'
+  %h4.mb-4.mt-5.pb-4= t('subscriptions.prolong_upgrade')
 
-  - if 'investor'.in?(upgrade_presenter.available_plans)
-    - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
-    .db-plans__item.db-plans__item--investor.db-plan-investor{class: "db-plan--#{investor_selected ? 'selected' : 'other'}"}
-      = render partial: 'investor_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
+- if 'investor'.in?(upgrade_presenter.available_plans)
+  - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
+  .db-plans__item.db-plans__item--investor.db-plan-investor{class: "db-plan--#{investor_selected ? 'selected' : 'other'}"}
+    = render partial: 'investor_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] }
 
-  - if 'hodler'.in?(upgrade_presenter.available_plans)
-    - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
-    .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
-      = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
+- if 'hodler'.in?(upgrade_presenter.available_plans)
+  - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
+  .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
+    = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
-  - if upgrade_presenter.plan_upgrade_discount?
-    .db-plans__item.db-plans__item--discount
-      .db-plans__item__name= t('subscriptions.payment.active_plan_discount')
-      .db-plans__item__amount
-        .db-plans__item__amount__t.db-plans__item__amount__t--discount
+- if upgrade_presenter.current_plan_name == 'investor'
+  .db-plans__item.db-plans__item--discount.db-plan-active-discount
+    .db-plans__item__name= t('subscriptions.payment.active_plan_discount')
+    .db-plans__item__amount
+      .db-plans__item__amount__t.db-plans__item__amount__t--discount
+        .db-show--investor
+          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
+        .db-show--hodler
+          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
+    .db-plans__item__info= t('subscriptions.payment.compensation', count: current_user.plan_days_left)
+
+
+
+
+- if upgrade_presenter.referrer_discount?
+  - discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer)
+  .db-plans__item.db-plans__item--discount
+    .db-plans__item__name= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent)
+    .db-plans__item__amount
+      .db-plans__item__amount__t.db-plans__item__amount__t--discount
+        - if 'investor'.in?(upgrade_presenter.available_plans)
           .db-show--investor
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-flat-discount-with-vat'>#{cost_presenter[:investor].flat_discount}</span>
+            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-discount-percent-amount'>#{cost_presenter[:investor].discount_percent_amount}</span>
+        - if 'hodler'.in?(upgrade_presenter.available_plans)
           .db-show--hodler
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-flat-discount-with-vat'>#{cost_presenter[:hodler].flat_discount}</span>
-      .db-plans__item__info= t('subscriptions.payment.compensation', count: current_user.plan_days_left)
-
-
-
-
-  - if upgrade_presenter.referrer_discount?
-    - discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer)
-    .db-plans__item.db-plans__item--discount
-      .db-plans__item__name= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent)
-      .db-plans__item__amount
-        .db-plans__item__amount__t.db-plans__item__amount__t--discount
-          - if 'investor'.in?(upgrade_presenter.available_plans)
-            .db-show--investor
-              <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-discount-percent-amount'>#{cost_presenter[:investor].discount_percent_amount}</span>
-          - if 'hodler'.in?(upgrade_presenter.available_plans)
-            .db-show--hodler
-              <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-discount-percent-amount'>#{cost_presenter[:hodler].discount_percent_amount}</span>
-      .db-plans__item__info
-        - if discount_presenter.info?
-          = t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name)
+            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-discount-percent-amount'>#{cost_presenter[:hodler].discount_percent_amount}</span>
+    .db-plans__item__info
+      - if discount_presenter.info?
+        = t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name)

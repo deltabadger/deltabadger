@@ -40,6 +40,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
+  const [priceRangeEnabled, setPriceRangeEnabled] = useState(false)
+  const [priceRange, setPriceRange] = useState({ low: '0', high: '0' })
   const node = useRef()
 
   const validQuotesForSelectedBase = () => {
@@ -153,6 +155,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
+      priceRangeEnabled,
+      priceRange
     }
     !disableSubmit && handleSubmit(botParams);
   }
@@ -172,7 +176,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
 
   const splitTranslation = (s) => {
-    return s.split(/<split>.*<\/split>/)
+    return s.split(/<split>.*?<\/split>/)
   }
 
   const getSmartIntervalsDisclaimer = () => {
@@ -324,7 +328,42 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
-              { !showLimitOrders && <a href={`/${navigator.language}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
+              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
+            </div>
+          </label>
+
+          <label
+            className="alert alert-primary"
+            disabled={!showLimitOrders || !priceRangeEnabled}
+          >
+            <input
+              type="checkbox"
+              checked={priceRangeEnabled}
+              onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
+              disabled={!showLimitOrders}
+            />
+            <div>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[0]}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={priceRange.low}
+                onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
+                disabled={!showLimitOrders}
+                size={Math.max(priceRange.low.length, 1)}
+              />
+
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[1]}</RawHTML>
+              <input
+                type="tel"
+                className="bot-input bot-input--sizable"
+                value={priceRange.high}
+                onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
+                disabled={!showLimitOrders}
+                size={ Math.max(priceRange.high.length, 1) }
+              />
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[2]}</RawHTML>
+              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
 

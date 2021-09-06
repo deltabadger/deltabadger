@@ -50,11 +50,17 @@ class UpgradeController < ApplicationController
       amount: cost_presenter.total_price
     }
 
+    payment = Payments::Create.new.wire_transfer(
+      wire_params,
+      cost_presenter.discount_percent_amount.to_f.positive?
+    )
+
     UpgradeSubscriptionWorker.perform_at(
       15.minutes.since(Time.now),
       wire_params[:user].id,
       wire_params[:subscription_plan_id],
-      email_params
+      email_params,
+      payment.id
     )
 
     notifications = Notifications::Subscription.new
@@ -84,7 +90,7 @@ class UpgradeController < ApplicationController
   private
 
   def new_payment
-    subscription_plan_id = current_plan.id == investor_plan.id ? hodler_plan.id : investor_plan.id
+    subscription_plan_id = current_plan.id != saver_plan.id ? hodler_plan.id : investor_plan.id
     Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
   end
 

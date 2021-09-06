@@ -187,8 +187,6 @@ ActiveRecord::Schema.define(version: 2021_08_31_122439) do
     t.integer "pending_plan_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
-    t.string "provider"
-    t.string "uid"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
