@@ -38,8 +38,14 @@ class AffiliatesRepository < BaseRepository
     )
   end
 
+  def total_waiting
+    model.where(btc_address: [nil, ''])
+         .sum(:unexported_crypto_commission)
+  end
+
   def total_unexported
-    model.sum(:unexported_crypto_commission)
+    model.where.not(btc_address: [nil, ''])
+         .sum(:unexported_crypto_commission)
   end
 
   def total_exported

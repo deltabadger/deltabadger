@@ -11,7 +11,6 @@ module Affiliates
     EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
 
     def call(user:, affiliate_params:)
-      byebug
       affiliate_params = if affiliate_params[:type] == 'individual'
                            individual_params(affiliate_params)
                          else
@@ -33,8 +32,7 @@ module Affiliates
       Result::Success.new(user.affiliate)
     rescue ActiveRecord::RecordNotSaved
       Result::Failure.new(*affiliate.errors, data: affiliate)
-    rescue StandardError => e
-      puts e
+    rescue StandardError
       Raven.capture_exception(e)
       Result::Failure.new(I18n.t('affiliates.create.error'))
     end

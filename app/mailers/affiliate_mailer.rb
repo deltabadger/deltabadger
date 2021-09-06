@@ -13,4 +13,10 @@ class AffiliateMailer < ApplicationMailer
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
+
+  def registration_reminder
+    @referrer = params[:referrer]
+
+    mail(to: @referrer.mail, subject: default_i18n_subject)
+  end
 end

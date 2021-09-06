@@ -90,13 +90,9 @@ class AffiliatesController < ApplicationController
   end
 
   def default_show_locals
-    affiliate_active = affiliate.active?
-    unlimited_active = current_user.unlimited?
     {
       errors: [],
-      affiliate_active: affiliate_active,
-      unlimited_active: unlimited_active,
-      disabled: !(affiliate_active && unlimited_active)
+      affiliate_active: affiliate.active?
     }
   end
 

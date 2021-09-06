@@ -23,6 +23,8 @@ module Affiliates
         referee.update!(current_referrer_profit: new_current_profit)
         referee.referrer.update!(unexported_crypto_commission: new_unexported_crypto_commission)
       end
+
+      send_registration_reminder(referee.referrer) if referee.referrer.btc_address.blank?
     end
 
     private
@@ -45,6 +47,12 @@ module Affiliates
 
     def total_commission(referee)
       referee.unexported_commission + referee.exported_commission + referee.paid_commission
+    end
+
+    def send_registration_reminder(referrer)
+      AffiliateMailer.with(
+        referrer: referrer
+      ).registration_reminder.deliver_later
     end
   end
 end
