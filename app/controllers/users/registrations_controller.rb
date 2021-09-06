@@ -55,7 +55,6 @@ class Users::RegistrationsController < Devise::RegistrationsController
   private
 
   def find_affiliate(code)
-    byebug
     AffiliatesRepository.new.find_active_by_code(code)
   end
 
