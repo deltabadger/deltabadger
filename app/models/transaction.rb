@@ -1,7 +1,7 @@
 class Transaction < ApplicationRecord
   belongs_to :bot
   enum currency: %i[USD EUR PLN]
-  enum status: %i[success failure]
+  enum status: %i[success failure skipped]
 
   validates :bot, presence: true
 
