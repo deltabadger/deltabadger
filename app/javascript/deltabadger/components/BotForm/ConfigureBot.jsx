@@ -380,7 +380,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
               disabled={!showLimitOrders}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -390,7 +390,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 size={Math.max(priceRange.low.length, 1)}
               />
 
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[1]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -399,7 +399,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 disabled={!showLimitOrders}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: quote}))[2]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[2]}</RawHTML>
               { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
