@@ -16,7 +16,8 @@ class AffiliateMailer < ApplicationMailer
 
   def registration_reminder
     @referrer = params[:referrer]
+    @amount = params[:amount]
 
-    mail(to: @referrer.mail, subject: default_i18n_subject)
+    mail(to: @referrer.user.email, subject: default_i18n_subject(amount: @amount))
   end
 end
