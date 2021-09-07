@@ -295,20 +295,22 @@ en:
             specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or  <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
     affiliates:
         new:
-            title: 'Referral program registration'
+            title: 'How to receive payouts?'
+            title_info: 'You can start sharing your link immediataly, but to receive Bitcoin payouts, you need to finish the registration first.'
+            share_html: 'Share this link and <span class="text-success">earn bitcoins</span>'
             upgrade: 'To join our famous referral program, upgrade to one of our paid plans.'
-            referrer_info: '1. Referrer info'
-            payout_address: '2. Payout address'
-            program_settings: '3. Program settings'
-            visible_info: '4. Visible info'
+            referrer_info: 'Referrer info'
+            payout_address: 'Payout address'
+            program_settings: 'Program settings'
+            visible_info: 'Visible info (optional)'
             private: Private
             eu_company: 'EU company'
             unchangable_warning: 'Settings in this section can''t be changed later.'
             discount_info_html: "You will <b> earn <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>,\nand referee will get <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>% discount</b>."
             checked: 'I checked everything carefully.'
             submit: 'Let''s start!'
-            program_settings_html: 'Link <span class="text-danger">(can''t be changed)</span>'
-            pick_referral_code: 'Pick your referral code'
+            program_settings_html: 'Edit link <span class="text-danger">(can''t be changed later)</span>'
+            pick_referral_code: 'Edit your referral code (optional)'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.<br>'
             thanks_referral: 'Thanks to the referral link from'
         create:
@@ -565,6 +567,9 @@ en:
         referrals_payout_notification:
             subject: 'It''s a payday! 💸'
             template_html: "<p>Hello 👋,</p>\n<p>Sweet! Your referral link is gaining traction!</p>\n<p>We transfer a commission of</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>to your Bitcoin wallet.</p>\n<p>Thank you for expanding the<br>badger gang!</p>"
+        registration_reminder:
+            subject: 'Wow! You earned %{amount} BTC! 💸'
+            template_html: "<p>Wow!</p>\n<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p>\n<p><a href=%{link}>Complete registration.</a></p>\n"
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'First month trial ending soon!'
