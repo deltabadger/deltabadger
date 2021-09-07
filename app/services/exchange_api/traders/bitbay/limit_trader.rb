@@ -75,6 +75,7 @@ module ExchangeApi
 
           amount = transaction_volume(symbol, price_above_minimums.data, limit_rate.data, price_in_quote)
           return amount unless amount.success?
+
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
                                 amount: price_above_minimums.data,
