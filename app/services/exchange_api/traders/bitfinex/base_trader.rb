@@ -57,8 +57,8 @@ module ExchangeApi
           Result::Failure.new('Could not make Bitfinex order', RECOVERABLE)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
-          volume = (price / rate)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
+          volume = price_in_quote ? (price / rate) : price
           min_volume = @market.minimum_order_size(symbol)
           return min_volume unless min_volume.success?
 

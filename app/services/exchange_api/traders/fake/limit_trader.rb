@@ -38,7 +38,7 @@ module ExchangeApi
           return rate unless rate.success?
 
           limit_rate = rate.data * (1 + percentage / 100)
-          volume = smart_volume(symbol, price, limit_rate, force_smart_intervals, smart_intervals_value)
+          volume = smart_volume(symbol, price, limit_rate, force_smart_intervals, smart_intervals_value, true)
           return volume unless volume.success?
 
           Result::Success.new(common_order_params.merge(amount: volume.data, rate: limit_rate))

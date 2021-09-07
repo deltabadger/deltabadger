@@ -6,7 +6,7 @@ module ExchangeApi
       class LimitTrader < ExchangeApi::Traders::Binance::BaseTrader
         def buy(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
           symbol = @market.symbol(base, quote)
-          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
+          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, true)
           return final_price unless final_price.success?
 
           buy_params = get_buy_params(symbol, final_price.data, percentage)
@@ -15,12 +15,11 @@ module ExchangeApi
           place_order(buy_params.data)
         end
 
-        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
+        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
           symbol = @market.symbol(base, quote)
-          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
+          final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
           return final_price unless final_price.success?
-
-          sell_params = get_sell_params(symbol, final_price.data, percentage)
+          sell_params = get_sell_params(symbol, final_price.data, percentage, is_legacy)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data)
@@ -39,23 +38,23 @@ module ExchangeApi
         end
 
         def get_buy_params(symbol, price, percentage)
-          common_params = common_order_params(symbol, price, -percentage)
+          common_params = common_order_params(symbol, price, -percentage, true)
 
           Result::Success.new(common_params.data.merge(side: 'BUY'))
         end
 
-        def get_sell_params(symbol, price, percentage)
-          common_params = common_order_params(symbol, price, percentage)
+        def get_sell_params(symbol, price, percentage, price_in_quote)
+          common_params = common_order_params(symbol, price, percentage, price_in_quote)
           return common_params unless common_params.success?
 
           Result::Success.new(common_params.data.merge(side: 'SELL'))
         end
 
-        def common_order_params(symbol, price, percentage)
+        def common_order_params(symbol, price, percentage, price_in_quote)
           rate = limit_rate(symbol, percentage)
           return rate unless rate.success?
 
-          quantity = transaction_volume(symbol, price, rate.data)
+          quantity = transaction_volume(symbol, price, rate.data, price_in_quote)
           return quantity unless quantity.success?
 
           parsed_quantity = parse_base(symbol, quantity.data)

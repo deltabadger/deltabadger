@@ -90,7 +90,8 @@ class MakeTransaction < BaseService
     result = if bot.buyer?
                api.buy(settings)
              else
-               api.sell(settings)
+               is_legacy = bot.type == 'sell_old'
+               api.sell(settings.merge(is_legacy: is_legacy))
              end
 
     result

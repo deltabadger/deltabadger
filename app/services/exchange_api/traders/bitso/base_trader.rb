@@ -68,8 +68,8 @@ module ExchangeApi
           Result::Success.new([min_price.data, price].max.ceil(quote_decimals.data).to_d)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
-          volume = (price / rate).ceil(8)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
+          volume = price_in_quote ?  (price / rate).ceil(8) : price
           min_base = @market.minimum_base_size(symbol)
           return min_base unless min_base.success?
 
@@ -80,7 +80,6 @@ module ExchangeApi
 
           smart_intervals_value = smart_intervals_value.nil? ? min_volume : (smart_intervals_value / rate)
           smart_intervals_value = smart_intervals_value.ceil(8)
-
           return Result::Success.new([smart_intervals_value, min_volume].max) if force_smart_intervals
 
           Result::Success.new([min_volume, volume].max.to_d)
