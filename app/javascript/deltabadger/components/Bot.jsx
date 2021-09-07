@@ -150,6 +150,7 @@ const BotTemplate = ({
   )
 
   const isSellOffer = () => settings.type === 'sell'
+  const isLegacySell = () => settings.type === 'sell_old'
 
   const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
 
@@ -321,23 +322,48 @@ const BotTemplate = ({
                     <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
                   </>
                   : <>
-                    <option value="market">{I18n.t('bots.buy')}</option>
-                    <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                    {isLegacySell() ?<>
+                          <option value="market">{I18n.t('bots.sell')}</option>
+                          <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                        </> :
+                        <>
+                          <option value="market">{I18n.t('bots.buy')}</option>
+                          <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                        </>}
                   </>
                 }
               </select>
             </div>
-            <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
-            <div className="form-group mr-2">
-              <input
-                type="tel"
-                size={(price.length > 0) ? price.length : 3}
-                value={price}
-                className="bot-input bot-input--sizable bot-input--paper-bg"
-                onChange={e => setPrice(e.target.value)}
-                disabled={working}
-              />
-            </div>
+            {isSellOffer()?
+                <>
+                  <div className="form-group mr-2">
+                    <input
+                        type="tel"
+                        size={(price.length > 0) ? price.length : 3}
+                        value={price}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                        onChange={e => setPrice(e.target.value)}
+                        disabled={working}
+                    />
+                  </div>
+                  <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                </>
+                :
+                <>
+                  <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">
+                    <input
+                        type="tel"
+                        size={(price.length > 0) ? price.length : 3}
+                        value={price}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                        onChange={e => setPrice(e.target.value)}
+                        disabled={working}
+                    />
+                  </div>
+                </>
+
+            }
             <div className="form-group mr-2"> {quoteName} /</div>
             <div className="form-group">
               <select
@@ -399,7 +425,7 @@ const BotTemplate = ({
               disabled={working || !showLimitOrders}
             />
             <div>
-              {isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy')} <input
+              {isSellOffer() ? I18n.t('bots.sell') : (isLegacySell() ? I18n.t('bots.sell') : I18n.t('bots.buy'))} <input
               type="tel"
               value={percentage}
               size={(percentage.length > 0) ? percentage.length : 1}
@@ -407,7 +433,7 @@ const BotTemplate = ({
               onChange={e => setPercentage(e.target.value)}
               onBlur={validatePercentage}
               disabled={working || !showLimitOrders || !isLimitSelected()}
-            /> % {isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below')} {I18n.t('bots.price')}.<sup
+            /> % {isSellOffer() ? I18n.t('bots.above') : (isLegacySell() ? I18n.t('bots.above') :I18n.t('bots.below'))} {I18n.t('bots.price')}.<sup
               className="hide-when-running">*</sup>
 
               { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }
@@ -429,7 +455,7 @@ const BotTemplate = ({
               disabled={working || !showLimitOrders}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[0]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -439,7 +465,7 @@ const BotTemplate = ({
                 size={Math.max(priceRange.low.length, 1)}
               />
 
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[1]}</RawHTML>
               <input
                 type="tel"
                 className="bot-input bot-input--sizable"
@@ -448,7 +474,7 @@ const BotTemplate = ({
                 disabled={working || !showLimitOrders}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.price_range_html', {currency: settings.quote}))[2]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[2]}</RawHTML>
               { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler only</a> }
             </div>
           </label>
