@@ -44,22 +44,35 @@ module ExchangeApi
           }
         end
 
-        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
-          min_price = @market.minimum_order_price(symbol)
-          return min_price unless min_price.success?
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          if price_in_quote
+            min_price = @market.minimum_order_price(symbol)
+          else
+            min_price = Result::Success.new([@market.minimum_order_volume(symbol).data,
+                                             @market.minimum_order_price(symbol).data/@market.current_ask_price(symbol).data].max)
+          end
+          return min_price.data unless min_price.success?
 
           smart_intervals_value = min_price.data if smart_intervals_value.nil?
 
           return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
-          Result::Success.new([price, min_price.data].max)
+          if price_in_quote
+            Result::Success.new([price, min_price.data].max)
+          else
+            base_step_size = @market.base_step_size(symbol)
+            base_decimals = @market.base_decimals(symbol)
+            Result::Success.new(
+              (([price, min_price.data].max / base_step_size.data).ceil * base_step_size.data).ceil(base_decimals.data)
+            )
+          end
         end
 
-        def transaction_volume(symbol, price, rate)
+        def transaction_volume(symbol, price, rate, price_in_quote)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 
-          volume = chosen_volume(symbol, price, rate)
+          volume = price_in_quote ? chosen_volume(symbol, price, rate) : Result::Success.new(price)
           return volume unless volume.success?
 
           Result::Success.new([volume.data, min_volume.data].max)
