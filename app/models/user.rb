@@ -81,7 +81,7 @@ class User < ApplicationRecord
   def set_affiliate
     affiliate_params = ActionController::Parameters.new(
       type: 'individual',
-      discount_percent: 0.10,
+      discount_percent: Affiliate::DEFAULT_DISCOUNT_PERCENT,
       btc_address: nil,
       code: SecureRandom.hex(5)
     )

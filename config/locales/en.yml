@@ -302,7 +302,7 @@ en:
             referrer_info: 'Referrer info'
             payout_address: 'Payout address'
             program_settings: 'Program settings'
-            visible_info: 'Visible info'
+            visible_info: 'Visible info (optional)'
             private: Private
             eu_company: 'EU company'
             unchangable_warning: 'Settings in this section can''t be changed later.'
