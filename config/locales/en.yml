@@ -521,9 +521,11 @@ en:
                     total_invested: 'total invested'
                     value: value
                 bought: Bought
+                sold: Sold
                 average_price: 'Average price'
                 total_invested: 'Total invested'
                 current_value: 'Current value'
+                current_value_sold: 'Current value of the %{base} sold'
                 profit_loss: Profit/Loss
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 csv_download_html: 'The table above shows only the last ten transactions.<br>The full report is available to download in CSV format below.'
@@ -544,7 +546,8 @@ en:
         starting: Starting
         force_smart_intervals_html: "Always use smart intervals with orders of <split>$100</split> %{currency} each."
         smart_intervals_disclaimer: "Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}."
-        price_range_html: "Buy only in the price range from  <split>$100</split> to <split>$1000</split> %{currency}."
+        price_range_buy_html: "Buy only in the price range from  <split>$100</split> to <split>$1000</split> %{currency}."
+        price_range_sell_html: "Sell only in the price range from  <split>$100</split> to <split>$1000</split> %{currency}."
         price: 'the price'
         above: above
         below: below

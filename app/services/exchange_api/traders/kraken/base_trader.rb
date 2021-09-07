@@ -69,11 +69,11 @@ module ExchangeApi
           }.compact
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
-          volume = (price / rate).floor(volume_decimals.data)
+          volume = (price_in_quote ? (price / rate) : price).floor(volume_decimals.data)
           min_volume = @market.minimum_order_volume(symbol)
           return min_volume unless min_volume.success?
 

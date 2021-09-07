@@ -5,6 +5,7 @@ import { Chart } from './Chart';
 import { shouldRename, renameSymbol } from '../../utils/symbols';
 
 const Stats = ({
+  type,
   base,
   quote,
   bought,
@@ -17,7 +18,7 @@ const Stats = ({
     <table className="table table-borderless db-table">
       <tbody>
         <tr>
-          <td scope="col">{ I18n.t('bots.details.stats.bought') }:</td>
+          <td scope="col">{ isBuyingBot(type) ? I18n.t('bots.details.stats.bought') : I18n.t('bots.details.stats.sold')}:</td>
           <th scope="col">{ toFixedWithoutZeros(bought) } { base }</th>
         </tr>
         <tr>
@@ -25,11 +26,11 @@ const Stats = ({
           <th scope="col">{ toFixedWithoutZeros(averagePrice) } { quote }</th>
         </tr>
         <tr>
-          <td scope="col">{ I18n.t('bots.details.stats.total_invested') }:</td>
+          <td scope="col">{ isBuyingBot(type) ? I18n.t('bots.details.stats.total_invested') : I18n.t('bots.details.stats.bought') }:</td>
           <th scope="col">{ toFixedWithoutZeros(totalInvested) } { quote }</th>
         </tr>
         <tr>
-          <td scope="col">{ I18n.t('bots.details.stats.current_value') }:</td>
+          <td scope="col">{ isBuyingBot(type) ? I18n.t('bots.details.stats.current_value') : I18n.t('bots.details.stats.current_value_sold', {base: base})}:</td>
           <th scope="col">
             { toFixedWithoutZeros(currentValue) } { quote }
             { !currentPriceAvailable && <sup>*</sup> }
@@ -48,10 +49,11 @@ const Stats = ({
 
 export const Transactions = ({ bot, active }) => {
   const { exchangeName } = bot;
+  const type = bot.settings.type
   const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
   const quote = shouldRename(exchangeName) ? renameSymbol(bot.settings.quote) : bot.settings.quote
   return <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
-    <Stats base={base} quote={quote} {...bot.stats} />
+    <Stats type = {type} base={base} quote={quote} {...bot.stats} />
     { !bot.stats.currentPriceAvailable &&
       <p className="db-smallinfo">
         <svg className="db-svg-icon db-svg--inactive db-svg--table-disclaimer" xmlns="http://www.w3.org/2000/svg" width="2.4rem" viewBox="0 0 24 24">
@@ -107,5 +109,9 @@ const toFixedWithoutZeros = (x) => {
 }
 
 const translateBuyOrSell = (side) => {
-  return side == 'buy' ? I18n.t('bots.buy') : I18n.t('bots.sell')
+  return side === 'buy' ? I18n.t('bots.buy') : I18n.t('bots.sell')
+}
+
+const isBuyingBot = (type) => {
+  return type === 'buy'
 }
