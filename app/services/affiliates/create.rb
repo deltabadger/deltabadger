@@ -32,7 +32,7 @@ module Affiliates
       Result::Success.new(user.affiliate)
     rescue ActiveRecord::RecordNotSaved
       Result::Failure.new(*affiliate.errors, data: affiliate)
-    rescue StandardError
+    rescue StandardError => e
       Raven.capture_exception(e)
       Result::Failure.new(I18n.t('affiliates.create.error'))
     end

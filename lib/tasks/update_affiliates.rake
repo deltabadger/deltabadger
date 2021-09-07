@@ -8,7 +8,7 @@ task :update_affiliates  => :environment do
         type: 'individual',
         discount_percent: 0.10,
         btc_address: nil,
-        code: SecureRandom.hex(8),
+        code: SecureRandom.hex(5),
         max_profit: Affiliate::DEFAULT_MAX_PROFIT,
         total_bonus_percent: Affiliate::DEFAULT_BONUS_PERCENT
       }
