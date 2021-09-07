@@ -565,8 +565,8 @@ en:
             subject: 'It''s a payday! 💸'
             template_html: "<p>Hello 👋,</p>\n<p>Sweet! Your referral link is gaining traction!</p>\n<p>We transfer a commission of</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>to your Bitcoin wallet.</p>\n<p>Thank you for expanding the<br>badger gang!</p>"
         registration_reminder:
-            subject: 'It''s a payday! 💸'
-            template_html: "<p>Wow!</p>\n<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p>\n<p>Finish registration %{link}</p>\n"
+            subject: 'Wow! You earned %{amount} BTC! 💸'
+            template_html: "<p>Wow!</p>\n<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p>\n<p><a href=%{link}>Complete registration.</a></p>\n"
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'First month trial ending soon!'
