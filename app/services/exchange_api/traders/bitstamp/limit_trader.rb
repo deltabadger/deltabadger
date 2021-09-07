@@ -5,16 +5,16 @@ module ExchangeApi
         def buy(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
           symbol = @market.symbol(base, quote)
           buy_params = get_params(symbol, price, percentage, force_smart_intervals,
-                                  smart_intervals_value, 'buy')
+                                  smart_intervals_value, 'buy', true)
           return buy_params unless buy_params.success?
 
           place_order(buy_params.data, 'buy', symbol, 'limit')
         end
 
-        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
+        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
           symbol = @market.symbol(base, quote)
           sell_params = get_params(symbol, price, percentage, force_smart_intervals,
-                                   smart_intervals_value, 'sell')
+                                   smart_intervals_value, 'sell', is_legacy)
           return sell_params unless sell_params.success?
 
           place_order(sell_params.data, 'sell', symbol, 'limit')
@@ -22,7 +22,7 @@ module ExchangeApi
 
         private
 
-        def get_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value, side)
+        def get_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value, side, price_in_quote)
           rate = get_rate(side, symbol)
           return rate unless rate.success?
 
@@ -30,7 +30,7 @@ module ExchangeApi
           limit_rate = rate_percentage(symbol, rate.data, limit_percentage)
           return limit_rate unless limit_rate.success?
 
-          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value)
+          volume = smart_volume(symbol, price, limit_rate.data, force_smart_intervals, smart_intervals_value, price_in_quote)
           return volume unless volume.success?
 
           Result::Success
