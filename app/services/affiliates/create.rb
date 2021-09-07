@@ -18,6 +18,9 @@ module Affiliates
                          end
 
       affiliate = user.affiliate
+      # code is optional so set it to old one when is blank
+      set_code(affiliate, affiliate_params) if affiliate_params[:code].blank?
+
       affiliate = if affiliate.present?
                     AffiliatesRepository.new.update(
                       affiliate.id,
@@ -38,6 +41,10 @@ module Affiliates
     end
 
     private
+
+    def set_code(affiliate, affiliate_params)
+      affiliate_params[:code] = affiliate.code
+    end
 
     def old_code_params(affiliate)
       { old_code: affiliate.code }
