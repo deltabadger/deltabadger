@@ -5,13 +5,6 @@
     %a.btn.btn-outline-secondary{href: "mailto:contact@deltabadger.com"}
       %span= t('.deactivated.contact')
 
-- if affiliate_active && !unlimited_active
-  .alert.alert-primary.db-alert--flex
-    %span= t('.expired')
-
-    %a.btn.btn-primary{href: upgrade_path}
-      %span= t('subscriptions.upgrade')
-
 .row.pt-5
   .col-sm-12.col-lg-6
     %h2.mb-5= t('.title')
@@ -34,13 +27,13 @@
           = stats.paid_commission
 
   .col-sm-12.col-lg-6
-    .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
+    .db-box.mb-3
       %h4.db-modal__subtitle #{t('.link_title')}
       .db-form__row.db-form__row--input.mb-0
         %input.db-form__input{ :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: affiliate.code,lang: nil), :readonly=>"readonly" }
         %label.db-form__label= t('.your_link')
 
-    .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
+    .db-box.mb-3
       %h4.db-modal__subtitle  #{t('.update_info')}
       - presenter = Presenters::RefCodes::Show.new(affiliate)
       %p= t('affiliates.info_preview')
@@ -49,35 +42,35 @@
 
       = form_with model: affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f|
         .db-form__row.db-form__row--input
-          = f.text_field :visible_name, class: 'db-form__input', disabled: disabled
+          = f.text_field :visible_name, class: 'db-form__input'
           %label.db-form__label #{t('helpers.label.affiliate.visible_name')}
 
         .db-form__row.db-form__row--input.db-form__row--input--has-http-select
-          = f.text_field :visible_link, class: 'db-form__input', disabled: disabled
+          = f.text_field :visible_link, class: 'db-form__input'
           = f.select :visible_link_scheme, [['//:https', 'https'], ['//:http', 'http']], {}, class: "db-form__input--http  db-http-prefix-select", dir: 'rtl'
           = f.label :visible_link, t('helpers.label.affiliate.visible_link'), class: 'db-form__label'
 
         .form-group.db-form-group--main-btn
-          = f.submit t('.submit'), class: 'btn btn-lg btn-primary', disabled: disabled
-    .db-box.mb-3{ class: ("db-referral-program-registration--inactive" if disabled) }
+          = f.submit t('.submit'), class: 'btn btn-lg btn-primary'
+    .db-box.mb-3
       %h4.db-modal__subtitle  #{t('.update_bitcoin_address')}
       = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
         .db-form__row.db-form__row--input
           = f.password_field :current_address, disabled: true, type: 'text', autocomplete: 'nope', value: affiliate.btc_address, class: 'db-form__input'
           = f.label :current_address, t('affiliates.current_bitcoin_address'), class: 'db-form__label'
         .db-form__row.db-form__row--input
-          = f.text_field :btc_address, disabled: disabled, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
+          = f.text_field :btc_address, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
           .db-form__info.db-form__info--invalid
             #{t('affiliates.invalid_bitcoin_address')}
           = f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label'
         .db-form__row.db-form__row--input
-          = f.password_field :current_password, disabled: disabled, type: 'password', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
+          = f.password_field :current_password, type: 'password', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
           .db-form__info.db-form__info--invalid
             Password is invalid
           = f.label :current_password, t('settings.index.current_password'), class: 'db-form__label'
 
         .form-group.db-form-group--main-btn
-          = f.submit t('.submit'), class: 'btn btn-lg btn-primary', disabled: disabled
+          = f.submit t('.submit'), class: 'btn btn-lg btn-primary'
 
     .alert.alert-success.mt-5
       = t('affiliates.manual_html')

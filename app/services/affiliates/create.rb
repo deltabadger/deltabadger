@@ -11,15 +11,24 @@ module Affiliates
     EU_COMPANY_PERMITTED_PARAMS = (BASE_PERMITTED_PARAMS + %i[name address vat_number]).freeze
 
     def call(user:, affiliate_params:)
-      return Result::Failure.new(I18n.t('affiliates.create.saver_error')) unless user.unlimited?
-
       affiliate_params = if affiliate_params[:type] == 'individual'
                            individual_params(affiliate_params)
                          else
                            eu_company_params(affiliate_params)
                          end
 
-      affiliate = Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
+      affiliate = user.affiliate
+      # code is optional so set it to old one when is blank
+      set_code(affiliate, affiliate_params) if affiliate_params[:code].blank?
+
+      affiliate = if affiliate.present?
+                    AffiliatesRepository.new.update(
+                      affiliate.id,
+                      affiliate_params.merge(old_code_params(affiliate))
+                    )
+                  else
+                    Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
+                  end
       user.affiliate = affiliate
       user.save!
 
@@ -32,6 +41,14 @@ module Affiliates
     end
 
     private
+
+    def set_code(affiliate, affiliate_params)
+      affiliate_params[:code] = affiliate.code
+    end
+
+    def old_code_params(affiliate)
+      { old_code: affiliate.code }
+    end
 
     def individual_params(affiliate_params)
       affiliate_params.permit(INDIVIDUAL_PERMITTED_PARAMS)
