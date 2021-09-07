@@ -83,7 +83,7 @@ class User < ApplicationRecord
       type: 'individual',
       discount_percent: 0.10,
       btc_address: nil,
-      code: SecureRandom.hex(8)
+      code: SecureRandom.hex(5)
     )
 
     Affiliates::Create.call(
