@@ -19,7 +19,7 @@ class ScheduleTransaction < BaseService
     end
 
     next_transaction_at = next_bot_transaction_at.call(bot, first_transaction: first_transaction)
-    exchange_name = Exchange.find(bot.exchange_id).name.downcase
+    exchange_name = bot.exchange.name.downcase
     starting_bots_name = 'starting bots'
     queue_name = first_transaction ? starting_bots_name : exchange_name
     make_transaction_worker.sidekiq_options(queue: queue_name)
