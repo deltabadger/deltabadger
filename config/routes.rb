@@ -47,6 +47,7 @@ Rails.application.routes.draw do
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
   get '/metrics' => 'metrics#index', as: :bot_btc_metrics
+  get '/health_check' => 'health_check#index', as: :health_check
 
   authenticate :user, lambda { |u| u.admin? } do
     mount Sidekiq::Web => '/sidekiq'
