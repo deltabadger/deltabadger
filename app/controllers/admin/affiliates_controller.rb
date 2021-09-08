@@ -10,6 +10,7 @@ module Admin
     # end
     def index
       repository = AffiliatesRepository.new
+      @total_waiting = format_crypto(repository.total_waiting)
       @total_unexported = format_crypto(repository.total_unexported)
       @total_exported = format_crypto(repository.total_exported)
       @total_paid = format_crypto(repository.total_paid)
