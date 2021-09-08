@@ -1,0 +1,14 @@
+- if @show_referral_banner
+  - ref_link = ENV['MAIN_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil)
+  .container
+    .alert.alert-success.db-alert--welcome.db-alert--flex
+      %span
+        Share your referral link with friends, and <a href="/referral-program" alt="Read more">up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!
+        %br
+        %h4
+          %a{href: ref_link, id: 'referral_banner_link'}= ref_link
+          %span.badge.badge-success.invisible{id: 'referral_badge'}
+            Copied!
+      %button(type="button" id="hide_referral_banner_button" class="close" data-dismiss="alert" aria-label="Close")
+        %span(aria-hidden="true")
+          &times;
