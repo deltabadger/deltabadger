@@ -20,6 +20,7 @@ class UpgradeSubscription < BaseService
     unless payment_id.nil?
       payment = Payment.find(payment_id)
       payment.update(status: :paid)
+      user.update!(welcome_banner_showed: true)
     end
 
     user.update(
