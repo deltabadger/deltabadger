@@ -13,6 +13,11 @@ class SettingsController < ApplicationController
     head 200
   end
 
+  def hide_referral_banner
+    current_user.update!(referral_banner_showed: true)
+    head 200
+  end
+
   def update_password
     user = current_user
     if user.update_with_password(update_password_params)

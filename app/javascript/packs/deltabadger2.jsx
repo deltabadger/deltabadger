@@ -63,3 +63,29 @@ if (document.getElementById('hide_welcome_banner_button')) {
       });
   })
 }
+
+if (document.getElementById('hide_referral_banner_button')) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document
+      .getElementById('hide_referral_banner_button')
+      .addEventListener("click", () => {
+        Rails.ajax({
+          url: "/settings/hide_referral_banner",
+          type: "patch"
+        });
+      });
+  })
+}
+
+if (document.getElementById('referral_banner_link')) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document
+      .getElementById('referral_banner_link')
+      .addEventListener("click", (evt) => {
+        evt.preventDefault();
+        navigator.clipboard.writeText(evt.target.getAttribute('href')).then(() => {
+            $('#referral_badge').removeClass('invisible')
+        })
+      });
+  })
+}
