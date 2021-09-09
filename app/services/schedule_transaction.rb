@@ -1,6 +1,5 @@
 class ScheduleTransaction < BaseService
   STARTING_BOTS_QUEUE = 'starting bots'.freeze
-  DEFAULT_QUEUE = 'default'.freeze
   def initialize(
     bots_repository: BotsRepository.new,
     make_transaction_worker: MakeTransactionWorker,
@@ -21,7 +20,7 @@ class ScheduleTransaction < BaseService
     end
 
     next_transaction_at = next_bot_transaction_at.call(bot, first_transaction: first_transaction)
-    queue_name = get_queue_name(first_transaction)
+    queue_name = get_queue_name(bot, first_transaction)
     make_transaction_worker.sidekiq_options(queue: queue_name)
     make_transaction_worker.perform_at(
       next_transaction_at,
@@ -32,8 +31,9 @@ class ScheduleTransaction < BaseService
 
   private
 
-  def get_queue_name(first_transaction)
-    first_transaction ? STARTING_BOTS_QUEUE : DEFAULT_QUEUE
+  def get_queue_name(bot, first_transaction)
+    exchange_name = bot.exchange.name.downcase
+    first_transaction ? STARTING_BOTS_QUEUE : exchange_name
   end
 
   def decrease_delay(bot)
