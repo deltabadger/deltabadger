@@ -47,6 +47,10 @@ class User < ApplicationRecord
     welcome_banner_showed
   end
 
+  def referral_banner_showed?
+    referral_banner_showed
+  end
+
   def eligible_referrer
     referrer if eligible_for_discount?
   end
