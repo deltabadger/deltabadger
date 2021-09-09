@@ -47,7 +47,7 @@ module Api
     end
 
     def api_key_params
-      params.require(:api_key).permit(:key, :secret, :passphrase, :exchange_id, :german_trading_agreement)
+      params.require(:api_key).permit(:key, :secret, :passphrase, :exchange_id, :german_trading_agreement, :type)
     end
 
     def invalid_key_params

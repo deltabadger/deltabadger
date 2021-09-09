@@ -27,7 +27,8 @@ export const AddApiKey = ({
   handleSubmit,
   handleRemove,
   status,
-  botView
+  botView,
+  type
 }) => {
   const [key, setKey] = useState("");
   const [secret, setSecret] = useState("");
@@ -51,7 +52,7 @@ export const AddApiKey = ({
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      !disableSubmit && handleSubmit(key, secret, passphrase, agreement)
+      !disableSubmit && handleSubmit(key, secret, passphrase, agreement, type)
   }
 
   const { public: key_label, private: secret_label, passphrase: phrase_label } = apiKeyNames(pickedExchangeName);
