@@ -21,6 +21,23 @@
         display: none
       .bot-input
         background: var(--botInputBgPaper)
+  &-success
+    border-color: var(--alertSuccessBorder)
+    color:        var(--alertSuccessText)
+    background:   var(--alertSuccessBackground)
+    a
+      color: var(--alertSuccessText)
+    h4
+      margin: .55em 0 .25em
+      @include media-breakpoint-down(sm)
+        font-size: 1.45rem
+        margin: 2em 0 0 0
+
+      .badge
+        padding-left: 1rem
+        padding-right: 1rem
+        border-radius: 2rem
+        margin-left: .5rem
   small
     line-height: 2rem
 
