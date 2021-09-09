@@ -24,7 +24,8 @@ class UpgradeSubscription < BaseService
 
     user.update(
       pending_wire_transfer: nil,
-      pending_plan_id: nil
+      pending_plan_id: nil,
+      welcome_banner_showed: true
     )
   end
 end
