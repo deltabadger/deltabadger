@@ -10,7 +10,7 @@ import { isNotEmpty } from '../utils/array';
 import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
 import { AddApiKey } from "./BotForm/AddApiKey";
-import { removeInvalidApiKeys } from "./helpers";
+import { removeInvalidApiKeys, splitTranslation } from "./helpers";
 
 import {
   reloadBot,
@@ -169,10 +169,6 @@ const BotTemplate = ({
     }
 
     return out
-  }
-
-  const splitTranslation = (s) => {
-    return s.split(/<split>.*?<\/split>/)
   }
 
   const getBotParams = () => {
