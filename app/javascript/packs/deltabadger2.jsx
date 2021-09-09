@@ -83,7 +83,6 @@ if (document.getElementById('referral_banner_link')) {
       .getElementById('referral_banner_link')
       .addEventListener("click", (evt) => {
         evt.preventDefault();
-        console.log('pressed')
         navigator.clipboard.writeText(evt.target.getAttribute('href')).then(() => {
             $('#referral_badge').removeClass('invisible')
         })

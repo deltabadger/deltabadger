@@ -3,12 +3,12 @@
   .container
     .alert.alert-success.db-alert--welcome.db-alert--flex
       %span
-        <b>Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!</b>
+        =t('referral.banner_html')
         %br
         %h4
           %a{href: ref_link, id: 'referral_banner_link'}= ref_link
           %span.badge.badge-success.invisible{id: 'referral_badge'}
-            Copied!
+            =t('referral.copied')
       %button(type="button" id="hide_referral_banner_button" class="close" data-dismiss="alert" aria-label="Close")
         %span(aria-hidden="true")
           &times;
