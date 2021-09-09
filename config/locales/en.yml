@@ -478,7 +478,7 @@ en:
             validating: Validating
             set: Set
             error_info: 'Validation failed. Try again or generate new keys.'
-        add_new_bot: 'Add new bot'
+        add_new_bot_html: 'Add new <split></split>DCA bot<split></split> or <split></split> Withdrawal bot'
         start: Start
         stop: Pause
         buy: Buy

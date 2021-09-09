@@ -17,6 +17,11 @@ const STEPS = [
   'configure_bot',
 ]
 
+const TYPES = [
+  'trading',
+  'withdrawal'
+]
+
 export const BotForm = ({
   isHodler,
   open,
@@ -31,6 +36,7 @@ export const BotForm = ({
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [errors, setErrors] = useState("");
+  const [type, setType] = useState(TYPES[0])
   const [isCreatingBot, setCreatingBot] = useState(false);
 
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
@@ -79,8 +85,9 @@ export const BotForm = ({
     }
   }, [currentBot])
 
-  const closedFormHandler = () => {
+  const closedFormHandler = (type) => {
     setStep(1)
+    setType(TYPES[type])
     callbackAfterOpening()
   }
 
@@ -99,9 +106,9 @@ export const BotForm = ({
     exchanges[idx].pending = true
   }
 
-  const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
+  const addApiKeyHandler = (key, secret, passphrase, germanAgreement, type) => {
     setPendingStatus()
-    API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: form.exchangeId }).then(response => {
+    API.createApiKey({ key, secret, passphrase, germanAgreement, type, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
       setStep(3)
     }).catch(() => {
@@ -178,6 +185,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'add_api_key'}
+          type={type}
         />
       case 'validating_api_key':
         return <AddApiKey
@@ -186,6 +194,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'validating_api_key'}
+          type={type}
         />
       case 'invalid_api_key':
         clearTimeout(apiKeyTimeout)
@@ -195,6 +204,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'invalid_api_key'}
+          type={type}
         />
       case 'configure_bot':
         return <ConfigureBot
