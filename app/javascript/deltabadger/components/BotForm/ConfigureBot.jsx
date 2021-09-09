@@ -5,6 +5,7 @@ import LimitOrderNotice from "./LimitOrderNotice";
 import {shouldRename, renameSymbol, getSpecialSymbols, renameCurrency} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
+import { splitTranslation } from "../helpers";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
@@ -174,10 +175,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   }
 
   const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
-
-  const splitTranslation = (s) => {
-    return s.split(/<split>.*?<\/split>/)
-  }
 
   const getSmartIntervalsDisclaimer = () => {
     if (minimumOrderParams.showQuote) {
