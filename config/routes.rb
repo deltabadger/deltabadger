@@ -68,6 +68,7 @@ Rails.application.routes.draw do
     namespace :settings do
       get '/', action: :index
       patch :hide_welcome_banner
+      patch :hide_referral_banner
       patch :update_password
       patch :update_email
       post :enable_two_fa
