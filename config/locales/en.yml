@@ -141,6 +141,9 @@ en:
         default: 'Hi, welcome to Deltabadger'
         saver: 'Get rid of the limits, and make an upgrade!'
         banner_html: "Welcome! You're currently on the <b>free plan with a transaction limit of $500/year</b>, but it will not be enforced for the first month. Try any schedule you want. You can also upgrade it to enjoy unlimited transactions later on. The 4-year Hodler plan additionally gives access to new experimental features (e.g. all currencies on the exchange). All feedback is appreciated. Join our\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram group</a>, and follow us on <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Happy averaging!"
+    referral:
+        banner_html: '<b>Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!</b>'
+        copied: Copied!
     subscriptions:
         upgrade: Upgrade
         prolong_upgrade: 'Prolong or upgrade your plan'

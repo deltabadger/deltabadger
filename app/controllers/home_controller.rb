@@ -19,6 +19,11 @@ class HomeController < ApplicationController
     only: [:dashboard],
     if: -> { !current_user.welcome_banner_showed? }
   )
+  before_action(
+    :set_referral_banner,
+    only: [:dashboard],
+    if: -> { !current_user.referral_banner_showed? }
+  )
 
   layout 'guest', only: PUBLIC_PAGES
 
@@ -44,5 +49,9 @@ class HomeController < ApplicationController
 
   def set_welcome_banner
     @show_welcome_banner = true
+  end
+
+  def set_referral_banner
+    @show_referral_banner = true
   end
 end
