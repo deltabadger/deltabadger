@@ -70,6 +70,14 @@ class User < ApplicationRecord
     exchanges.select(:id).where(id: owned_ids)
   end
 
+  def withdrawal_api_keys
+    api_keys.where(key_type: 'withdrawal')
+  end
+
+  def trading_api_keys
+    api_keys.where(key_type: 'trading')
+  end
+
   private
 
   def active_subscription

@@ -10,7 +10,7 @@ class ApiKey < ApplicationRecord
   TYPES = %i[trading withdrawal].freeze
 
   enum status: [*STATES]
-  enum type: [*TYPES]
+  enum key_type: [*TYPES]
 
   delegate :name, to: :exchange, prefix: true
 end
