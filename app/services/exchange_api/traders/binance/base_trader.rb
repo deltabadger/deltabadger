@@ -18,7 +18,7 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
-        def fetch_order_by_id(order_id, response_params = nil)
+        def fetch_order_by_id(_order_id, response_params = nil)
           Result::Success.new(response_params)
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -49,7 +49,7 @@ module ExchangeApi
             min_price = @market.minimum_order_price(symbol)
           else
             min_price = Result::Success.new([@market.minimum_order_volume(symbol).data,
-                                             @market.minimum_order_price(symbol).data/@market.current_ask_price(symbol).data].max)
+                                             @market.minimum_order_price(symbol).data / @market.current_ask_price(symbol).data].max)
           end
           return min_price unless min_price.success?
 
