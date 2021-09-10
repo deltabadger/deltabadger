@@ -139,7 +139,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
   const validatePercentage = () => {
     if (isNaN(percentage) || percentage < 0){
-      setPercentage(0)
+      setPercentage('0')
     }
   }
 
