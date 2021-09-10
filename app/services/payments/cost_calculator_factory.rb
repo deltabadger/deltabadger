@@ -8,7 +8,6 @@ module Payments
       @cost_calculator = cost_calculator
     end
 
-    # rubocop:disable Naming/UncommunicativeMethodParamName, Metrics/ParameterLists
     def call(
       eu:,
       vat:,
@@ -39,6 +38,5 @@ module Payments
         commission_percent: commission_percent
       )
     end
-    # rubocop:enable Naming/UncommunicativeMethodParamName, Metrics/ParameterLists
   end
 end

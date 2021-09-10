@@ -41,17 +41,14 @@ module ExchangeApi
           precision = price_in_quote ? @market.quote_tick_size_decimals(symbol) : @market.base_tick_size_decimals(symbol)
           return precision unless precision.success?
 
-          parsed_base = parse_base(symbol,price.data).data
+          parsed_base = parse_base(symbol, price.data).data
           if price_in_quote
             Result::Success.new(super(symbol)
                            .merge(type: 'MARKET',
                                   quoteOrderQty: price.data.ceil(precision.data)))
           else
-            Result::Success.new(super(symbol)
-                           .merge(type: 'MARKET',
-                                  quantity: parsed_base ))
+            Result::Success.new(super(symbol).merge(type: 'MARKET', quantity: parsed_base))
           end
-
         end
       end
     end

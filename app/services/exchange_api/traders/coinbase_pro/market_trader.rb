@@ -24,9 +24,7 @@ module ExchangeApi
           limit_only = @market.limit_only?(symbol)
           return limit_only unless limit_only.success?
 
-          if limit_only.data
-            return get_limit_only_params(symbol, price, force_smart_intervals, 'buy', smart_intervals_value)
-          end
+          return get_limit_only_params(symbol, price, force_smart_intervals, 'buy', smart_intervals_value) if limit_only.data
 
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, true)
           return price_above_minimums unless price_above_minimums.success?
@@ -43,9 +41,7 @@ module ExchangeApi
           limit_only = @market.limit_only?(symbol)
           return limit_only unless limit_only.success?
 
-          if limit_only.data
-            return get_limit_only_params(symbol, price, force_smart_intervals, 'sell', smart_intervals_value)
-          end
+          return get_limit_only_params(symbol, price, force_smart_intervals, 'sell', smart_intervals_value) if limit_only.data
 
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           return price_above_minimums unless price_above_minimums.success?
@@ -86,8 +82,7 @@ module ExchangeApi
                 side: side,
                 size: volume.data,
                 price: limit_rate.data
-              )
-            )
+              ))
         end
 
         def rate_percentage(symbol, rate, percentage)

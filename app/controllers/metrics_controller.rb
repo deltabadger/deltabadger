@@ -19,4 +19,3 @@ class MetricsController < ApplicationController
     (amount * 10**8).ceil
   end
 end
-

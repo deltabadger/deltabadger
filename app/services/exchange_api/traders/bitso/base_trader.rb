@@ -69,7 +69,7 @@ module ExchangeApi
         end
 
         def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
-          volume = price_in_quote ?  (price / rate).ceil(8) : price
+          volume = price_in_quote ? (price / rate).ceil(8) : price
           min_base = @market.minimum_base_size(symbol)
           return min_base unless min_base.success?
 

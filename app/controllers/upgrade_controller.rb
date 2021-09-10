@@ -1,6 +1,6 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: [:payment_callback, :wire_transfer]
+  protect_from_forgery except: %i[payment_callback wire_transfer]
 
   def index
     render :index, locals: default_locals.merge(
@@ -166,5 +166,4 @@ class UpgradeController < ApplicationController
   def hodler_plan
     @hodler_plan ||= subscription_plan_repository.hodler
   end
-
 end
