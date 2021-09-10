@@ -235,8 +235,7 @@ const BotTemplate = ({
     if (minimumOrderParams.showQuote) {
       return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      const re = new RegExp(`The minimum.*${currencyOfMinimum}\\.`, 'g')
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match(re)[0];
+      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
     }
   }
 
