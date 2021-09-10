@@ -15,7 +15,7 @@
   - [gemini, 1]
   - [kraken, 1]
   - [kucoin, 1]
-  - default
+  - [default, 1]
 :limits:
   binance: 1
   binance.us: 1
