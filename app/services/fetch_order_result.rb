@@ -1,5 +1,5 @@
 class FetchOrderResult < BaseService
-  def initialize( # rubocop:disable Metrics/ParameterLists
+  def initialize(
     exchange_trader: ExchangeApi::Traders::Get.new,
     schedule_transaction: ScheduleTransaction.new,
     schedule_result_fetching: ScheduleResultFetching.new,
