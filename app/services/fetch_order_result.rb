@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/ClassLength
 class FetchOrderResult < BaseService
   def initialize( # rubocop:disable Metrics/ParameterLists
     exchange_trader: ExchangeApi::Traders::Get.new,

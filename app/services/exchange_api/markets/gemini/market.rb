@@ -11,7 +11,7 @@ module ExchangeApi
           @base_client = base_client(API_URL)
           @caching_client = caching_client(API_URL)
         end
-        
+
         def fetch_all_symbols
           request = @caching_client.get('/v1/symbols')
           response = JSON.parse(request.body)

@@ -27,7 +27,7 @@ module ExchangeApi
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
-          return Result::Failure.new('Waiting for KuCoin response', NOT_FETCHED) unless is_order_done?(request, response)
+          return Result::Failure.new('Waiting for KuCoin response', NOT_FETCHED) unless order_done?(request, response)
 
           amount = response['data'].fetch('dealSize').to_f
 
@@ -103,7 +103,7 @@ module ExchangeApi
           end
         end
 
-        def is_order_done?(request, response)
+        def order_done?(request, response)
           success?(request, response) && !response['data'].fetch('isActive')
         end
 
