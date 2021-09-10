@@ -4,7 +4,8 @@ class SettingsController < ApplicationController
   def index
     render :index, locals: {
       user: current_user,
-      api_keys: current_user.api_keys
+      trading_api_keys: current_user.trading_api_keys,
+      withdrawal_api_keys: current_user.withdrawal_api_keys
     }
   end
 

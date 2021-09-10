@@ -57,7 +57,7 @@ ActiveRecord::Schema.define(version: 2021_09_09_123912) do
     t.string "encrypted_passphrase"
     t.string "encrypted_passphrase_iv"
     t.integer "status", default: 0, null: false
-    t.integer "type", default: 0, null: false
+    t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
   end
