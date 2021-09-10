@@ -19,6 +19,7 @@ module ExchangeApi
           symbol = @market.symbol(base, quote)
           final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
           return final_price unless final_price.success?
+
           sell_params = get_sell_params(symbol, final_price.data, percentage, is_legacy)
           return sell_params unless sell_params.success?
 
