@@ -183,8 +183,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     if (minimumOrderParams.showQuote) {
       return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      const re = new RegExp(`The minimum.*${currencyOfMinimum}\\.`, 'g')
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match(re)[0];
+      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
     }
   }
 
