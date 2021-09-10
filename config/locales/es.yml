@@ -120,6 +120,15 @@ es:
             in: 'debe estar en %{count}'
             odd: 'debe ser impar'
             even: 'debe ser par'
+            wrong_password: 'Contraseña incorrecta'
+            wrong_email: 'Correo electrónico incorrecto'
+            bad_credentials: 'Correo electrónico o contraseña incorrectos.'
+            bad_credentials_with_code: 'Correo electrónico, contraseña o código 2FA incorrectos.'
+            wrong_two_fa_token: 'El código indicado es erróneo'
+            too_short_password: 'La contraseña es demasiado corta'
+            password_not_match: 'Las contraseñas no coinciden'
+            bad_2fa_code: 'Código no válido. Inténtalo de nuevo.'
+            empty_two_fa_token: 'Falta el código 2FA. Inténtalo de nuevo.'
         unverified_request: 'Actualiza tu navegador e inténtalo de nuevo.'
         format: '%{attribute}%{message}'
         referral_program_inactive: 'Tu programa de referidos está inactivo'
@@ -171,7 +180,14 @@ es:
             bank_address: 'Dirección del banco'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
+            paid_with_wire_transfer_other: 'He realizado una transferencia bancaria'
+            wire_cost_investor_html: 'Envía <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> a la siguiente cuenta bancaria:'
+            wire_cost_hodler_html: 'Envía <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> a la siguiente cuenta bancaria:'
+            wire_cost_pending_html: 'Si aún no has realizado el pago, envía <b>%{sign}%{price}</b> a la siguiente cuenta bancaria:'
         upgrade_plan: 'Actualizar plan'
+        prolong_upgrade: 'Extiende o mejora tu plan'
+        maximalist_title: 'Descuento maximalista bitcoin del 50 %'
+        maximalist_info: 'Si solo compras bitcoins, pagas la mitad del precio normal.'
     links:
         homepage: 'Enlace a la página de inicio'
         log_in: 'Iniciar sesión'
@@ -295,6 +311,8 @@ es:
             pick_referral_code: 'Elige tu código de referencia'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> % de descuento para la primera compra.<br>'
             thanks_referral: 'Gracias al enlace de referencia de'
+            title_info: 'Puedes empezar a compartir tu enlace de inmediato, pero para recibir pagos de bitcoins necesitas primero completar tu registro.'
+            share_html: 'Comparte este enlace y <span class="text-success">gana bitcoins</span>'
         create:
             saver_error: 'Tienes que actualizar para registrarte'
             error: 'Error en el registro del programa de referidos'
@@ -327,7 +345,7 @@ es:
             accepted: 'Has aceptado el enlace de referencia'
             invalid: 'El enlace de referencia parece no válido u obsoleto.'
             already_used: 'Ya has utilizado un enlace de referencia'
-        manual_html: "<p class=\"mt-1\">Nuestro programa de referidos <b>paga hasta 50</b><sup>1</sup> dólares por usuario en BTC (usando una tasa de cambio de la transacción). Ejemplo:</p>\n  <ol>\n    <li>Para simplificar, el precio de Bitcoin es ~10 000 dólares, el descuento es del 10 % y tu margen es del 20 %.</li>\n    <li>El árbitro compra un plan de 1 año por 49,99 dólares, pagando después del descuento 44,99 dólares, lo que equivale a 0,0045 BTC. Ganas \n    0,001 BTC (20 % de 49,99 dólares).</li>\n    <li>No importa si el precio de Bitcoin cambia mientras tanto. Tu beneficio está bloqueado en BTC.</li>\n    <li>La siguiente vez, el árbitro compra un plan de 4 años por 149,99 dólares y paga 0,015 BTC. Él o ella ya no obtiene un descuento, pero tú sigues obteniendo tu 20 %, lo que equivale a 0,003 BTC.</li>\n    <li>Sigues ganando mientras tengas un plan <sup>2</sup> activo y tu beneficio total por árbitro no llegue a 50 dólares.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoins es la mejor forma de promediar los costes en dólares!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> El límite es de 50 USD o 50 EUR, dependiendo de la moneda de la tarificación.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para el árbitro, el enlace de referencia funciona incluso si su suscripción ha caducado.</small>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Nuestro programa de referidos <b>paga hasta 50</b><sup>1</sup> dólares por usuario en BTC (usando una tasa de cambio de la transacción). Ejemplo:</p>\n  <ol>\n    <li>Para simplificar, el precio de Bitcoin es ~10 000 dólares, el descuento es del 10 % y tu margen es del 20 %.</li>\n    <li>El árbitro compra un plan de 1 año por 49,99 dólares, pagando después del descuento 44,99 dólares, lo que equivale a 0,0045 BTC. Ganas \n    0,001 BTC (20 % de 49,99 dólares).</li>\n    <li>No importa si el precio de Bitcoin cambia mientras tanto. Tu beneficio está bloqueado en BTC.</li>\n    <li>La siguiente vez, el árbitro compra un plan de 4 años por 149,99 dólares y paga 0,015 BTC. Él o ella ya no obtiene un descuento, pero tú sigues obteniendo tu 20 %, lo que equivale a 0,003 BTC.</li>\n    <li>Sigues ganando mientras tengas un plan <sup>2</sup> activo y tu beneficio total por árbitro no llegue a 50 dólares.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoins es la mejor forma de promediar los costes en dólares!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> El límite es de 50 USD o 50 EUR, dependiendo de la moneda de la tarificación.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para el árbitro, el enlace de referencia funciona incluso si su suscripción ha caducado.</small>\n</div>"
         apply_code:
             title: 'Enlace de referencia'
             accept: Aceptar
@@ -350,6 +368,7 @@ es:
             api_keys_section: 'Claves API'
             api_key_confirmation: '¿Estás seguro?'
             current_password: 'Contraseña actual (para la confirmación)'
+            two_factor_section: 'Autenticación de segundo factor'
     forms:
         for_confirmation: '(para confirmar)'
         minimum_length: '%{length} caracteres mínimo'
@@ -383,6 +402,14 @@ es:
                 submit_investor_order: 'Contratar plan Inversor'
                 submit_hodler_order: 'Contratar plan Hodler'
                 business_invoice: 'Necesito una factura oficial.'
+            settings:
+                enable_two_fa: 'Activar 2FA'
+                disable_two_fa: 'Desactivar 2FA'
+                current_status: 'Estado actual:'
+                enabled: Activado
+                disabled: Desactivado
+                enter_two_fa_code: 'Introduce el código 2FA'
+                scan_code_info: 'Escanea el código QR o copia el siguiente código:'
     cookie:
         agree: 'Estoy de acuerdo'
         description: 'Utilizamos cookies para simplificar las cosas.'
@@ -390,7 +417,7 @@ es:
     bots:
         setup:
             step_exchange: 'Plataforma de intercambio'
-            step_api_key: 'Clave de API'
+            step_api_key: 'Clave API'
             step_schedule: Programar
             cancel: Cancelar
             limit_warning: 'El bot de órdenes limitadas es una función experimental. No todas las órdenes se ejecutarán. Para lograr buenos resultados, es necesario aumentar la cantidad invertida de forma proporcional. Por el momento, Deltabadger no ofrece ninguna ayuda para estimar este ajuste, por lo que es necesario realizar tus propias pruebas. Utilízalo solo si sabes lo que estás haciendo.'
@@ -434,6 +461,20 @@ es:
                     other: 'Para %{base}%{quote}, %{exchangeName} tiene una orden mínima de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger puede ejecutar esta programación usando órdenes de %{minimumValue}%{minimumCurrency} y ajustando el intervalo de tiempo para que coincida con lo que tenías programado. Es lo que llamamos <i>intervalos inteligentes</i>.'
             validating: 'Validación en curso'
             error_info: 'Error en la validación. Inténtalo de nuevo o genera nuevas claves.'
+            kucoin:
+                instructions_html: "<ol>\n  <li>Inicia sesión en tu cuenta %{exchange_link}.</li>\n  <li>En el menú de la cuenta (esquina superior derecha junto al selector de idioma), ve a <b>Gestión de API</b>.</li>\n  <li>Pulsa <b>Crear API</b>.</li>\n <li>Si creas tus claves API por primera vez, configura y guarda la <b>Contraseña de trading</b>.</li>\n  <li>Proporciona el <b>Nombre de API</b>.</li>\n <li>Proporciona y guarda la <b>frase de contraseña de API</b>.</li>\n <li>Establece permisos para:\n    <ul>\n      <li><b>General</b></li>\n      <li><b>Trading</b></li>\n    </ul>\n  </li>\n <li>Si quieres restringir el acceso a la clave solo para Deltabadger, establece la <b>Restricción de IP</b> en Sí y agrega esta IP: <b>3.18.70.231</b></li>\n  <li>Pulsa <b>Siguiente</b>.</li>\n <li>Confirma la creación de claves API mediante la contraseña de trading y 2FA.</li>\n <li>Copia y pega tus nuevas claves de API y la frase de contraseña en el formulario anterior.</li>\n</ol>"
+                private_key: 'Secreto de API'
+                public_key: 'Clave API'
+                passphrase: 'Frase de acceso'
+            bitfinex:
+                instructions_html: "<ol>\n  <li>Inicia sesión en tu cuenta %{exchange_link}.</li>\n  <li>En el menú de la cuenta (esquina superior derecha), ve a <b>Claves API</b>.</li>\n  <li>Ve a <b>Crear clave nueva</b>.</li>\n <li>Establece los permisos para:\n    <ul>\n      <li><b>Obtener órdenes y estados.</b></li>\n      <li><b>Crear y cancelar órdenes.</b></li>\n    </ul>\n  </li>\n <li>Proporciona una <b>Etiqueta</b> a tu clave API.</li>\n <li>Pulsa <b>Generar clave API</b>.</li>\n <li>Copia y pega tus nuevas claves API en el formulario anterior.</li>\n</ol>"
+                private_key: 'Secreto de API'
+                public_key: 'Clave API'
+            bitstamp:
+                instructions_html: "<ol>\n  <li>Inicia sesión en tu cuenta %{exchange_link}.</li>\n  <li>En el menú de la cuenta (esquina superior derecha), ve a <b>Configuración</b>.</li>\n  <li>En <b>Control de acceso</b>, ve a <b>Acceso a la API</b>.</li>\n <li>Pulsa <b>Nueva clave de API</b>.</li>\n <li>Si quieres restringir el acceso a la clave solo para Deltabadger, establece el <b>Filtro de dirección IP</b> en esta IP: <b>3.18.70.231</b></li>\n <li>Establece los permisos para:\n    <ul>\n      <li><b>Abrir órdenes.</b></li>\n <li><b>Cancelar órdenes.</b></li>\n <li><b>Comprar órdenes de mercado/limitadas.</b></li>\n <li><b>Vender órdenes de mercado/limitadas.</b></li>\n  </ul>\n  </li>\n <li>Pulsa <b>Introducir 2FA y Enviar</b>.</li>\n <li>Pulsa <b>Activar</b>.</li>\n <li>Copia y pega tus nuevas claves API en el formulario anterior.</li>\n</ol>"
+                private_key: 'Secreto de API'
+                public_key: 'Clave API'
+            set: Establecer
         add_new_bot: 'Añadir nuevo bot'
         start: Empezar
         stop: Pausar
@@ -446,9 +487,8 @@ es:
         day: Día
         week: Semana
         month: Mes
-        next_buy: 'Siguiente compra en'
-        next_sell: 'Siguiente venta en'
-        counter: '%{countdown}'
+        next_buy: 'Siguiente compra en %{countdown}'
+        next_sell: 'Siguiente venta en %{countdown}'
         buttons:
             start:
                 changed_on_schedule:
@@ -493,20 +533,30 @@ es:
                 order: Orden
                 amount: 'Importe(%{base})'
                 rate: 'Tasa(%{quote})'
+                sold: Vendido
+                current_value_sold: 'Valor actual de %{base} vendido'
             log:
                 title: Registro
                 date: Fecha
                 errors: Errores
             info:
                 title: Información
-                exchanges_html: "<p class=\"mt-2\"><b>Intercambios</b></p>\n<p>Deltabadger trabaja con intercambios de criptomonedas. Por el momento, admitimos <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> y <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Recomendamos Kraken como plataforma de intercambio de buena reputación que nunca ha sido hackeada. Utiliza Bitbay si quieres hacer tus compras en PLN.</p>\n<p>Para que tu bot sea útil, primero, necesitas verificar tu cuenta de intercambio y transferir algunos fondos allí.</p>\n<p>Sin embargo, no guardes tus monedas en ninguna plataforma de intercambio demasiado tiempo. Entra en tu cuenta y retíralas regularmente al menos una vez al mes.</p>\n<p>Añadiremos más intercambios en el futuro. Haznos saber si estás interesado en alguno en particular.</p>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>\"Intervalos inteligentes\"</b></p>\n<p>Cuando los intervalos inteligentes están activados, Deltabadger ejecuta el programa deseado en las transacciones más pequeñas permitidas por el mercado. De lo contrario, solo se utilizarán si es necesario.</p>\n<p class=\"mt-2\"><b>¿Por qué?</b></p>\n<p>Hay dos beneficios:</p>\n<p>El programa más frecuente te permite experimentar los beneficios del DCA más rápidamente y lo suaviza aún más.</p>\n<p>Además, a veces los intervalos inteligentes son necesarios. Cada mercado tiene un límite de tamaño mínimo por transacción. Algunos intercambios lo definen en BTC, por lo que el valor en USD cambia con el tiempo. Si la cantidad que quieres comprar es menor, Deltabadger mantiene tu proporción deseada usando el tamaño mínimo permitido pero ajustando el intervalo de tiempo. Esto protege al bot de ser detenido cuando su cantidad definida cae por debajo del umbral.</p>\n<p class=\"mt-2\"><b>Ejemplo:</b></p>\n<p>Digamos que el límite de intercambio actual es de 20 dólares. Si estableces el tamaño de la transacción con 24 dólares/día, el bot hará exactamente eso. Sin embargo, si lo defines como 1 dólar/hora, imitará la proporción usando el tamaño permitido, que es igual a 20 dólares cada 20 horas. En promedio, resulta la misma proporción (24 dólares/día = 1 dólar/hora = 20 dólares/20 horas).</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>¿Eres nuevo en esto de promediar el coste en dólares?</b></p>\n<p>Estos enlaces te ayudarán:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA para principiantes (vídeo)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">El poder del DCA en Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Simulador DCA</a></li>\n</ul>"
+                exchanges_html: "<p className=\"mt-2\"><b>Intercambios</b></p>\n<p>Deltabadger trabaja con intercambios de criptomonedas. Por el momento, admitimos <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> y <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Recomendamos Kraken como plataforma de intercambio de buena reputación que nunca ha sido hackeada. Utiliza Bitbay si quieres hacer tus compras en PLN.</p>\n<p>Para que tu bot sea útil, primero, necesitas verificar tu cuenta de intercambio y transferir algunos fondos allí.</p>\n<p>Sin embargo, no guardes tus monedas en ninguna plataforma de intercambio demasiado tiempo. Entra en tu cuenta y retíralas regularmente al menos una vez al mes.</p>\n<p>Añadiremos más intercambios en el futuro. Haznos saber si estás interesado en alguno en particular.</p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>\"Intervalos inteligentes\"</b></p>\n<p>Cuando los intervalos inteligentes están activados, Deltabadger ejecuta el programa deseado en las transacciones más pequeñas permitidas por el mercado. De lo contrario, solo se utilizarán si es necesario.</p>\n<p className=\"mt-2\"><b>¿Por qué?</b></p>\n<p>Hay dos beneficios:</p>\n<p>El programa más frecuente te permite experimentar los beneficios del DCA más rápidamente y lo suaviza aún más.</p>\n<p>Además, a veces los intervalos inteligentes son necesarios. Cada mercado tiene un límite de tamaño mínimo por transacción. Algunos intercambios lo definen en BTC, por lo que el valor en USD cambia con el tiempo. Si la cantidad que quieres comprar es menor, Deltabadger mantiene tu proporción deseada usando el tamaño mínimo permitido pero ajustando el intervalo de tiempo. Esto protege al bot de ser detenido cuando su cantidad definida cae por debajo del umbral.</p>\n<p className=\"mt-2\"><b>Ejemplo:</b></p>\n<p>Digamos que el límite de intercambio actual es de 20 dólares. Si estableces el tamaño de la transacción con 24 dólares/día, el bot hará exactamente eso. Sin embargo, si lo defines como 1 dólar/hora, imitará la proporción usando el tamaño permitido, que es igual a 20 dólares cada 20 horas. En promedio, resulta la misma proporción (24 dólares/día = 1 dólar/hora = 20 dólares/20 horas).</p>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>¿Eres nuevo en esto de promediar el coste en dólares?</b></p>\n<p>Estos enlaces te ayudarán:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA para principiantes (vídeo)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">El poder del DCA en Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Simulador DCA</a></li>\n</ul>"
         starting: Empezar
         force_smart_intervals: 'Usar siempre intervalos inteligentes.'
         price: 'del precio'
         above: 'por encima'
         below: 'por debajo'
+        counter: '%{countdown}'
+        force_smart_intervals_html: 'Utiliza solo órdenes de <split>100 $</split> %{currency} cada una.'
+        smart_intervals_disclaimer_base: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'El tamaño mínimo de orden es de %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
+        price_range_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
+        price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
+        price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
     activerecord:
         errors:
             models:
@@ -521,6 +571,9 @@ es:
         referrals_payout_notification:
             subject: '¡Es un día de pago! 💸'
             template_html: "<p>Hola 👋:</p>\n<p>¡Qué bien! ¡Tu enlace de referencia está ganando tracción!</p>\n<p>Transferimos una comisión de</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>a tu cartera de Bitcoin.</p>\n<p>¡Gracias por ampliar la banda de<br>tejones!</p>"
+        registration_reminder:
+            subject: '¡Enhorabuena! Has ganado %{amount} BTC 💸'
+            template_html: "<p>¡Buenas noticias!</p>\n<p>Tienes una nueva comisión del programa de referidos esperándote. Completa tu registro para recibir tus bitcoins:</p>\n<p><a href=%{link}>Completa el registro.</a></p>\n"
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: '¡El primer mes de prueba termina pronto!'
@@ -563,3 +616,6 @@ es:
             exchange: intercambio
             name: Plan
             price: Precio
+    referral:
+        banner_html: '<b>Comparte tu enlace para invitar a tus amigos y <a href="/referral-program" alt="Read more">gana hasta 50 dólares en BTC</a>. ¡La mejor manera de seguir la estrategia DCA e invertir en bitcoins es ganándolos!</b>'
+        copied: ¡Copiado!
