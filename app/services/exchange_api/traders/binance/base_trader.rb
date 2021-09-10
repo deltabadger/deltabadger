@@ -51,7 +51,7 @@ module ExchangeApi
             min_price = Result::Success.new([@market.minimum_order_volume(symbol).data,
                                              @market.minimum_order_price(symbol).data/@market.current_ask_price(symbol).data].max)
           end
-          return min_price.data unless min_price.success?
+          return min_price unless min_price.success?
 
           smart_intervals_value = min_price.data if smart_intervals_value.nil?
 
