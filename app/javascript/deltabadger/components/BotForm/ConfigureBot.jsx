@@ -5,6 +5,7 @@ import LimitOrderNotice from "./LimitOrderNotice";
 import {shouldRename, renameSymbol, getSpecialSymbols, renameCurrency} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
+import API from "../../lib/API";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
@@ -143,7 +144,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
   }
 
-  const _handleSubmit = (evt) => {
+  const _handleSubmit = async (evt) => {
     evt.preventDefault();
     const botParams = {
       type,
@@ -158,6 +159,24 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       priceRangeEnabled,
       priceRange
     }
+    const frequencyParams = {
+      exchange_id: currentExchange.id,
+      price: price,
+      type: type,
+      base: base,
+      quote: quote,
+      currency_of_minimum: currencyOfMinimum,
+      interval: interval,
+      smart_intervals_value: smartIntervalsValue
+    }
+    let frequency_limit_exceeded = false
+    try{
+      let x = await API.checkFrequencyExceed(frequencyParams)
+      frequency_limit_exceeded = x
+    }catch (e) {
+      console.error(e)
+    }
+    console.log('Frequency limit exceeded: ',frequency_limit_exceeded)
     !disableSubmit && handleSubmit(botParams);
   }
 
