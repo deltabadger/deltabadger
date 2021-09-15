@@ -54,7 +54,11 @@ module ExchangeApi
 
           body = order_params.to_json
           headers = get_headers(url, @api_key, @api_secret, body, path, 'POST')
-          request = Faraday.post(url, body, headers)
+          conn = faraday_connector
+          request = conn.post(path) do |req|
+            req.body = body
+            req.headers = headers
+          end
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -110,6 +114,12 @@ module ExchangeApi
 
         def success?(request)
           JSON.parse(request.body).fetch('success')
+        end
+
+        def faraday_connector
+          return Faraday.new(url: @url_base, proxy: ENV.fetch('EU_PROXY_IP')) if @url_base == FtxEnum::FTX_EU_URL_BASE
+
+          Faraday.new(url: @url_base)
         end
       end
     end
