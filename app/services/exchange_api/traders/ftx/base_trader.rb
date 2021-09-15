@@ -117,7 +117,7 @@ module ExchangeApi
         end
 
         def faraday_connector
-          return Faraday.new(url: @url_base, proxy: ENV.fetch('EU_PROXY_URL')) if @url_base == FtxEnum::FTX_EU_URL_BASE
+          return Faraday.new(url: @url_base, proxy: ENV.fetch('EU_PROXY_IP')) if @url_base == FtxEnum::FTX_EU_URL_BASE
 
           Faraday.new(url: @url_base)
         end
