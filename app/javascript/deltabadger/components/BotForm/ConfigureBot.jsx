@@ -36,7 +36,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [quote, setQuote] = useState(QUOTES[0]);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
-  const [percentage, setPercentage] = useState("0");
+  const [percentage, setPercentage] = useState("0.0");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
@@ -274,7 +274,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                   <div className="form-group mr-3">{I18n.t('bots.for')}</div>
                   <div className="form-group mr-3">
                     <input
-                        type="tel"
+                        type="text"
                         min="1"
                         size={(price.length > 0) ? price.length : 3 }
                         value={price}
@@ -324,12 +324,12 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <div>
             <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
-                type="tel"
+                type="text"
+                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
                 className="bot-input bot-input--sizable"
                 value={smartIntervalsValue}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
-                size={smartIntervalsValue.length}
                 min={minimumOrderParams.value}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
@@ -354,7 +354,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             />
             <div>
               { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
-                type="tel"
+                type="text"
                 size={(percentage.length > 0) ? percentage.length : 3 }
                 value={percentage}
                 className="bot-input bot-input--sizable"
@@ -381,7 +381,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
             <div>
               <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[0]}</RawHTML>
               <input
-                type="tel"
+                type="text"
                 className="bot-input bot-input--sizable"
                 value={priceRange.low}
                 onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
@@ -391,7 +391,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
               <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[1]}</RawHTML>
               <input
-                type="tel"
+                type="text"
                 className="bot-input bot-input--sizable"
                 value={priceRange.high}
                 onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
