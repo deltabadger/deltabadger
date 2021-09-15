@@ -159,16 +159,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       priceRangeEnabled,
       priceRange
     }
-    const frequencyParams = {
-      exchange_id: currentExchange.id,
-      price: price,
-      type: type,
-      base: base,
-      quote: quote,
-      currency_of_minimum: currencyOfMinimum,
-      interval: interval,
-      smart_intervals_value: smartIntervalsValue
-    }
+    const frequencyParams = {...botParams, exchange_id: currentExchange.id, currency_of_minimum: currencyOfMinimum}
     let frequency_limit_exceeded = false
     try{
       let x = await API.checkFrequencyExceed(frequencyParams)

@@ -1,5 +1,7 @@
 class CheckExceededFrequency < BaseService
-  def call(exchange_id, type, price, base, quote, currency_of_minimum, interval, smart_intervals_value)
+  def call(exchange_id, type, price, base, quote, currency_of_minimum, interval, force_smart_intervals, smart_intervals_value)
+    return false unless force_smart_intervals
+
     frequency_limit = ENV['ORDERS_FREQUENCY_LIMIT']
     market = ExchangeApi::Markets::Get.new.call(exchange_id)
     symbol = market.symbol(base, quote)
