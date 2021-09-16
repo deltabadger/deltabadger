@@ -1,11 +1,12 @@
-import React, {useState, useEffect, useRef} from 'react'
-import { Breadcrumbs } from './Breadcrumbs'
-import { Progressbar } from './Progressbar'
+import React, {useEffect, useRef, useState} from 'react'
+import {Breadcrumbs} from './Breadcrumbs'
+import {Progressbar} from './Progressbar'
 import LimitOrderNotice from "./LimitOrderNotice";
-import {shouldRename, renameSymbol, getSpecialSymbols, renameCurrency} from "../../utils/symbols";
+import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
 import API from "../../lib/API";
+import {StartButton} from "../buttons";
 
 export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
@@ -31,6 +32,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const ALL_BASES = sortSymbols(uniqueArray(currentExchange.all_symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
   const OTHER_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
+  const [isOpen, setOpen] = useState(false);
   const [type, setType] = useState("market_buy");
   const [price, setPrice] = useState("");
   const [base, setBase] = useState(BASES[0]);
@@ -70,6 +72,113 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       <span>Cancel</span>
     </div>
   )
+  const SmartButton = () => (
+      <div>
+        <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
+        <div className="db-bot__modal__btn-group">
+          <div onClick={() => {
+            _handleSubmit()
+          }} className="btn btn-outline-primary">{I18n.t('bots.buttons.start.changed_on_schedule.skip')}
+          </div>
+          <div onClick={() => {
+            _handleSubmit(true)
+          }} className="btn btn-success">{I18n.t('bots.buttons.start.changed_on_schedule.continue')}
+          </div>
+        </div>
+      </div>
+  )
+
+  const StartButton = () => {
+    const [isOpen, setOpen] = useState(false)
+    const node = useRef()
+
+    const handleClickOutside = e => {
+      if (node.current && node.current.contains(e.target)) {
+        return;
+      }
+      setOpen(false)
+    };
+
+    const SmarterStartButtons = () => {
+      return (
+          <div>
+            <div>
+              <RawHTML tag="p">Frequency limit exceeded. Bots cannot do more than 60 orders per hour</RawHTML>
+              <div className="db-bot__modal__btn-group">
+                <div onClick={() => {
+                  setOpen(false)
+                }} className="btn btn-outline-primary">Change the settings
+                </div>
+                <div onClick={ () => {
+                  _handleSmartIntervalsOff()
+                }
+                } className="btn btn-success">Turn the smart intervals off and start
+                </div>
+              </div>
+            </div>
+          </div>
+      )
+    }
+    const _handleSmartIntervalsOff = () => {
+      setForceSmartIntervals(false);
+      console.log('Value: ',forceSmartIntervals)
+      setOpen(false);
+      _handleSubmit()
+    }
+    const _handleStarts = async (evt) => {
+      evt.preventDefault();
+      const frequencyParams = {
+        type,
+        base,
+        quote,
+        interval,
+        forceSmartIntervals,
+        smartIntervalsValue,
+        price: price.trim(),
+        exchange_id: currentExchange.id,
+        currency_of_minimum: currencyOfMinimum
+      }
+      let frequency_limit_exceeded = false
+      try {
+        frequency_limit_exceeded = await API.checkFrequencyExceed(frequencyParams)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        if (frequency_limit_exceeded) {
+          setOpen(true);
+        } else {
+          _handleSubmit(evt)
+        }
+      }
+    }
+
+    useEffect(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }, []);
+
+    return(
+        <div>
+          <div
+              onClick={_handleStarts}
+              className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
+            <span className="d-none d-sm-inline">Start</span>
+            <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/>
+            </svg>
+          </div>
+          { isOpen &&
+          <div ref={node} className="db-bot__modal">
+            <div className="db-bot__modal__content">
+              <SmarterStartButtons />
+            </div>
+          </div>
+          }
+        </div>
+    )
+  }
 
   const handleClickOutside = e => {
     if (node.current && node.current.contains(e.target)) {
@@ -144,7 +253,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     }
   }
 
-  const _handleSubmit = async (evt) => {
+  const _handleSubmit = (evt) => {
     evt.preventDefault();
     const botParams = {
       type,
@@ -159,15 +268,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       priceRangeEnabled,
       priceRange
     }
-    const frequencyParams = {...botParams, exchange_id: currentExchange.id, currency_of_minimum: currencyOfMinimum}
-    let frequency_limit_exceeded = false
-    try{
-      let x = await API.checkFrequencyExceed(frequencyParams)
-      frequency_limit_exceeded = x
-    }catch (e) {
-      console.error(e)
-    }
-    console.log('Frequency limit exceeded: ',frequency_limit_exceeded)
     !disableSubmit && handleSubmit(botParams);
   }
 
@@ -202,10 +302,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
 
       <div className="db-bot__header">
         <Breadcrumbs step={2} />
-        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
-          <span className="d-none d-sm-inline">Start</span>
-          <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
-        </div>
+        <StartButton/>
         <div className="db-bot__infotext"/>
       </div>
 
