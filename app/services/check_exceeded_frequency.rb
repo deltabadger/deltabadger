@@ -24,7 +24,8 @@ class CheckExceededFrequency < BaseService
     end
     {
       limit_exceeded: limit_exceeded,
-      new_intervals_value: new_intervals_value
+      new_intervals_value: new_intervals_value,
+      frequency_limit: frequency_limit
     }
   end
 
