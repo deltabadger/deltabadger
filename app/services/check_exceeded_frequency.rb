@@ -8,12 +8,24 @@ class CheckExceededFrequency < BaseService
     market_price = market.current_price(symbol).data
     price = price.to_f
     smart_intervals_value = smart_intervals_value.to_f
-    smart_intervals_value /= market_price if currency_of_minimum == quote
+    currency_in_quote = currency_of_minimum == quote
+    smart_intervals_value /= market_price if currency_in_quote
     price /= market_price if %w[market_buy limit_buy].include?(type)
 
     frequency = price / smart_intervals_value
     frequency /= duration_in_hours(interval)
-    frequency.to_f > frequency_limit.to_f
+    limit_exceeded = frequency.to_f > frequency_limit.to_f
+    new_intervals_value = limit_exceeded ? price/frequency_limit.to_f : 0
+    if currency_in_quote
+      new_intervals_value *= market_price
+      new_intervals_value = new_intervals_value.ceil(2)
+    else
+      new_intervals_value = new_intervals_value.ceil(5)
+    end
+    {
+      limit_exceeded: limit_exceeded,
+      new_intervals_value: new_intervals_value
+    }
   end
 
   private

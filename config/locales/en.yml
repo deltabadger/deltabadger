@@ -422,6 +422,10 @@ en:
             cancel: Cancel
             limit_warning: 'The limit order bot is an experimental feature. Not all orders will get filled. To achieve good results, you need to increase the invested amount proportionally. At the moment, Deltabadger does not yet offer any help with estimating this adjustment, so your own backtesting is necessary. Use it only if you know what you''re doing.'
             how_to_get_keys: 'How to get API keys from %{exchange}:'
+            frequency_limit:
+                limit_exceeded: 'To meet the bot limit of %{frequency_limit} per minute, your schedule will be executed in orders of %{price}%{currency} each.'
+                back_to_settings: 'Back to settings'
+                start_the_bot: 'Start the bot'
             binance:
                 instructions_html: "<ol>\n  <li>Login to your %{exchange_link} account.</li>\n  <li>In user menu (round icon in the top right corner) go to <b>API Management</b>.</li>\n  <li>Name the new API key by pressing \"Create\".</li>\n  <li>Confirm creation with one-time code(s).</li>\n  <li>Make sure that <b>Enable Spot & Margin Trading</b> is checked.</li>\n  <li>If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>3.18.70.231</b></li>\n  <li>Press <b>Save</b> and confirm with another one-time code if necessary.</li>\n  <li>Remember that the Secret Key is visible only during creation, so make sure you copy both keys before leaving the view.</li>\n  <li>Paste both keys into the inputs above.</li>\n</ol>"
                 private_key: 'Secret Key'
