@@ -8,7 +8,7 @@ import {RawHTML} from "../RawHtml";
 import API from "../../lib/API";
 import {StartButton} from "../buttons";
 
-export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors, frequencyLimit }) => {
+export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
 
   const compareSymbols = (x, y) => {
@@ -41,7 +41,6 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const [percentage, setPercentage] = useState("0.0");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
-  const [newIntervalsValue, setNewIntervalsValue] = useState("1");
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
   const [priceRangeEnabled, setPriceRangeEnabled] = useState(false)
   const [priceRange, setPriceRange] = useState({ low: '0', high: '0' })
@@ -76,6 +75,8 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   const StartButton = () => {
     const [isOpen, setOpen] = useState(false)
     const node = useRef()
+    const [newIntervalsValue, setNewIntervalsValue] = useState("1");
+    const [frequencyLimit, setFrequencyLimit] = useState("100");
 
     const handleClickOutside = e => {
       if (node.current && node.current.contains(e.target)) {
@@ -95,7 +96,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
                 </div>
                 <div onClick={
                   _handleSmartIntervalsChange
-                } className="btn btn-success">{I18n.t('bots.setup.frequency_limit.back_to_settings')}
+                } className="btn btn-success">{I18n.t('bots.setup.frequency_limit.start_the_bot')}
                 </div>
               </div>
             </div>
@@ -103,9 +104,10 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
       )
     }
     const _handleSmartIntervalsChange = (evt) => {
-      console.log('Value: ', forceSmartIntervals)
+      setOpen(false)
       _handleSubmit(evt, newIntervalsValue)
     }
+
     const _handleStarts = async (evt) => {
       evt.preventDefault();
       const frequencyParams = {
@@ -120,16 +122,16 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         currency_of_minimum: currencyOfMinimum
       }
       let frequency_limit_exceeded = false
-      let frequency_limit = null
+      let frequencyResponse = null
       try {
-        frequency_limit = await API.checkFrequencyExceed(frequencyParams)
-        frequency_limit_exceeded = frequency_limit['limit_exceeded']
+        frequencyResponse = await API.checkFrequencyExceed(frequencyParams)
+        frequency_limit_exceeded = frequencyResponse['limit_exceeded']
+        setFrequencyLimit(frequencyResponse['frequency_limit'])
+        setNewIntervalsValue(frequencyResponse['new_intervals_value'].toString());
       } catch (e) {
         console.error(e)
       } finally {
         if (frequency_limit_exceeded) {
-          setNewIntervalsValue(frequency_limit['new_intervals_value'])
-          console.log(newIntervalsValue)
           setOpen(true);
         } else {
           _handleSubmit(evt, smartIntervalsValue)
