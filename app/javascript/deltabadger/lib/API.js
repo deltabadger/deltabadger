@@ -161,10 +161,6 @@ const API = {
   checkFrequencyExceed(params) {
     const url = `${API_URL}/frequency_limit_exceeded`
     return client.request({url, params: params, method: 'get'}).then(data => data.data);
-  },
-  getFrequencyLimit(){
-    const url = `${API_URL}/frequency_limit`
-    return client.request({url, params: {}, method: 'get'}).then(data => data.data);
   }
 };
 
