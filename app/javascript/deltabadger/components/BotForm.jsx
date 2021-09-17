@@ -146,16 +146,6 @@ export const BotForm = ({
     }).finally(() => setCreatingBot(false));
   }
 
-  const frequencyLimit = async () => {
-    let frequencyLimit = 100
-    try{
-      frequencyLimit = await API.getFrequencyLimit()['frequency_limit']
-      return frequencyLimit
-    }catch (e){
-      console.log(e)
-    }
-  }
-
   // TODO: Fix this!, you can't reset all form, check this!
   const resetFormToStep = (step) => {
     return(() => {
@@ -216,7 +206,6 @@ export const BotForm = ({
           setShowInfo={setShowSmartIntervalsInfo}
           disable={isCreatingBot}
           errors={errors}
-          frequencyLimit={frequencyLimit()}
         />
     }
   }
