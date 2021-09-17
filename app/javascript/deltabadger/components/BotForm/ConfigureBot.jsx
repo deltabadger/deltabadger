@@ -121,17 +121,17 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         exchange_id: currentExchange.id,
         currency_of_minimum: currencyOfMinimum
       }
-      let frequency_limit_exceeded = false
+      let frequencyLimitExceeded = false
       let frequencyResponse = null
       try {
         frequencyResponse = await API.checkFrequencyExceed(frequencyParams)
-        frequency_limit_exceeded = frequencyResponse['limit_exceeded']
+        frequencyLimitExceeded = frequencyResponse['limit_exceeded']
         setFrequencyLimit(frequencyResponse['frequency_limit'])
         setNewIntervalsValue(frequencyResponse['new_intervals_value'].toString());
       } catch (e) {
         console.error(e)
       } finally {
-        if (frequency_limit_exceeded) {
+        if (frequencyLimitExceeded) {
           setOpen(true);
         } else {
           _handleSubmit(evt, smartIntervalsValue)
