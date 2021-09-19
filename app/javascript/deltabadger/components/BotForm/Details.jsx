@@ -11,7 +11,7 @@ export const Details = () => {
         </li>
       </ul>
       <div className="tab-content" id="botFormInfo">
-        <div className="tab-pane show active" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
+        <div className="pb-4 tab-pane show active" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
           <RawHTML className="db-showif db-showif--pick-exchange">
             {I18n.t('bots.details.info.exchanges_html')}
           </RawHTML>
