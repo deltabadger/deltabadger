@@ -45,12 +45,12 @@ module ExchangeApi
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
-          min_price = if price_in_quote
-                        @market.minimum_order_price(symbol)
-                      else
-                        Result::Success.new([@market.minimum_order_volume(symbol).data,
-                                             @market.minimum_order_price(symbol).data / @market.current_ask_price(symbol).data].max)
-                      end
+          if price_in_quote
+            min_price = @market.minimum_order_price(symbol)
+          else
+            min_price = Result::Success.new([@market.minimum_order_volume(symbol).data,
+                                             @market.minimum_order_price(symbol).data/@market.current_ask_price(symbol).data].max)
+          end
           return min_price unless min_price.success?
 
           smart_intervals_value = min_price.data if smart_intervals_value.nil?
