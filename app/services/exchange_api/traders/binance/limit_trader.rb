@@ -16,6 +16,7 @@ module ExchangeApi
         end
 
         def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
+          is_legacy ||= force_smart_intervals # minimum defined in quote
           symbol = @market.symbol(base, quote)
           final_price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
           return final_price unless final_price.success?
