@@ -38,6 +38,7 @@ module ExchangeApi
         end
 
         def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          price_in_quote ||= force_smart_intervals
           limit_only = @market.limit_only?(symbol)
           return limit_only unless limit_only.success?
 
