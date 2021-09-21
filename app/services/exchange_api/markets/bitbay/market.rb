@@ -96,7 +96,6 @@ module ExchangeApi
         rescue StandardError
           Result::Failure.new('Could not fetch current price from Bitbay', RECOVERABLE)
         end
-
       end
     end
   end
