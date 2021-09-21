@@ -3,8 +3,8 @@ require 'fomo'
 module Notifications
   class FomoEvents
     AUTHORIZATION_TOKEN = ENV.fetch('FOMO_AUTH_TOKEN')
-    INVESTOR_TEMPLATE_ID = 149849
-    HODLER_TEMPLATE_ID = 149922
+    INVESTOR_TEMPLATE_ID = 149_849
+    HODLER_TEMPLATE_ID = 149_922
 
     def initialize
       @client = Fomo.new(AUTHORIZATION_TOKEN)
