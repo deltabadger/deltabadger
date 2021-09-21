@@ -35,6 +35,7 @@ module ExchangeApi
         end
 
         def common_order_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          price_in_quote ||= force_smart_intervals # minimum is defined in quote
           price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           return price unless price.success?
 
