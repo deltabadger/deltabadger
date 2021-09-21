@@ -55,7 +55,7 @@ module ExchangeApi
           Result::Failure.new('Could not make KuCoin order', RECOVERABLE)
         end
 
-        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote = false)
+        def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote = true)
           min_price = price_in_quote ? @market.minimum_quote_size(symbol) : @market.minimum_base_size(symbol)
           return min_price unless min_price.success?
 
@@ -70,7 +70,7 @@ module ExchangeApi
           Result::Success.new([min_price.data, price.floor(price_decimals.data)].max)
         end
 
-        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote = false)
+        def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote = true)
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
