@@ -33,6 +33,7 @@ module ExchangeApi
         end
 
         def get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          price_in_quote ||= force_smart_intervals
           price_above_minimums = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           return price_above_minimums unless price_above_minimums.success?
 
