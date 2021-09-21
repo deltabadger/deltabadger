@@ -23,4 +23,3 @@ class ScheduleResultFetching < BaseService
 
   attr_reader :bots_repository, :make_transaction_worker, :parse_interval, :next_bot_transaction_at
 end
-
