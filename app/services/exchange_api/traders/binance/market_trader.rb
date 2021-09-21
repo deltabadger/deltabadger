@@ -48,11 +48,8 @@ module ExchangeApi
                            .merge(type: 'MARKET',
                                   quoteOrderQty: price.data.ceil(precision.data)))
           else
-            Result::Success.new(super(symbol)
-                           .merge(type: 'MARKET',
-                                  quantity: parsed_base))
+            Result::Success.new(super(symbol).merge(type: 'MARKET', quantity: parsed_base))
           end
-
         end
       end
     end

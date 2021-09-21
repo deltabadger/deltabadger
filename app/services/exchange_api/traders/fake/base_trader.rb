@@ -16,7 +16,7 @@ module ExchangeApi
           @market = market
         end
 
-        def fetch_order_by_id(order_id, response_params = nil)
+        def fetch_order_by_id(_order_id, response_params = nil)
           if SUCCESS
             Result::Success.new(response_params)
           elsif FETCHED
@@ -24,7 +24,7 @@ module ExchangeApi
           else
             Result::Failure.new('Waiting for exchange response', NOT_FETCHED)
           end
-        rescue StandardError => e
+        rescue StandardError
           Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
         end
 

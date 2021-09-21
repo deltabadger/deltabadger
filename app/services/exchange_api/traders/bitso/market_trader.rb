@@ -32,27 +32,28 @@ module ExchangeApi
 
         def common_order_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           rate = @market.current_bid_price(symbol).data
-          price_above_minimums = price_in_quote ?
+          price_above_minimums = if price_in_quote
                                    transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
-                                   :
+                                 else
                                    smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
+                                 end
           return price_above_minimums unless price_above_minimums.success?
+
           if price_in_quote
             Result::Success.new(
               super(symbol).merge(
-              minor: price_above_minimums.data.to_s,
-              type: 'market'
+                minor: price_above_minimums.data.to_s,
+                type: 'market'
+              )
             )
-            )
-
-            else
-              Result::Success.new(
-                super(symbol).merge(
+          else
+            Result::Success.new(
+              super(symbol).merge(
                 major: price_above_minimums.data.to_s,
                 type: 'market'
               )
-              )
-            end
+            )
+          end
         end
       end
     end
