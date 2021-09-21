@@ -1,6 +1,6 @@
 # rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
-  def initialize( # rubocop:disable Metrics/ParameterLists
+  def initialize(
     exchange_trader: ExchangeApi::Traders::Get.new,
     schedule_transaction: ScheduleTransaction.new,
     fetch_order_result: FetchOrderResult.new,
@@ -24,7 +24,7 @@ class MakeTransaction < BaseService
     @check_price_range = check_price_range
   end
 
-  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true, continue_params: nil)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
@@ -141,6 +141,5 @@ class MakeTransaction < BaseService
       transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
     }
   end
-
 end
 # rubocop:enable Metrics/ClassLength
