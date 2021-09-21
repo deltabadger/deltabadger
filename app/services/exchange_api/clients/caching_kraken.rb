@@ -3,7 +3,7 @@ module ExchangeApi
     module CachingKraken
       def get_public(method, opts = {})
         url = "#{@api_public_url}#{method}"
-        cache_key = url + "/#{opts.to_s}"
+        cache_key = url + "/#{opts}"
         return Rails.cache.read(cache_key) if Rails.cache.exist?(cache_key)
 
         http = Curl.get(url, opts)
@@ -14,4 +14,3 @@ module ExchangeApi
     end
   end
 end
-

@@ -23,9 +23,9 @@ class TransactionsRepository < BaseRepository
 
   def total_btc_bought_day_ago
     model.joins(:bot)
-      .where("bots.settings->>'type' = 'buy' AND bots.settings->>'base' IN (?) AND transactions.created_at < ? ",
-             BTC, 1.days.ago)
-      .sum(:amount).ceil(8)
+         .where("bots.settings->>'type' = 'buy' AND bots.settings->>'base' IN (?) AND transactions.created_at < ? ",
+                BTC, 1.days.ago)
+         .sum(:amount).ceil(8)
   end
 
   def model

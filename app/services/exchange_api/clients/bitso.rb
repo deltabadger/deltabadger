@@ -24,7 +24,6 @@ module ExchangeApi
         # create a sha256 hmac with the secret
         OpenSSL::HMAC.hexdigest('sha256', api_secret, what)
       end
-
     end
   end
 end

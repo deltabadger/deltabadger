@@ -46,7 +46,7 @@ module ExchangeApi
           volume_decimals = base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
-          Result::Success.new((min_price / (bid.data)).ceil(volume_decimals.data))
+          Result::Success.new((min_price / bid.data).ceil(volume_decimals.data))
         end
 
         def quote_decimals(symbol)
