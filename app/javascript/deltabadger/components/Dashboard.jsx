@@ -62,7 +62,6 @@ const DashboardTemplate = ({
 
   return (
     <div className="db-bots">
-      { bots.reduce(buildBotsList, []) }
       <BotForm
         isHodler={isHodler}
         open={isEmpty(bots)}
@@ -76,6 +75,7 @@ const DashboardTemplate = ({
         fetchExchanges={fetchExchanges}
         apiKeyTimeout={apiKeyTimeout}
       />
+      { bots.reduce(buildBotsList, []) }
     </div>
   )
 }
