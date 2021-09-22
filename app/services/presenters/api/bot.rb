@@ -12,9 +12,9 @@ module Presenters
       end
 
       def call(bot)
-        transactions = @transactions_repository.for_bot_by_status(bot, status: :success)
-        skipped_transactions = @transactions_repository.for_bot_by_status(bot, status: :skipped)
-        logs = @transactions_repository.for_bot(bot, limit: 10)
+        transactions = bot.transactions.filter { |t| t.status == 'success' }.sort_by(&:created_at).reverse
+        skipped_transactions = bot.transactions.filter { |t| t.status == 'skipped' }.sort_by(&:created_at).reverse
+        logs = bot.transactions.sort_by(&:id).reverse.first(10)
 
         {
           id: bot.id,
@@ -44,12 +44,6 @@ module Presenters
         @next_bot_transaction_at.call(bot).to_i
       rescue StandardError
         nil
-      end
-
-      def logs(bot)
-        @transactions_repository
-          .for_bot(bot, limit: 10)
-          .map(&method(:present_transaction_as_log))
       end
 
       def present_stats(bot, transactions)

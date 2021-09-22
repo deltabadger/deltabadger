@@ -1,10 +1,12 @@
 module Api
   class ExchangesController < Api::BaseController
     def index
+      api_keys = current_user.api_keys
+      pending = get_exchanges_by_status(api_keys, 'pending')
+      invalid = get_exchanges_by_status(api_keys, 'incorrect')
+      owned = get_exchanges_by_status(api_keys, 'correct')
+
       build_data = lambda do |exchange|
-        pending = current_user.pending_exchanges
-        invalid = current_user.invalid_exchanges
-        owned = current_user.owned_exchanges
         symbols_query = current_user.subscription_name == 'hodler' ? exchange.symbols : exchange.non_hodler_symbols
         symbols = symbols_query.success? ? symbols_query.data : []
         all_symbols = exchange.symbols.or([])
@@ -13,13 +15,17 @@ module Api
           name: exchange.name,
           symbols: symbols,
           all_symbols: all_symbols,
-          owned: exchange.in?(owned),
-          pending: exchange.in?(pending),
-          invalid: exchange.in?(invalid)
+          owned: exchange.id.in?(owned),
+          pending: exchange.id.in?(pending),
+          invalid: exchange.id.in?(invalid)
         }
       end
 
       render json: { data: ExchangesRepository.new.all.map(&build_data) }
+    end
+
+    def get_exchanges_by_status(api_keys, status)
+      api_keys.select { |a| a.status == status }.map(&:exchange_id)
     end
   end
 end
