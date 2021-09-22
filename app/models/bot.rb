@@ -71,11 +71,13 @@ class Bot < ApplicationRecord
   end
 
   def last_transaction
-    transactions.where(transaction_type: 'REGULAR').max_by(&:created_at)
+    transactions.filter { |t| t.transaction_type == 'REGULAR' }.max_by(&:created_at)
   end
 
   def last_successful_transaction
-    transactions.where(status: %w[success skipped], transaction_type: 'REGULAR').max_by(&:created_at)
+    transactions
+      .filter { |t| t.transaction_type == 'REGULAR' && t.status.in?(%w[success skipped]) }
+      .max_by(&:created_at)
   end
 
   def any_last_transaction
