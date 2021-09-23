@@ -393,6 +393,16 @@ input
       font-size: 1.5rem
       line-height: 1.58
       font-weight: bold
+      background: var(--paginationBg)
+      color: var(--text)
+      &:hover
+        background: var(--paginationHover)
+    .page-item
+      a
+        color: var(--link)
+      &.disabled
+        a
+          color: var(--text)
     .page-item:first-child
       .page-link
         border-top-left-radius: 2rem
