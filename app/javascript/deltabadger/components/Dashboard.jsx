@@ -8,9 +8,10 @@ import {
   startBot,
   openBot,
   closeAllBots,
-  loadBots, reloadBot
+  loadBots
 } from '../bot_actions'
 import API from "../lib/API";
+import {PaginationList} from "./PaginationList";
 
 let apiKeyTimeout;
 
@@ -26,9 +27,10 @@ const DashboardTemplate = ({
 }) => {
 
   const [exchanges, setExchanges] = useState([]);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
-    loadBots(true)
+    loadBots(true, page)
   }, [])
 
   const fetchExchanges = () => {
