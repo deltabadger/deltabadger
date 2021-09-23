@@ -15,6 +15,7 @@ gem 'faraday-manual-cache', git: 'https://github.com/dobs/faraday-manual-cache',
 gem 'fomo'
 gem 'haml-rails', '~> 2.0'
 gem 'jbuilder', '~> 2.5'
+gem 'kaminari'
 gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 3.11'
 gem 'rack-cors'

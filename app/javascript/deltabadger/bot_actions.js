@@ -38,8 +38,8 @@ const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: error
 
 export const clearErrors = (id) => setErrors({ id, errors: [] })
 
-export const loadBots = (openFirstBot = false) => dispatch => {
-  return API.getBots().then(({ data }) => {
+export const loadBots = (openFirstBot = false, page) => dispatch => {
+  return API.getBots(page).then(({ data }) => {
     if (data.length === 0) { return }
 
     const sortedBots = data.sort((a,b) => a.id - b.id)

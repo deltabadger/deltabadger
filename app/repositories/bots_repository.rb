@@ -10,12 +10,12 @@ class BotsRepository < BaseRepository
     user.bots.without_deleted.find(id)
   end
 
-  def for_user(user)
+  def for_user(user, page_number)
     user
       .bots
       .without_deleted
       .includes(:exchange, :transactions)
-      .all
+      .page(page_number)
   end
 
   def count_with_status(status)

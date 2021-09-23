@@ -7,6 +7,10 @@ import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
+import {CancelButton} from "./BotForm/CancelButton";
+import {isEmpty} from "../utils/array";
+import {PaginationList} from "./PaginationList";
+import {NavigationPanel} from "./BotForm/NavigationPanel";
 
 const STEPS = [
   'closed_form',
@@ -146,6 +150,11 @@ export const BotForm = ({
     }).finally(() => setCreatingBot(false));
   }
 
+  const handleCancel = () => {
+    setStep(0)
+    callbackAfterClosing()
+  }
+
   // TODO: Fix this!, you can't reset all form, check this!
   const resetFormToStep = (step) => {
     return(() => {
@@ -157,10 +166,6 @@ export const BotForm = ({
 
   const renderForm = () => {
     switch (STEPS[chooseStep(step)]) {
-      case 'closed_form':
-        return <ClosedForm
-          handleSubmit={closedFormHandler}
-        />
       case 'pick_exchange':
         return <PickExchage
           handleReset={() => {
@@ -212,6 +217,14 @@ export const BotForm = ({
 
   return (
     <>
+    <NavigationPanel
+      handleCancel={handleCancel}
+      closedFormHandler={closedFormHandler}
+      showPagination={true}
+      step={chooseStep(step)}
+      page={1}
+      setPage={handleCancel}
+    />
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
     </>
