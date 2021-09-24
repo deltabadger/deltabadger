@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 Kaminari.configure do |config|
-  config.default_per_page = ENV.fetch('BOTS_PER_PAGE').to_i
+  config.default_per_page = ENV.fetch('PAGINATION_DEFAULT_ITEMS_PER_PAGE').to_i
   # config.max_per_page = nil
   # config.window = 4
   # config.outer_window = 0
