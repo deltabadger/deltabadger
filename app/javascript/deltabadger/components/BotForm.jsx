@@ -30,7 +30,10 @@ export const BotForm = ({
   callbackAfterClosing,
   exchanges,
   fetchExchanges,
-  apiKeyTimeout
+  apiKeyTimeout,
+  page,
+  setPage,
+  numberOfPages
 }) => {
   const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
@@ -220,10 +223,10 @@ export const BotForm = ({
     <NavigationPanel
       handleCancel={handleCancel}
       closedFormHandler={closedFormHandler}
-      showPagination={true}
       step={chooseStep(step)}
-      page={1}
-      setPage={handleCancel}
+      page={page}
+      setPage={setPage}
+      numberOfPages={numberOfPages}
     />
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
