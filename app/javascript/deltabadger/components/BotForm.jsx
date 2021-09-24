@@ -148,6 +148,7 @@ export const BotForm = ({
       setErrors([])
       setStep(0)
       setFormState({})
+      setPage(1)
     }).catch((data) => {
       setErrors(data.response.data.errors[0])
     }).finally(() => setCreatingBot(false));
