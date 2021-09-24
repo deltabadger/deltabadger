@@ -33,9 +33,10 @@ export const BotForm = ({
   apiKeyTimeout,
   page,
   setPage,
-  numberOfPages
+  numberOfPages,
+  step,
+  setStep
 }) => {
-  const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [errors, setErrors] = useState("");
   const [isCreatingBot, setCreatingBot] = useState(false);
@@ -87,6 +88,7 @@ export const BotForm = ({
   }, [currentBot])
 
   const closedFormHandler = () => {
+    setPage(1)
     setStep(1)
     callbackAfterOpening()
   }
@@ -148,7 +150,6 @@ export const BotForm = ({
       setErrors([])
       setStep(0)
       setFormState({})
-      setPage(1)
     }).catch((data) => {
       setErrors(data.response.data.errors[0])
     }).finally(() => setCreatingBot(false));

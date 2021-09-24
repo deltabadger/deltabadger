@@ -11,7 +11,6 @@ import {
   loadBots
 } from '../bot_actions'
 import API from "../lib/API";
-import {PaginationList} from "./PaginationList";
 
 let apiKeyTimeout;
 
@@ -29,10 +28,12 @@ const DashboardTemplate = ({
 
   const [exchanges, setExchanges] = useState([]);
   const [page, setPage] = useState(1);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
     closeAllBots()
-    loadBots(true, page)
+    const shouldOpenFirstBot = step === 0
+    loadBots(shouldOpenFirstBot, page)
   }, [page,])
 
   const fetchExchanges = () => {
@@ -71,7 +72,7 @@ const DashboardTemplate = ({
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {
-          loadBots().then(() => startBot(id))
+          loadBots(false, 1).then(() => startBot(id))
         }}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
@@ -81,6 +82,8 @@ const DashboardTemplate = ({
         page={page}
         setPage={setPage}
         numberOfPages={numberOfPages}
+        step={step}
+        setStep={setStep}
       />
       { bots.reduce(buildBotsList, []) }
     </div>
