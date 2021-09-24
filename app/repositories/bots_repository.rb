@@ -15,6 +15,7 @@ class BotsRepository < BaseRepository
       .bots
       .without_deleted
       .includes(:exchange, :transactions)
+      .order(created_at: :desc)
       .page(page_number)
   end
 

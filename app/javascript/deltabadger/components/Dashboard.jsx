@@ -18,6 +18,7 @@ let apiKeyTimeout;
 const DashboardTemplate = ({
   isHodler,
   bots = [],
+  numberOfPages = 0,
   errors = {},
   currentBot,
   startBot,
@@ -30,8 +31,9 @@ const DashboardTemplate = ({
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    closeAllBots()
     loadBots(true, page)
-  }, [])
+  }, [page,])
 
   const fetchExchanges = () => {
     API.getExchanges().then(data => setExchanges(data.data))
@@ -76,6 +78,9 @@ const DashboardTemplate = ({
         exchanges={exchanges}
         fetchExchanges={fetchExchanges}
         apiKeyTimeout={apiKeyTimeout}
+        page={page}
+        setPage={setPage}
+        numberOfPages={numberOfPages}
       />
       { bots.reduce(buildBotsList, []) }
     </div>
@@ -85,7 +90,8 @@ const DashboardTemplate = ({
 const mapStateToProps = (state) => ({
   bots: state.bots,
   currentBot: state.bots.find(bot => bot.id === state.currentBotId),
-  errors: state.errors
+  errors: state.errors,
+  numberOfPages: state.numberOfPages
 })
 
 const mapDispatchToProps = ({
