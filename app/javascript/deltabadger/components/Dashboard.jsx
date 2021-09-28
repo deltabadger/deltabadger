@@ -44,6 +44,16 @@ const DashboardTemplate = ({
     fetchExchanges()
   }, [])
 
+  useEffect( () => {
+    if( bots.length === 0 && page !== 1){
+      setPage(page-1)
+    }
+  },[bots])
+
+  const reloadPage = () => {
+    loadBots(false,page)
+  }
+
   const buildBotsList = (botsToRender, b) => {
     botsToRender.push(
       <Bot
@@ -55,6 +65,7 @@ const DashboardTemplate = ({
         fetchExchanges={fetchExchanges}
         exchanges={exchanges}
         apiKeyTimeout={apiKeyTimeout}
+        reloadPage={reloadPage}
       />
     )
 
