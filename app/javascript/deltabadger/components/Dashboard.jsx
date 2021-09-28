@@ -8,7 +8,7 @@ import {
   startBot,
   openBot,
   closeAllBots,
-  loadBots, reloadBot
+  loadBots
 } from '../bot_actions'
 import API from "../lib/API";
 
@@ -17,6 +17,7 @@ let apiKeyTimeout;
 const DashboardTemplate = ({
   isHodler,
   bots = [],
+  numberOfPages = 0,
   errors = {},
   currentBot,
   startBot,
@@ -26,10 +27,14 @@ const DashboardTemplate = ({
 }) => {
 
   const [exchanges, setExchanges] = useState([]);
+  const [page, setPage] = useState(1);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    loadBots(true)
-  }, [])
+    closeAllBots()
+    const shouldOpenFirstBot = step === 0
+    loadBots(shouldOpenFirstBot, page)
+  }, [page,])
 
   const fetchExchanges = () => {
     API.getExchanges().then(data => setExchanges(data.data))
@@ -38,6 +43,16 @@ const DashboardTemplate = ({
   useEffect( () => {
     fetchExchanges()
   }, [])
+
+  useEffect( () => {
+    if( bots.length === 0 && page !== 1){
+      setPage(page-1)
+    }
+  },[bots])
+
+  const reloadPage = () => {
+    loadBots(false,page)
+  }
 
   const buildBotsList = (botsToRender, b) => {
     botsToRender.push(
@@ -50,6 +65,7 @@ const DashboardTemplate = ({
         fetchExchanges={fetchExchanges}
         exchanges={exchanges}
         apiKeyTimeout={apiKeyTimeout}
+        reloadPage={reloadPage}
       />
     )
 
@@ -62,20 +78,25 @@ const DashboardTemplate = ({
 
   return (
     <div className="db-bots">
-      { bots.reduce(buildBotsList, []) }
       <BotForm
         isHodler={isHodler}
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {
-          loadBots().then(() => startBot(id))
+          loadBots(false, 1).then(() => startBot(id))
         }}
         callbackAfterOpening={closeAllBots}
         callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
         exchanges={exchanges}
         fetchExchanges={fetchExchanges}
         apiKeyTimeout={apiKeyTimeout}
+        page={page}
+        setPage={setPage}
+        numberOfPages={numberOfPages}
+        step={step}
+        setStep={setStep}
       />
+      { bots.reduce(buildBotsList, []) }
     </div>
   )
 }
@@ -83,7 +104,8 @@ const DashboardTemplate = ({
 const mapStateToProps = (state) => ({
   bots: state.bots,
   currentBot: state.bots.find(bot => bot.id === state.currentBotId),
-  errors: state.errors
+  errors: state.errors,
+  numberOfPages: state.numberOfPages
 })
 
 const mapDispatchToProps = ({
