@@ -44,6 +44,7 @@ const BotTemplate = ({
   fetchRestartParams,
   clearBotErrors,
   reload,
+  reloadPage,
   open,
   fetchExchanges,
   exchanges,
@@ -484,7 +485,7 @@ const BotTemplate = ({
 
       }
       <div className="db-bot__footer" hidden={working}>
-        <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
+        <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/>
       </div>
 
     </div>
