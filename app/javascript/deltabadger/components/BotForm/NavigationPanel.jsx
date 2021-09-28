@@ -14,7 +14,7 @@ export const NavigationPanel = ({
     <div className="db-bots__item d-flex db-add-more-bots">
       { step === 0 && <ClosedForm handleSubmit={closedFormHandler}/> }
       { step > 0 && <CancelButton handleCancel={handleCancel} /> }
-      { numberOfPages > 1 && <PaginationList page={page} setPage={setPage} numberOfPages={numberOfPages}/> }
+      { numberOfPages > 1 && <PaginationList page={page} setPage={setPage} numberOfPages={numberOfPages} handleCancel={handleCancel}/> }
     </div>
 
   )
