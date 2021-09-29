@@ -482,6 +482,7 @@ DEPENDENCIES
   haml-rails (~> 2.0)
   i18n-js (~> 3.8.0)
   jbuilder (~> 2.5)
+  kaminari
   kraken_ruby_client!
   letter_opener
   listen (>= 3.0.5, < 3.2)
