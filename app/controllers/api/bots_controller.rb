@@ -1,8 +1,8 @@
 module Api
   class BotsController < Api::BaseController
     def index
-      data =
-        BotsRepository.new.for_user(current_user).map(&method(:present_bot))
+      bots = BotsRepository.new.for_user(current_user, params[:page])
+      data = present_bots(bots)
 
       render json: { data: data }
     end
@@ -102,6 +102,10 @@ module Api
 
     def present_bot(bot)
       Presenters::Api::Bot.call(bot)
+    end
+
+    def present_bots(bots)
+      Presenters::Api::Bots.call(bots)
     end
 
     BOT_PARAMS = %i[
