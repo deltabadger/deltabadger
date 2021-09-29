@@ -63,7 +63,7 @@ module ExchangeApi
         end
 
         def symbol(base, quote)
-          return "#{base}-#{quote}" if future?(quote)
+          return base if future?(base)
 
           "#{base}/#{quote}"
         end
@@ -111,19 +111,19 @@ module ExchangeApi
         end
 
         def get_quote(symbol_info)
-          return symbol_info.fetch('name').split('-')[1] if symbol_info.fetch('type') == 'future'
+          return 'USD' if symbol_info.fetch('type') == 'future'
 
           symbol_info.fetch('name').split('/')[1]
         end
 
         def get_base(symbol_info)
-          return symbol_info.fetch('name').split('-')[0] if symbol_info.fetch('type') == 'future'
+          return symbol_info.fetch('name') if symbol_info.fetch('type') == 'future'
 
           symbol_info.fetch('name').split('/')[0]
         end
 
-        def future?(quote)
-          quote == 'PERP' || /\A\d+\z/.match(quote)
+        def future?(base)
+          base.include?('-')
         end
       end
     end
