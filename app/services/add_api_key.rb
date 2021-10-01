@@ -13,7 +13,7 @@ class AddApiKey < BaseService
     saved_api_key = @api_keys_repository.save(ApiKey.new(params.merge(status: 'pending')))
     @validator_worker.sidekiq_options(queue: API_KEYS_VALIDATION_QUEUE)
     @validator_worker.perform_at(
-      Time.now+0.5.minute,
+      Time.now,
       saved_api_key.id
     )
 
