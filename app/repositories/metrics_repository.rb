@@ -1,4 +1,5 @@
 class MetricsRepository < BaseRepository
+  METRICS_KEY = 'metrics'.freeze
   def update_metrics
     telegram_metrics = FetchTelegramMetrics.new.call
     redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
@@ -7,8 +8,14 @@ class MetricsRepository < BaseRepository
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
       btcBoughtDayAgo: convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago)
     }.merge(telegram_metrics)
-    redis_client.set('metrics', output_params.to_json)
+    redis_client.set(METRICS_KEY, output_params.to_json)
   end
+
+  def get_metrics_key
+    METRICS_KEY
+  end
+
+  private
 
   def convert_to_satoshis(amount)
     (amount * 10**8).ceil
