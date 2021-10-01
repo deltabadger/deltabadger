@@ -1,16 +1,10 @@
 require 'json'
 class MetricsController < ApplicationController
   def index
-    return render json: { data: Rails.cache.read(ENV.fetch('METRICS_CACHE_KEY')) }.to_json if Rails.cache.exist?(ENV.fetch('METRICS_CACHE_KEY'))
+    redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
+    return render json: { data: JSON.parse(redis_client.get('metrics')) }.to_json unless redis_client.get('metrics').nil?
 
-    telegram_metrics = FetchTelegramMetrics.new.call
-
-    output_params = {
-      liveBots: BotsRepository.new.count_with_status('working'),
-      btcBought: MetricsRepository.new.convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      btcBoughtDayAgo: MetricsRepository.new.convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago)
-    }.merge(telegram_metrics)
-    Rails.cache.write(ENV.fetch('METRICS_CACHE_KEY'), output_params, expires_in: 1.5.minute)
-    render json: { data: output_params }.to_json
+    MetricsRepository.new.update_metrics
+    render json: { data: JSON.parse(redis_client.get('metrics')) }.to_json
   end
 end
