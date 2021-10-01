@@ -1,21 +1,10 @@
 require 'json'
-
 class MetricsController < ApplicationController
   def index
-    telegram_metrics = FetchTelegramMetrics.new.call
+    redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
+    return render json: { data: JSON.parse(redis_client.get('metrics')) }.to_json unless redis_client.get('metrics').nil?
 
-    output_params = {
-      liveBots: BotsRepository.new.count_with_status('working'),
-      btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      btcBoughtDayAgo: convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago)
-    }.merge(telegram_metrics)
-
-    render json: { data: output_params }.to_json
-  end
-
-  private
-
-  def convert_to_satoshis(amount)
-    (amount * 10**8).ceil
+    MetricsRepository.new.update_metrics
+    render json: { data: JSON.parse(redis_client.get('metrics')) }.to_json
   end
 end
