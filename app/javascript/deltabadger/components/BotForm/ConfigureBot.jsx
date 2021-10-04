@@ -212,6 +212,9 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await handleSmartIntervalsInfo(getBotParams())
+      if (data.data.minimum === undefined)
+        return;
+
       if (isLimitOrderDefinedInBase(currentExchange.name) && isLimitOrder()) {
         data.data.minimum = data.data.minimum_limit
         data.data.side = 'base'

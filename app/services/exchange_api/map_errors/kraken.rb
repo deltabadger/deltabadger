@@ -1,6 +1,5 @@
 module ExchangeApi::MapErrors
   class Kraken < ExchangeApi::MapErrors::Base
-    # rubocop:disable Metrics/LineLength
     def errors_mapping
       {
         'EGeneral:Permission denied' => Error.new('Insufficient permissions or unverified account.', false),
@@ -12,6 +11,5 @@ module ExchangeApi::MapErrors
         'Out of funds' => Error.new('Insufficient funds', false)
       }
     end
-    # rubocop:enable Metrics/LineLength
   end
 end
