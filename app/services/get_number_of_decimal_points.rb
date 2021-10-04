@@ -3,4 +3,3 @@ class GetNumberOfDecimalPoints < BaseService
     -/.*e(.*)/.match(sprintf('%e', number))[1].to_i
   end
 end
-

@@ -16,7 +16,7 @@ module ExchangeApi
           MINIMUM_ORDER_VOLUME
         end
 
-        def minimum_order_parameters(symbol)
+        def minimum_order_parameters(_symbol)
           if SUCCESS
             Result::Success.new(
               minimum: MINIMUM_ORDER_VOLUME,
