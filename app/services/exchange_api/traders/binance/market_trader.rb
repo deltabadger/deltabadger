@@ -35,23 +35,21 @@ module ExchangeApi
         end
 
         def common_order_params(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
+          price_in_quote ||= force_smart_intervals # minimum is defined in quote
           price = transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           return price unless price.success?
 
           precision = price_in_quote ? @market.quote_tick_size_decimals(symbol) : @market.base_tick_size_decimals(symbol)
           return precision unless precision.success?
 
-          parsed_base = parse_base(symbol,price.data).data
+          parsed_base = parse_base(symbol, price.data).data
           if price_in_quote
             Result::Success.new(super(symbol)
                            .merge(type: 'MARKET',
                                   quoteOrderQty: price.data.ceil(precision.data)))
           else
-            Result::Success.new(super(symbol)
-                           .merge(type: 'MARKET',
-                                  quantity: parsed_base ))
+            Result::Success.new(super(symbol).merge(type: 'MARKET', quantity: parsed_base))
           end
-
         end
       end
     end

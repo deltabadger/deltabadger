@@ -29,7 +29,7 @@ module ExchangeApi
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
-          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless is_order_done?(request, response)
+          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless order_done?(request, response)
           return error_to_failure(['Order was canceled']) if canceled?(response)
 
           amount = response.fetch('filled_size').to_f
@@ -89,7 +89,7 @@ module ExchangeApi
           Result::Success.new([min_volume.data, volume].max)
         end
 
-        def common_order_params(symbol, limit_only = false)
+        def common_order_params(symbol, _limit_only = false)
           {
             product_id: symbol
           }
@@ -106,7 +106,7 @@ module ExchangeApi
           end
         end
 
-        def is_order_done?(request, response)
+        def order_done?(request, response)
           success?(request) && response.fetch('status') == 'done'
         end
 

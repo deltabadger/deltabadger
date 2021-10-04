@@ -115,10 +115,11 @@ module Bots::Free::Validators
       def smart_intervals_above_minimum
         return unless @force_smart_intervals
 
-        @minimum = @minimums[:minimum].to_f
-        if limit_minimum_in_base?(@exchange_name, order_type)
-          @minimum = @minimums[:minimum_limit].to_f
-        end
+        @minimum = if limit_minimum_in_base?(@exchange_name, order_type)
+                     @minimums[:minimum_limit].to_f
+                   else
+                     @minimums[:minimum].to_f
+                   end
 
         return if @smart_intervals_value.to_f >= @minimum.to_f
 

@@ -1,5 +1,4 @@
 class SendgridMailValidator < BaseService
-
   EMAIL_VALIDATION_URL = 'https://api.sendgrid.com/v3/validations/email'.freeze
   INVALID = 'Invalid'.freeze
   CACHE_KEY_BASE = 'sendgrid_response_cache_key'.freeze
@@ -7,7 +6,7 @@ class SendgridMailValidator < BaseService
   def call(email)
     response = get_response(email)
 
-    return Result::Failure.new('Invalid Email') unless is_email_valid?(response)
+    return Result::Failure.new('Invalid Email') unless email_valid?(response)
 
     Result::Success.new
   rescue StandardError => e
@@ -26,7 +25,7 @@ class SendgridMailValidator < BaseService
   private
 
   def get_response(email)
-    cache_key = "#{CACHE_KEY_BASE}_#{email.to_s}"
+    cache_key = "#{CACHE_KEY_BASE}_#{email}"
     if Rails.cache.exist?(cache_key)
       response = Rails.cache.read(cache_key)
     else
@@ -52,7 +51,7 @@ class SendgridMailValidator < BaseService
     }
   end
 
-  def is_email_valid?(response)
+  def email_valid?(response)
     result = response.fetch('result', nil)
     return true if result.nil?
 

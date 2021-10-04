@@ -7,6 +7,10 @@ import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
+import {CancelButton} from "./BotForm/CancelButton";
+import {isEmpty} from "../utils/array";
+import {PaginationList} from "./PaginationList";
+import {NavigationPanel} from "./BotForm/NavigationPanel";
 
 const STEPS = [
   'closed_form',
@@ -26,9 +30,13 @@ export const BotForm = ({
   callbackAfterClosing,
   exchanges,
   fetchExchanges,
-  apiKeyTimeout
+  apiKeyTimeout,
+  page,
+  setPage,
+  numberOfPages,
+  step,
+  setStep
 }) => {
-  const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [errors, setErrors] = useState("");
   const [isCreatingBot, setCreatingBot] = useState(false);
@@ -80,6 +88,7 @@ export const BotForm = ({
   }, [currentBot])
 
   const closedFormHandler = () => {
+    setPage(1)
     setStep(1)
     callbackAfterOpening()
   }
@@ -146,6 +155,11 @@ export const BotForm = ({
     }).finally(() => setCreatingBot(false));
   }
 
+  const handleCancel = () => {
+    setStep(0)
+    callbackAfterClosing()
+  }
+
   // TODO: Fix this!, you can't reset all form, check this!
   const resetFormToStep = (step) => {
     return(() => {
@@ -157,10 +171,6 @@ export const BotForm = ({
 
   const renderForm = () => {
     switch (STEPS[chooseStep(step)]) {
-      case 'closed_form':
-        return <ClosedForm
-          handleSubmit={closedFormHandler}
-        />
       case 'pick_exchange':
         return <PickExchage
           handleReset={() => {
@@ -212,6 +222,14 @@ export const BotForm = ({
 
   return (
     <>
+    <NavigationPanel
+      handleCancel={handleCancel}
+      closedFormHandler={closedFormHandler}
+      step={chooseStep(step)}
+      page={page}
+      setPage={setPage}
+      numberOfPages={numberOfPages}
+    />
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
     </>
