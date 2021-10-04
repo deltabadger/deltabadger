@@ -14,9 +14,6 @@ class MetricsRepository < BaseRepository
   def metrics_data
     redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
     redis_response = redis_client.get(METRICS_KEY)
-    return JSON.parse(redis_response) unless redis_response.nil?
-
-    MetricsRepository.new.update_metrics
     JSON.parse(redis_response)
   end
 
