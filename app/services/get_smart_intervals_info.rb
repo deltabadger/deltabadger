@@ -17,6 +17,8 @@ class GetSmartIntervalsInfo < BaseService
       side: minimum_order_params.data[:side],
       showSmartIntervalsInfo: smart_intervals?(user, price, minimum_order_params.data, smart_intervals)
     )
+  rescue StandardError
+    Result::Failure.new
   end
 
   def set_show_smart_intervals(user)

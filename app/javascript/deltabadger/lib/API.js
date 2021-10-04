@@ -109,9 +109,9 @@ const API = {
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
-  getBots() {
+  getBots(page) {
     const url = `${API_URL}/bots`;
-    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+    return client.request({ url, params: {page: page}, method: 'get' }).then(data => data.data);
   },
 
   getBot(id) {

@@ -213,19 +213,10 @@ en:
         blog: 'Read our blog'
         knowledge_base: 'Knowledge base'
     ads:
-        automate_bitcoin_html: 'Automate buying <br> Bitcoin'
-        automate_crypto_html: "Automate buying any<br class=\"d-none d-sm-inline\">\ncrypto<span class=\"d-none d-sm-inline\">currency</span>"
-        automate_hourly: hourly
-        automate_daily: daily
-        automate_weekly: weekly
         dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
-        dca_bulletproof_html: 'A bullet-proof strategy of <span class="no-break"><a href="#dcamagic">dollar-cost averaging</a>.</span><br> Works with popular exchanges. <span class="no-break">Five-minute setup.</span>'
         dca_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you''re now up <span class="text-success">+%{profit}%</span>'
-        basic_free_html: "The basic plan is\n<b class=\"text-success text-success--lighter\">free</b>\nforever."
         features: "auto-DCA on your exchange account;\n<i>Smart intervals</i> and five-minute setup;\nupdates and new features every month;\nsupport and Telegram community"
-        dca_standard: 'Dollar-cost averaging into Bitcoin is the new standard for long-term savers.'
         dca_standard_html: 'Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.'
-        dca_standard_description_html: "<p>Growing regulations limit individuals' access to financial markets, while negative interest rates devaluate bonds and saving accounts.</p>\n<p>In that environment, both individuals and companies continue investing in Bitcoin.</p>"
         password_managers_html: 'Password managers<br>make security easier.'
         bitwarden_title: 'Try Bitwarden'
         bitwarden_text: '. It''s free and open-source.'
@@ -236,55 +227,6 @@ en:
         twitter_description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free. DCA as simple as it gets.'
         twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
     home:
-        index:
-            title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
-            fastest_asset: 'DCA into the fastest appreciating asset.'
-            fastest_market: 'DCA into the fastest appreciating market.'
-            connect_exchanges: 'Connect one of popular exchanges and set recurring purchases on your desired schedule. You can run as many bots as you want to DCA into your favorite cryptocurrency portfolio.'
-            testimonials:
-                header: 'Users say about us:'
-                header_html: 'What <svg alt="Twitter" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg> is saying:'
-            dca_magic:
-                title_html: "The magic of\n<span class=\"no-break\">dollar-cost</span>\n<br>\naveraging in\n<span class=\"no-break\">4 easy charts</span>"
-                easy1:
-                    title_html: 'Wait… what is DCA?'
-                    text_html: "<p>DCA is a strategy of investing where you buy an asset for a fixed amount on a regular schedule regardless of its price. You get more of the asset when the price is lower, and less of it when the price is higher. As a result, instead of taking big short-term bets, you get a fair average price.</p>\n<p>DCA keeps you away from the emotional roller coaster, short-term risk, and decision-making anxiety.</p>"
-                    chart_regular_purchases: 'Regular purchases'
-                    chart_average_price: 'Average price'
-                easy2:
-                    title_html: 'Should I wait for correction <span class="no-break">to start?</span>'
-                    text_html: '<p>No. For an appreciating asset, it''s always better to start earlier, even at the top! Eventually, the price will go higher, and whoever started earlier ends up with lower average price.</p>'
-                    chart_earlier: Earlier
-                    chart_better_average_price: 'better average price'
-                easy3:
-                    title_html: 'Why is it better than a <span class="no-break">lump sum investment</span>?'
-                    text_html: '<p>In the short-term, the price may still go up, down or sideways. Lump sum wins only in the first scenario. DCA wins in two others. The magic of DCA puts you in green even if the price didn''t change at the end.</p>'
-                    chart_lump_sum: 'Lump sum = 5 units'
-                    chart_dca: 'DCA = 6 units'
-                easy4:
-                    title_html: 'Can I improve DCA with RSI <span class="no-break">or Mayer Multiple</span>?'
-                    text_html: '<p>Not really. Oscillators don''t work well in an upward trend. The next bottom is often higher than the previous top. There is no automated strategy that wins with DCA, because DCA is simply investing in the market trend which can''t be beaten consistently with any math formula.</p>'
-                    chart_price: Price
-                    chart_mm: 'Mayer Multiple'
-            case_studies:
-                investor:
-                    badge: Investor
-                    title_html: 'Mary invests in Bitcoin with a <b class="text-success text-success--lighter">peace of mind</b>.'
-                    story: 'She created a weekly recurring bank transfer for €100 to her Gemini account. Then her bot spends it on Bitcoin in small purchases making her investment strategy effortless.'
-                hodler:
-                    badge: Hodler
-                    title_html: 'Matteo enjoys advanced control and <b class="text-success text-success--lighter">zero fees</b>.'
-                    story: 'He runs a limit order bot that sets orders 0.1% below the current price. On Binance, it offsets both spread and market maker fees completely, so he always gets the best price.'
-                trader:
-                    badge: Trader
-                    title_html: 'Cryptocat44 is DCA-ing into 30 <b class="text-success text-success--lighter">different tokens</b>.'
-                    story: 'On FTX, he builds a portfolio that includes Tesla and Coinbase stocks together with many cryptos. He uses bots to accumulate swing positions and sell them when they''re in profit.'
-            ceo_note:
-                note: 'I started Deltabadger, and I am vocal about Bitcoin because I believe it is one of the most empowering and democratizing world inventions of our times. Money should be neutral. The value of your hard-acquired savings shouldn''t depend on politicians. Everybody has the right to benefit from global economic growth. Only hard money with limited supply can offer such exposure for everybody on this planet.'
-                photo_by: 'Photo by Alifia Harina from Pexels'
-        founder:
-            signature: 'I''m Jan, founder of Deltabadger.'
-            telegram_invitation_html: 'Join us on <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
         confirm_registration:
             title: Thanks!
             text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
@@ -547,14 +489,13 @@ en:
                 title: Info
                 exchanges_html: "<p className=\"mt-2\"><b>Exchanges</b></p>\n<p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> and <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Bitbay if you want to make your purchases in PLN.</p>\n<p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p>\n<p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>\n<p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>"
                 smart_intervals_html: "<p className=\"mt-2\"><b>\"Smart intervals\"</b></p>\n<p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p>\n<p className=\"mt-2\"><b>Why?</b></p>\n<p>There are two benefits:</p>\n<p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p>\n<p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>\n<p className=\"mt-2\"><b>Example:</b></p>\n<p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>New to dollar-cost averaging?</b></p>\n<p>Those links will help:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>New to dollar-cost averaging?</b></p>\n<p>Those links will help:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
         starting: Starting
-        force_smart_intervals: 'Always use smart intervals.'
         price: 'the price'
         above: above
         below: below
         counter: '%{countdown}'
-        force_smart_intervals_html: 'Use only orders of <split>$100</split> %{currency} each.'
+        force_smart_intervals_html: 'Use <em>smart intervals</em> with orders of <split>$100</split> %{currency} each.'
         smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'

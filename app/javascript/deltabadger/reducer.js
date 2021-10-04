@@ -38,6 +38,10 @@ export const reducer = (state = initialState, action) => {
       return {...state, errors: ({...state.errors, ...action.payload}), startingBotIds: state.startingBotIds.filter(id => !errorBotIds.includes(id)) };
     }
 
+    case 'FETCHED_NUMBER_OF_PAGES': {
+      return {...state, numberOfPages: action.payload};
+    }
+
     default:
       return state;
   }

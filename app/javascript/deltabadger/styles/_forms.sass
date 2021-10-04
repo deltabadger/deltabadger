@@ -8,6 +8,9 @@ $formUnit: 2rem
   @include textAdjust(2)
   cursor: pointer
   box-shadow: $boxShadowHome
+  white-space: nowrap
+  span:first-child
+    margin-left: 0.25rem !important
   &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover),&.disabled
     box-shadow: none
   &.disabled
@@ -55,7 +58,7 @@ $formUnit: 2rem
     width: 2.4rem
     height: 1.5em
   *:not(:last-child)
-    margin-right: .5em
+    margin-right: .75em
   .material-icons-round
     align-self: center
     margin-right: -.25em

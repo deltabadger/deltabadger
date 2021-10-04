@@ -1,4 +1,5 @@
 class AddApiKey < BaseService
+  API_KEYS_VALIDATION_QUEUE = 'api keys validation'.freeze
   def initialize(
     api_keys_repository: ApiKeysRepository.new,
     validator_worker: ApiKeyValidatorWorker
@@ -10,6 +11,7 @@ class AddApiKey < BaseService
 
   def call(params)
     saved_api_key = @api_keys_repository.save(ApiKey.new(params.merge(status: 'pending')))
+    @validator_worker.sidekiq_options(queue: API_KEYS_VALIDATION_QUEUE)
     @validator_worker.perform_at(
       Time.now,
       saved_api_key.id
