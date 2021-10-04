@@ -33,7 +33,7 @@ Rails.application.routes.draw do
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     get :smart_intervals_info, to: 'bots#smart_intervals_info'
-    get '/frequency_limit_exceeded', to: 'frequency#limit_exceeded'
+    get :frequency_limit_exceeded, to: 'bots#frequency_limit_exceeded'
     post :set_show_smart_intervals_info, to: 'bots#set_show_smart_intervals_info'
     post :remove_invalid_keys, to: 'api_keys#remove_invalid_keys'
     resources :bots, except: [:new, :edit] do
