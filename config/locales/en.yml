@@ -366,7 +366,7 @@ en:
             binance:
                 instructions_1_html: '<ol>\n  <li>Login to your %{exchange_link} account.</li>\n'
                 instructions_2_html: '  <li>In user menu (round icon in the top right corner) go to <b>API Management</b>.</li>\n'
-                instructions_3_html: '  <li>Name the new API key by pressing \\"Create\\".</li>\n'
+                instructions_3_html: '  <li>Name the new API key by pressing <b>Create</b>.</li>\n'
                 instructions_4_html: '  <li>Confirm creation with one-time code(s).</li>\n'
                 instructions_5_html: '  <li>Make sure that <b>Enable Spot & Margin Trading</b> is checked.</li>\n'
                 instructions_6_html: '  <li>If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>3.18.70.231</b></li>\n'
