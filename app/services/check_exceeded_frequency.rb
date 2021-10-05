@@ -1,27 +1,23 @@
 class CheckExceededFrequency < BaseService
   def call(params)
     frequency_limit = ENV['ORDERS_FREQUENCY_LIMIT']
-    exchange_id = params[:exchange_id]
-    type = params[:type]
-    price = params[:price].to_f
-    base = params[:base]
-    quote = params[:quote]
-    currency_of_minimum = params[:currency_of_minimum]
-    interval = params[:interval]
-    force_smart_intervals = params[:forceSmartIntervals]
-    smart_intervals_value = params[:smartIntervalsValue].to_f
-    return false unless force_smart_intervals == 'true'
+    unless params[:forceSmartIntervals] == 'true'
+      return {
+        limit_exceeded: false,
+        new_intervals_value: params[:smartIntervalsValue].to_f,
+        frequency_limit: frequency_limit
+      }
+    end
 
-    market = get_market(exchange_id)
-    symbol = get_symbol(market, base, quote)
+    market = get_market(params[:exchange_id])
+    symbol = get_symbol(market, params[:base], params[:quote])
     market_price = get_market_price(market, symbol)
-    defined_in_quote = defined_in_quote?(currency_of_minimum, quote)
-    smart_intervals_in_base = get_smart_intervals_in_base(smart_intervals_value, market_price, defined_in_quote)
-    price_in_base = get_price_in_base(price, market_price, type)
-
-    frequency = get_frequency(price_in_base, smart_intervals_in_base, interval)
+    defined_in_quote = defined_in_quote?(params[:currency_of_minimum], params[:quote])
+    smart_intervals_in_base = get_smart_intervals_in_base(params[:smartIntervalsValue].to_f, market_price, defined_in_quote)
+    price_in_base = get_price_in_base(params[:price].to_f, market_price, params[:type])
+    frequency = get_frequency(price_in_base, smart_intervals_in_base, params[:interval])
     limit_exceeded = limit_exceeded?(frequency, frequency_limit)
-    new_intervals_value = limit_exceeded ? get_new_intervals_value(price, frequency_limit, interval, market_price, defined_in_quote, market, symbol, type) : 0
+    new_intervals_value = limit_exceeded ? get_new_intervals_value(params[:price].to_f, frequency_limit, params[:interval], market_price, defined_in_quote, market, symbol, params[:type]) : params[:smartIntervalsValue].to_f
     {
       limit_exceeded: limit_exceeded,
       new_intervals_value: new_intervals_value,
@@ -83,9 +79,10 @@ class CheckExceededFrequency < BaseService
 
   def duration_in_hours(interval)
     {
+      'hour': 1,
       'day': 24,
       'week': 24 * 7,
       'month': 24 * 30
-    }.fetch(interval, 1)
+    }[interval.to_sym]
   end
 end
