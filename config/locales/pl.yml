@@ -438,7 +438,7 @@ pl:
             binance:
                 instructions_1_html: '<ol>\n  <li>Zaloguj się do swojego konta %{exchange_link}.</li>\n'
                 instructions_2_html: '  <li>W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Ustawienia API</b>.</li>\n'
-                instructions_3_html: '  <li>Nadaj nazwę nowemu kluczowi API i kliknij\\"Utworzenie klucza API\\".</li>\n'
+                instructions_3_html: '  <li>Nadaj nazwę nowemu kluczowi API i kliknij <b>Utworzenie klucza API</b>.</li>\n'
                 instructions_4_html: '  <li>Potwierdź utworzenie za pomocą jednorazowego kodu(ów).</li>\n'
                 instructions_5_html: '  <li>Upewnij się, że opcja <b>Włącz Handel Spot i Margin</b> jest zaznaczona.</li>\n'
                 instructions_6_html: '  <li>Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, kliknij <b>Edit restrictions</b>, zaznacz <b>Restrict access to trusted IPs only (Recommended)</b> i dodaj ten IP w następnym kroku: <b>3.18.70.231</b></li>\n'

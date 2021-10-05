@@ -424,7 +424,7 @@ es:
             binance:
                 instructions_1_html: '<ol>\n  <li>Inicia sesión en tu cuenta %{exchange_link}.</li>\n'
                 instructions_2_html: '  <li>En el menú de usuario (icono redondo en la esquina superior derecha) ve a <b>Gestión de la API</b>.</li>\n'
-                instructions_3_html: '  <li>Nombra la nueva clave API pulsando \\"Crear\\".</li>\n'
+                instructions_3_html: '  <li>Nombra la nueva clave API pulsando <b>Crear</b>.</li>\n'
                 instructions_4_html: '  <li>Confirma la creación con un código único.</li>\n'
                 instructions_5_html: '  <li>Asegúrate de que la opción <b>Habilitar operaciones al contado y con margen</b> está marcada.</li>\n'
                 instructions_6_html: '  <li>Si quieres restringir el acceso a la clave solo para Deltabadger, pulsa <b>Editar restricciones</b>, marca <b>Restringir el acceso solo a IP de confianza (Recomendado)</b> y añade esta IP en el siguiente paso: <b>3.18.70.231</b></li>\n'
