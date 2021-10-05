@@ -41,6 +41,7 @@ module Bots::Free::Validators
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
       validates :force_smart_intervals, inclusion: { in: [true, false] }
+      validates :smart_intervals_value, numericality: { only_float: true, greater_than: 0 }
       validates :price_range_enabled, inclusion: { in: [true, false] }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
@@ -79,16 +80,6 @@ module Bots::Free::Validators
         return if symbol.in?(allowed_symbols)
 
         errors.add(:symbol, "#{symbol} is not supported")
-      end
-
-      def interval_within_limit
-        result = Bots::Free::Validators::IntervalWithinLimit.call(
-          interval: interval,
-          price: price,
-          currency: quote
-        )
-
-        errors.add(:base, result.errors.first) if result.failure?
       end
 
       def hodler_allowed_symbol
