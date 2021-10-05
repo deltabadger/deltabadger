@@ -157,6 +157,10 @@ const API = {
   getChartData(botId) {
     const url = `${API_URL}/bots/${botId}/charts/portfolio_value_over_time`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+  },
+  checkFrequencyExceed(params) {
+    const url = `${API_URL}/frequency_limit_exceeded`
+    return client.request({url, params: params, method: 'get'}).then(data => data.data);
   }
 };
 
