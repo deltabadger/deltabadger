@@ -128,14 +128,13 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
         frequencyLimitExceeded = frequencyResponse['limit_exceeded']
         setFrequencyLimit(frequencyResponse['frequency_limit'])
         setNewIntervalsValue(frequencyResponse['new_intervals_value'].toString());
-      } catch (e) {
-        console.error(e)
-      } finally {
         if (frequencyLimitExceeded) {
           setOpen(true);
         } else {
           _handleSubmit(evt, smartIntervalsValue)
         }
+      } catch (e) {
+        console.error(e)
       }
     }
 
