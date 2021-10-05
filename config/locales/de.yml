@@ -297,10 +297,9 @@ de:
         new:
             title: 'Registrierung für das Empfehlungsprogramm'
             upgrade: 'Um an unserem berühmten Empfehlungsprogramm teilzunehmen, führe ein Upgrade auf einen unserer kostenpflichtigen Pläne durch.'
-            referrer_info: '1. Info zum Empfehlenden'
-            payout_address: '2. Auszahlungsadresse'
-            program_settings: '3. Programmeinstellungen'
-            visible_info: '4. Sichtbare Info'
+            referrer_info: 'Info zum Empfehlenden'
+            payout_address: 'Auszahlungsadresse'
+            visible_info: 'Sichtbare Info'
             private: Privat
             eu_company: EU-Firma
             unchangable_warning: 'Die Einstellungen in diesem Bereich können später nicht geändert werden.'
@@ -423,35 +422,77 @@ de:
             limit_warning: 'Der Limit-Order-Bot ist eine experimentelle Funktion. Nicht alle Aufträge werden dadurch ausgeführt. Um gute Ergebnisse zu erzielen, musst du den investierten Betrag anteilig erhöhen. Im Moment bietet der Deltabadger noch keine Hilfe bei der Abschätzung dieser Anpassung, daher ist dein eigenes Backtesting notwendig. Verwende ihn nur, wenn du weißt, was du tust.'
             how_to_get_keys: 'So erstellst du einen API-Key bei %{exchange}:'
             binance:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.</li>\n  <li>Benenne den neuen API-Schlüssel, indem du auf \"Erstellen\" klickst.</li>\n  <li>Bestätige mit einem einmaligen Code.</li>\n  <li>Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.</li>\n  <li>Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.18.70.231</b></li>\n  <li>Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.</li>\n  <li>Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.</li>\n  <li>Füge beide Schlüssel in die Eingabe oben ein.</li>\n</ol>"
+                instructions_1_html : '<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n'
+                instructions_2_html : '  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.</li>\n'
+                instructions_3_html : '  <li>Benenne den neuen API-Schlüssel, indem du auf "Erstellen" klickst.</li>\n'
+                instructions_4_html : '  <li>Bestätige mit einem einmaligen Code.</li>\n'
+                instructions_5_html : '  <li>Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.</li>\n'
+                instructions_6_html : '  <li>Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.18.70.231</b></li>\n'
+                instructions_7_html : '  <li>Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.</li>\n'
+                instructions_8_html : '  <li>Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.</li>\n'
+                instructions_9_html : '  <li>Füge beide Schlüssel in die Eingabe oben ein. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
             bitbay:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Einstellungen</b>.</li>\n  <li>Drücke auf <b>Neuen Schlüssel hinzufügen</b>.</li>\n  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Verlauf</b></li>\n      <li><b>Order und Marktkonfigurationen erhalten</b></li>\n      <li><b>Order prüfen und Marktkonfigurationen ändern</li></b>\n    </ul>\n  </li>\n  <li>Drücke auf <b>Erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben.</li>\n</ol>"
+                instructions_1_html : '<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n'
+                instructions_2_html : '  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Einstellungen</b>.</li>\n'
+                instructions_3_html : '  <li>Drücke auf <b>Neuen Schlüssel hinzufügen</b>.</li>\n'
+                instructions_4_html : '  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Verlauf</b>      <li><b>Order und Marktkonfigurationen erhalten</b>      <li><b>Order prüfen und Marktkonfigurationen ändern</li></b>\n    </ul>\n  </li>\n'
+                instructions_5_html : '  <li>Drücke auf <b>Erstellen</b>.</li>\n'
+                instructions_6_html : '  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben. \n </ol>'
                 private_key: 'Private Key'
                 public_key: 'Public Key'
             kraken:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link} -Konto an.</li>\n  <li>Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.</li>\n  <li>Drücke auf <b>Neuen Schlüssel erstellen</b>.</li>\n  <li>Setze Berechtigungen für:<br/>\n    Gelder:\n    <ul>\n      <li><b>Gelder abfragen</b></li>\n    </ul>\n    Order & Trades:\n    <ul>\n      <li><b>Offene Orders & Trades abfragen</b></li>\n      <li><b>Geschlossene Orders & Trades abfragen</b></li>\n      <li><b>Order ändern</b></li>\n      <li><b>Order abbrechen/schließen</b></li>\n    </ul>\n  </li>\n  <li>Drücke auf <b>Schlüssel generieren</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in die obige Tabelle.</li>\n</ol>"
+                instructions_1_html: '<ol>\n  <li>Melde dich bei deinem %{exchange_link} -Konto an.</li>\n'
+                instructions_2_html: '  <li>Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.</li>\n'
+                instructions_3_html: '  <li>Drücke auf <b>Neuen Schlüssel erstellen</b>.</li>\n'
+                instructions_4_html: '  <li>Setze Berechtigungen für:<br/>\n    Gelder:\n    <ul>\n      <li><b>Gelder abfragen</b>    </ul>\n    Order & Trades:\n    <ul>\n      <li><b>Offene Orders & Trades abfragen</b>      <li><b>Geschlossene Orders & Trades abfragen</b>      <li><b>Order ändern</b>      <li><b>Order abbrechen/schließen</b>    </ul>\n  </li>\n'
+                instructions_5_html: '  <li>Drücke auf <b>Schlüssel generieren</b>.</li>\n'
+                instructions_6_html: '  <li>Kopiere deine neuen API-Schlüssel in die obige Tabelle. \n </ol>'
                 trading_agreement_html: '<b>Hallo!</b> Wenn dein Kraken-Konto mit einer deutschen Adresse verifiziert ist, musst du eine <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsvereinbarung</a> akzeptieren, um Market- und Margin-Orders zu platzieren.'
                 trading_agreement_label_html: 'Ich akzeptiere die <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsvereinbarung</a>.'
                 private_key: 'Private Key'
                 public_key: API-Schlüssel
             coinbase_pro:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API</b>.</li>\n  <li>Drücke auf <b>Neuer API-Schlüssel</b>.</li>\n  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Ansicht</b></li>\n      <li><b>Trade</b></li>\n    </ul>\n  </li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel und Passphrase in die Tabelle oben.</li>\n</ol>"
+                instructions_1_html: '<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n'
+                instructions_2_html: '  <li>Gehe im Benutzermenü (obere rechte Ecke) zu <b>API</b>.</li>\n'
+                instructions_3_html: '  <li>Drücke auf <b>Neuer API-Schlüssel</b>.</li>\n'
+                instructions_4_html: '  <li>Setze Berechtigungen für:\n    <ul>\n      <li><b>Ansicht</b>      <li><b>Trade</b>    </ul>\n  </li>\n'
+                instructions_5_html: '  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n'
+                instructions_6_html: '  <li>Kopiere deine neuen API-Schlüssel und Passphrase in die Tabelle oben. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
                 passphrase: Passphrase
             gemini:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe im Konto-Menü (obere rechte Ecke) zu <b>Einstellungen</b>.</li>\n  <li>Wähle <b>API</b> (links).</li>\n  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n  <li>Wähle im Dropdownmenü <b>Bereich</b> <b>Primär</b>.</li>\n  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n  <li>Stelle die API-Schlüssel-Einstellungen ein:\n    <ul>\n      <li><b>Trading</b></li>\n    </ul>\n  </li>\n  <li>Wähle <b>Require session heartbeat</b></li> nicht aus\n  <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben.</li>\n</ol>"
+                instructions_1_html: '<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n'
+                instructions_2_html: '  <li>Gehe im Konto-Menü (obere rechte Ecke) zu <b>Einstellungen</b>.</li>\n'
+                instructions_3_html: '  <li>Wähle <b>API</b> (links).</li>\n'
+                instructions_4_html: '  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n'
+                instructions_5_html: '  <li>Wähle im Dropdownmenü <b>Bereich</b> <b>Primär</b>.</li>\n'
+                instructions_6_html: '  <li>Drücke auf <b>Neuen API-Schlüssel erstellen</b>.</li>\n'
+                instructions_7_html: '  <li>Stelle die API-Schlüssel-Einstellungen ein:\n    <ul>\n      <li><b>Trading</b>    </ul>\n  </li>\n'
+                instructions_8_html: '  <li>Wähle <b>Require session heartbeat</b> nicht aus </li>\n '
+                instructions_9_html: ' <li>Kopiere deine neuen API-Schlüssel in die Tabelle oben. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
             ftx:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n  <li>Gehe zum Einstellungsmenü (Oben in der rechten Ecken).</li>\n  <li>Scrolle runter bis zum <b>API-Schlüssel</b>-Bereich.</li>\n  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n  <li>Kopiere deine neuen API-Schlüssel in das Formular oben.</li>\n</ol>"
+                instructions_1_html : '<ol>\n  <li>Melde dich bei deinem %{exchange_link}-Konto an.</li>\n'
+                instructions_2_html : '  <li>Gehe zum Einstellungsmenü (Oben in der rechten Ecken).</li>\n'
+                instructions_3_html : '  <li>Scrolle runter bis zum <b>API-Schlüssel</b>-Bereich.</li>\n'
+                instructions_4_html : '  <li>Drücke auf <b>API-Schlüssel erstellen</b>.</li>\n'
+                instructions_5_html : '  <li>Kopiere deine neuen API-Schlüssel in das Formular oben. \n </ol>'
                 private_key: 'Private Key'
                 public_key: 'Public Key'
             next: Weiter
             bitso:
-                instructions_html: "<ol>\n  <li>Melden dich bei deinem <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso-Konto</a> an.</li>\n  <li>Im Kontomenü (oben rechts) gehst du auf <b>Profil</b>.</li>\n  <li>Wähle <b>API</b> (linke Seite).</li>\n  <li>Drücke <b>Neue API hinzufügen</b>.</li>\n  <li>Fülle den <b>API-Namen</b> aus und gebe deinen <b>Transaktions-PIN</b> ein.</li>\n  <li>Berechtigungen festlegen:\n    <ul>\n      <li><b>Trades durchführen</b></li>\n      <li><b>Kontostände anzeigen</b></li>\n      <li><b>Kontoinformationen anzeigen</b></li>\n    </ul>\n  </li>\n  <li>Drücke <b>Speichern</b>.</li>\n  <li>Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein.</li>\n</ol>"
+                instructions_1_html : '<ol>\n  <li>Melden dich bei deinem <a href="https://bitso.com/" target="_blank" rel="nofollow">Bitso-Konto</a> an.</li>\n'
+                instructions_2_html : '  <li>Im Kontomenü (oben rechts) gehst du auf <b>Profil</b>.</li>\n'
+                instructions_3_html : '  <li>Wähle <b>API</b> (linke Seite).</li>\n'
+                instructions_4_html : '  <li>Drücke <b>Neue API hinzufügen</b>.</li>\n'
+                instructions_5_html : '  <li>Fülle den <b>API-Namen</b> aus und gebe deinen <b>Transaktions-PIN</b> ein.</li>\n'
+                instructions_6_html : '  <li>Berechtigungen festlegen:\n    <ul>\n      <li><b>Trades durchführen</b>      <li><b>Kontostände anzeigen</b>      <li><b>Kontoinformationen anzeigen</b>    </ul>\n  </li>\n'
+                instructions_7_html : '  <li>Drücke <b>Speichern</b>.</li>\n'
+                instructions_8_html : '  <li>Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
             smart_intervals:
@@ -462,16 +503,39 @@ de:
             validating: 'Wird validiert'
             error_info: 'Validierung fehlgeschlagen. Versuchen Sie erneut oder generieren Sie neue Schlüssel'
             kucoin:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link} Konto an.</li>\n  <li>Gehe im Kontomenü (oben rechts in der Ecke, neben der Sprachauswahl)  auf <b>API-Verwaltung</b>.</li>\n  <li>Klicke auf <b>API erstellen</b>.</li>\n  <li>Wenn du deine API-Schlüssel zum ersten Mal erstellst, erstelle und speichere dein <b>Trading-Passwort</b>.</li>\n  <li>Gib einen <b>API-Namen</b> an.</li>\n  <li>Erstelle und speichere deine <b>API-Passphrase</b>.</li>\n  <li>Lege Berechtigungen fest für:\n     <ul>\n       <li><b>Allgemein</b></li>\n       <li><b>Handel</b></li>\n     </ul>\n   </li>\n   <li>Wenn du den Zugriff nur für Deltabadger einschränken willst, setze die <b>IP-Einschränkung</b> auf \"ja\" und füge diese IP-Adresse hinzu: <b>3.18.70.231</b></li>\n   <li>Klicke auf <b>Weiter</b>.</li>\n   <li>Bestätige die Erstellung des API-Schlüssels durch dein Trading-Passwort und die 2FA.</li>\n   <li>Kopiere deinen neuen API-Schlüssel und die Passphrase und füge sie in das obige Formular ein.</li>\n</ol>"
+                instructions_1_html : '<ol>\n  <li>Melde dich bei deinem %{exchange_link} Konto an.</li>\n'
+                instructions_2_html : '  <li>Gehe im Kontomenü (oben rechts in der Ecke, neben der Sprachauswahl)  auf <b>API-Verwaltung</b>.</li>\n'
+                instructions_3_html : '  <li>Klicke auf <b>API erstellen</b>.</li>\n'
+                instructions_4_html : '  <li>Wenn du deine API-Schlüssel zum ersten Mal erstellst, erstelle und speichere dein <b>Trading-Passwort</b>.</li>\n'
+                instructions_5_html : '  <li>Gib einen <b>API-Namen</b> an.</li>\n'
+                instructions_6_html : '  <li>Erstelle und speichere deine <b>API-Passphrase</b>.</li>\n'
+                instructions_7_html : '  <li>Lege Berechtigungen fest für:\n     <ul>\n       <li><b>Allgemein</b>       <li><b>Handel</b>     </ul>\n   </li>\n'
+                instructions_8_html : '   <li>Wenn du den Zugriff nur für Deltabadger einschränken willst, setze die <b>IP-Einschränkung</b> auf "ja" und füge diese IP-Adresse hinzu: <b>3.18.70.231</b></li>\n'
+                instructions_9_html : '   <li>Klicke auf <b>Weiter</b>.</li>\n'
+                instructions_10_html : '   <li>Bestätige die Erstellung des API-Schlüssels durch dein Trading-Passwort und die 2FA.</li>\n'
+                instructions_11_html : '   <li>Kopiere deinen neuen API-Schlüssel und die Passphrase und füge sie in das obige Formular ein. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
                 passphrase: Passphrase
             bitfinex:
-                instructions_html: "<ol>\n  <li>Melde dich bei deinem %{exchange_link} Konto an.</li>\n  <li>Klicke in dem Kontomenü (ob rechts in der Ecke) auf <b>API-Schlüssel</b>.</li>\n  <li>Gehe zu <b>Neuen Schlüssel erstellen</b>.</li>\n  <li>Lege Berechtigungen fest für:\n    <ul>\n      <li><b>Aufträge und Status erhalten.</b></li>\n      <li><b>Erstellen und abbrechen von Aufträgen.</b></li>\n    </ul>\n  </li>\n  <li>Gebe das <b>Label</b> für deinen API-Schlüssel an.</li>\n  <li>Gehe auf <b>API-Schlüsse generieren</b>.</li>\n  <li>Kopiere den neuen API-Schlüssel und füge ihn in das obige Formular ein.</li>\n</ol>"
+                instructions_1_html : '<ol>\n  <li>Melde dich bei deinem %{exchange_link} Konto an.</li>\n'
+                instructions_2_html : '  <li>Klicke in dem Kontomenü (ob rechts in der Ecke) auf <b>API-Schlüssel</b>.</li>\n'
+                instructions_3_html : '  <li>Gehe zu <b>Neuen Schlüssel erstellen</b>.</li>\n'
+                instructions_4_html : '  <li>Lege Berechtigungen fest für:\n    <ul>\n      <li><b>Aufträge und Status erhalten.</b>      <li><b>Erstellen und abbrechen von Aufträgen.</b>    </ul>\n  </li>\n'
+                instructions_5_html : '  <li>Gebe das <b>Label</b> für deinen API-Schlüssel an.</li>\n'
+                instructions_6_html : '  <li>Gehe auf <b>API-Schlüsse generieren</b>.</li>\n'
+                instructions_7_html : '  <li>Kopiere den neuen API-Schlüssel und füge ihn in das obige Formular ein. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
             bitstamp:
-                instructions_html: "<ol>\n  <li>Melden Sie sich bei Ihrem %{exchange_link} Konto an.</li>\n  <li>Gehen Sie im Kontomenü (oben rechts) auf <b>Einstellungen</b>.</li>\n  <li>Unter<b>Zugangskontrolle</b> gehen Sie auf <b>API-Zugang</b>.</li>\n  <li>Drücken Sie <b>Neuer API-Schlüssel</b>.</li>\n  <li>Wenn Sie den Zugang zu dem Schlüssel nur für Deltabadger verbieten wollen, stellen Sie den <b>IP-Adressen-Filter</b> auf diese IP: <b>3.18.70.231</b></li>\n  <li>Berechtigungen festlegen für:\n    <ul>\n      <li><b>Auftrag öffnen.</b></li>\n      <li><b>Auftrag abbrechen.</b></li>\n      <li><b>Limit-/Marken-Order kaufen.</b></li>\n      <li><b>Limit-/Marken-Order verkaufen.</b>/li>\n    </ul>\n  </li>\n  <li>Drücke <b>2FA eingeben & einreichen</b>.</li>\n  <li>Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein.</li>\n</ol><b></b></li>"
+                instructions_1_html : '<ol>\n  <li>Melden Sie sich bei Ihrem %{exchange_link} Konto an.</li>\n'
+                instructions_2_html : '  <li>Gehen Sie im Kontomenü (oben rechts) auf <b>Einstellungen</b>.</li>\n'
+                instructions_3_html : '  <li>Unter<b>Zugangskontrolle</b> gehen Sie auf <b>API-Zugang</b>.</li>\n'
+                instructions_4_html : '  <li>Drücken Sie <b>Neuer API-Schlüssel</b>.</li>\n'
+                instructions_5_html : '  <li>Wenn Sie den Zugang zu dem Schlüssel nur für Deltabadger verbieten wollen, stellen Sie den <b>IP-Adressen-Filter</b> auf diese IP: <b>3.18.70.231</b></li>\n'
+                instructions_6_html : '  <li>Berechtigungen festlegen für:\n    <ul>\n      <li><b>Auftrag öffnen.</b>      <li><b>Auftrag abbrechen.</b>      <li><b>Limit-/Marken-Order kaufen.</b>      <li><b>Limit-/Marken-Order verkaufen.</b>/li>\n    </ul>\n  </li>\n'
+                instructions_7_html : '  <li>Drücke <b>2FA eingeben & einreichen</b>.</li>\n'
+                instructions_8_html : '  <li>Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein. \n </ol>'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
             set: Einstellen
