@@ -12,12 +12,13 @@ export const Instructions = ({ exchangeName }) => {
   const anchor = `<a href="${url}" target="_blank" rel="nofollow">${name}</a>`
 
   const mergedInstruction = () => {
-    let merged = ''
+    let merged = '<ol>'
     let counter = 1
     while(I18n.lookup('bots.setup.' + translation_key + '.instructions_' + counter + '_html', I18n.locale)){
-      merged += I18n.t('bots.setup.' + translation_key + '.instructions_' + counter + '_html', { exchange_link: anchor})
+      merged += `<li>${I18n.t('bots.setup.' + translation_key + '.instructions_' + counter + '_html', { exchange_link: anchor})}</li>`
       counter += 1
     }
+    merged += '</ol>'
 
     return merged.replaceAll('\\n', '')
   }
