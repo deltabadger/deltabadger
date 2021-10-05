@@ -50,7 +50,6 @@ module Bots::Free::Validators
       }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
-      validate :interval_within_limit
       validate :smart_intervals_above_minimum
       validate :hodler_if_price_range
       validate :validate_price_range
@@ -81,16 +80,6 @@ module Bots::Free::Validators
         return if symbol.in?(allowed_symbols)
 
         errors.add(:symbol, "#{symbol} is not supported")
-      end
-
-      def interval_within_limit
-        result = Bots::Free::Validators::IntervalWithinLimit.call(
-          interval: interval,
-          price: price,
-          currency: quote
-        )
-
-        errors.add(:base, result.errors.first) if result.failure?
       end
 
       def hodler_allowed_symbol
