@@ -83,6 +83,11 @@ module Api
       end
     end
 
+    def frequency_limit_exceeded
+      limit_exceeded = CheckExceededFrequency.call(params)
+      render json: limit_exceeded.to_json
+    end
+
     def set_show_smart_intervals_info
       GetSmartIntervalsInfo.new.set_show_smart_intervals(current_user)
     end
