@@ -41,7 +41,6 @@ module Bots::Free::Validators
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
       validates :force_smart_intervals, inclusion: { in: [true, false] }
-      validates :smart_intervals_value, numericality: { only_float: true, greater_than: 0 }
       validates :price_range_enabled, inclusion: { in: [true, false] }
       validates :percentage, allow_nil: true, numericality: {
         only_float: true,
@@ -50,7 +49,6 @@ module Bots::Free::Validators
       }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
-      validate :interval_within_limit
       validate :smart_intervals_above_minimum
       validate :hodler_if_price_range
       validate :validate_price_range
