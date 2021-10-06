@@ -79,6 +79,7 @@ module ExchangeApi
         def fetch_symbol(symbol)
           request = @caching_client.get("/v1/symbols/details/#{symbol}")
           response = JSON.parse(request.body)
+          return Result::Failure.new("#{symbol} pair is no longer available on Gemini") if response['status'] == 'closed'
 
           Result::Success.new(response)
         rescue StandardError
