@@ -227,19 +227,10 @@ pl:
         blog: 'Czytaj nasz blog'
         knowledge_base: 'Baza wiedzy'
     ads:
-        automate_bitcoin_html: 'Automatycznie kupuj Bitcoina co'
-        automate_crypto_html: 'Automatycznie kupuj dowolne krypto co'
-        automate_hourly: godzinę
-        automate_daily: dzień
-        automate_weekly: tydzień
         dont_trade_automate_html: '<div>Nie spekuluj.</div> <div>Automatyzuj.</div>'
-        dca_bulletproof_html: 'Kuloodporna strategia <span class="no-break"><a href="#dcamagic">uśredniania ceny dolarowej</a></span>.<br>Działa z popularnymi giełdami. <span class="no-break">Pięciominutowy setup.</span>'
         dca_profit_html: 'Jeśli inwestowałeś w Bitcoina<br>uśredniając przez ostatni rok,<br>jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
-        basic_free_html: "Podstawowy plan jest\n<b class=\"text-success text-success--lighter\">darmowy</b>."
         features: "automatyczne uśrednianie wprost na twoim obecnym koncie;\n<i>smart interwały</i> i pięciominutowa konfiguracja;\naktualizacje i nowe funkcje co miesiąc;\nsupport i grupa na Telegramie"
-        dca_standard: 'Inwestowanie w Bitcoina przez uśrednianie to nowy standard oszczędzania.'
         dca_standard_html: 'Inwestowanie w Bitcoina przez uśrednianie to nowy standard oszczędzania.'
-        dca_standard_description_html: "<p>Narastające regulacje ograniczają dostęp do rynków finansowych małym inwestorom, a ujemne stopy procentowe sprawiają, że obligacje i konta oszczędnościowe straciły sens.</p>\n<p>W tych realiach, zarówno osoby prywatne, jak i firmy nie przestają inwestować w Bitcoina.</p>"
         password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
         bitwarden_title: 'Spróbuj Bitwarden'
         bitwarden_text: '. Jest darmowy i open-source.'
@@ -250,55 +241,6 @@ pl:
         twitter_description: 'Automatyzuj małe zakupy Bitcoina w regularnych odstępach czasu. Uruchomienie trwa pięć minut. Podstawowy plan jest darmowy.'
         twitter_image_alt: 'Inwestowanie w Bitcoina metodą uśredniania'
     home:
-        index:
-            title: 'Deltabadger | Inwestowanie w Bitcoina metodą uśredniania'
-            fastest_asset: 'Inwestuj uśredniając w najszybciej rosnące aktywum finansowe.'
-            fastest_market: 'Inwestuj uśredniając w najszybciej rosnący rynek finansowy.'
-            connect_exchanges: 'Podłącz jedną z popularnych giełd i ustaw powtarzające się zakupy w wybranym odstępie czasu. Możesz uruchomić tyle botów, ile chcesz, aby inwestować uśredniając w dowolny koszyk kryptowalut.'
-            testimonials:
-                header: 'Użytkownicy mówią o nas:'
-                header_html: 'To mówi <svg alt="Twitter" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg>'
-            dca_magic:
-                title_html: 'Magia inwestowania przez uśrednianie<br>w czterech prostych wykresach'
-                easy1:
-                    title_html: 'Co to jest to uśrednianie (DCA)?'
-                    text_html: '<p>Uśrednianie ceny dolarowej (dollar-cost averaging, DCA), to tradycyjna strategia inwestowania, w której inwestujesz stałą kwotę w stałych odstępach czasu, niezależnie od bieżącej ceny aktywa. W ten sposób kupujesz trochę więcej aktywa, gdy cena jest niższa, a mniej, gdy cena jest wyższa otrzymując średnią cenę z danego okresu. Dzięki temu unikasz krótkoterminowego ryzyka i nerwowych emocjonalnych decyzji.</p>'
-                    chart_regular_purchases: 'Regularne zakupy'
-                    chart_average_price: 'Średnia cena'
-                easy2:
-                    title_html: 'Czy powinienem zaczekać z rozpoczęciem na korektę?'
-                    text_html: '<p>Nie. Dla aktywów w trendzie bocznym lub wzrostowym zawsze lepiej zacząć wcześniej. Nawet na lokalnym szczycie! Kiedy kurs wreszcie odbija, ten kto rozpoczął regularne zakupy wcześniej, kończy z lepszą ceną średnią.</p>'
-                    chart_earlier: Wcześniej
-                    chart_better_average_price: 'lepsza średnia cena'
-                easy3:
-                    title_html: 'Dlaczego to lepsze niż duży jednorazowy zakup?'
-                    text_html: '<p>W krótkim okresie cena może wzrosnąć, spaść lub pozostać w trendzie bocznym. Jednorazowy zakup wygrywa tylko w pierwszym scenariuszu. Uśrednianie wygrywa w dwóch pozostałych. Magia uśredniania sprawia, że pozostajesz "na plusie", nawet jeśli cena jest taka sama na końcu danego okresu.</p>'
-                    chart_lump_sum: 'Jednorazowy zakup = 5 jednostek'
-                    chart_dca: 'DCA = 6 jednostek'
-                easy4:
-                    title_html: 'Czy mogę udoskonalić uśrednianie, uwzględniając jakiś wskaźnik rynkowy taki jak Mayer Multiple lub RSI?'
-                    text_html: '<p>Nie za bardzo. Oscylatory nie działają dobrze w trendzie wzrostowym. Następny dołek jest często wyżej niż poprzedni szczyt. Nie istnieje żadna zautomatyzowana strategia, która wygrywa z DCA, ponieważ DCA jest po prostu inwestowaniem w trend rynkowy, którego nie da się konsekwentnie przebić za pomocą żadnej formuły matematycznej.</p>'
-                    chart_price: Cena
-                    chart_mm: 'Mayer Multiple'
-            case_studies:
-                investor:
-                    badge: Inwestor
-                    title_html: 'Anna inwestuje w Bitcoina ze <b class="text-success text-success--lighter">spokojem umysłu</b>.'
-                    story: 'Cotygodniowy przelew bankowy zasila konto na Bitbay na 100 zł. Następnie bot wydaje je na Bitcoina w małych zleceniach. Inwestowanie na autopilocie.'
-                hodler:
-                    badge: Hodler
-                    title_html: 'Damian cieszy się zaawansowaną kontrolą i <b class="text-success text-success--lighter">zerowymi opłatami</b>.'
-                    story: 'Ma bota używającego zleceń z limitem, który ustawia je 0.1% poniżej aktualnej ceny. Na Binance, to znosi zarówno spread i opłaty transakcyjne dając gwarancję najlepszej ceny.'
-                trader:
-                    badge: Trader
-                    title_html: 'KryptoPolak uśrednia do 30 <b class="text-success text-success--lighter">różnych tokenów</b>.'
-                    story: 'Na FTX buduje portfel, który zawiera akcje Tesli i Coinbase wraz z wieloma kryptowalutami. Używa botów do akumulacji pozycji i sprzedawania ich, gdy są na plusie.'
-            ceo_note:
-                note: 'Stworzyłem Deltabadgera, i często mówię o Bitcoinie, ponieważ wierzę, że jest to jeden z najbardziej demokratyzujących świat wynalazków naszych czasów. Pieniądz powinien być neutralny. Siła nabywcza twoich ciężko zdobytych oszczędności nie powinna zależeć od polityków. Każdy ma prawo do bezpośredniego uczestniczenia w zysku z globalnego wzrostu gospodarczego. Tylko zdecentralizowany pieniądz o ograniczonej podaży może dać taką ekspozycję wszystkim mieszkańcom planety.'
-                photo_by: 'Zdjęcie: Alifia Harina z Pexels'
-        founder:
-            signature: 'Cześć, jestem Jan, twórca Deltabadgera.'
-            telegram_invitation_html: 'Dołącz do naszej anglojęzycznej grupy na <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegramie</a>'
         confirm_registration:
             title: Dzięki!
             text_html: 'Sprawdź swoją skrzynkę pocztową i kliknij na <b>link potwierdzający</b>, który do Ciebie wysłaliśmy. Następnie przejdź do strony logowania.'
@@ -436,6 +378,8 @@ pl:
             limit_warning: 'Bot zleceń limitowanych jest funkcją eksperymentalną. Nie wszystkie zlecenia zostaną zrealizowane. Aby osiągnąć dobre wyniki, należy proporcjonalnie zwiększyć inwestowaną kwotę. W tej chwili Deltabadger nie oferuje jeszcze żadnej pomocy w oszacowaniu tego dostosowania, dlatego konieczne są własne eksperymenty. Używaj, tylko jeśli wiesz co robisz.'
             how_to_get_keys: 'Jak uzyskać klucze API na %{exchange}:'
             binance:
+                private_key: 'Klucz Sekretny'
+                public_key: 'Klucz API'
                 instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
                 instructions_2_html: 'W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Ustawienia API</b>.'
                 instructions_3_html: 'Nadaj nazwę nowemu kluczowi API i kliknij <b>Utworzenie klucza API</b>.'
@@ -445,70 +389,68 @@ pl:
                 instructions_7_html: 'Naciśnij <b>Zapisz</b> i potwierdź kolejnym kodem jednorazowym, jeśli to konieczne.'
                 instructions_8_html: 'Pamiętaj, że Secret Key jest widoczny tylko podczas tworzenia, więc upewnij się, że skopiowałeś oba klucze przed opuszczeniem widoku.'
                 instructions_9_html: 'Wklej oba klucze do danych wejściowych powyżej. '
-                private_key: 'Klucz Sekretny'
-                public_key: 'Klucz API'
             bitbay:
+                private_key: 'Klucz Prywatny'
+                public_key: 'Klucz Publiczny'
                 instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
                 instructions_2_html: 'W menu użytkownika (prawy górny róg) przejdź do <b>Ustawienia API</b>.'
                 instructions_3_html: 'Kliknij <b>Dodaj nowy klucz</b>.'
-                instructions_4_html: 'Ustaw uprawnienia dla:\n    <ul>\n      <li><b>Historia</b>      <li><b>Pobieranie konfiguracji rynków i wystawionych ofert</b>      <li><b>Zmiana konfiguracji rynków i zarządzanie ofertami</b>    </ul>\n  '
+                instructions_4_html: "Ustaw uprawnienia dla:\n    <ul>\n      <li><b>Historia</b>      <li><b>Pobieranie konfiguracji rynków i wystawionych ofert</b>      <li><b>Zmiana konfiguracji rynków i zarządzanie ofertami</b>    </ul>\n  "
                 instructions_5_html: 'Kliknij <b>Utwórz</b>.'
                 instructions_6_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza. '
-                private_key: 'Klucz Prywatny'
-                public_key: 'Klucz Publiczny'
             kraken:
-                instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
-                instructions_2_html: 'W menu użytkownika przejdź do <b>Security</b> → <b>API</b>.'
-                instructions_3_html: 'Kliknij <b>Generate New Key</b>.'
-                instructions_4_html: 'Ustaw uprawnienia dla następujących elementów:<br/>\n    Funds:\n    <ul>\n      <li><b>Query Funds</b>    </ul>\n    Order&Trades:\n    <ul>\n      <li><b>Query Open Orders & Trades</b>      <li><b>Query Closed Orders & Trades</b>      <li><b>Modify Orders</b>      <li><b>Cancel/Close Orders</b>    </ul>\n  '
-                instructions_5_html: 'Kliknij <b>Generate Key</b>.'
-                instructions_6_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza. '
                 trading_agreement_html: '<b>Hallo!</b> Jeśli Twoje konto Kraken zostało zweryfikowane przy użyciu adresu niemieckiego, będziesz musiał zaakceptować <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>, aby móc składać zlecenia rynkowe.'
                 trading_agreement_label_html: 'Akceptuję umowę tradingową.'
                 private_key: 'Klucz prywatny'
                 public_key: 'Klucz API'
+                instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
+                instructions_2_html: 'W menu użytkownika przejdź do <b>Security</b> → <b>API</b>.'
+                instructions_3_html: 'Kliknij <b>Generate New Key</b>.'
+                instructions_4_html: "Ustaw uprawnienia dla następujących elementów:<br/>\n    Funds:\n    <ul>\n      <li><b>Query Funds</b>    </ul>\n    Order&Trades:\n    <ul>\n      <li><b>Query Open Orders & Trades</b>      <li><b>Query Closed Orders & Trades</b>      <li><b>Modify Orders</b>      <li><b>Cancel/Close Orders</b>    </ul>\n  "
+                instructions_5_html: 'Kliknij <b>Generate Key</b>.'
+                instructions_6_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza. '
             coinbase_pro:
-                instructions_1_html: 'Zaloguj się do swojego konta na %{exchange_link}.'
-                instructions_2_html: 'W menu użytkownika (prawy górny róg) przejdź do <b>API</b>.'
-                instructions_3_html: 'Naciśnij <b>New API Key</b>.'
-                instructions_4_html: 'Ustaw uprawnienia dla:\n    <ul>\n      <li><b>View</b>      <li><b>Trade</b>    </ul>\n  '
-                instructions_5_html: 'Naciśnij <b>Create API Key</b>.'
-                instructions_6_html: 'Skopiuj i wklej swój nowy klucz API oraz Passphrase do formularza powyżej. '
                 private_key: 'Klucz sekretny'
                 public_key: 'Klucz API'
                 passphrase: Hasło
+                instructions_1_html: 'Zaloguj się do swojego konta na %{exchange_link}.'
+                instructions_2_html: 'W menu użytkownika (prawy górny róg) przejdź do <b>API</b>.'
+                instructions_3_html: 'Naciśnij <b>New API Key</b>.'
+                instructions_4_html: "Ustaw uprawnienia dla:\n    <ul>\n      <li><b>View</b>      <li><b>Trade</b>    </ul>\n  "
+                instructions_5_html: 'Naciśnij <b>Create API Key</b>.'
+                instructions_6_html: 'Skopiuj i wklej swój nowy klucz API oraz Passphrase do formularza powyżej. '
             gemini:
+                private_key: 'Klucz sekretny'
+                public_key: 'Klucz API'
                 instructions_1_html: 'Zaloguj się do swojego konta na %{exchange_link}.'
                 instructions_2_html: 'W menu konta (prawy górny róg) przejdź do <b>Settings</b>.'
                 instructions_3_html: 'Wybierz <b>API</b> (po lewej stronie).'
                 instructions_4_html: 'Naciśnij <b>Create a new API key</b>.'
                 instructions_5_html: 'Z rozwijanego menu <b>Scope</b> wybierz <b>Primary</b>.'
                 instructions_6_html: 'Naciśnij przycisk Utwórz <b>nowy klucz API</b>.'
-                instructions_7_html: 'Ustawienie klucza API:\n    <ul>\n      <li><b>Trading</b>    </ul>\n  '
+                instructions_7_html: "Ustawienie klucza API:\n    <ul>\n      <li><b>Trading</b>    </ul>\n  "
                 instructions_8_html: 'Nie zaznaczaj opcji <b>Require session heartbeat</b>'
                 instructions_9_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza. '
-                private_key: 'Klucz sekretny'
-                public_key: 'Klucz API'
             ftx:
+                private_key: 'Klucz prywatny'
+                public_key: 'Klucz publiczny'
                 instructions_1_html: 'Zaloguj się do swojego konta na %{exchange_link}.'
                 instructions_2_html: 'Przejdź do menu ustawień (prawy górny róg).'
                 instructions_3_html: 'Przewiń w dół do sekcji <b>Klucz API</b>.'
                 instructions_4_html: 'Naciśnij <b>Utwórz</b> Klucz API.'
                 instructions_5_html: 'Skopiuj i wklej swój nowy klucz API do formularza powyżej. '
-                private_key: 'Klucz prywatny'
-                public_key: 'Klucz publiczny'
             next: Dalej
             bitso:
+                private_key: 'API Secret'
+                public_key: 'Klucz API'
                 instructions_1_html: 'Zaloguj się do swojego konta <a href=\\"https://bitso.com/\\" target=\\"_blank\\" rel=\\"nofollow\\">Bitso</a>.'
                 instructions_2_html: 'W menu konta (prawy górny róg) przejdź do <b>Profile</b>.'
                 instructions_3_html: 'Wybierz <b>API</b> (po lewej stronie).'
                 instructions_4_html: 'Naciśnij <b>Add new API</b>.'
                 instructions_5_html: 'Wypełnij <b>API Name</b> i podaj swój <b>Transaction PIN</b>.'
-                instructions_6_html: 'Ustaw uprawnienia:\n    <ul>\n      <li><b>Perform trades</b>      <li><b>View balances</b>      <li><b>View account information</b>    </ul>\n  '
+                instructions_6_html: "Ustaw uprawnienia:\n    <ul>\n      <li><b>Perform trades</b>      <li><b>View balances</b>      <li><b>View account information</b>    </ul>\n  "
                 instructions_7_html: 'Naciśnij <b>Save</b>.'
                 instructions_8_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza. '
-                private_key: 'API Secret'
-                public_key: 'Klucz API'
             smart_intervals:
                 dont_show_again: 'Nie pokazuj ponownie'
                 info_html:
@@ -520,29 +462,33 @@ pl:
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
                 passphrase: Hasło
+                instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
+                instructions_11_html: 'Wklej oba klucze do danych wejściowych powyżej. '
             bitfinex:
+                private_key: 'API Secret'
+                public_key: 'API Key'
                 instructions_1_html: ' Zaloguj się na swoje konto %{exchange_link} '
                 instructions_2_html: ' W menu konta (prawy górny róg) przejdź do <b> API keys </b> . '
                 instructions_3_html: ' Przejdź do <b> Utwórz nowy klucz </b> . '
-                instructions_4_html: ' Ustaw uprawnienia dla:\n <ul>\n <li> <b>Get orders and statuses. </b>  <li> <b> Create and cancel orders. </b>  </ul>\n '
+                instructions_4_html: " Ustaw uprawnienia dla:\n <ul>\n <li> <b>Get orders and statuses. </b>  <li> <b> Create and cancel orders. </b>  </ul>\n "
                 instructions_5_html: ' Podaj <b> Label </b> do swojego klucza API. '
                 instructions_6_html: ' Naciśnij przycisk <b> Generate API key </b> . '
                 instructions_7_html: ' Skopiuj i wklej nowe klucze API do powyższego formularza.  '
+            bitstamp:
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            bitstamp:
                 instructions_1_html: 'Zaloguj się na swoje konto %{exchange_link}.'
                 instructions_2_html: 'W menu konta (prawy górny róg) przejdź do <b>Settings</b>.'
                 instructions_3_html: 'W sekcji <b>Access Control</b> przejdź do Dostęp do <b>API access</b>.'
                 instructions_4_html: 'Naciśnij <b>New API Key</b>.'
                 instructions_5_html: 'Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger ustawić <b>IP Address Filter</b> do tego IP: <b>3.18.70.231</b>'
-                instructions_6_html: 'Ustaw uprawnienia dla:\n    <ul>\n      <li><b>Open orders.</b> <li><b>Cancel order.</b> <li><b>Buy limit/market orders.</b> <li><b>Sell limit/market orders.</b>  </ul>\n  '
+                instructions_6_html: "Ustaw uprawnienia dla:\n    <ul>\n      <li><b>Open orders.</b> <li><b>Cancel order.</b> <li><b>Buy limit/market orders.</b> <li><b>Sell limit/market orders.</b>  </ul>\n  "
                 instructions_7_html: 'Naciśnij <b>Enter 2FA & Submit</b>.'
                 instructions_8_html: 'Naciśnij <b>Activate</b>.'
                 instructions_9_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza. '
-                private_key: 'API Secret'
-                public_key: 'API Key'
             set: Ustaw
+            probit:
+                instructions_1_html: ' Zaloguj się na swoje konto %{exchange_link} '
         add_new_bot: 'Dodaj nowego bota'
         start: Start
         stop: Wstrzymaj

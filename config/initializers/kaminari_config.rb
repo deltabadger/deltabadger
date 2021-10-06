@@ -8,7 +8,7 @@ Kaminari.configure do |config|
   # config.left = 0
   # config.right = 0
   # config.page_method_name = :page
-  # config.param_name = :page
+  config.param_name = :_page
   # config.max_pages = nil
   # config.params_on_first_page = false
 end
