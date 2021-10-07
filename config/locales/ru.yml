@@ -395,7 +395,10 @@ ru:
                 instructions_1_html: 'Войдите в свой %{exchange_link} аккаунт.'
                 instructions_2_html: 'В меню пользователя (в правом верхнем углу) перейдите в <b>Настройки API</b>.'
                 instructions_3_html: 'Нажмите <b>Добавить новый ключ</b>.'
-                instructions_4_html: "Установите разрешения для:\n    <ul>\n      <li><b>История</b>      <li><b>Получать ордера и конфигурации рынка</b>      <li><b>Управлять ордерами и менять конфигурации рынка</b>    </ul>\n  "
+                instructions_4_1_html: 'Установите разрешения для:'
+                instructions_4_2_html: '<b>История</b>'
+                instructions_4_3_html: '<b>Получать ордера и конфигурации рынка</b>'
+                instructions_4_4_html: '<b>Управлять ордерами и менять конфигурации рынка</b>'
                 instructions_5_html: 'Нажмите <b>Создать</b>.'
                 instructions_6_html: 'Скопируйте и вставьте новые ключи API в форму выше. '
             kraken:
@@ -406,9 +409,16 @@ ru:
                 instructions_1_html: 'Войдите в свой аккаунт %{exchange_link}.'
                 instructions_2_html: 'В меню пользователя перейдите в <b>Безопасность</b> → <b>API</b>.'
                 instructions_3_html: 'Нажмите <b>Создать новый ключ</b>.'
-                instructions_4_html: "Установите разрешения для следующего:<br/>\n    Средства:\n    <ul>\n      <li><b>Запросить средства</b>    </ul>\n    Ордер и сделки:\n    <ul>\n      <li><b>Запрос открытых ордеров и сделок</b>      <li><b>Запрос закрытых ордеров и сделок</b>      <li><b>Изменение ордеров</b>      <li><b>Отмена/закрытие ордеров</b>    </ul>\n  "
-                instructions_5_html: 'Нажмите <b>Создать ключ</b>.'
-                instructions_6_html: 'Скопируйте и вставьте новые ключи API в форму выше. '
+                instructions_4_html: 'Установите разрешения для следующего:<br/>'
+                instructions_5_1_html: 'Средства:'
+                instructions_5_2_html: '<b>Запросить средства</b>'
+                instructions_6_1_html: 'Ордер и сделки:'
+                instructions_6_2_html: '<b>Запрос открытых ордеров и сделок</b>'
+                instructions_6_3_html: '<b>Запрос закрытых ордеров и сделок</b>'
+                instructions_6_4_html: '<b>Изменение ордеров</b>'
+                instructions_6_5_html: '<b>Отмена/закрытие ордеров</b>'
+                instructions_7_html: 'Нажмите <b>Создать ключ</b>.'
+                instructions_8_html: 'Скопируйте и вставьте новые ключи API в форму выше. '
             coinbase_pro:
                 private_key: 'Секретный ключ'
                 public_key: 'Ключ API'
@@ -416,7 +426,9 @@ ru:
                 instructions_1_html: 'Войдите в свой %{exchange_link} аккаунт.'
                 instructions_2_html: 'В меню пользователя (в правом верхнем углу) перейдите в <b>API</b>.'
                 instructions_3_html: 'Нажмите <b>Новый ключ API</b>.'
-                instructions_4_html: "Установите разрешения для:\n    <ul>\n      <li><b>Просмотр</b>      <li><b>Торговля</b>    </ul>\n  "
+                instructions_4_1_html: 'Установите разрешения для:'
+                instructions_4_2_html: '<b>Просмотр</b>'
+                instructions_4_3_html: '<b>Торговля</b>'
                 instructions_5_html: 'Нажмите <b>Создать ключ API</b>.'
                 instructions_6_html: 'Скопируйте и вставьте новые ключи API и кодовую фразу в форму выше. '
             gemini:
@@ -428,7 +440,8 @@ ru:
                 instructions_4_html: 'Нажмите <b>Создать новый ключ API</b>.'
                 instructions_5_html: 'Из раскрывающегося списка <b>Диапазон</b> выберите <b>Основной</b>.'
                 instructions_6_html: 'Нажмите <b>Создать новый ключ API</b>.'
-                instructions_7_html: "Установите разрешения для:\n    <ul>\n      <li><b>Торговля</b>    </ul>\n  "
+                instructions_7_1_html: 'Установите разрешения для:'
+                instructions_7_2_html: '<b>Торговля</b>'
                 instructions_8_html: 'Не устанавливайте флажок на <b>Требовать пульсацию сессии</b>.'
                 instructions_9_html: 'Скопируйте и вставьте новые ключи API в форму выше. '
             ftx:
@@ -448,7 +461,10 @@ ru:
                 instructions_3_html: 'Выберите <b>API</b> (слева).'
                 instructions_4_html: 'Нажмите <b>Добавить новый API</b>.'
                 instructions_5_html: 'Заполните <b>Имя API</b> и укажите Ваш <b>PIN-код транзакции</b>.'
-                instructions_6_html: "Установите Разрешения:\n    <ul>\n      <li><b>Выполнять сделки</b>      <li><b>Балансы по видам спорта</b>      <li><b>Просмотреть информацию об аккаунте</b>    </ul>\n  "
+                instructions_6_1_html: 'Установите Разрешения:'
+                instructions_6_2_html: '<b>Выполнять сделки</b>'
+                instructions_6_3_html: '<b>Балансы по видам спорта</b>'
+                instructions_6_4_html: '<b>Просмотреть информацию об аккаунте</b>'
                 instructions_7_html: 'Нажмите <b>Сохранить</b>.'
                 instructions_8_html: 'Скопируйте и вставьте новые клавиши API в форму выше. '
             smart_intervals:
@@ -468,7 +484,9 @@ ru:
                 instructions_4_html: 'Если вы создаете ключи API впервые, то установите и сохраните <b>Пароль для торговли</b>.'
                 instructions_5_html: 'Укажите <b>Название API</b>.'
                 instructions_6_html: 'Укажите и сохраните <b>Кодовую фразу API</b>.'
-                instructions_7_html: "Настройте разрешения для:\n    <ul>\n      <li><b>Общие</b>      <li><b>Торговля</b>    </ul>\n  "
+                instructions_7_1_html: 'Настройте разрешения для:'
+                instructions_7_2_html: '<b>Общие</b>'
+                instructions_7_3_html: '<b>Торговля</b>'
                 instructions_8_html: 'Если вы хотите ограничить доступ к ключу только для Deltabadger, установите <b>ограничение IP</b> на «да» и добавьте IP: <b>3.18.70.231</b>'
                 instructions_9_html: 'Нажмите <b>Далее</b>.'
                 instructions_10_html: 'Подтвердите создание ключей API паролем для торговли и 2FA.'
@@ -479,7 +497,9 @@ ru:
                 instructions_1_html: 'Войдите в свой аккаунт %{exchange_link}.'
                 instructions_2_html: 'В меню аккаунта (правый верхний угол) перейдите в <b>Ключи API</b>.'
                 instructions_3_html: 'Перейдите к <b>Создать новый ключ</b>.'
-                instructions_4_html: "Установите разрешения для:\n    <ul>\n      <li><b>Получать ордера и статусы.</b>      <li><b>Создавать и отменять ордера.</b>    </ul>\n  "
+                instructions_4_1_html: 'Установите разрешения для:'
+                instructions_4_2_html: '<b>Получать ордера и статусы.</b>'
+                instructions_4_3_html: '<b>Создавать и отменять ордера.</b>'
                 instructions_5_html: 'Укажите <b>ярлык</b> для своего ключа API.'
                 instructions_6_html: 'Нажмите <b>Сгенерировать ключ API</b>.'
                 instructions_7_html: 'Скопируйте и поместите новые ключи API в форму выше. '
@@ -491,7 +511,11 @@ ru:
                 instructions_3_html: 'Под <b>Управление доступом</b> перейдите к <b>доступ к API</b>.'
                 instructions_4_html: 'Нажмите <b>Новый ключ API</b>.'
                 instructions_5_html: 'Если вы хотите ограничить доступ к ключу только для Deltabadger, то установите <b>Фильтр доступа к IP</b> для этого IP: <b>3.18.70.231</b>'
-                instructions_6_html: "Установите разрешения для:\n    <ul>\n      <li><b>Открыть ордера.</b> <li><b>Отменить ордер.</b> <li><b>Купить лимитные/рыночные ордера.</b> <li><b>Продать лимитные/рыночные ордера.</b>  </ul>\n  "
+                instructions_6_1_html: 'Установите разрешения для:'
+                instructions_6_2_html: '<b>Открыть ордера.</b>'
+                instructions_6_3_html: '<b>Отменить ордер.</b>'
+                instructions_6_4_html: '<b>Купить лимитные/рыночные ордера.</b>'
+                instructions_6_5_html: '<b>Продать лимитные/рыночные ордера.</b>'
                 instructions_7_html: 'Нажмите <b>Ввести 2FA и отправить</b>.'
                 instructions_8_html: 'Нажмите <b>Активировать</b>.'
                 instructions_9_html: 'Скопируйте и поместите свои новые ключи API в форму выше. '
