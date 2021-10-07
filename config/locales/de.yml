@@ -220,12 +220,6 @@ de:
         password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
         bitwarden_title: 'Probiere Bitwarden'
         bitwarden_text: '. Es ist kostenlos und open-source.'
-    meta:
-        title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
-        description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten. Der Basisplan ist kostenlos.'
-        og_description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten.'
-        twitter_description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten. Der Basisplan ist kostenlos. DCA könnte nicht einfacher sein.'
-        twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
     home:
         confirm_registration:
             title: Danke!
@@ -381,7 +375,10 @@ de:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
                 instructions_2_html: 'Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Einstellungen</b>.'
                 instructions_3_html: 'Drücke auf <b>Neuen Schlüssel hinzufügen</b>.'
-                instructions_4_html: "Setze Berechtigungen für:\n    <ul>\n      <li><b>Verlauf</b>      <li><b>Order und Marktkonfigurationen erhalten</b>      <li><b>Order prüfen und Marktkonfigurationen ändern</li></b>\n    </ul>\n  "
+                instructions_4_1_html: 'Setze Berechtigungen für:'
+                instructions_4_2_html: '<b>Verlauf</b>'
+                instructions_4_3_html: '<b>Order und Marktkonfigurationen erhalten</b>'
+                instructions_4_4_html: '<b>Order prüfen und Marktkonfigurationen ändern</li></b>'
                 instructions_5_html: 'Drücke auf <b>Erstellen</b>.'
                 instructions_6_html: 'Kopiere deine neuen API-Schlüssel in die Tabelle oben. '
             kraken:
@@ -392,9 +389,16 @@ de:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link} -Konto an.'
                 instructions_2_html: 'Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.'
                 instructions_3_html: 'Drücke auf <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4_html: "Setze Berechtigungen für:<br/>\n    Gelder:\n    <ul>\n      <li><b>Gelder abfragen</b>    </ul>\n    Order & Trades:\n    <ul>\n      <li><b>Offene Orders & Trades abfragen</b>      <li><b>Geschlossene Orders & Trades abfragen</b>      <li><b>Order ändern</b>      <li><b>Order abbrechen/schließen</b>    </ul>\n  "
-                instructions_5_html: 'Drücke auf <b>Schlüssel generieren</b>.'
-                instructions_6_html: 'Kopiere deine neuen API-Schlüssel in die obige Tabelle. '
+                instructions_4html: 'Setze Berechtigungen für:<br/>'
+                instructions_5_1_html: 'Gelder:'
+                instructions_5_2_html: '<b>Gelder abfragen</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Offene Orders & Trades abfragen</b>'
+                instructions_6_3_html: '<b>Geschlossene Orders & Trades abfragen</b>'
+                instructions_6_4_html: '<b>Order ändern</b>'
+                instructions_6_5_html: '<b>Order abbrechen/schließen</b>'
+                instructions_7_html: 'Drücke auf <b>Schlüssel generieren</b>.'
+                instructions_8_html: 'Kopiere deine neuen API-Schlüssel in die obige Tabelle. '
             coinbase_pro:
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
@@ -402,7 +406,9 @@ de:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
                 instructions_2_html: 'Gehe im Benutzermenü (obere rechte Ecke) zu <b>API</b>.'
                 instructions_3_html: 'Drücke auf <b>Neuer API-Schlüssel</b>.'
-                instructions_4_html: "Setze Berechtigungen für:\n    <ul>\n      <li><b>Ansicht</b>      <li><b>Trade</b>    </ul>\n  "
+                instructions_4_1_html: 'Setze Berechtigungen für:'
+                instructions_4_2_html: '<b>Ansicht</b>'
+                instructions_4_3_html: '<b>Trade</b>'
                 instructions_5_html: 'Drücke auf <b>API-Schlüssel erstellen</b>.'
                 instructions_6_html: 'Kopiere deine neuen API-Schlüssel und Passphrase in die Tabelle oben. '
             gemini:
@@ -414,7 +420,8 @@ de:
                 instructions_4_html: 'Drücke auf <b>Neuen API-Schlüssel erstellen</b>.'
                 instructions_5_html: 'Wähle im Dropdownmenü <b>Bereich</b> <b>Primär</b>.'
                 instructions_6_html: 'Drücke auf <b>Neuen API-Schlüssel erstellen</b>.'
-                instructions_7_html: "Stelle die API-Schlüssel-Einstellungen ein:\n    <ul>\n      <li><b>Trading</b>    </ul>\n  "
+                instructions_7_1_html: 'Stelle die API-Schlüssel-Einstellungen ein:'
+                instructions_7_2_html: '<b>Trading</b>'
                 instructions_8_html: 'Wähle <b>Require session heartbeat</b> nicht aus  '
                 instructions_9_html: 'Kopiere deine neuen API-Schlüssel in die Tabelle oben. '
             ftx:
@@ -434,7 +441,10 @@ de:
                 instructions_3_html: 'Wähle <b>API</b> (linke Seite).'
                 instructions_4_html: 'Drücke <b>Neue API hinzufügen</b>.'
                 instructions_5_html: 'Fülle den <b>API-Namen</b> aus und gebe deinen <b>Transaktions-PIN</b> ein.'
-                instructions_6_html: "Berechtigungen festlegen:\n    <ul>\n      <li><b>Trades durchführen</b>      <li><b>Kontostände anzeigen</b>      <li><b>Kontoinformationen anzeigen</b>    </ul>\n  "
+                instructions_6_1_html: 'Berechtigungen festlegen:'
+                instructions_6_2_html: '<b>Trades durchführen</b>'
+                instructions_6_3_html: '<b>Kontostände anzeigen</b>'
+                instructions_6_4_html: '<b>Kontoinformationen anzeigen</b>'
                 instructions_7_html: 'Drücke <b>Speichern</b>.'
                 instructions_8_html: 'Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein. '
             smart_intervals:
@@ -454,7 +464,9 @@ de:
                 instructions_4_html: 'Wenn du deine API-Schlüssel zum ersten Mal erstellst, erstelle und speichere dein <b>Trading-Passwort</b>.'
                 instructions_5_html: 'Gib einen <b>API-Namen</b> an.'
                 instructions_6_html: 'Erstelle und speichere deine <b>API-Passphrase</b>.'
-                instructions_7_html: "Lege Berechtigungen fest für:\n     <ul>\n       <li><b>Allgemein</b>       <li><b>Handel</b>     </ul>\n   "
+                instructions_7_1_html: 'Lege Berechtigungen fest für:'
+                instructions_7_2_html: '<b>Allgemein</b>'
+                instructions_7_3_html: '<b>Handel</b>'
                 instructions_8_html: 'Wenn du den Zugriff nur für Deltabadger einschränken willst, setze die <b>IP-Einschränkung</b> auf "ja" und füge diese IP-Adresse hinzu: <b>3.18.70.231</b>'
                 instructions_9_html: 'Klicke auf <b>Weiter</b>.'
                 instructions_10_html: 'Bestätige die Erstellung des API-Schlüssels durch dein Trading-Passwort und die 2FA.'
@@ -465,7 +477,9 @@ de:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link} Konto an.'
                 instructions_2_html: 'Klicke in dem Kontomenü (ob rechts in der Ecke) auf <b>API-Schlüssel</b>.'
                 instructions_3_html: 'Gehe zu <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4_html: "Lege Berechtigungen fest für:\n    <ul>\n      <li><b>Aufträge und Status erhalten.</b>      <li><b>Erstellen und abbrechen von Aufträgen.</b>    </ul>\n  "
+                instructions_4_1_html: 'Lege Berechtigungen fest für:'
+                instructions_4_2_html: '<b>Aufträge und Status erhalten.</b>'
+                instructions_4_3_html: '<b>Erstellen und abbrechen von Aufträgen.</b>'
                 instructions_5_html: 'Gebe das <b>Label</b> für deinen API-Schlüssel an.'
                 instructions_6_html: 'Gehe auf <b>API-Schlüsse generieren</b>.'
                 instructions_7_html: 'Kopiere den neuen API-Schlüssel und füge ihn in das obige Formular ein. '
@@ -477,7 +491,11 @@ de:
                 instructions_3_html: 'Unter<b>Zugangskontrolle</b> gehen Sie auf <b>API-Zugang</b>.'
                 instructions_4_html: 'Drücken Sie <b>Neuer API-Schlüssel</b>.'
                 instructions_5_html: 'Wenn Sie den Zugang zu dem Schlüssel nur für Deltabadger verbieten wollen, stellen Sie den <b>IP-Adressen-Filter</b> auf diese IP: <b>3.18.70.231</b>'
-                instructions_6_html: "Berechtigungen festlegen für:\n    <ul>\n      <li><b>Auftrag öffnen.</b>      <li><b>Auftrag abbrechen.</b>      <li><b>Limit-/Marken-Order kaufen.</b>      <li><b>Limit-/Marken-Order verkaufen.</b>/li>\n    </ul>\n  "
+                instructions_6_1_html: 'Berechtigungen festlegen für:'
+                instructions_6_2_html: '<b>Auftrag öffnen.</b>'
+                instructions_6_3_html: '<b>Auftrag abbrechen.</b>'
+                instructions_6_4_html: '<b>Limit-/Marken-Order kaufen.</b>'
+                instructions_6_5_html: '<b>Limit-/Marken-Order verkaufen.</b>/li>'
                 instructions_7_html: 'Drücke <b>2FA eingeben & einreichen</b>.'
                 instructions_8_html: 'Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein. '
                 instructions_9_html: 'Füge beide Schlüssel in die Eingabe oben ein. '
