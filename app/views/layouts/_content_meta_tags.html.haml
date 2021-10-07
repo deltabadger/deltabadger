@@ -1,9 +1,9 @@
 / Essential META Tags
-%meta{:content => t('meta.title'), :property => "og:title"}
-%meta{:content => t('meta.title'), :name => "twitter:title"}
-%meta{:content => t('meta.description'), :name => "description"}
-%meta{:content => t('meta.og_description'), :property => "og:description"}
-%meta{:content => t('meta.twitter_description'), :name => "twitter:description"}
+%meta{:content => t('meta.title_short'), :property => "og:title"}
+%meta{:content => t('meta.title_short'), :name => "twitter:title"}
+%meta{:content => t('meta.desc'), :name => "description"}
+%meta{:content => t('meta.desc'), :property => "og:description"}
+%meta{:content => t('meta.desc'), :name => "twitter:description"}
 
 %meta{:content => "https://asset.deltabadger.com/facebook-thumbnail.jpg", :property => "og:image"}
 %meta{:content => "https://asset.deltabadger.com/twitter-thumbnail.jpg", :name => "twitter:image"}
@@ -15,7 +15,7 @@
 
 / Non-Essential, But Recommended
 
-%meta{:content => t('deltabadger'), :property => "og:site_name"}
+%meta{:content => t('meta.title'), :property => "og:site_name"}
 %meta{:content => t('meta.twitter_image_alt'), :name => "twitter:image:alt"}
 %meta{:content => "product", :property => "og:type"}
 

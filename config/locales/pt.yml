@@ -220,12 +220,6 @@ pt:
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
         bitwarden_title: 'Experimente a Bitwarden'
         bitwarden_text: '. É gratuito e de código aberto.'
-    meta:
-        title: 'Deltabadger | Investimento pelo preço médio em Bitcoin'
-        description: 'Automatize pequenas compras de Bitcoin numa base regular. Configuração em cinco minutos. O plano básico é gratuito.'
-        og_description: 'Automatize pequenas compras de Bitcoin numa base regular. Configuração em cinco minutos.'
-        twitter_description: 'Automatize pequenas compras de Bitcoin numa base regular. Configuração em cinco minutos. O plano básico é gratuito. O DCA é realmente simples.'
-        twitter_image_alt: 'Investimento pelo preço médio em Bitcoin'
     home:
         confirm_registration:
             title: Obrigado!

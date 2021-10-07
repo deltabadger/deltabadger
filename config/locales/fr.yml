@@ -220,12 +220,6 @@ fr:
         password_managers_html: 'Les gestionnaires de mots de passe <br> facilitent la sécurité.'
         bitwarden_title: 'Essaie Bitwarden'
         bitwarden_text: 'C''est gratuit et open-source.'
-    meta:
-        title: 'Deltabadger | Achats périodiques Bitcoin'
-        description: 'Automatise les petits achats de Bitcoin réguliers. Configuration en cinq minutes. Le plan de base est gratuit.'
-        og_description: 'Automatise les petits achats de Bitcoin réguliers. Configuration en cinq minutes.'
-        twitter_description: 'Automatise les petits achats de Bitcoin réguliers. Configuration en cinq minutes. Le plan de base est gratuit. Le DCA aussi simple que possible.'
-        twitter_image_alt: 'Achats périodiques de Bitcoin'
     home:
         confirm_registration:
             title: 'Merci !'
