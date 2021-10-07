@@ -56,7 +56,7 @@ en:
             destroyed: 'Bye! We hope to see you again soon…'
             signed_up: 'Nice to meet you!'
             signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
-            signed_up_but_locked: 'Oups… your account is locked.'
+            signed_up_but_locked: 'Oops… your account is locked.'
             signed_up_but_unconfirmed: 'Check your email and click in the confirmation link.'
             update_needs_confirmation: 'Check your email and follow the confirm link to confirm your new email address.'
             updated: 'Your account has been updated successfully.'
@@ -631,9 +631,9 @@ en:
             template_html: "<p>Hello 👋,</p>\n<p>Oh, well done! Your <b style=\"color: #0a45a4;\">Saver</b> plan<br>limit has been reached.</p>\n<p>It looks like you do dollar-cost<br>averaging for a while now.</p>\n<p>We hope you're happy about<br>the results.</p>\n<p>Upgrade your plan to <b style=\"color: #0a45a4;\">Investor</b><br>or <b style=\"color: #0a45a4;\">Hodler</b> to remove all limits and<br>put your bots back to work.</p>"
         notify_about_error:
             subject: 'Something went wrong 😵'
-            template_html: "<p>Oups… 😵</p>\n<p>Something went wrong while<br>processing the last transaction.</p>\n<p>You can see the error in the<br>bot log. Sign in to check it.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+            template_html: "<p>Oops… 😵</p>\n<p>Something went wrong while<br>processing the last transaction.</p>\n<p>You can see the error in the<br>bot log. Sign in to check it.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
         notify_about_restart:
-            subject: 'Oups! Next try… 🧐'
+            subject: 'Oops! Next try… 🧐'
             template_html: "<p>Oh snap 🧐,</p>\n<p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p>\n<p>All error are visible in the bot log.<br>Sign in to check it out.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Deltabadger Team 🧑‍🚀'
