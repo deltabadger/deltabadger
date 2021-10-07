@@ -381,7 +381,10 @@ pt:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.'
                 instructions_3_html: 'Prima em <b>Adicionar nova chave</b>.'
-                instructions_4_html: "Defina as permissões para:\n    <ul>\n      <li><b>Histórico</b>      <li><b>Obter pedidos e configurações de mercado</b>      <li><b>Gerir pedidos e alterar configurações de mercado</b>    </ul>\n  "
+                instructions_4_1_html: 'Defina as permissões para:'
+                instructions_4_2_html: '<b>Histórico</b>'
+                instructions_4_3_html: '<b>Obter pedidos e configurações de mercado</b>'
+                instructions_4_4_html: '<b>Gerir pedidos e alterar configurações de mercado</b>'
                 instructions_5_html: 'Prima em <b>Criar</b>.'
                 instructions_6_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
             kraken:
@@ -392,9 +395,16 @@ pt:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.'
                 instructions_3_html: 'Prima <b>Gerar nova chave</b>.'
-                instructions_4_html: "Defina as permissões para o seguinte:<br/>\n    Fundos:\n    <ul>\n      <li><b>Consulta de fundos</b>    </ul>\n    Pedidos e transações:\n    <ul>\n      <li><b>Pedidos e transações de consulta aberta</b>      <li><b>Pedidos e transações de consulta fechada</b>      <li><b>Modificar pedidos</b>      <li><b>Cancelar/fechar pedidos</b>    </ul>\n  "
-                instructions_5_html: 'Prima em <b>Gerar chave</b>.'
-                instructions_6_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
+                instructions_4_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_5_1_html: 'Fundos:'
+                instructions_5_2_html: '<b>Consulta de fundos</b>'
+                instructions_6_1_html: 'Pedidos e transações:'
+                instructions_6_2_html: '<b>Pedidos e transações de consulta aberta</b>'
+                instructions_6_3_html: '<b>Pedidos e transações de consulta fechada</b>'
+                instructions_6_4_html: '<b>Modificar pedidos</b>'
+                instructions_6_5_html: '<b>Cancelar/fechar pedidos</b>'
+                instructions_7_html: 'Prima em <b>Gerar chave</b>.'
+                instructions_8_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
             coinbase_pro:
                 private_key: 'Chave secreta'
                 public_key: 'Chave de API'
@@ -402,7 +412,9 @@ pt:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>API</b>.'
                 instructions_3_html: 'Prima em <b>Nova chave de API</b>.'
-                instructions_4_html: "Defina as permissões para:\n    <ul>\n      <li><b>Visualizar</b>      <li><b>Transacionar</b>    </ul>\n  "
+                instructions_4_1_html: 'Defina as permissões para:'
+                instructions_4_2_html: '<b>Visualizar</b>'
+                instructions_4_3_html: '<b>Transacionar</b>'
                 instructions_5_html: 'Prima em <b>Criar chave de API</b>.'
                 instructions_6_html: 'Copie e cole as suas novas chaves de API e a frase de acesso no formulário acima. '
             gemini:
@@ -414,7 +426,8 @@ pt:
                 instructions_4_html: 'Prima em <b>Criar uma nova chave de API</b>.'
                 instructions_5_html: 'Na lista pendente <b>Âmbito</b>, escolha <b>Primária</b>.'
                 instructions_6_html: 'Prima em <b>Criar uma nova chave de API</b>.'
-                instructions_7_html: "Defina as definições da chave de API:\n    <ul>\n      <li><b>Transações</b>    </ul>\n  "
+                instructions_7_1_html: 'Defina as definições da chave de API:'
+                instructions_7_2_html: '<b>Transações</b>'
                 instructions_8_html: 'Não marque <b>Requer heartbeat da sessão</b>'
                 instructions_9_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
             ftx:
@@ -434,7 +447,10 @@ pt:
                 instructions_3_html: 'Escolher <b>API</b> (lado esquerdo).'
                 instructions_4_html: 'Prima <b>Adicionar novo API</b>.'
                 instructions_5_html: 'Preencha o <b>Nome API</b> e forneça o seu <b>PIN de Transacção</b>.'
-                instructions_6_html: "Defina as permissões:\n    <ul>\n      <li><b>Realizar transacções</b>      <li><b>Ver saldos</b>      <li><b>Ver informação da conta</b>    </ul>\n  "
+                instructions_6_1_html: 'Defina as permissões:'
+                instructions_6_2_html: '<b>Realizar transacções</b>'
+                instructions_6_3_html: '<b>Ver saldos</b>'
+                instructions_6_4_html: '<b>Ver informação da conta</b>'
                 instructions_7_html: ' <b>Guardar</b> na Imprensa.'
                 instructions_8_html: 'Copie e cole as suas novas chaves API no formulário acima. '
             smart_intervals:
@@ -454,7 +470,9 @@ pt:
                 instructions_4_html: 'Se criar as suas chaves API pela primeira vez, defina e grave a <b>Palavra-passe de negociação</b>.'
                 instructions_5_html: 'Forneça o <b>Nome da API</b>.'
                 instructions_6_html: 'Forneça e guarde a <b>Frase de acesso à API</b>.'
-                instructions_7_html: "Defina permissões para:\n    <ul>\n      <li><b>Geral</b>      <li><b>Negociação</b>    </ul>\n  "
+                instructions_7_1_html: 'Defina permissões para:'
+                instructions_7_2_html: '<b>Geral</b>'
+                instructions_7_3_html: '<b>Negociação</b>'
                 instructions_8_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina <b>Restrição IP</b> como sim e adicione este IP: <b>3.18.70.231</b>'
                 instructions_9_html: 'Prima <b>Seguinte</b>.'
                 instructions_10_html: 'Confirme a criação das chaves API através da Palavra-passe de negociação e de 2FA.'
@@ -465,7 +483,9 @@ pt:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu da conta (canto superior direito) vá a <b>Chaves API</b>.'
                 instructions_3_html: 'Vá a <b>Criar nova chave</b>.'
-                instructions_4_html: "Defina permissões para:\n    <ul>\n      <li><b>Obter ordens e estados.</b>      <li><b>Criar e cancelar ordens.</b>    </ul>\n  "
+                instructions_4_1_html: 'Defina permissões para:'
+                instructions_4_2_html: '<b>Obter ordens e estados.</b>'
+                instructions_4_3_html: '<b>Criar e cancelar ordens.</b>'
                 instructions_5_html: 'Proporcionar um <b>Rótulo</b> à sua Chave API.'
                 instructions_6_html: 'Prima <b>Gerar chave API</b>.'
                 instructions_7_html: 'Copie e cole as suas novas chaves API no formulário acima. '
@@ -477,7 +497,11 @@ pt:
                 instructions_3_html: 'Em <b>Controlo de acesso</b> vá a <b>Acesso API</b>.'
                 instructions_4_html: 'Prima <b>Nova Chave API</b>.'
                 instructions_5_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina o <b>Filtro de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
-                instructions_6_html: "Defina permissões para:\n    <ul>\n      <li><b>Abrir ordens.</b> <li><b>Cancelar ordem.</b> <li><b>Ordens buy limit/mercado.</b> <li><b>Ordens sell limit/mercado.</b>  </ul>\n  "
+                instructions_6_1_html: 'Defina permissões para:'
+                instructions_6_2_html: '<b>Abrir ordens.</b>'
+                instructions_6_3_html: '<b>Cancelar ordem.</b>'
+                instructions_6_4_html: '<b>Ordens buy limit/mercado.</b>'
+                instructions_6_5_html: '<b>Ordens sell limit/mercado.</b>'
                 instructions_7_html: 'Prima <b>Inserir 2FA e submeter</b>.'
                 instructions_8_html: 'Prima <b>Ativar</b>.'
                 instructions_9_html: 'Copie e cole as suas novas chaves API no formulário acima. '
