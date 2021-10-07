@@ -234,12 +234,6 @@ pl:
         password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
         bitwarden_title: 'Spróbuj Bitwarden'
         bitwarden_text: '. Jest darmowy i open-source.'
-    meta:
-        title: 'Deltabadger | Inwestowanie w Bitcoina metodą uśredniania'
-        description: 'Automatyzuj małe zakupy Bitcoina w regularnych odstępach czasu. Uruchomienie trwa pięć minut. Podstawowy plan jest darmowy.'
-        og_description: 'Automatyzuj małe zakupy Bitcoina w regularnych odstępach czasu. Uruchomienie trwa pięć minut. Podstawowy plan jest darmowy.'
-        twitter_description: 'Automatyzuj małe zakupy Bitcoina w regularnych odstępach czasu. Uruchomienie trwa pięć minut. Podstawowy plan jest darmowy.'
-        twitter_image_alt: 'Inwestowanie w Bitcoina metodą uśredniania'
     home:
         confirm_registration:
             title: Dzięki!
