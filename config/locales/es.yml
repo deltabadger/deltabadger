@@ -220,12 +220,6 @@ es:
         password_managers_html: 'Los administradores de contraseñas<br>facilitan la seguridad.'
         bitwarden_title: 'Prueba Bitwarden'
         bitwarden_text: '. Es gratuito y de código abierto.'
-    meta:
-        title: 'Deltabadger | Promedio del coste en dólares de Bitcoin'
-        description: 'Automatiza pequeñas compras de Bitcoin de forma regular. Se configura en cinco minutos. El plan básico es gratuito.'
-        og_description: 'Automatiza pequeñas compras de Bitcoin de forma regular. Se configura en cinco minutos.'
-        twitter_description: 'Automatiza pequeñas compras de Bitcoin de forma regular. Se configura en cinco minutos. El plan básico es gratuito. El DCA es lo más sencillo que existe.'
-        twitter_image_alt: 'Promedio del coste en dólares de Bitcoin'
     home:
         confirm_registration:
             title: ¡Gracias!
