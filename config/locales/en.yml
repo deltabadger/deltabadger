@@ -221,11 +221,10 @@ en:
         bitwarden_title: 'Try Bitwarden'
         bitwarden_text: '. It''s free and open-source.'
     meta:
-        title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
-        description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free.'
-        og_description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup.'
-        twitter_description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free. DCA as simple as it gets.'
-        twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
+        title: 'Deltabadger • Dollar-Cost Averaging into Bitcoin and Other Assets'
+        title_short: 'Deltabadger • Auto-DCA into Bitcoin and Other Assets'
+        desc: 'Start for free the most-proven strategy that works with Binance, FTX, Coinbase, Kraken, Kucoin, and other exchanges. No KYC.'
+        twitter_image_alt: 'Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets.'
     home:
         confirm_registration:
             title: Thanks!
@@ -381,7 +380,10 @@ en:
                 instructions_1_html: 'Login to your %{exchange_link} account.'
                 instructions_2_html: 'In user menu (top right corner) go to <b>API Settings</b>.'
                 instructions_3_html: 'Press <b>Add New Key</b>.'
-                instructions_4_html: "Set permissions for:\n    <ul>\n      <li><b>History</b>      <li><b>Get orders and market configurations</b>      <li><b>Manage orders and change market configurations</b>    </ul>\n  "
+                instructions_4_1_html: 'Set permissions for:'
+                instructions_4_2_html: '<b>History</b>'
+                instructions_4_3_html: '<b>Get orders and market configurations</b>'
+                instructions_4_4_html: '<b>Manage orders and change market configurations</b>'
                 instructions_5_html: 'Press <b>Create</b>.'
                 instructions_6_html: 'Copy and paste your new API keys into the form above.'
             kraken:
@@ -392,9 +394,16 @@ en:
                 instructions_1_html: 'Login to your %{exchange_link} account.'
                 instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
                 instructions_3_html: 'Press <b>Generate New Key</b>.'
-                instructions_4_html: "Set permissions for the following:<br/>\n    Funds:\n    <ul>\n      <li><b>Query Funds</b>    </ul>\n    Order & Trades:\n    <ul>\n      <li><b>Query Open Orders & Trades</b>      <li><b>Query Closed Orders & Trades</b>      <li><b>Modify Orders</b>      <li><b>Cancel/Close Orders</b>    </ul>\n  "
-                instructions_5_html: 'Press <b>Generate Key</b>.'
-                instructions_6_html: 'Copy and paste your new API keys into the form above.'
+                instructions_4_html: 'Set permissions for the following:<br/>'
+                instructions_5_1_html: 'Funds:'
+                instructions_5_2_html: '<b>Query Funds</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
+                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
+                instructions_6_4_html: '<b>Modify Orders</b>'
+                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
+                instructions_7_html: 'Press <b>Generate Key</b>.'
+                instructions_8_html: 'Copy and paste your new API keys into the form above.'
             coinbase_pro:
                 private_key: 'Secret Key'
                 public_key: 'API Key'
@@ -402,7 +411,9 @@ en:
                 instructions_1_html: 'Login to your %{exchange_link} account.'
                 instructions_2_html: 'In user menu (top right corner) go to <b>API</b>.'
                 instructions_3_html: 'Press <b>New API Key</b>.'
-                instructions_4_html: "Set permissions for:\n    <ul>\n      <li><b>View</b>      <li><b>Trade</b>    </ul>\n  "
+                instructions_4_1_html: 'Set permissions for:'
+                instructions_4_2_html: '<b>View</b>'
+                instructions_4_3_html: '<b>Trade</b>'
                 instructions_5_html: 'Press <b>Create API Key</b>.'
                 instructions_6_html: 'Copy and paste your new API keys into the form above.'
             gemini:
@@ -414,7 +425,8 @@ en:
                 instructions_4_html: 'Press <b>Create a new API key</b>.'
                 instructions_5_html: 'From the dropdown <b>Scope</b> pick <b>Primary</b>.'
                 instructions_6_html: 'Press <b>Create a new API key</b>.'
-                instructions_7_html: "Set API key settings:\n    <ul>\n      <li><b>Trading</b>    </ul>\n  "
+                instructions_7_1_html: 'Set API key settings:'
+                instructions_7_2_html: '<b>Trading</b>'
                 instructions_8_html: 'Do not check <b>Require session heartbeat</b>'
                 instructions_9_html: 'Copy and paste your new API keys into the form above.'
             ftx:
@@ -434,7 +446,10 @@ en:
                 instructions_3_html: 'Pick <b>API</b> (left side).'
                 instructions_4_html: 'Press <b>Add new API</b>.'
                 instructions_5_html: 'Fill <b>API Name</b> and provide your <b>Transaction PIN</b>.'
-                instructions_6_html: "Set Permissions:\n    <ul>\n      <li><b>Perform trades</b>      <li><b>View balances</b>      <li><b>View account information</b>    </ul>\n  "
+                instructions_6_1_html: 'Set Permissions:\n '
+                instructions_6_2_html: '<b>Perform trades</b>'
+                instructions_6_3_html: '<b>View balances</b>'
+                instructions_6_4_html: '<b>View account information</b>'
                 instructions_7_html: 'Press <b>Save</b>.'
                 instructions_8_html: 'Copy and paste your new API keys into the form above.'
             smart_intervals:
@@ -454,7 +469,9 @@ en:
                 instructions_4_html: 'If you crate your API keys for the first time, set and save <b>Trading Password</b>.'
                 instructions_5_html: 'Provide <b>API Name</b>.'
                 instructions_6_html: 'Provide and save <b>API Passphrase</b>.'
-                instructions_7_html: "Set permissions for:\n    <ul>\n      <li><b>General</b>      <li><b>Trade</b>    </ul>\n"
+                instructions_7_1_html: 'Set permissions for:'
+                instructions_7_2_html: '<b>General</b>'
+                instructions_7_3_html: '<b>Trade</b>'
                 instructions_8_html: 'If you want to restrict access to the key only for Deltabadger set <b>IP Restriction</b> to yes and add this IP: <b>3.18.70.231</b>'
                 instructions_9_html: 'Press <b>Next</b>.'
                 instructions_10_html: 'Confirm creation of API keys by Trading Password and 2FA.'
@@ -465,7 +482,9 @@ en:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In the account menu (top right corner) go to <b>API Keys</b>.'
                 instructions_3_html: 'Go to <b>Create New Key</b>.'
-                instructions_4_html: "Set permissions for:\n    <ul>\n      <li><b>Get orders and statuses.</b>      <li><b>Create and cancel orders.</b>    </ul>\n  "
+                instructions_4_1_html: 'Set permissions for:'
+                instructions_4_2_html: '<b>Get orders and statuses.</b>'
+                instructions_4_3_html: '<b>Create and cancel orders.</b>'
                 instructions_5_html: 'Provide <b>Label</b> to your API key.'
                 instructions_6_html: 'Press <b>Generate API key</b>.'
                 instructions_7_html: 'Copy and paste your new API keys into the form above.'
@@ -477,7 +496,11 @@ en:
                 instructions_3_html: 'Under <b>Access Control</b> go to <b>API access</b>.'
                 instructions_4_html: 'Press <b>New API Key</b>.'
                 instructions_5_html: 'If you want to restrict access to the key only for Deltabadger set <b>IP Address Filter</b> to this IP: <b>3.18.70.231</b>'
-                instructions_6_html: "Set permissions for:\n    <ul>\n      <li><b>Open orders.</b> <li><b>Cancel order.</b> <li><b>Buy limit/market orders.</b> <li><b>Sell limit/market orders.</b>  </ul>\n  "
+                instructions_6_1_html: 'Set permissions for:'
+                instructions_6_2_html: '<b>Open orders.</b>'
+                instructions_6_3_html: '<b>Cancel order.</b>'
+                instructions_6_4_html: '<b>Buy limit/market orders.</b>'
+                instructions_6_5_html: '<b>Sell limit/market orders.</b>'
                 instructions_7_html: 'Press <b>Enter 2FA & Submit</b>.'
                 instructions_8_html: 'Press <b>Activate</b>.'
                 instructions_9_html: 'Copy and paste your new API keys into the form above.'
@@ -488,7 +511,9 @@ en:
                 instructions_3_html: 'Provide API key label and press <b>Create new key</b>.'
                 instructions_4_html: 'Confirm creation of API keys.'
                 instructions_5_html: 'If you want to restrict the access so only Deltabadger can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b> to this IP: <b>3.18.70.231</b>'
-                instructions_6_html: "Make sure that you have permissions for:\n    <ul>\n      <li><b>Read</b> <li><b>Trading</b> </ul>\n"
+                instructions_6_1_html: 'Make sure that you have permissions for:'
+                instructions_6_2_html: '<b>Read</b>'
+                instructions_6_3_html: '<b>Trading</b>'
                 instructions_7_html: 'Copy and paste your new Client ID and Client''s Secret Key into the form above.'
                 private_key: 'Client''s Secret Key'
                 public_key: 'Client ID'
