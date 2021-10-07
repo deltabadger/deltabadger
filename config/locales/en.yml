@@ -221,11 +221,10 @@ en:
         bitwarden_title: 'Try Bitwarden'
         bitwarden_text: '. It''s free and open-source.'
     meta:
-        title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
-        description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free.'
-        og_description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup.'
-        twitter_description: 'Automate small Bitcoin purchases on a regular basis. Five-minute setup. The basic plan is free. DCA as simple as it gets.'
-        twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
+        title: 'Deltabadger • Dollar-Cost Averaging into Bitcoin and Other Assets'
+        title_short: 'Deltabadger • Auto-DCA into Bitcoin and Other Assets'
+        desc: 'Start for free the most-proven strategy that works with Binance, FTX, Coinbase, Kraken, Kucoin, and other exchanges. No KYC.'
+        twitter_image_alt: 'Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets.'
     home:
         confirm_registration:
             title: Thanks!

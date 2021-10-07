@@ -220,12 +220,6 @@ de:
         password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
         bitwarden_title: 'Probiere Bitwarden'
         bitwarden_text: '. Es ist kostenlos und open-source.'
-    meta:
-        title: 'Deltabadger | Bitcoin Dollar-Cost Averaging'
-        description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten. Der Basisplan ist kostenlos.'
-        og_description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten.'
-        twitter_description: 'Automatisiere kleine Bitcoin-Käufe auf regelmäßiger Basis. Die Einrichtung dauert nur 5 Minuten. Der Basisplan ist kostenlos. DCA könnte nicht einfacher sein.'
-        twitter_image_alt: 'Bitcoin Dollar-Cost Averaging'
     home:
         confirm_registration:
             title: Danke!
