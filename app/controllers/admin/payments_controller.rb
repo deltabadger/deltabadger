@@ -32,11 +32,11 @@ module Admin
 
     def update
       payment = Payment.find(params[:id])
-      old_status = payment.status
+      status_before_update = payment.status
       super
 
       payment.reload
-      return unless grant_commission?(old_status, payment.status)
+      return unless grant_commission?(status_before_update, payment.status)
 
       Affiliates::GrantCommission.new.call(referee: payment.user, payment: payment)
     end
@@ -63,7 +63,7 @@ module Admin
     end
 
     def grant_commission?(old_status, new_status)
-      new_status.in?(PAID_STATUSES) && old_status != new_status
+      old_status != new_status && new_status.in?(PAID_STATUSES)
     end
   end
 end
