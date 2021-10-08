@@ -26,7 +26,9 @@ module Payments
 
       update_params = {
         external_statuses: new_external_statuses(payment, external_status),
-        crypto_paid: params['btcPaid']
+        crypto_paid: params['btcPaid'],
+        commission: recalculate_commission(params, payment),
+        crypto_commission: recalculate_crypto_commission(params, payment)
       }
 
       update_params.merge!(status: status) unless payment.paid?
@@ -78,6 +80,14 @@ module Payments
 
     def paid_at(params)
       Time.at(params['currentTime'] / 1000)
+    end
+
+    def recalculate_crypto_commission(params, payment)
+      params['btcPaid'] / payment.crypto_total * payment.crypto_commission
+    end
+
+    def recalculate_commission(params, payment)
+      (params['btcPaid'] / payment.crypto_total * payment.commission).round(2)
     end
   end
 end

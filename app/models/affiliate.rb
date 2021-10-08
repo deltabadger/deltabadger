@@ -44,7 +44,7 @@ class Affiliate < ApplicationRecord
   end
 
   def program_active?
-    active? && user.unlimited?
+    active?
   end
 
   private
