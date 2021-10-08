@@ -83,11 +83,15 @@ module Payments
     end
 
     def recalculate_crypto_commission(params, payment)
-      params['btcPaid'] / payment.crypto_total * payment.crypto_commission
+      return 0.0 if payment.crypto_total.to_f == 0.0
+
+      params['btcPaid'].to_f / payment.crypto_total * payment.crypto_commission
     end
 
     def recalculate_commission(params, payment)
-      (params['btcPaid'] / payment.crypto_total * payment.commission).round(2)
+      return 0.0 if payment.crypto_total.to_f == 0.0
+
+      (params['btcPaid'].to_f / payment.crypto_total * payment.commission.to_f).round(2)
     end
   end
 end
