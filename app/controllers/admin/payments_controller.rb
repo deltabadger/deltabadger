@@ -63,7 +63,6 @@ module Admin
     end
 
     def grant_commission?(old_status, new_status)
-      byebug
       new_status.in?(PAID_STATUSES) && old_status != new_status
     end
   end
