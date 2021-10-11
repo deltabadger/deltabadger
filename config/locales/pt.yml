@@ -56,7 +56,7 @@ pt:
             destroyed: 'Adeus! Esperamos voltar a ver-nos em breve…'
             signed_up: 'Muito prazer!'
             signed_up_but_inactive: 'Olá, a sua conta ainda não está ativa. Verificou o seu e-mail?'
-            signed_up_but_locked: 'Ups… A sua conta está bloqueada.'
+            signed_up_but_locked: 'Ops… A sua conta está bloqueada.'
             signed_up_but_unconfirmed: 'Verifique o seu e-mail e clique na ligação de confirmação.'
             update_needs_confirmation: 'Verifique o seu e-mail e clique na ligação de confirmação para confirmar o seu novo endereço de e-mail.'
             updated: 'A sua conta foi atualizada com sucesso.'
@@ -220,6 +220,11 @@ pt:
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
         bitwarden_title: 'Experimente a Bitwarden'
         bitwarden_text: '. É gratuito e de código aberto.'
+    meta:
+        title: ''
+        twitter_image_alt: ''
+        title_short: ''
+        desc: ''
     home:
         confirm_registration:
             title: Obrigado!
@@ -233,7 +238,7 @@ pt:
         new:
             title: 'Registo no programa de referência'
             upgrade: 'Para aderir ao nosso famoso programa de referência, atualize para um dos nossos planos pagos.'
-            referrer_info: '1. Informação da pessoa que refere'
+            referrer_info: 'Informação da pessoa que refere'
             payout_address: 'Endereço de pagamentos'
             visible_info: 'Informação visível'
             private: Privado
@@ -359,7 +364,7 @@ pt:
             how_to_get_keys: 'Como obter chaves de API de %{exchange}:'
             binance:
                 private_key: 'Chave secreta'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.'
                 instructions_3_html: 'Atribua um nome à nova chave de API premindo em <b>Criar</b>.'
@@ -375,17 +380,17 @@ pt:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.'
                 instructions_3_html: 'Prima em <b>Adicionar nova chave</b>.'
-                instructions_4_1_html: 'Defina as permissões para:'
+                instructions_5_html: 'Prima em <b>Criar</b>.'
+                instructions_6_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
                 instructions_4_2_html: '<b>Histórico</b>'
                 instructions_4_3_html: '<b>Obter pedidos e configurações de mercado</b>'
                 instructions_4_4_html: '<b>Gerir pedidos e alterar configurações de mercado</b>'
-                instructions_5_html: 'Prima em <b>Criar</b>.'
-                instructions_6_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
             kraken:
                 trading_agreement_html: '<b>Olá!</b> Se a sua conta Kraken estiver verificada com um endereço alemão, terá de aceitar um <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">acordo comercial</a> para definir o mercado e as margens.'
                 trading_agreement_label_html: 'Aceito o <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">acordo comercial</a>.'
                 private_key: 'Chave privada'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.'
                 instructions_3_html: 'Prima <b>Gerar nova chave</b>.'
@@ -398,32 +403,32 @@ pt:
                 instructions_6_4_html: '<b>Modificar pedidos</b>'
                 instructions_6_5_html: '<b>Cancelar/fechar pedidos</b>'
                 instructions_7_html: 'Prima em <b>Gerar chave</b>.'
-                instructions_8_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
+                instructions_8_html: 'Cole ambas as chaves no formulário acima. '
             coinbase_pro:
                 private_key: 'Chave secreta'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
                 passphrase: 'Frase de acesso'
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>API</b>.'
                 instructions_3_html: 'Prima em <b>Nova chave de API</b>.'
-                instructions_4_1_html: 'Defina as permissões para:'
+                instructions_5_html: 'Prima em <b>Criar chave de API</b>.'
+                instructions_6_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
                 instructions_4_2_html: '<b>Visualizar</b>'
                 instructions_4_3_html: '<b>Transacionar</b>'
-                instructions_5_html: 'Prima em <b>Criar chave de API</b>.'
-                instructions_6_html: 'Copie e cole as suas novas chaves de API e a frase de acesso no formulário acima. '
             gemini:
                 private_key: 'Chave secreta'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu da conta (canto superior direito) aceda a <b>Definições</b>.'
                 instructions_3_html: 'Escolha <b>API</b> (lado esquerdo).'
                 instructions_4_html: 'Prima em <b>Criar uma nova chave de API</b>.'
                 instructions_5_html: 'Na lista pendente <b>Âmbito</b>, escolha <b>Primária</b>.'
                 instructions_6_html: 'Prima em <b>Criar uma nova chave de API</b>.'
+                instructions_8_html: 'Não marque <b>Requer heartbeat da sessão</b>'
+                instructions_9_html: 'Cole ambas as chaves no formulário acima. '
                 instructions_7_1_html: 'Defina as definições da chave de API:'
                 instructions_7_2_html: '<b>Transações</b>'
-                instructions_8_html: 'Não marque <b>Requer heartbeat da sessão</b>'
-                instructions_9_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
             ftx:
                 private_key: 'Chave privada'
                 public_key: 'Chave pública'
@@ -431,22 +436,22 @@ pt:
                 instructions_2_html: 'Aceda ao menu de definições (canto superior direito).'
                 instructions_3_html: 'Desloque para baixo até à secção <b>Chave de API</b>.'
                 instructions_4_html: 'Prima em <b>Criar chave de API</b>.'
-                instructions_5_html: 'Copie e cole as suas novas chaves de API no formulário acima. '
+                instructions_5_html: 'Cole ambas as chaves no formulário acima. '
             next: Próximo
             bitso:
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-                instructions_1_html: 'Inicie sessão na sua conta <a href=\\"https://bitso.com/\\" target=\\"_blank\\" rel=\\"nofollow\\">Bitso</a>.'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu de conta (canto superior direito) vá a <b>Perfil</b>.'
-                instructions_3_html: 'Escolher <b>API</b> (lado esquerdo).'
+                instructions_3_html: 'Escolha <b>API</b> (lado esquerdo).'
                 instructions_4_html: 'Prima <b>Adicionar novo API</b>.'
                 instructions_5_html: 'Preencha o <b>Nome API</b> e forneça o seu <b>PIN de Transacção</b>.'
-                instructions_6_1_html: 'Defina as permissões:'
+                instructions_7_html: ' <b>Guardar</b> na Imprensa.'
+                instructions_8_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
                 instructions_6_2_html: '<b>Realizar transacções</b>'
                 instructions_6_3_html: '<b>Ver saldos</b>'
                 instructions_6_4_html: '<b>Ver informação da conta</b>'
-                instructions_7_html: ' <b>Guardar</b> na Imprensa.'
-                instructions_8_html: 'Copie e cole as suas novas chaves API no formulário acima. '
             smart_intervals:
                 dont_show_again: 'Não mostrar novamente'
                 info_html:
@@ -464,44 +469,58 @@ pt:
                 instructions_4_html: 'Se criar as suas chaves API pela primeira vez, defina e grave a <b>Palavra-passe de negociação</b>.'
                 instructions_5_html: 'Forneça o <b>Nome da API</b>.'
                 instructions_6_html: 'Forneça e guarde a <b>Frase de acesso à API</b>.'
-                instructions_7_1_html: 'Defina permissões para:'
-                instructions_7_2_html: '<b>Geral</b>'
-                instructions_7_3_html: '<b>Negociação</b>'
                 instructions_8_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina <b>Restrição IP</b> como sim e adicione este IP: <b>3.18.70.231</b>'
                 instructions_9_html: 'Prima <b>Seguinte</b>.'
                 instructions_10_html: 'Confirme a criação das chaves API através da Palavra-passe de negociação e de 2FA.'
-                instructions_11_html: 'Copie e cole as suas novas chaves API e a Frase de acesso no formulário acima. '
+                instructions_11_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_7_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_7_2_html: '<b>Geral</b>'
+                instructions_7_3_html: '<b>Transacionar</b>'
             bitfinex:
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu da conta (canto superior direito) vá a <b>Chaves API</b>.'
                 instructions_3_html: 'Vá a <b>Criar nova chave</b>.'
-                instructions_4_1_html: 'Defina permissões para:'
-                instructions_4_2_html: '<b>Obter ordens e estados.</b>'
-                instructions_4_3_html: '<b>Criar e cancelar ordens.</b>'
                 instructions_5_html: 'Proporcionar um <b>Rótulo</b> à sua Chave API.'
                 instructions_6_html: 'Prima <b>Gerar chave API</b>.'
-                instructions_7_html: 'Copie e cole as suas novas chaves API no formulário acima. '
+                instructions_7_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_2_html: '<b>Obter ordens e estados.</b>'
+                instructions_4_3_html: '<b>Criar e cancelar ordens.</b>'
             bitstamp:
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link} .'
-                instructions_2_html: 'No menu da conta (canto superior direito) vá a <b>Definições</b>.'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu da conta (canto superior direito) aceda a <b>Definições</b>.'
                 instructions_3_html: 'Em <b>Controlo de acesso</b> vá a <b>Acesso API</b>.'
-                instructions_4_html: 'Prima <b>Nova Chave API</b>.'
+                instructions_4_html: 'Prima em <b>Nova chave de API</b>.'
                 instructions_5_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina o <b>Filtro de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Defina permissões para:'
+                instructions_7_html: 'Prima <b>Inserir 2FA e submeter</b>.'
+                instructions_8_html: 'Prima <b>Ativar</b>.'
+                instructions_9_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
                 instructions_6_2_html: '<b>Abrir ordens.</b>'
                 instructions_6_3_html: '<b>Cancelar ordem.</b>'
                 instructions_6_4_html: '<b>Ordens buy limit/mercado.</b>'
                 instructions_6_5_html: '<b>Ordens sell limit/mercado.</b>'
-                instructions_7_html: 'Prima <b>Inserir 2FA e submeter</b>.'
-                instructions_8_html: 'Prima <b>Ativar</b>.'
-                instructions_9_html: 'Copie e cole as suas novas chaves API no formulário acima. '
             set: Definir
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: ''
+                instructions_3_html: ''
+                instructions_4_html: ''
+                instructions_5_html: ''
+                instructions_7_html: ''
+                private_key: ''
+                public_key: ''
+                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_6_2_html: ''
+                instructions_6_3_html: '<b>Transações</b>'
+            frequency_limit:
+                limit_exceeded: ''
+                back_to_settings: ''
+                start_the_bot: ''
         add_new_bot: 'Adicionar novo bot'
         start: Iniciar
         stop: Pausa
@@ -599,7 +618,7 @@ pt:
             template_html: "<p>Olá 👋,</p>\n<p>Boa! A sua ligação de referência está a ganhar força!</p>\n<p>Transferimos uma comissão de</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>para a sua carteira de Bitcoin.</p>\n<p>Agradecemos a sua ajuda a <br>aumentar o bando dos texugos!</p>"
         registration_reminder:
             subject: 'Uau! Ganhou %{amount} BTC! 💸'
-            template_html: "<p>Uau!</p>\n<p>Tem uma nova comissão do programa de referências à sua espera! Termine o registo para receber as suas bitcoins:</p>\n<p><a href=%{link}>Termine o registo.</a></p>\n"
+            template_html: "<p>Uau!</p>\n<p>Tem uma nova comissão do programa de referências à sua espera! Termine o registo para receber as suas bitcoins:</p>\n<p><a href=%{link}>Termine o registo.</a></p>"
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
@@ -626,22 +645,6 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
             template_html: "<p>Uau 💙,</p>\n<p>Obrigado por comprar o nosso</p>\n<p>\n  <b>\n    plano %{plan_name} de %{years} anos\n  </b>\n</p>\n<p>É incrível! 🔥</p>"
-    pricing:
-        title: Preços
-        per_year: anos
-        per_4_years: '4 anos'
-        free: Grátis
-        free_limit: 'até 1200 $/ano'
-        no_limits: 'Sem limites'
-        all: Tudo
-        features:
-            dca: 'Investimento pelo preço médio'
-            currencies: Moedas
-            referral_program: 'Programa de referência'
-            limit_orders: 'Ordens com limites'
-            exchange: câmbio
-            name: Plano
-            price: Preço
     referral:
         banner_html: '<b>Partilhe o seu link de referência com amigos e <a href="/referral-program" alt="Read more">ganhe até $50 em BTC</a>. A melhor forma de fazer DCA em Bitcoin é ganhá-lo!</b>'
         copied: Copiado!
