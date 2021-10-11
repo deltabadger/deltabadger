@@ -8,6 +8,8 @@ class GetDcaProfit < BaseService
     profit = query_profit_dca(start_date, end_date)
     Rails.cache.write(CACHE_KEY, profit, expires_in: 1.day) if profit.success?
     profit
+  rescue StandardError
+    Result::Failure.new
   end
 
   private
