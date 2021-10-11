@@ -2,12 +2,6 @@ module Admin
   class PaymentsController < Admin::ApplicationController
     # Overwrite any of the RESTful controller actions to implement custom behavior
     # For example, you may want to send an email after a foo is updated.
-    #
-    # def update
-    #   foo = Foo.find(params[:id])
-    #   foo.update(params[:foo])
-    #   send_foo_updated_email
-    # end
 
     # Override this method to specify custom lookup behavior.
     # This will be used to set the resource for the `show`, `edit`, and `update`
@@ -30,9 +24,21 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
-    #
+    PAID_STATUSES = %w[paid confirmed complete].freeze
+
     def model_name
       :payment
+    end
+
+    def update
+      payment = Payment.find(params[:id])
+      status_before_update = payment.status
+      super
+
+      payment.reload
+      return unless grant_commission?(status_before_update, payment.status)
+
+      Affiliates::GrantCommission.new.call(referee: payment.user, payment: payment)
     end
 
     def csv
@@ -54,6 +60,10 @@ module Admin
 
     def format_date(rel, date)
       date.blank? ? '' : "-#{rel}-#{Date.parse(date)}"
+    end
+
+    def grant_commission?(old_status, new_status)
+      old_status != new_status && new_status.in?(PAID_STATUSES)
     end
   end
 end

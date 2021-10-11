@@ -43,10 +43,6 @@ class Affiliate < ApplicationRecord
     total_bonus_percent - discount_percent
   end
 
-  def program_active?
-    active? && user.unlimited?
-  end
-
   private
 
   def valid_btc_address
