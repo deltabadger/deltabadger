@@ -2,7 +2,7 @@ class GetDcaProfit < BaseService
   API_URL = 'https://api.coinpaprika.com/v1/coins/btc-bitcoin/ohlcv/historical'.freeze
   CACHE_KEY = 'dca_profit'.freeze
 
-  def call(start_date, end_date)
+  def call(start_date = 1.year.ago, end_date = Time.current)
     return Rails.cache.read(CACHE_KEY) if Rails.cache.exist?(CACHE_KEY)
 
     profit = query_profit_dca(start_date, end_date)
