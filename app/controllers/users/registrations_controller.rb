@@ -4,8 +4,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   prepend_before_action :check_captcha, only: [:create]
 
   def new
-    today = Time.now
-    @profit = GetDcaProfit.new.call(today - 365.days, today)
+    @profit = GetDcaProfit.new.call(1.year.ago, Time.current)
     @code_present = code.present?
 
     if @code_present
