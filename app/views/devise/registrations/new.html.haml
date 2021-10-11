@@ -1,8 +1,8 @@
 - content_for :meta_robots_content, 'noindex'
 
 - profit_calculator = GetDcaProfit.new
-- today = Date.today
-- profit = profit_calculator.call(today - 365, today)
+- today = Time.now
+- profit = profit_calculator.call(today - 365.days, today)
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text

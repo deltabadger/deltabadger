@@ -17,7 +17,7 @@
         %h3.db-modal-title= t('.title')
         = form_for(resource, as: resource_name, url: confirmation_path(resource_name), html: { method: :post }) do |f|
           .db-form__row
-            = f.email_field :email, autofocus: true, autocomplete: "email", value: (resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email), value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.email_field :email, autofocus: true, autocomplete: "email", value: (resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email), class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
             .db-form__info.db-form__info--invalid
               - unless resource.errors[:email][0].nil?
                 = t('helpers.label.user.email') + ' ' + resource.errors[:email][0]

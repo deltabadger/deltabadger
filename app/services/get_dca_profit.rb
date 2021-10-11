@@ -1,5 +1,5 @@
 class GetDcaProfit < BaseService
-  API_URL = 'https://api.coindesk.com/v1/bpi/historical/close.json'.freeze
+  API_URL = 'https://api.coinpaprika.com/v1/coins/btc-bitcoin/ohlcv/historical'.freeze
   CACHE_KEY = 'dca_profit'.freeze
 
   def call(start_date, end_date)
@@ -15,12 +15,12 @@ class GetDcaProfit < BaseService
   private
 
   def query_profit_dca(start_date, end_date)
-    response = Faraday.get(API_URL, start: start_date, end: end_date)
-    return Result::Failure.new(response.body) unless response.status == 200
+    response = Faraday.get(API_URL, start: start_date.to_i, end: end_date.to_i)
+    return Result::Failure.new unless response.status == 200
 
     response_json = JSON.parse(response.body)
-    price_index = response_json.fetch('bpi')
-    Result::Success.new(calculate_profit(price_index.values))
+    price_index = response_json.map { |x| x.fetch('close') }
+    Result::Success.new(calculate_profit(price_index))
   end
 
   def calculate_profit(prices)

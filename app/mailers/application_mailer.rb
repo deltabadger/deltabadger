@@ -4,7 +4,7 @@ class ApplicationMailer < ActionMailer::Base
 
   def initialize(profit_calculator: GetDcaProfit.new)
     super()
-    today = Date.today
-    @dca_profit = profit_calculator.call(today - 365, today)
+    today = Time.now
+    @dca_profit = profit_calculator.call(today - 365.days, today)
   end
 end
