@@ -389,7 +389,7 @@ de:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link} -Konto an.'
                 instructions_2_html: 'Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.'
                 instructions_3_html: 'Drücke auf <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4html: 'Setze Berechtigungen für:<br/>'
+                instructions_4_html: 'Setze Berechtigungen für:<br/>'
                 instructions_5_1_html: 'Gelder:'
                 instructions_5_2_html: '<b>Gelder abfragen</b>'
                 instructions_6_1_html: 'Order & Trades:'
