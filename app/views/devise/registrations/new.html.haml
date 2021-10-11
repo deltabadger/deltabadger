@@ -2,10 +2,12 @@
 
 - profit_calculator = GetDcaProfit.new
 - today = Date.today
+- profit = profit_calculator.call(today - 365, today)
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      %h3.db-modal-companion-title= t('ads.dca_profit_html', profit: profit_calculator.call(today - 365, today).data.to_i)
+      -if profit.success?
+        %h3.db-modal-companion-title= t('ads.dca_profit_html', profit: profit_calculator.call(today - 365, today).data.to_i)
 
       .db-signup__list
         - t('ads.features').split(';').each do |feature|
