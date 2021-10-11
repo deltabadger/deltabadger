@@ -99,7 +99,7 @@ pl:
             inclusion: 'nie znajduje się na liście'
             exclusion: 'jest zarezerwowany'
             invalid: 'jest nieważny'
-            confirmation: 'nie pasuje do %{atrybut}'
+            confirmation: 'nie pasuje do %{attribute}'
             accepted: 'musi zostać zaakceptowany'
             empty: 'nie może być puste'
             blank: 'nie może być puste'
