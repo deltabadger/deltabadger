@@ -6,5 +6,7 @@ class ApplicationMailer < ActionMailer::Base
     super()
     today = Time.now
     @dca_profit = profit_calculator.call(today - 365.days, today)
+  rescue StandardError
+    @dca_profit = Result::Failure.new
   end
 end
