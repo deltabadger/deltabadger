@@ -172,13 +172,10 @@ input
       .db-showif--pick-exchange
         display: block
   &--collapsed
-    height:   7.5rem
+    height:   8.9rem
     overflow: hidden
     cursor:   pointer
     .db-bot__progress
-      left: .46rem
-      right: .46rem
-      border-radius: 0
   &__progress
     height: .4rem
     position: absolute
@@ -187,6 +184,8 @@ input
     right: 1.5rem
     border-radius: 1rem
     background: var(--progressBar)
+    .progress-bar
+      border-radius: 1rem
     *
       transition: all 200ms linear
   &__header
@@ -384,7 +383,34 @@ input
     color: var(--text)
 
 .db-add-more-bots
+  justify-content: space-between
   height: 4rem
+  a
+    text-decoration: none
+  .pagination-lg
+    font-size: 1.5rem !important
+    .page-link
+      font-size: 1.5rem
+      line-height: 1.58
+      font-weight: bold
+      background: var(--paginationBg)
+      color: var(--text)
+      &:hover
+        background: var(--paginationHover)
+    .page-item
+      a
+        color: var(--link)
+      &.disabled
+        a
+          color: var(--text)
+    .page-item:first-child
+      .page-link
+        border-top-left-radius: 2rem
+        border-bottom-left-radius: 2rem
+    .page-item:last-child
+      .page-link
+        border-top-right-radius: 2rem
+        border-bottom-right-radius: 2rem
 .db-select--buy-sell
   max-width: 7.8em
 .db-input--dca-amount

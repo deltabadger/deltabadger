@@ -34,17 +34,23 @@ const fetchedMinimums = (data) => ({
   payload: data
 })
 
+const fetchedNumberOfPages = (numberOfPages) => ({
+  type: 'FETCHED_NUMBER_OF_PAGES',
+  payload: numberOfPages
+})
+
 const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: errors}})
 
 export const clearErrors = (id) => setErrors({ id, errors: [] })
 
-export const loadBots = (openFirstBot = false) => dispatch => {
-  return API.getBots().then(({ data }) => {
-    if (data.length === 0) { return }
+export const loadBots = (openFirstBot = false, page) => dispatch => {
+  return API.getBots(page).then(({ data }) => {
+    if (data.bots.length === 0) { return }
 
-    const sortedBots = data.sort((a,b) => a.id - b.id)
-    dispatch(fetchedBots(sortedBots))
-    if (openFirstBot) { dispatch(openBot(sortedBots[0].id)) }
+    const numberOfPages = data.number_of_pages
+    dispatch(fetchedBots(data.bots))
+    dispatch(fetchedNumberOfPages(numberOfPages))
+    if (openFirstBot) { dispatch(openBot(data.bots[0].id)) }
   })
 }
 
