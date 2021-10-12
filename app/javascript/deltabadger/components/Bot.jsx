@@ -44,6 +44,7 @@ const BotTemplate = ({
   fetchRestartParams,
   clearBotErrors,
   reload,
+  reloadPage,
   open,
   fetchExchanges,
   exchanges,
@@ -231,8 +232,7 @@ const BotTemplate = ({
     if (minimumOrderParams.showQuote) {
       return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      const re = new RegExp(`The minimum.*${currencyOfMinimum}\\.`, 'g')
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value}).match(re)[0];
+      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
     }
   }
 
@@ -334,7 +334,7 @@ const BotTemplate = ({
                 <>
                   <div className="form-group mr-2">
                     <input
-                        type="tel"
+                        type="text"
                         size={(price.length > 0) ? price.length : 3}
                         value={price}
                         className="bot-input bot-input--sizable bot-input--paper-bg"
@@ -349,7 +349,7 @@ const BotTemplate = ({
                   <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
                   <div className="form-group mr-2">
                     <input
-                        type="tel"
+                        type="text"
                         size={(price.length > 0) ? price.length : 3}
                         value={price}
                         className="bot-input bot-input--sizable bot-input--paper-bg"
@@ -390,10 +390,10 @@ const BotTemplate = ({
             <div>
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
-                type="tel"
+                type="text"
                 className="bot-input bot-input--sizable"
                 value={smartIntervalsValue}
-                size={smartIntervalsValue.length}
+                size={smartIntervalsValue.length > 0 ? smartIntervalsValue.length : 3}
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
                 disabled={working}
@@ -422,7 +422,7 @@ const BotTemplate = ({
             />
             <div>
               {isSellOffer() ? I18n.t('bots.sell') : (isLegacySell() ? I18n.t('bots.sell') : I18n.t('bots.buy'))} <input
-              type="tel"
+              type="text"
               value={percentage}
               size={(percentage.length > 0) ? percentage.length : 1}
               className="bot-input bot-input--sizable"
@@ -453,7 +453,7 @@ const BotTemplate = ({
             <div>
               <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[0]}</RawHTML>
               <input
-                type="tel"
+                type="text"
                 className="bot-input bot-input--sizable"
                 value={priceRange.low}
                 onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
@@ -463,7 +463,7 @@ const BotTemplate = ({
 
               <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[1]}</RawHTML>
               <input
-                type="tel"
+                type="text"
                 className="bot-input bot-input--sizable"
                 value={priceRange.high}
                 onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
@@ -481,7 +481,7 @@ const BotTemplate = ({
 
       }
       <div className="db-bot__footer" hidden={working}>
-        <RemoveButton onClick={() => handleRemove(id)} disabled={working}/>
+        <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/>
       </div>
 
     </div>

@@ -10,10 +10,8 @@ module Affiliates
       @affiliate_mailer = affiliate_mailer
     end
 
-    def call(affiliate:, new_btc_address:) # rubocop:disable Metrics/MethodLength
-      unless affiliate.program_active?
-        return Result::Failure.new(I18n.t('errors.referral_program_inactive'))
-      end
+    def call(affiliate:, new_btc_address:)
+      return Result::Failure.new(I18n.t('errors.referral_program_inactive')) unless affiliate.active?
 
       unless Bitcoin.valid_address?(new_btc_address)
         affiliate[:btc_address] = new_btc_address

@@ -56,7 +56,7 @@ pt:
             destroyed: 'Adeus! Esperamos voltar a ver-nos em breve…'
             signed_up: 'Muito prazer!'
             signed_up_but_inactive: 'Olá, a sua conta ainda não está ativa. Verificou o seu e-mail?'
-            signed_up_but_locked: 'Ups… A sua conta está bloqueada.'
+            signed_up_but_locked: 'Ops… A sua conta está bloqueada.'
             signed_up_but_unconfirmed: 'Verifique o seu e-mail e clique na ligação de confirmação.'
             update_needs_confirmation: 'Verifique o seu e-mail e clique na ligação de confirmação para confirmar o seu novo endereço de e-mail.'
             updated: 'A sua conta foi atualizada com sucesso.'
@@ -140,7 +140,7 @@ pt:
     welcome:
         default: 'Olá, damos-lhe as boas-vindas à Deltabadger'
         saver: 'Livre-se dos limites e atualize!'
-        banner_html: "Damos-lhe as boas-vindas! Tem atualmente o <b>plano gratuito com um limite de transações de $500/ano</b>, que não será aplicado durante o primeiro mês. Experimente qualquer horário que pretender. Também pode atualizá-lo para desfrutar de transações ilimitadas mais tarde. O plano Hodler de 4 anos, oferece-lhe acesso adicional a novas funcionalidades experimentais (por exemplo, todas as moedas em câmbio). Agradecemos todos os comentários que nos quiser enviar. Junte-se ao nosso\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grupo no Telegram</a> e siga-nos no <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Bons investimentos!"
+        banner_html: "Damos-lhe as boas-vindas! Tem atualmente o <b>plano gratuito com um limite de transações de $1200/ano</b>, que não será aplicado durante o primeiro mês. Experimente qualquer horário que pretender. Também pode atualizá-lo para desfrutar de transações ilimitadas mais tarde. O plano Hodler de 4 anos, oferece-lhe acesso adicional a novas funcionalidades experimentais (por exemplo, todas as moedas em câmbio). Agradecemos todos os comentários que nos quiser enviar. Junte-se ao nosso\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grupo no Telegram</a> e siga-nos no <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Bons investimentos!"
     subscriptions:
         upgrade: Atualizar
         days_left:
@@ -153,7 +153,7 @@ pt:
         hodler_description_html: "O DCA funciona melhor se for um compromisso a longo prazo. <span class=\"no-brak\">Quatro anos</span> de <b class=\"badge badge-btc\">transações ilimitadas</b> para <b class=\"badge badge-all\">todos os tokens</b>, <b class=\"badge badge-limit\">pedidos ilimitados</b> e acesso ao <b class=\"badge badge-referral\">programa de referência</b>.\nEste plano suporta o projeto, pelo que os Hodlers recebem <b class=\"badge badge-priority\">acesso prioritário</b> a todas as <b class=\"badge badge-priority\">novas funcionaliades</b>."
         plan_1_year: 'Plano de 1 ano'
         plan_4_year: 'Plano de 4 anos'
-        limit_reached_html: '<b>Parabéns!</b> Atingiu o nosso limite de transações gratuitas de $500/ano. Para continuar, atualize para o plano ilimitado.'
+        limit_reached_html: '<b>Parabéns!</b> Atingiu o nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         payment:
             billing_information: 'Informação de faturação'
             bitcoin: Bitcoin
@@ -213,78 +213,19 @@ pt:
         blog: 'Leia o nosso blog'
         knowledge_base: 'Base de conhecimento'
     ads:
-        automate_bitcoin_html: 'Compra automática de Bitcoin'
-        automate_crypto_html: 'Compra automática de qualquer criptomoeda'
-        automate_hourly: 'por hora'
-        automate_daily: diariamente
-        automate_weekly: semanalmente
         dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
-        dca_bulletproof_html: 'A estratégia infalível do <span class="no-break"><a href="#dcamagic">investimento pelo preço médio</a>.</span><br> Funciona com os câmbios mais populares. <span class="no-break">Configuração em cinco minutos.</span>'
         dca_profit_html: 'Se fez investimentos pelo preço médio<br>em Bitcoin no último ano,<br>está agora a <span class="text-success">+%{profit}%</span>'
-        basic_free_html: "O plano básico é\n<b class=\"text-success text-success--lighter\">gratuito</b>\npara sempre."
         features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
-        dca_standard: 'O investimento pelo preço médio em Bitcoin é a nova norma para poupadores a longo prazo.'
         dca_standard_html: 'O investimento pelo preço médio em<br>Bitcoin é a nova norma<br>para poupadores a longo prazo.'
-        dca_standard_description_html: "<p>O número cada vez maior de regulamentos limita o acesso dos indivíduos aos mercados financeiros, enquanto as taxas de juro negativas desvalorizam obrigações e contas poupança.</p>\n<p>Neste ambiente, particulares e empresas continuam a investir na Bitcoin.</p>"
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
         bitwarden_title: 'Experimente a Bitwarden'
         bitwarden_text: '. É gratuito e de código aberto.'
     meta:
-        title: 'Deltabadger | Investimento pelo preço médio em Bitcoin'
-        description: 'Automatize pequenas compras de Bitcoin numa base regular. Configuração em cinco minutos. O plano básico é gratuito.'
-        og_description: 'Automatize pequenas compras de Bitcoin numa base regular. Configuração em cinco minutos.'
-        twitter_description: 'Automatize pequenas compras de Bitcoin numa base regular. Configuração em cinco minutos. O plano básico é gratuito. O DCA é realmente simples.'
-        twitter_image_alt: 'Investimento pelo preço médio em Bitcoin'
+        title: ''
+        twitter_image_alt: ''
+        title_short: ''
+        desc: ''
     home:
-        index:
-            title: 'Deltabadger | Investimento pelo preço médio em Bitcoin'
-            fastest_asset: 'Invista pelo preço médio nos ativos de valorização mais rápido.'
-            fastest_market: 'Invista pelo preço médio no mercado de valorização mais rápido.'
-            connect_exchanges: 'Adira a um dos câmbios mais populares e defina compras recorrentes no horário que pretender. Pode executar todos os bots que quiser para realizar investimentos pelo preço médio na sua carteira de criptomoeda favorita.'
-            testimonials:
-                header: 'O que os utilizadores dizem sobre nós:'
-                header_html: 'O que diz <svg alt="Twitter" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg>:'
-            dca_magic:
-                title_html: "A magia do investimento pelo  <br>\npreço médio em <span class=\"no-break\">4 gráficos simples</span>"
-                easy1:
-                    title_html: 'Espera, o que é o DCA?'
-                    text_html: "<p>O DCA é uma estratégia de investimento onde compra um ativo por um montante fixo num horário regular, independentemente do seu preço. Obtém mais do ativo quando o preço é mais baixo, e menos do ativo quando o preço é mais elevado. Como resultado, em vez de realizar grandes apostas a curto termo, obtém um preço médio justo.</p>\n<p>O DCA protege-o do carrossel emocional, dos riscos a curto prazo e da ansiedade da tomada de decisões.</p>"
-                    chart_regular_purchases: 'Compras regulares'
-                    chart_average_price: 'Preço médio'
-                easy2:
-                    title_html: 'Devo esperar que a correção seja <span class="no-break">iniciada?</span>'
-                    text_html: '<p>Não. Para avaliar um ativo, é sempre melhor começar mais cedo, mesmo no topo! Eventualmente, o preço irá subir e quem tiver começado mais cedo acaba com preços médios mais baixos.</p>'
-                    chart_earlier: Antes
-                    chart_better_average_price: 'melhor preço médio'
-                easy3:
-                    title_html: 'Porque é que é melhor que um <span class="no-break">investimento com montante fixo</span>?'
-                    text_html: '<p>A curto prazo, o preço poderá continuar a subir, descer ou estacionar. O montante fixo ganha apenas no primeiro cenário. O DCA ganha nos dois outros. A magia do DCA permite-lhe vencer mesmo que o preço não se tenha alterado no fim.</p>'
-                    chart_lump_sum: 'Montante fixo = 5 unidades'
-                    chart_dca: 'DCA = 6 unidades'
-                easy4:
-                    title_html: 'Posso melhorar o DCA com um RSI <span class="no-break">ou com o Múltiplo de Mayer</span>?'
-                    text_html: '<p>Nem por isso. Os osciladores não funcionam bem em tendências ascendentes. A base seguinte é frequentemente superior ao topo anterior. Não existem estratégias automatizadas que ganhem no DCA, porque o DCA é, simplesmente, um investimento nas tendências do mercado, as quais não podem ser compreendidas consistentemente com fórmulas matemáticas.</p>'
-                    chart_price: Preço
-                    chart_mm: 'Múltiplo de Mayer'
-            case_studies:
-                investor:
-                    badge: Investor
-                    title_html: 'A Mary investe em Bitcoin com <b class="text-success text-success--lighter">tranquilidade</b>.'
-                    story: 'Ela criou uma transferência bancária recorrente semanal de 100 € para a sua conta Gemini. Depois, o seu bot gasta-os em pequenas compras em Bitcoin, facilitando imenso a sua estratégia de investimento.'
-                hodler:
-                    badge: Hodler
-                    title_html: 'O Matteo gosta de ter controlo avançado e <b class="text-success text-success--lighter">sem taxas</b>.'
-                    story: 'Executa um bot de ordens com limites que define as ordens 0,1% abaixo do preço atual. Na Binance, contrabalança inteiramente taxas diferenciais e de criadores de mercados, obtendo sempre o melhor preço.'
-                trader:
-                    badge: Corretor
-                    title_html: 'A Cryptocat44 recebe investimentos pelo preço médio em 30 <b class="text-success text-success--lighter">tokens diferentes</b>.'
-                    story: 'No FTX, ele constrói um portefólio que inclui ações da Tesla e da Coinbase, juntamente com muitas outras criptomoedas. Utiliza bots para acumular posições oscilantes e vendê-las quando forem lucrativas.'
-            ceo_note:
-                note: 'Comecei a utilizar a Deltabadger, e falo abertamente sobre Bitcoin, porque acredito que esta é uma das invenções mundiais mais empoderadoras e democratizadoras dos nossos tempos. O dinheiro deve ser neutro. O valor das poupanças que adquirimos através do nosso trabalho árduo não deve depender de políticos. Todos têm o direito de beneficiar do crescimento económico global. Apenas a moeda forte com oferta limitada pode oferecer semelhante exposição para todos no planeta.'
-                photo_by: 'Fotografia por Alifia Harina de Pexels'
-        founder:
-            signature: 'O meu nome é Jan e sou o fundador da Deltabadger.'
-            telegram_invitation_html: 'Junte-se a nós no <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow" title="Telegram Group">Telegram</a>'
         confirm_registration:
             title: Obrigado!
             text_html: 'Verifique a sua caixa de correio eletrónico e clique na <b>ligação de confirmação</b> que lhe enviámos. Depois, aceda à página de início de sessão.'
@@ -297,10 +238,9 @@ pt:
         new:
             title: 'Registo no programa de referência'
             upgrade: 'Para aderir ao nosso famoso programa de referência, atualize para um dos nossos planos pagos.'
-            referrer_info: '1. Informação da pessoa que refere'
-            payout_address: '2. Endereço de pagamentos'
-            program_settings: '3. Definições do programa'
-            visible_info: '4. Informação visível'
+            referrer_info: 'Informação da pessoa que refere'
+            payout_address: 'Endereço de pagamentos'
+            visible_info: 'Informação visível'
             private: Privado
             eu_company: 'Empresa da UE'
             unchangable_warning: 'As definições desta secção podem ser alteradas mais tarde.'
@@ -423,37 +363,95 @@ pt:
             limit_warning: 'O bot para limitar pedido é uma funcionalidade experimentar. Nem todos os pedidos serão preenchidos. Para obter bons resultados, precisa de aumentar proporcionalmente o montante investido. Atualmente, a Deltabadger ainda não oferece ajuda para estimar este ajuste, pelo que precisará de recorrer às suas verificações anteriores. Utilize-o apenas se souber o que está a fazer.'
             how_to_get_keys: 'Como obter chaves de API de %{exchange}:'
             binance:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.</li>\n  <li>Atribua um nome à nova chave de API premindo em \"Criar\".</li>\n  <li>Confirme a criação com código(s) único(s).</li>\n  <li>Certifique-se de que marcou <b>Permitir transações a contado e de margens</b>.</li>\n  <li>Se pretender restringir o acesso à chave apenas para a Deltabadger, clique em <b>Editar restrições</b>, marque <b>Restringir o acesso para IPs de confiança apenas (recomendado)</b>, e adicione este IP no passo seguinte: <b>3.18.70.231</b></li>\n  <li>Prima em <b>Guardar</b> e confirme com outro código único, se necessário.</li>\n  <li>Lembre-se que a sua chave secreta só é visível no momento da criação. Por isso, certifique-se de que copia ambas as chaves antes de sair do ecrã.</li>\n  <li>Cole ambas as chaves no formulário acima.</li>\n</ol>"
                 private_key: 'Chave secreta'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.'
+                instructions_3_html: 'Atribua um nome à nova chave de API premindo em <b>Criar</b>.'
+                instructions_4_html: 'Confirme a criação com código(s) único(s).'
+                instructions_5_html: 'Certifique-se de que marcou <b>Permitir transações a contado e de margens</b>.'
+                instructions_6_html: 'Se pretender restringir o acesso à chave apenas para a Deltabadger, clique em <b>Editar restrições</b>, marque <b>Restringir o acesso para IPs de confiança apenas (recomendado)</b>, e adicione este IP no passo seguinte: <b>3.18.70.231</b>'
+                instructions_7_html: 'Prima em <b>Guardar</b> e confirme com outro código único, se necessário.'
+                instructions_8_html: 'Lembre-se que a sua chave secreta só é visível no momento da criação. Por isso, certifique-se de que copia ambas as chaves antes de sair do ecrã.'
+                instructions_9_html: 'Cole ambas as chaves no formulário acima. '
             bitbay:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.</li>\n  <li>Prima em <b>Adicionar nova chave</b>.</li>\n  <li>Defina as permissões para:\n    <ul>\n      <li><b>Histórico</b></li>\n      <li><b>Obter pedidos e configurações de mercado</b></li>\n      <li><b>Gerir pedidos e alterar configurações de mercado</b></li>\n    </ul>\n  </li>\n  <li>Prima em <b>Criar</b>.</li>\n  <li>Copie e cole as suas novas chaves de API no formulário acima.</li>\n</ol>"
                 private_key: 'Chave privada'
                 public_key: 'Chave pública'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.'
+                instructions_3_html: 'Prima em <b>Adicionar nova chave</b>.'
+                instructions_5_html: 'Prima em <b>Criar</b>.'
+                instructions_6_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_2_html: '<b>Histórico</b>'
+                instructions_4_3_html: '<b>Obter pedidos e configurações de mercado</b>'
+                instructions_4_4_html: '<b>Gerir pedidos e alterar configurações de mercado</b>'
             kraken:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.</li>\n  <li>Prima <b>Gerar nova chave</b>.</li>\n  <li>Defina as permissões para o seguinte:<br/>\n    Fundos:\n    <ul>\n      <li><b>Consulta de fundos</b></li>\n    </ul>\n    Pedidos e transações:\n    <ul>\n      <li><b>Pedidos e transações de consulta aberta</b></li>\n      <li><b>Pedidos e transações de consulta fechada</b></li>\n      <li><b>Modificar pedidos</b></li>\n      <li><b>Cancelar/fechar pedidos</b></li>\n    </ul>\n  </li>\n  <li>Prima em <b>Gerar chave</b>.</li>\n  <li>Copie e cole as suas novas chaves de API no formulário acima.</li>\n</ol>"
                 trading_agreement_html: '<b>Olá!</b> Se a sua conta Kraken estiver verificada com um endereço alemão, terá de aceitar um <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">acordo comercial</a> para definir o mercado e as margens.'
                 trading_agreement_label_html: 'Aceito o <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">acordo comercial</a>.'
                 private_key: 'Chave privada'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.'
+                instructions_3_html: 'Prima <b>Gerar nova chave</b>.'
+                instructions_4_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_5_1_html: 'Fundos:'
+                instructions_5_2_html: '<b>Consulta de fundos</b>'
+                instructions_6_1_html: 'Pedidos e transações:'
+                instructions_6_2_html: '<b>Pedidos e transações de consulta aberta</b>'
+                instructions_6_3_html: '<b>Pedidos e transações de consulta fechada</b>'
+                instructions_6_4_html: '<b>Modificar pedidos</b>'
+                instructions_6_5_html: '<b>Cancelar/fechar pedidos</b>'
+                instructions_7_html: 'Prima em <b>Gerar chave</b>.'
+                instructions_8_html: 'Cole ambas as chaves no formulário acima. '
             coinbase_pro:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu do utilizador (canto superior direito), aceda a <b>API</b>.</li>\n  <li>Prima em <b>Nova chave de API</b>.</li>\n  <li>Defina as permissões para:\n    <ul>\n      <li><b>Visualizar</b></li>\n      <li><b>Transacionar</b></li>\n    </ul>\n  </li>\n  <li>Prima em <b>Criar chave de API</b>.</li>\n  <li>Copie e cole as suas novas chaves de API e a frase de acesso no formulário acima.</li>\n</ol>"
                 private_key: 'Chave secreta'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
                 passphrase: 'Frase de acesso'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>API</b>.'
+                instructions_3_html: 'Prima em <b>Nova chave de API</b>.'
+                instructions_5_html: 'Prima em <b>Criar chave de API</b>.'
+                instructions_6_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_2_html: '<b>Visualizar</b>'
+                instructions_4_3_html: '<b>Transacionar</b>'
             gemini:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu da conta (canto superior direito) aceda a <b>Definições</b>.</li>\n  <li>Escolha <b>API</b> (lado esquerdo).</li>\n  <li>Prima em <b>Criar uma nova chave de API</b>.</li>\n  <li>Na lista pendente <b>Âmbito</b>, escolha <b>Primária</b>.</li>\n  <li>Prima em <b>Criar uma nova chave de API</b>.</li>\n  <li>Defina as definições da chave de API:\n    <ul>\n      <li><b>Transações</b></li>\n    </ul>\n  </li>\n  <li>Não marque <b>Requer heartbeat da sessão</b></li>\n  <li>Copie e cole as suas novas chaves de API no formulário acima.</li>\n</ol>"
                 private_key: 'Chave secreta'
-                public_key: 'Chave de API'
+                public_key: 'Chave API'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu da conta (canto superior direito) aceda a <b>Definições</b>.'
+                instructions_3_html: 'Escolha <b>API</b> (lado esquerdo).'
+                instructions_4_html: 'Prima em <b>Criar uma nova chave de API</b>.'
+                instructions_5_html: 'Na lista pendente <b>Âmbito</b>, escolha <b>Primária</b>.'
+                instructions_6_html: 'Prima em <b>Criar uma nova chave de API</b>.'
+                instructions_8_html: 'Não marque <b>Requer heartbeat da sessão</b>'
+                instructions_9_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_7_1_html: 'Defina as definições da chave de API:'
+                instructions_7_2_html: '<b>Transações</b>'
             ftx:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>Aceda ao menu de definições (canto superior direito).</li>\n  <li>Desloque para baixo até à secção <b>Chave de API</b>.</li>\n  <li>Prima em <b>Criar chave de API</b>.</li>\n  <li>Copie e cole as suas novas chaves de API no formulário acima.</li>\n</ol>"
                 private_key: 'Chave privada'
                 public_key: 'Chave pública'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'Aceda ao menu de definições (canto superior direito).'
+                instructions_3_html: 'Desloque para baixo até à secção <b>Chave de API</b>.'
+                instructions_4_html: 'Prima em <b>Criar chave de API</b>.'
+                instructions_5_html: 'Cole ambas as chaves no formulário acima. '
             next: Próximo
             bitso:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\">Bitso</a>.</li>\n  <li>No menu de conta (canto superior direito) vá a <b>Perfil</b>.</li>\n  <li>Escolher <b>API</b> (lado esquerdo).</li>\n  <li>Prima <b>Adicionar novo API</b>.</li>\n  <li>Preencha o <b>Nome API</b> e forneça o seu <b>PIN de Transacção</b>.</li>\n  <li>Defina as permissões:\n    <ul>\n      <li><b>Realizar transacções</b></li>\n      <li><b>Ver saldos</b></li>\n      <li><b>Ver informação da conta</b></li>\n    </ul>\n  </li>\n  <li> <b>Guardar</b> na Imprensa.</li>\n  <li>Copie e cole as suas novas chaves API no formulário acima.</li>\n</ol>\n"
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu de conta (canto superior direito) vá a <b>Perfil</b>.'
+                instructions_3_html: 'Escolha <b>API</b> (lado esquerdo).'
+                instructions_4_html: 'Prima <b>Adicionar novo API</b>.'
+                instructions_5_html: 'Preencha o <b>Nome API</b> e forneça o seu <b>PIN de Transacção</b>.'
+                instructions_7_html: ' <b>Guardar</b> na Imprensa.'
+                instructions_8_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_6_2_html: '<b>Realizar transacções</b>'
+                instructions_6_3_html: '<b>Ver saldos</b>'
+                instructions_6_4_html: '<b>Ver informação da conta</b>'
             smart_intervals:
                 dont_show_again: 'Não mostrar novamente'
                 info_html:
@@ -462,19 +460,67 @@ pt:
             validating: 'A validar'
             error_info: 'Falha ao validar. Tente novamente ou gira novas chaves.'
             kucoin:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu da conta (canto superior dieito junto ao seletor de idioma) vá a <b>Gestão de API</b>.</li>\n  <li>Prima <b>Criar API</b>.</li>\n <li>Se criar as suas chaves API pela primeira vez, defina e grave a <b>Palavra-passe de negociação</b>.</li>\n  <li>Forneça o <b>Nome da API</b>.</li>\n <li>Forneça e guarde a <b>Frase de acesso à API</b>.</li>\n <li>Defina permissões para:\n    <ul>\n      <li><b>Geral</b></li>\n      <li><b>Negociação</b></li>\n    </ul>\n  </li>\n <li>Se quiser restringir o acesso à chave apenas para Deltabadger defina <b>Restrição IP</b> como sim e adicione este IP: <b>3.18.70.231</b></li>\n  <li>Prima <b>Seguinte</b>.</li>\n <li>Confirme a criação das chaves API através da Palavra-passe de negociação e de 2FA.</li>\n <li>Copie e cole as suas novas chaves API e a Frase de acesso no formulário acima.</li>\n</ol>"
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
                 passphrase: 'Frase de acesso'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu da conta (canto superior dieito junto ao seletor de idioma) vá a <b>Gestão de API</b>.'
+                instructions_3_html: 'Prima <b>Criar API</b>.'
+                instructions_4_html: 'Se criar as suas chaves API pela primeira vez, defina e grave a <b>Palavra-passe de negociação</b>.'
+                instructions_5_html: 'Forneça o <b>Nome da API</b>.'
+                instructions_6_html: 'Forneça e guarde a <b>Frase de acesso à API</b>.'
+                instructions_8_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina <b>Restrição IP</b> como sim e adicione este IP: <b>3.18.70.231</b>'
+                instructions_9_html: 'Prima <b>Seguinte</b>.'
+                instructions_10_html: 'Confirme a criação das chaves API através da Palavra-passe de negociação e de 2FA.'
+                instructions_11_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_7_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_7_2_html: '<b>Geral</b>'
+                instructions_7_3_html: '<b>Transacionar</b>'
             bitfinex:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link}.</li>\n  <li>No menu da conta (canto superior direito) vá a <b>Chaves API</b>.</li>\n  <li>Vá a <b>Criar nova chave</b>.</li>\n <li>Defina permissões para:\n    <ul>\n      <li><b>Obter ordens e estados.</b></li>\n      <li><b>Criar e cancelar ordens.</b></li>\n    </ul>\n  </li>\n <li>Proporcionar um <b>Rótulo</b> à sua Chave API.</li>\n <li>Prima <b>Gerar chave API</b>.</li>\n <li>Copie e cole as suas novas chaves API no formulário acima.</li>\n</ol>"
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu da conta (canto superior direito) vá a <b>Chaves API</b>.'
+                instructions_3_html: 'Vá a <b>Criar nova chave</b>.'
+                instructions_5_html: 'Proporcionar um <b>Rótulo</b> à sua Chave API.'
+                instructions_6_html: 'Prima <b>Gerar chave API</b>.'
+                instructions_7_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_2_html: '<b>Obter ordens e estados.</b>'
+                instructions_4_3_html: '<b>Criar e cancelar ordens.</b>'
             bitstamp:
-                instructions_html: "<ol>\n  <li>Inicie sessão na sua conta %{exchange_link} .</li>\n  <li>No menu da conta (canto superior direito) vá a <b>Definições</b>.</li>\n  <li>Em <b>Controlo de acesso</b> vá a <b>Acesso API</b>.</li>\n <li>Prima <b>Nova Chave API</b>.</li>\n <li>Se quiser restringir o acesso à chave apenas para Deltabadger defina o <b>Filtro de Endereço IP</b> para este IP: <b>3.18.70.231</b></li>\n <li>Defina permissões para:\n    <ul>\n      <li><b>Abrir ordens.</b></li>\n <li><b>Cancelar ordem.</b></li>\n <li><b>Ordens buy limit/mercado.</b></li>\n <li><b>Ordens sell limit/mercado.</b></li>\n  </ul>\n  </li>\n <li>Prima <b>Inserir 2FA e submeter</b>.</li>\n <li>Prima <b>Ativar</b>.</li>\n <li>Copie e cole as suas novas chaves API no formulário acima.</li>\n</ol>"
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: 'No menu da conta (canto superior direito) aceda a <b>Definições</b>.'
+                instructions_3_html: 'Em <b>Controlo de acesso</b> vá a <b>Acesso API</b>.'
+                instructions_4_html: 'Prima em <b>Nova chave de API</b>.'
+                instructions_5_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina o <b>Filtro de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
+                instructions_7_html: 'Prima <b>Inserir 2FA e submeter</b>.'
+                instructions_8_html: 'Prima <b>Ativar</b>.'
+                instructions_9_html: 'Cole ambas as chaves no formulário acima. '
+                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_6_2_html: '<b>Abrir ordens.</b>'
+                instructions_6_3_html: '<b>Cancelar ordem.</b>'
+                instructions_6_4_html: '<b>Ordens buy limit/mercado.</b>'
+                instructions_6_5_html: '<b>Ordens sell limit/mercado.</b>'
             set: Definir
+            probit:
+                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
+                instructions_2_html: ''
+                instructions_3_html: ''
+                instructions_4_html: ''
+                instructions_5_html: ''
+                instructions_7_html: ''
+                private_key: ''
+                public_key: ''
+                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_6_2_html: ''
+                instructions_6_3_html: '<b>Transações</b>'
+            frequency_limit:
+                limit_exceeded: ''
+                back_to_settings: ''
+                start_the_bot: ''
         add_new_bot: 'Adicionar novo bot'
         start: Iniciar
         stop: Pausa
@@ -541,11 +587,10 @@ pt:
                 errors: Erros
             info:
                 title: Informação
-                exchanges_html: "<p className=\"mt-2\"><b>Câmbios</b></p>\n<p>A Deltabadger trabalha com câmbios de criptomoeda. Atualmente, suportamos <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> e <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Recomendamos a Kraken pelo seu câmbio de reputação, que nunca foi vítima de acesso ilícito. Utilize a Bitbay se pretender efetuar compras em PLN.</p>\n<p>Para dar utilidade ao seu bot, precisa de, primeiro, verificar a sua conta de câmbio e transferir alguns fundos para a mesma.</p>\n<p>No entanto, não mantenha as suas moedas em nenhum câmbio durante demasiado tempo. Inicie sessão na sua conta e efetue levantamentos regulares, pelo menos uma vez por mês.</p>\n<p>Iremos adicionar mais câmbios no futuro. Informe-nos se estiver interessado em algum câmbio em particular.</p>"
+                exchanges_html: "<p className=\"mt-2\"><b>Câmbios</b></p>\n<p>A Deltabadger trabalha com câmbios de criptomoeda. Atualmente, suportamos <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> e <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Recomendamos a Kraken pelo seu câmbio de reputação, que nunca foi vítima de acesso ilícito. Utilize a Bitbay se pretender efetuar compras em PLN.</p>\n<p>Para dar utilidade ao seu bot, precisa de, primeiro, verificar a sua conta de câmbio e transferir alguns fundos para a mesma.</p>\n<p>No entanto, não mantenha as suas moedas em nenhum câmbio durante demasiado tempo. Inicie sessão na sua conta e efetue levantamentos regulares, pelo menos uma vez por mês.</p>\n<p>Iremos adicionar mais câmbios no futuro. Informe-nos se estiver interessado em algum câmbio em particular.</p>"
                 smart_intervals_html: "<p className=\"mt-2\"><b>\"Intervalos inteligentes\"</b></p>\n<p>Quando os intervalos inteligentes estão ativados, a Deltabadger executa o seu horário pretendido nas menores transações permitidas pelo câmbio. Caso contrário, serão utilizados apenas se necessário.</p>\n<p className=\"mt-2\"><b>Porquê?</b></p>\n<p>Existem dois benefícios:</p>\n<p>Os horários mais frequentes permite-lhe desfrutar dos benefícios do DCA mais rapidamente, tornando-o ainda mais fácil.</p>\n<p>Adicionalmente, por vezes, os intervalos inteligentes são necessários. Todos os câmbios têm um limite mínimo da dimensão da transação. Alguns câmbios definem-se em BTC, pelo que o valor em USD altera ao longo do tempo. Se o montante que quiser comprar for inferior, a Deltabadger mantém a sua relação pretendida utilizando a dimensão mínima permitida, mas ajustando o intervalo de tempo. Evita que o bot seja interrompido quando os montantes definidos por si estiverem abaixo do limite.</p>\n<p className=\"mt-2\"><b>Exemplo:</b></p>\n<p>Digamos que o seu limite de câmbio atual é de $20. Se definir a dimensão das transações para $24/dia, o bot fará exatamente isso. No entanto, se a definir para $1/hora, o bot irá imitar a relação utilizando a dimensão permitida, o que é igual a $20 a cada 20 horas. Em média, isto resulta na mesma relação ($24/dia = $1/hora = $20/20 horas).</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>Começou agora a descobrir o investimento pelo preço médio?</b></p>\n<p>Estas ligações irão ajudar:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA para principiantes (vídeo)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">O poder do DCA em Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Simulador de DCA</a></li>\n</ul>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>Começou agora a descobrir o investimento pelo preço médio?</b></p>\n<p>Estas ligações irão ajudar:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA para principiantes (vídeo)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">O poder do DCA em Bitcoin</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">Simulador de DCA</a></li>\n</ul>"
         starting: Começar
-        force_smart_intervals: 'Utilize sempre os intervalos inteligentes.'
         price: 'do preço'
         above: acima
         below: abaixo
@@ -573,7 +618,7 @@ pt:
             template_html: "<p>Olá 👋,</p>\n<p>Boa! A sua ligação de referência está a ganhar força!</p>\n<p>Transferimos uma comissão de</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>para a sua carteira de Bitcoin.</p>\n<p>Agradecemos a sua ajuda a <br>aumentar o bando dos texugos!</p>"
         registration_reminder:
             subject: 'Uau! Ganhou %{amount} BTC! 💸'
-            template_html: "<p>Uau!</p>\n<p>Tem uma nova comissão do programa de referências à sua espera! Termine o registo para receber as suas bitcoins:</p>\n<p><a href=%{link}>Termine o registo.</a></p>\n"
+            template_html: "<p>Uau!</p>\n<p>Tem uma nova comissão do programa de referências à sua espera! Termine o registo para receber as suas bitcoins:</p>\n<p><a href=%{link}>Termine o registo.</a></p>"
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
@@ -600,22 +645,6 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
             template_html: "<p>Uau 💙,</p>\n<p>Obrigado por comprar o nosso</p>\n<p>\n  <b>\n    plano %{plan_name} de %{years} anos\n  </b>\n</p>\n<p>É incrível! 🔥</p>"
-    pricing:
-        title: Preços
-        per_year: anos
-        per_4_years: '4 anos'
-        free: Grátis
-        free_limit: 'até 500 $/ano'
-        no_limits: 'Sem limites'
-        all: Tudo
-        features:
-            dca: 'Investimento pelo preço médio'
-            currencies: Moedas
-            referral_program: 'Programa de referência'
-            limit_orders: 'Ordens com limites'
-            exchange: câmbio
-            name: Plano
-            price: Preço
     referral:
         banner_html: '<b>Partilhe o seu link de referência com amigos e <a href="/referral-program" alt="Read more">ganhe até $50 em BTC</a>. A melhor forma de fazer DCA em Bitcoin é ganhá-lo!</b>'
         copied: Copiado!

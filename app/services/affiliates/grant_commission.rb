@@ -41,7 +41,7 @@ module Affiliates
     end
 
     def referrer_invalid?(referee)
-      !referee.referrer.program_active?
+      !referee.referrer.active?
     end
 
     def total_commission(referee)

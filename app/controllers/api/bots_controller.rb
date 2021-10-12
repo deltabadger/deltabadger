@@ -1,8 +1,8 @@
 module Api
   class BotsController < Api::BaseController
     def index
-      data =
-        BotsRepository.new.for_user(current_user).map(&method(:present_bot))
+      bots = BotsRepository.new.for_user(current_user, params[:page])
+      data = present_bots(bots)
 
       render json: { data: data }
     end
@@ -83,6 +83,11 @@ module Api
       end
     end
 
+    def frequency_limit_exceeded
+      limit_exceeded = CheckExceededFrequency.call(params)
+      render json: limit_exceeded.to_json
+    end
+
     def set_show_smart_intervals_info
       GetSmartIntervalsInfo.new.set_show_smart_intervals(current_user)
     end
@@ -102,6 +107,10 @@ module Api
 
     def present_bot(bot)
       Presenters::Api::Bot.call(bot)
+    end
+
+    def present_bots(bots)
+      Presenters::Api::Bots.call(bots)
     end
 
     BOT_PARAMS = %i[

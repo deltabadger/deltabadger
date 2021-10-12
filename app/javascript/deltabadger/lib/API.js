@@ -110,9 +110,9 @@ const API = {
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
-  getBots() {
+  getBots(page) {
     const url = `${API_URL}/bots`;
-    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+    return client.request({ url, params: {page: page}, method: 'get' }).then(data => data.data);
   },
 
   getBot(id) {
@@ -158,6 +158,10 @@ const API = {
   getChartData(botId) {
     const url = `${API_URL}/bots/${botId}/charts/portfolio_value_over_time`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+  },
+  checkFrequencyExceed(params) {
+    const url = `${API_URL}/frequency_limit_exceeded`
+    return client.request({url, params: params, method: 'get'}).then(data => data.data);
   }
 };
 

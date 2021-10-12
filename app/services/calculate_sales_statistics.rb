@@ -25,7 +25,7 @@ class CalculateSalesStatistics < BaseService
   end
 
   def sum_of_nth_month(n)
-    payments = @paid_payments.select{ |p| nth_month?(p, n) }
+    payments = @paid_payments.select { |p| nth_month?(p, n) }
     sum_payments(payments)
   end
 
