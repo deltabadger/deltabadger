@@ -9,7 +9,7 @@ class GetRestartParams < BaseService
     @bots_repository = bots_repository
   end
 
-  LARGEST_TIMEOUT = 2147483647 # js timeout cannot be larger than 2^32
+  LARGEST_TIMEOUT = 2_147_483_647 # js timeout cannot be larger than 2^32
 
   def call(bot_id:)
     bot = @bots_repository.find(bot_id)
@@ -62,7 +62,7 @@ class GetRestartParams < BaseService
     end
 
     number_of_transactions * last_transaction.price.to_f *
-      (bot.price.to_f / last_transaction.bot_price.to_f)
+      (bot.price.to_f / last_transaction.bot_price)
   end
 
   def calculate_timeout(next_transaction, now, bot)

@@ -19,7 +19,7 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
-        def fetch_order_by_id(order_id, response_params = nil)
+        def fetch_order_by_id(_order_id, response_params = nil)
           Result::Success.new(response_params)
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -40,6 +40,7 @@ module ExchangeApi
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           min_price = price_in_quote ? @market.minimum_order_price(symbol) : @market.minimum_order_price(symbol, !price_in_quote)
           return min_price unless min_price.success?
+
           unless price_in_quote
             minimum_quote_price = @market.minimum_order_price(symbol)
             return minimum_quote_price unless minimum_quote_price.success?

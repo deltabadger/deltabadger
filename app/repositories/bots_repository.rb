@@ -10,12 +10,13 @@ class BotsRepository < BaseRepository
     user.bots.without_deleted.find(id)
   end
 
-  def for_user(user)
+  def for_user(user, page_number)
     user
       .bots
       .without_deleted
       .includes(:exchange, :transactions)
-      .all
+      .order(created_at: :desc)
+      .page(page_number)
   end
 
   def count_with_status(status)
@@ -55,11 +56,11 @@ class BotsRepository < BaseRepository
 
   def send_top_bots_update
     top_bots_text = top_bots_text(true)
-    if should_send_update(top_bots_text[:changed])
-      Telegram.bot.send_message(chat_id: ENV['TELEGRAM_GROUP_ID'],
-                                text: top_bots_text[:reply_text],
-                                parse_mode: 'html')
-    end
+    return unless should_send_update(top_bots_text[:changed])
+
+    Telegram.bot.send_message(chat_id: ENV['TELEGRAM_GROUP_ID'],
+                              text: top_bots_text[:reply_text],
+                              parse_mode: 'html')
   end
 
   def top_bots_update
@@ -74,7 +75,7 @@ class BotsRepository < BaseRepository
     old_top_bots = Rails.cache.exist?(TOP_BOTS_KEY) ? Rails.cache.read(TOP_BOTS_KEY) : top_bots_array
     top_bots_array.each_with_index do |new_bot, new_index|
       old_index = old_top_bots.index { |bot| bot[:name] == new_bot[:name] }
-      new_bot[:is_up] = is_up(new_index, old_index)
+      new_bot[:is_up] = up?(new_index, old_index)
     end
     Rails.cache.write(TOP_BOTS_KEY, top_bots_array, expires_in: 25.hour)
     top_bots_array
@@ -86,7 +87,7 @@ class BotsRepository < BaseRepository
     Time.now.monday? || changed
   end
 
-  def is_up(new_index, old_index)
+  def up?(new_index, old_index)
     old_index.nil? || new_index < old_index
   end
 
@@ -105,5 +106,4 @@ class BotsRepository < BaseRepository
     end
     fetched_symbols_bots_hash.sort_by { |_key, value| -value }[0..amount - 1]
   end
-
 end

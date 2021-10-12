@@ -50,7 +50,6 @@ module Bots::Free::Validators
       }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
-      validate :interval_within_limit
       validate :smart_intervals_above_minimum
       validate :hodler_if_price_range
       validate :validate_price_range
@@ -83,16 +82,6 @@ module Bots::Free::Validators
         errors.add(:symbol, "#{symbol} is not supported")
       end
 
-      def interval_within_limit
-        result = Bots::Free::Validators::IntervalWithinLimit.call(
-          interval: interval,
-          price: price,
-          currency: quote
-        )
-
-        errors.add(:base, result.errors.first) if result.failure?
-      end
-
       def hodler_allowed_symbol
         symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
         return if hodler || symbol.in?(non_hodler_symbols)
@@ -115,10 +104,11 @@ module Bots::Free::Validators
       def smart_intervals_above_minimum
         return unless @force_smart_intervals
 
-        @minimum = @minimums[:minimum].to_f
-        if limit_minimum_in_base?(@exchange_name, order_type)
-          @minimum = @minimums[:minimum_limit].to_f
-        end
+        @minimum = if limit_minimum_in_base?(@exchange_name, order_type)
+                     @minimums[:minimum_limit].to_f
+                   else
+                     @minimums[:minimum].to_f
+                   end
 
         return if @smart_intervals_value.to_f >= @minimum.to_f
 

@@ -20,7 +20,7 @@ module ExchangeApi
           place_order(sell_params.data)
         end
 
-        def fetch_order_by_id(order_id, response_params = nil)
+        def fetch_order_by_id(_order_id, response_params = nil)
           Result::Success.new(response_params)
         rescue StandardError => e
           Raven.capture_exception(e)
