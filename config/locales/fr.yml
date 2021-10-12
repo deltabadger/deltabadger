@@ -17,7 +17,7 @@ fr:
             invalid: '%{authentication_keys} ou mot de passe non valide.'
             locked: 'Ton compte est bloqué.'
             last_attempt: 'Il te reste une tentative avant que ton compte soit bloqué.'
-            not_found_in_database: 'ou mot de passe non valide.'
+            not_found_in_database: '%{authentication_keys} ou mot de passe non valide.'
             timeout: 'La session a expiré. Merci de te reconnecter pour continuer.'
             unauthenticated: 'Tu dois te connecter ou t''inscrire avant de continuer.'
             unconfirmed: 'Tu dois confirmer votre adresse e-mail avant de continuer.'
@@ -42,8 +42,8 @@ fr:
             success: 'Authentification réussie avec le compte %{kind}.'
         passwords:
             no_token: 'Tu ne peux pas accéder à cette page autrement qu''au travers d''un e-mail de réinitialisation de mot de passe. Si tu viens au travers d''un e-mail de réinitialisation de mot de passe, assure-toi d''avoir utilisé l''URL complète qui y est fournie.'
-            send_instructions: 'Tu recevras des instructions par e-mail dans quelques miinutes.'
-            send_paranoid_instructions: 'Tu recevras des instructions par e-mail dans quelques miinutes.'
+            send_instructions: 'Tu recevras des instructions par e-mail dans quelques minutes.'
+            send_paranoid_instructions: 'Tu recevras des instructions par e-mail dans quelques minutes.'
             updated: 'C''est fait ! Votre mot de passe a été modifié.'
             updated_not_active: 'C''est fait ! Votre mot de passe a été modifié.'
             new:
@@ -56,7 +56,7 @@ fr:
             destroyed: 'Au revoir ! Nous espérons te revoir bientôt…'
             signed_up: 'Ravi de te connaître !'
             signed_up_but_inactive: 'Bonjour, ton compte n''est pas encore activé. Est-ce que tu as vérifié ta messagerie ?'
-            signed_up_but_locked: 'Oups… ton compte est verrouillé.'
+            signed_up_but_locked: 'Oups, votre compte est bloqué.'
             signed_up_but_unconfirmed: 'Vérifie ton e-mail et clique sur le lien de confirmation.'
             update_needs_confirmation: 'Vérifie ton e-mail et suis le lien de confirmation pour confirmer ta nouvelle adresse e-mail.'
             updated: 'Ton compte a été mis à jour avec succès.'
@@ -190,7 +190,7 @@ fr:
         maximalist_info: 'Si vous n''achetez que des bitcoins vous payez la moitié du prix habituel.'
     links:
         homepage: 'Lien vers la page d''accueil'
-        log_in: 'Se connecter'
+        log_in: Connexion
         sign_up: 'S''inscrire'
         log_out: 'Se déconnecter'
         create_account: 'Créer un compte gratuit'
@@ -221,11 +221,10 @@ fr:
         bitwarden_title: 'Essaie Bitwarden'
         bitwarden_text: 'C''est gratuit et open-source.'
     meta:
-        title: 'Deltabadger | Achats périodiques Bitcoin'
-        description: 'Automatise les petits achats de Bitcoin réguliers. Configuration en cinq minutes. Le plan de base est gratuit.'
-        og_description: 'Automatise les petits achats de Bitcoin réguliers. Configuration en cinq minutes.'
-        twitter_description: 'Automatise les petits achats de Bitcoin réguliers. Configuration en cinq minutes. Le plan de base est gratuit. Le DCA aussi simple que possible.'
-        twitter_image_alt: 'Achats périodiques de Bitcoin'
+        title: ''
+        twitter_image_alt: ''
+        title_short: ''
+        desc: ''
     home:
         confirm_registration:
             title: 'Merci !'
@@ -366,7 +365,7 @@ fr:
             binance:
                 private_key: 'Clé secrète'
                 public_key: 'Clé API'
-                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}. '
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: ' Dans le menu utilisateur (icône ronde dans le coin supérieur droit), accède à <b> Gestion des API</b>. '
                 instructions_3_html: ' Nomme la nouvelle clé API en appuyant sur «Créer». '
                 instructions_4_html: ' Confirme la création avec un (des) code (s) à usage unique. '
@@ -378,65 +377,81 @@ fr:
             bitbay:
                 private_key: 'Clé privée'
                 public_key: 'Clé publique'
-                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}. '
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: ' Dans le menu utilisateur (coin supérieur droit), accède à <b> Paramètres de l''API</b>. '
                 instructions_3_html: ' Appuie sur <b> Ajouter une nouvelle clé</b>. '
-                instructions_4_html: " Définis les autorisations pour:\n <ul>\n <li> <b> Historique </b>  <li> <b> Obtenir des commandes et des configurations de marché </b>  <li> <b> Gérer les commandes et modifier les configurations du marché </b>  </ul>\n "
                 instructions_5_html: ' Appuie sur <b>Créer</b>. '
-                instructions_6_html: ' Copie et colle tes nouvelles clés API dans le formulaire ci-dessus.  '
+                instructions_6_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_4_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_4_2_html: '<b> Historique </b>'
+                instructions_4_3_html: '<b> Obtenir des commandes et des configurations de marché </b>'
+                instructions_4_4_html: '<b> Gérer les commandes et modifier les configurations du marché </b>'
             kraken:
                 trading_agreement_html: '<b> Bonjour ! </b> Si ton compte Kraken est vérifié avec une adresse allemande, tu dois accepter un <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement"> accord de trading </a> afin de passer des commandes de marché et sur marge.'
                 trading_agreement_label_html: 'J''accepte l''<a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">accord de trading</a>.'
                 private_key: 'Clé privée'
                 public_key: 'Clé API'
-                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}. '
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: ' Dans le menu utilisateur, accède à <b> Sécurité </b> → <b>API</b>. '
                 instructions_3_html: ' Appuie sur <b> Générer une nouvelle clé</b>. '
-                instructions_4_html: " Définis les autorisations pour les éléments suivants: <br/>\n Fonds:\n <ul>\n <li> <b> Rechercher des fonds </b>  </ul>\n Commande et échanges:\n <ul>\n <li> <b> Interroger les commandes et transactions ouvertes </b>  <li> <b> Interroger les commandes et les transactions clôturées </b>  <li> <b> Modifier les commandes </b>  <li> <b> Annuler / Fermer les commandes </b>  </ul>\n "
-                instructions_5_html: ' Appuies sur <b> Générer la clé</b>. '
-                instructions_6_html: ' Copie et colle tes nouvelles clés API dans le formulaire ci-dessus.  '
+                instructions_4_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_5_1_html: 'Fonds:'
+                instructions_5_2_html: '<b> Rechercher des fonds </b>'
+                instructions_6_1_html: 'Commande et échanges:'
+                instructions_6_2_html: '<b> Interroger les commandes et transactions ouvertes </b>'
+                instructions_6_3_html: '<b> Interroger les commandes et les transactions clôturées </b>'
+                instructions_6_4_html: '<b> Modifier les commandes </b>'
+                instructions_6_5_html: '<b> Annuler / Fermer les commandes </b>'
+                instructions_7_html: 'Appuies sur <b> Générer la clé</b>.'
+                instructions_8_html: ' Colle les deux clés dans les entrées ci-dessus.  '
             coinbase_pro:
                 private_key: 'Clé secrète'
                 public_key: 'Clé API'
                 passphrase: 'Phrase de passe'
-                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}. '
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: ' Dans le menu utilisateur (coin supérieur droit), accède à <b>API</b>. '
                 instructions_3_html: ' Appuie sur <b> Nouvelle clé API</b>. '
-                instructions_4_html: " Définis les autorisations pour:\n <ul>\n <li> <b> Vue </b>  <li> <b>Commerce</b>  </ul>\n "
                 instructions_5_html: ' Appuie sur <b> Créer une clé API</b>. '
-                instructions_6_html: ' Copie et colle tes nouvelles clés API et phrase secrète dans le formulaire ci-dessus.  '
+                instructions_6_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_4_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_4_2_html: '<b> Vue </b>'
+                instructions_4_3_html: '<b>Commerce</b>'
             gemini:
                 private_key: 'Clé secrète'
                 public_key: 'Clé API'
-                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}. '
-                instructions_2_html: ' Dans le menu du compte (coin supérieur droit), accède à <b> Paramètres</b>. '
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
+                instructions_2_html: 'Dans le menu du compte (coin supérieur droit), accède à <b> Paramètres</b>.'
                 instructions_3_html: ' Choisis <b> API </b> (côté gauche). '
                 instructions_4_html: ' Appuie sur <b> Créer une nouvelle clé API</b>. '
                 instructions_5_html: ' Dans la liste déroulante <b> Portée </b> sélectionne <b> Principal</b>. '
                 instructions_6_html: ' Appuie sur <b> Créer une nouvelle clé API</b>. '
-                instructions_7_html: " Définis les paramètres de la clé API:\n <ul>\n <li> <b> Négociation </b>  </ul>\n "
                 instructions_8_html: ' Ne coche pas <b> Exiger le battement de cœur de session</b>. '
-                instructions_9_html: ' Copie et colle tes nouvelles clés API dans le formulaire ci-dessus.  '
+                instructions_9_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_7_1_html: 'Définis les paramètres de la clé API:'
+                instructions_7_2_html: '<b> Négociation </b>'
             ftx:
                 private_key: 'Clé privée'
                 public_key: 'Clé publique'
-                instructions_1_html: 'Connecte-toi à ton compte %{exchange_link}.'
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: 'Rends-toi dans le menu des paramètres (en haut à droite).'
                 instructions_3_html: 'Fais défiler vers le bas jusqu''à la section <b>Clé API</b>.'
-                instructions_4_html: 'Appuie sur <b>Créer</b> une clé API.'
-                instructions_5_html: 'Copie et colle tes nouvelles clés API dans le formulaire ci-dessus. '
+                instructions_4_html: ' Appuie sur <b> Créer une clé API</b>. '
+                instructions_5_html: ' Colle les deux clés dans les entrées ci-dessus.  '
             next: Suivant
             bitso:
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-                instructions_1_html: 'Connectez-vous à votre compte <a href=\\"https://bitso.com/\\" target=\\"_blank\\" rel=\\"nofollow\\">Bitso</a>.'
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: 'Dans le menu du compte (en haut à droite), allez à <b>Profil</b>.'
-                instructions_3_html: 'Choisissez l''<b>API</b> (à gauche).'
+                instructions_3_html: ' Choisis <b> API </b> (côté gauche). '
                 instructions_4_html: 'Appuyez sur <b>Ajouter une nouvelle</b> API.'
                 instructions_5_html: 'Indiquez le <b>nom</b> de l''API et fournissez votre <b>code PIN de transaction</b>.'
-                instructions_6_html: "Définissez les autorisations:\n    <ul>\n      <li><b>Effectuer des transactions</b>      <li><b>Voir les soldes</b>      <li><b>Voir les informations sur le compte</b>    </ul>\n  "
                 instructions_7_html: 'Appuyez sur <b>Enregistrer</b>.'
-                instructions_8_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus. '
+                instructions_8_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_6_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_6_2_html: '<b>Effectuer des transactions</b>'
+                instructions_6_3_html: '<b>Voir les soldes</b>'
+                instructions_6_4_html: '<b>Voir les informations sur le compte</b>'
             smart_intervals:
                 dont_show_again: 'Ne plus afficher'
                 info_html:
@@ -448,42 +463,64 @@ fr:
                 private_key: 'API Secret'
                 public_key: 'Clé API'
                 passphrase: 'Phrase de passe'
-                instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: 'Dans le menu (dans l''angle supérieur à droite à côté du sélecteur de langue) allez dans <b>Gestion des API</b>.'
                 instructions_3_html: 'Appuyez sur <b>Créer une API</b>.'
                 instructions_4_html: 'Si vous créez vos clés API pour la première fois, définissez et enregistrez <b>Mot de passe d''échange</b>.'
                 instructions_5_html: 'Donnez un <b>Nom d''API</b>.'
                 instructions_6_html: 'Donnez et enregistrez une <b>Phrase de passe API</b>.'
-                instructions_7_html: "Définissez les autorisations pour:\n    <ul>\n      <li><b>Général</b>      <li><b>Échange</b>    </ul>\n  "
                 instructions_8_html: 'Si vous souhaitez restreindre l''accès à la clé à Deltabadger définissez la <b>Restriction IP</b> sur « oui » et ajoutez cette IP: <b>3.18.70.231</b>'
                 instructions_9_html: 'Appuyez sur <b>Suivant</b>.'
                 instructions_10_html: 'Confirmez la création des clés API par mot de passe d''échange et A2F.'
-                instructions_11_html: 'Copiez et collez vos nouvelles clés API et phrase de passe dans le formulaire ci-dessus. '
+                instructions_11_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_7_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_7_2_html: '<b>Général</b>'
+                instructions_7_3_html: '<b>Commerce</b>'
             bitfinex:
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-                instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: 'Dans le menu (dans l''angle supérieur à droite) allez dans <b>Clés API</b>.'
                 instructions_3_html: 'Allez dans <b>Créer une nouvelle clé</b>.'
-                instructions_4_html: "Définissez les autorisations pour:\n    <ul>\n      <li><b>Recevoir ordres et statuts.</b>      <li><b>Créer et annuler des ordres.</b>    </ul>\n  "
                 instructions_5_html: 'Donnez un <b>Libellé</b> à votre clé API.'
                 instructions_6_html: 'Appuyez sur <b>Générer une clé API</b>.'
-                instructions_7_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus. '
+                instructions_7_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_4_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_4_2_html: '<b>Recevoir ordres et statuts.</b>'
+                instructions_4_3_html: '<b>Créer et annuler des ordres.</b>'
             bitstamp:
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-                instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'
-                instructions_2_html: 'Dans le menu (dans l''angle supérieur à droite) allez dans <b>Paramètres</b>.'
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
+                instructions_2_html: 'Dans le menu du compte (coin supérieur droit), accède à <b> Paramètres</b>.'
                 instructions_3_html: 'Sous <b>Contrôle d''accès</b> allez dans <b>Accès API</b>.'
-                instructions_4_html: 'Appuyez sur <b>Nouvelle clé API</b>.'
+                instructions_4_html: ' Appuie sur <b> Nouvelle clé API</b>. '
                 instructions_5_html: 'Si vous voulez restreindre l''accès à la clé à Deltabadger définissez le <b>Filtre d''adresse IP</b> sur cette IP : <b>3.18.70.231</b>'
-                instructions_6_html: "Définissez les autorisations pour:\n    <ul>\n      <li><b>Ouvrir les ordres.</b> <li><b>Annuler un ordre.</b> <li><b>Ordres limités/de marché d'achat.</b> <li><b>Ordres limités/de marché de vente.</b>  </ul>\n  "
                 instructions_7_html: 'Appuyez sur <b>Entrer A2F et soumettre</b>.'
                 instructions_8_html: 'Appuyez sur <b>Activer</b>.'
-                instructions_9_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus. '
+                instructions_9_html: ' Colle les deux clés dans les entrées ci-dessus.  '
+                instructions_6_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_6_2_html: '<b>Ouvrir les ordres.</b>'
+                instructions_6_3_html: '<b>Annuler un ordre.</b>'
+                instructions_6_4_html: '<b>Ordres limités/de marché d''achat.</b>'
+                instructions_6_5_html: '<b>Ordres limités/de marché de vente.</b>'
             set: Définir
             probit:
-                instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'
+                instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
+                instructions_2_html: ''
+                instructions_3_html: ''
+                instructions_4_html: ''
+                instructions_5_html: ''
+                instructions_7_html: ''
+                private_key: ''
+                public_key: ''
+                instructions_6_1_html: 'Définis les autorisations pour les éléments suivants:'
+                instructions_6_2_html: ''
+                instructions_6_3_html: '<b> Négociation </b>'
+            frequency_limit:
+                limit_exceeded: ''
+                back_to_settings: ''
+                start_the_bot: ''
         add_new_bot: 'Ajouter un nouveau bot'
         start: Commencer
         stop: Pause
@@ -608,22 +645,6 @@ fr:
         subscription_granted:
             subject: 'Plan %{plan_name} accordé'
             template_html: "<p> Super💙, </p>\n <p> Merci d'avoir acheté notre </p>\n <p>\n <b>\n %{years} -an %{plan_name}\n </b>\n </p>\n <p> Tu es génial ! 🔥 </p>"
-    pricing:
-        title: Tarification
-        per_year: an
-        per_4_years: '4 ans'
-        free: Gratuit
-        free_limit: 'Jusqu''à 1200$/an'
-        no_limits: 'Aucunes limites'
-        all: Tout
-        features:
-            dca: DCA
-            currencies: Devises
-            referral_program: 'Programme de parrainage'
-            limit_orders: 'Ordres limites'
-            exchange: échangeur
-            name: Plan
-            price: Prix
     referral:
         banner_html: '<b>Partagez votre lien de parrainage avec des amis et <a href="/referral-program" alt="Read more">gagnez jusqu''à 50 $ en BTC</a>. La meilleure façon de faire un DCA en Bitcoin est d''en gagner !</b>'
         copied: 'Copié !'
