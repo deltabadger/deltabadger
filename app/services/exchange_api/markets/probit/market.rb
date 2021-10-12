@@ -1,3 +1,5 @@
+require 'result'
+
 module ExchangeApi
   module Markets
     module Probit
@@ -41,13 +43,22 @@ module ExchangeApi
           Result::Failure.new("Couldn't fetch Probit books", RECOVERABLE)
         end
 
+        def base_decimals(symbol)
+          response = fetch_book(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data['quantity_precision'].to_d)
+        rescue StandardError
+          Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
+        end
+
         def quote_decimals(symbol)
           response = fetch_book(symbol)
           return response unless response.success?
 
-          Result::Success.new(response.data['min_p'].to_d)
+          Result::Success.new(response.data['cost_precision'].to_d)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitso symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
         end
 
         def minimum_order_parameters(symbol)
@@ -65,7 +76,14 @@ module ExchangeApi
           response = fetch_book(symbol)
           return response unless response.success?
 
-          Result::Success.new(response.data['min_price'].to_d)
+          Result::Success.new(response.data['min_cost'].to_d)
+        end
+
+        def minimum_order_quantity(symbol)
+          response = fetch_book(symbol)
+          return response unless response.success?
+
+          Result::Success.new(response.data['min_quantity'].to_d)
         end
 
         def symbol(base, quote)
@@ -73,13 +91,29 @@ module ExchangeApi
         end
 
         def current_bid_ask_price(symbol)
-          request = @base_client.get("/api/exchange/v1/ticker?market_ids=#{symbol}", { 'market-ids': symbol }, {})
+          request = @base_client.get("/api/exchange/v1/order_book?market_id=#{symbol}", nil, nil)
           response = JSON.parse(request.body)
-          byebug
-          bid = response.fetch('data')[0]['last'].to_d
-          ask = response.fetch('data')[0]['last'].to_d
+          first_buy = true
+          first_sell = true
+          lowest_bid = nil
+          highest_ask = nil
+          response['data'].each do |x|
+            if x['side'] == 'buy'
+              if first_buy
+                highest_ask = x['price']
+                first_buy = false
+              else
+                highest_ask = x['price'] if highest_ask.to_f < x['price'].to_f
+              end
+            elsif first_sell
+              lowest_bid = x['price']
+              first_sell = false
+            else
+              lowest_bid = x['price'] if lowest_bid.to_f > x['price'].to_f
+            end
+          end
 
-          Result::Success.new(BidAskPrice.new(bid, ask))
+          Result::Success.new(BidAskPrice.new(lowest_bid.to_f, highest_ask.to_f))
         rescue StandardError
           Result::Failure.new('Could not fetch current price from Probit', RECOVERABLE)
         end
