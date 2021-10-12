@@ -46,6 +46,7 @@ module ExchangeApi
         private
 
         def place_order(order_params)
+          Rails.logger.info "Placing kraken order: #{order_params}"
           response = @client.add_order(order_params)
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 

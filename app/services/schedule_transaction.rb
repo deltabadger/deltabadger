@@ -25,7 +25,7 @@ class ScheduleTransaction < BaseService
     make_transaction_worker.perform_at(
       next_transaction_at,
       bot.id,
-      continue_params
+      continue_params.to_h
     )
   end
 

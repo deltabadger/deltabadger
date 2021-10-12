@@ -27,7 +27,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
 
           status = response[0][13]
-          return Result::Failure.new('Waiting for Bitfinex response', NOT_FETCHED) unless is_order_done?(status)
+          return Result::Failure.new('Waiting for Bitfinex response', NOT_FETCHED) unless order_done?(status)
           return error_to_failure(['Order was canceled']) if cancelled?(response)
 
           amount = response[0][7].to_f
@@ -87,7 +87,7 @@ module ExchangeApi
           end
         end
 
-        def is_order_done?(status)
+        def order_done?(status)
           /EXECUTED @ .*/.match?(status)
         end
 

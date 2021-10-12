@@ -7,6 +7,10 @@ import { AddApiKey } from './BotForm/AddApiKey';
 import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
+import {CancelButton} from "./BotForm/CancelButton";
+import {isEmpty} from "../utils/array";
+import {PaginationList} from "./PaginationList";
+import {NavigationPanel} from "./BotForm/NavigationPanel";
 
 const STEPS = [
   'closed_form',
@@ -31,9 +35,13 @@ export const BotForm = ({
   callbackAfterClosing,
   exchanges,
   fetchExchanges,
-  apiKeyTimeout
+  apiKeyTimeout,
+  page,
+  setPage,
+  numberOfPages,
+  step,
+  setStep
 }) => {
-  const [step, setStep] = useState(0);
   const [form, setFormState] = useState({});
   const [errors, setErrors] = useState("");
   const [type, setType] = useState(TYPES[0])
@@ -86,6 +94,7 @@ export const BotForm = ({
   }, [currentBot])
 
   const closedFormHandler = (type) => {
+    setPage(1)
     setStep(1)
     setType(TYPES[type])
     callbackAfterOpening()
