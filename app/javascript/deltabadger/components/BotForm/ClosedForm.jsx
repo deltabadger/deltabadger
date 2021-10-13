@@ -4,8 +4,12 @@ import { splitTranslation } from "../helpers";
 
 export const ClosedForm = ({ handleSubmit }) => (
   <div className="db-bots__item d-flex db-add-more-bots">
-    <button onClick={handleSubmit} className="btn btn-primary">
+    <button onClick={() => handleSubmit('trading')} className="btn btn-primary">
       <span className="d-none d-sm-inline mr-3">{I18n.t('bots.add_new_bot')}</span>
+      <i className="material-icons-round">add</i>
+    </button>
+    <button onClick={() => handleSubmit('withdrawal')} className="btn btn-primary">
+      <span className="d-none d-sm-inline mr-3">Add new withdrawal bot</span>
       <i className="material-icons-round">add</i>
     </button>
   </div>

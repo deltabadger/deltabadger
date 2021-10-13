@@ -1,8 +1,10 @@
 module Api
   class ApiKeysController < Api::BaseController
     def create
+      byebug
       keys_params = api_key_params.merge(user: current_user)
-      api_key = current_user.api_keys.find_by(exchange_id: keys_params[:exchange_id])
+      api_key = current_user.api_keys
+                            .find_by(exchange_id: keys_params[:exchange_id], key_type: keys_params[:type])
 
       result = if api_key.nil?
                  AddApiKey.call(keys_params)
