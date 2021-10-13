@@ -207,7 +207,7 @@ vi:
         knowledge_base: 'Nền tảng kiến thức'
     ads:
         dont_trade_automate_html: '<div>Đừng&nbsp;lướt sóng.</div> <div>Hãy tự động hóa.</div>'
-        dca_profit_html: 'Nếu năm ngoái bạn trung bình giá<br>Bitcoin,<br>thì giờ đây tài khoản của bạn đã tăng <span class="text-success">+%{profit}%</span>'
+        dca_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
         features: "tự động trung bình giá trên tài khoản giao dịch của bạn;\n<i>Thời khoảng thông minh</i> chỉ mất 5 phút để thiết lập;\ncập nhật các tính năng mới hàng tháng;\nhỗ trợ cộng đồng Telegram"
         dca_standard_html: 'Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Saver dài hạn.'
         password_managers_html: 'Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.'
