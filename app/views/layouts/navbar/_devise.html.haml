@@ -12,8 +12,6 @@
           %button.btn.btn-link.btn-menu{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
             - if params[:lang].blank?
               = 'EN'
-            - elsif params[:lang] == :zh_CN
-              = 'CN'
             - else
               = params[:lang].to_s.upcase
 
@@ -37,7 +35,7 @@
               = link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item"
             - unless lang == 'id'
               = link_to "🇮🇩 Bahasa Indonesia", url_for(lang: 'id'), class: "dropdown-item"
-            - unless lang == 'zh_CN'
-              = link_to "🇨🇳 中文", url_for(lang: 'zh_CN'), class: "dropdown-item"
+            - unless lang == 'cn'
+              = link_to "🇨🇳 中文", url_for(lang: 'cn'), class: "dropdown-item"
             - unless lang == 'vi'
               = link_to "🇻🇳 Tiếng Việt", url_for(lang: 'vi'), class: "dropdown-item"
