@@ -235,15 +235,15 @@ ru:
         bitwarden_title: 'Попробуйте Bitwarden'
         bitwarden_text: '. Это бесплатно и с открытым исходным кодом.'
     meta:
-        title: ''
-        twitter_image_alt: ''
-        title_short: ''
-        desc: ''
+        title: 'Deltabadger • Автоматизируйте усреднение долларовой стоимости для любой криптовалюты'
+        twitter_image_alt: 'Автоматизированное усреднение долларовой стоимости для Bitcoin, Ethereum, Polkadot, Cardano, Solana и других цифровых активов.'
+        title_short: 'Deltabadger • Авто-усреднение для Bitcoin и других активов'
+        desc: 'Начните бесплатно самую проверенную стратегию, которая работает с Binance, FTX, Coinbase, Kraken, Kucoin и другими биржами. Без KYC.'
     home:
         confirm_registration:
             title: Спасибо!
             text_html: 'Проверьте свой почтовый ящик и нажмите на <b>ссылку для подтверждения</b>, которую мы вам отправили. Затем перейдите на страницу входа в систему.'
-            deliverability_html: '<b>Это очень важно!</b><br></br> Если вы не получили письмо с подтверждением, проверьте свою <b>папку со спамом</b>. Если его там тоже нет, то, пожалуйста, напишите на %{email}. <br><br>С благодарностью, Ян'
+            deliverability_html: '<b>Это очень важно!</b><br> Если вы не получили письмо с подтверждением, проверьте свою <b>папку со спамом</b>. Если его там тоже нет, то, пожалуйста, напишите на %{email}. <br><br>С благодарностью, Ян'
         contact:
             title: Контакты
             general_questions_html: 'По общим вопросам, пожалуйста, обратитесь на наш <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram канал</a>. Обычно это самый быстрый способ получить ответ. Также: приветствуются все отзывы, идеи продуктов и запросы бирж.'
@@ -396,7 +396,7 @@ ru:
                 instructions_3_html: 'Нажмите <b>Добавить новый ключ</b>.'
                 instructions_5_html: 'Нажмите <b>Создать</b>.'
                 instructions_6_html: 'Вставьте оба ключа в поля ввода выше. '
-                instructions_4_1_html: 'Установите разрешения для следующего:<br/>'
+                instructions_4_1_html: 'Установите разрешения для следующего:'
                 instructions_4_2_html: '<b>История</b>'
                 instructions_4_3_html: '<b>Получать ордера и конфигурации рынка</b>'
                 instructions_4_4_html: '<b>Управлять ордерами и менять конфигурации рынка</b>'
@@ -408,7 +408,7 @@ ru:
                 instructions_1_html: 'Войдите в свой аккаунт %{exchange_link}.'
                 instructions_2_html: 'В меню пользователя перейдите в <b>Безопасность</b> → <b>API</b>.'
                 instructions_3_html: 'Нажмите <b>Создать новый ключ</b>.'
-                instructions_4_html: 'Установите разрешения для следующего:<br/>'
+                instructions_4_html: 'Установите разрешения для следующего:'
                 instructions_5_1_html: 'Средства:'
                 instructions_5_2_html: '<b>Запросить средства</b>'
                 instructions_6_1_html: 'Ордер и сделки:'
@@ -427,7 +427,7 @@ ru:
                 instructions_3_html: 'Нажмите <b>Новый ключ API</b>.'
                 instructions_5_html: 'Нажмите <b>Создать ключ API</b>.'
                 instructions_6_html: 'Вставьте оба ключа в поля ввода выше. '
-                instructions_4_1_html: 'Установите разрешения для следующего:<br/>'
+                instructions_4_1_html: 'Установите разрешения для следующего:'
                 instructions_4_2_html: '<b>Просмотр</b>'
                 instructions_4_3_html: '<b>Торговля</b>'
             gemini:
@@ -449,7 +449,7 @@ ru:
                 instructions_1_html: 'Войдите в свой аккаунт %{exchange_link}.'
                 instructions_2_html: 'Перейдите в меню настроек (в правом верхнем углу).'
                 instructions_3_html: 'Прокрутите вниз до раздела<b>Ключ API</b>.'
-                instructions_4_html: ''
+                instructions_4_html: 'Нажмите <b>Создать ключ API</b>.'
                 instructions_5_html: 'Вставьте оба ключа в поля ввода выше. '
             next: Следующий
             bitso:
@@ -462,15 +462,15 @@ ru:
                 instructions_5_html: 'Заполните <b>Имя API</b> и укажите Ваш <b>PIN-код транзакции</b>.'
                 instructions_7_html: 'Нажмите <b>Сохранить</b>.'
                 instructions_8_html: 'Вставьте оба ключа в поля ввода выше. '
-                instructions_6_1_html: 'Установите разрешения для следующего:<br/>'
+                instructions_6_1_html: 'Установите разрешения для следующего:'
                 instructions_6_2_html: '<b>Выполнять сделки</b>'
                 instructions_6_3_html: '<b>Балансы по видам спорта</b>'
                 instructions_6_4_html: '<b>Просмотреть информацию об аккаунте</b>'
             smart_intervals:
                 dont_show_again: 'Не показывать снова'
                 info_html:
-                    force_smart_intervals: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>. '
-                    other: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>. '
+                    force_smart_intervals: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>.'
+                    other: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>.'
             validating: Проверка
             error_info: 'Проверка не удалась. Попробуйте еще раз или создайте новые ключи.'
             kucoin:
@@ -487,7 +487,7 @@ ru:
                 instructions_9_html: 'Нажмите <b>Далее</b>.'
                 instructions_10_html: 'Подтвердите создание ключей API паролем для торговли и 2FA.'
                 instructions_11_html: 'Вставьте оба ключа в поля ввода выше. '
-                instructions_7_1_html: 'Установите разрешения для следующего:<br/>'
+                instructions_7_1_html: 'Установите разрешения для следующего:'
                 instructions_7_2_html: '<b>Общие</b>'
                 instructions_7_3_html: '<b>Торговля</b>'
             bitfinex:
@@ -499,7 +499,7 @@ ru:
                 instructions_5_html: 'Укажите <b>ярлык</b> для своего ключа API.'
                 instructions_6_html: 'Нажмите <b>Сгенерировать ключ API</b>.'
                 instructions_7_html: 'Вставьте оба ключа в поля ввода выше. '
-                instructions_4_1_html: 'Установите разрешения для следующего:<br/>'
+                instructions_4_1_html: 'Установите разрешения для следующего:'
                 instructions_4_2_html: '<b>Получать ордера и статусы.</b>'
                 instructions_4_3_html: '<b>Создавать и отменять ордера.</b>'
             bitstamp:
@@ -513,7 +513,7 @@ ru:
                 instructions_7_html: 'Нажмите <b>Ввести 2FA и отправить</b>.'
                 instructions_8_html: 'Нажмите <b>Активировать</b>.'
                 instructions_9_html: 'Вставьте оба ключа в поля ввода выше. '
-                instructions_6_1_html: 'Установите разрешения для следующего:<br/>'
+                instructions_6_1_html: 'Установите разрешения для следующего:'
                 instructions_6_2_html: '<b>Открыть ордера.</b>'
                 instructions_6_3_html: '<b>Отменить ордер.</b>'
                 instructions_6_4_html: '<b>Купить лимитные/рыночные ордера.</b>'
@@ -521,20 +521,20 @@ ru:
             set: Установить
             probit:
                 instructions_1_html: 'Войдите в свой аккаунт %{exchange_link}.'
-                instructions_2_html: ''
-                instructions_3_html: ''
-                instructions_4_html: ''
-                instructions_5_html: ''
-                instructions_7_html: ''
-                private_key: ''
-                public_key: ''
-                instructions_6_1_html: 'Установите разрешения для следующего:<br/>'
-                instructions_6_2_html: ''
+                instructions_2_html: 'В меню <b>Моя страница</b> (верхний правый угол) перейдите в <b>Управление API</b>.'
+                instructions_3_html: 'Укажите метку ключа API и нажмите <b>Создать новый ключ</b>.'
+                instructions_4_html: 'Подтвердите создание ключей API.'
+                instructions_5_html: 'Если вы хотите ограничить доступ, чтобы только Deltabadger мог использовать ключи, нажмите <b>Редактировать</b> и установите <b>Ограничение IP-адреса</b> для этого IP: <b>3.18.70.231</b>'
+                instructions_7_html: 'Скопируйте и вставьте свой новый идентификатор клиента и секретный ключ клиента в форму выше.'
+                private_key: 'Секретный ключ клиента'
+                public_key: 'Идентификатор клиента'
+                instructions_6_1_html: 'Установите разрешения для следующего:'
+                instructions_6_2_html: '<b>Чтение</b>'
                 instructions_6_3_html: '<b>Торговля</b>'
             frequency_limit:
-                limit_exceeded: ''
-                back_to_settings: ''
-                start_the_bot: ''
+                limit_exceeded: 'Чтобы выполнить ограничение бота на %{frequency_limit} транзакций в минуту, ваше расписание будет выполняться ордерами по %{price}%{currency} каждый.'
+                back_to_settings: 'Вернуться в настройки'
+                start_the_bot: 'Изменить и начать'
         add_new_bot: 'Добавить новый бот'
         start: Начать
         stop: Пауза
