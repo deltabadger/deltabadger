@@ -221,10 +221,10 @@ fr:
         bitwarden_title: 'Essaie Bitwarden'
         bitwarden_text: 'C''est gratuit et open-source.'
     meta:
-        title: ''
-        twitter_image_alt: ''
-        title_short: ''
-        desc: ''
+        title: 'Deltabadger • Automatisez les achats périodiques en n''importe quelle crypto-monnaie'
+        twitter_image_alt: 'Achats périodiques automatisés en Bitcoin, Ethereum, Polkadot, Cardano, Solana, et autres actifs numériques.'
+        title_short: 'Deltabadger • Achats périodiques automatisés en Bitcoin et Autres actifs'
+        desc: 'Commencez gratuitement à utiliser la stratégie la plus expérimentée qui fonctionne sur Binance, FTX, Coinbase, Kraken, KuCoin et autres plateformes d''échange. Pas de KYC.'
     home:
         confirm_registration:
             title: 'Merci !'
@@ -507,20 +507,20 @@ fr:
             set: Définir
             probit:
                 instructions_1_html: ' Connecte-toi à ton compte %{exchange_link}.'
-                instructions_2_html: ''
-                instructions_3_html: ''
-                instructions_4_html: ''
-                instructions_5_html: ''
-                instructions_7_html: ''
-                private_key: ''
-                public_key: ''
+                instructions_2_html: 'Dans le menu <b>Ma page</b> (dans l''angle supérieur à droite) allez dans <b>Gestion des API</b>.'
+                instructions_3_html: 'Renseignez l''étiquette de la clé API et appuyez sur <b>Créer une nouvelle clé</b>.'
+                instructions_4_html: 'Confirmez la création des clés API.'
+                instructions_5_html: 'Si vous souhaitez restreindre l''accès pour que seul Deltabadger puisse utiliser les clés, appuyez sur <b>Modifier</b> et définissez la <b>Restriction d''adresse IP</b> sur cette IP : <b>3.18.70.231</b>'
+                instructions_7_html: 'Copiez et collez votre nouveau ID Client et votre nouvelle Clé secrète du client dans le formulaire ci-dessus.'
+                private_key: 'Clé secrète du client'
+                public_key: 'ID client'
                 instructions_6_1_html: 'Définis les autorisations pour les éléments suivants:'
-                instructions_6_2_html: ''
+                instructions_6_2_html: '<b>Lecture</b>'
                 instructions_6_3_html: '<b> Négociation </b>'
             frequency_limit:
-                limit_exceeded: ''
-                back_to_settings: ''
-                start_the_bot: ''
+                limit_exceeded: 'Pour remplir la limite du bot de %{frequency_limit} transactions par minute, votre planning sera exécuté par ordres de %{price}%{currency} chacun.'
+                back_to_settings: 'Retour aux paramètres'
+                start_the_bot: 'Modifier et commencer'
         add_new_bot: 'Ajouter un nouveau bot'
         start: Commencer
         stop: Pause
