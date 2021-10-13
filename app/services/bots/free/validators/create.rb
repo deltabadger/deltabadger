@@ -4,13 +4,13 @@ module Bots::Free::Validators
       allowed_symbols = bot.exchange.symbols
       return allowed_symbols unless allowed_symbols.success?
 
-      non_hodler_symbols = bot.exchange.non_hodler_symbols
-      return non_hodler_symbols unless allowed_symbols.success?
+      free_plan_symbols = bot.exchange.free_plan_symbols
+      return free_plan_symbols unless free_plan_symbols.success?
 
       exchange_name = Exchange.find(bot.exchange_id).name.downcase
 
       bot_settings = BotSettings.new(bot.settings, user,
-                                     allowed_symbols.data, non_hodler_symbols.data, exchange_name)
+                                     allowed_symbols.data, free_plan_symbols.data, exchange_name)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -25,7 +25,7 @@ module Bots::Free::Validators
       include ActiveModel::Validations
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
-                  :percentage, :allowed_symbols, :non_hodler_symbols,
+                  :percentage, :allowed_symbols, :free_plan_symbols,
                   :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name,
                   :price_range_enabled, :price_range
 
@@ -35,7 +35,7 @@ module Bots::Free::Validators
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
-      validate :hodler_allowed_symbol
+      validate :plan_allowed_symbol
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -54,7 +54,7 @@ module Bots::Free::Validators
       validate :hodler_if_price_range
       validate :validate_price_range
 
-      def initialize(params, user, allowed_symbols, non_hodler_symbols, exchange_name)
+      def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name)
         @interval = params['interval']
         @base = params['base']
         @quote = params['quote']
@@ -67,9 +67,10 @@ module Bots::Free::Validators
         @price_range_enabled = params['price_range_enabled']
         @price_range = params['price_range']
         @allowed_symbols = allowed_symbols
-        @non_hodler_symbols = non_hodler_symbols
+        @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
+        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
       end
 
@@ -82,9 +83,9 @@ module Bots::Free::Validators
         errors.add(:symbol, "#{symbol} is not supported")
       end
 
-      def hodler_allowed_symbol
+      def plan_allowed_symbol
         symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
-        return if hodler || symbol.in?(non_hodler_symbols)
+        return if @paid_plan || symbol.in?(free_plan_symbols)
 
         errors.add(:symbol, "#{symbol} is not supported in your subscription")
       end
