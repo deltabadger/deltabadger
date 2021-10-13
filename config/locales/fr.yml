@@ -214,7 +214,7 @@ fr:
         knowledge_base: 'Base de connaissances'
     ads:
         dont_trade_automate_html: '<div>Ne trade pas.</div> <div>Automatise.</div>'
-        dca_profit_html: 'Si tu avais fait des achats périodiques en <br> en Bitcoin l''année dernière, <br> tu serais maintenant en hausse de <span class="text-success"> +%{profit}% </span>'
+        dca_profit_html: 'Si tu avais fait des achats<br>périodiques en en Bitcoin<br>l''année dernière, tu serais<br>maintenant en hausse de <span class="text-success"> +%{profit}% </span>'
         features: "auto-DCA sur ton compte d'échange;\n <i> Intervalles intelligents </i> et configuration en cinq minutes;\n mises à jour et nouvelles fonctionnalités chaque mois;\n support et communauté Telegram"
         dca_standard_html: 'Les achats périodiques en<br> Bitcoin sont la nouvelle norme <br> pour les épargnants à long terme.'
         password_managers_html: 'Les gestionnaires de mots de passe <br> facilitent la sécurité.'
