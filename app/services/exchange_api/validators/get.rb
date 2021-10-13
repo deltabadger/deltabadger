@@ -9,9 +9,14 @@ module ExchangeApi
         @exchanges_repository = exchanges_repository
       end
 
-      def call(exchange_id)
+      def call(exchange_id, key_type)
         exchange = @exchanges_repository.find(exchange_id)
+        key_type == 'trading' ? get_trading_key_validator(exchange) : get_withdrawal_key_validator(exchange)
+      end
 
+      private
+
+      def get_trading_key_validator(exchange)
         return Fake::Validator.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
@@ -39,6 +44,37 @@ module ExchangeApi
           Bitfinex::Validator.new
         when 'bitstamp'
           Bitstamp::Validator.new
+        end
+      end
+
+      def get_withdrawal_key_validator(exchange)
+        return Fake::WithdrawalValidator.new if DISABLE_EXCHANGES_API
+
+        case exchange.name.downcase
+        when 'binance'
+          Binance::WithdrawalValidator.new(url_base: EU_URL_BASE)
+        when 'binance.us'
+          Binance::WithdrawalValidator.new(url_base: US_URL_BASE)
+        when 'bitbay'
+          Bitbay::WithdrawalValidator.new
+        when 'kraken'
+          Kraken::WithdrawalValidator.new
+        when 'coinbase pro'
+          CoinbasePro::WithdrawalValidator.new
+        when 'gemini'
+          Gemini::WithdrawalValidator.new
+        when 'ftx'
+          Ftx::WithdrawalValidator.new(url_base: FTX_EU_URL_BASE)
+        when 'ftx.us'
+          Ftx::WithdrawalValidator.new(url_base: FTX_US_URL_BASE)
+        when 'bitso'
+          Bitso::WithdrawalValidator.new
+        when 'kucoin'
+          Kucoin::WithdrawalValidator.new
+        when 'bitfinex'
+          Bitfinex::WithdrawalValidator.new
+        when 'bitstamp'
+          Bitstamp::WithdrawalValidator.new
         end
       end
     end
