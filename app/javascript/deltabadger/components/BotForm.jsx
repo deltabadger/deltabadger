@@ -4,13 +4,9 @@ import I18n from 'i18n-js'
 import { PickExchage } from './BotForm/PickExchange';
 import { ConfigureBot } from './BotForm/ConfigureBot';
 import { AddApiKey } from './BotForm/AddApiKey';
-import { ClosedForm } from './BotForm/ClosedForm';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
-import {CancelButton} from "./BotForm/CancelButton";
-import {isEmpty} from "../utils/array";
-import {PaginationList} from "./PaginationList";
-import {NavigationPanel} from "./BotForm/NavigationPanel";
+import { NavigationPanel } from "./BotForm/NavigationPanel";
 
 const STEPS = [
   'closed_form',
@@ -47,10 +43,15 @@ export const BotForm = ({
   const [type, setType] = useState(TYPES[0])
   const [isCreatingBot, setCreatingBot] = useState(false);
 
+  const getKeyStatus = (e) => {
+    return type === 'trading' ? e.trading_key_status : e.withdrawal_key_status
+  }
+
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
-  const ownedExchangesIds = exchanges.filter(e => e.owned).map(e => e.id)
-  const pendingExchangesIds = exchanges.filter(e => e.pending).map(e => e.id)
-  let invalidExchangesIds = exchanges.filter(e => e.invalid).map(e => e.id)
+  const ownedExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'correct').map(e => e.id)
+  const pendingExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'pending').map(e => e.id)
+  let invalidExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'incorrect').map(e => e.id)
+  console.log(exchanges, ownedExchangesIds)
 
   const keyExists = (exchangeId) => {
     return [...ownedExchangesIds, ...invalidExchangesIds, ...pendingExchangesIds].includes(exchangeId)
@@ -58,7 +59,7 @@ export const BotForm = ({
 
   const clearAndSetTimeout = () => {
     clearTimeout(apiKeyTimeout)
-    apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
+    apiKeyTimeout = setTimeout(() => fetchExchanges(type), 3000)
   }
 
   const chooseStep = step => {
@@ -96,7 +97,7 @@ export const BotForm = ({
   const closedFormHandler = (type) => {
     setPage(1)
     setStep(1)
-    setType(TYPES[type])
+    setType(type)
     callbackAfterOpening()
   }
 
@@ -162,6 +163,11 @@ export const BotForm = ({
     }).finally(() => setCreatingBot(false));
   }
 
+  const handleCancel = () => {
+    setStep(0)
+    callbackAfterClosing()
+  }
+
   // TODO: Fix this!, you can't reset all form, check this!
   const resetFormToStep = (step) => {
     return(() => {
@@ -173,10 +179,6 @@ export const BotForm = ({
 
   const renderForm = () => {
     switch (STEPS[chooseStep(step)]) {
-      case 'closed_form':
-        return <ClosedForm
-          handleSubmit={closedFormHandler}
-        />
       case 'pick_exchange':
         return <PickExchage
           handleReset={() => {
@@ -231,6 +233,14 @@ export const BotForm = ({
 
   return (
     <>
+    <NavigationPanel
+      handleCancel={handleCancel}
+      closedFormHandler={closedFormHandler}
+      step={chooseStep(step)}
+      page={page}
+      setPage={setPage}
+      numberOfPages={numberOfPages}
+    />
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
     </>

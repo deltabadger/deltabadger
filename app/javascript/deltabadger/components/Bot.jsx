@@ -236,20 +236,25 @@ const BotTemplate = ({
     }
   }
 
+  const keyOwned = (status) => status === 'correct'
+  const keyPending = (status) => status === 'pending'
+  const keyInvalid = (status) => status === 'incorrect'
+
   const keyExists = () => {
     // we have to assume that the key exists to fix unnecessary form rendering
-    const exchange = exchanges.find(e => exchangeId === e.id) || {owned: true, pending: false, invalid: false}
-    setApiKeyExists(exchange.owned)
+    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true}
+    const keyStatus = exchange.trading_key_status
+    setApiKeyExists(keyOwned(keyStatus))
 
-    if (exchange.owned) {
+    if (keyOwned(keyStatus)) {
       clearTimeout(apiKeyTimeout)
 
-    } else if (exchange.pending) {
+    } else if (keyPending(keyStatus)) {
       setApiKeysState(apiKeyStatus["VALIDATING"])
       clearTimeout(apiKeyTimeout)
       apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
 
-    } else if (exchange.invalid) {
+    } else if (keyInvalid(keyStatus)) {
       clearTimeout(apiKeyTimeout)
       setApiKeysState(apiKeyStatus["INVALID"])
     }

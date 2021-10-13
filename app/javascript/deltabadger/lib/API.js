@@ -19,9 +19,9 @@ const API = {
     return client.post(`/${endpoint}`, params).then(data => data.data);
   },
 
-  getExchanges() {
+  getExchanges(type) {
     const url = `${API_URL}/exchanges`;
-    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+    return client.request({ url, params: { type: type }, method: 'get' }).then(data => data.data);
   },
 
   createApiKey(params) {
