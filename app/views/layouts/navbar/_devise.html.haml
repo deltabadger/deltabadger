@@ -12,8 +12,11 @@
           %button.btn.btn-link.btn-menu{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
             - if params[:lang].blank?
               = 'EN'
+            - elsif params[:lang] == :zh_CN
+              = 'CN'
             - else
               = params[:lang].to_s.upcase
+
             %svg.ml-0.btn__svg-icon.db-svg-icon{:width => "20", :height => "20", :viewBox => "0 0 24 24", :xmlns => "http://www.w3.org/2000/svg"}
               %path{:d => "M7.71,9.29l3.88,3.88l3.88-3.88c0.39-0.39,1.02-0.39,1.41,0l0,0c0.39,0.39,0.39,1.02,0,1.41l-4.59,4.59 c-0.39,0.39-1.02,0.39-1.41,0L6.29,10.7c-0.39-0.39-0.39-1.02,0-1.41l0,0C6.68,8.91,7.32,8.9,7.71,9.29z"}
           .dropdown-menu.dropdown-menu-right
@@ -32,3 +35,9 @@
               = link_to "🇵🇹 Português", url_for(lang: 'pt'), class: "dropdown-item"
             - unless lang == 'ru'
               = link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item"
+            - unless lang == 'id'
+              = link_to "🇮🇩 Indonesian", url_for(lang: 'id'), class: "dropdown-item"
+            - unless lang == 'zh_CN'
+              = link_to "🇨🇳 Chinese", url_for(lang: 'zh_CN'), class: "dropdown-item"
+            - unless lang == 'vi'
+              = link_to "🇻🇳 Vietnamese", url_for(lang: 'vi'), class: "dropdown-item"

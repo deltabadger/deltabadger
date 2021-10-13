@@ -30,7 +30,7 @@ module Deltabadger
     # Don't generate system test files.
     config.generators.system_tests = nil
 
-    config.i18n.available_locales = [:en, :pl, :es, :de, :fr, :pt, :ru]
+    config.i18n.available_locales = [:en, :pl, :es, :de, :fr, :pt, :ru, :id, :vi, :zh_CN]
     config.i18n.default_locale = :en
     config.i18n.fallbacks = true
 
