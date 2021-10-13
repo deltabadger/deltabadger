@@ -36,12 +36,12 @@ const DashboardTemplate = ({
     loadBots(shouldOpenFirstBot, page)
   }, [page,])
 
-  const fetchExchanges = () => {
-    API.getExchanges().then(data => setExchanges(data.data))
+  const fetchExchanges = (type) => {
+    API.getExchanges(type).then(data => setExchanges(data.data))
   }
 
   useEffect( () => {
-    fetchExchanges()
+    fetchExchanges('trading')
   }, [])
 
   useEffect( () => {
@@ -62,7 +62,7 @@ const DashboardTemplate = ({
         bot={b}
         open={currentBot && (b.id == currentBot.id)}
         errors={errors[b.id]}
-        fetchExchanges={fetchExchanges}
+        fetchExchanges={() => fetchExchanges('trading')}
         exchanges={exchanges}
         apiKeyTimeout={apiKeyTimeout}
         reloadPage={reloadPage}
