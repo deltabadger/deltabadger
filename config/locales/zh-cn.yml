@@ -1,4 +1,4 @@
-cn:
+zh-cn:
     mail: "<p>您好 👋，</p>\n    <p>不错！您的转介绍链接<br>开始起作用了！</p>\n    <p>我们会将</p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} 个比特币</b>\n    </p>\n    <p>的佣金转账到您的比特币钱包。</p>\n    <p>感谢您壮大了<br/>獾群！</p>"
     days_left:
         other: '剩余 %{count} 天'
