@@ -61,6 +61,17 @@ module ExchangeApi
           Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
         end
 
+        def rate_decimals(symbol)
+          response = fetch_book(symbol)
+          return response unless response.success?
+
+          price_increment = response.data['price_increment']
+          rate_decimal = characters_after_comma(price_increment)
+          Result::Success.new(rate_decimal.to_d)
+        rescue StandardError
+          Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
+        end
+
         def minimum_order_parameters(symbol)
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
@@ -93,32 +104,20 @@ module ExchangeApi
         def current_bid_ask_price(symbol)
           request = @base_client.get("/api/exchange/v1/order_book?market_id=#{symbol}", nil, nil)
           response = JSON.parse(request.body)
-          first_buy = true
-          first_sell = true
-          lowest_bid = nil
-          highest_ask = nil
-          response['data'].each do |x|
-            if x['side'] == 'buy'
-              if first_buy
-                highest_ask = x['price']
-                first_buy = false
-              else
-                highest_ask = x['price'] if highest_ask.to_f < x['price'].to_f
-              end
-            elsif first_sell
-              lowest_bid = x['price']
-              first_sell = false
-            else
-              lowest_bid = x['price'] if lowest_bid.to_f > x['price'].to_f
-            end
-          end
-
-          Result::Success.new(BidAskPrice.new(lowest_bid.to_f, highest_ask.to_f))
+          bid_array = response['data'].map { |x| x['price'].to_f if x['side'] == 'sell' }.compact
+          ask_array = response['data'].map { |x| x['price'].to_f if x['side'] == 'buy' }.compact
+          Result::Success.new(BidAskPrice.new(bid_array.min.to_f, ask_array.max.to_f))
         rescue StandardError
           Result::Failure.new('Could not fetch current price from Probit', RECOVERABLE)
         end
 
         private
+
+        def characters_after_comma(number)
+          return 0 if number.index('.').nil?
+
+          number.length - number.index('.') - 1
+        end
 
         def get_quote(symbol_info)
           symbol_info.fetch('quote_currency_id')

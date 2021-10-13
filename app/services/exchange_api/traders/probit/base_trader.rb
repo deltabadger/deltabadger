@@ -11,7 +11,7 @@ module ExchangeApi
           api_secret:,
           market: ExchangeApi::Markets::Probit::Market.new,
           map_errors: ExchangeApi::MapErrors::Probit.new
-          )
+        )
           @api_key = api_key
           @api_secret = api_secret
           @market = market
@@ -30,21 +30,7 @@ module ExchangeApi
           request = Faraday.get(url, params, headers)
           return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) unless request.status == 200
 
-          response = JSON.parse(request.body)
-          response_data = response['data'][0]
-          if response_data['type'] == 'limit'
-            rate = response_data['limit_price']
-            amount = response_data['quantity']
-          else
-            rate = response_data['filled_cost'].to_f / response_data['filled_quantity'].to_f
-            amount = response_data['filled_quantity']
-          end
-          Result::Success.new(
-            offer_id: order_id,
-            amount: amount,
-            rate: rate.to_s
-          )
-
+          Result::Success.new(JSON.parse(request.body))
         end
 
         private
@@ -60,13 +46,16 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-          if request.status == 200 && request.reason_phrase == 'OK'
-            response_data = response['data']
-            order_id = response_data['id']
-            Result::Success.new(offer_id: order_id)
-          else
-            error_to_failure([response['errorCode']])
+          unless request.status == 200 && request.reason_phrase == 'OK'
+            if response['details']['scope'] == 'not allowed scope'
+              return error_to_failure([response['details']['scope']])
+            end
+
+            return error_to_failure([response['errorCode']])
           end
+          response_data = response['data']
+          order_id = response_data['id']
+          Result::Success.new(offer_id: order_id)
         end
 
         def transaction_cost(price, symbol, force_smart_intervals, smart_intervals_value)
@@ -99,22 +88,16 @@ module ExchangeApi
           base_decimals = @market.base_decimals(symbol)
           return base_decimals unless base_decimals.success?
 
-          smart_intervals_value = (smart_intervals_value / current_price.data).ceil(base_decimals.data)
-          smart_intervals_value = min_price.data if smart_intervals_value.nil?
+          smart_intervals_value = if smart_intervals_value.nil?
+                                    min_price.data
+                                  else
+                                    (smart_intervals_value / current_price.data).ceil(base_decimals.data)
+                                  end
           smart_intervals_value = smart_intervals_value.ceil(base_decimals.data)
 
           return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
           Result::Success.new([min_price.data, price].max.ceil(base_decimals.data).to_d)
-        end
-
-        protected
-
-        def error_to_failure(error)
-          mapped_error = @map_errors.call(error)
-          Result::Failure.new(
-            *mapped_error.message, data: { recoverable: mapped_error.recoverable }
-          )
         end
       end
     end

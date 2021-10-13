@@ -4,7 +4,8 @@ module ExchangeApi::MapErrors
       {
         'NOT_ENOUGH_BALANCE' => Error.new('Insufficient funds', false),
         'INVALID_MARKET' => Error.new('The market doesn\'t exist', true),
-        'INVALID_ARGUMENT' => Error.new('Price is out of range', true)
+        'INVALID_ARGUMENT' => Error.new('Price is out of range', true),
+        'not allowed scope' => Error.new('Insufficient API keys permissions', false)
       }.freeze
     end
   end

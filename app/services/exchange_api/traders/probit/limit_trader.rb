@@ -16,6 +16,18 @@ module ExchangeApi
           place_order(params.data)
         end
 
+        def fetch_order_by_id(order_id, result_params)
+          response = super
+          return response unless response.success?
+
+          response_data = response.data['data'][0]
+          Result::Success.new(
+            offer_id: order_id,
+            amount: response_data['quantity'],
+            rate: response_data['limit_price'].to_s
+          )
+        end
+
         private
 
         def get_params(side, price, base, quote, percentage, force_smart_intervals, smart_intervals_value)
@@ -48,12 +60,11 @@ module ExchangeApi
           Result::Failure.new(['Could not make Probit order', RECOVERABLE])
         end
 
-
         def rate_percentage(symbol, rate, percentage)
-          rate_decimals = @market.quote_decimals(symbol)
+          rate_decimals = @market.rate_decimals(symbol)
           return rate_decimals unless rate_decimals.success?
 
-          Result::Success.new((rate * (1 + percentage / 100)).ceil(0))
+          Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
         end
 
         def common_params(symbol)
