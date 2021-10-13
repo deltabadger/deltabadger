@@ -23,6 +23,8 @@
           %button.btn.btn-link.btn-menu{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
             - if params[:lang].blank?
               = 'EN'
+            - elsif params[:lang] == :zh_CN
+              = 'CN'
             - else
               = params[:lang].to_s.upcase
             %svg.ml-0.btn__svg-icon.db-svg-icon{:width => "20", :height => "20", :viewBox => "0 0 24 24", :xmlns => "http://www.w3.org/2000/svg"}
@@ -43,6 +45,12 @@
               = link_to "🇵🇹 Português", url_for(lang: 'pt'), class: "dropdown-item"
             - unless lang == 'ru'
               = link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item"
+            - unless lang == 'id'
+              = link_to "🇮🇩 Indonesian", url_for(lang: 'id'), class: "dropdown-item"
+            - unless lang == 'zh_CN'
+              = link_to "🇨🇳 Chinese", url_for(lang: 'zh_CN'), class: "dropdown-item"
+            - unless lang == 'vi'
+              = link_to "🇻🇳 Vietnamese", url_for(lang: 'vi'), class: "dropdown-item"
 
         = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-link my-sm-0 mr-4')
         = link_to new_user_registration_path, class: 'btn btn-success my-sm-0' do

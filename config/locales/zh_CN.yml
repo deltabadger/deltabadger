@@ -1,0 +1,643 @@
+zh_CN:
+    mail: "<p>您好 👋，</p>\n    <p>不错！您的转介绍链接<br>开始起作用了！</p>\n    <p>我们会将</p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} 个比特币</b>\n    </p>\n    <p>的佣金转账到您的比特币钱包。</p>\n    <p>感谢您壮大了<br/>獾群！</p>"
+    days_left:
+        other: '剩余 %{count} 天'
+    devise:
+        confirmations:
+            confirmed: 您的电子邮件地址已成功进行确认。
+            send_instructions: 您将在几分钟后收到包含说明的电子邮件。
+            send_paranoid_instructions: 您将在几分钟后收到包含说明的电子邮件。
+            new:
+                title: 重新发送说明
+                submit: 重新发送确认链接
+        failure:
+            already_authenticated: 您已登录。
+            inactive: 您的账号尚未激活。
+            invalid: '无效的 %{authentication_keys} 或密码。'
+            locked: 您的账号已锁定。
+            last_attempt: 您还可以尝试一次，失败后将锁定您的账号。
+            not_found_in_database: '无效的 %{authentication_keys} 或密码。'
+            timeout: 您的会话已到期。请重新登录以继续。
+            unauthenticated: 您需要登录或注册，才能继续。
+            unconfirmed: 您必须确认您的电子邮件地址，才能继续。
+        mailer:
+            confirmation_instructions:
+                subject: '欢迎来到 Deltabadger 🎉'
+                template_html: "<p>欢迎来到 Deltabadger 🎉，</p>\n<p>一键即可自动定期定额投资<br>比特币：</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">确认我的账号</a>\n</p>\n<p>您没有注册过？<br>不用担心。直接忽略即可。</p>"
+            reset_password_instructions:
+                subject: '密码已重置 🔑'
+                template_html: "<p>您好 👋，</p>\n<p>您似乎想要更改<br/>密码 🔑。非常明智之举！</p>\n<p>开始吧：</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">更改我的密码</a>\n  </p>\n<p>您没有发送此请求？<br/>不用担心！直接忽略即可。</p>"
+            unlock_instructions:
+                subject: '解锁说明 🔓'
+                template_html: "<p>您好 👋，</p>\n<p>您的账号由于<br>不成功登录次数太多，已被我们锁定。</p>\n<p>单击下面的链接以解锁：</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">解锁我的账号</a>\n</p>"
+            email_changed:
+                subject: '新电子邮件地址 📨'
+                template_html: "<p>您好 👋，</p>\n<p>我们发送此电子邮件以通知您，与您在 Deltabadger 的账号关联的电子邮件地址已更改为：</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+            password_change:
+                subject: '新密码 🔑'
+                template_html: "<p>已完成 🎉！</p>\n<p>您的密码 🔑 已更改。</p>"
+        omniauth_callbacks:
+            failure: '无法从 %{kind} 对您进行身份验证，因为“%{reason}”。'
+            success: '已成功从 %{kind} 账号进行身份验证。'
+        passwords:
+            no_token: '您必须从密码重置电子邮件中访问此页面。如果您是从密码重置电子邮件转过来的，请确保您使用了提供的完整 URL。'
+            send_instructions: 您将在几分钟后收到包含说明的电子邮件。
+            send_paranoid_instructions: 您将在几分钟后收到包含说明的电子邮件。
+            updated: 已完成！您的密码已更改。
+            updated_not_active: 已完成！您的密码已更改。
+            new:
+                title: 忘记密码？
+                submit: 向我发送说明
+            edit:
+                title: 更改您的密码
+                submit: 更改我的密码
+        registrations:
+            destroyed: 拜拜！希望很快就能再次见到您...
+            signed_up: 很高兴认识您！
+            signed_up_but_inactive: 嗨，您的账号尚未激活。您是否已查看电子邮件？
+            signed_up_but_locked: 糟糕，您的账号已锁定。
+            signed_up_but_unconfirmed: 请查看您的电子邮件，并单击确认链接。
+            update_needs_confirmation: 请查看您的电子邮件，并按照确认链接确认您的新电子邮件地址。
+            updated: 您的账号已成功更新。
+            updated_but_not_signed_in: 您的账号已成功更新，请重新登录。
+            new:
+                title_html: '创建<span class="text-success">免费</span>账号'
+                email_used: 此电子邮件已被使用。
+                email_suggestion_html: '电子邮件无效！您是指 <b>%{suggestion}</b> 吗？'
+                email_invalid: 电子邮件无效！
+                submit: 立即开始
+            edit:
+                awaiting_confirmation: '当前正在等待 %{email} 的确认'
+        sessions:
+            signed_in: 好久不见！
+            signed_out: 回头见！
+            already_signed_out: 真的不想说再见啊。回头见？
+            new:
+                title: 登录
+                submit: 登录
+                forgot_password: 忘记密码？
+        unlocks:
+            send_instructions: 您将在几分钟后收到包含说明的电子邮件。
+            send_paranoid_instructions: 您将在几分钟后收到包含说明的电子邮件。
+            unlocked: 您的账号已成功解锁。请登录以继续。
+    errors:
+        messages:
+            already_confirmed: 已进行确认，请尝试登录。
+            confirmation_period_expired: '需要在 %{period} 内进行确认，请申请一个新的。'
+            expired: 已到期，请申请一个新的。
+            not_found: 找不到。
+            not_locked: 未锁定。
+            not_saved:
+                other: '发生 %{count} 个错误，因此无法保存此 %{resource}：'
+            model_invalid: '验证失败：%{errors}'
+            inclusion: 未包括在列表中
+            exclusion: 已保留
+            invalid: 无效
+            confirmation: '不匹配 %{attribute}'
+            accepted: 必须被接受
+            empty: 不能为空
+            blank: 不能为空白
+            present: 必须为空白
+            too_long:
+                other: '太长（最多 %{count} 个字符）'
+            too_short:
+                other: '太短（最少 %{count} 个字符）'
+            wrong_length:
+                other: '是错误的长度（应该为 %{count} 个字符）'
+            not_a_number: 不是数字
+            not_an_integer: 必须为整数
+            greater_than: '必须大于 %{count}'
+            greater_than_or_equal_to: '必须大于或等于 %{count}'
+            equal_to: '必须等于 %{count}'
+            less_than: '必须小于 %{count}'
+            less_than_or_equal_to: '必须小于或等于 %{count}'
+            other_than: '必须为 %{count} 之外的数字'
+            in: '必须为 %{count}'
+            odd: 必须为奇数
+            even: 必须为偶数
+            wrong_password: 错误的密码
+            wrong_email: 错误的电子邮件。
+            bad_credentials: 错误的电子邮件或密码。
+            bad_credentials_with_code: '错误的电子邮件、密码或 2FA 代码。'
+            wrong_two_fa_token: 提供的代码是错误的。
+            too_short_password: 密码太短
+            password_not_match: 密码不匹配
+            bad_2fa_code: 无效的代码。请重试。
+            empty_two_fa_token: '缺少 2FA 代码。请重试。'
+        unverified_request: 请刷新浏览器并重试
+        format: '%{attribute}%{message}'
+        referral_program_inactive: 您的转介绍程序无效
+        bitcoin_address_not_updated: 比特币地址无法更新
+        frequency_limit: 已超出频率限制
+        limit_reached: 已达到免费套餐限制
+        invalid_api_keys: 无效的代币
+    deltabadger: Deltabadger
+    welcome:
+        default: '嗨，欢迎来到 Deltabadger'
+        saver: 摆脱限制，进行升级！
+        banner_html: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
+    subscriptions:
+        upgrade: 升级
+        days_left:
+            other: '剩余 %{count} 天'
+        saver: 储蓄者
+        investor: 投资者
+        hodler: Hodler
+        investor_description_html: '一年<b class="badge badge-btc">无限制交易</b> BTC、ETH、LTC、XMR。<span class="no-break">可访问</span><b class="badge badge-referral">转介绍程序</b>。'
+        hodler_description_html: '定投在长期的效果最好。<span class="no-brak">四年</span><b class="badge badge-btc">无限制交易</b><b class="badge badge-all">所有代币</b>、<b class="badge badge-limit">限价订单</b>并可访问<b class="badge badge-referral">转介绍程序</b>。此套餐还支持该项目，因此 Hodler 可获得对所有<b class="badge badge-priority">新功能</b>的<b class="badge badge-priority">优先访问权限</b>。'
+        plan_1_year: '1 年套餐'
+        plan_4_year: '4 年套餐'
+        limit_reached_html: '<b>恭喜！</b>您已达到每年 1200 美元的免费交易限制。要继续，请升级到无限制套餐。'
+        payment:
+            billing_information: 账单信息
+            bitcoin: 比特币
+            wire_transfer: 电汇
+            wire_transfer_description_html: '要电汇支付，请发送发票的基本信息：<b>名字</b>、<b>姓氏</b>、<b>物理地址</b>、在 Deltabadger 使用的<b>电子邮件</b>，以及您想购买的套餐：<a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>。'
+            pay_with_bitcoin: 使用比特币支付
+            active_plan_discount: 有效套餐折扣
+            compensation:
+                other: '对投资者套餐中未使用的 %{count} 天的补偿。'
+            discount: '%{discount_percent}% 的折扣'
+            referral_discount_html: '多亏来自 <b><a href="%{visible_link}">%{visible_name}</a></b> 的转介绍链接，您在平台上首次购买时可获得折扣。'
+            you_pay: 您支付
+            payment_ordered: 已下达付款指令！
+            vat: VAT
+            after_wire_transfer_html: '谢谢！我们很快会再联系您！如果需要进一步的帮助，请发邮件告知我们：<a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>。'
+            invalid_vat_number: '无效的 EU VAT 编号'
+            account_holder: 账号持有人
+            routing_number: 汇款路线号码
+            account_number: 账号
+            account_type: 账号类型
+            wire_transfer_fill_form: 请填写上面的表单以继续...
+            eu_bank_country: 比利时
+            bank_address: 银行地址
+            paid_with_wire_transfer: '我进行了 SEPA 汇款'
+            wire_transfer_pending: 谢谢！我们很快会激活您的账号并通过电子邮件联系您。
+            paid_with_wire_transfer_other: 我进行了电汇
+            wire_cost_investor_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_hodler_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_pending_html: '如果尚未付款，请将 <b>%{sign}%{price}</b> 转账到以下银行账号：'
+        upgrade_plan: 升级套餐
+        prolong_upgrade: 延长或升级套餐
+        maximalist_title: '比特币信徒可享受 50% 的折扣'
+        maximalist_info: 如果您仅买入比特币，您只需支付正常价格的一半。
+    links:
+        homepage: 主页链接
+        log_in: 登录
+        sign_up: 注册
+        log_out: 注销
+        create_account: 创建免费账号
+        resend_link: 重新发送链接
+        terms_and_conditions: 条款和条件
+        privacy_policy: 隐私政策
+        cookies_policy: 'Cookie 政策'
+        start_fast: '5 分钟后开始'
+        start_fast_longer_html: '5 分钟后<span class="d-none d-sm-inline">免费</span>开始'
+        contact: 联系人
+        about: 关于
+        about_html: '关于<span class="d-none d-xl-inline">项目</span>'
+        dashboard: 控制面板
+        referral_program: 转介绍程序
+        settings: 设置
+        menu: 菜单
+    social:
+        telegram: '加入我们的 Telegram 小组'
+        twitter: '在 Twitter 上关注我们'
+        blog: 阅读我们的博客
+        knowledge_base: 知识库
+    ads:
+        dont_trade_automate_html: '<div>不必交易。</div> <div>自动完成。</div>'
+        dca_profit_html: '如果您在去年<br>定期定额投资<br>比特币，现在您将获利 <span class="text-success">+%{profit}%</span>'
+        features: "自动定投交易所账号；\n<i>智能间隔</i>，五分钟快速设置；\n每月更新并推出新功能；\n支持和 Telegram 社区"
+        dca_standard_html: 定期定额投资<br>比特币是长期储蓄者的<br>新标准。
+        password_managers_html: 通过密码管理器<br>，可以轻松保障安全。
+        bitwarden_title: '试试 Bitwarden'
+        bitwarden_text: 。这是免费、开源的。
+    meta:
+        title: 'Deltabadger • 自动定期定额投资任何加密货币'
+        twitter_image_alt: 自动定期定额投资比特币、以太坊、波卡、卡尔达诺、索拉纳和其他数字资产。
+        title_short: 'Deltabadger • 自动定期定额投资比特币和其他资产'
+        desc: '免费开始最为久经考验的策略，该策略适用于 Binance、FTX、Coinbase、Kraken、Kucoin 及其他交易所。没有 KYC。'
+    home:
+        confirm_registration:
+            title: 谢谢！
+            text_html: 请查看您的邮箱，并单击我们发送给您的<b>确认链接</b>。然后转到登录页面。
+            deliverability_html: '<b>这非常重要！</b><br>如果未收到确认电子邮件，请查看<b>垃圾邮件文件夹</b>。如果仍找不到，请通过 %{email} 向我发送电子邮件。<br><br>谢谢，Jan'
+        contact:
+            title: 联系人
+            general_questions_html: '如需常见问题，请尝试了解我们的 <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram 频道</a>。这通常是获得答案的最快方式。同时：欢迎所有反馈、产品创意和交易申请。'
+            specific_questions_html: '有关更具体的问题，请将电子邮件发送到：%{email}，或直接在 Telegram 或 <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a> 上发送消息。'
+    affiliates:
+        new:
+            title: 转介绍程序注册
+            upgrade: 要加入我们著名的转介绍程序，请升级到我们的付费套餐之一。
+            referrer_info: 介绍者信息
+            payout_address: 付款地址
+            visible_info: 可见信息
+            private: 私人
+            eu_company: 欧盟的公司
+            unchangable_warning: 此部分中的设置以后无法更改。
+            discount_info_html: '您将<b>赚取 <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>，被介绍者将获得 <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% 的折扣</b>。'
+            checked: 我仔细检查了一切内容。
+            submit: 开始吧！
+            program_settings_html: '链接<span class="text-danger">（无法更改）</span>'
+            pick_referral_code: 提取转介绍代码
+            discount_preview_html: '首次购买可享受 <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% 的折扣。<br>'
+            thanks_referral: 多亏来自这位的转介绍链接：
+            title_info: 您可以立即开始分享链接，但要接收比特币支付，您需要首先完成注册。
+            share_html: '分享此链接并<span class="text-success">赚取比特币</span>'
+        create:
+            saver_error: 您必须升级才能注册
+            error: 转介绍程序注册失败
+        show:
+            title: 转介绍程序
+            deactivated:
+                notice: 看起来此程序已停用。如果您不确定发生此情况的原因，请联系我们。
+                contact: 联系我们
+            expired: '哎呀... 您的订阅已到期。请续订套餐以继续受益于转介绍程序。'
+            your_link: 您的转介绍链接
+            stats: 统计数据
+            referees: 被介绍者
+            paid_so_far: 目前已支付（比特币）
+            unpaid: 未支付（比特币）
+            update_info: 更新可见信息
+            update_bitcoin_address: 更新比特币地址
+            info_preview: 信息预览对于被介绍者可见：
+            submit_info: 更新可见信息
+            submit_bitcoin_address: 更新比特币地址
+            manual_title: 工作原理如何？
+            paid_commission: 已支付（比特币）
+            unpaid_commission: 待支付（比特币）
+            link_title: 您的链接
+            submit: 更新
+        discount:
+            flash_html: '您好！请享受来自 <span class="text-success text-success--lighter">%{visible_name}</span> 的 %{discount_percent}% 折扣'
+            congrats_html: '恭喜！<span class="db-form-label-range--discount-percent">%{discount_percent}</span>% 的折扣有效。'
+            referrer_html: "多亏来自\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a></b> 的转介绍链接。"
+            valid_for: 在平台上首次购买时有效。
+            accepted: 您已接受转介绍链接
+            invalid: 转介绍链接看起来无效或过时
+            already_used: 您已使用转介绍链接
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">我们的转介绍程序为每个用户<b>支付价值最高 50 美元</b><sup>1</sup>的比特币（使用交易中的汇率）。例如：</p>\n  <ol>\n    <li>为简单起见，比特币的价格约为 10000 美元，折扣率为 10%，您的利润率为 20%。</li>\n    <li>被介绍者购买价值 49.99 美元的 1 年套餐，折扣后支付 44.99 美元，相当于 0.0045 个比特币。您赚取了 0.001 个比特币（49.99 美元的 20%）。</li>\n    <li>如果比特币价格在此期间发生变化，也不影响。您的利润已锁定为比特币。</li>\n    <li>下一次，被介绍者购买价值 149.99 的 4 年套餐，并支付 0.015 个比特币。这次不再享受折扣，但您仍可获得 20%，即 0.003 个比特币。</li>\n    <li>只要您拥有有效套餐<sup>2</sup>，就会继续获利，您针对每个被介绍者的总利润未达到 50 美元。</li>\n  </ol>\n  <p><em>赚取比特币是定期定额投资的最佳方式！</em></p>\n  <small class=\"mb-2\"><sup>1</sup> 限制是 50 美元或 50 欧元，具体取决于定价的货币。</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> 对于被介绍者，即使您的订阅已到期，转介绍链接仍有效。</small>\n</div>"
+        apply_code:
+            title: 转介绍链接
+            accept: 接受
+            reject: 返回
+        btc_address_confirmation_sent: 确认电子邮件已发送
+        btc_address_changed: 比特币地址已更改
+        program_joined: 您已加入转介绍程序
+        your_bitcoin_address: 您的比特币地址
+        invalid_bitcoin_address: 无效的比特币地址
+        info_preview: 这是被介绍者在注册期间将看到的预览：
+        add_link_info: 可以将您的姓名和链接添加到您的网站，让被介绍者知道折扣来自哪里。也可以将其留空：
+        current_bitcoin_address: 当前比特币地址
+    settings:
+        index:
+            title: 设置
+            email_section: 更新电子邮件
+            submit_email: 更新电子邮件
+            password_section: 更新密码
+            submit_password: 更改密码
+            api_keys_section: 'API 密钥'
+            api_key_confirmation: 确定吗？
+            current_password: 当前密码（用于确认）
+            two_factor_section: 第二因子身份验证
+    forms:
+        for_confirmation: （用于确认）
+        minimum_length: '最少 %{length} 个字符'
+    helpers:
+        label:
+            affiliate:
+                btc_address: 比特币地址
+                btc_address_tooltip: 您要将支付接收到的比特币地址。
+                code_tooltip: 提取所需的转介绍代码。
+                name: 公司名称：
+                address: 公司地址：
+                vat_number: 'Vat 编号（可选）：'
+                visible_name: 预览中的姓名
+                visible_link: 链接
+                check: 检查
+            user:
+                email: 电子邮件
+                password: 密码
+                current_password: 当前密码
+                terms_and_conditions_tooltip: '继续操作即表示我同意 Deltabadger 的%{terms_and_conditions}和%{privacy_policy}。'
+                remember_me: 保存我的信息
+                new_password: 新密码
+                new_password_confirmation: 确认新密码
+                password_confirmation: 密码确认
+            payment:
+                first_name: 名字
+                last_name: 姓氏
+                birth_date: 出生日期
+                country: 国家或地区
+                other: 其他
+                submit_investor_order: 订购投资者套餐
+                submit_hodler_order: '订购 Hodler 套餐'
+                business_invoice: 我需要商业发票。
+            settings:
+                enable_two_fa: '启用 2FA'
+                disable_two_fa: '禁用 2FA'
+                current_status: 当前状态：
+                enabled: 已启用
+                disabled: 已禁用
+                enter_two_fa_code: '输入 2FA 代码'
+                scan_code_info: 扫描二维码或复制下面的代码：
+    cookie:
+        agree: 我同意
+        description: '我们会使用 cookie 让事情更简单。'
+        read_more: 阅读更多
+    bots:
+        setup:
+            step_exchange: 交易所
+            step_api_key: 'API 密钥'
+            step_schedule: 安排
+            cancel: 取消
+            limit_warning: '限价订单机器人是试验功能。尚无法填入所有订单。为了获得良好的结果，您需要按比例增加投资的金额。目前，Deltabadger 尚无法就此次调整的估计提供任何帮助，因此，您需要自己进行回测。请仅在您清楚自己的行为时使用。'
+            how_to_get_keys: '如何从 %{exchange} 获取 API 密钥：'
+            binance:
+                private_key: 私钥
+                public_key: 'API 密钥'
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“用户”菜单（右上角的圆形图标）中，转到 <b>API 管理</b>。'
+                instructions_3_html: '通过按<b>创建</b>，对新 API 密钥命名。'
+                instructions_4_html: 使用一次性代码确认创建。
+                instructions_5_html: 确保选中<b>启用现货杠杆交易</b>。
+                instructions_6_html: '如果您希望将密钥访问权限仅限于 Deltabadger，请单击<b>编辑限制</b>，选中<b>将访问权限仅限于可信 IP（推荐）</b>，并在下一步中添加此 IP：<b>3.18.70.231</b>'
+                instructions_7_html: 按<b>保存</b>并根据需要使用另一个一次性代码进行确认。
+                instructions_8_html: 记住，私钥仅在创建期间可见，因此请确保在离开视图之前复制这两个密钥。
+                instructions_9_html: '复制新 API 密钥并粘贴到上面的表单中。'
+            bitbay:
+                private_key: 私有密钥
+                public_key: 公用密钥
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“用户”菜单（右上角）中，转到 <b>API 设置</b>。'
+                instructions_3_html: 按<b>添加新密钥</b>。
+                instructions_5_html: 按<b>创建</b>。
+                instructions_6_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_4_1_html: 为以下对象设置权限：
+                instructions_4_2_html: '<b>历史记录</b>'
+                instructions_4_3_html: '<b>获取订单和市场配置</b>'
+                instructions_4_4_html: '<b>管理订单和更改市场配置</b>'
+            kraken:
+                trading_agreement_html: '<b>哈啰！</b>如果您的 Kraken 账号已使用德国地址进行验证，您将需要接受<a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">交易协议</a>，才能下达市价和保证金订单。'
+                trading_agreement_label_html: '我接受<a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">交易协议</a>。'
+                private_key: 私有密钥
+                public_key: 'API 密钥'
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“用户”菜单中，转到<b>安全性</b> → <b>API</b>。'
+                instructions_3_html: 按<b>生成新密钥</b>。
+                instructions_4_html: 为以下对象设置权限：
+                instructions_5_1_html: 资金：
+                instructions_5_2_html: '<b>查询资金</b>'
+                instructions_6_1_html: 订单和交易：
+                instructions_6_2_html: '<b>查询打开的订单和交易</b>'
+                instructions_6_3_html: '<b>查询已结束的订单和交易</b>'
+                instructions_6_4_html: '<b>修改订单</b>'
+                instructions_6_5_html: '<b>取消/结束订单</b>'
+                instructions_7_html: 按<b>生成密钥</b>。
+                instructions_8_html: '复制新 API 密钥并粘贴到上面的表单中。'
+            coinbase_pro:
+                private_key: 私钥
+                public_key: 'API 密钥'
+                passphrase: 密码
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“用户”菜单（右上角）中，转到 <b>API</b>。'
+                instructions_3_html: '按<b>新建 API 密钥</b>。'
+                instructions_5_html: '按<b>创建 API 密钥</b>。'
+                instructions_6_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_4_1_html: 为以下对象设置权限：
+                instructions_4_2_html: '<b>查看</b>'
+                instructions_4_3_html: '<b>交易</b>'
+            gemini:
+                private_key: 私钥
+                public_key: 'API 密钥'
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: 在“账号”菜单（右上角）中，转到<b>设置</b>。
+                instructions_3_html: '选取 <b>API</b>（左侧）。'
+                instructions_4_html: '按<b>创建新 API 密钥</b>。'
+                instructions_5_html: 从<b>范围</b>下拉列表中，选取<b>主要</b>。
+                instructions_6_html: '按<b>创建新 API 密钥</b>。'
+                instructions_8_html: 不要选中<b>需要会话检测信号</b>
+                instructions_9_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_7_1_html: '设置 API 密钥设置：'
+                instructions_7_2_html: '<b>正在交易</b>'
+            ftx:
+                private_key: 私有密钥
+                public_key: 公用密钥
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: 转到“设置”菜单（右上角）。
+                instructions_3_html: '向下滚动到 <b>API 密钥</b>部分。'
+                instructions_4_html: '按<b>创建 API 密钥</b>。'
+                instructions_5_html: '复制新 API 密钥并粘贴到上面的表单中。'
+            next: 下一步
+            bitso:
+                private_key: 'API 私钥'
+                public_key: 'API 密钥'
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“账号”菜单（右上角）中，转到 <b>档案</b>。'
+                instructions_3_html: '选取 <b>API</b>（左侧）。'
+                instructions_4_html: '按<b>添加新 API</b>。'
+                instructions_5_html: '填写 <b>API 名称</b>，并提供您的 <b>交易 PIN 码</b>。'
+                instructions_7_html: 按<b>保存</b>。
+                instructions_8_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_6_1_html: 为以下对象设置权限：
+                instructions_6_2_html: '<b>执行交易</b>'
+                instructions_6_3_html: '<b>查看余额</b>'
+                instructions_6_4_html: '<b>查看账号信息</b>'
+            smart_intervals:
+                dont_show_again: 不再显示
+                info_html:
+                    force_smart_intervals: '对于 %{base}%{quote}，%{exchangeName} 的最小订单大小为 <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}。Deltabadger 将使用 %{minimumValue}%{minimumCurrency} 订单执行此安排，并调整后时间间隔以匹配您的安排。我们称之为<i>智能间隔</i>。'
+                    other: '对于 %{base}%{quote}，%{exchangeName} 的最小订单大小为 <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}。Deltabadger 可以使用 %{minimumValue}%{minimumCurrency} 订单执行此安排，并调整后时间间隔以匹配您的安排。我们称之为<i>智能间隔</i>。'
+            validating: 正在验证
+            error_info: 验证失败。请重试或生成新密钥。
+            kucoin:
+                private_key: 'API 私钥'
+                public_key: 'API 密钥'
+                passphrase: 密码
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“账号”菜单（右上角，语言选取器旁边）中，转到 <b>API 管理</b>。'
+                instructions_3_html: '按<b>创建 API</b>。'
+                instructions_4_html: '如果您是第一次创建 API 密钥，请设置并保存<b>交易密码</b>。'
+                instructions_5_html: '提供 <b>API 名称</b>。'
+                instructions_6_html: '提供并保存 <b>API 密码</b>。'
+                instructions_8_html: '如果您希望将密钥访问权限仅限于 Deltabadger，请将 <b>IP 限制</b>设置为“是”并添加此 IP：<b>3.18.70.231</b>'
+                instructions_9_html: 按<b>下一步</b>。
+                instructions_10_html: '通过交易密码和 2FA 确认 API 密钥的创建。'
+                instructions_11_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_7_1_html: 为以下对象设置权限：
+                instructions_7_2_html: '<b>通用</b>'
+                instructions_7_3_html: '<b>交易</b>'
+            bitfinex:
+                private_key: 'API 私钥'
+                public_key: 'API 密钥'
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在“账号”菜单（右上角）中，转到 <b>API 密钥</b>。'
+                instructions_3_html: 转到<b>创建新密钥</b>。
+                instructions_5_html: '向您的 API 密钥提供<b>标签</b>。'
+                instructions_6_html: '按<b>生成 API 密钥</b>。'
+                instructions_7_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_4_1_html: 为以下对象设置权限：
+                instructions_4_2_html: '<b>获取订单和状态。</b>'
+                instructions_4_3_html: '<b>创建和取消订单。</b>'
+            bitstamp:
+                private_key: 'API 私钥'
+                public_key: 'API 密钥'
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: 在“账号”菜单（右上角）中，转到<b>设置</b>。
+                instructions_3_html: '在<b>访问控制</b>下，转到 <b>API 访问权限</b>。'
+                instructions_4_html: '按<b>新建 API 密钥</b>。'
+                instructions_5_html: '如果您希望将密钥访问权限仅限于 Deltabadger，请将 <b>IP 地址筛选器</b>设置为此 IP：<b>3.18.70.231</b>'
+                instructions_7_html: '按<b>输入 2FA 并提交</b>。'
+                instructions_8_html: 按<b>激活</b>。
+                instructions_9_html: '复制新 API 密钥并粘贴到上面的表单中。'
+                instructions_6_1_html: 为以下对象设置权限：
+                instructions_6_2_html: '<b>打开订单。</b>'
+                instructions_6_3_html: '<b>取消订单。</b>'
+                instructions_6_4_html: '<b>限价买单/市价订单。</b>'
+                instructions_6_5_html: '<b>限价卖单/市价订单。</b>'
+            set: 设置
+            probit:
+                instructions_1_html: '登录到 %{exchange_link} 账号。'
+                instructions_2_html: '在<b>我的页面</b>菜单（右上角）中，转到 <b>API 管理</b>。'
+                instructions_3_html: '提供 API 密钥标签并按<b>创建新密钥</b>。'
+                instructions_4_html: '确认 API 密钥的创建。'
+                instructions_5_html: '如果您希望限制访问权限，以便只有 Deltabadger 可以使用这些密钥，请按<b>编辑</b>并将 <b>IP 地址限制</b>设置为此 IP：<b>3.18.70.231</b>'
+                instructions_7_html: '复制新客户 ID 和客户私钥并粘贴到上面的表单中。'
+                private_key: 客户的私钥
+                public_key: '客户 ID'
+                instructions_6_1_html: 为以下对象设置权限：
+                instructions_6_2_html: '<b>阅读</b>'
+                instructions_6_3_html: '<b>正在交易</b>'
+            frequency_limit:
+                limit_exceeded: '要满足每分钟 %{frequency_limit} 个交易的机器人限制，您的安排将按各自 %{price}%{currency} 的单独订单执行。'
+                back_to_settings: 返回设置
+                start_the_bot: 修订并开始
+        add_new_bot: 添加新的机器人
+        start: 开始
+        stop: 暂停
+        buy: 购买
+        limit_buy: 限价购买
+        sell: 出售
+        limit_sell: 限价出售
+        for: 适用于
+        hour: 小时
+        day: 日
+        week: 周
+        month: 月
+        next_buy: '%{countdown} 后下次买入'
+        next_sell: '%{countdown} 后下次出售'
+        buttons:
+            start:
+                changed_on_schedule:
+                    info_html: '新的安排将在上次安排的剩余 <b>%{time}</b> 完成后开始。'
+                    skip: 忽略并立即开始
+                    continue: 我了解
+                changed_missed:
+                    info_html: '是否要投资在暂停机器人时错过的 <b>%{amount} %{quote}</b>？新的安排将在当前倒计时完成后开始。'
+                    skip: 忽略错过的部分
+                    continue: 是的，购买并继续
+                missed:
+                    info_html: '是否要投资在暂停机器人时错过的 <b>%{amount} %{quote}</b>，并继续初始时间安排？'
+                    skip: 跳过错过的部分
+                    continue: 是的，购买并继续
+                on_schedule:
+                    info_html: '您的下一个订单仍剩余 <b>%{time}</b>。您可以跳过，并立即执行下一个订单，或者继续初始倒计时。'
+                    skip: 跳过
+                    continue: 继续初始安排
+            delete:
+                text: 删除
+                warning_html: 这将移除机器人及其所有<br>历史数据。确定吗？
+                cancel: 取消
+                ok: 完全移除
+            pending:
+                text: 待处理
+                info_html: 正在处理...
+        details:
+            stats:
+                title: 统计数据
+                chart:
+                    total_invested: 总投资
+                    value: 价值
+                bought: 已购买
+                average_price: 平均价格
+                total_invested: 总投资
+                current_value: 当前价值
+                profit_loss: 损益
+                exchange_unavailable_html: '交易所 API 此时没有响应。<br>计算基于最后可用的数据。'
+                csv_download_html: '上表仅显示最后十个交易。<br>完整报告在下面可供以 CSV 格式下载。'
+                download_csv: '下载 .csv'
+                date: 日期
+                order: 订单
+                amount: '金额 (%{base})'
+                rate: '费率 (%{quote})'
+                sold: 已卖出
+                current_value_sold: '卖出的 %{base} 的当前价值'
+            log:
+                title: 日志
+                date: 日期
+                errors: 错误
+            info:
+                title: 信息
+                exchanges_html: "<p className=\"mt-2\"><b>交易所</b></p>\n<p>Deltabadger 适用于加密货币交易所。目前，我们支持 <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>、<a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>、<a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>、<a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>、<a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>、<a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> 和 <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>。我们推荐 Kraken，这是值得信赖的交易所，从未被黑客入侵。如果您想用 PLN 购物，请使用 Bitbay。</p>\n<p>要使机器人发挥作用，首先需要验证您的交易所账号，并转入一些资金。</p>\n<p>但是，不要将您的币在任何交易所保留太久。请登录账号，定期提款，每月至少一次。</p>\n<p>我们将来会添加更多交易所。如果您对某个特定交易所感兴趣，请告诉我们。</p>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>“智能间隔”</b></p>\n<p>开启智能间隔后，Deltabadger 会按交易所允许的最小交易执行您所需的安排。否则，仅在必要时才使用。</p>\n<p className=\"mt-2\"><b>为什么？</b></p>\n<p>有两项好处：</p>\n<p>安排越频繁，您就能够越快体验到定投的好处，越好地平滑成本。</p>\n<p>此外，有时智能间隔是必要的。每个交易所都有最低交易大小限制。一些交易所按比特币定义限制，因此限制的美元价值会发生波动。如果您想购买的金额更小，Deltabadger 会使用最低允许的大小，但调整时间间隔，以保持您所需的比例。这可保护机器人，防止在定义的金额低于阈值时停止机器人。</p>\n<p className=\"mt-2\"><b>例如：</b></p>\n<p>假定当前交易所限制是 20 美元。如果您将交易大小设置为每天 24 美元，机器人就会严格按该设置执行。但是，如果定义为每小时 1 美元，机器人会使用允许的大小模仿该比例，相当于每 20 小时 20 美元。平均下来，最终的比例是一样的（24 美元/天 = 1 美元/天 = 20 美元/20 小时）。</p>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>还不熟悉定期定额投资？</b></p>\n<p>以下链接可提供帮助：</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">定投入门（视频）</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">定投比特币的威力</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">定投模拟器</a></li>\n</ul>"
+        starting: 开始
+        price: 价格
+        above: 高于
+        below: 低于
+        counter: '%{countdown}'
+        force_smart_intervals_html: '使用<em>智能间隔</em>，每个订单各为 <split>100</split>%{currency}。'
+        smart_intervals_disclaimer_base: '%{exchange} 上的订单大小是按%{currency}定义的。最小订单大小为 %{minimum} %{currency}。'
+        smart_intervals_disclaimer_quote: '最小订单大小为 %{minimum}%{currency}。'
+        smart_intervals_disclaimer: '%{exchange} 上的订单大小是按%{currency}定义的。最小订单大小为 %{minimum} %{currency}。'
+        price_range_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内买入。'
+        price_range_buy_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内买入。'
+        price_range_sell_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内卖出。'
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 必须由大写字母数字字符构成
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: '确认新的比特币地址 📒'
+            template_html: "<p>您好 👋，</p>\n<p>您似乎想要将您的比特币地址更改为：</p>\n<p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p>\n<p>此地址将用于从我们的转介绍程序向您进行的付款。</p>\n<p>确定吗？</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">是的，更改吧！</a>\n</p>\n<p>您没有发送此请求？<br>不用担心，忽略即可。</p>\n<p>只要您不访问上面的链接，该地址就不会更改。</p>"
+        referrals_payout_notification:
+            subject: 今天发工资！💸
+            template_html: "<p>您好 👋，</p>\n<p>不错！您的转介绍链接开始起作用了！</p>\n<p>我们会将 </p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} 个比特币</b>\n</p>\n<p>的佣金转账到您的比特币钱包。</p>\n<p>感谢您壮大了<br>獾群！</p>"
+        registration_reminder:
+            subject: '哇！您赚得了 %{amount} 个比特币！💸'
+            template_html: "<p>哇！</p>\n<p>转介绍程序中有新的佣金等您拿！完成注册以接收比特币：</p>\n<p><a href=%{link}>完成注册。</a></p>"
+    bot_alerts_mailer:
+        first_month_ending_soon:
+            subject: 首月试用即将结束！
+            template_html: "<p>您好 👋，</p>\n<p>您现在使用 Deltabadger 快一个月了！</p>\n<p>您的免费无限试用即将结束。请确保升级，以便让您更沉重的獾继续奔跑！</p>"
+        limit_almost_reached:
+            subject: '几乎已达到限制 ⌛'
+            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b>，以确保您的</br>机器人将继续工作。</p>"
+        limit_reached:
+            subject: '您已达到限制 🥳'
+            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b> 以移除所有限制并<br>让机器人重新工作。</p>"
+        notify_about_error:
+            subject: '发生问题 😵'
+            template_html: "<p>糟糕… 😵</p>\n<p>处理上次交易时<br>发生问题。</p>\n<p>您可以在 <br>机器人日志中查看错误。登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+        notify_about_restart:
+            subject: '糟糕！再试一次… 🧐'
+            template_html: "<p>天哪 🧐，</p>\n<p>机器人无法执行您的订单。<br>似乎发生了交易所问题。<br>我们将在 %{delay} 后重试。</p>\n<p>所有错误可在机器人日志中查看。<br>登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+    mailer:
+        signature_html: 'Deltabadger 团队 🧑‍🚀'
+        dca_profit_html: '💡 如果您在一年前开始定投比特币<br>，现在您将获利 <span style="color:#079e60">%{dca_profit}%</span>。'
+    subscription_mailer:
+        invoice:
+            subject: 'Deltabadger 付款'
+            template_html: "<h1>发票</h1>\n<p><b>付款时间：</b></p>\n<p>%{paid_at}</p>\n<p><b>卖方：</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  Reg.No.14781461\n</p>\n<p><b>买方：</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} 套餐（%{years} 年）</h2>\n<p>\n  <b>已付：</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
+        subscription_granted:
+            subject: '%{plan_name} 套餐已被同意'
+            template_html: "<p>哇 💙，</p>\n<p>感谢购买我们的</p>\n<p>\n  <b>\n    %{years} 年 %{plan_name} 套餐\n  </b>\n</p>\n<p>您真棒！🔥</p>"
+    referral:
+        banner_html: '<b>与朋友分享转介绍链接，即可<a href="/referral-program" alt="Read more">赚取最高价值 50 美元的比特币。</a>。定投比特币的最佳方式就是赚取比特币！</b>'
+        copied: 已复制！
