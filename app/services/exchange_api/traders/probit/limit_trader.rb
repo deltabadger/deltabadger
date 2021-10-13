@@ -21,6 +21,10 @@ module ExchangeApi
           return response unless response.success?
 
           response_data = response.data['data'][0]
+          return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
+
+          return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) if response_data['status'] == 'open' || response_data['filled_quantity'] == 0
+
           Result::Success.new(
             offer_id: order_id,
             amount: response_data['quantity'],

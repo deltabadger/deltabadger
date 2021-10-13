@@ -31,6 +31,8 @@ module ExchangeApi
           return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) unless request.status == 200
 
           Result::Success.new(JSON.parse(request.body))
+        rescue StandardError
+          Result::Failure.new('Could not fetch order from Probit', RECOVERABLE)
         end
 
         private
