@@ -7,7 +7,7 @@ module Api
       owned = get_exchanges_by_status(api_keys, 'correct')
 
       build_data = lambda do |exchange|
-        symbols_query = current_user.subscription_name == 'hodler' ? exchange.symbols : exchange.non_hodler_symbols
+        symbols_query = paid_subscription?(current_user.subscription_name) ? exchange.symbols : exchange.free_plan_symbols
         symbols = symbols_query.success? ? symbols_query.data : []
         all_symbols = exchange.symbols.or([])
         {
@@ -26,6 +26,10 @@ module Api
 
     def get_exchanges_by_status(api_keys, status)
       api_keys.select { |a| a.status == status }.map(&:exchange_id)
+    end
+
+    def paid_subscription?(subscription_name)
+      subscription_name == 'hodler' || subscription_name == 'investor'
     end
   end
 end
