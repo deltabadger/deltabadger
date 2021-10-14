@@ -38,6 +38,8 @@ module ExchangeApi
           ExchangeApi::Markets::Bitfinex::Market.new
         when 'bitstamp'
           ExchangeApi::Markets::Bitstamp::Market.new
+        when 'probit'
+          ExchangeApi::Markets::Probit::Market.new
         end
       end
     end
