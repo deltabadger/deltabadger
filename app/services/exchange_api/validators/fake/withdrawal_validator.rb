@@ -2,10 +2,10 @@ module ExchangeApi
   module Validators
     module Fake
       class WithdrawalValidator < BaseValidator
-        def validate_credentials(api_key:, api_secret:)
-          true
-        rescue StandardError
-          false
+        SUCCESS = true
+
+        def validate_credentials(api_key:, api_secret:) # rubocop:disable Lint/UnusedMethodArgument
+          SUCCESS
         end
       end
     end
