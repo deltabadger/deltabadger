@@ -214,9 +214,9 @@ pt:
         knowledge_base: 'Base de conhecimento'
     ads:
         dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
-        dca_profit_html: 'Se fez investimentos pelo preço médio<br>em Bitcoin no último ano,<br>está agora a <span class="text-success">+%{profit}%</span>'
+        dca_profit_html: 'Se fez investimentos pelo<br>preço médio em Bitcoin no<br>último ano, está agora a <span class="text-success">+%{profit}%</span>'
         features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
-        dca_standard_html: 'O investimento pelo preço médio em<br>Bitcoin é a nova norma<br>para poupadores a longo prazo.'
+        dca_standard_html: 'O investimento pelo preço<br>médio em Bitcoin é a nova norma<br>para poupadores a longo prazo.'
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
         bitwarden_title: 'Experimente a Bitwarden'
         bitwarden_text: '. É gratuito e de código aberto.'
