@@ -16,6 +16,7 @@
   - [gemini, 1]
   - [kraken, 1]
   - [kucoin, 1]
+  - [probit, 1]
   - [default, 1]
 :limits:
   binance: 1
@@ -30,3 +31,4 @@
   gemini: 1
   kraken: 1
   kucoin: 1
+  probit: 1
