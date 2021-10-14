@@ -207,7 +207,7 @@ id:
         knowledge_base: 'Dasar pengetahuan'
     ads:
         dont_trade_automate_html: '<div>Jangan&nbsp;hanya trading.</div> <div>Automasikan.</div>'
-        dca_profit_html: 'Jika Anda melakukan dollar-cost averaging<br>untuk Bitcoin selama tahun lalu,<br>sekarang Anda bisa memperoleh keuntungan hingga <span class="text-success">+%{profit}%</span>'
+        dca_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
         features: "DCA otomatis di akun pertukaran Anda;\n<i>Smart interval</i> dan pengaturan hanya lima menit;\npembaruan dan fitur baru setiap bulan;\ndukungan dan komunitas Telegram"
         dca_standard_html: 'Dollar-cost averaging untuk<br>Bitcoin adalah standar baru bagi<br>penabung jangka panjang.'
         password_managers_html: 'Pengelola kata sandi<br>membuat keamanan lebih mudah.'
