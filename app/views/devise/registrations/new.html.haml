@@ -3,7 +3,7 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      -if @profit.success?
+      -if @profit.present? && @profit.success?
         %h3.db-modal-companion-title= t('ads.dca_profit_html', profit: @profit.data.to_i)
 
       .db-signup__list
