@@ -121,14 +121,14 @@ pt:
             odd: 'tem de ser ímpar'
             even: 'tem de ser igual a'
             wrong_password: 'Palavra-passe errada'
-            wrong_email: 'Email errado'
+            wrong_email: 'Email errado.'
             bad_credentials: 'Email ou palavra-passe errada.'
             bad_credentials_with_code: 'Email, palavra-passe ou 2FA errado.'
-            wrong_two_fa_token: 'O código fornecido está errado'
+            wrong_two_fa_token: 'O código fornecido está errado.'
             too_short_password: 'A palavra-passe é demasiado curta'
             password_not_match: 'As palavras-passe não coincidem'
             bad_2fa_code: 'Código inválido. Tente de novo.'
-            empty_two_fa_token: 'Código 2FA falhado. Tente de novo'
+            empty_two_fa_token: 'Código 2FA falhado. Tente de novo.'
         unverified_request: 'Atualize o navegador e tente novamente'
         format: '%{attribute}%{message}'
         referral_program_inactive: 'O seu programa de referência está inativo'
@@ -214,17 +214,17 @@ pt:
         knowledge_base: 'Base de conhecimento'
     ads:
         dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
-        dca_profit_html: 'Se fez investimentos pelo preço médio<br>em Bitcoin no último ano,<br>está agora a <span class="text-success">+%{profit}%</span>'
+        dca_profit_html: 'Se fez investimentos pelo<br>preço médio em Bitcoin no<br>último ano, está agora a <span class="text-success">+%{profit}%</span>'
         features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
-        dca_standard_html: 'O investimento pelo preço médio em<br>Bitcoin é a nova norma<br>para poupadores a longo prazo.'
+        dca_standard_html: 'O investimento pelo preço<br>médio em Bitcoin é a nova norma<br>para poupadores a longo prazo.'
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
         bitwarden_title: 'Experimente a Bitwarden'
         bitwarden_text: '. É gratuito e de código aberto.'
     meta:
-        title: ''
-        twitter_image_alt: ''
-        title_short: ''
-        desc: ''
+        title: 'Deltabadger • Automatizar o cálculo da média do custo do dólar para qualquer criptomoeda'
+        twitter_image_alt: 'Média automatizada do custo do dólar em Bitcoin, Ethereum, Polkadot, Cardano, Solana e outros ativos digitais.'
+        title_short: 'Deltabadger • Auto-DCA para Bitcoin e outros ativos'
+        desc: 'Comece gratuitamente a estratégia mais comprovada que funciona com Binance, FTX, Coinbase, Kraken, Kucoin e outros câmbios. Sem KYC.'
     home:
         confirm_registration:
             title: Obrigado!
@@ -233,7 +233,7 @@ pt:
         contact:
             title: Contacto
             general_questions_html: 'Para questões gerais, experimente o nosso <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canal no Telegram</a>. Esta é, normalmente, a forma mais rápida de obter uma resposta. Adicionalmente, todos os comentários, ideias de produtos e pedidos de câmbio são bem-vindos.'
-            specific_questions_html: 'Para questões mais específicas, envie-nos um e-mail para %{email} ou uma mensagem direta no Telegram ou no <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'Para questões mais específicas, envie-nos um e-mail para %{email} ou uma mensagem direta no Telegram, ou no <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
     affiliates:
         new:
             title: 'Registo no programa de referência'
@@ -382,7 +382,7 @@ pt:
                 instructions_3_html: 'Prima em <b>Adicionar nova chave</b>.'
                 instructions_5_html: 'Prima em <b>Criar</b>.'
                 instructions_6_html: 'Cole ambas as chaves no formulário acima. '
-                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_1_html: 'Defina as permissões para o seguinte:'
                 instructions_4_2_html: '<b>Histórico</b>'
                 instructions_4_3_html: '<b>Obter pedidos e configurações de mercado</b>'
                 instructions_4_4_html: '<b>Gerir pedidos e alterar configurações de mercado</b>'
@@ -394,7 +394,7 @@ pt:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.'
                 instructions_3_html: 'Prima <b>Gerar nova chave</b>.'
-                instructions_4_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_html: 'Defina as permissões para o seguinte:'
                 instructions_5_1_html: 'Fundos:'
                 instructions_5_2_html: '<b>Consulta de fundos</b>'
                 instructions_6_1_html: 'Pedidos e transações:'
@@ -413,7 +413,7 @@ pt:
                 instructions_3_html: 'Prima em <b>Nova chave de API</b>.'
                 instructions_5_html: 'Prima em <b>Criar chave de API</b>.'
                 instructions_6_html: 'Cole ambas as chaves no formulário acima. '
-                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_1_html: 'Defina as permissões para o seguinte:'
                 instructions_4_2_html: '<b>Visualizar</b>'
                 instructions_4_3_html: '<b>Transacionar</b>'
             gemini:
@@ -448,15 +448,15 @@ pt:
                 instructions_5_html: 'Preencha o <b>Nome API</b> e forneça o seu <b>PIN de Transacção</b>.'
                 instructions_7_html: ' <b>Guardar</b> na Imprensa.'
                 instructions_8_html: 'Cole ambas as chaves no formulário acima. '
-                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_6_1_html: 'Defina as permissões para o seguinte:'
                 instructions_6_2_html: '<b>Realizar transacções</b>'
                 instructions_6_3_html: '<b>Ver saldos</b>'
                 instructions_6_4_html: '<b>Ver informação da conta</b>'
             smart_intervals:
                 dont_show_again: 'Não mostrar novamente'
                 info_html:
-                    force_smart_intervals: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger irá executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>. '
-                    other: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger pode executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>. '
+                    force_smart_intervals: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger irá executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>.'
+                    other: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger pode executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>.'
             validating: 'A validar'
             error_info: 'Falha ao validar. Tente novamente ou gira novas chaves.'
             kucoin:
@@ -464,7 +464,7 @@ pt:
                 public_key: 'Chave API'
                 passphrase: 'Frase de acesso'
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu da conta (canto superior dieito junto ao seletor de idioma) vá a <b>Gestão de API</b>.'
+                instructions_2_html: 'No menu da conta (canto superior direito junto ao seletor de idioma) vá a <b>Gestão de API</b>.'
                 instructions_3_html: 'Prima <b>Criar API</b>.'
                 instructions_4_html: 'Se criar as suas chaves API pela primeira vez, defina e grave a <b>Palavra-passe de negociação</b>.'
                 instructions_5_html: 'Forneça o <b>Nome da API</b>.'
@@ -473,7 +473,7 @@ pt:
                 instructions_9_html: 'Prima <b>Seguinte</b>.'
                 instructions_10_html: 'Confirme a criação das chaves API através da Palavra-passe de negociação e de 2FA.'
                 instructions_11_html: 'Cole ambas as chaves no formulário acima. '
-                instructions_7_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_7_1_html: 'Defina as permissões para o seguinte:'
                 instructions_7_2_html: '<b>Geral</b>'
                 instructions_7_3_html: '<b>Transacionar</b>'
             bitfinex:
@@ -485,7 +485,7 @@ pt:
                 instructions_5_html: 'Proporcionar um <b>Rótulo</b> à sua Chave API.'
                 instructions_6_html: 'Prima <b>Gerar chave API</b>.'
                 instructions_7_html: 'Cole ambas as chaves no formulário acima. '
-                instructions_4_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_4_1_html: 'Defina as permissões para o seguinte:'
                 instructions_4_2_html: '<b>Obter ordens e estados.</b>'
                 instructions_4_3_html: '<b>Criar e cancelar ordens.</b>'
             bitstamp:
@@ -499,7 +499,7 @@ pt:
                 instructions_7_html: 'Prima <b>Inserir 2FA e submeter</b>.'
                 instructions_8_html: 'Prima <b>Ativar</b>.'
                 instructions_9_html: 'Cole ambas as chaves no formulário acima. '
-                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
+                instructions_6_1_html: 'Defina as permissões para o seguinte:'
                 instructions_6_2_html: '<b>Abrir ordens.</b>'
                 instructions_6_3_html: '<b>Cancelar ordem.</b>'
                 instructions_6_4_html: '<b>Ordens buy limit/mercado.</b>'
@@ -507,20 +507,20 @@ pt:
             set: Definir
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: ''
-                instructions_3_html: ''
-                instructions_4_html: ''
-                instructions_5_html: ''
-                instructions_7_html: ''
-                private_key: ''
-                public_key: ''
-                instructions_6_1_html: 'Defina as permissões para o seguinte:<br/>'
-                instructions_6_2_html: ''
+                instructions_2_html: 'No menu <b>A minha página</b> (canto superior direito) aceda a <b>Gestão de API</b>.'
+                instructions_3_html: 'Faculte uma etiqueta de chave API e pressione <b>Criar nova chave</b>.'
+                instructions_4_html: 'Confirme a criação de chaves API.'
+                instructions_5_html: 'Se quiser restringir o acesso para que apenas Deltabadger possa utilizar as chaves, pressione <b>Editar</b> e defina <b>Restrição de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
+                instructions_7_html: 'Copie e cole no formulário acima a sua nova ID de cliente e a chave secreta do cliente.'
+                private_key: 'Chave secreta do cliente'
+                public_key: 'ID do cliente'
+                instructions_6_1_html: 'Defina as permissões para o seguinte:'
+                instructions_6_2_html: '<b>Ler</b>'
                 instructions_6_3_html: '<b>Transações</b>'
             frequency_limit:
-                limit_exceeded: ''
-                back_to_settings: ''
-                start_the_bot: ''
+                limit_exceeded: 'Para cumprir o limite de bot de %{frequency_limit} transações por minuto, a sua agenda será executada em ordens de moeda de %{price}%{currency} cada.'
+                back_to_settings: 'Voltar às definições'
+                start_the_bot: 'Modificar e iniciar'
         add_new_bot: 'Adicionar novo bot'
         start: Iniciar
         stop: Pausa

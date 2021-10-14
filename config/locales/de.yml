@@ -121,14 +121,14 @@ de:
             odd: 'muss ungerade sein'
             even: 'muss gerade sein'
             wrong_password: 'Falsches Passwort'
-            wrong_email: 'Falsche E-Mail'
+            wrong_email: 'Falsche E-Mail.'
             bad_credentials: 'Falsche E-Mail oder falsches Passwort.'
             bad_credentials_with_code: 'Falsche E-Mail, falsches Passwort oder falscher 2FA-Code.'
-            wrong_two_fa_token: 'Angegebener Code ist falsch'
+            wrong_two_fa_token: 'Angegebener Code ist falsch.'
             too_short_password: 'Das Passwort ist zu kurz'
             password_not_match: 'Die Passwörter stimmen nicht überein'
             bad_2fa_code: 'Ungültiger Code. Versuchen Sie es erneut.'
-            empty_two_fa_token: 'Falscher 2FA-Code. Versuchen Sie es erneut'
+            empty_two_fa_token: 'Falscher 2FA-Code. Versuchen Sie es erneut.'
         unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
         format: '%{attribute}%{message}'
         referral_program_inactive: 'Dein Werbeprogramm ist nicht aktiv.'
@@ -214,22 +214,22 @@ de:
         knowledge_base: Wissensdatenbank
     ads:
         dont_trade_automate_html: '<div>Handle nicht.</div> <div>Automatisiere.</div>'
-        dca_profit_html: 'Wenn du im letzten Jahr Dollar-Cost-Averaging<br>zu Bitcoin betrieben hättest,<br>hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
+        dca_profit_html: 'Wenn du im letzten Jahr<br>Dollar-Cost-Averaging zu<br>Bitcoin betrieben hättest, hättest du jetzt schon<br>einen Profit von <span class="text-success">+%{profit} %</span>'
         features: "Auto-DCA auf deinem Börsenkonto;\n<i>Smart-Intervalle</i> und eine Einrichtung, die nur 5 Minuten dauert;\nUpdates und neue Funktionen jeden Monat;\nSupport und Telegram-Community"
         dca_standard_html: 'Dollar-Cost-Averaging zu<br>Bitcoin ist der neue Standard<br>für langfristige Sparer.'
         password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
         bitwarden_title: 'Probiere Bitwarden'
         bitwarden_text: '. Es ist kostenlos und open-source.'
     meta:
-        title: ''
-        twitter_image_alt: ''
-        title_short: ''
-        desc: ''
+        title: 'Deltabadger | Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung'
+        twitter_image_alt: 'Automatisiertes Dollar-Cost-Averaging in Bitcoin, Ethereum, Polkadot, Cardano, Solana und anderen digitalen Assets.'
+        title_short: 'Deltabadger - Auto-DCA in Bitcoin und andere Assets'
+        desc: 'Starte jetzt kostenfrei die bewährteste Strategie, die mit Binance, FTX, Coinbase, Kraken, Kucoin und anderen Börsen funktioniert. Keine KYC.'
     home:
         confirm_registration:
             title: Danke!
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
-            deliverability_html: '<b>Das ist sehr wichtig!</b><br></br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
+            deliverability_html: '<b>Das ist sehr wichtig!</b><br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
         contact:
             title: Kontakt
             general_questions_html: 'Für allgemeine Fragen besuche bitte unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
@@ -455,8 +455,8 @@ de:
             smart_intervals:
                 dont_show_again: 'Nicht wieder anzeigen'
                 info_html:
-                    force_smart_intervals: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>. '
-                    other: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>. '
+                    force_smart_intervals: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>.'
+                    other: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>.'
             validating: 'Wird validiert'
             error_info: 'Validierung fehlgeschlagen. Versuchen Sie erneut oder generieren Sie neue Schlüssel'
             kucoin:
@@ -464,7 +464,7 @@ de:
                 public_key: API-Schlüssel
                 passphrase: Passphrase
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Kontomenü (oben rechts in der Ecke, neben der Sprachauswahl)  auf <b>API-Verwaltung</b>.'
+                instructions_2_html: 'Gehe im Kontomenü (oben rechts in der Ecke, neben der Sprachauswahl) auf <b>API-Verwaltung</b>.'
                 instructions_3_html: 'Klicke auf <b>API erstellen</b>.'
                 instructions_4_html: 'Wenn du deine API-Schlüssel zum ersten Mal erstellst, erstelle und speichere dein <b>Trading-Passwort</b>.'
                 instructions_5_html: 'Gib einen <b>API-Namen</b> an.'
@@ -507,20 +507,20 @@ de:
             set: Einstellen
             probit:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: ''
-                instructions_3_html: ''
-                instructions_4_html: ''
-                instructions_5_html: ''
-                instructions_7_html: ''
-                private_key: ''
-                public_key: ''
+                instructions_2_html: 'Wähle im Menü <b>Meine Seite</b> (oben rechts) den Punkt <b>API Management</b>.'
+                instructions_3_html: 'Gib die Bezeichnung des API-Schlüssels an und klicke auf <b>Neuen Schlüssel erstellen</b>.'
+                instructions_4_html: 'Bestätige die Erstellung von API-Schlüsseln.'
+                instructions_5_html: 'Wenn du den Zugang einschränken willst, damit nur Deltabadger die Tasten benutzen kann, klicke auf <b>Bearbeiten</b> und setze <b>IP-Adressenbeschränkung</b> auf diese IP: <b>3.18.70.231</b>'
+                instructions_7_html: 'Kopiere deine neue Client-ID und den geheimen Client-Schlüssel und füge sie in das Formular oben ein.'
+                private_key: 'Geheimer Client-Schlüssel'
+                public_key: Client-ID
                 instructions_6_1_html: 'Setze Berechtigungen für:'
-                instructions_6_2_html: ''
+                instructions_6_2_html: '<b>Lesen</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: ''
-                back_to_settings: ''
-                start_the_bot: ''
+                limit_exceeded: 'Um das Bot-Limit von %{frequency_limit} Transaktionen pro Minute einzuhalten, wird dein Zeitplan in Aufträgen zu je %{price} %{currency} ausgeführt.'
+                back_to_settings: 'Zurück zu Einstellungen'
+                start_the_bot: 'Ändern und beginnen'
         add_new_bot: 'Neuen Bot hinzufügen'
         start: Starten
         stop: Pausieren
@@ -599,8 +599,8 @@ de:
         smart_intervals_disclaimer_base: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_quote: 'Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
-        price_range_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
-        price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
+        price_range_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>1000$</split>%{currency}.'
+        price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>1000$</split>%{currency}.'
         price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
     activerecord:
         errors:
