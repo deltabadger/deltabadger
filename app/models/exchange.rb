@@ -22,16 +22,16 @@ class Exchange < ApplicationRecord
     market.all_symbols(cache_key)
   end
 
-  def non_hodler_symbols
+  def free_plan_symbols
     all_symbols = symbols
     return all_symbols unless all_symbols.success?
 
-    Result::Success.new(filter_non_hodler_symbols(all_symbols.data))
+    Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
   private
 
-  def filter_non_hodler_symbols(symbols)
+  def filter_free_plan_symbols(symbols)
     is_kraken = name.downcase == 'kraken'
     btc_eth = is_kraken ? %w[XBT ETH LTC XMR] : %w[BTC ETH LTC XMR]
     symbols.select { |s| btc_eth.include?(s.base) }
