@@ -5,7 +5,7 @@ module Api
       exchange_type_pairs = get_exchange_type_pairs(api_keys)
 
       build_data = lambda do |exchange|
-        symbols_query = current_user.subscription_name == 'hodler' ? exchange.symbols : exchange.non_hodler_symbols
+        symbols_query = paid_subscription?(current_user.subscription_name) ? exchange.symbols : exchange.free_plan_symbols
         symbols = symbols_query.success? ? symbols_query.data : []
         all_symbols = exchange.symbols.or([])
         status_of_trading_key = status_of_key(exchange.id, 'trading', exchange_type_pairs)
@@ -38,6 +38,10 @@ module Api
 
     def exchanges_params
       params.permit(:type)
+    end
+
+    def paid_subscription?(subscription_name)
+      subscription_name == 'hodler' || subscription_name == 'investor'
     end
   end
 end

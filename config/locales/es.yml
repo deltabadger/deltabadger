@@ -214,17 +214,17 @@ es:
         knowledge_base: 'Base de conocimientos'
     ads:
         dont_trade_automate_html: '<div>No operes.</div> <div>Automatiza.</div>'
-        dca_profit_html: 'Si estuviste promediando el coste en dólares en<br>Bitcoin durante el último año,<br>ahora tienes <span class="text-success">un %{profit} % más</span>'
+        dca_profit_html: 'Si estuviste promediando<br>el coste en dólares en Bitcoin<br>durante el último año, ahora<br>tienes <span class="text-success">un %{profit} % más</span>'
         features: "DCA automático en tu cuenta de intercambio;\n<i>Intervalos inteligentes</i> y configuración en cinco minutos;\nactualizaciones y nuevas funciones cada mes;\nservicio de asistencia y comunidad de Telegram"
-        dca_standard_html: 'El promedio de coste en dólares en Bitcoin<br>es la nueva norma para<br>los ahorradores a largo plazo.'
-        password_managers_html: 'Los administradores de contraseñas<br>facilitan la seguridad.'
+        dca_standard_html: 'El promedio de coste<br>en dólares en Bitcoin<br>es la nueva norma para<br>los ahorradores a largo plazo.'
+        password_managers_html: 'Los administradores de contraseñas facilitan la seguridad.'
         bitwarden_title: 'Prueba Bitwarden'
         bitwarden_text: '. Es gratuito y de código abierto.'
     meta:
-        title: ''
-        twitter_image_alt: ''
-        title_short: ''
-        desc: ''
+        title: 'Deltabadger • Inversión constante automatizada (DCA) en cualquier criptomoneda'
+        twitter_image_alt: 'Inversión constante automatizada en Bitcoin, Ethereum, Polkadot, Cardano, Solana y otros activos digitales.'
+        title_short: 'Deltabadger • DCA automatizada en Bitcoin y otros activos'
+        desc: 'Prueba ahora gratis la estrategia que mejor funciona con Binance, FTX, Coinbase, Kraken, Kucoin y otras plataformas de intercambio. Sin verificación KYC.'
     home:
         confirm_registration:
             title: ¡Gracias!
@@ -507,20 +507,20 @@ es:
             set: Establecer
             probit:
                 instructions_1_html: 'Inicia sesión en tu cuenta %{exchange_link}.'
-                instructions_2_html: ''
-                instructions_3_html: ''
-                instructions_4_html: ''
-                instructions_5_html: ''
-                instructions_7_html: ''
-                private_key: ''
-                public_key: ''
+                instructions_2_html: 'En el menú <b>Mi página</b> (esquina superior derecha) accede a <b>Gestión de API</b>.'
+                instructions_3_html: 'Proporciona la etiqueta de la clave API y pulsa <b>Crear nueva clave</b>.'
+                instructions_4_html: 'Confirma la creación de las claves API.'
+                instructions_5_html: 'Si quieres restringir el acceso para que únicamente Deltabadger pueda usar las claves, pulsa <b>Editar</b> y define la siguiente <b>dirección IP</b>, <b>3.18.70.231</b>, para restringir el acceso.'
+                instructions_7_html: 'Copia y pega el nuevo ID y la clave secreta del cliente en el formulario anterior.'
+                private_key: 'Clave secreta del cliente'
+                public_key: 'ID de cliente'
                 instructions_6_1_html: 'Establece los permisos para lo siguiente:'
-                instructions_6_2_html: ''
+                instructions_6_2_html: '<b>Lectura</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: ''
-                back_to_settings: ''
-                start_the_bot: ''
+                limit_exceeded: 'Para respetar el límite del bot de %{frequency_limit} transacciones por minuto, la programación se ejecutará en pedidos de %{price}%{currency} cada uno.'
+                back_to_settings: 'Volver a la Configuración'
+                start_the_bot: 'Modificar y empezar'
         add_new_bot: 'Añadir nuevo bot'
         start: Empezar
         stop: Pausar
