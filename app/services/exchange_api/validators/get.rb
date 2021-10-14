@@ -52,9 +52,9 @@ module ExchangeApi
 
         case exchange.name.downcase
         when 'binance'
-          Binance::WithdrawalValidator.new(url_base: EU_URL_BASE)
+          Binance::WithdrawalValidator.new(url_base: EU_WITHDRAWAL_URL_BASE)
         when 'binance.us'
-          Binance::WithdrawalValidator.new(url_base: US_URL_BASE)
+          Binance::WithdrawalValidator.new(url_base: US_WITHDRAWAL_URL_BASE)
         when 'bitbay'
           Bitbay::WithdrawalValidator.new
         when 'kraken'
