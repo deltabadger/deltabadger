@@ -143,8 +143,6 @@ id:
         saver: Penabung
         investor: Investor
         hodler: Hodler
-        investor_description_html: 'Satu tahun <b class="badge badge-btc">transaksi tanpa batas</b> untuk BTC, ETH, LTC, XMR. <span class="no-break">Akses ke</span> <b class="badge badge-referral">program referral</b>.'
-        hodler_description_html: "DCA cocok untuk komitmen jangka panjang. <span class=\"no-brak\">Empat tahun</span> <b class=\"badge badge-btc\">transaksi tanpa batas</b> untuk <b class=\"badge badge-all\">semua token</b>, <b class=\"badge badge-limit\">order limit</b>, dan akses ke <b class=\"badge badge-referral\">program referral</b>.\nPaket ini juga mendukung proyek sehingga Hodler mendapatkan <b class=\"badge badge-priority\">akses prioritas</b> ke semua <b class=\"badge badge-priority\">fitur baru</b>."
         plan_1_year: 'Paket 1 tahun'
         plan_4_year: 'Paket 4 tahun'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
