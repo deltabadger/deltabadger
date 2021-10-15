@@ -18,6 +18,7 @@ module Presenters
 
         {
           id: bot.id,
+          bot_type: bot.bot_type,
           settings: bot.settings,
           exchangeName: bot.exchange.name,
           exchangeId: bot.exchange.id,

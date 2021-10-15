@@ -5,7 +5,7 @@ class Bot < ApplicationRecord
   scope :without_deleted, -> { where.not(status: 'deleted') }
 
   STATES = %i[created working stopped deleted pending].freeze
-  TYPES = %i[free].freeze
+  TYPES = %i[free withdrawal].freeze
 
   enum status: [*STATES]
   enum bot_type: [*TYPES]

@@ -507,4 +507,4 @@ const mapDispatchToProps = ({
   clearBotErrors: clearErrors,
   fetchRestartParams: fetchRestartParams
 })
-export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
+export const TradingBot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
