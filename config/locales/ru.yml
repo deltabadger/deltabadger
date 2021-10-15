@@ -161,8 +161,8 @@ ru:
         saver: Вкладчик
         investor: Инвестор
         hodler: Ходлер
-        investor_description_html: 'Один год <b class="badge badge-btc">неограниченных транзакций</b> для BTC, ETH, LTC, XMR. <span class="no-break">Доступ к</span> <b class="badge badge-referral">реферальной программе</b>.'
-        hodler_description_html: "Лучше всего DCA работает как долгосрочное обязательство. <span class=\"no-brak\">Четыре года</span> <b class=\"badge badge-btc\">неограниченных транзакций</b> для <b class=\"badge badge-all\">всех токенов</b>, <b class=\"badge badge-limit\">лимитных ордеров</b> и доступ к <b class=\"badge badge-referral\">реферальной программе</b>.\nЭтот план также поддерживает проект, поэтому Ходлеры получают <b class=\"badge badge-priority\">приоритетный доступ</b> ко всем <b class=\"badge badge-priority\">новым функциям</b>."
+        investor_description_html: 'Один год <b class="badge badge-btc">неограниченных транзакций</b>, <b class="badge badge-btc">все валюты</b> и <b class="badge badge-btc">автоматическое снятие средств</b> (скоро).'
+        hodler_description_html: 'DCA лучше всего работает как долгосрочное обязательство. Четыре года <b class="badge badge-btc">неограниченных сделок</b> по <b class="badge badge-all">всем валютам</b> на бирже, <b class="badge badge-limit">лимитные ордера</b>, <b class="badge badge-limit">автоматический вывод</b> средств (скоро), <b class="badge badge-limit">условие цены</b>, <b class="badge badge-limit">условие времени</b>(скоро), <b class="badge badge-limit">автоматический кол</b>(скоро). Этот план поддерживает проект, и поэтому Hodlers получают <b class="badge badge-priority">приоритетный доступ</b> ко всем новым функциям.'
         plan_1_year: 'Годовой план'
         plan_4_year: '4-летний план'
         limit_reached_html: '<b>Поздравляем!</b> Вы достигли лимита бесплатных транзакций в размере 1200$ в год. Чтобы продолжить, перейдите на безлимитный план.'
