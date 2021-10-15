@@ -65,7 +65,7 @@ const API = {
       return data.data});
   },
 
-  createBot(params) {
+  createTradingBot(params) {
     const url = `${API_URL}/bots`;
     const botParams = {
       bot_type: params.botType,
@@ -81,6 +81,20 @@ const API = {
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
       price_range: [params.priceRange.low, params.priceRange.high]
+    }
+    return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
+  },
+
+  createWithdrawalBot(params) {
+    const url = `${API_URL}/bots`;
+    const botParams = {
+      bot_type: params.botType,
+      currency: params.currency,
+      address: params.address,
+      threshold: params.threshold,
+      threshold_enabled: params.thresholdEnabled,
+      interval: params.interval,
+      exchange_id: params.exchangeId,
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },

@@ -55,6 +55,13 @@ export const AddApiKey = ({
       !disableSubmit && handleSubmit(key, secret, passphrase, agreement, type)
   }
 
+  const getBotName = () => {
+    if(!botView)
+      return '';
+
+    botView.baseName ? `${botView.baseName}${botView.quoteName}` : `${botView.currency}`
+  }
+
   const { public: key_label, private: secret_label, passphrase: phrase_label } = apiKeyNames(pickedExchangeName);
 
   useEffect(() => {
@@ -88,7 +95,7 @@ export const AddApiKey = ({
         <div className="db-bot__infotext">
           { botView &&
             <div className="db-bot__infotext__left">
-              { pickedExchangeName }:{botView.baseName}{botView.quoteName}
+              { pickedExchangeName }:{getBotName()}
             </div>
           }
         </div>

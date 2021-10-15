@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react'
 import API from '../lib/API'
 import I18n from 'i18n-js'
 import { PickExchage } from './BotForm/PickExchange';
-import { ConfigureBot } from './BotForm/ConfigureBot';
+import { ConfigureTradingBot } from './BotForm/ConfigureTradingBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
 import { NavigationPanel } from "./BotForm/NavigationPanel";
+import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
 
 const STEPS = [
   'closed_form',
@@ -14,7 +15,8 @@ const STEPS = [
   'add_api_key' ,
   'validating_api_key',
   'invalid_api_key',
-  'configure_bot',
+  'configure_trading_bot',
+  'configure_withdrawal_bot'
 ]
 
 const TYPES = [
@@ -51,7 +53,6 @@ export const BotForm = ({
   const ownedExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'correct').map(e => e.id)
   const pendingExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'pending').map(e => e.id)
   let invalidExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'incorrect').map(e => e.id)
-  console.log(exchanges, ownedExchangesIds)
 
   const keyExists = (exchangeId) => {
     return [...ownedExchangesIds, ...invalidExchangesIds, ...pendingExchangesIds].includes(exchangeId)
@@ -63,14 +64,14 @@ export const BotForm = ({
   }
 
   const chooseStep = step => {
-    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
+    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 5 : 6 }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
     if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
       clearAndSetTimeout()
       return 3
     }
 
-    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return 5 }
+    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 5 : 6 }
     if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
 
     if ((STEPS[step] == 'closed_form') && open) { return step + 1 }
@@ -149,11 +150,24 @@ export const BotForm = ({
     API.setShowSmartIntervalsInfo().then(data => data)
   }
 
-  const configureBotHandler = (botParams) => {
+  const configureTradingBotHandler = (botParams) => {
     const typeParams = getOfferTypeParams(botParams.type)
     const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
     setCreatingBot(true);
-    API.createBot(params).then(response => {
+    API.createTradingBot(params).then(response => {
+      callbackAfterCreation(response.data.id)
+      setErrors([])
+      setStep(0)
+      setFormState({})
+    }).catch((data) => {
+      setErrors(data.response.data.errors[0])
+    }).finally(() => setCreatingBot(false));
+  }
+
+  const configureWithdrawalBotHandler = (botParams) => {
+    const params = {...botParams, exchangeId: form.exchangeId}
+    setCreatingBot(true);
+    API.createWithdrawalBot(params).then(response => {
       callbackAfterCreation(response.data.id)
       setErrors([])
       setStep(0)
@@ -178,6 +192,7 @@ export const BotForm = ({
   }
 
   const renderForm = () => {
+    console.log(STEPS[chooseStep(step)])
     switch (STEPS[chooseStep(step)]) {
       case 'pick_exchange':
         return <PickExchage
@@ -217,14 +232,22 @@ export const BotForm = ({
           status={'invalid_api_key'}
           type={type}
         />
-      case 'configure_bot':
-        return <ConfigureBot
+      case 'configure_trading_bot':
+        return <ConfigureTradingBot
           showLimitOrders={isHodler}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
-          handleSubmit={configureBotHandler}
+          handleSubmit={configureTradingBotHandler}
           handleSmartIntervalsInfo={getSmartIntervalsInfo}
           setShowInfo={setShowSmartIntervalsInfo}
+          disable={isCreatingBot}
+          errors={errors}
+        />
+      case 'configure_withdrawal_bot':
+        return <ConfigureWithdrawalBot
+          currentExchange={pickedExchange}
+          handleReset={resetFormToStep(1)}
+          handleSubmit={configureWithdrawalBotHandler}
           disable={isCreatingBot}
           errors={errors}
         />
