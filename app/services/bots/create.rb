@@ -18,6 +18,11 @@ module Bots
           bot_validator: Bots::Free::Validators::Create.new,
           format_params: Bots::Free::FormatParams::Create.new
         ).call(bot_params)
+      when 'withdrawal'
+        Bots::CreateBot.new(
+          bot_validator: Bots::Withdrawal::Validators::Create.new,
+          format_params: Bots::Withdrawal::FormatParams::Create.new
+        ).call(bot_params)
       else
         Result::Failure.new('Invalid bot type')
       end
