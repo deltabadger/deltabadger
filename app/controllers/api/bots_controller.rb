@@ -15,7 +15,8 @@ module Api
     end
 
     def create
-      result = Bots::Create.call(current_user, bot_create_params)
+      bot_params = params[:bot_type] == 'free' ? trading_bot_create_params : withdrawal_bot_create_params
+      result = Bots::Create.call(current_user, bot_params)
 
       if result.success?
         render json: { data: result.data }, status: 201
@@ -113,7 +114,7 @@ module Api
       Presenters::Api::Bots.call(bots)
     end
 
-    BOT_PARAMS = %i[
+    TRADING_BOT_PARAMS = %i[
       exchange_id
       type
       order_type
@@ -128,10 +129,26 @@ module Api
       price_range_enabled
     ].freeze
 
-    def bot_create_params
+    def trading_bot_create_params
       params
         .require(:bot)
-        .permit(*BOT_PARAMS, price_range: [])
+        .permit(*TRADING_BOT_PARAMS, price_range: [])
+    end
+
+    WITHDRAWAL_BOT_PARAMS = %i[
+      exchange_id
+      interval
+      threshold
+      threshold_enabled
+      currency
+      address
+      bot_type
+    ].freeze
+
+    def withdrawal_bot_create_params
+      params
+        .require(:bot)
+        .permit(*WITHDRAWAL_BOT_PARAMS)
     end
 
     BOT_UPDATE_PARAMS = %i[
