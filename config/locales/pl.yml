@@ -161,8 +161,8 @@ pl:
         saver: Oszczędny
         investor: Inwestor
         hodler: Hodler
-        investor_description_html: 'Jeden rok <b class="badge badge-btc">nielimitowanych transakcji</b> dla BTC, ETH, LTC, XMR. <span class="no-break">Dostęp do</span> <b class="badge badge-referral">programu poleceń</b>.'
-        hodler_description_html: "DCA działa najlepiej, jeśli trzymasz się planu przez długi czas. <span class=\"no-brak\">Cztery lata</span> <b class=\"badge badge-btc\">nieograniczonych transakcji</b> na <b class=\"badge badge-all\">wszystkie tokeny</b>, <b class=\"badge badge-limit\">zlecenia z limitem</b> oraz dostęp do <b class=\"badge badge-referral\">programu poleceń</b>.\nTen plan wspiera również rozwój projektu, więc Hodlerzy otrzymują <b class=\"badge badge-priority\">priorytetowy dostęp</b> do wszystkich <b class=\"badge badge-priority\">nowych funkcji</b>."
+        investor_description_html: 'Jeden rok <b class="badge badge-btc">bez limitu transakcji</b>, <b class="badge badge-btc">wszystkie waluty</b> i <b class="badge badge-btc">automatyczne wypłaty</b> (wkrótce).'
+        hodler_description_html: 'DCA działa najlepiej jako długoterminowe zobowiązanie. Cztery lata <b class="badge badge-btc">nieograniczonych transakcji</b> dla <b class="badge badge-all">wszystkich walut</b> na giełdzie, <b class="badge badge-limit">zlecenia z limitem</b>, <b class="badge badge-limit">automatyczne wypłaty</b> (wkrótce), <b class="badge badge-limit">warunek ceny</b>, <b class="badge badge-limit">warunek czasu</b>(wkrótce), <b class="badge badge-limit">automatyczny staking</b>(wkrótce). Ten plan wspiera projekt, za co Hodlerzy otrzymują <b class="badge badge-priority">priorytetowy dostęp</b> do wszystkich nowych funkcji.'
         plan_1_year: 'Plan roczny'
         plan_4_year: 'Plan 4-letni'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200$/rok. Aby kontynuować, wykup płatną subskrypcję.'

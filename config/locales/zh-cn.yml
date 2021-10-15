@@ -143,8 +143,6 @@ zh-cn:
         saver: 储蓄者
         investor: 投资者
         hodler: Hodler
-        investor_description_html: '一年<b class="badge badge-btc">无限制交易</b> BTC、ETH、LTC、XMR。<span class="no-break">可访问</span><b class="badge badge-referral">转介绍程序</b>。'
-        hodler_description_html: '定投在长期的效果最好。<span class="no-brak">四年</span><b class="badge badge-btc">无限制交易</b><b class="badge badge-all">所有代币</b>、<b class="badge badge-limit">限价订单</b>并可访问<b class="badge badge-referral">转介绍程序</b>。此套餐还支持该项目，因此 Hodler 可获得对所有<b class="badge badge-priority">新功能</b>的<b class="badge badge-priority">优先访问权限</b>。'
         plan_1_year: '1 年套餐'
         plan_4_year: '4 年套餐'
         limit_reached_html: '<b>恭喜！</b>您已达到每年 1200 美元的免费交易限制。要继续，请升级到无限制套餐。'

@@ -143,8 +143,6 @@ vi:
         saver: Saver
         investor: Investor
         hodler: Hodler
-        investor_description_html: 'Một năm <b class="badge badge-btc">giao dịch không giới hạn</b> đối với BTC, ETH, LTC, XMR. <span class="no-break">Quyền truy cập</span> <b class="badge badge-referral">chương trình giới thiệu</b>.'
-        hodler_description_html: "Chiến lược DCA hiệu quả nhất nếu đầu tư dài hạn. <span class=\"no-brak\">Bốn năm</span><b class=\"badge badge-btc\">giao dịch không giới hạn</b> đối với <b class=\"badge badge-all\">tất cả các loại token</b>, <b class=\"badge badge-limit\">lệnh giới hạn</b>, và truy cập <b class=\"badge badge-referral\">chương trình giới thiệu</b>.\nGói này cũng hỗ trợ dự án, nhờ đó các Hodler sẽ có <b class=\"badge badge-priority\">quyền truy cập ưu tiên</b> với tất cả <b class=\"badge badge-priority\">các tính năng mới</b>."
         plan_1_year: 'gói 1 năm'
         plan_4_year: 'gói 4 năm'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
