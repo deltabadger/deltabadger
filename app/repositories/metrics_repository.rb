@@ -6,7 +6,11 @@ class MetricsRepository < BaseRepository
     output_params = {
       liveBots: BotsRepository.new.count_with_status('working'),
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      btcBoughtDayAgo: convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago)
+      btcBoughtDayAgo: convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago),
+      profitBotsCreatedNow: profitable_bots_data(Time.now),
+      profitBots3MothsAgo: profitable_bots_data(Time.now - 3.month),
+      profitBots6MothsAgo: profitable_bots_data(Time.now - 6.month),
+      profitBots12MothsAgo: profitable_bots_data(Time.now - 12.month)
     }.merge(telegram_metrics)
     redis_client.set(METRICS_KEY, output_params.to_json)
   end
@@ -17,10 +21,13 @@ class MetricsRepository < BaseRepository
     JSON.parse(redis_response)
   end
 
-  def profitable_bots_data
+  private
+
+  def profitable_bots_data(created_before)
     total_profitable = 0
     transactions_totals = Bot.select('bot_id, sum (amount * rate) as total_cost, sum (amount) as total_amount, exchange_id, settings')
-                             .joins(:transactions).group(:bot_id, :exchange_id, :settings).where("settings->>'type' = 'buy'")
+                             .joins(:transactions).group(:bot_id, :exchange_id, :settings)
+                             .where("settings->>'type' = 'buy' and bots.created_at < '#{created_before}'")
     actual_length = transactions_totals.length
     prices_dictionary = {}
     markets_dictionary = {}
@@ -45,12 +52,9 @@ class MetricsRepository < BaseRepository
       end
       current_value = total['total_amount'] * current_price.data
       total_profitable += 1 if current_value > total['total_cost']
-      print "Done: #{(index / transactions_totals.length.to_f * 100).ceil(2)}% \r"
     end
-    puts "Profitable bots: #{(total_profitable / actual_length.to_f * 100).ceil(2)}%"
+    (total_profitable / actual_length.to_f * 100).ceil(2)
   end
-
-  private
 
   def dictionary_key(base,quote)
     "#{base}-#{quote}"
