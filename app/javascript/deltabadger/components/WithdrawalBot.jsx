@@ -40,9 +40,6 @@ const BotTemplate = ({
   handleRemove,
   handleClick,
   handleEdit,
-  fetchMinimums,
-  fetchRestartParams,
-  clearBotErrors,
   reload,
   reloadPage,
   open,
@@ -69,7 +66,6 @@ const BotTemplate = ({
 
   const currencyName = shouldRename(exchangeName) ? renameSymbol(settings.currency) : settings.currency
 
-
   const hasConfigurationChanged = () => {
     const newSettings= {
       threshold: threshold,
@@ -91,7 +87,7 @@ const BotTemplate = ({
       threshold
     }
 
-    handleEdit(botParams, continueParams)
+    handleEdit(botParams)
   }
 
   // Shows the first (major) error
@@ -129,9 +125,9 @@ const BotTemplate = ({
     keyExists()
   }, [exchanges]);
 
-  const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
+  const addApiKeyHandler = (key, secret, passphrase, germanAgreement, keyType) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
-    API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: exchangeId }).then(response => {
+    API.createApiKey({ key, secret, passphrase, germanAgreement, exchangeId: exchangeId, type: keyType}).then(response => {
       fetchExchanges()
     }).catch(() => {
       setApiKeysState(apiKeyStatus["INVALID"])

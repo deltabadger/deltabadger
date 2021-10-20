@@ -10,13 +10,16 @@ module Api
         all_symbols = exchange.symbols.or([])
         status_of_trading_key = status_of_key(exchange.id, 'trading', exchange_type_pairs)
         status_of_withdrawal_key = status_of_key(exchange.id, 'withdrawal', exchange_type_pairs)
+        withdrawal_info_processor = get_withdrawal_info_processor(api_keys, exchange)
         {
           id: exchange.id,
           name: exchange.name,
           symbols: symbols,
           all_symbols: all_symbols,
           trading_key_status: status_of_trading_key,
-          withdrawal_key_status: status_of_withdrawal_key
+          withdrawal_key_status: status_of_withdrawal_key,
+          withdrawal_currencies: get_currencies(status_of_withdrawal_key, withdrawal_info_processor),
+          withdrawal_addresses: get_wallets(status_of_withdrawal_key, withdrawal_info_processor)
         }
       end
 
@@ -42,6 +45,21 @@ module Api
 
     def paid_subscription?(subscription_name)
       subscription_name == 'hodler' || subscription_name == 'investor'
+    end
+
+    def get_withdrawal_info_processor(api_keys, exchange)
+      api_key = api_keys.find_by(exchange_id: exchange.id, key_type: 'withdrawal')
+      return nil unless api_key.present?
+
+      ExchangeApi::WithdrawalInfo::Get.call(api_key)
+    end
+
+    def get_currencies(key_status, withdrawal_processor)
+      key_status == 'correct' ? withdrawal_processor.withdrawal_currencies.data : []
+    end
+
+    def get_wallets(key_status, withdrawal_processor)
+      key_status == 'correct' ? withdrawal_processor.available_wallets.data : []
     end
   end
 end
