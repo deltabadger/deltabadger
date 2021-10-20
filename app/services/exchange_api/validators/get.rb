@@ -51,30 +51,12 @@ module ExchangeApi
         return Fake::WithdrawalValidator.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
-        when 'binance'
-          Binance::WithdrawalValidator.new(url_base: EU_WITHDRAWAL_URL_BASE)
-        when 'binance.us'
-          Binance::WithdrawalValidator.new(url_base: US_WITHDRAWAL_URL_BASE)
-        when 'bitbay'
-          Bitbay::WithdrawalValidator.new
         when 'kraken'
-          Kraken::WithdrawalValidator.new
-        when 'coinbase pro'
-          CoinbasePro::WithdrawalValidator.new
-        when 'gemini'
-          Gemini::WithdrawalValidator.new
+          ExchangeApi::Validators::Kraken::WithdrawalValidator.new
         when 'ftx'
-          Ftx::WithdrawalValidator.new(url_base: FTX_EU_URL_BASE)
+          ExchangeApi::Validators::Ftx::WithdrawalValidator.new(url_base: FTX_EU_URL_BASE)
         when 'ftx.us'
-          Ftx::WithdrawalValidator.new(url_base: FTX_US_URL_BASE)
-        when 'bitso'
-          Bitso::WithdrawalValidator.new
-        when 'kucoin'
-          Kucoin::WithdrawalValidator.new
-        when 'bitfinex'
-          Bitfinex::WithdrawalValidator.new
-        when 'bitstamp'
-          Bitstamp::WithdrawalValidator.new
+          ExchangeApi::Validators::Ftx::WithdrawalValidator.new(url_base: FTX_US_URL_BASE)
         end
       end
     end
