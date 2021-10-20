@@ -20,12 +20,13 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
   }
 
   const uniqueArray = (array) => [...new Set(array)]
-  const CURRENCIES = uniqueArray(['BTC', 'ETH'])
-  const WALLET_ADDRESSES = uniqueArray(['1234', '2345'])
+  const CURRENCIES = uniqueArray(currentExchange.withdrawal_currencies)
+  const WALLET_ADDRESSES = uniqueArray(currentExchange.withdrawal_addresses)
 
   const [threshold, setThreshold] = useState("0");
-  const [address, setAddress] = useState(WALLET_ADDRESSES[0]);
-  const [currency, setCurrency] = useState(CURRENCIES[0]);
+  const [addressesForCurrency, setAddressesForCurrency] = useState([])
+  const [address, setAddress] = useState('');
+  const [currency, setCurrency] = useState([]);
   const [thresholdEnabled, setThresholdEnabled] = useState(true);
   const node = useRef()
 
@@ -44,6 +45,24 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
       return;
     }
   };
+
+  const exchangeWithoutAddressEndpoint = () => {
+    return currentExchange.name.toLowerCase() === 'kraken'
+  }
+
+  const existsAddress = () => {
+    return !exchangeWithoutAddressEndpoint() && address !== ''
+  };
+
+  const filterAddressesForCurrency = () => {
+    let addresses = WALLET_ADDRESSES.filter(a => a.currency === currency).map(a => a.address)
+    setAddressesForCurrency(addresses)
+    setAddress(addresses[0] || '')
+  };
+
+  useEffect( () => {
+    filterAddressesForCurrency()
+  }, [currency,])
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
@@ -94,32 +113,54 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
             <div className="form-group mr-3">Withdraw </div>
             <div className="form-group mr-2">
               <select
-                  value={currency}
-                  onChange={e => setCurrency(e.target.value)}
-                  className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
-              >
-                {
-                  CURRENCIES.map(c =>
-                      (<option key={c} value={c}>{renameSymbol(c)}</option>)
-                  )
-                }
-              </select>
-            </div>
-            <div className="form-group mr-3"> to </div>
-            <div className="form-group mr-2">
-              <select
-                value={address}
-                onChange={e => setAddress(e.target.value)}
+                value={currency}
+                onChange={e => setCurrency(e.target.value)}
                 className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
               >
                 {
-                  WALLET_ADDRESSES.map(c =>
+                  CURRENCIES.map(c =>
                     (<option key={c} value={c}>{renameSymbol(c)}</option>)
                   )
                 }
               </select>
             </div>
-            <div className="form-group mr-3"> wallet.</div>
+            { existsAddress() &&
+              <>
+                <div className="form-group mr-3"> to </div>
+                <div className="form-group mr-2">
+                  <select
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                  >
+                    {
+                      addressesForCurrency.map(c =>
+                        (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                      )
+                    }
+                  </select>
+                </div>
+                <div className="form-group mr-3"> wallet.</div>
+              </>
+            }
+            { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
+              <div className="form-group mr-3"> No wallet found. Go to {currentExchange.name} and add a withdrawal wallet.</div>
+            }
+            { currentExchange.name.toLowerCase() === 'kraken' &&
+              <>
+                <div className="form-group mr-3"> to </div>
+                <div className="form-group mr-3">
+                  <input
+                    type="text"
+                    size={(address.length > 0) ? address.length : 3 }
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    className="bot-input bot-input--sizable bot-input--paper-bg"
+                  />
+                </div>
+                <div className="form-group mr-3"> wallet.</div>
+              </>
+            }
           </div>
 
           <label

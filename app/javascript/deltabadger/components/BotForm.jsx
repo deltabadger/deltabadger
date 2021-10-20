@@ -192,7 +192,6 @@ export const BotForm = ({
   }
 
   const renderForm = () => {
-    console.log(STEPS[chooseStep(step)])
     switch (STEPS[chooseStep(step)]) {
       case 'pick_exchange':
         return <PickExchage
