@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_10_06_090230) do
+ActiveRecord::Schema.define(version: 2021_10_21_073513) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -210,4 +210,19 @@ ActiveRecord::Schema.define(version: 2021_10_06_090230) do
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
   add_foreign_key "users", "affiliates", column: "referrer_id"
+
+  create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
+      SELECT transactions.bot_id,
+      sum((transactions.amount * transactions.rate)) AS total_cost,
+      sum(transactions.amount) AS total_amount,
+      bots.exchange_id,
+      bots.settings,
+      bots.created_at
+     FROM (bots
+       JOIN transactions ON ((transactions.bot_id = bots.id)))
+    WHERE ((bots.settings ->> 'type'::text) = 'buy'::text)
+    GROUP BY transactions.bot_id, bots.exchange_id, bots.settings, bots.created_at;
+  SQL
+  add_index "bots_total_amounts", ["bot_id"], name: "index_bots_total_amounts_on_bot_id", unique: true
+
 end

@@ -14,7 +14,7 @@ class TransactionsRepository < BaseRepository
   end
 
   def total_btc_bought
-    total_btc_by_type('buy')
+    ActiveRecord::Base.connection.execute("select sum(total_amount) from bots_total_amounts where settings->>'base' in ('XXBT','XBT','BTC')")[0]['sum'].to_f
   end
 
   def total_btc_sold
