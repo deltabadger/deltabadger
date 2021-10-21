@@ -9,6 +9,8 @@ class RefCodesController < ApplicationController
 
     if current_user.referrer_id.present?
       redirect_to dashboard_path, flash: { notice: I18n.t('affiliates.discount.already_used') }
+    elsif current_user.id == affiliate.user_id
+      redirect_to referral_program_path
     else
       @affiliate = affiliate
     end
