@@ -16,18 +16,17 @@ class GenerateTransactionsCsv < BaseService
 
   def initialize(
     transactions_repository: TransactionsRepository.new,
-    generate_csv: GenerateCsv.new,
-    format_output: Presenters::Api::Transaction.new
+    generate_csv: GenerateCsv.new
   )
 
     @transactions_repository = transactions_repository
     @generate_csv = generate_csv
-    @format_output = format_output
   end
 
   def call(bot)
+    format_data = bot.trading? ? Presenters::Api::TradingTransaction.new : Presenters::Api::WithdrawalTransaction.new
     transactions = @transactions_repository.for_bot_by_status(bot, status: :success)
-    formatted_data = transactions.map { |t| @format_output.call(t) }
+    formatted_data = transactions.map { |t| format_data.call(t) }
     @generate_csv.call(formatted_data)
   end
 end
