@@ -11,15 +11,15 @@ class Bot < ApplicationRecord
   enum bot_type: [*TYPES]
 
   def base
-    settings.fetch('base')
+    settings.fetch('base', nil)
   end
 
   def quote
-    settings.fetch('quote')
+    settings.fetch('quote', nil)
   end
 
   def price
-    settings.fetch('price')
+    settings.fetch('price', nil)
   end
 
   def percentage
@@ -27,15 +27,19 @@ class Bot < ApplicationRecord
   end
 
   def interval
-    settings.fetch('interval')
+    settings.fetch('interval', nil)
+  end
+
+  def interval_enabled
+    settings.fetch('interval_enabled', nil)
   end
 
   def type
-    settings.fetch('type')
+    settings.fetch('type', nil)
   end
 
   def order_type
-    settings.fetch('order_type')
+    settings.fetch('order_type', nil)
   end
 
   def force_smart_intervals
@@ -43,15 +47,35 @@ class Bot < ApplicationRecord
   end
 
   def smart_intervals_value
-    settings.fetch('smart_intervals_value')
+    settings.fetch('smart_intervals_value', nil)
   end
 
   def price_range_enabled
-    settings.fetch('price_range_enabled')
+    settings.fetch('price_range_enabled', nil)
   end
 
   def price_range
-    settings.fetch('price_range')
+    settings.fetch('price_range', nil)
+  end
+
+  def currency
+    settings.fetch('currency', nil)
+  end
+
+  def threshold
+    settings.fetch('threshold', nil)
+  end
+
+  def threshold_enabled
+    settings.fetch('threshold_enabled', nil)
+  end
+
+  def address
+    settings.fetch('address', nil)
+  end
+
+  def trading?
+    bot_type == 'free'
   end
 
   def market?
@@ -84,6 +108,10 @@ class Bot < ApplicationRecord
     # Using sort_by instead of order, because when calculating next transaction time in /api/bots endpoint
     # transactions are already preloaded. We don't want to fire n + 1 queries here.
     transactions.max_by(&:created_at)
+  end
+
+  def last_withdrawal
+    transactions.filter { |t| t.transaction_type == 'WITHDRAWAL' }.max_by(&:created_at)
   end
 
   def total_amount

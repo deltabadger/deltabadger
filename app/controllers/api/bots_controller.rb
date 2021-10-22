@@ -26,7 +26,8 @@ module Api
     end
 
     def update
-      result = Bots::Update.call(current_user, bot_update_params)
+      bot_params = params[:bot][:order_type].present? ? trading_bot_update_params : withdrawal_bot_update_params
+      result = Bots::Update.call(current_user, bot_params)
 
       if result.success?
         data = present_bot(result.data)
@@ -107,7 +108,7 @@ module Api
     private
 
     def present_bot(bot)
-      Presenters::Api::Bot.call(bot)
+      bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
     end
 
     def present_bots(bots)
@@ -138,6 +139,7 @@ module Api
     WITHDRAWAL_BOT_PARAMS = %i[
       exchange_id
       interval
+      interval_enabled
       threshold
       threshold_enabled
       currency
@@ -151,7 +153,7 @@ module Api
         .permit(*WITHDRAWAL_BOT_PARAMS)
     end
 
-    BOT_UPDATE_PARAMS = %i[
+    TRADING_BOT_UPDATE_PARAMS = %i[
       order_type
       price
       percentage
@@ -161,10 +163,24 @@ module Api
       price_range_enabled
     ].freeze
 
-    def bot_update_params
+    def trading_bot_update_params
       params
         .require(:bot)
-        .permit(*BOT_UPDATE_PARAMS, price_range: [])
+        .permit(*TRADING_BOT_UPDATE_PARAMS, price_range: [])
+        .merge(id: params[:id])
+    end
+
+    WITHDRAWAL_BOT_UPDATE_PARAMS = %i[
+      interval
+      interval_enabled
+      threshold
+      threshold_enabled
+    ].freeze
+
+    def withdrawal_bot_update_params
+      params
+        .require(:bot)
+        .permit(*WITHDRAWAL_BOT_UPDATE_PARAMS)
         .merge(id: params[:id])
     end
 

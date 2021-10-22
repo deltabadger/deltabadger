@@ -12,7 +12,6 @@ module Bots
     end
 
     def call(params)
-      byebug
       formatted_params = @format_params.call(params)
       bot = Bot.new(formatted_params)
 

@@ -10,19 +10,22 @@ module ExchangeApi
         end
 
         SUCCESS = true
-        AVAILABLE_WALLET_ADDRESSES = %w[1234 2345].freeze
+        AVAILABLE_WALLET_ADDRESSES = [
+          { currency: 'BTC', address: '1234' },
+          { currency: 'ETH', address: '2345' }
+        ].freeze
         AVAILABLE_CURRENCIES = %w[BTC ETH].freeze
 
         def withdrawal_currencies
-          AVAILABLE_CURRENCIES
+          Result::Success.new(AVAILABLE_CURRENCIES)
         end
 
-        def available_wallets(_currency)
-          AVAILABLE_WALLET_ADDRESSES
+        def available_wallets
+          Result::Success.new(AVAILABLE_WALLET_ADDRESSES)
         end
 
         def available_funds(_currency)
-          @available_funds
+          Result::Success.new(@available_funds)
         end
 
         def new_account_state
