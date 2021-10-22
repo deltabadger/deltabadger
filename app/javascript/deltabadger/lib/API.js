@@ -94,12 +94,13 @@ const API = {
       threshold: params.threshold,
       threshold_enabled: params.thresholdEnabled,
       interval: params.interval,
-      exchange_id: params.exchangeId,
+      interval_enabled: params.intervalEnabled,
+      exchange_id: params.exchangeId
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
-  updateBot(params) {
+  updateTradingBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
       order_type: params.order_type,
@@ -110,6 +111,18 @@ const API = {
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
       price_range: [params.priceRange.low, params.priceRange.high]
+    }
+
+    return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
+  },
+
+  updateWithdrawalBot(params) {
+    const url = `${API_URL}/bots/${params.id}`;
+    const botParams= {
+      threshold: params.threshold,
+      threshold_enabled: params.thresholdEnabled,
+      interval: params.interval,
+      interval_enabled: params.intervalEnabled
     }
 
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);

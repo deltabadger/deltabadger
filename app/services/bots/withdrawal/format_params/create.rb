@@ -8,6 +8,8 @@ module Bots
           interval
           threshold
           threshold_enabled
+          interval
+          interval_enabled
         ].freeze
 
         def call(params)

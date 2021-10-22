@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_10_06_090230) do
+ActiveRecord::Schema.define(version: 2021_10_21_134551) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -75,6 +75,7 @@ ActiveRecord::Schema.define(version: 2021_10_06_090230) do
     t.integer "current_delay", default: 0, null: false
     t.datetime "settings_changed_at"
     t.integer "fetch_restarts", default: 0, null: false
+    t.decimal "account_balance", default: "0.0"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
@@ -129,7 +130,7 @@ ActiveRecord::Schema.define(version: 2021_10_06_090230) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "years", default: 1, null: false
-    t.integer "credits", default: 500, null: false
+    t.integer "credits", default: 1200, null: false
     t.boolean "unlimited", default: false, null: false
     t.decimal "cost_eu", default: "0.0", null: false
     t.decimal "cost_other", default: "0.0", null: false
@@ -188,6 +189,8 @@ ActiveRecord::Schema.define(version: 2021_10_06_090230) do
     t.integer "pending_plan_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
+    t.string "provider"
+    t.string "uid"
     t.boolean "referral_banner_showed", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true

@@ -23,11 +23,13 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
   const CURRENCIES = uniqueArray(currentExchange.withdrawal_currencies)
   const WALLET_ADDRESSES = uniqueArray(currentExchange.withdrawal_addresses)
 
-  const [threshold, setThreshold] = useState("0");
   const [addressesForCurrency, setAddressesForCurrency] = useState([])
   const [address, setAddress] = useState('');
-  const [currency, setCurrency] = useState([]);
+  const [currency, setCurrency] = useState(CURRENCIES[0]);
+  const [threshold, setThreshold] = useState("0");
   const [thresholdEnabled, setThresholdEnabled] = useState(true);
+  const [interval, setInterval] = useState("0");
+  const [intervalEnabled, setIntervalEnabled] = useState(false);
   const node = useRef()
 
   const ResetButton = () => (
@@ -79,7 +81,8 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
       address,
       threshold: threshold.trim(),
       thresholdEnabled,
-      interval: 1,
+      interval: interval.trim(),
+      intervalEnabled,
       botType: 'withdrawal',
     }
 
@@ -182,6 +185,28 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                 onChange={e => setThreshold(e.target.value)}
               />
               <RawHTML tag="span">{` ${currency} is available`}</RawHTML>
+            </div>
+          </label>
+
+          <label
+            className="alert alert-primary"
+            disabled={!intervalEnabled}
+          >
+            <input
+              type="checkbox"
+              checked={intervalEnabled}
+              onChange={() => setIntervalEnabled(!intervalEnabled)}
+            />
+            <div>
+              <RawHTML tag="span">Withdraw every </RawHTML>
+              <input
+                type="text"
+                size={(interval.length > 0) ? interval.length : 3 }
+                className="bot-input bot-input--sizable"
+                value={interval}
+                onChange={e => setInterval(e.target.value)}
+              />
+              <RawHTML tag="span"> days.</RawHTML>
             </div>
           </label>
         </form>

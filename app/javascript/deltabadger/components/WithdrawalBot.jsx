@@ -2,10 +2,9 @@ import 'lodash'
 import React, {useEffect, useState} from 'react';
 import I18n from 'i18n-js'
 import { connect } from 'react-redux';
-import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
+import { StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
 import { Timer, FetchFromExchangeTimer } from './Timer';
 import { ProgressBar } from './ProgressBar';
-import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
 import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
@@ -16,14 +15,14 @@ import {
   reloadBot,
   stopBot,
   removeBot,
-  editBot,
   openBot,
   clearErrors,
   fetchRestartParams,
   getSmartIntervalsInfo,
-  setShowSmartIntervalsInfo
+  editWithdrawalBot
 } from '../bot_actions'
 import API from "../lib/API";
+import {PercentageProgress} from "./PercentageProgress";
 
 const apiKeyStatus = {
   ADD: 'add_api_key',
@@ -32,7 +31,6 @@ const apiKeyStatus = {
 }
 
 const BotTemplate = ({
-  showLimitOrders,
   bot,
   errors = [],
   startingBotIds,
@@ -47,11 +45,14 @@ const BotTemplate = ({
   exchanges,
   apiKeyTimeout
 }) => {
-  const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const { id, settings, status, exchangeName, exchangeId, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
+  console.log(bot)
   const [threshold, setThreshold] = useState(settings.threshold);
   const [thresholdEnabled, setThresholdEnabled] = useState(settings.threshold_enabled);
-  const [apiKeyExists, setApiKeyExists] = useState(true)
+  const [interval, setInterval] = useState(settings.interval);
+  const [intervalEnabled, setIntervalEnabled] = useState(settings.interval_enabled);
+  const [apiKeyExists, setApiKeyExists] = useState(true);
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
   const isStarting = startingBotIds.includes(id);
@@ -66,25 +67,15 @@ const BotTemplate = ({
 
   const currencyName = shouldRename(exchangeName) ? renameSymbol(settings.currency) : settings.currency
 
-  const hasConfigurationChanged = () => {
-    const newSettings= {
-      threshold: threshold,
-      thresholdEnabled: thresholdEnabled
-    }
-
-    const oldSettings = {
-      threshold: settings.threshold,
-      thresholdEnabled: settings.thresholdEnabled
-    }
-
-    return !_.isEqual(newSettings, oldSettings)
-  }
-
   const _handleSubmit = () => {
     if (disableSubmit) return
 
     const botParams = {
-      threshold
+      id: bot.id,
+      threshold,
+      thresholdEnabled,
+      interval,
+      intervalEnabled
     }
 
     handleEdit(botParams)
@@ -134,6 +125,8 @@ const BotTemplate = ({
     })
   }
 
+  console.log(nextTransactionTimestamp)
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
@@ -151,11 +144,14 @@ const BotTemplate = ({
             <div className="db-bot__infotext__left">
               {exchangeName}:{currencyName}
             </div>
-            {pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload}/>}
+            {working && !intervalEnabled && <PercentageProgress bot={bot} callback={reload}/>}
+            {working && intervalEnabled && nextTransactionTimestamp && <Timer bot={bot} callback={reload}/>}
             {!working && isNotEmpty(errors) && <Errors data={errors}/>}
           </div>
         </div>
       }
+
+      <ProgressBar bot={bot} />
 
       { !apiKeyExists &&
         <AddApiKey
@@ -174,6 +170,7 @@ const BotTemplate = ({
             <div className="form-inline db-bot__form__schedule">
               <div className="form-group mr-2">Withdraw {currencyName} to {settings.address} wallet</div>
             </div>
+
             <label
               className="alert alert-primary"
               disabled={!thresholdEnabled}
@@ -182,6 +179,7 @@ const BotTemplate = ({
                 type="checkbox"
                 checked={thresholdEnabled}
                 onChange={() => setThresholdEnabled(!thresholdEnabled)}
+                disabled={working}
               />
               <div>
                 <RawHTML tag="span">Withdraw when at least </RawHTML>
@@ -191,8 +189,33 @@ const BotTemplate = ({
                   className="bot-input bot-input--sizable"
                   value={threshold}
                   onChange={e => setThreshold(e.target.value)}
+                  disabled={working}
                 />
                 <RawHTML tag="span">{` ${currencyName} is available`}</RawHTML>
+              </div>
+            </label>
+
+            <label
+              className="alert alert-primary"
+              disabled={!intervalEnabled}
+            >
+              <input
+                type="checkbox"
+                checked={intervalEnabled}
+                onChange={() => setIntervalEnabled(!intervalEnabled)}
+                disabled={working}
+              />
+              <div>
+                <RawHTML tag="span">Withdraw every </RawHTML>
+                <input
+                  type="text"
+                  size={(interval.length > 0) ? interval.length : 3 }
+                  className="bot-input bot-input--sizable"
+                  value={interval}
+                  onChange={e => setInterval(e.target.value)}
+                  disabled={working}
+                />
+                <RawHTML tag="span"> days.</RawHTML>
               </div>
             </label>
           </form>
@@ -214,7 +237,7 @@ const mapDispatchToProps = ({
   reload: reloadBot,
   handleStop: stopBot,
   handleRemove: removeBot,
-  handleEdit: editBot,
+  handleEdit: editWithdrawalBot,
   fetchMinimums: getSmartIntervalsInfo,
   handleClick: openBot,
   clearBotErrors: clearErrors,

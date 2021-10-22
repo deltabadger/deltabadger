@@ -1,14 +1,12 @@
 module Presenters
   module Api
-    class Bot < BaseService
+    class WithdrawalBot < BaseService
       def initialize(
-        next_bot_transaction_at: NextBotTransactionAt.new,
         transactions_repository: TransactionsRepository.new,
-        next_result_fetching_at: NextResultFetchingAt.new
+        next_withdrawal_at: NextWithdrawalBotTransactionAt.new
       )
-        @next_bot_transaction_at = next_bot_transaction_at
         @transactions_repository = transactions_repository
-        @next_result_fetching_at = next_result_fetching_at
+        @next_withdrawal_at = next_withdrawal_at
       end
 
       def call(bot)
@@ -26,37 +24,37 @@ module Presenters
           transactions: transactions.first(10).map(&method(:present_transaction)),
           skippedTransactions: skipped_transactions.first(10).map(&method(:present_transaction)),
           logs: logs.map(&method(:present_log)),
-          stats: present_stats(bot, transactions),
+          totalWithdrawn: total_withdrawn(transactions),
+          progressPercentage: get_progress_percentage(bot),
           nowTimestamp: Time.now.to_i,
-          nextResultFetchingTimestamp: next_result_fetching_timestamp(bot),
           nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
 
       private
 
-      def next_result_fetching_timestamp(bot)
-        @next_result_fetching_at.call(bot).to_i
-      rescue StandardError
-        nil
-      end
-
-      def next_transaction_timestamp(bot)
-        @next_bot_transaction_at.call(bot).to_i
-      rescue StandardError
-        nil
-      end
-
-      def present_stats(bot, transactions)
-        Presenters::Api::Stats.call(bot: bot, transactions: transactions)
+      def total_withdrawn(transactions)
+        transactions.sum(&:amount)
       end
 
       def present_transaction(transaction)
-        Presenters::Api::Transaction.call(transaction)
+        Presenters::Api::WithdrawalTransaction.call(transaction)
       end
 
       def present_log(transaction)
         Presenters::Api::Log.call(transaction)
+      end
+
+      def get_progress_percentage(bot)
+        return 0.0 unless bot.threshold_enabled
+
+        (bot.account_balance / bot.threshold.to_f) * 100
+      end
+
+      def next_transaction_timestamp(bot)
+        @next_withdrawal_at.call(bot).to_i
+      rescue StandardError
+        nil
       end
     end
   end

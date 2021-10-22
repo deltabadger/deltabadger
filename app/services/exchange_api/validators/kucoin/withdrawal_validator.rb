@@ -7,7 +7,6 @@ module ExchangeApi
         CANCEL_FAILED_CODE= '260010'.freeze
 
         def validate_credentials(api_key:, api_secret:, passphrase:)
-          byebug
           path = "/api/v1/withdrawals/#{FAKE_ID}"
           url = "#{API_URL}#{path}"
           request = Faraday.delete(url, {}, headers(api_key, api_secret, passphrase, '', path, 'DELETE'))
