@@ -93,14 +93,22 @@ module ExchangeApi
           Result::Failure.new('Binance exchange info is unavailable', RECOVERABLE)
         end
 
+        def fee(symbol)
+          Result::Success.new('0.1')
+        end
+
         def minimum_order_parameters(symbol)
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
+          fee = fee(symbol)
+          return fee unless fee.success?
+
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE
+            side: QUOTE,
+            fee: fee.data
           )
         end
 
