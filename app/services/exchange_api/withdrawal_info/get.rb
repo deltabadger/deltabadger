@@ -15,16 +15,18 @@ module ExchangeApi
 
         case exchange.name.downcase
         when 'kraken'
-          ExchangeApi::WithdrawalInfo::Kraken::AccountInfoProcessor.new(api_key: api_key.key,
+          return ExchangeApi::WithdrawalInfo::Kraken::AccountInfoProcessor.new(api_key: api_key.key,
                                                                         api_secret: api_key.secret)
         when 'ftx'
-          ExchangeApi::WithdrawalInfo::Ftx::AccountInfoProcessor.new(api_key: api_key.key,
+          return ExchangeApi::WithdrawalInfo::Ftx::AccountInfoProcessor.new(api_key: api_key.key,
                                                                      api_secret: api_key.secret,
                                                                      url_base: FTX_EU_URL_BASE)
         when 'ftx.us'
-          ExchangeApi::WithdrawalInfo::Ftx::AccountInfoProcessor.new(api_key: api_key.key,
+          return ExchangeApi::WithdrawalInfo::Ftx::AccountInfoProcessor.new(api_key: api_key.key,
                                                                      api_secret: api_key.secret,
                                                                      url_base: FTX_US_URL_BASE)
+        else
+          return nil
         end
       end
     end
