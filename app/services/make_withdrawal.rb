@@ -7,6 +7,7 @@ class MakeWithdrawal < BaseService
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
+    order_flow_helper: Helpers::OrderFlowHelper.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new
   )
@@ -17,6 +18,7 @@ class MakeWithdrawal < BaseService
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
+    @order_flow_helper = order_flow_helper
     @notifications = notifications
   end
 
@@ -38,12 +40,12 @@ class MakeWithdrawal < BaseService
       @schedule_withdrawal.call(bot)
     else
       @transactions_repository.create(failed_transaction_params(result, bot))
-      @order_flow_helper.stop_bot(bot, notify, result.errors)
+      @order_flow_helper.stop_bot(bot, true, result.errors)
     end
     result
   rescue StandardError => e
     @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
+    @order_flow_helper.stop_bot(bot, true)
     raise
   end
 
@@ -56,6 +58,7 @@ class MakeWithdrawal < BaseService
     account_info_api = @get_withdrawal_info_processor.call(api_key)
     withdrawal_api = @get_withdrawal_processor.call(api_key)
     balance = account_info_api.available_funds(bot.currency)
+    byebug
     bot = @bots_repository.update(bot.id, account_balance: balance.data) if balance.success?
     return Result::Failure.new(SKIPPED) unless check_balance(bot, balance)
 
@@ -73,7 +76,8 @@ class MakeWithdrawal < BaseService
   def get_withdrawal_params(bot, balance)
     {
       amount: balance.data,
-      address: bot.address
+      address: bot.address,
+      currency: bot.currency
     }
   end
 
