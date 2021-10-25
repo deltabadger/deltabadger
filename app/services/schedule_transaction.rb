@@ -4,7 +4,7 @@ class ScheduleTransaction < BaseService
     bots_repository: BotsRepository.new,
     make_transaction_worker: MakeTransactionWorker,
     parse_interval: ParseInterval.new,
-    next_bot_transaction_at: NextBotTransactionAt.new
+    next_bot_transaction_at: NextTradingBotTransactionAt.new
   )
     @bots_repository = bots_repository
     @make_transaction_worker = make_transaction_worker

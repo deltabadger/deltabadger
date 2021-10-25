@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react'
 import { connect } from 'react-redux';
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
-import { Bot } from './Bot'
+import { TradingBot } from './TradingBot'
 import { isEmpty } from '../utils/array'
 import {
   startBot,
@@ -11,6 +11,7 @@ import {
   loadBots
 } from '../bot_actions'
 import API from "../lib/API";
+import {WithdrawalBot} from "./WithdrawalBot";
 
 let apiKeyTimeout;
 
@@ -36,12 +37,12 @@ const DashboardTemplate = ({
     loadBots(shouldOpenFirstBot, page)
   }, [page,])
 
-  const fetchExchanges = () => {
-    API.getExchanges().then(data => setExchanges(data.data))
+  const fetchExchanges = (type) => {
+    API.getExchanges(type).then(data => setExchanges(data.data))
   }
 
   useEffect( () => {
-    fetchExchanges()
+    fetchExchanges('trading')
   }, [])
 
   useEffect( () => {
@@ -55,19 +56,35 @@ const DashboardTemplate = ({
   }
 
   const buildBotsList = (botsToRender, b) => {
-    botsToRender.push(
-      <Bot
-        showLimitOrders={isHodler}
-        key={`${b.id}-${b.id == currentBot}`}
-        bot={b}
-        open={currentBot && (b.id == currentBot.id)}
-        errors={errors[b.id]}
-        fetchExchanges={fetchExchanges}
-        exchanges={exchanges}
-        apiKeyTimeout={apiKeyTimeout}
-        reloadPage={reloadPage}
-      />
-    )
+    if(b.bot_type === 'free') {
+      botsToRender.push(
+        <TradingBot
+          showLimitOrders={isHodler}
+          key={`${b.id}-${b.id == currentBot}`}
+          bot={b}
+          open={currentBot && (b.id == currentBot.id)}
+          errors={errors[b.id]}
+          fetchExchanges={() => fetchExchanges('trading')}
+          exchanges={exchanges}
+          apiKeyTimeout={apiKeyTimeout}
+          reloadPage={reloadPage}
+        />
+      )
+    } else {
+      botsToRender.push(
+        <WithdrawalBot
+          showLimitOrders={isHodler}
+          key={`${b.id}-${b.id == currentBot}`}
+          bot={b}
+          open={currentBot && (b.id == currentBot.id)}
+          errors={errors[b.id]}
+          fetchExchanges={() => fetchExchanges('withdrawal')}
+          exchanges={exchanges}
+          apiKeyTimeout={apiKeyTimeout}
+          reloadPage={reloadPage}
+        />
+      )
+    }
 
     if (currentBot && (b.id == currentBot.id)) botsToRender.push(
       <BotDetails key={`${b.id}-details${b.id == currentBot}`} bot={b}/>

@@ -1,4 +1,4 @@
-class NextBotTransactionAt < BaseService
+class NextTradingBotTransactionAt < BaseService
   def initialize(
     parse_interval: ParseInterval.new,
     calculate_restart_delay: CalculateRestartDelay.new
