@@ -10,6 +10,8 @@ class Transaction < ApplicationRecord
   end
 
   def price
+    return 0.0 unless rate.present?
+
     amount * rate
   end
 end

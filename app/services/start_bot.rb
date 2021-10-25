@@ -1,11 +1,13 @@
 class StartBot < BaseService
   def initialize(
     schedule_transaction: ScheduleTransaction.new,
+    schedule_withdrawal: ScheduleWithdrawal.new,
     bots_repository: BotsRepository.new,
     validate_limit: Bots::Free::Validators::Limit.new
   )
 
     @schedule_transaction = schedule_transaction
+    @schedule_withdrawal = schedule_withdrawal
     @bots_repository = bots_repository
     @validate_limit = validate_limit
   end
@@ -18,14 +20,18 @@ class StartBot < BaseService
 
     validate_limit_result = @validate_limit.call(bot.user)
     if validate_limit_result.failure?
-      bot = @bots_repository.update(bot.id, status: 'stopped')
+      @bots_repository.update(bot.id, status: 'stopped')
       return validate_limit_result
     end
 
-    @bots_repository.update(bot.id, status: 'pending')
+    @bots_repository.update(bot.id, status: 'pending') if bot.trading?
     bot.reload
 
-    @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
+    if bot.trading?
+      @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
+    else
+      @schedule_withdrawal.call(bot, first_transaction: true)
+    end
 
     Result::Success.new(bot)
   end

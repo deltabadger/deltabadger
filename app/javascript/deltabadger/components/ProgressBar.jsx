@@ -8,12 +8,16 @@ const ProgressBarLine = ({colorClass, progress }) => (
   </div>
 )
 
+const intervalDisabled = (bot, settings) => {
+  return bot.bot_type === 'withdrawal' && !settings.interval_enabled
+}
+
 export const ProgressBar = ({bot}) => {
   const { settings, status, nextTransactionTimestamp, transactions, skippedTransactions} = bot || {settings: {}, stats: {}, transactions: [], skippedTransactions: [], logs: []}
   const colorClass = settings.type == 'buy' ? 'success' : 'danger'
   const working = status == 'working'
 
-  if (!working) { return <ProgressBarLine colorClass={colorClass} progress={0} /> }
+  if (!working || intervalDisabled(bot, settings)) { return <ProgressBarLine colorClass={colorClass} progress={0} /> }
 
   const [progress, setProgress] = useState(0)
 
