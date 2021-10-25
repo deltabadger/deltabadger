@@ -3,7 +3,7 @@ import React, {useEffect, useState} from 'react';
 import I18n from 'i18n-js'
 import { connect } from 'react-redux';
 import { StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
-import { Timer, FetchFromExchangeTimer } from './Timer';
+import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import { isNotEmpty } from '../utils/array';
 import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";

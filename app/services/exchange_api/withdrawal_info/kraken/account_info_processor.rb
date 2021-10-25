@@ -37,10 +37,12 @@ module ExchangeApi
         end
 
         def available_funds(currency)
+          byebug
           response = @client.balance
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
-          response.fetch('result').fetch(currency, '0.0')
+          data = response.fetch('result').select { |s, _data| s.include? currency }.map { |_s, data| data }
+          Result::Success.new(data[0].present? ? data[0].to_f : 0.0)
         rescue StandardError => e
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Kraken', RECOVERABLE)
