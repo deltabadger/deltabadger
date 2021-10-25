@@ -8,9 +8,11 @@ import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
 import { NavigationPanel } from "./BotForm/NavigationPanel";
 import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
+import {PickBotType} from "./BotForm/PickBotType";
 
 const STEPS = [
   'closed_form',
+  'pick_bot_type',
   'pick_exchange',
   'add_api_key' ,
   'validating_api_key',
@@ -64,20 +66,20 @@ export const BotForm = ({
   }
 
   const chooseStep = step => {
-    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 5 : 6 }
-    if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
+    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
+    if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 5 }
     if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
       clearAndSetTimeout()
-      return 3
+      return 4
     }
 
-    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 5 : 6 }
-    if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 4 }
+    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
+    if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 5 }
 
     if ((STEPS[step] == 'closed_form') && open) { return step + 1 }
 
     if ((STEPS[step] == 'validating_api_key') && !keyExists(form.exchangeId)) {
-      return 4
+      return 5
     }
 
     if((STEPS[step] == 'validating_api_key')) {
@@ -102,9 +104,14 @@ export const BotForm = ({
     callbackAfterOpening()
   }
 
+  const pickBotTypeHandler = (type) => {
+    setType(type)
+    setStep(2)
+  }
+
   const pickExchangeHandler = (id, name) => {
     setFormState({...form, exchangeId: id})
-    setStep(2)
+    setStep(3)
   }
 
   const setPendingStatus = () => {
@@ -121,7 +128,7 @@ export const BotForm = ({
     setPendingStatus()
     API.createApiKey({ key, secret, passphrase, germanAgreement, type, exchangeId: form.exchangeId }).then(response => {
       setErrors([])
-      setStep(3)
+      setStep(4)
     }).catch(() => {
       setErrors(I18n.t('errors.invalid_api_keys'))
     })
@@ -193,6 +200,14 @@ export const BotForm = ({
 
   const renderForm = () => {
     switch (STEPS[chooseStep(step)]) {
+      case 'pick_bot_type':
+        return <PickBotType
+          handleReset={() => {
+            setStep(0)
+            callbackAfterClosing()
+          }}
+          handleSubmit={pickBotTypeHandler}
+          />
       case 'pick_exchange':
         return <PickExchage
           handleReset={() => {
