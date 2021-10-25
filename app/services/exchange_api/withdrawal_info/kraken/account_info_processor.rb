@@ -37,7 +37,6 @@ module ExchangeApi
         end
 
         def available_funds(currency)
-          byebug
           response = @client.balance
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 

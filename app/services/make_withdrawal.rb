@@ -58,7 +58,6 @@ class MakeWithdrawal < BaseService
     account_info_api = @get_withdrawal_info_processor.call(api_key)
     withdrawal_api = @get_withdrawal_processor.call(api_key)
     balance = account_info_api.available_funds(bot.currency)
-    byebug
     bot = @bots_repository.update(bot.id, account_balance: balance.data) if balance.success?
     return Result::Failure.new(SKIPPED) unless check_balance(bot, balance)
 

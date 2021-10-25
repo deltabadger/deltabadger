@@ -18,7 +18,6 @@ module ExchangeApi
         end
 
         def make_withdrawal(params)
-          byebug
           response = @client.withdraw(asset: params[:currency], key: params[:address], amount: params[:amount])
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
