@@ -189,8 +189,6 @@ ActiveRecord::Schema.define(version: 2021_10_21_134551) do
     t.integer "pending_plan_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
-    t.string "provider"
-    t.string "uid"
     t.boolean "referral_banner_showed", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
@@ -214,4 +212,19 @@ ActiveRecord::Schema.define(version: 2021_10_21_134551) do
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
   add_foreign_key "users", "affiliates", column: "referrer_id"
+
+  create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
+      SELECT transactions.bot_id,
+      sum((transactions.amount * transactions.rate)) AS total_cost,
+      sum(transactions.amount) AS total_amount,
+      bots.exchange_id,
+      bots.settings,
+      bots.created_at
+     FROM (bots
+       JOIN transactions ON ((transactions.bot_id = bots.id)))
+    WHERE ((bots.settings ->> 'type'::text) = 'buy'::text)
+    GROUP BY transactions.bot_id, bots.exchange_id, bots.settings, bots.created_at;
+  SQL
+  add_index "bots_total_amounts", ["bot_id"], name: "index_bots_total_amounts_on_bot_id", unique: true
+
 end
