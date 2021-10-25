@@ -79,14 +79,22 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
+          fee = fee(symbol)
+          return fee unless fee.success?
+
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE
+            side: QUOTE,
+            fee: fee.data
           )
         end
 
         private
+
+        def fee(symbol)
+          Result::Success.new('0.5')
+        end
 
         def fetch_symbols
           request = @caching_client.get('/api/v2/trading-pairs-info/')

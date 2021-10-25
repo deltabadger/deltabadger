@@ -69,11 +69,22 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
+          fee = fee(symbol)
+          return fee unless fee.success?
+
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE
+            side: QUOTE,
+            fee: fee.data
           )
+        end
+
+        def fee(symbol)
+          symbols = %w[BTC ETH USDC]
+          return Result::Success.new('0.0') if symbols.any? { |s|  symbol.include? s }
+
+          Result::Success.new('0.3')
         end
 
         private

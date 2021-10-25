@@ -59,14 +59,25 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
+          fee = fee(symbol)
+          return fee unless fee.success?
+
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE
+            side: QUOTE,
+            fee: fee.data
           )
         end
 
         private
+
+        def fee(symbol)
+          symbol_info = fetch_book(symbol)
+          return symbol_info unless symbol_info.success?
+
+          Result::Success.new(symbol_info.data['fees']['flat_rate']['maker'])
+        end
 
         def fetch_books
           request = @caching_client.get('/v3/available_books/')
