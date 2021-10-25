@@ -11,6 +11,7 @@ module ExchangeApi
 
         SUCCESS = true
         MINIMUM_ORDER_VOLUME = 0.001
+        MARKET_FEE = 0.1
 
         def minimum_order_volume(_symbol)
           MINIMUM_ORDER_VOLUME
@@ -25,7 +26,8 @@ module ExchangeApi
             Result::Success.new(
               minimum: MINIMUM_ORDER_VOLUME,
               minimum_quote: @bid * MINIMUM_ORDER_VOLUME,
-              side: BASE
+              side: BASE,
+              fee: 0.1
             )
           else
             Result::Failure.new('Something went wrong!', RECOVERABLE)

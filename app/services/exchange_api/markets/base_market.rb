@@ -57,6 +57,10 @@ module ExchangeApi
         raise NotImplementedError
       end
 
+      def fee(_symbol)
+        Result::Success.new('0.00')
+      end
+
       private
 
       def current_bid_ask_price(_symbol)
