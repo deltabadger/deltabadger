@@ -8,7 +8,7 @@ import {RawHTML} from "../RawHtml";
 import API from "../../lib/API";
 import {StartButton} from "../buttons";
 
-export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
+export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
 
   const compareSymbols = (x, y) => {

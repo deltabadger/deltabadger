@@ -3,8 +3,9 @@ import I18n from 'i18n-js'
 import { RawHTML } from '../RawHtml'
 import { Chart } from './Chart';
 import { shouldRename, renameSymbol } from '../../utils/symbols';
+import {toFixedWithoutZeros} from "../helpers";
 
-const Stats = ({
+const TradingStats = ({
   type,
   base,
   quote,
@@ -47,13 +48,13 @@ const Stats = ({
     </table>
 )
 
-export const Transactions = ({ bot, active }) => {
+export const TradingTransactions = ({ bot, active }) => {
   const { exchangeName } = bot;
   const type = bot.settings.type
   const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
   const quote = shouldRename(exchangeName) ? renameSymbol(bot.settings.quote) : bot.settings.quote
   return <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
-    <Stats type = {type} base={base} quote={quote} {...bot.stats} />
+    <TradingStats type = {type} base={base} quote={quote} {...bot.stats} />
     { !bot.stats.currentPriceAvailable &&
       <p className="db-smallinfo">
         <svg className="db-svg-icon db-svg--inactive db-svg--table-disclaimer" xmlns="http://www.w3.org/2000/svg" width="2.4rem" viewBox="0 0 24 24">
@@ -98,14 +99,6 @@ export const Transactions = ({ bot, active }) => {
       <span> {I18n.t('bots.details.stats.download_csv')}</span> </a>
     </div>
   </div>
-}
-
-const toFixedWithoutZeros = (x) => {
-  if(parseFloat(x) >= 1.0 || parseFloat(x) <= -1.0){
-    return parseFloat(x).toFixed(2);
-  }
-
-  return parseFloat(x).toFixed(8).replace(/\.?0*$/,'');
 }
 
 const translateBuyOrSell = (side) => {

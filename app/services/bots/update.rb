@@ -1,20 +1,18 @@
 module Bots
   class Update < BaseService
     def initialize(
-      bot_validator: Bots::Free::Validators::Update.new,
-      format_params: Bots::Free::FormatParams::Update.new,
       bots_repository: BotsRepository.new
     )
       @bots_repository = bots_repository
-      @bot_validator = bot_validator
-      @format_params = format_params
     end
 
     def call(user, bot_params)
       bot = @bots_repository.by_id_for_user(user, bot_params[:id])
+      bot_validator = get_validator(bot)
+      format_params = get_formatter(bot)
 
       settings_params =
-        @format_params
+        format_params
         .call(bot, bot_params.merge(user: user))
         .slice(:settings)
 
@@ -23,7 +21,7 @@ module Bots
       end
 
       bot.assign_attributes(settings_params)
-      validation = @bot_validator.call(bot, user)
+      validation = bot_validator.call(bot, user)
 
       if validation.success?
         updated_bot = @bots_repository.save(bot)
@@ -37,6 +35,14 @@ module Bots
 
     def configuration_changed?(bot, new_settings)
       bot.settings != new_settings
+    end
+
+    def get_validator(bot)
+      bot.trading? ? Bots::Free::Validators::Update.new : Bots::Withdrawal::Validators::Update.new
+    end
+
+    def get_formatter(bot)
+      bot.trading? ? Bots::Free::FormatParams::Update.new : Bots::Withdrawal::FormatParams::Update.new
     end
   end
 end
