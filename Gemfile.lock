@@ -390,6 +390,9 @@ GEM
       sprockets (> 3.0)
       sprockets-rails
       tilt
+    scenic (1.5.4)
+      activerecord (>= 4.0.0)
+      railties (>= 4.0.0)
     scrypt (3.0.7)
       ffi-compiler (>= 1.0, < 2.0)
     selectize-rails (0.12.6)
@@ -495,6 +498,7 @@ DEPENDENCIES
   rspec-rails (~> 3.8)
   rubocop (~> 0.74.0)
   sass-rails (~> 5.0)
+  scenic
   selenium-webdriver
   sendinblue
   sentry-raven

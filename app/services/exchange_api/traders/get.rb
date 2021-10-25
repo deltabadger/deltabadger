@@ -38,6 +38,8 @@ module ExchangeApi
           bitfinex_client(api_key, order_type)
         when 'bitstamp'
           bitstamp_client(api_key, order_type)
+        when 'probit'
+          probit_client(api_key, order_type)
         end
       end
 
@@ -158,6 +160,18 @@ module ExchangeApi
                    ExchangeApi::Traders::Bitfinex::LimitTrader
                  else
                    ExchangeApi::Traders::Bitfinex::MarketTrader
+                 end
+        client.new(
+          api_key: api_key.key,
+          api_secret: api_key.secret
+        )
+      end
+
+      def probit_client(api_key, order_type)
+        client = if limit_trader?(order_type)
+                   ExchangeApi::Traders::Probit::LimitTrader
+                 else
+                   ExchangeApi::Traders::Probit::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
