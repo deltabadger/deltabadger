@@ -70,11 +70,15 @@ module ExchangeApi
           minimum_limit = minimum_base_size(symbol)
           return minimum_limit unless minimum_limit.success?
 
+          fee = fee(symbol)
+          return fee unless fee.success?
+
           Result::Success.new(
             minimum: minimum.data,
             minimum_limit: minimum_limit.data,
             minimum_quote: minimum.data,
-            side: QUOTE
+            side: QUOTE,
+            fee: fee.data
           )
         end
 
@@ -86,6 +90,10 @@ module ExchangeApi
         end
 
         private
+
+        def fee(symbol)
+          Result::Success.new('0.5')
+        end
 
         def fetch_symbol(symbol)
           request = @caching_client.get("/products/#{symbol}")

@@ -75,14 +75,22 @@ module ExchangeApi
           ask = current_ask_price(symbol)
           return ask unless ask.success?
 
+          fee = fee(symbol)
+          return fee unless ask.success?
+
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data * ask.data,
-            side: BASE
+            side: BASE,
+            fee: fee.data
           )
         end
 
         private
+
+        def fee(symbol)
+          Result::Success.new('0.02')
+        end
 
         def fetch_symbol(symbol, cached = true)
           client = get_client(cached)
