@@ -19,8 +19,14 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
     }
   }
 
+  const sortSymbols = (symbols, specialSymbols) => {
+    const specialSymbolsOrEmpty = specialSymbols.filter(s => symbols.includes(s))
+    const otherSymbols = symbols.filter(s => !(specialSymbols.includes(s)))
+    return [...specialSymbolsOrEmpty, ...otherSymbols.sort(compareSymbols)]
+  }
+
   const uniqueArray = (array) => [...new Set(array)]
-  const CURRENCIES = uniqueArray(currentExchange.withdrawal_currencies)
+  const CURRENCIES = sortSymbols(uniqueArray(currentExchange.withdrawal_currencies), getSpecialSymbols(currentExchange.name, true))
   const WALLET_ADDRESSES = uniqueArray(currentExchange.withdrawal_addresses)
 
   const [addressesForCurrency, setAddressesForCurrency] = useState([])
