@@ -65,7 +65,10 @@ class FetchOrderResult < BaseService
   def perform_action(api, result_params, bot, price)
     offer_id = get_offer_id(result_params)
     Rails.logger.info "Fetching order id: #{offer_id} for bot: #{bot.id}"
+    result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if bot.exchange.name == 'Probit'
     result = if already_fetched?(result_params)
+               api.fetch_order_by_id(offer_id, result_params)
+             elsif bot.exchange.name == 'Probit'
                api.fetch_order_by_id(offer_id, result_params)
              else
                api.fetch_order_by_id(offer_id)
