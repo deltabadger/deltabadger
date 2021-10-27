@@ -226,11 +226,22 @@ export const RemoveButton = ({onClick, disabled}) => {
   )
 }
 
-export const ExchangeButton = ({ handleClick, exchange }) => {
+export const ExchangeButton = ({ handleClick, exchange, type }) => {
+  const withdrawalEnabled = () => {
+    return ['kraken']
+  }
+
+  const exchangeClass = () => {
+    if (type === 'trading') {
+      return exchange.name.toLowerCase().replace('.', '-')
+    }
+
+    return withdrawalEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable'
+  }
 
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchange.name.toLowerCase()}`}
+      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchangeClass()}`}
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
       { exchange.name }

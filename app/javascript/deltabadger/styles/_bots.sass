@@ -249,6 +249,8 @@ input
       font-family:     Montserrat
       @include media-breakpoint-down(sm)
         max-width: calc((100% - 1.6rem)/2)
+      &--unavailable
+        display: none
       &:hover
         background-color: var(--primary)
         color:            var(--pickExchangeItemSelect)
