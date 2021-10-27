@@ -9,7 +9,7 @@ module ExchangeApi
           place_order(params.data)
         end
 
-        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
+        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, _is_legacy:)
           params = get_params('sell', price, base, quote, percentage, force_smart_intervals, smart_intervals_value)
           return params unless params.success?
 
@@ -23,7 +23,7 @@ module ExchangeApi
           response_data = response.data['data'][0]
           return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
 
-          return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) if response_data['status'] == 'open' || response_data['filled_quantity'] == 0
+          return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) if response_data['status'] == 'open' || response_data['filled_quantity'].zero?
 
           Result::Success.new(
             offer_id: order_id,
@@ -35,7 +35,7 @@ module ExchangeApi
         private
 
         def get_params(side, price, base, quote, percentage, force_smart_intervals, smart_intervals_value)
-          symbol = @market.symbol(base,quote)
+          symbol = @market.symbol(base, quote)
           quantity = transaction_quantity(price, symbol, force_smart_intervals, smart_intervals_value, side == 'buy')
           return quantity unless quantity.success?
 
@@ -52,7 +52,6 @@ module ExchangeApi
                                 "limit_price": rate_percentage.data.to_s
 
           ))
-
         end
 
         def place_order(order_params)

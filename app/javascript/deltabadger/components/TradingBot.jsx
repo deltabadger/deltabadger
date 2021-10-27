@@ -304,6 +304,7 @@ const BotTemplate = ({
           handleRemove={() => removeInvalidApiKeys(exchangeId)}
           status={apiKeysState}
           botView={{baseName, quoteName}}
+          type={'trading'}
         />
       }
 

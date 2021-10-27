@@ -22,10 +22,7 @@ module ExchangeApi
           response['enableWithdrawals']
         end
 
-        def validate_us(api_key, api_secret)
-          # request = signed_client(api_key, api_secret, @url_base).get('depositAddress.html')
-          # response = JSON.parse(request.body)
-          # response['enableWithdrawals']
+        def validate_us(_api_key, _api_secret)
           true
         end
       end

@@ -15,7 +15,7 @@ module Api
     end
 
     def create
-      bot_params = params[:bot_type] == 'free' ? trading_bot_create_params : withdrawal_bot_create_params
+      bot_params = params[:bot][:bot_type] == 'free' ? trading_bot_create_params : withdrawal_bot_create_params
       result = Bots::Create.call(current_user, bot_params)
 
       if result.success?

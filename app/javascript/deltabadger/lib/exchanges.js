@@ -66,4 +66,11 @@ export const exchanges = {
   }
 }
 
-export const getExchange = (exchangeName) => exchanges[exchangeName.toLowerCase()]
+export const getExchange = (exchangeName, type) => {
+  let exchange = {...exchanges[exchangeName.toLowerCase()]}
+  if (type === 'withdrawal') {
+    exchange.translation_key = 'withdrawal.' + exchange.translation_key
+  }
+
+  return exchange
+}

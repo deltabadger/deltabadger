@@ -8,7 +8,7 @@ module ExchangeApi
         def validate_credentials(api_key:, api_secret:)
           path = '/api/v2/withdrawal-requests/'
           url = "#{API_URL}#{path}"
-          body = { timedelta: 86400 }
+          body = { timedelta: 86_400 }
           request = Faraday.post(url, body.to_query, headers(api_key, api_secret, body, path, 'POST'))
 
           request.reason_phrase != 'Authentication Failed'

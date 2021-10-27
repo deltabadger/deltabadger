@@ -4,7 +4,7 @@ module ExchangeApi
       class WithdrawalValidator < BaseValidator
         include ExchangeApi::Clients::Kucoin
         FAKE_ID = '9' * 10
-        CANCEL_FAILED_CODE= '260010'.freeze
+        CANCEL_FAILED_CODE = '260010'.freeze
 
         def validate_credentials(api_key:, api_secret:, passphrase:)
           path = "/api/v1/withdrawals/#{FAKE_ID}"
