@@ -76,14 +76,10 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE,
-            fee: fee.data
+            side: QUOTE
           )
         end
 
@@ -115,8 +111,8 @@ module ExchangeApi
           Result::Failure.new('Could not fetch current price from Probit', RECOVERABLE)
         end
 
-        def fee(symbol)
-          symbol_info = fetch_book(symbol)
+        def current_fee
+          symbol_info = fetch_book(symbol('BTC', 'USDT'))
           return symbol_info unless symbol_info.success?
 
           Result::Success.new(symbol_info.data['maker_fee_rate'])

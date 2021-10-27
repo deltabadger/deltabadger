@@ -57,8 +57,8 @@ module ExchangeApi
         raise NotImplementedError
       end
 
-      def fee(_symbol)
-        Result::Success.new('0.00')
+      def current_fee
+        0.1
       end
 
       private

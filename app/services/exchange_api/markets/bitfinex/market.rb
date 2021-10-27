@@ -46,19 +46,19 @@ module ExchangeApi
           ask = current_ask_price(symbol)
           return ask unless ask.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data * ask.data,
-            side: BASE,
-            fee: fee.data
+            side: BASE
           )
         end
 
-        def fee(symbol)
-          Result::Success.new('0.1')
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'Bitfinex').id
+          path = '/auth/r/summary'.freeze
+          url = PRIVATE_API_URL + path
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          JSON.parse(@caching_client.post(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil, path)).body)[4][0][0].to_f * 100
         end
 
         private

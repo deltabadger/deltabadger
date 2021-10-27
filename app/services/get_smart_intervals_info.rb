@@ -4,7 +4,7 @@ class GetSmartIntervalsInfo < BaseService
     exchange_market = ExchangeApi::Markets::Get.call(exchange_id)
     symbol = exchange_market.symbol(params.fetch(:base, params['base']),
                                     params.fetch(:quote, params['quote']))
-
+    byebug
     minimum_order_params = exchange_market.minimum_order_parameters(symbol)
     return minimum_order_params unless minimum_order_params.success?
 
@@ -16,7 +16,7 @@ class GetSmartIntervalsInfo < BaseService
       minimumQuote: get_minimum_quote_price(minimum_order_params.data).round(2),
       side: minimum_order_params.data[:side],
       showSmartIntervalsInfo: smart_intervals?(user, price, minimum_order_params.data, smart_intervals),
-      fee: minimum_order_params.data[:fee]
+      fee: FeesService.new.current_fee(exchange_id.to_i)
     )
   rescue StandardError
     Result::Failure.new

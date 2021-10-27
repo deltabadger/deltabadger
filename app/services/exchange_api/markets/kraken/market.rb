@@ -52,22 +52,18 @@ module ExchangeApi
           ask = current_ask_price(symbol)
           return ask unless ask.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data * ask.data,
-            side: BASE,
-            fee: fee.data
+            side: BASE
           )
         end
 
-        def fee(symbol)
-          symbol_info = fetch_symbol(symbol)
-          return symbol_info unless symbol_info.success?
+        def current_fee
+          symbol_info = fetch_symbol('XXBTZUSD')
+          raise StandardError unless symbol_info.success?
 
-          Result::Success.new(symbol_info.data['fees'][0][1])
+          symbol_info.data['fees'][0][1]
         end
 
         private
