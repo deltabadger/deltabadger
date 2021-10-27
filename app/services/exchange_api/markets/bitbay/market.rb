@@ -69,22 +69,19 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE,
-            fee: fee.data
+            side: QUOTE
           )
         end
 
-        def fee(symbol)
-          symbols = %w[BTC ETH USDC]
-          return Result::Success.new('0.0') if symbols.any? { |s|  symbol.include? s }
-
-          Result::Success.new('0.3')
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'BitBay').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = "/rest/trading/config/#{symbol('BTC', 'PLN')}"
+          response = JSON.parse(@caching_client.get(path, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil)).body)
+          response['config']['buy']['commissions']['maker'].to_f * 100
         end
 
         private

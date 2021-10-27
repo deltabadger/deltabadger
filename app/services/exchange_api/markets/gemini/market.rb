@@ -67,22 +67,28 @@ module ExchangeApi
           ask = current_ask_price(symbol)
           return ask unless ask.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data * ask.data,
-            side: BASE,
-            fee: fee.data
+            side: BASE
           )
         end
 
-        private
-
-        def fee(symbol)
-          Result::Success.new('0.1')
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'Gemini').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = '/v1/notionalvolume'.freeze
+          url = API_URL + path
+          request_params = {
+            request: path,
+            nonce: Time.now.strftime('%s%L')
+          }
+          body = request_params.to_json
+          response = Faraday.post(url, body, headers(fee_api_keys.key, fee_api_keys.secret, body)).body
+          JSON.parse(response)['api_maker_fee_bps'].to_f / 100
         end
+
+        private
 
         def fetch_symbol(symbol)
           request = @caching_client.get("/v1/symbols/details/#{symbol}")
