@@ -93,22 +93,22 @@ module ExchangeApi
           Result::Failure.new('Binance exchange info is unavailable', RECOVERABLE)
         end
 
-        def fee(symbol)
-          Result::Success.new('0.1')
+        def current_fee
+          exchange_id = Exchange.find_by(name: @base_client.url_prefix.to_s.include?('us') ? 'Binance.US' : 'Binance').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          client = signed_client(fee_api_keys.key, fee_api_keys.secret, @base_client.url_prefix.to_s)
+          response = JSON.parse(client.get('account').body)
+          response['makerCommission'] / 100.to_f
         end
 
         def minimum_order_parameters(symbol)
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE,
-            fee: fee.data
+            side: QUOTE
           )
         end
 

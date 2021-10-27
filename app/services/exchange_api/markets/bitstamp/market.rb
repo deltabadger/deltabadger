@@ -79,22 +79,22 @@ module ExchangeApi
           minimum = minimum_order_price(symbol)
           return minimum unless minimum.success?
 
-          fee = fee(symbol)
-          return fee unless fee.success?
-
           Result::Success.new(
             minimum: minimum.data,
             minimum_quote: minimum.data,
-            side: QUOTE,
-            fee: fee.data
+            side: QUOTE
           )
         end
 
-        private
-
-        def fee(symbol)
-          Result::Success.new('0.5')
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'Bitstamp').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = '/api/v2/balance/'
+          response = @caching_client.post(path, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil, path, 'POST', '')).body
+          JSON.parse(response)['btcusd_fee']
         end
+
+        private
 
         def fetch_symbols
           request = @caching_client.get('/api/v2/trading-pairs-info/')
