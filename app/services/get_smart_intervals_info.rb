@@ -4,7 +4,7 @@ class GetSmartIntervalsInfo < BaseService
     exchange_market = ExchangeApi::Markets::Get.call(exchange_id)
     symbol = exchange_market.symbol(params.fetch(:base, params['base']),
                                     params.fetch(:quote, params['quote']))
-    byebug
+
     minimum_order_params = exchange_market.minimum_order_parameters(symbol)
     return minimum_order_params unless minimum_order_params.success?
 

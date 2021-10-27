@@ -10,7 +10,6 @@ class FeesService
       markets_current_fee = exchange_market.current_fee
       table[exchange.id] = markets_current_fee.to_s
     rescue StandardError
-      byebug
       table[exchange.id] = ExchangeApi::Markets::BaseMarket.new.current_fee.to_s
     end
     redis_client.set(FEES_KEY, table.to_json)
