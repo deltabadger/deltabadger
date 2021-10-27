@@ -6,7 +6,7 @@ import { StartingButton, StopButton, RemoveButton, PendingButton } from './butto
 import { Timer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import { isNotEmpty } from '../utils/array';
-import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
+import {shouldRename, renameSymbol} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
 import { AddApiKey } from "./BotForm/AddApiKey";
 import { removeInvalidApiKeys, splitTranslation } from "./helpers";
@@ -47,7 +47,6 @@ const BotTemplate = ({
 }) => {
   const { id, settings, status, exchangeName, exchangeId, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  console.log(bot)
   const [threshold, setThreshold] = useState(settings.threshold);
   const [thresholdEnabled, setThresholdEnabled] = useState(settings.threshold_enabled);
   const [interval, setInterval] = useState(settings.interval);
@@ -125,18 +124,16 @@ const BotTemplate = ({
     })
   }
 
-  console.log(nextTransactionTimestamp)
-
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
-          {isStarting && <StartingButton/>}
+          { isStarting && <StartingButton/> }
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
           {(!isStarting && !working && !pending) &&
             <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
-              <span className="d-none d-sm-inline">Start</span>
+              <span className="d-none d-sm-inline">{I18n.t('bots.start')}</span>
               <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
             </div>
           }
@@ -161,6 +158,7 @@ const BotTemplate = ({
           handleRemove={() => removeInvalidApiKeys(exchangeId)}
           status={apiKeysState}
           botView={{currencyName}}
+          type={'withdrawal'}
         />
       }
 
@@ -168,7 +166,8 @@ const BotTemplate = ({
         <div className="db-bot__form">
           <form>
             <div className="form-inline db-bot__form__schedule">
-              <div className="form-group mr-2">Withdraw {currencyName} to {settings.address} wallet</div>
+              <div className="form-group mr-2">{I18n.t('bots.setup.withdrawal_html',
+                {currency: currencyName, address: settings.address}).replaceAll(/<\/?split>/g, '')}</div>
             </div>
 
             <label
@@ -182,7 +181,7 @@ const BotTemplate = ({
                 disabled={working}
               />
               <div>
-                <RawHTML tag="span">Withdraw when at least </RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[0]}</RawHTML>
                 <input
                   type="text"
                   size={(threshold.length > 0) ? threshold.length : 3 }
@@ -191,7 +190,7 @@ const BotTemplate = ({
                   onChange={e => setThreshold(e.target.value)}
                   disabled={working}
                 />
-                <RawHTML tag="span">{` ${currencyName} is available`}</RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
               </div>
             </label>
 
@@ -206,7 +205,7 @@ const BotTemplate = ({
                 disabled={working}
               />
               <div>
-                <RawHTML tag="span">Withdraw every </RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_interval_html'))[0]}</RawHTML>
                 <input
                   type="text"
                   size={(interval.length > 0) ? interval.length : 3 }
@@ -215,7 +214,7 @@ const BotTemplate = ({
                   onChange={e => setInterval(e.target.value)}
                   disabled={working}
                 />
-                <RawHTML tag="span"> days.</RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_interval_html'))[1]}</RawHTML>
               </div>
             </label>
           </form>

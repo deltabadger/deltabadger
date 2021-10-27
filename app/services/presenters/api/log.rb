@@ -2,6 +2,7 @@ module Presenters
   module Api
     class Log < BaseService
       PRICE_RANGE_VIOLATION_MESSAGE = 'Trigger price not met'.freeze
+      WITHDRAWAL_TO_SMALL_AMOUNT_MESSAGE = 'Amount to small to withdraw'.freeze
 
       def call(transaction)
         {
@@ -25,9 +26,13 @@ module Presenters
       end
 
       def errors(transaction)
-        return [PRICE_RANGE_VIOLATION_MESSAGE] if transaction.skipped?
+        return [get_skipped_message(transaction)] if transaction.skipped?
 
         transaction.error_messages
+      end
+
+      def get_skipped_message(transaction)
+        transaction.transaction_type == 'WITHDRAWAL' ? WITHDRAWAL_TO_SMALL_AMOUNT_MESSAGE : PRICE_RANGE_VIOLATION_MESSAGE
       end
     end
   end

@@ -97,10 +97,9 @@ export const BotForm = ({
     }
   }, [currentBot])
 
-  const closedFormHandler = (type) => {
+  const closedFormHandler = () => {
     setPage(1)
     setStep(1)
-    setType(type)
     callbackAfterOpening()
   }
 
@@ -120,8 +119,11 @@ export const BotForm = ({
       return
     }
 
-    exchanges[idx].invalid = false
-    exchanges[idx].pending = true
+    if (type === 'trading') {
+      exchanges[idx].trading_key_status = 'pending'
+    } else {
+      exchanges[idx].withdrawal_key_status = 'pending'
+    }
   }
 
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement, type) => {
@@ -216,6 +218,7 @@ export const BotForm = ({
           }}
           handleSubmit={pickExchangeHandler}
           exchanges={exchanges}
+          type={type}
         />
       case 'add_api_key':
         clearTimeout(apiKeyTimeout)

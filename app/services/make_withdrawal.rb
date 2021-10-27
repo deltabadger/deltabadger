@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/ClassLength
 class MakeWithdrawal < BaseService
   def initialize(
     exchange_withdrawal_processor: ExchangeApi::WithdrawalProcessors::Get.new,
@@ -24,7 +23,6 @@ class MakeWithdrawal < BaseService
 
   SKIPPED = { data: { skipped: true }.freeze }.freeze
 
-  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
@@ -43,13 +41,11 @@ class MakeWithdrawal < BaseService
       @order_flow_helper.stop_bot(bot, true, result.errors)
     end
     result
-  rescue StandardError => e
+  rescue StandardError
     @unschedule_transactions.call(bot)
     @order_flow_helper.stop_bot(bot, true)
     raise
   end
-
-  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 
@@ -113,4 +109,3 @@ class MakeWithdrawal < BaseService
     result.data&.dig(:recoverable) == true
   end
 end
-# rubocop:enable Metrics/ClassLength

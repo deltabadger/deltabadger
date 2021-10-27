@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize(
     exchange_trader: ExchangeApi::Traders::Get.new,
@@ -142,4 +141,3 @@ class MakeTransaction < BaseService
     }
   end
 end
-# rubocop:enable Metrics/ClassLength

@@ -20,6 +20,10 @@ module ExchangeApi
           Result::Success.new(8)
         end
 
+        def quote_decimals(_symbol)
+          Result::Success.new(8)
+        end
+
         def minimum_order_parameters(_symbol)
           if SUCCESS
             Result::Success.new(
