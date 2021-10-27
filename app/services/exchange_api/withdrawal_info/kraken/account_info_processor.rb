@@ -40,7 +40,7 @@ module ExchangeApi
           response = @client.balance
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
-          data = response.fetch('result').select { |s, _data| s.include? currency }.map { |_s, data| data }
+          data = response.fetch('result').select { |s, _data| s.include? currency }.map { |_s, d| d }
           Result::Success.new(data[0].present? ? data[0].to_f : 0.0)
         rescue StandardError => e
           Raven.capture_exception(e)
