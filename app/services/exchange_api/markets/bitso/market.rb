@@ -66,6 +66,13 @@ module ExchangeApi
           )
         end
 
+        def current_fee
+          symbol_info = fetch_book(symbol('BTC', 'USD'))
+          raise StandardError unless symbol_info.success?
+
+          symbol_info.data['fees']['flat_rate']['maker']
+        end
+
         private
 
         def fetch_books

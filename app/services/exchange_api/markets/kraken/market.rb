@@ -1,3 +1,5 @@
+require 'result'
+
 module ExchangeApi
   module Markets
     module Kraken
@@ -55,6 +57,13 @@ module ExchangeApi
             minimum_quote: minimum.data * ask.data,
             side: BASE
           )
+        end
+
+        def current_fee
+          symbol_info = fetch_symbol('XXBTZUSD')
+          raise StandardError unless symbol_info.success?
+
+          symbol_info.data['fees'][0][1]
         end
 
         private
