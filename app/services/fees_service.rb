@@ -17,7 +17,7 @@ class FeesService
 
   def current_fee(exchange_id)
     redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
-    update_fees if redis_client.get(FEES_KEY).null?
+    update_fees if redis_client.get(FEES_KEY).nil?
     JSON.parse(redis_client.get(FEES_KEY))[exchange_id]
   rescue StandardError
     ExchangeApi::Markets::BaseMarket.new.current_fee
