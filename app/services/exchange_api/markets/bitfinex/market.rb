@@ -53,6 +53,14 @@ module ExchangeApi
           )
         end
 
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'Bitfinex').id
+          path = '/auth/r/summary'.freeze
+          url = PRIVATE_API_URL + path
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          JSON.parse(@caching_client.post(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil, path)).body)[4][0][0].to_f * 100
+        end
+
         private
 
         def fetch_symbols

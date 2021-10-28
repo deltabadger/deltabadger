@@ -111,6 +111,13 @@ module ExchangeApi
           Result::Failure.new('Could not fetch current price from Probit', RECOVERABLE)
         end
 
+        def current_fee
+          symbol_info = fetch_book(symbol('BTC', 'USDT'))
+          return symbol_info unless symbol_info.success?
+
+          symbol_info.data['maker_fee_rate']
+        end
+
         private
 
         def characters_after_comma(number)
