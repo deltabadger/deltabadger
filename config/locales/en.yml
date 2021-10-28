@@ -574,6 +574,8 @@ en:
             pending:
                 text: Pending
                 info_html: Processing...
+            automatic_withdrawal: Automatic Withdrawal
+            dollar_cost_averaging: Dollar-Cost Averaging
         details:
             stats:
                 title: Statistics

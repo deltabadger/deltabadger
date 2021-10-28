@@ -1,5 +1,5 @@
 import React from 'react'
-import { ExchangeButton } from '../buttons'
+import I18n from 'i18n-js'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
@@ -16,13 +16,13 @@ export const PickBotType = ({ handleSubmit }) => {
           className="db-bot__types__item db-bot__types__item--dca"
           onClick={() => handleSubmit('trading')}
         >
-          Dollar-Cost Averaging
+          {I18n.t('bots.buttons.dollar_cost_averaging')}
         </div>
         <div
           className="db-bot__types__item db-bot__types__item--aw"
           onClick={() => handleSubmit('withdrawal')}
         >
-          Automatic Withdrawal
+          {I18n.t('bots.buttons.automatic_withdrawal')}
         </div>
       </div>
     </div>
