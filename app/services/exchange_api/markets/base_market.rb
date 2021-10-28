@@ -57,6 +57,10 @@ module ExchangeApi
         raise NotImplementedError
       end
 
+      def current_fee
+        0.1
+      end
+
       private
 
       def current_bid_ask_price(_symbol)

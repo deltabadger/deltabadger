@@ -76,6 +76,14 @@ module ExchangeApi
           )
         end
 
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'BitBay').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = "/rest/trading/config/#{symbol('BTC', 'PLN')}"
+          response = JSON.parse(@caching_client.get(path, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil)).body)
+          response['config']['buy']['commissions']['maker'].to_f * 100
+        end
+
         private
 
         def fetch_symbol(symbol)

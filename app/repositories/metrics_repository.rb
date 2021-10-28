@@ -15,6 +15,7 @@ class MetricsRepository < BaseRepository
       profitBots12MothsAgo: profitable_bots_repository.profitable_bots_data(Time.now - 12.month)
     }.merge(telegram_metrics)
     redis_client.set(METRICS_KEY, output_params.to_json)
+    FeesService.new.update_fees
   end
 
   def metrics_data
