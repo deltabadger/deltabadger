@@ -86,6 +86,14 @@ module ExchangeApi
           )
         end
 
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'Bitstamp').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = '/api/v2/balance/'
+          response = @caching_client.post(path, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil, path, 'POST', '')).body
+          JSON.parse(response)['btcusd_fee']
+        end
+
         private
 
         def fetch_symbols

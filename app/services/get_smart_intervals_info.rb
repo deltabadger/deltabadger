@@ -15,7 +15,8 @@ class GetSmartIntervalsInfo < BaseService
       minimum_limit: minimum_order_params.data.fetch(:minimum_limit, nil),
       minimumQuote: get_minimum_quote_price(minimum_order_params.data).round(2),
       side: minimum_order_params.data[:side],
-      showSmartIntervalsInfo: smart_intervals?(user, price, minimum_order_params.data, smart_intervals)
+      showSmartIntervalsInfo: smart_intervals?(user, price, minimum_order_params.data, smart_intervals),
+      fee: FeesService.new.current_fee(exchange_id.to_i)
     )
   rescue StandardError
     Result::Failure.new
