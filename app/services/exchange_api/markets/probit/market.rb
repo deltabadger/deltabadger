@@ -115,7 +115,7 @@ module ExchangeApi
           symbol_info = fetch_book(symbol('BTC', 'USDT'))
           return symbol_info unless symbol_info.success?
 
-          Result::Success.new(symbol_info.data['maker_fee_rate'])
+          symbol_info.data['maker_fee_rate']
         end
 
         private
