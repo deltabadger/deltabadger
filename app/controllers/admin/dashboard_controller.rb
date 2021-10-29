@@ -12,7 +12,7 @@ class Admin::DashboardController < Admin::ApplicationController
       #btc_amount_bought: TransactionsRepository.new.total_btc_bought,
       #btc_amount_sold: TransactionsRepository.new.total_btc_sold,
       transations_by_exchange: transations_by_exchange,
-      payments_statistics: CalculateSalesStatistics.new.call
+      #payments_statistics: CalculateSalesStatistics.new.call
     }
   end
 
