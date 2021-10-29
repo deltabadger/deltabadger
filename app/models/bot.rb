@@ -11,67 +11,67 @@ class Bot < ApplicationRecord
   enum bot_type: [*TYPES]
 
   def base
-    settings.fetch('base', nil)
+    settings['base']
   end
 
   def quote
-    settings.fetch('quote', nil)
+    settings['quote']
   end
 
   def price
-    settings.fetch('price', nil)
+    settings['price']
   end
 
   def percentage
-    settings.fetch('percentage', nil)
+    settings['percentage']
   end
 
   def interval
-    settings.fetch('interval', nil)
+    settings['interval']
   end
 
   def interval_enabled
-    settings.fetch('interval_enabled', nil)
+    settings['interval_enabled']
   end
 
   def type
-    settings.fetch('type', nil)
+    settings['type']
   end
 
   def order_type
-    settings.fetch('order_type', nil)
+    settings['order_type']
   end
 
   def force_smart_intervals
-    settings.fetch('force_smart_intervals', false)
+    settings['force_smart_intervals']
   end
 
   def smart_intervals_value
-    settings.fetch('smart_intervals_value', nil)
+    settings['smart_intervals_value']
   end
 
   def price_range_enabled
-    settings.fetch('price_range_enabled', nil)
+    settings['price_range_enabled']
   end
 
   def price_range
-    settings.fetch('price_range', nil)
+    settings['price_range']
   end
 
   def currency
-    settings.fetch('currency', nil)
+    settings['currency']
   end
 
   def threshold
-    settings.fetch('threshold', nil)
+    settings['threshold']
   end
 
   def threshold_enabled
-    settings.fetch('threshold_enabled', nil)
+    settings['threshold_enabled']
   end
 
   def address
-    settings.fetch('address', nil)
+    settings['address']
   end
 
   def trading?
