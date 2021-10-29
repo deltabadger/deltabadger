@@ -85,6 +85,15 @@ module ExchangeApi
           Result::Success.new(response.data['limit_only'])
         end
 
+        def current_fee
+          exchange_id = Exchange.find_by(name: 'Coinbase Pro').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = '/fees'.freeze
+          url = API_URL + path
+          response = @caching_client.get(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, fee_api_keys.passphrase, '', path, 'GET')).body
+          JSON.parse(response)['maker_fee_rate'].to_f * 100
+        end
+
         private
 
         def fetch_symbol(symbol)

@@ -38,6 +38,8 @@ module ExchangeApi
           bitfinex_client(api_key, order_type)
         when 'bitstamp'
           bitstamp_client(api_key, order_type)
+        when 'probit global'
+          probit_client(api_key, order_type)
         when 'probit'
           probit_client(api_key, order_type)
         end

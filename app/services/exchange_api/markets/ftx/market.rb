@@ -82,6 +82,17 @@ module ExchangeApi
           )
         end
 
+        def current_fee
+          url_base = @base_client.url_prefix.to_s
+          exchange_id = Exchange.find_by(name: url_base.include?('us') ? 'FTX.US' : 'FTX').id
+          fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
+          path = '/api/account'.freeze
+          url = url_base[0...-1] + path
+          headers = get_headers(url, fee_api_keys.key, fee_api_keys.secret, '', path, 'GET')
+          response = Faraday.get(url, nil, headers).body
+          JSON.parse(response)['result']['makerFee'].to_f * 100
+        end
+
         private
 
         def fetch_symbol(symbol, cached = true)
