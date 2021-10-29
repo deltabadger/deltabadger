@@ -1,4 +1,5 @@
 require 'result'
+require 'csv'
 
 module ExchangeApi
   module WithdrawalInfo
@@ -10,14 +11,26 @@ module ExchangeApi
           api_key:,
           api_secret:,
           market: ExchangeApi::Markets::Kraken::Market.new,
-          map_errors: ExchangeApi::MapErrors::Kraken.new,
-          options: {}
+          map_errors: ExchangeApi::MapErrors::Kraken.new
         )
           @client = get_base_client(api_key, api_secret)
           @caching_client = get_caching_client(api_key, api_secret)
           @market = market
           @map_errors = map_errors
-          @options = options
+        end
+
+        def withdrawal_minimum(currency)
+          data = fetch_minimum_fee_data(currency)
+          return Result::Failure.new('Kraken withdrawal minimum not found on list') unless data.present?
+
+          Result::Success.new(data['Minimum'].to_f)
+        end
+
+        def withdrawal_fee(currency)
+          data = fetch_minimum_fee_data(currency)
+          return Result::Failure.new('Kraken withdrawal fee not found on list') unless data.present?
+
+          Result::Success.new(data['Fee'].to_f)
         end
 
         def withdrawal_currencies
@@ -45,6 +58,14 @@ module ExchangeApi
         rescue StandardError => e
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Kraken', RECOVERABLE)
+        end
+
+        private
+
+        def fetch_minimum_fee_data(currency)
+          csv_text = File.read(File.expand_path('../kraken_minimums_and_fees.csv', __FILE__))
+          minimums_fees_csv = CSV.parse(csv_text, :headers => true)
+          minimums_fees_csv.each.find { |row| row['Asset'] == currency }
         end
       end
     end
