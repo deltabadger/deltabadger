@@ -60,7 +60,12 @@ export const exchanges = {
     translation_key: 'bitstamp'
   },
   'probit': {
-    name: 'Probit',
+    name: 'Probit Global',
+    url: 'https://www.probit.com/',
+    translation_key: 'probit'
+  },
+  'probit global': {
+    name: 'Probit Global',
     url: 'https://www.probit.com/',
     translation_key: 'probit'
   }

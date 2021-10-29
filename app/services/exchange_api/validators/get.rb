@@ -44,6 +44,8 @@ module ExchangeApi
           Bitfinex::Validator.new
         when 'bitstamp'
           Bitstamp::Validator.new
+        when 'probit global'
+          Probit::Validator.new
         when 'probit'
           Probit::Validator.new
         end

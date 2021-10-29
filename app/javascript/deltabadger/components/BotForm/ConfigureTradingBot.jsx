@@ -223,6 +223,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
 
       setMinimumOrderParams(getMinimumOrderParams(data))
+      setPercentage(data.data.fee)
       setSmartIntervalsValue(minimum.toString())
       setCurrencyOfMinimum(currency)
     }
