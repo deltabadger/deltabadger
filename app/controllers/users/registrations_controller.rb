@@ -17,7 +17,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def create
     affiliate = find_affiliate(code)
-    params[:user][:referrer_id] = affiliate&.id
+    # params[:user][:referrer_id] = affiliate&.id
 
     super do |user|
       session.delete(:code) if user.persisted?
@@ -28,6 +28,10 @@ class Users::RegistrationsController < Devise::RegistrationsController
           @affiliate = find_affiliate(code)
           session.delete(:code) if @affiliate.nil?
         end
+      end
+
+      if affiliate.present?
+        user.update!(referrer_id: affiliate.id)
       end
 
       set_email_in_use
