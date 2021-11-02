@@ -4,10 +4,10 @@ class AffiliatesRepository < BaseRepository
   end
 
   def find_active_by_code(code)
-    return unless code
+    return nil unless code
 
     affiliate = find_affiliate(code.upcase)
-    return unless affiliate&.user.present?
+    return nil unless affiliate&.user.present?
 
     affiliate
   end
