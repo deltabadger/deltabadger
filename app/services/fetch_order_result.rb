@@ -86,7 +86,7 @@ class FetchOrderResult < BaseService
   end
 
   def probit?(bot)
-    bot.exchange.name == 'Probit' || bot.exchange.name == 'Probit Global'
+    bot.exchange.name == 'Probit' || bot.exchange.name == 'Probit Global' || bot.exchange.name == 'ProBit Global'
   end
 
   def fetched?(result)
