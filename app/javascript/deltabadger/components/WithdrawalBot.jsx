@@ -19,6 +19,7 @@ import {
   clearErrors,
   fetchRestartParams,
   getSmartIntervalsInfo,
+  getWithdrawalMinimums,
   editWithdrawalBot
 } from '../bot_actions'
 import API from "../lib/API";
@@ -43,7 +44,8 @@ const BotTemplate = ({
   open,
   fetchExchanges,
   exchanges,
-  apiKeyTimeout
+  apiKeyTimeout,
+  getMinimums
 }) => {
   const { id, settings, status, exchangeName, exchangeId, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
@@ -51,6 +53,7 @@ const BotTemplate = ({
   const [thresholdEnabled, setThresholdEnabled] = useState(settings.threshold_enabled);
   const [interval, setInterval] = useState(settings.interval);
   const [intervalEnabled, setIntervalEnabled] = useState(settings.interval_enabled);
+  const [minimum, setMinimum] = useState("0")
   const [apiKeyExists, setApiKeyExists] = useState(true);
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
@@ -94,7 +97,7 @@ const BotTemplate = ({
   const keyExists = () => {
     // we have to assume that the key exists to fix unnecessary form rendering
     const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true}
-    const keyStatus = exchange.trading_key_status
+    const keyStatus = exchange.withdrawal_key_status
     setApiKeyExists(keyOwned(keyStatus))
 
     if (keyOwned(keyStatus)) {
@@ -123,6 +126,15 @@ const BotTemplate = ({
       setApiKeysState(apiKeyStatus["INVALID"])
     })
   }
+  useEffect( () => {
+    async function fetchMinimums () {
+      const minimums = await getMinimums(exchangeId, settings.currency)
+      setMinimum(minimums.minimum.toString())
+    }
+
+    fetchMinimums()
+  }, [])
+
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
@@ -191,6 +203,12 @@ const BotTemplate = ({
                   disabled={working}
                 />
                 <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
+
+                <small className="hide-when-running hide-when-disabled">
+                  <div>
+                    <sup>*</sup>{I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum})}
+                  </div>
+                </small>
               </div>
             </label>
 
@@ -240,6 +258,7 @@ const mapDispatchToProps = ({
   fetchMinimums: getSmartIntervalsInfo,
   handleClick: openBot,
   clearBotErrors: clearErrors,
-  fetchRestartParams: fetchRestartParams
+  fetchRestartParams: fetchRestartParams,
+  getMinimums: getWithdrawalMinimums
 })
 export const WithdrawalBot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
