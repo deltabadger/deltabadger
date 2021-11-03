@@ -159,6 +159,12 @@ export const BotForm = ({
     API.setShowSmartIntervalsInfo().then(data => data)
   }
 
+  const getWithdrawalMinimums = (exchangeId, currency) => {
+    return API.getWithdrawalMinimums(exchangeId, currency)
+      .then(data => data.data)
+      .catch(() => { return { minimum: 0.0 }})
+  }
+
   const configureTradingBotHandler = (botParams) => {
     const typeParams = getOfferTypeParams(botParams.type)
     const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
@@ -265,6 +271,7 @@ export const BotForm = ({
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureWithdrawalBotHandler}
+          getMinimums={getWithdrawalMinimums}
           disable={isCreatingBot}
           errors={errors}
         />

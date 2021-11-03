@@ -85,6 +85,16 @@ module Api
       end
     end
 
+    def withdrawal_minimums
+      result = GetWithdrawalMinimums.call(params, current_user)
+
+      if result.success?
+        render json: result, status: 200
+      else
+        render json: { errors: result.errors }, status: 422
+      end
+    end
+
     def frequency_limit_exceeded
       limit_exceeded = CheckExceededFrequency.call(params)
       render json: limit_exceeded.to_json

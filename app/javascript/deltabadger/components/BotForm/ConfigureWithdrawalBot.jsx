@@ -5,7 +5,7 @@ import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename} from "../
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
 
-export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSubmit, disable, errors }) => {
+export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSubmit, getMinimums, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
 
   const compareSymbols = (x, y) => {
@@ -33,7 +33,10 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
   const [thresholdEnabled, setThresholdEnabled] = useState(true);
   const [interval, setInterval] = useState("0");
   const [intervalEnabled, setIntervalEnabled] = useState(false);
+  const [minimum, setMinimum] = useState("0")
   const node = useRef()
+
+  const currencyName = shouldRename(currentExchange.name) ? renameSymbol(currency) : currency
 
   const ResetButton = () => (
     <div
@@ -67,6 +70,13 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
   useEffect( () => {
     filterAddressesForCurrency()
+    async function fetchMinimums () {
+      const minimums = await getMinimums(currentExchange.id, currency)
+      setMinimum(minimums.minimum.toString())
+      setThreshold(minimums.minimum.toString())
+    }
+
+    fetchMinimums()
   }, [currency,])
 
   useEffect(() => {
@@ -92,7 +102,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
     return botParams
   }
 
-  const _handleSubmit = (evt, smartIntervalsValue) => {
+  const _handleSubmit = (evt) => {
     evt.preventDefault();
     const botParams = getBotParams()
     !disableSubmit && handleSubmit(botParams);
@@ -120,7 +130,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
           <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currency, address: address}))[0]}</div>
+            <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
             <div className="form-group mr-2">
               <select
                 value={currency}
@@ -136,7 +146,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
             </div>
             { existsAddress() &&
               <>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currency, address: address}))[1]}</div>
+                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                 <div className="form-group mr-2">
                   <select
                     value={address}
@@ -150,7 +160,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     }
                   </select>
                 </div>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currency, address: address}))[2]}</div>
+                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
             { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
@@ -158,7 +168,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
             }
             { currentExchange.name.toLowerCase() === 'kraken' &&
               <>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currency, address: address}))[1]}</div>
+                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                 <div className="form-group mr-3">
                   <input
                     type="text"
@@ -168,7 +178,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     className="bot-input bot-input--sizable bot-input--paper-bg"
                   />
                 </div>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currency, address: address}))[2]}</div>
+                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
           </div>
@@ -183,7 +193,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
               onChange={() => setThresholdEnabled(!thresholdEnabled)}
             />
             <div>
-            <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currency}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[0]}</RawHTML>
               <input
                 type="text"
                 size={(threshold.length > 0) ? threshold.length : 3 }
@@ -191,7 +201,13 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                 value={threshold}
                 onChange={e => setThreshold(e.target.value)}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currency}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
+
+              <small className="hide-when-running hide-when-disabled">
+                <div>
+                  <sup>*</sup>{I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum})}
+                </div>
+              </small>
             </div>
           </label>
 

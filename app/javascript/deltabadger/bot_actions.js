@@ -99,6 +99,12 @@ export const getSmartIntervalsInfo = (botParams) => dispatch => {
   })
 }
 
+export const getWithdrawalMinimums = (exchangeId, currency) => dispatch => {
+  return API.getWithdrawalMinimums(exchangeId, currency)
+    .then(data => data.data)
+    .catch(() => { return { minimum: 0.0 }})
+}
+
 export const setShowSmartIntervalsInfo = () => {
   API.setShowSmartIntervalsInfo().then(data => data)
 
