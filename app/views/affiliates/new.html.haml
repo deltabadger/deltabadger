@@ -12,10 +12,9 @@
           = render "layouts/svg_copy_to_clipboard"
           :javascript
               function copyText() {
-                var copyText = document.getElementById("referralLink");
-                copyText.focus();
-                copyText.select();
-                copyText.setSelectionRange(0, 99999);
+                var refLink = document.getElementById("referralLink");
+                refLink.focus();
+                refLink.select();
                 try{
                   navigator.clipboard.writeText(copyText.value);
                 }catch(err){
