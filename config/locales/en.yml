@@ -619,6 +619,7 @@ en:
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
+        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
     activerecord:
         errors:
             models:

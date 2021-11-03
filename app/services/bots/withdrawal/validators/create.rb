@@ -1,7 +1,7 @@
 module Bots::Withdrawal::Validators
   class Create < BaseService
     def call(bot, user)
-      bot_settings = BotSettings.new(bot.settings, user)
+      bot_settings = BotSettings.new(bot.settings, user, bot)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -22,8 +22,9 @@ module Bots::Withdrawal::Validators
       validates :interval_enabled, inclusion: { in: [true, false] }
       validate :validate_threshold
       validate :validate_interval
+      validate :threshold_above_minimum
 
-      def initialize(params, user)
+      def initialize(params, user, bot)
         @interval = params['interval']
         @currency = params['currency']
         @threshold = params['threshold']
@@ -32,6 +33,7 @@ module Bots::Withdrawal::Validators
         @interval_enabled = params['interval_enabled']
         @hodler = user.subscription_name == 'hodler'
         @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
+        @minimums = GetWithdrawalMinimums.call({ exchange_id: bot.exchange_id }, user)
       end
 
       private
@@ -46,6 +48,14 @@ module Bots::Withdrawal::Validators
         return if !@interval_enabled || @interval.to_f.positive?
 
         errors.add(:interval, ' cannot be negative')
+      end
+
+      def threshold_above_minimum
+        return if !@threshold_enabled || !@minimums.success?
+
+        return if @threshold.to_f >= @minimums.data[:minimum].to_f
+
+        errors.add(:threshold, " should be greater than #{@minimums.data[:minimum]}")
       end
     end
   end
