@@ -21,10 +21,10 @@ export const Timer = ({bot, callback}) => {
   let i = 0;
   const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp))
   const timeout = delay < 0
 
-  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
+  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
     if(timeout && i == 0) {
       if (bot) {
