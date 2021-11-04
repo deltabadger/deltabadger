@@ -17,12 +17,12 @@ const calculateInterval = (delay) => {
 
 export const PercentageProgress = ({bot, callback}) => {
   let i = 0;
-  const { status, nextTransactionTimestamp, nowTimestamp, progressPercentage } = bot || {stats: {}, transactions: [], logs: []}
+  const { nextTransactionTimestamp, nowTimestamp, progressPercentage } = bot || {stats: {}, transactions: [], logs: []}
 
-  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp))
   const timeout = delay < 0
 
-  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
+  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
     if(timeout && i === 0) {
       if (bot) {
