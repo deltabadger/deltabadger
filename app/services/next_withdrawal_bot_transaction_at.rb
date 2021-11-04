@@ -3,6 +3,9 @@ class NextWithdrawalBotTransactionAt < BaseService
     return DateTime.now if first_transaction
 
     interval = bot.interval_enabled ? bot.interval.to_f * 1.day : 1.day
-    interval.since(bot.last_withdrawal.created_at)
+    last_withdrawal = bot.last_withdrawal
+    return 5.seconds.since(DateTime.now) unless last_withdrawal.present?
+
+    interval.since(last_withdrawal.created_at)
   end
 end

@@ -4,6 +4,7 @@ import {Progressbar} from './Progressbar'
 import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
+import {WithdrawalAddressInstructions} from "./WithdrawalAddressInstructions";
 
 export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSubmit, getMinimums, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
@@ -234,6 +235,10 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
           </label>
         </form>
       </div>
+
+      { currentExchange.name === 'Kraken' &&
+        <WithdrawalAddressInstructions exchangeName={currentExchange.name} type={'withdrawal'}/>
+      }
 
       <div className="db-bot__footer">
         <ResetButton />

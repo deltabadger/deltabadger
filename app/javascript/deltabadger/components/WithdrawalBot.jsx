@@ -133,7 +133,7 @@ const BotTemplate = ({
     }
 
     fetchMinimums()
-  }, [])
+  }, [apiKeyExists,])
 
 
   return (
