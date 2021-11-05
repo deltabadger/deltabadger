@@ -1,6 +1,5 @@
 import React from 'react'
 import I18n from 'i18n-js'
-import { splitTranslation } from "../helpers";
 
 export const ClosedForm = ({ handleSubmit }) => (
   <div className="db-bots__item d-flex db-add-more-bots">
