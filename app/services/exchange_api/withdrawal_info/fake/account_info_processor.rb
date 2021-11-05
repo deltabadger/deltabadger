@@ -32,7 +32,7 @@ module ExchangeApi
           Result::Success.new(AVAILABLE_WALLET_ADDRESSES)
         end
 
-        def available_funds(_currency)
+        def available_funds(_bot)
           Result::Success.new(@available_funds)
         end
 

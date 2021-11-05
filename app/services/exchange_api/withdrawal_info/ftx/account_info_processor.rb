@@ -54,7 +54,8 @@ module ExchangeApi
           Result::Failure.new('Could not fetch wallets from Ftx', RECOVERABLE)
         end
 
-        def available_funds(currency)
+        def available_funds(bot)
+          currency = bot.currency
           path = '/api/wallet/all_balances'.freeze
           url = @url_base + path
           headers = get_headers(url, @api_key, @api_secret, '', path, 'GET')
