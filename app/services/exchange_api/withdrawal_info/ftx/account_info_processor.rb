@@ -10,13 +10,11 @@ module ExchangeApi
           api_key:,
           api_secret:,
           url_base:,
-          market: ExchangeApi::Markets::Ftx::Market,
           map_errors: ExchangeApi::MapErrors::Ftx.new
         )
           @api_key = api_key
           @api_secret = api_secret
           @url_base = url_base
-          @market = market.new(url_base: url_base)
           @base_client = base_client(url_base)
           @map_errors = map_errors
         end
