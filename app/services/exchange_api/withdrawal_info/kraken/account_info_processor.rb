@@ -10,12 +10,10 @@ module ExchangeApi
         def initialize(
           api_key:,
           api_secret:,
-          market: ExchangeApi::Markets::Kraken::Market.new,
           map_errors: ExchangeApi::MapErrors::Kraken.new
         )
           @client = get_base_client(api_key, api_secret)
           @caching_client = get_caching_client(api_key, api_secret)
-          @market = market
           @map_errors = map_errors
         end
 
