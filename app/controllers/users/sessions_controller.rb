@@ -1,4 +1,6 @@
 class Users::SessionsController < Devise::SessionsController
+  prepend_before_action :check_captcha, only: [:create]
+
   def create
     self.resource = warden.authenticate!(auth_options)
 
@@ -38,5 +40,13 @@ class Users::SessionsController < Devise::SessionsController
     resource.errors.add(field, :invalid)
     @error_message = error_message
     respond_with resource, location: new_user_session_path
+  end
+
+  def check_captcha
+    return if verify_recaptcha
+
+    self.resource = resource_class.new sign_in_params
+    resource.validate
+    respond_with_navigational(resource) { render :new }
   end
 end
