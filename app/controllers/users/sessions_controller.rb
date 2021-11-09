@@ -45,8 +45,7 @@ class Users::SessionsController < Devise::SessionsController
   def check_captcha
     return if verify_recaptcha
 
-    self.resource = resource_class.new sign_in_params
-    resource.validate
+    self.resource = resource_class.new
     respond_with_navigational(resource) { render :new }
   end
 end
