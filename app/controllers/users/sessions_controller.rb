@@ -1,5 +1,5 @@
 class Users::SessionsController < Devise::SessionsController
-  prepend_before_action :check_captcha, only: [:create, :password]
+  prepend_before_action :check_captcha, only: [:create]
 
   def create
     self.resource = warden.authenticate!(auth_options)
