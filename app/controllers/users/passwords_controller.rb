@@ -1,4 +1,13 @@
 class Users::PasswordsController < Devise::PasswordsController
+  prepend_before_action :check_captcha, only: [:create]
+
+  def check_captcha
+    return if verify_recaptcha
+
+    self.resource = resource_class.new
+    respond_with_navigational(resource) { render :new }
+  end
+
   def update
     self.resource = resource_class.with_reset_password_token(resource_params[:reset_password_token])
     return super if resource&.otp_module_disabled?
