@@ -2,6 +2,7 @@ class Users::SessionsController < Devise::SessionsController
   prepend_before_action :check_captcha, only: [:create]
 
   def create
+    params[:user][:password] = trim_long_password(params[:user][:password])
     self.resource = warden.authenticate!(auth_options)
 
     if resource&.otp_module_disabled?
@@ -45,5 +46,9 @@ class Users::SessionsController < Devise::SessionsController
 
     self.resource = resource_class.new
     respond_with_navigational(resource) { render :new }
+  end
+
+  def trim_long_password(password)
+    password[0...Devise.password_length.max]
   end
 end
