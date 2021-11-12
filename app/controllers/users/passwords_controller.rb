@@ -1,6 +1,13 @@
 class Users::PasswordsController < Devise::PasswordsController
   prepend_before_action :check_captcha, only: [:create]
 
+  def edit
+    self.resource = resource_class.with_reset_password_token(params[:reset_password_token])
+    @two_fa_enabled = resource&.otp_module_enabled?
+
+    super
+  end
+
   def check_captcha
     return if verify_recaptcha
 
