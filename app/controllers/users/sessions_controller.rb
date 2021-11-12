@@ -50,7 +50,7 @@ class Users::SessionsController < Devise::SessionsController
 
   def trim_long_password(password)
     password_max_length = Devise.password_length.max
-    return password unless  password.length > password_max_length
+    return password unless password.length > password_max_length
 
     password[0...password_max_length]
   end
