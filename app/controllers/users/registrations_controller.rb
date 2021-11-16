@@ -31,7 +31,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
       end
 
       if affiliate.present?
-        user.update!(referrer_id: affiliate.id)
+        user.update(referrer_id: affiliate.id)
       end
 
       set_email_in_use
