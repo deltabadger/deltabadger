@@ -55,7 +55,7 @@ class SettingsController < ApplicationController
 
   def enable_two_fa
     user = current_user
-    if user.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+    if Users::VerifyOtp.call(user, params[:user][:otp_code_token])
       user.update(otp_module: 'enabled')
       redirect_to settings_path
     else
@@ -71,7 +71,7 @@ class SettingsController < ApplicationController
 
   def disable_two_fa
     user = current_user
-    if user.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+    if Users::VerifyOtp.call(user, params[:user][:otp_code_token])
       user.update(otp_module: 'disabled')
       redirect_to settings_path
     else
