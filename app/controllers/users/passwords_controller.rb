@@ -20,7 +20,7 @@ class Users::PasswordsController < Devise::PasswordsController
     return super if resource&.otp_module_disabled?
 
     if params[:user][:otp_code_token].present?
-      return super if resource.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+      return super if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
 
       abort_update(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
     else
