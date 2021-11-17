@@ -13,7 +13,7 @@ class Users::SessionsController < Devise::SessionsController
       end
     elsif resource&.otp_module_enabled?
       if params[:user][:otp_code_token].present?
-        if resource.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+        if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
           continue_sign_in(resource, resource_name)
         else
           abort_sign_in(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
