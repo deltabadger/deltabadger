@@ -4,8 +4,8 @@ class Users::PasswordsController < Devise::PasswordsController
   def edit
     self.resource = resource_class.with_reset_password_token(params[:reset_password_token])
     @two_fa_enabled = resource&.otp_module_enabled?
+    @disable_third_party_scripts = true
 
-    render layout: 'reset_password'
     super
   end
 
