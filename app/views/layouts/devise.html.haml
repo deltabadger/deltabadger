@@ -1,7 +1,9 @@
 !!!
 %html.db--devise.db--loggedout{:lang => I18n.locale, :prefix => "og: http://ogp.me/ns#"}
   %head
-    <script type="text/javascript" src="https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js"></script>
+    - unless @disable_third_party.present? && @disable_third_party
+      %script{:type => "text/javascript", :src => "https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js"}
+
     %meta{:charset => "UTF-8"}
     %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
     %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
@@ -29,18 +31,20 @@
     %script{:crossorigin => "anonymous", :integrity => "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", :src => "https://code.jquery.com/jquery-3.2.1.slim.min.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
 
-    / Global site tag (gtag.js) - Google Analytics
-
-    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=UA-60645901-3"}
+    - unless @disable_third_party.present? && @disable_third_party
+      / Global site tag (gtag.js) - Google Analytics
+      %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=UA-60645901-3"}
 
     :javascript
       // google
 
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'UA-60645901-3');
+      if ("#{@disable_third_party}" !== "true") {
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-60645901-3');
+        fomo.trigger('start')
+      }
 
       // scaling
 
@@ -51,4 +55,3 @@
         $("html").css("--font-wght-adjustment",  Math.min(Math.max(915000/($(this).width() + 600), 290), 400) - 290 + "");
       });
 
-      fomo.trigger('start')
