@@ -17,6 +17,7 @@ class User < ApplicationRecord
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
   validate :validate_email_with_sendgrid
+  validate :password_complexity
 
   delegate :unlimited?, to: :subscription
 
@@ -97,5 +98,11 @@ class User < ApplicationRecord
     errors.add(:email, :invalid) unless result.success?
 
     result.success?
+  end
+
+  def password_complexity
+    return if password.blank? || password =~ /(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-])/
+
+    errors.add :password, I18n.t('errors.messages.too_simple_password')
   end
 end
