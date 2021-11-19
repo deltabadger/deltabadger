@@ -17,7 +17,7 @@ class User < ApplicationRecord
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
   validate :validate_email_with_sendgrid
-  validate :password_complexity
+  validate :password_complexity, if: -> { password.present? }
 
   delegate :unlimited?, to: :subscription
 
@@ -101,7 +101,8 @@ class User < ApplicationRecord
   end
 
   def password_complexity
-    return if password.blank? || password =~ /(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-])/
+    requirement_regexes = [/[[:upper:]]/, /[[:lower:]]/, /[[:digit:]]/, /[^[[:upper:]][[:lower:]][[:digit:]]]/].freeze
+    return if requirement_regexes.all? { |regex| password =~ regex }
 
     errors.add :password, I18n.t('errors.messages.too_simple_password')
   end
