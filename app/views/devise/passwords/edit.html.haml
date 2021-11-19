@@ -14,9 +14,12 @@
           = f.hidden_field :reset_password_token
           .db-form__row
             = f.password_field :password, autofocus: true, autocomplete: "new-password", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-            .db-form__info.db-form__info--invalid
-              - if @minimum_password_length
-                #{t('forms.minimum_length', length: @minimum_password_length)}
+            - if resource.errors.details[:password].present?
+              .db-form__info.db-form__info--invalid
+                - if resource.errors.details[:password][0][:error] == :too_short
+                  = t('forms.minimum_length', length: @minimum_password_length)
+                - else
+                  = resource.errors[:password][0]
             = f.label :password, t('helpers.label.user.new_password'), class: "db-form__label"
           .db-form__row
             = f.password_field :password_confirmation, autocomplete: "off", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
