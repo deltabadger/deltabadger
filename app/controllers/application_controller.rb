@@ -48,6 +48,6 @@ class ApplicationController < ActionController::Base
   end
 
   def set_no_cache
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Cache-Control"] = "no-store"
   end
 end
