@@ -129,6 +129,7 @@ en:
             password_not_match: 'Passwords do not match'
             bad_2fa_code: 'Invalid code. Try again.'
             empty_two_fa_token: 'Missed 2FA code. Try again.'
+            too_simple_password: 'Password must contain characters from each of the following categories: uppercase characters (A-Z), lowercase characters (a-z),  digits (0-9), special characters (e.g. #,?,!).'
         unverified_request: 'Please refresh your browser and try again'
         format: '%{attribute} %{message}'
         referral_program_inactive: 'Your referral program is inactive'
