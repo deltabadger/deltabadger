@@ -89,6 +89,15 @@ to display a collection of resources in an HTML table.
             data: { confirm: t("administrate.actions.confirm") }
           ) if show_action? :destroy, resource %></td>
         <% end %>
+        <% if resource['wire_transfer'] && resource['status'] != 'paid'%>
+          <td><%= link_to(
+            'Confirm',
+            confirm_admin_payments_path(resource),
+            class: "text-color-green",
+            method: :put,
+            data: { confirm: t("administrate.actions.confirm") }
+          ) if show_action? :edit, resource %></td>
+        <% end %>
       </tr>
     <% end %>
   </tbody>

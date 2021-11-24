@@ -48,6 +48,11 @@ module Admin
       send_data(file, filename: csv_filename(from, to))
     end
 
+    def confirm
+      Payment.find(params[:id]).update(status: 2, paid_at: Time.now)
+      redirect_back(fallback_location: admin_payments_path)
+    end
+
     private
 
     def csv_filename(from, to)
