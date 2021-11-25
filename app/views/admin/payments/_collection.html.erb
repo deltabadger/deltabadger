@@ -93,7 +93,7 @@ to display a collection of resources in an HTML table.
           <td><%= link_to(
             'Confirm',
             confirm_admin_payments_path(resource),
-            class: "text-color-green",
+            style: "color: green",
             method: :put,
             data: { confirm: t("administrate.actions.confirm") }
           ) if show_action? :edit, resource %></td>

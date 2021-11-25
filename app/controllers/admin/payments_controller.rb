@@ -49,7 +49,8 @@ module Admin
     end
 
     def confirm
-      Payment.find(params[:id]).update(status: 2, paid_at: Time.now)
+      payment = Payment.find(params[:id])
+      payment.update(status: 2, paid_at: payment['created_at'])
       redirect_back(fallback_location: admin_payments_path)
     end
 
