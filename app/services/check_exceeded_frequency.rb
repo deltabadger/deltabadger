@@ -17,7 +17,14 @@ class CheckExceededFrequency < BaseService
     price_in_base = get_price_in_base(params[:price].to_f, market_price, params[:type])
     frequency = get_frequency(price_in_base, smart_intervals_in_base, params[:interval])
     limit_exceeded = limit_exceeded?(frequency, frequency_limit)
-    new_intervals_value = limit_exceeded ? get_new_intervals_value(params[:price].to_f, frequency_limit, params[:interval], market_price, defined_in_quote, market, symbol, params[:type]) : params[:smartIntervalsValue].to_f
+    new_intervals_value = if limit_exceeded
+                            get_new_intervals_value(
+                              params[:price].to_f, frequency_limit, params[:interval],
+                              market_price, defined_in_quote, market, symbol, params[:type]
+                            )
+                          else
+                            params[:smartIntervalsValue].to_f
+                          end
     {
       limit_exceeded: limit_exceeded,
       new_intervals_value: new_intervals_value,

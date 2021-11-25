@@ -9,7 +9,7 @@ module ExchangeApi
           place_order(params.data)
         end
 
-        def sell(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
+        def sell(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, _is_legacy:)
           params = get_params('sell', price, base, quote, force_smart_intervals, smart_intervals_value)
           return params unless params.success?
 
@@ -23,7 +23,7 @@ module ExchangeApi
           response_data = response.data['data'][0]
           return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
 
-          rate = response_data['filled_cost'].to_f / response_data['filled_quantity'].to_f
+          rate = response_data['filled_cost'].to_f / response_data['filled_quantity']
           Result::Success.new(
             offer_id: order_id,
             amount: response_data['filled_quantity'].to_s,
@@ -52,7 +52,6 @@ module ExchangeApi
                                   "side": side
                                 ))
           end
-
         end
 
         def common_params(symbol)

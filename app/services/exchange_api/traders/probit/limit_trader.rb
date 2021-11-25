@@ -23,7 +23,7 @@ module ExchangeApi
           response_data = response.data['data'][0]
           return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
 
-          return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) if response_data['status'] == 'open' || response_data['filled_quantity'] == 0
+          return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) if open_or_unfilled?(response_data)
 
           Result::Success.new(
             offer_id: order_id,
@@ -35,7 +35,7 @@ module ExchangeApi
         private
 
         def get_params(side, price, base, quote, percentage, force_smart_intervals, smart_intervals_value)
-          symbol = @market.symbol(base,quote)
+          symbol = @market.symbol(base, quote)
           quantity = transaction_quantity(price, symbol, force_smart_intervals, smart_intervals_value, side == 'buy')
           return quantity unless quantity.success?
 
@@ -46,13 +46,15 @@ module ExchangeApi
             rate = @market.current_bid_price(symbol).data
             rate_percentage = rate_percentage(symbol, rate, percentage)
           end
-          Result::Success.new(common_params(symbol).data.merge(
-                                "quantity": quantity.data.to_s,
-                                "side": side,
-                                "limit_price": rate_percentage.data.to_s
-
-          ))
-
+          Result::Success.new(
+            common_params(symbol)
+              .data
+              .merge(
+                "quantity": quantity.data.to_s,
+                "side": side,
+                "limit_price": rate_percentage.data.to_s
+              )
+          )
         end
 
         def place_order(order_params)
@@ -75,6 +77,10 @@ module ExchangeApi
           Result::Success.new("market_id": symbol,
                               "time_in_force": 'gtc',
                               "type": 'limit')
+        end
+
+        def open_or_unfilled?(response_data)
+          response_data['status'] == 'open' || response_data['filled_quantity'] == 0
         end
       end
     end
