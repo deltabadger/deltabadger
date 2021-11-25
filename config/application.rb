@@ -42,12 +42,5 @@ module Deltabadger
       config.dsn = ENV['SENTRY_DSN']
       config.environments = %w[ production ]
     end
-
-    config.session_store(
-      :cookie_store,
-      key: '_deltabadger_session',
-      secure: Rails.env.production?
-    )
-
   end
 end
