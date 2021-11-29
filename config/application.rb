@@ -42,6 +42,5 @@ module Deltabadger
       config.dsn = ENV['SENTRY_DSN']
       config.environments = %w[ production ]
     end
-
   end
 end
