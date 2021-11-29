@@ -66,7 +66,35 @@ module Admin
       send_data(file, filename: filename('accounting'))
     end
 
+    def get_wire_transfers_commissions
+      wire_payments_list = Payment.where(status: 2, wire_transfer: true).where.not(external_statuses: 'Commission granted')
+      payments_with_affiliates = wire_payments_list.to_a.filter { |payment| !User.find(payment['user_id'])['referrer_id'].nil? }
+      payments_with_affiliates.each do |payment|
+        subscription_plan = SubscriptionPlan.find(payment['subscription_plan_id'])
+        affiliate = Affiliate.find(User.find(payment['user_id'])['referrer_id'])
+        affiliate_commission_percent = affiliate.total_bonus_percent - affiliate.discount_percent
+        currency = payment.currency
+        btc_cost = btc_cost(subscription_plan, currency)
+        commission_btc_value = (affiliate_commission_percent * btc_cost).ceil(8)
+        previous_crypto_commission = affiliate.unexported_crypto_commission
+        affiliate.update(unexported_crypto_commission: previous_crypto_commission + commission_btc_value)
+        payment.update(external_statuses: 'Commission granted')
+      end
+      redirect_back(fallback_location: '/')
+    end
+
     private
+
+    def btc_cost(subscription_plan, currency)
+      if currency == 'EUR'
+        undiscounted_cost = subscription_plan.cost_eu
+        btc_price = JSON.parse(Faraday.get('https://api.coinpaprika.com/v1/tickers?quotes=EUR').body)[0]['quotes']['EUR']['price']
+      else
+        undiscounted_cost = subscription_plan.cost_other
+        btc_price = JSON.parse(Faraday.get('https://api.coinpaprika.com/v1/tickers?quotes=USD').body)[0]['quotes']['USD']['price']
+      end
+      undiscounted_cost / btc_price
+    end
 
     def format_crypto(amount)
       format('%0.8f', amount)

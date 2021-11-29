@@ -46,8 +46,8 @@ module Payments
 
     # create payment when wire transfer
     def wire_transfer(params, discounted)
-      costs = params['cost_presenters'][params['country']][SubscriptionPlan.find(params['subscription_plan_id']).name].cost_calculator
-      total = costs.total_price
+      cost_calculator = get_wire_cost_calculator(params)
+      total = cost_calculator.total_price
       currency = params['country'] == 'Other' ? 0 : 1
       @payments_repository.create(
         id: get_sequenced_id,
@@ -108,6 +108,10 @@ module Payments
         discount_percent: discount_percent,
         commission_percent: commission_percent
       )
+    end
+
+    def get_wire_cost_calculator(params)
+      params['cost_presenters'][params['country']][SubscriptionPlan.find(params['subscription_plan_id']).name].cost_calculator
     end
   end
 end
