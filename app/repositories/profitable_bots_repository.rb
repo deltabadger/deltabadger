@@ -42,9 +42,7 @@ class ProfitableBotsRepository
     current_price
   end
 
-  private
-
-  def dictionary_key(base,quote)
+  def dictionary_key(base, quote)
     "#{base}-#{quote}"
   end
 end
