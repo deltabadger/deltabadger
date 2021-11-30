@@ -109,7 +109,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   COLLECTION_FILTERS = {
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
-    wire: ->(resources) {resources.where(wire_transfer: true)}
+    wire: ->(resources) { resources.where(wire_transfer: true) }
 
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
