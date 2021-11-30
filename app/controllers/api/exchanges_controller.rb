@@ -29,7 +29,7 @@ module Api
     end
 
     def paid_subscription?(subscription_name)
-      subscription_name == 'hodler' || subscription_name == 'investor'
+      %w[hodler investor].include?(subscription_name)
     end
   end
 end
