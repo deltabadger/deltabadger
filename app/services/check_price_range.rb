@@ -1,5 +1,4 @@
 class CheckPriceRange < BaseService
-
   # return true when price_range is not enabled or current price is in price range
   def call(bot)
     return Result::Success.new(valid: true) unless bot.price_range_enabled
