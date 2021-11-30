@@ -67,10 +67,10 @@ module Admin
     end
 
     def get_wire_transfers_commissions
-      Admin::GetWireTransfersCommissions.call
+      service_call = Admin::GetWireTransfersCommissions.call
+      redirect_to admin_affiliates_path, alert: "Couldn't get wire transfers' commissions" unless service_call.success?
+
       redirect_back(fallback_location: '/')
-    rescue StandardError
-      render js: "alert('Couldn\\'t update wire transfer commissions.');"
     end
 
     private

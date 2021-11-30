@@ -49,8 +49,7 @@ module Admin
     end
 
     def confirm
-      payment = Payment.find(params[:id])
-      payment.update(status: 2, paid_at: payment['created_at'])
+
       redirect_back(fallback_location: admin_payments_path)
     end
 
