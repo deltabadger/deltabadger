@@ -23,8 +23,6 @@ module ExchangeApi
           response_data = response.data['data'][0]
           return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
 
-          return Result::Failure.new('Waiting for Probit response', NOT_FETCHED) if open_or_unfilled?(response_data)
-
           Result::Success.new(
             offer_id: order_id,
             amount: response_data['quantity'],
@@ -77,10 +75,6 @@ module ExchangeApi
           Result::Success.new("market_id": symbol,
                               "time_in_force": 'gtc',
                               "type": 'limit')
-        end
-
-        def open_or_unfilled?(response_data)
-          response_data['status'] == 'open' || response_data['filled_quantity'] == 0
         end
       end
     end
