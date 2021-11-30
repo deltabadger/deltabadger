@@ -70,7 +70,6 @@ module ExchangeApi
           smart_intervals_value = min_price.data if smart_intervals_value.nil?
           smart_intervals_value = smart_intervals_value.ceil(quote_decimals.data)
 
-
           return Result::Success.new([smart_intervals_value, min_price.data].max) if force_smart_intervals
 
           Result::Success.new([min_price.data, price].max.ceil(quote_decimals.data).to_d)
