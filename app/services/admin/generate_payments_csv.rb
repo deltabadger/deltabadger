@@ -45,7 +45,7 @@ module Admin
         user: payment.user.email,
         payment_id: payment.payment_id
       }
-      format.merge(crypto_paid: payment.crypto_paid) unless wire
+      format.merge!(crypto_paid: payment.crypto_paid) unless wire
       format
     end
   end
