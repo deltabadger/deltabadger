@@ -5,8 +5,26 @@
         = t('.share_html')
         %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
       .db-form__row.db-form__row--input.mb-0
-        %input.db-form__input{ :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil), :readonly=>"readonly" }
-        %label.db-form__label Your referral link
+        %input.db-form__input{ :id=> "referralLink", :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil), :readonly=>"readonly" }
+        %label.db-form__label
+          = t('affiliates.show.your_link')
+        .db-unmask{:onclick => "copyText()", :title => "Copy to clipboard"}
+          = render "layouts/svg_copy_to_clipboard"
+          :javascript
+              async function copyText() {
+                var refLink = document.getElementById("referralLink");
+                refLink.focus();
+                refLink.select();
+                try{
+                  await navigator.clipboard.writeText(refLink.value).then(() =>{
+                    document.getElementById('copyAlert').style.visibility = 'visible';
+                  });
+                } catch(err) {
+                  return
+                }
+              }
+        .db-form__info.db-form__info{:id => 'copyAlert', class: 'text-success', style: 'visibility: hidden', visible: false}
+          = t('referral.copied')
       .form-group.mb-0.mt-5
         %b= t('.discount_info_html', earn_percent_preview: 20, discount_percent_preview: 10)
 

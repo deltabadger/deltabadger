@@ -9,7 +9,7 @@ module ExchangeApi
           place_order(params.data)
         end
 
-        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, _is_legacy:)
+        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
           params = get_params('sell', price, base, quote, percentage, force_smart_intervals, smart_intervals_value)
           return params unless params.success?
 
@@ -46,12 +46,15 @@ module ExchangeApi
             rate = @market.current_bid_price(symbol).data
             rate_percentage = rate_percentage(symbol, rate, percentage)
           end
-          Result::Success.new(common_params(symbol).data.merge(
-                                "quantity": quantity.data.to_s,
-                                "side": side,
-                                "limit_price": rate_percentage.data.to_s
-
-          ))
+          Result::Success.new(
+            common_params(symbol)
+              .data
+              .merge(
+                "quantity": quantity.data.to_s,
+                "side": side,
+                "limit_price": rate_percentage.data.to_s
+              )
+          )
         end
 
         def place_order(order_params)

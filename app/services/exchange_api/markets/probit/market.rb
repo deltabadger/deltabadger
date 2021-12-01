@@ -137,4 +137,3 @@ module ExchangeApi
     end
   end
 end
-
