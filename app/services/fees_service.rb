@@ -1,5 +1,4 @@
 class FeesService
-
   FEES_KEY = 'fees_key'.freeze
   def update_fees
     redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
