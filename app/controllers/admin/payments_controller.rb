@@ -44,12 +44,19 @@ module Admin
     def csv
       from = params[:from]
       to = params[:to]
-      file = Admin::GeneratePaymentsCsv.call(from: from, to: to)
+      file = Admin::GeneratePaymentsCsv.call(from: from, to: to, wire: false)
+      send_data(file, filename: csv_filename(from, to))
+    end
+
+    def csv_wire
+      from = params[:from]
+      to = params[:to]
+      file = Admin::GeneratePaymentsCsv.call(from: from, to: to, wire: true)
       send_data(file, filename: csv_filename(from, to))
     end
 
     def confirm
-
+      Admin::ConfirmPayment.call(params)
       redirect_back(fallback_location: admin_payments_path)
     end
 

@@ -20,6 +20,7 @@ Rails.application.routes.draw do
     resources :subscription_plans
     resources :payments do
       get :csv, on: :collection
+      get :csv_wire, on: :collection
       put '/confirm/:id', action: :confirm, as: :confirm, on: :collection
     end
     resources :vat_rates

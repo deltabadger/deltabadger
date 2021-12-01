@@ -7,7 +7,6 @@ module Admin
         subscription_plan = SubscriptionPlan.find(payment['subscription_plan_id'])
         affiliate = Affiliate.find(User.find(payment['user_id'])['referrer_id'])
         affiliate_commission_percent = affiliate.total_bonus_percent - affiliate.discount_percent
-        byebug
         commission_in_btc = commission_in_btc(payment.currency, affiliate_commission_percent, subscription_plan)
         return Result::Failure.new("Couldn\\'t update the affiliates' data ") unless commission_in_btc.success?
 

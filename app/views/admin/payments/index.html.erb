@@ -44,7 +44,15 @@ It renders the `_table` partial to display details about the resources.
     <%= form_with url: csv_admin_payments_path, method: :get, local: true do |f| %>
       <%= f.date_field :from %>
       <%= f.date_field :to %>
-      <%= f.submit "Get paid payments", data: {disable_with: false} %>
+      <%= f.submit "Get paid BTC payments", data: {disable_with: false} %>
+    <% end %>
+  </div>
+
+  <div>
+    <%= form_with url: csv_wire_admin_payments_path, method: :get, local: true do |f| %>
+      <%= f.date_field :from %>
+      <%= f.date_field :to %>
+      <%= f.submit "Get paid wire payments", data: {disable_with: false} %>
     <% end %>
   </div>
 
