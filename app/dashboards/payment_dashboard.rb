@@ -86,6 +86,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[
     subscription_plan
     status
+    wire_transfer
     total
     currency
     first_name
