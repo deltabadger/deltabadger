@@ -1,10 +1,13 @@
 module Admin
   class GetWireTransfersCommissions < BaseService
     def call
-      wire_payments_list = Payment.where(status: 2, wire_transfer: true).where.not(external_statuses: 'Commission granted')
-      payments_with_affiliates = wire_payments_list.to_a.filter { |payment| !User.find(payment['user_id'])['referrer_id'].nil? }
-      payments_with_affiliates.each do |payment|
-        subscription_plan = SubscriptionPlan.find(payment['subscription_plan_id'])
+      referred_wire_payments = get_referred_wire_payments
+      return Result::Failure.new("Couldn\\'t fetch the payments' data") unless referred_wire_payments.success?
+
+
+      subscription_plans = SubscriptionPlan.all.map { |s| [s['id'], s] }.to_h
+      referred_wire_payments.data.each do |payment|
+        subscription_plan = subscription_plans[(payment['subscription_plan_id'])]
         affiliate = Affiliate.find(User.find(payment['user_id'])['referrer_id'])
         affiliate_commission_percent = affiliate.total_bonus_percent - affiliate.discount_percent
         commission_in_btc = commission_in_btc(payment.currency, affiliate_commission_percent, subscription_plan)
@@ -15,10 +18,19 @@ module Admin
       end
       Result::Success.new("Wire transfers\\' commissions granted")
     rescue StandardError
-      return Result::Failure.new("Couldn\\'t update the affiliates' data ") unless commission_in_btc.success?
+      return Result::Failure.new("Couldn\\'t update the affiliates' data") unless commission_in_btc.success?
     end
 
     private
+
+    # get paid wire payments without the granted commission
+    def get_referred_wire_payments
+      wire_payments_list = Payment.where(status: 2, wire_transfer: true).where.not(external_statuses: 'Commission granted')
+      wire_payments_with_referrers = wire_payments_list.to_a.filter { |payment| !User.find(payment['user_id'])['referrer_id'].nil? }
+      Result::Success.new(wire_payments_with_referrers)
+    rescue StandardError
+      Result::Failure.new("Couldn\\'t fetch the payments' data")
+    end
 
     def btc_cost(subscription_plan, currency)
       undiscounted_cost = currency == 'EUR' ? subscription_plan.cost_eu : subscription_plan.cost_other

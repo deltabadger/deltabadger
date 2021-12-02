@@ -48,7 +48,7 @@ module Payments
     def wire_transfer(params, discounted)
       cost_calculator = get_wire_cost_calculator(params)
       total = cost_calculator.total_price
-      currency = params['country'] == 'Other' ? 0 : 1
+      currency = params['country'] == 'Other' ? 0 : 1 # 0 is for USD and 1 is for EUR. All people outside Europe get their prices in USD
       @payments_repository.create(
         id: get_sequenced_id,
         status: :pending,
