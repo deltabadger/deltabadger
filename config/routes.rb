@@ -9,6 +9,7 @@ Rails.application.routes.draw do
       get :accounting_csv, on: :collection
       post :mark_as_exported, on: :collection
       post :mark_as_paid, on: :collection
+      put :get_wire_transfers_commissions, on: :collection
     end
     resources :api_keys, except: [:edit, :update]
     resources :bots
@@ -19,6 +20,8 @@ Rails.application.routes.draw do
     resources :subscription_plans
     resources :payments do
       get :csv, on: :collection
+      get :csv_wire, on: :collection
+      put '/confirm/:id', action: :confirm, as: :confirm, on: :collection
     end
     resources :vat_rates
 
