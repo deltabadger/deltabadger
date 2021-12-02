@@ -11,8 +11,8 @@ module ExchangeApi
 
         SUCCESS = true
         AVAILABLE_WALLET_ADDRESSES = [
-          { currency: 'BTC', address: '1234' },
-          { currency: 'ETH', address: '2345' }
+          { currency: 'BTC', address: 'fake_btc_address' },
+          { currency: 'ETH', address: 'fake_eth_address' }
         ].freeze
         AVAILABLE_CURRENCIES = %w[BTC ETH].freeze
 
