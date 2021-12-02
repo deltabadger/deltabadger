@@ -44,14 +44,8 @@ module Admin
     def csv
       from = params[:from]
       to = params[:to]
-      file = Admin::GeneratePaymentsCsv.call(from: from, to: to, wire: false)
-      send_data(file, filename: csv_filename(from, to))
-    end
-
-    def csv_wire
-      from = params[:from]
-      to = params[:to]
-      file = Admin::GeneratePaymentsCsv.call(from: from, to: to, wire: true)
+      wire = params['commit'] == 'Get paid wire payments'
+      file = Admin::GeneratePaymentsCsv.call(from: from, to: to, wire: wire)
       send_data(file, filename: csv_filename(from, to))
     end
 
