@@ -42,7 +42,7 @@ module Admin
         birth_date: payment.birth_date&.strftime('%F'),
         country: payment.country,
         paid_at: payment.paid_at,
-        user: payment.user.email,
+        user: payment.user.nil? ? 'User deleted' : payment.user.email,
         payment_id: payment.payment_id
       }
       format.merge!(crypto_paid: payment.crypto_paid) unless wire
