@@ -66,6 +66,13 @@ module Admin
       send_data(file, filename: filename('accounting'))
     end
 
+    def get_wire_transfers_commissions
+      service_call = Admin::GetWireTransfersCommissions.call
+      redirect_to admin_affiliates_path, alert: "Couldn't get wire transfers' commissions" unless service_call.success?
+
+      redirect_back(fallback_location: '/')
+    end
+
     private
 
     def format_crypto(amount)

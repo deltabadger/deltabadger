@@ -44,8 +44,11 @@ module Payments
       payment_result
     end
 
-    # create empty payment when wire transfer
+    # create payment when wire transfer
     def wire_transfer(params, discounted)
+      cost_calculator = get_wire_cost_calculator(params)
+      total = cost_calculator.total_price
+      currency = params['country'] == 'Other' ? 0 : 1 # 0 is for USD and 1 is for EUR. All people outside Europe get their prices in USD
       @payments_repository.create(
         id: get_sequenced_id,
         status: :pending,
@@ -55,7 +58,10 @@ module Payments
         country: params[:country],
         subscription_plan_id: params[:subscription_plan_id],
         birth_date: Time.now.strftime('%d/%m/%Y'),
-        discounted: discounted
+        discounted: discounted,
+        wire_transfer: true,
+        total: total,
+        currency: currency
       )
     end
 
@@ -102,6 +108,10 @@ module Payments
         discount_percent: discount_percent,
         commission_percent: commission_percent
       )
+    end
+
+    def get_wire_cost_calculator(params)
+      params['cost_presenters'][params['country']][SubscriptionPlan.find(params['subscription_plan_id']).name].cost_calculator
     end
   end
 end
