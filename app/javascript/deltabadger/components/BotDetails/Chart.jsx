@@ -111,6 +111,6 @@ export const Chart = ({bot}) => {
   )
 }
 
-const isBuyingBot = (type) => {
-    return type === 'buy'
+const isBuyingBot = (bot) => {
+    return bot.settings.type === 'buy'
 }
