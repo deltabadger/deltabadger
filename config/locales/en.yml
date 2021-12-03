@@ -566,8 +566,8 @@ en:
             stats:
                 title: Statistics
                 chart:
-                    total_invested: 'total invested'
-                    value: value
+                    total_invested: 'Total invested'
+                    value: Value
                 bought: Bought
                 average_price: 'Average price'
                 total_invested: 'Total invested'
