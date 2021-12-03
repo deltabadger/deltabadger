@@ -9,7 +9,7 @@ module ExchangeApi::MapErrors
         'EOrder:Orders limit exceeded' => Error.new('Action limit was exceeded', true),
         'EAPI:Invalid nonce' => Error.new('A network inconsistency has occurred. Please wait a few seconds and try again', true),
         'Out of funds' => Error.new('Insufficient funds', false),
-        'EFunding:Unknown withdraw key' => Error.new('Wrong address label provided', false),
+        'EFunding:Unknown withdraw key' => Error.new('Provided address label does not exist', false),
         'EFunding:Invalid amount' => Error.new('Funds are not exceeding minimums', true)
       }
     end
