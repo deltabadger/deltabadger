@@ -11,4 +11,8 @@
       = render partial: 'enable_two_factor_authorization', locals: { user: user, wrong_code: wrong_code }
     .db-box
       %h4.db-modal__subtitle= t('.api_keys_section')
-      = render partial: 'remove_api_key', collection: api_keys, as: :api_key
+      %h5.db-modal__subtitle Trading keys
+      = render partial: 'remove_api_key', collection: trading_api_keys, as: :api_key
+      %br
+      %h5.db-modal__subtitle Withdrawal keys
+      = render partial: 'remove_api_key', collection: withdrawal_api_keys, as: :api_key

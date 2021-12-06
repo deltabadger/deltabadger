@@ -57,6 +57,7 @@ ActiveRecord::Schema.define(version: 2021_11_22_120310) do
     t.string "encrypted_passphrase"
     t.string "encrypted_passphrase_iv"
     t.integer "status", default: 0, null: false
+    t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
   end
@@ -74,6 +75,7 @@ ActiveRecord::Schema.define(version: 2021_11_22_120310) do
     t.integer "current_delay", default: 0, null: false
     t.datetime "settings_changed_at"
     t.integer "fetch_restarts", default: 0, null: false
+    t.decimal "account_balance", default: "0.0"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end

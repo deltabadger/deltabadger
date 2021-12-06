@@ -1,7 +1,7 @@
 class GetRestartParams < BaseService
   def initialize(
     parse_interval: ParseInterval.new,
-    next_bot_transaction_at: NextBotTransactionAt.new,
+    next_bot_transaction_at: NextTradingBotTransactionAt.new,
     bots_repository: BotsRepository.new
   )
     @parse_interval = parse_interval

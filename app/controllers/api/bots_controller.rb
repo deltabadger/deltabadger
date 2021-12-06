@@ -15,7 +15,8 @@ module Api
     end
 
     def create
-      result = Bots::Create.call(current_user, bot_create_params)
+      bot_params = params[:bot][:bot_type] == 'free' ? trading_bot_create_params : withdrawal_bot_create_params
+      result = Bots::Create.call(current_user, bot_params)
 
       if result.success?
         render json: { data: result.data }, status: 201
@@ -25,7 +26,8 @@ module Api
     end
 
     def update
-      result = Bots::Update.call(current_user, bot_update_params)
+      bot_params = params[:bot][:order_type].present? ? trading_bot_update_params : withdrawal_bot_update_params
+      result = Bots::Update.call(current_user, bot_params)
 
       if result.success?
         data = present_bot(result.data)
@@ -83,6 +85,16 @@ module Api
       end
     end
 
+    def withdrawal_minimums
+      result = GetWithdrawalMinimums.call(params, current_user)
+
+      if result.success?
+        render json: result, status: 200
+      else
+        render json: { errors: result.errors }, status: 422
+      end
+    end
+
     def frequency_limit_exceeded
       limit_exceeded = CheckExceededFrequency.call(params)
       render json: limit_exceeded.to_json
@@ -106,14 +118,14 @@ module Api
     private
 
     def present_bot(bot)
-      Presenters::Api::Bot.call(bot)
+      bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
     end
 
     def present_bots(bots)
       Presenters::Api::Bots.call(bots)
     end
 
-    BOT_PARAMS = %i[
+    TRADING_BOT_PARAMS = %i[
       exchange_id
       type
       order_type
@@ -128,13 +140,30 @@ module Api
       price_range_enabled
     ].freeze
 
-    def bot_create_params
+    def trading_bot_create_params
       params
         .require(:bot)
-        .permit(*BOT_PARAMS, price_range: [])
+        .permit(*TRADING_BOT_PARAMS, price_range: [])
     end
 
-    BOT_UPDATE_PARAMS = %i[
+    WITHDRAWAL_BOT_PARAMS = %i[
+      exchange_id
+      interval
+      interval_enabled
+      threshold
+      threshold_enabled
+      currency
+      address
+      bot_type
+    ].freeze
+
+    def withdrawal_bot_create_params
+      params
+        .require(:bot)
+        .permit(*WITHDRAWAL_BOT_PARAMS)
+    end
+
+    TRADING_BOT_UPDATE_PARAMS = %i[
       order_type
       price
       percentage
@@ -144,10 +173,24 @@ module Api
       price_range_enabled
     ].freeze
 
-    def bot_update_params
+    def trading_bot_update_params
       params
         .require(:bot)
-        .permit(*BOT_UPDATE_PARAMS, price_range: [])
+        .permit(*TRADING_BOT_UPDATE_PARAMS, price_range: [])
+        .merge(id: params[:id])
+    end
+
+    WITHDRAWAL_BOT_UPDATE_PARAMS = %i[
+      interval
+      interval_enabled
+      threshold
+      threshold_enabled
+    ].freeze
+
+    def withdrawal_bot_update_params
+      params
+        .require(:bot)
+        .permit(*WITHDRAWAL_BOT_UPDATE_PARAMS)
         .merge(id: params[:id])
     end
 
