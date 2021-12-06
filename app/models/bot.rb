@@ -5,53 +5,77 @@ class Bot < ApplicationRecord
   scope :without_deleted, -> { where.not(status: 'deleted') }
 
   STATES = %i[created working stopped deleted pending].freeze
-  TYPES = %i[free].freeze
+  TYPES = %i[free withdrawal].freeze
 
   enum status: [*STATES]
   enum bot_type: [*TYPES]
 
   def base
-    settings.fetch('base')
+    settings['base']
   end
 
   def quote
-    settings.fetch('quote')
+    settings['quote']
   end
 
   def price
-    settings.fetch('price')
+    settings['price']
   end
 
   def percentage
-    settings.fetch('percentage', nil)
+    settings['percentage']
   end
 
   def interval
-    settings.fetch('interval')
+    settings['interval']
+  end
+
+  def interval_enabled
+    settings['interval_enabled']
   end
 
   def type
-    settings.fetch('type')
+    settings['type']
   end
 
   def order_type
-    settings.fetch('order_type')
+    settings['order_type']
   end
 
   def force_smart_intervals
-    settings.fetch('force_smart_intervals', false)
+    settings['force_smart_intervals']
   end
 
   def smart_intervals_value
-    settings.fetch('smart_intervals_value')
+    settings['smart_intervals_value']
   end
 
   def price_range_enabled
-    settings.fetch('price_range_enabled')
+    settings['price_range_enabled']
   end
 
   def price_range
-    settings.fetch('price_range')
+    settings['price_range']
+  end
+
+  def currency
+    settings['currency']
+  end
+
+  def threshold
+    settings['threshold']
+  end
+
+  def threshold_enabled
+    settings['threshold_enabled']
+  end
+
+  def address
+    settings['address']
+  end
+
+  def trading?
+    bot_type == 'free'
   end
 
   def market?
@@ -84,6 +108,10 @@ class Bot < ApplicationRecord
     # Using sort_by instead of order, because when calculating next transaction time in /api/bots endpoint
     # transactions are already preloaded. We don't want to fire n + 1 queries here.
     transactions.max_by(&:created_at)
+  end
+
+  def last_withdrawal
+    transactions.filter { |t| t.transaction_type == 'WITHDRAWAL' }.max_by(&:created_at)
   end
 
   def total_amount

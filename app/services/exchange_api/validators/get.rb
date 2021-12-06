@@ -9,9 +9,14 @@ module ExchangeApi
         @exchanges_repository = exchanges_repository
       end
 
-      def call(exchange_id)
+      def call(exchange_id, key_type)
         exchange = @exchanges_repository.find(exchange_id)
+        key_type == 'trading' ? get_trading_key_validator(exchange) : get_withdrawal_key_validator(exchange)
+      end
 
+      private
+
+      def get_trading_key_validator(exchange)
         return Fake::Validator.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
@@ -43,6 +48,19 @@ module ExchangeApi
           Probit::Validator.new
         when 'probit'
           Probit::Validator.new
+        end
+      end
+
+      def get_withdrawal_key_validator(exchange)
+        return Fake::WithdrawalValidator.new if DISABLE_EXCHANGES_API
+
+        case exchange.name.downcase
+        when 'kraken'
+          ExchangeApi::Validators::Kraken::WithdrawalValidator.new
+        when 'ftx'
+          ExchangeApi::Validators::Ftx::WithdrawalValidator.new(url_base: FTX_EU_URL_BASE)
+        when 'ftx.us'
+          ExchangeApi::Validators::Ftx::WithdrawalValidator.new(url_base: FTX_US_URL_BASE)
         end
       end
     end

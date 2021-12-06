@@ -27,7 +27,8 @@ export const AddApiKey = ({
   handleSubmit,
   handleRemove,
   status,
-  botView
+  botView,
+  type
 }) => {
   const [key, setKey] = useState("");
   const [secret, setSecret] = useState("");
@@ -51,7 +52,14 @@ export const AddApiKey = ({
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      !disableSubmit && handleSubmit(key, secret, passphrase, agreement)
+      !disableSubmit && handleSubmit(key, secret, passphrase, agreement, type)
+  }
+
+  const getBotName = () => {
+    if(!botView)
+      return '';
+
+    return botView.baseName ? `${botView.baseName}${botView.quoteName}` : `${botView.currencyName}`
   }
 
   const { public: key_label, private: secret_label, passphrase: phrase_label } = apiKeyNames(pickedExchangeName);
@@ -71,7 +79,7 @@ export const AddApiKey = ({
   return (
     <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
       <div className="db-bot__header">
-        { !botView && <Breadcrumbs step={1} /> }
+        { !botView && <Breadcrumbs step={2} /> }
         { (status == 'add_api_key' || status == 'invalid_api_key') &&
           <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-primary'}`}>
             <span>{botView ? I18n.t('bots.setup.set') : I18n.t('bots.setup.next')}</span>
@@ -87,7 +95,7 @@ export const AddApiKey = ({
         <div className="db-bot__infotext">
           { botView &&
             <div className="db-bot__infotext__left">
-              { pickedExchangeName }:{botView.baseName}{botView.quoteName}
+              { pickedExchangeName }:{getBotName()}
             </div>
           }
         </div>
@@ -165,7 +173,7 @@ export const AddApiKey = ({
           </div>
         </div>
       }
-      <Instructions exchangeName={pickedExchangeName} />
+      <Instructions exchangeName={pickedExchangeName} type={type} />
       { !botView &&
         <div className="db-bot__footer">
           <ResetButton/>

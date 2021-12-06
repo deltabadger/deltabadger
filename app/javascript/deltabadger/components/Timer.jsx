@@ -21,10 +21,10 @@ export const Timer = ({bot, callback}) => {
   let i = 0;
   const { settings, status, nextTransactionTimestamp, nowTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))
+  const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp))
   const timeout = delay < 0
 
-  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp, status))}, [bot.nextTransactionTimestamp])
+  useEffect(() => { setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp))}, [bot.nextTransactionTimestamp])
   useInterval(() => {
     if(timeout && i == 0) {
       if (bot) {
@@ -42,7 +42,7 @@ export const Timer = ({bot, callback}) => {
 
   return (
     <div className="db-bot__infotext__right">
-      <span className="d-none d-sm-inline">{I18n.t(translation_key, { countdown })}</span>
+      <span className="d-none d-sm-inline">{bot.bot_type === 'free' ? I18n.t(translation_key, { countdown }) : `Next withdrawal in ${countdown}`}</span>
     </div>
   )
 }

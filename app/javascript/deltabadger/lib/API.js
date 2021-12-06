@@ -19,9 +19,9 @@ const API = {
     return client.post(`/${endpoint}`, params).then(data => data.data);
   },
 
-  getExchanges() {
+  getExchanges(type) {
     const url = `${API_URL}/exchanges`;
-    return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
+    return client.request({ url, params: { type: type }, method: 'get' }).then(data => data.data);
   },
 
   createApiKey(params) {
@@ -31,7 +31,8 @@ const API = {
       key: params.key,
       secret: params.secret,
       passphrase: params.passphrase,
-      german_trading_agreement: params.germanAgreement
+      german_trading_agreement: params.germanAgreement,
+      key_type: params.type
     }
     return client.request({ url, data: { api_key: ApiKeyParams }, method: 'post' }).then(data => data.data);
   },
@@ -64,7 +65,7 @@ const API = {
       return data.data});
   },
 
-  createBot(params) {
+  createTradingBot(params) {
     const url = `${API_URL}/bots`;
     const botParams = {
       bot_type: params.botType,
@@ -84,7 +85,22 @@ const API = {
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
-  updateBot(params) {
+  createWithdrawalBot(params) {
+    const url = `${API_URL}/bots`;
+    const botParams = {
+      bot_type: params.botType,
+      currency: params.currency,
+      address: params.address,
+      threshold: params.threshold,
+      threshold_enabled: params.thresholdEnabled,
+      interval: params.interval,
+      interval_enabled: params.intervalEnabled,
+      exchange_id: params.exchangeId
+    }
+    return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
+  },
+
+  updateTradingBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
       order_type: params.order_type,
@@ -95,6 +111,18 @@ const API = {
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
       price_range: [params.priceRange.low, params.priceRange.high]
+    }
+
+    return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
+  },
+
+  updateWithdrawalBot(params) {
+    const url = `${API_URL}/bots/${params.id}`;
+    const botParams= {
+      threshold: params.threshold,
+      threshold_enabled: params.thresholdEnabled,
+      interval: params.interval,
+      interval_enabled: params.intervalEnabled
     }
 
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
@@ -158,8 +186,18 @@ const API = {
     const url = `${API_URL}/bots/${botId}/charts/portfolio_value_over_time`;
     return client.request({ url, params: {}, method: 'get' }).then(data => data.data);
   },
+
   checkFrequencyExceed(params) {
     const url = `${API_URL}/frequency_limit_exceeded`
+    return client.request({url, params: params, method: 'get'}).then(data => data.data);
+  },
+
+  getWithdrawalMinimums(exchangeId, currency) {
+    const params = {
+      exchange_id: exchangeId,
+      currency: currency
+    }
+    const url = `${API_URL}/withdrawal_minimums`
     return client.request({url, params: params, method: 'get'}).then(data => data.data);
   }
 };

@@ -3,8 +3,8 @@ import I18n from 'i18n-js'
 import { RawHTML } from '../RawHtml'
 import { getExchange } from '../../lib/exchanges'
 
-export const Instructions = ({ exchangeName }) => {
-  const exchange = getExchange(exchangeName)
+export const Instructions = ({ exchangeName, type }) => {
+  const exchange = getExchange(exchangeName, type)
   if (!exchange) return null
 
   const { name, url, translation_key } = exchange

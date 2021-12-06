@@ -7,8 +7,10 @@ class ApiKey < ApplicationRecord
   attr_encrypted :passphrase, key: ENV.fetch('API_PASSPHRASE_ENCRRYPTION_KEY')
 
   STATES = %i[pending correct incorrect].freeze
+  TYPES = %i[trading withdrawal].freeze
 
   enum status: [*STATES]
+  enum key_type: [*TYPES]
 
   delegate :name, to: :exchange, prefix: true
 end

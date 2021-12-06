@@ -9,7 +9,6 @@ class UnscheduleTransactions < BaseService
   private
 
   def delete?(job, bot)
-    job.args[0] == bot.id &&
-      job.klass == 'MakeTransactionWorker'
+    job.args[0] == bot.id && (job.klass == 'MakeTransactionWorker' || job.klass == 'MakeWithdrawalWorker')
   end
 end
