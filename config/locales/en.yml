@@ -518,10 +518,30 @@ en:
                 instructions_6_1_html: 'Set permissions for:'
                 instructions_6_2_html: '<b>Read</b>'
                 instructions_6_3_html: '<b>Trading</b>'
+            withdrawal:
+                kraken:
+                    instructions_1_html: 'Log into your %{exchange_link} account.'
+                    instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
+                    instructions_3_html: 'Press <b>Generate New Key</b>.'
+                    instructions_4_html: 'Set permissions for:'
+                    instructions_5_1_html: 'Funds:'
+                    instructions_5_2_html: '<b>Query Funds</b>'
+                    instructions_5_3_html: '<b>Withdraw Funds</b>'
+                    instructions_6_html: 'Press <b>Generate Key</b>.'
+                    instructions_7_html: 'Copy and paste your new API keys into the form above.'
+            withdrawal_address:
+                kraken:
+                    instructions_1_html: 'Log in to your %{exchange_link} account.'
+                    instructions_2_html: 'Go to <b>Funding</b> → <b>Withdraw</b>.'
+                    instructions_3_html: 'Pick asset you are interested in.'
+                    instructions_4_html: 'Add new withdrawal address or manage already created addresses.'
+                    instructions_5_html: 'Copy description you assigned to withdrawal address in to the form above.'
             frequency_limit:
                 limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per minute, your schedule will be executed in orders of %{price}%{currency} each.'
                 back_to_settings: 'Back to settings'
                 start_the_bot: 'Modify and start'
+            withdrawal_html: 'Withdraw <split>%{currency}</split> to <split>%{address}</split> wallet.'
+            no_wallet_found: ' No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
         add_new_bot: 'Add new bot'
         start: Start
         stop: Pause
@@ -562,6 +582,8 @@ en:
             pending:
                 text: Pending
                 info_html: Processing...
+            automatic_withdrawal: Automatic Withdrawal
+            dollar_cost_averaging: Dollar-Cost Averaging
         details:
             stats:
                 title: Statistics
@@ -603,6 +625,9 @@ en:
         price_range_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
+        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
+        withdraw_interval_html: 'Withdraw every <split>2</split> days.'
+        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
     activerecord:
         errors:
             models:
