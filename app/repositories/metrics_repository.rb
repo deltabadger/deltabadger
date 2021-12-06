@@ -18,19 +18,11 @@ class MetricsRepository < BaseRepository
     FeesService.new.update_fees
   end
 
-  def measure_avg_time_of_execution
-    time_sum = 0
-    times = []
-    10.times do
-      t1 = Time.now
-      update_metrics
-      execution_time = Time.now - t1
-      time_sum += execution_time
-      times.push(execution_time)
-    end
-    avg_time = time_sum / 10
-    puts times
-    puts "Average time : #{avg_time}"
+  def measure_time_of_execution
+    t1 = Time.now
+    update_metrics
+    execution_time = Time.now - t1
+    puts "Excecution time: #{execution_time}"
   end
 
   def metrics_data
