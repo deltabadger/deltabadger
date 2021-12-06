@@ -10,9 +10,9 @@ class MetricsRepository < BaseRepository
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
       btcBoughtDayAgo: convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago),
       profitBotsTillNow: profitable_bots_data[3],
-      profitBots3MothsAgo: profitable_bots_data[2],
-      profitBots6MothsAgo: profitable_bots_data[1],
-      profitBots12MothsAgo: profitable_bots_data[0]
+      profitBots3MonthsAgo: profitable_bots_data[2],
+      profitBots6MonthsAgo: profitable_bots_data[1],
+      profitBots12MonthsAgo: profitable_bots_data[0]
     }.merge(telegram_metrics)
     redis_client.set(METRICS_KEY, output_params.to_json)
     FeesService.new.update_fees
