@@ -10,13 +10,13 @@ import { isNotEmpty } from '../utils/array';
 import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
 import { AddApiKey } from "./BotForm/AddApiKey";
-import { removeInvalidApiKeys } from "./helpers";
+import { removeInvalidApiKeys, splitTranslation } from "./helpers";
 
 import {
   reloadBot,
   stopBot,
   removeBot,
-  editBot,
+  editTradingBot,
   openBot,
   clearErrors,
   fetchRestartParams,
@@ -172,10 +172,6 @@ const BotTemplate = ({
     return out
   }
 
-  const splitTranslation = (s) => {
-    return s.split(/<split>.*?<\/split>/)
-  }
-
   const getBotParams = () => {
     return {
       type,
@@ -240,20 +236,25 @@ const BotTemplate = ({
     }
   }
 
+  const keyOwned = (status) => status === 'correct'
+  const keyPending = (status) => status === 'pending'
+  const keyInvalid = (status) => status === 'incorrect'
+
   const keyExists = () => {
     // we have to assume that the key exists to fix unnecessary form rendering
-    const exchange = exchanges.find(e => exchangeId === e.id) || {owned: true, pending: false, invalid: false}
-    setApiKeyExists(exchange.owned)
+    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true}
+    const keyStatus = exchange.trading_key_status
+    setApiKeyExists(keyOwned(keyStatus))
 
-    if (exchange.owned) {
+    if (keyOwned(keyStatus)) {
       clearTimeout(apiKeyTimeout)
 
-    } else if (exchange.pending) {
+    } else if (keyPending(keyStatus)) {
       setApiKeysState(apiKeyStatus["VALIDATING"])
       clearTimeout(apiKeyTimeout)
       apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
 
-    } else if (exchange.invalid) {
+    } else if (keyInvalid(keyStatus)) {
       clearTimeout(apiKeyTimeout)
       setApiKeysState(apiKeyStatus["INVALID"])
     }
@@ -303,6 +304,7 @@ const BotTemplate = ({
           handleRemove={() => removeInvalidApiKeys(exchangeId)}
           status={apiKeysState}
           botView={{baseName, quoteName}}
+          type={'trading'}
         />
       }
 
@@ -500,10 +502,10 @@ const mapDispatchToProps = ({
   reload: reloadBot,
   handleStop: stopBot,
   handleRemove: removeBot,
-  handleEdit: editBot,
+  handleEdit: editTradingBot,
   fetchMinimums: getSmartIntervalsInfo,
   handleClick: openBot,
   clearBotErrors: clearErrors,
   fetchRestartParams: fetchRestartParams
 })
-export const Bot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
+export const TradingBot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
