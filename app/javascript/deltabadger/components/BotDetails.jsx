@@ -1,9 +1,10 @@
 import React from 'react'
 import I18n from 'i18n-js'
-import { Transactions } from './BotDetails/Transactions';
+import { TradingTransactions } from './BotDetails/TradingTransactions';
 import { Logs } from './BotDetails/Logs';
 import { Info } from './BotDetails/Info';
 import { isNotEmpty, isEmpty } from '../utils/array';
+import {WithdrawalTransactions} from "./BotDetails/WithdrawalTransactions";
 
 export const BotDetails = ({ bot }) => {
   const statisticsActive = isNotEmpty(bot.transactions)
@@ -56,7 +57,12 @@ export const BotDetails = ({ bot }) => {
         {tabs.filter(e => e.visible).map(buildTab)}
       </ul>
       <div className="tab-content">
-        <Transactions bot={bot} active={statisticsActive} />
+        { bot.bot_type === 'free' &&
+          <TradingTransactions bot={bot} active={statisticsActive}/>
+        }
+        { bot.bot_type === 'withdrawal' &&
+          <WithdrawalTransactions bot={bot} active={statisticsActive}/>
+        }
         <Logs bot={bot} active={logActive}/>
         <Info bot={bot} active={infoActive} />
       </div>

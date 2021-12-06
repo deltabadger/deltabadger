@@ -2,7 +2,8 @@ module Api
   class ApiKeysController < Api::BaseController
     def create
       keys_params = api_key_params.merge(user: current_user)
-      api_key = current_user.api_keys.find_by(exchange_id: keys_params[:exchange_id])
+      api_key = current_user.api_keys
+                            .find_by(exchange_id: keys_params[:exchange_id], key_type: keys_params[:key_type])
 
       result = if api_key.nil?
                  AddApiKey.call(keys_params)
@@ -47,7 +48,7 @@ module Api
     end
 
     def api_key_params
-      params.require(:api_key).permit(:key, :secret, :passphrase, :exchange_id, :german_trading_agreement)
+      params.require(:api_key).permit(:key, :secret, :passphrase, :exchange_id, :german_trading_agreement, :key_type)
     end
 
     def invalid_key_params

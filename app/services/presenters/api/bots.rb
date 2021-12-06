@@ -11,7 +11,7 @@ module Presenters
       private
 
       def present_bot(bot)
-        Presenters::Api::Bot.call(bot)
+        bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
       end
     end
   end
