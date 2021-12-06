@@ -4,7 +4,8 @@ class SettingsController < ApplicationController
   def index
     render :index, locals: {
       user: current_user,
-      api_keys: current_user.api_keys
+      trading_api_keys: current_user.trading_api_keys,
+      withdrawal_api_keys: current_user.withdrawal_api_keys
     }
   end
 
@@ -87,8 +88,13 @@ class SettingsController < ApplicationController
 
   def stop_working_bots(api_key, user)
     user.bots.without_deleted.each do |bot|
-      StopBot.call(bot.id) if bot.exchange_id == api_key.exchange_id
+      StopBot.call(bot.id) if same_exchange_and_type?(bot, api_key)
     end
+  end
+
+  def same_exchange_and_type?(bot, api_key)
+    bot_type = bot.trading? ? 'trading' : 'withdrawal'
+    bot.exchange_id == api_key.exchange_id && bot_type == api_key.key_type
   end
 
   def update_password_params

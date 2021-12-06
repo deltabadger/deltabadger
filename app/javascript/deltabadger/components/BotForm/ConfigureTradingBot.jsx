@@ -8,7 +8,7 @@ import {RawHTML} from "../RawHtml";
 import API from "../../lib/API";
 import {StartButton} from "../buttons";
 
-export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
+export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
 
   const compareSymbols = (x, y) => {
@@ -291,7 +291,7 @@ export const ConfigureBot = ({ showLimitOrders, currentExchange, handleReset, ha
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
-        <Breadcrumbs step={2} />
+        <Breadcrumbs step={3} />
         <StartButton/>
         <div className="db-bot__infotext"/>
       </div>

@@ -1,7 +1,8 @@
 const KRAKEN = 'Kraken'
 const SYMBOLS_MAP = {
     XDG:'DOGE',
-    XBT:'BTC'
+    XBT:'BTC',
+    XXBT: 'BTC'
 }
 export const shouldRename = (name) => name === KRAKEN
 
