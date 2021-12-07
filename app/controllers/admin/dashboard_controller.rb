@@ -5,36 +5,11 @@ class Admin::DashboardController < Admin::ApplicationController
       number_of_investor_plans: SubscriptionsRepository.new.all_current_count('investor'),
       number_of_hodler_plans: SubscriptionsRepository.new.all_current_count('hodler'),
       number_of_all_bots: Bot.count,
-      number_of_working_bots: BotsRepository.new.count_with_status('working'),
-      number_of_all_transactions: Transaction.count
+      number_of_working_bots: BotsRepository.new.count_with_status('working')
     }
   end
 
   def model_name
     :dashboard
-  end
-
-  private
-
-  ExchangeTransactions = Struct.new(
-    :name,
-    :successful_transactions,
-    :failed_transactions,
-    :total
-  )
-
-  def present_exchange
-    lambda do |exchange|
-      transactions_repository = TransactionsRepository.new
-      successful = transactions_repository.count_by_status_and_exchange(:success, exchange)
-      failed = transactions_repository.count_by_status_and_exchange(:failure, exchange)
-
-      ExchangeTransactions.new(
-        exchange.name.capitalize,
-        successful,
-        failed,
-        successful + failed
-      )
-    end
   end
 end
