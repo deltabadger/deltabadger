@@ -11,9 +11,7 @@ class ProfitableBotsRepository
     end.compact
     bots_array = [
       filtered_bots_map.filter { |x| x[1] <= Time.now - 12.month },
-      filtered_bots_map.filter { |x| x[1] > Time.now - 12.month && x[1] <= Time.now - 6.month },
-      filtered_bots_map.filter { |x| x[1] > Time.now - 6.month && x[1] <= Time.now - 3.month },
-      filtered_bots_map.filter { |x| x[1] > Time.now - 3.month }
+      filtered_bots_map.filter { |x| x[1] > Time.now - 12.month }
     ]
     total_amount_of_bots = 0
     total_amount_of_bots_in_profit = 0
