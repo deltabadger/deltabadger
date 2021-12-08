@@ -9,24 +9,26 @@ class ProfitableBotsRepository
     filtered_bots_map = bot_totals.to_a.map do |bot|
       profitable_or_nil(bot)
     end.compact
-    bots_array = [
+    bots_in_periods = [
       filtered_bots_map.filter { |x| x[1] <= Time.now - 12.month },
       filtered_bots_map.filter { |x| x[1] > Time.now - 12.month }
     ]
-    total_amount_of_bots = 0
-    total_amount_of_bots_in_profit = 0
-    profit_array = []
-    bots_array.each do |bots|
-      total_amount_of_bots += bots.length
-      total_amount_of_bots_in_profit += bots.filter { |bot| bot[0] }.length
-      profit_array.push((total_amount_of_bots_in_profit / total_amount_of_bots.to_f * 100).ceil(2))
+    total_amount_of_bots = []
+    total_amount_of_bots_in_profit = []
+    percentages_array = []
+    bots_in_periods.each_with_index do |bots, index|
+      total_amount_of_bots[index] = bots.length
+      total_amount_of_bots_in_profit[index] = bots.filter { |bot| bot[0] }.length
+      percentages_array.push(percentage(total_amount_of_bots_in_profit[0..index].sum, total_amount_of_bots[0..index].sum))
     end
-    #profitable_bots_map = filtered_bots_map.filter { |bot| bot }
-    #(profitable_bots_map.length / filtered_bots_map.length.to_f * 100).ceil(2)
-    profit_array
+    percentages_array
   end
 
   private
+
+  def percentage(amount, total)
+    (amount / total.to_f * 100).ceil(2)
+  end
 
   def profitable_or_nil(bot)
     settings = JSON.parse(bot['settings'])
