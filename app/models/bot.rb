@@ -95,22 +95,33 @@ class Bot < ApplicationRecord
   end
 
   def last_transaction
+    tx = transactions.order(created_at: :desc).limit(30).filter { |t| t.transaction_type == 'REGULAR' }.first
+    return tx unless tx.nil?
+
+    # if there is no REGULAR transaction in first 30 transactions we have to scan all transactions
     transactions.filter { |t| t.transaction_type == 'REGULAR' }.max_by(&:created_at)
   end
 
   def last_successful_transaction
+    tx = transactions.order(created_at: :desc).limit(30)
+           .filter { |t| t.transaction_type == 'REGULAR' && t.status.in?(%w[success skipped]) }.first
+    return tx unless tx.nil?
+
+    # if there is no successful or skipped transaction in first 30 transactions we have to scan all transactions
     transactions
       .filter { |t| t.transaction_type == 'REGULAR' && t.status.in?(%w[success skipped]) }
       .max_by(&:created_at)
   end
 
   def any_last_transaction
-    # Using sort_by instead of order, because when calculating next transaction time in /api/bots endpoint
-    # transactions are already preloaded. We don't want to fire n + 1 queries here.
-    transactions.max_by(&:created_at)
+    transactions.order(created_at: :desc).limit(30).first
   end
 
   def last_withdrawal
+    tx = transactions.order(created_at: :desc).limit(30).filter { |t| t.transaction_type == 'WITHDRAWAL' }.first
+    return tx unless tx.nil?
+
+    # if there is no WITHDRAWAL transaction in first 30 transactions we have to scan all transactions
     transactions.filter { |t| t.transaction_type == 'WITHDRAWAL' }.max_by(&:created_at)
   end
 
