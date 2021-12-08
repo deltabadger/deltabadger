@@ -36,24 +36,14 @@ class ProfitableBotsRepository
   end
 
   def current_price(exchange_id, base, quote)
-    dictionary_key = dictionary_key(base, quote)
-    if @prices_dictionary[dictionary_key].nil?
-      if @markets_dictionary[exchange_id].nil?
-        market = ExchangeApi::Markets::Get.new.call(exchange_id)
-        @markets_dictionary[exchange_id] = market
-      else
-        market = @markets_dictionary[exchange_id]
-      end
-      symbol = market.symbol(base, quote)
-      current_price = market.current_price(symbol)
-      @prices_dictionary[dictionary_key] = current_price
-    else
-      current_price = @prices_dictionary[dictionary_key]
-    end
-    current_price
+    @prices_dictionary[symbol_key(base, quote)] ||= begin
+                                             market = @markets_dictionary[exchange_id] ||= ExchangeApi::Markets::Get.new.call(exchange_id)
+                                             symbol = market.symbol(base, quote)
+                                             market.current_price(symbol)
+                                           end
   end
 
-  def dictionary_key(base, quote)
+  def symbol_key(base, quote)
     "#{base}-#{quote}"
   end
 end
