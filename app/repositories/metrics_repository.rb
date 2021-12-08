@@ -26,17 +26,6 @@ class MetricsRepository < BaseRepository
     FeesService.new.update_fees
   end
 
-  def measure_time_of_execution
-    t1 = Time.now
-    update_metrics
-    execution_time = Time.now - t1
-    puts "Excecution time of metrics update: #{execution_time}"
-    t1 = Time.now
-    update_bots_in_profit
-    execution_time = Time.now - t1
-    puts "Excecution time of metrics update: #{execution_time}"
-  end
-
   def metrics_data
     metrics_response = @redis_client.get(METRICS_KEY)
     bots_in_profit_response = @redis_client.get(BOTS_IN_PROFIT_KEY)
