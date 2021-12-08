@@ -23,7 +23,7 @@ module ExchangeApi
             MarketSymbol.new(base, quote)
           end
           Result::Success.new(market_symbols)
-        rescue StandardError => e
+        rescue StandardError
           Result::Failure.new("Couldn't fetch Gemini symbols", RECOVERABLE)
         end
 
