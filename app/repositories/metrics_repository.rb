@@ -19,8 +19,8 @@ class MetricsRepository < BaseRepository
     Scenic.database.refresh_materialized_view(:bots_total_amounts, concurrently: true, cascade: false)
     profitable_bots_data = ProfitableBotsRepository.new.profitable_bots_data
     bots_in_profit = {
-      profitBotsTillNow: profitable_bots_data[1],
-      profitBots12MonthsAgo: profitable_bots_data[0]
+      profitBotsTillNow: profitable_bots_data[0],
+      profitBots12MonthsAgo: profitable_bots_data[1]
     }
     @redis_client.set(BOTS_IN_PROFIT_KEY, bots_in_profit.to_json)
     FeesService.new.update_fees

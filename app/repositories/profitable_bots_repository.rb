@@ -17,7 +17,7 @@ class ProfitableBotsRepository
     total_amount_of_bots_in_profit = bots_in_periods.map { |bot| bot.count { |b| b[0] } }
     bots_in_periods.each_index.map do |index|
       percentage(total_amount_of_bots_in_profit[0..index].sum, total_amount_of_bots[0..index].sum)
-    end
+    end.reverse
   end
 
   private
