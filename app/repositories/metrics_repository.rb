@@ -1,27 +1,35 @@
 class MetricsRepository < BaseRepository
   METRICS_KEY = 'metrics'.freeze
+  BOTS_IN_PROFIT_KEY = 'bots_in_profit'.freeze
+
+  def initialize
+    @redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
+  end
+
   def update_metrics
     telegram_metrics = FetchTelegramMetrics.new.call
-    Scenic.database.refresh_materialized_view(:bots_total_amounts, concurrently: true, cascade: false)
-    redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
-    profitable_bots_repository = ProfitableBotsRepository.new
-    output_params = {
+    metrics = {
       liveBots: BotsRepository.new.count_with_status('working'),
-      btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      btcBoughtDayAgo: convert_to_satoshis(TransactionsRepository.new.total_btc_bought_day_ago),
-      profitBotsTillNow: profitable_bots_repository.profitable_bots_data(Time.now),
-      profitBots3MothsAgo: profitable_bots_repository.profitable_bots_data(Time.now - 3.month),
-      profitBots6MothsAgo: profitable_bots_repository.profitable_bots_data(Time.now - 6.month),
-      profitBots12MothsAgo: profitable_bots_repository.profitable_bots_data(Time.now - 12.month)
+      btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought)
     }.merge(telegram_metrics)
-    redis_client.set(METRICS_KEY, output_params.to_json)
+    @redis_client.set(METRICS_KEY, metrics.to_json)
+  end
+
+  def update_bots_in_profit
+    Scenic.database.refresh_materialized_view(:bots_total_amounts, concurrently: true, cascade: false)
+    profitable_bots_data = ProfitableBotsRepository.new.profitable_bots_data
+    bots_in_profit = {
+      profitBotsTillNow: profitable_bots_data[0],
+      profitBots12MonthsAgo: profitable_bots_data[1]
+    }
+    @redis_client.set(BOTS_IN_PROFIT_KEY, bots_in_profit.to_json)
     FeesService.new.update_fees
   end
 
   def metrics_data
-    redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
-    redis_response = redis_client.get(METRICS_KEY)
-    JSON.parse(redis_response)
+    metrics_response = @redis_client.get(METRICS_KEY)
+    bots_in_profit_response = @redis_client.get(BOTS_IN_PROFIT_KEY)
+    JSON.parse(metrics_response).merge(JSON.parse(bots_in_profit_response))
   end
 
   private

@@ -4,16 +4,27 @@ class ProfitableBotsRepository
     @markets_dictionary = {}
   end
 
-  def profitable_bots_data(created_before)
-    bot_totals = ActiveRecord::Base.connection.execute("select * from bots_total_amounts where created_at < '#{created_before}'")
+  def profitable_bots_data
+    bot_totals = ActiveRecord::Base.connection.execute('select * from bots_total_amounts')
     filtered_bots_map = bot_totals.to_a.map do |bot|
       profitable_or_nil(bot)
     end.compact
-    profitable_bots_map = filtered_bots_map.filter { |bot| bot }
-    (profitable_bots_map.length / filtered_bots_map.length.to_f * 100).ceil(2)
+    bots_in_periods = [
+      filtered_bots_map.filter { |x| x[1] <= Time.now - 12.month },
+      filtered_bots_map.filter { |x| x[1] > Time.now - 12.month }
+    ]
+    total_amount_of_bots = bots_in_periods.map(&:length)
+    total_amount_of_bots_in_profit = bots_in_periods.map { |bot| bot.count { |b| b[0] } }
+    bots_in_periods.each_index.map do |index|
+      percentage(total_amount_of_bots_in_profit[0..index].sum, total_amount_of_bots[0..index].sum)
+    end.reverse
   end
 
   private
+
+  def percentage(amount, total)
+    (amount / total.to_f * 100).ceil(2)
+  end
 
   def profitable_or_nil(bot)
     settings = JSON.parse(bot['settings'])
@@ -21,28 +32,18 @@ class ProfitableBotsRepository
     return nil if current_price.data.nil? || bot['total_amount'].nil? || !current_price.success?
 
     current_value = bot['total_amount'].to_f * current_price.data.to_f
-    current_value.to_f > bot['total_cost'].to_f
+    [current_value.to_f > bot['total_cost'].to_f, bot['created_at']]
   end
 
   def current_price(exchange_id, base, quote)
-    dictionary_key = dictionary_key(base, quote)
-    if @prices_dictionary[dictionary_key].nil?
-      if @markets_dictionary[exchange_id].nil?
-        market = ExchangeApi::Markets::Get.new.call(exchange_id)
-        @markets_dictionary[exchange_id] = market
-      else
-        market = @markets_dictionary[exchange_id]
-      end
-      symbol = market.symbol(base, quote)
-      current_price = market.current_price(symbol)
-      @prices_dictionary[dictionary_key] = current_price
-    else
-      current_price = @prices_dictionary[dictionary_key]
-    end
-    current_price
+    @prices_dictionary[symbol_key(base, quote)] ||= begin
+                                             market = @markets_dictionary[exchange_id] ||= ExchangeApi::Markets::Get.new.call(exchange_id)
+                                             symbol = market.symbol(base, quote)
+                                             market.current_price(symbol)
+                                           end
   end
 
-  def dictionary_key(base, quote)
+  def symbol_key(base, quote)
     "#{base}-#{quote}"
   end
 end
