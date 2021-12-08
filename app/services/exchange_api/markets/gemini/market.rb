@@ -18,6 +18,8 @@ module ExchangeApi
           market_symbols = response.map do |symbol_info|
             base = get_base(symbol_info)
             quote = get_quote(symbol_info)
+            raise StandardError.new if base.nil? || quote.nil?
+
             MarketSymbol.new(base, quote)
           end
           Result::Success.new(market_symbols)
@@ -113,11 +115,21 @@ module ExchangeApi
         end
 
         def get_quote(symbol)
-          symbol[-3...].upcase
+          return symbol[-3...].upcase unless symbol[-4...] == 'gusd'
+
+          symbol_details = fetch_symbol(symbol)
+          return nil unless symbol_details.success?
+
+          symbol_details.data['quote_currency']
         end
 
         def get_base(symbol)
-          symbol[0...-3].upcase
+          return symbol[0...-3].upcase unless symbol[-4...] == 'gusd'
+
+          symbol_details = fetch_symbol(symbol)
+          return nil unless symbol_details.success?
+
+          symbol_details.data['base_currency']
         end
       end
     end
