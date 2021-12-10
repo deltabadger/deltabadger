@@ -99,7 +99,7 @@ class Bot < ApplicationRecord
   end
 
   def last_successful_transaction
-    transactions.where("status = ? OR status = ?", 0, 2).order(created_at: :desc).limit(1).last
+    transactions.where(status: [:success, :skipped]).order(created_at: :desc).limit(1).last
   end
 
   def any_last_transaction
