@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_11_22_120310) do
+ActiveRecord::Schema.define(version: 2021_12_09_115702) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -175,6 +175,9 @@ ActiveRecord::Schema.define(version: 2021_11_22_120310) do
     t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
+    t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
+    t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
+    t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
   end
 
@@ -203,6 +206,8 @@ ActiveRecord::Schema.define(version: 2021_11_22_120310) do
     t.integer "otp_module", default: 0
     t.boolean "referral_banner_showed", default: false
     t.datetime "last_otp_at"
+    t.string "provider"
+    t.string "uid"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
