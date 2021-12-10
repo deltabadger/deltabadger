@@ -9,7 +9,7 @@ class NextTradingBotTransactionAt < BaseService
 
   def call(bot, first_transaction: false)
     return DateTime.now if first_transaction
-    return nil unless bot.transactions.limit(10).exists?
+    return nil unless bot.transactions.exists?
     return bot.last_transaction.created_at if manual_restart_failed_bot?(bot)
 
     delay = if bot.restarts.zero?
