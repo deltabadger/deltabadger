@@ -93,6 +93,19 @@ module ExchangeApi
           JSON.parse(response)['result']['makerFee'].to_f * 100
         end
 
+        def subaccounts(api_keys)
+          url_base = @base_client.url_prefix.to_s
+          path = '/api/subaccounts'.freeze
+          url = url_base[0...-1] + path
+          headers = get_headers(url, api_keys.key, api_keys.secret, '', path, 'GET')
+          response = Faraday.get(url, nil, headers).body
+          return Result::Failure.new(["Couldn't fetch subaccounts from FTX", RECOVERABLE]) unless JSON.parse(response)['success']
+
+          Result::Success.new(JSON.parse(response)['result'].map { |x| x['nickname'] })
+        rescue StandardError
+          Result::Failure.new(["Couldn't fetch subaccounts from FTX", RECOVERABLE])
+        end
+
         private
 
         def fetch_symbol(symbol, cached = true)
