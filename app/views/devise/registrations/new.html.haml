@@ -38,9 +38,12 @@
           .db-form__row.db-has-unmask(onselectstart="return false;")
             = f.password_field :password, autocomplete: "new-password", value: "", class: "db-form__input db-form__input--has-icon", onchange: 'this.setAttribute("value", this.value);', id: "passwordInput"
 
-            - if @minimum_password_length
+            - if resource.errors.details[:password].present?
               .db-form__info.db-form__info--invalid
-                = t('forms.minimum_length', length: @minimum_password_length)
+                - if resource.errors.details[:password][0][:error] == :too_short
+                  = t('forms.minimum_length', length: @minimum_password_length)
+                - else
+                  = resource.errors[:password][0]
             = f.label :password, class: "db-form__label"
 
             .db-unmask{:onclick => "unmaskPassword()"}
