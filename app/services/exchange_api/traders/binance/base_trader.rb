@@ -48,8 +48,12 @@ module ExchangeApi
           min_price = if price_in_quote
                         @market.minimum_order_price(symbol)
                       else
-                        Result::Success.new([@market.minimum_order_volume(symbol).data,
-                                             @market.minimum_order_price(symbol).data / @market.current_ask_price(symbol).data].max)
+                        Result::Success.new(
+                          [
+                            @market.minimum_order_volume(symbol).data,
+                            @market.minimum_order_price(symbol).data / @market.current_ask_price(symbol).data
+                          ].max
+                        )
                       end
           return min_price unless min_price.success?
 

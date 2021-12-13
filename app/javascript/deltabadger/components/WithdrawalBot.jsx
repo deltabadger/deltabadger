@@ -80,6 +80,7 @@ const BotTemplate = ({
       intervalEnabled
     }
 
+    setTimeout(() => reload(bot), 3000)
     handleEdit(botParams)
   }
 

@@ -53,8 +53,10 @@ class MakeWithdrawal < BaseService
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id, 'withdrawal')
     account_info_api = @get_withdrawal_info_processor.call(api_key)
     withdrawal_api = @get_withdrawal_processor.call(api_key)
-    balance = account_info_api.available_funds(bot.currency)
-    bot = @bots_repository.update(bot.id, account_balance: balance.data) if balance.success?
+    balance = account_info_api.available_funds(bot)
+    return balance unless balance.success?
+
+    bot = @bots_repository.update(bot.id, account_balance: balance.data)
     return Result::Failure.new(SKIPPED) unless check_balance(bot, balance)
 
     withdrawal_api.make_withdrawal(get_withdrawal_params(bot, balance))
