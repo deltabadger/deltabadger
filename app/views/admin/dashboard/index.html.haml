@@ -7,32 +7,4 @@
 %p= "Number of hodler plans: #{number_of_hodler_plans}"
 %p= "Number of bots: #{number_of_all_bots}"
 %p= "Number of working bots: #{number_of_working_bots}"
-%p= "Number of all transactions: #{number_of_all_transactions}"
--# %p= "Number of BTC bought: #{btc_amount_bought}"
--# %p= "Number of BTC sold: #{btc_amount_sold}"
-
--# %hr
-
--# %h1 How fast users buy subscriptions:
--# %br
-
--# %p= "The same month: #{payments_statistics[:first]} %"
--# %p= "Second month: #{payments_statistics[:second]} %"
--# %p= "Third month: #{payments_statistics[:third]} %"
--# %p= "Later: #{payments_statistics[:later]} %"
-
-%hr
-
-%p
-  %table{:style => "width:100%"}
-    %tr
-      %th Exchange Name
-      %th Sucessful
-      %th Failed
-      %th Total
-    - transations_by_exchange.each do |exchange|
-      %tr
-        %td= exchange.name
-        %td= exchange.successful_transactions
-        %td= exchange.failed_transactions
-        %td= exchange.total
+-# %p= "Number of all transactions: #{number_of_all_transactions}"

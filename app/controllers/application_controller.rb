@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   before_action :set_raven_context
   before_action :set_locale
   before_action :configure_permitted_parameters, if: :devise_controller?
+  before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
 
   def set_locale
@@ -44,5 +45,9 @@ class ApplicationController < ActionController::Base
 
   def default_url_options
     { lang: I18n.locale }
+  end
+
+  def set_no_cache
+    response.headers['Cache-Control'] = 'no-store'
   end
 end

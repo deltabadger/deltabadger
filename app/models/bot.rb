@@ -95,23 +95,19 @@ class Bot < ApplicationRecord
   end
 
   def last_transaction
-    transactions.filter { |t| t.transaction_type == 'REGULAR' }.max_by(&:created_at)
+    transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
   end
 
   def last_successful_transaction
-    transactions
-      .filter { |t| t.transaction_type == 'REGULAR' && t.status.in?(%w[success skipped]) }
-      .max_by(&:created_at)
+    transactions.where(status: [:success, :skipped]).order(created_at: :desc).limit(1).last
   end
 
   def any_last_transaction
-    # Using sort_by instead of order, because when calculating next transaction time in /api/bots endpoint
-    # transactions are already preloaded. We don't want to fire n + 1 queries here.
-    transactions.max_by(&:created_at)
+    transactions.order(created_at: :desc).limit(1).last
   end
 
   def last_withdrawal
-    transactions.filter { |t| t.transaction_type == 'WITHDRAWAL' }.max_by(&:created_at)
+    transactions.where(transaction_type: 'WITHDRAWAL').order(created_at: :desc).limit(1).last
   end
 
   def total_amount

@@ -47,12 +47,15 @@ module ExchangeApi
           Result::Success.new(nil)
         end
 
-        def available_funds(currency)
-          response = @client.balance
+        def available_funds(bot)
+          minimum = withdrawal_minimum(bot.currency)
+          return minimum unless minimum.success?
+
+          response = @client.withdraw_info(asset: bot.currency, key: bot.address, amount: minimum.data)
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
-          data = response.fetch('result').select { |s, _data| s.include? currency }.map { |_s, d| d }
-          Result::Success.new(data[0].present? ? data[0].to_f : 0.0)
+          data = response.fetch('result').fetch('limit').to_f
+          Result::Success.new(data)
         rescue StandardError => e
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Kraken', RECOVERABLE)
