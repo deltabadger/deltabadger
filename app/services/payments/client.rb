@@ -18,7 +18,6 @@ module Payments
     def create_payment(params)
       try_create_payment(params)
     rescue Faraday::ClientError => e
-      Raven.capture_exception(e)
       Result::Failure.new(e.message)
     rescue StandardError => e
       Raven.capture_exception(e) # we do not anticipate standard errors
@@ -33,8 +32,6 @@ module Payments
       url = create_url('invoices/')
 
       response = Faraday.post(url, body(params), headers)
-
-      return Result::Failure.new('Internal payserver error') if response.status == 500
 
       return Result::Failure.new(response.body) unless response.success?
 
