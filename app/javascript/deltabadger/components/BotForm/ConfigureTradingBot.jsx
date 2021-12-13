@@ -2,7 +2,7 @@ import React, {useEffect, useRef, useState} from 'react'
 import {Breadcrumbs} from './Breadcrumbs'
 import {Progressbar} from './Progressbar'
 import LimitOrderNotice from "./LimitOrderNotice";
-import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename} from "../../utils/symbols";
+import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename, shouldShowSubaccounts} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
 import API from "../../lib/API";
@@ -10,6 +10,7 @@ import {StartButton} from "../buttons";
 
 export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
+  const showSubaccounts = shouldShowSubaccounts(currentExchange.name)
 
   const compareSymbols = (x, y) => {
     if (shouldRenameSymbols) {
@@ -428,6 +429,36 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 onChange={e => setSmartIntervalsValue(e.target.value)}
                 onBlur={validateSmartIntervalsValue}
                 min={minimumOrderParams.value}
+              />
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+
+              <small className="hide-when-running hide-when-disabled">
+                <div>
+                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+                </div>
+              </small>
+            </div>
+          </label>
+
+          <label
+              className="alert alert-primary"
+              disabled={!forceSmartIntervals}
+          >
+            <input
+                type="checkbox"
+                checked={forceSmartIntervals}
+                onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+            />
+            <div>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <input
+                  type="text"
+                  size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
+                  className="bot-input bot-input--sizable"
+                  value={smartIntervalsValue}
+                  onChange={e => setSmartIntervalsValue(e.target.value)}
+                  onBlur={validateSmartIntervalsValue}
+                  min={minimumOrderParams.value}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 

@@ -5,6 +5,7 @@ const SYMBOLS_MAP = {
     XXBT: 'BTC'
 }
 export const shouldRename = (name) => name === KRAKEN
+export const shouldShowSubaccounts = (name) => ['FTX','FTX.US'].includes(name)
 
 export const renameSymbol = (s) => {
     return s in SYMBOLS_MAP ? SYMBOLS_MAP[s] : s
