@@ -1,5 +1,8 @@
 class Users::SessionsController < Devise::SessionsController
+  prepend_before_action :check_captcha, only: [:create]
+
   def create
+    params[:user][:password] = trim_long_password(params[:user][:password])
     self.resource = warden.authenticate!(auth_options)
 
     if resource&.otp_module_disabled?
@@ -8,10 +11,9 @@ class Users::SessionsController < Devise::SessionsController
       else
         abort_sign_in(I18n.t('errors.messages.bad_credentials_with_code'), :email)
       end
-
     elsif resource&.otp_module_enabled?
       if params[:user][:otp_code_token].present?
-        if resource.authenticate_otp(params[:user][:otp_code_token], drift: 60)
+        if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
           continue_sign_in(resource, resource_name)
         else
           abort_sign_in(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
@@ -20,7 +22,6 @@ class Users::SessionsController < Devise::SessionsController
       else
         abort_sign_in(I18n.t('errors.messages.empty_two_fa_token'), :otp_code_token)
       end
-
     end
   end
 
@@ -38,5 +39,16 @@ class Users::SessionsController < Devise::SessionsController
     resource.errors.add(field, :invalid)
     @error_message = error_message
     respond_with resource, location: new_user_session_path
+  end
+
+  def check_captcha
+    return if verify_recaptcha
+
+    self.resource = resource_class.new
+    respond_with_navigational(resource) { render :new }
+  end
+
+  def trim_long_password(password)
+    password[0...Devise.password_length.max]
   end
 end
