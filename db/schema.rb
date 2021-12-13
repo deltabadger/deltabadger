@@ -206,8 +206,6 @@ ActiveRecord::Schema.define(version: 2021_12_09_115702) do
     t.integer "otp_module", default: 0
     t.boolean "referral_banner_showed", default: false
     t.datetime "last_otp_at"
-    t.string "provider"
-    t.string "uid"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
