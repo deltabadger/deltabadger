@@ -25,17 +25,17 @@ module Payments
       return validation_result if validation_result.failure?
 
       cost_calculator = get_cost_calculator(payment, user)
-
       payment_result = create_payment(payment, user, cost_calculator)
       if payment_result.success?
-        crypto_total = payment_result.data[:crypto_total]
+        crypto_total = payment_result.data[:crypto_total].nil? ? 0.0 : payment_result.data[:crypto_total]
         @payments_repository.create(
-          payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
+          payment_result.data.slice(:payment_id, :status, :external_statuses, :total)
             .merge(
               id: order_id,
               currency: currency(payment),
               discounted: cost_calculator.discount_percent.positive?,
               commission: cost_calculator.commission,
+              crypto_total: crypto_total,
               crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
             )
             .merge(params)
