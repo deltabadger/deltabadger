@@ -185,6 +185,7 @@ en:
             wire_cost_investor_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> to the following bank account:'
             wire_cost_hodler_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
             wire_cost_pending_html: 'If you didn’t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
+            server_error: 'payments server error. try again later'
         upgrade_plan: 'Upgrade plan'
         prolong_upgrade: 'Prolong or upgrade your plan'
         maximalist_title: 'Bitcoin Maximalist discount 50%'
