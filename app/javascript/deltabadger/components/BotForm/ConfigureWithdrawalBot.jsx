@@ -165,7 +165,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
               </>
             }
             { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
-              <div className="form-group mr-3">{I18n.t('no_wallet_found', {exchangeName: currentExchange.name})}</div>
+              <div className="form-group mr-3">{I18n.t('bots.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
             }
             { currentExchange.name.toLowerCase() === 'kraken' &&
               <>
