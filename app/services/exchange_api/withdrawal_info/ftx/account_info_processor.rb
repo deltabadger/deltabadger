@@ -40,7 +40,7 @@ module ExchangeApi
           request = @base_client.get(url, nil, headers)
 
           response = JSON.parse(request.body)
-          addresses = response['result'].map do |data|
+          addresses = response['result'].select{ |data| data['whitelisted'] }.map do |data|
             {
               currency: data['coin'],
               address: data['address']
@@ -65,6 +65,10 @@ module ExchangeApi
         rescue StandardError => e
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Ftx', RECOVERABLE)
+        end
+
+        def withdrawal_minimum(_currency)
+          Result::Success.new(0.0)
         end
       end
     end

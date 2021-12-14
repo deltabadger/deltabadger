@@ -8,7 +8,7 @@ module ExchangeApi
           api_key:,
           api_secret:,
           url_base:,
-          map_errors: ExchangeApi::MapErrors::Kraken.new,
+          map_errors: ExchangeApi::MapErrors::Ftx.new,
           options: {}
         )
           @api_key = api_key
@@ -20,7 +20,6 @@ module ExchangeApi
         end
 
         def make_withdrawal(params)
-          byebug
           path = '/api/wallet/withdrawals'.freeze
           url = @url_base + path
           order_params = get_order_params(params)
@@ -29,7 +28,8 @@ module ExchangeApi
           headers = get_headers(url, @api_key, @api_secret, body, path, 'POST')
           request = @base_client.post(url, body, headers)
           response = JSON.parse(request.body)
-          puts response
+          return error_to_failure([response['error']]) unless response['error'].nil?
+
           return Result::Failure.new("FTX withdrawal failed", RECOVERABLE) if cancelled?(response)
 
           result = parse_withdrawal(response)
