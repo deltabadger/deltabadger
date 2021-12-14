@@ -42,7 +42,7 @@ export const Timer = ({bot, callback}) => {
 
   return (
     <div className="db-bot__infotext__right">
-      <span className="d-none d-sm-inline">{bot.bot_type === 'free' ? I18n.t(translation_key, { countdown }) : `Next withdrawal in ${countdown}`}</span>
+      <span className="d-none d-sm-inline">{bot.bot_type === 'free' ? I18n.t(translation_key, { countdown }) : I18n.t('bots.next_withdrawal', { countdown })}</span>
     </div>
   )
 }
