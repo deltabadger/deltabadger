@@ -25,6 +25,7 @@ module Payments
       return validation_result if validation_result.failure?
 
       cost_calculator = get_cost_calculator(payment, user)
+
       payment_result = create_payment(payment, user, cost_calculator)
       if payment_result.success?
         crypto_total = payment_result.data[:crypto_total]
