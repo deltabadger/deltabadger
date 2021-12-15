@@ -236,9 +236,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
         </form>
       </div>
 
-      { currentExchange.name === 'Kraken' &&
-        <WithdrawalAddressInstructions exchangeName={currentExchange.name} type={'withdrawal_address'}/>
-      }
+      <WithdrawalAddressInstructions exchangeName={currentExchange.name} type={'withdrawal_address'}/>
 
       <div className="db-bot__footer">
         <ResetButton />

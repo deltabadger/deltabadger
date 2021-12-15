@@ -31,7 +31,7 @@ export const WithdrawalAddressInstructions = ({ exchangeName, type }) => {
     <div className="db-exchange-instructions">
       <div className="alert alert-success" role="alert">
         <div className="alert__regular-text">
-          <b className="alert-heading mb-2">{`How to set up withdrawal bot:`}</b>
+          <b className="alert-heading mb-2">{I18n.t('bots.setup.how_to_add_withdrawal_bot')}</b>
           <hr/>
           <RawHTML>{mergedInstruction()}</RawHTML>
         </div>
