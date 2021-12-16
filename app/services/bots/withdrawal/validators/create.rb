@@ -36,6 +36,7 @@ module Bots::Withdrawal::Validators
         @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
         @minimums = GetWithdrawalMinimums.call({ exchange_id: bot.exchange_id }, user)
         @withdrawal_info_processor = get_withdrawal_info_processor(user.api_keys, bot.exchange_id)
+        @exchange_id = bot.exchange_id
       end
 
       private
@@ -55,9 +56,10 @@ module Bots::Withdrawal::Validators
       def threshold_above_minimum
         return if !@threshold_enabled || !@minimums.success?
 
-        return if @threshold.to_f >= @minimums.data[:minimum].to_f
+        minimum_check_params = {minimum: @minimums.data[:minimum].to_f, currency: @currency, threshold: @threshold.to_f}
+        return if CheckWithdrawalMinimums.call(@exchange_id, minimum_check_params)
 
-        errors.add(:threshold, " should be greater than #{@minimums.data[:minimum]}")
+        errors.add(:threshold, " is to small.")
       end
 
       def validate_whitelist

@@ -113,6 +113,12 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
     return s.split(/<split>.*?<\/split>/)
   }
 
+  const getMinimumDisclaimer = () => {
+    return currentExchange.name === 'kraken' ?
+      I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
+      I18n.t('bots.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: currentExchange.name})
+  }
+
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
 
@@ -206,7 +212,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
-                  <sup>*</sup>{I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum})}
+                  <sup>*</sup>{getMinimumDisclaimer()}
                 </div>
               </small>
             </div>

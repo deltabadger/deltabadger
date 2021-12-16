@@ -68,7 +68,8 @@ module ExchangeApi
         end
 
         def withdrawal_minimum(_currency)
-          Result::Success.new(0.0)
+          # we set that minimum withdrawal size on FTX is 20USD
+          Result::Success.new(20.0)
         end
       end
     end
