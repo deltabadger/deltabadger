@@ -649,6 +649,7 @@ en:
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum}USD.'
     activerecord:
         errors:
             models:
