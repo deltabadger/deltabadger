@@ -548,13 +548,14 @@ en:
                     instructions_1_html: 'Log in to your %{exchange_link} account.'
                     instructions_2_html: 'Go to the Settings menu (top right corner).'
                     instructions_3_html: 'Go to <b>Security</b> tab.'
-                    instructions_4_html: 'In the <b>Withdrawal Destination Whitelisting</b> section, enable whitelisting by pressing <b>Restrict Withdrawals To Whitelist</b>. '
-                    instructions_5_html: 'On the same view, click the <b>Saved Addresses</b> hyperlink.'
-                    instructions_6_html: 'On the <b>Manage Saved Addresses</b> page, press <b>Create Saved Address</b>.'
-                    instructions_7_html: 'Provide withdrawal address and press <b>Save Address</b>.'
-                    instructions_8_html: 'In <b>Whitelist Status</b> column, press edit (pencil icon).'
-                    instructions_9_html: 'Press <b>Schedule for whitelisting</b>.'
-                    instructions_10_html: "Adding address to whitelist has at least one day delay on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard."
+                    instructions_4_html: 'In the <b>2FA for Withdrawals</b> section, disable 2FA for withdrawals by pressing <b>Disable 2FA For Withdrawals</b>.'
+                    instructions_5_html: 'In the <b>Withdrawal Destination Whitelisting</b> section, enable whitelisting by pressing <b>Restrict Withdrawals To Whitelist</b>. '
+                    instructions_6_html: 'On the same view, click the <b>Saved Addresses</b> hyperlink.'
+                    instructions_7_html: 'On the <b>Manage Saved Addresses</b> page, press <b>Create Saved Address</b>.'
+                    instructions_8_html: 'Provide withdrawal address and press <b>Save Address</b>.'
+                    instructions_9_html: 'In <b>Whitelist Status</b> column, press edit (pencil icon).'
+                    instructions_10_html: 'Press <b>Schedule for whitelisting</b>.'
+                    instructions_11_html: "Adding address to whitelist has at least one day delay on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard."
             frequency_limit:
                 limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per minute, your schedule will be executed in orders of %{price}%{currency} each.'
                 back_to_settings: 'Back to settings'
