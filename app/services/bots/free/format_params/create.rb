@@ -13,6 +13,8 @@ module Bots
           smart_intervals_value
           price_range_enabled
           price_range
+          useSubaccount
+          selectedSubaccount
         ].freeze
 
         def call(params)
