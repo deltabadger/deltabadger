@@ -74,7 +74,9 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
     async function fetchMinimums () {
       const minimums = await getMinimums(currentExchange.id, currency)
       setMinimum(minimums.minimum.toString())
-      setThreshold(minimums.minimum.toString())
+      if (currentExchange.name === 'Kraken'){
+        setThreshold(minimums.minimum.toString())
+      }
     }
 
     fetchMinimums()
