@@ -20,10 +20,10 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
-        def fetch_order_by_id(order_id)
+        def fetch_order_by_id(order_id, use_subaccout, selected_subaccount)
           path = "/api/orders/#{order_id}".freeze
           url = @url_base + path
-          headers = get_headers(url, @api_key, @api_secret, '', path, 'GET')
+          headers = get_headers(url, @api_key, @api_secret, '', path, 'GET', use_subaccout, selected_subaccount)
           request = Faraday.get(url, nil, headers)
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
 
@@ -48,12 +48,12 @@ module ExchangeApi
 
         private
 
-        def place_order(order_params)
+        def place_order(order_params, use_subaccount, selected_subaccount)
           path = '/api/orders'.freeze
           url = @url_base + path
 
           body = order_params.to_json
-          headers = get_headers(url, @api_key, @api_secret, body, path, 'POST')
+          headers = get_headers(url, @api_key, @api_secret, body, path, 'POST', use_subaccount, selected_subaccount)
           conn = faraday_connector
           request = conn.post(path) do |req|
             req.body = body
@@ -89,7 +89,6 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-
           if was_filled?(request)
             response = response.fetch('result')
             order_id = response.fetch('id')

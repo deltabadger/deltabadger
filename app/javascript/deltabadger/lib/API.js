@@ -80,7 +80,9 @@ const API = {
       force_smart_intervals: params.forceSmartIntervals,
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
-      price_range: [params.priceRange.low, params.priceRange.high]
+      price_range: [params.priceRange.low, params.priceRange.high],
+      useSubaccount: params.useSubaccount,
+      selectedSubaccount: params.selectedSubaccount
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
@@ -190,6 +192,11 @@ const API = {
   checkFrequencyExceed(params) {
     const url = `${API_URL}/frequency_limit_exceeded`
     return client.request({url, params: params, method: 'get'}).then(data => data.data);
+  },
+
+  getSubaccounts(exchange_id) {
+    const url = `${API_URL}/subaccounts`
+    return client.request({url, params: {exchange_id: exchange_id}, method: 'get'}).then(data => data.data);
   },
 
   getWithdrawalMinimums(exchangeId, currency) {

@@ -2,20 +2,20 @@ module ExchangeApi
   module Traders
     module Ftx
       class LimitTrader < ExchangeApi::Traders::Ftx::BaseTrader
-        def buy(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
+        def buy(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, use_subaccount:, selected_subaccount:)
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value)
           return buy_params unless buy_params.success?
 
-          place_order(buy_params.data)
+          place_order(buy_params.data, use_subaccount, selected_subaccount)
         end
 
-        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
+        def sell(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:, is_legacy:, use_subaccount:, selected_subaccount:)
           symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value, is_legacy)
           return sell_params unless sell_params.success?
 
-          place_order(sell_params.data)
+          place_order(sell_params.data, use_subaccount, selected_subaccount)
         end
 
         def fetch_order_by_id(_order_id, response_params = nil)
@@ -75,7 +75,7 @@ module ExchangeApi
           Result::Success.new((rate * (1 + percentage / 100)).ceil(rate_decimals.data))
         end
 
-        def place_order(order_params)
+        def place_order(order_params, use_subaccount, selected_subaccount)
           response = super
           return response unless response.success?
 

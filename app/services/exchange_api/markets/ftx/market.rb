@@ -88,7 +88,7 @@ module ExchangeApi
           fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
           path = '/api/account'.freeze
           url = url_base[0...-1] + path
-          headers = get_headers(url, fee_api_keys.key, fee_api_keys.secret, '', path, 'GET')
+          headers = get_headers(url, fee_api_keys.key, fee_api_keys.secret, '', path, 'GET', false, nil)
           response = Faraday.get(url, nil, headers).body
           JSON.parse(response)['result']['makerFee'].to_f * 100
         end
@@ -97,7 +97,7 @@ module ExchangeApi
           url_base = @base_client.url_prefix.to_s
           path = '/api/subaccounts'.freeze
           url = url_base[0...-1] + path
-          headers = get_headers(url, api_keys.key, api_keys.secret, '', path, 'GET')
+          headers = get_headers(url, api_keys.key, api_keys.secret, '', path, 'GET', false, nil)
           response = Faraday.get(url, nil, headers).body
           return Result::Failure.new(["Couldn't fetch subaccounts from FTX", RECOVERABLE]) unless JSON.parse(response)['success']
 

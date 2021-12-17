@@ -66,10 +66,14 @@ class FetchOrderResult < BaseService
     offer_id = get_offer_id(result_params)
     Rails.logger.info "Fetching order id: #{offer_id} for bot: #{bot.id}"
     result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if probit?(bot)
+    use_subaccount = bot.use_subaccount
+    selected_subaccount = bot.selected_subaccount
     result = if already_fetched?(result_params)
                api.fetch_order_by_id(offer_id, result_params)
              elsif probit?(bot)
                api.fetch_order_by_id(offer_id, result_params)
+             elsif use_subaccount
+               api.fetch_order_by_id(offer_id, use_subaccount, selected_subaccount)
              else
                api.fetch_order_by_id(offer_id)
              end
