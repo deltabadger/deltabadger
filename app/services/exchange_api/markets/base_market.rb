@@ -61,6 +61,10 @@ module ExchangeApi
         0.1
       end
 
+      def subaccounts(api_keys)
+        Result::Success.new([])
+      end
+
       private
 
       def current_bid_ask_price(_symbol)
