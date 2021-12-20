@@ -1,4 +1,5 @@
 const KRAKEN = 'Kraken'
+const KUCOIN = 'KuCoin'
 const SYMBOLS_MAP = {
     XDG:'DOGE',
     XBT:'BTC',

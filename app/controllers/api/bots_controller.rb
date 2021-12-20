@@ -26,7 +26,6 @@ module Api
     end
 
     def update
-      byebug
       bot_params = params[:bot][:order_type].present? ? trading_bot_update_params : withdrawal_bot_update_params
       result = Bots::Update.call(current_user, bot_params)
 
