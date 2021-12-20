@@ -142,11 +142,11 @@ module ExchangeApi
         end
 
         def get_quote(symbol_info)
-          symbol_info.fetch('quoteCurrency')
+          symbol_info.fetch('symbol').split('-')[1]
         end
 
         def get_base(symbol_info)
-          symbol_info.fetch('baseCurrency')
+          symbol_info.fetch('symbol').split('-')[0]
         end
       end
     end
