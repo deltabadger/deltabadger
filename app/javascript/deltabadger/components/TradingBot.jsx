@@ -64,8 +64,8 @@ const BotTemplate = ({
   const [priceRange, setPriceRange] = useState({ low: settings.price_range[0].toString(), high: settings.price_range[1].toString() })
   const [apiKeyExists, setApiKeyExists] = useState(true)
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
-  const [useSubaccount,setUseSubaccounts] = useState(settings.useSubaccount)
-  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selectedSubaccount)
+  const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount)
+  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount)
   const [subaccountsList, setSubaccountsList] = useState([])
 
   const isStarting = startingBotIds.includes(id);
