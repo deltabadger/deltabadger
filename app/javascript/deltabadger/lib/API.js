@@ -81,8 +81,8 @@ const API = {
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
       price_range: [params.priceRange.low, params.priceRange.high],
-      useSubaccount: params.useSubaccount,
-      selectedSubaccount: params.selectedSubaccount
+      use_subaccount: params.useSubaccount,
+      selected_subaccount: params.selectedSubaccount
     }
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
@@ -112,7 +112,9 @@ const API = {
       force_smart_intervals: params.forceSmartIntervals,
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
-      price_range: [params.priceRange.low, params.priceRange.high]
+      price_range: [params.priceRange.low, params.priceRange.high],
+      use_subaccount: params.useSubaccount,
+      selected_subaccount: params.selectedSubaccount
     }
 
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
