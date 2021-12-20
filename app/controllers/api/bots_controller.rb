@@ -26,6 +26,7 @@ module Api
     end
 
     def update
+      byebug
       bot_params = params[:bot][:order_type].present? ? trading_bot_update_params : withdrawal_bot_update_params
       result = Bots::Update.call(current_user, bot_params)
 
@@ -148,8 +149,8 @@ module Api
       force_smart_intervals
       smart_intervals_value
       price_range_enabled
-      useSubaccount
-      selectedSubaccount
+      use_subaccount
+      selected_subaccount
     ].freeze
 
     def trading_bot_create_params
@@ -183,8 +184,8 @@ module Api
       force_smart_intervals
       smart_intervals_value
       price_range_enabled
-      useSubaccount
-      selectedSubaccount
+      use_subaccount
+      selected_subaccount
     ].freeze
 
     def trading_bot_update_params
