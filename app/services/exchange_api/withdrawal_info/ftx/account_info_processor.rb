@@ -10,13 +10,11 @@ module ExchangeApi
           api_key:,
           api_secret:,
           url_base:,
-          market: ExchangeApi::Markets::Ftx::Market,
           map_errors: ExchangeApi::MapErrors::Ftx.new
         )
           @api_key = api_key
           @api_secret = api_secret
           @url_base = url_base
-          @market = market.new(url_base: url_base)
           @base_client = base_client(url_base)
           @map_errors = map_errors
         end
@@ -42,7 +40,7 @@ module ExchangeApi
           request = @base_client.get(url, nil, headers)
 
           response = JSON.parse(request.body)
-          addresses = response['result'].map do |data|
+          addresses = response['result'].select{ |data| data['whitelisted'] }.map do |data|
             {
               currency: data['coin'],
               address: data['address']
@@ -67,6 +65,11 @@ module ExchangeApi
         rescue StandardError => e
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Ftx', RECOVERABLE)
+        end
+
+        def withdrawal_minimum(_currency)
+          # we set that minimum withdrawal size on FTX is 20USD
+          Result::Success.new(20.0)
         end
       end
     end
