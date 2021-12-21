@@ -35,10 +35,10 @@ export const PercentageProgress = ({bot, callback}) => {
 
   if (timeout) { return <Spinner /> }
 
-  const percentage = Math.floor(progressPercentage);
+  const percentage = progressPercentage >= 1 ? Math.floor(progressPercentage) : parseFloat(progressPercentage).toFixed(2);
   return (
     <div className="db-bot__infotext__right">
-      <span className="d-none d-sm-inline">{percentage}% to next withdrawal</span>
+      <span className="d-none d-sm-inline">{I18n.t('bots.withdrawal_percentage', {percentage: percentage})}</span>
     </div>
   )
 }
