@@ -228,7 +228,7 @@ export const RemoveButton = ({onClick, disabled}) => {
 
 export const ExchangeButton = ({ handleClick, exchange, type }) => {
   const withdrawalEnabled = () => {
-    return ['kraken']
+    return ['kraken', 'ftx', 'ftx.us']
   }
 
   const exchangeClass = () => {
