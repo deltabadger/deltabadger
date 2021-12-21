@@ -2,7 +2,7 @@ module ExchangeApi
   module Traders
     module Ftx
       class MarketTrader < ExchangeApi::Traders::Ftx::BaseTrader
-        def buy(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, use_subaccount:, selected_subaccount:)
+        def buy(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, use_subaccount: false, selected_subaccount: '')
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, force_smart_intervals, smart_intervals_value)
           return buy_params unless buy_params.success?
@@ -10,7 +10,7 @@ module ExchangeApi
           place_order(buy_params.data, use_subaccount, selected_subaccount)
         end
 
-        def sell(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, is_legacy:, use_subaccount:, selected_subaccount:)
+        def sell(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, is_legacy:, use_subaccount: false, selected_subaccount: '')
           symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
           return sell_params unless sell_params.success?

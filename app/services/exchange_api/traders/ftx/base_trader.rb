@@ -20,7 +20,7 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
-        def fetch_order_by_id(order_id, use_subaccout, selected_subaccount)
+        def fetch_order_by_id(order_id, use_subaccout = false, selected_subaccount = '')
           path = "/api/orders/#{order_id}".freeze
           url = @url_base + path
           headers = get_headers(url, @api_key, @api_secret, '', path, 'GET', use_subaccout, selected_subaccount)

@@ -90,7 +90,7 @@ class MakeTransaction < BaseService
       use_subaccount: bot.use_subaccount,
       selected_subaccount: bot.selected_subaccount
     }.compact
-    settings.merge!(subaccount_settings) if bot.use_subaccount
+    settings = settings.merge(subaccount_settings) if bot.use_subaccount
     result = if bot.buyer?
                api.buy(settings)
              else
