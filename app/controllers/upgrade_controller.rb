@@ -15,7 +15,7 @@ class UpgradeController < ApplicationController
     if result.success?
       redirect_to result.data[:payment_url]
     else
-      unless result.errors[0].downcase.include?('blank')
+      unless result.errors.include?('user error')
         Raven.capture_exception(Exception.new(result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
