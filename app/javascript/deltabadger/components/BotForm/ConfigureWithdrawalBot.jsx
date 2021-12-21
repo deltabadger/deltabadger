@@ -74,7 +74,9 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
     async function fetchMinimums () {
       const minimums = await getMinimums(currentExchange.id, currency)
       setMinimum(minimums.minimum.toString())
-      setThreshold(minimums.minimum.toString())
+      if (currentExchange.name === 'Kraken'){
+        setThreshold(minimums.minimum.toString())
+      }
     }
 
     fetchMinimums()
@@ -111,6 +113,12 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
   const splitTranslation = (s) => {
     return s.split(/<split>.*?<\/split>/)
+  }
+
+  const getMinimumDisclaimer = () => {
+    return currentExchange.name === 'kraken' ?
+      I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
+      I18n.t('bots.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: currentExchange.name})
   }
 
   return (
@@ -165,7 +173,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
               </>
             }
             { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
-              <div className="form-group mr-3">{I18n.t('no_wallet_found', {exchangeName: currentExchange.name})}</div>
+              <div className="form-group mr-3">{I18n.t('bots.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
             }
             { currentExchange.name.toLowerCase() === 'kraken' &&
               <>
@@ -206,7 +214,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
-                  <sup>*</sup>{I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum})}
+                  <sup>*</sup>{getMinimumDisclaimer()}
                 </div>
               </small>
             </div>
@@ -236,9 +244,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
         </form>
       </div>
 
-      { currentExchange.name === 'Kraken' &&
-        <WithdrawalAddressInstructions exchangeName={currentExchange.name} type={'withdrawal_address'}/>
-      }
+      <WithdrawalAddressInstructions exchangeName={currentExchange.name} type={'withdrawal_address'}/>
 
       <div className="db-bot__footer">
         <ResetButton />
