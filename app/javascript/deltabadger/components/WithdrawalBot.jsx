@@ -136,6 +136,12 @@ const BotTemplate = ({
     fetchMinimums()
   }, [apiKeyExists,])
 
+  const getMinimumDisclaimer = () => {
+    return exchangeName === 'kraken' ?
+      I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
+      I18n.t('bots.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: exchangeName})
+  }
+
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
@@ -207,7 +213,7 @@ const BotTemplate = ({
 
                 <small className="hide-when-running hide-when-disabled">
                   <div>
-                    <sup>*</sup>{I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum})}
+                    <sup>*</sup>{getMinimumDisclaimer()}
                   </div>
                 </small>
               </div>
