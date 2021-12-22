@@ -7,10 +7,10 @@ class GetSubaccounts < BaseService
 
     Result::Success.new(subaccounts: subaccounts.data)
   end
+
   private
 
   def get_api_keys(user, exchange_id)
-    ApiKey.find_by(user: user, exchange_id: exchange_id)
+    ApiKey.find_by(user: user, exchange_id: exchange_id, key_type: 'trading')
   end
-
 end

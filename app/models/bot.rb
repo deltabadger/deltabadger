@@ -115,15 +115,11 @@ class Bot < ApplicationRecord
   end
 
   def use_subaccount
-    return false if settings['use_subaccount'].nil?
-
-    settings['use_subaccount']
+    settings.fetch('use_subaccount',false)
   end
 
   def selected_subaccount
-    return '' if settings['selected_subaccount'].nil?
-
-    settings['selected_subaccount']
+    settings.fetch('selected_subaccount','')
   end
 
   def destroy
