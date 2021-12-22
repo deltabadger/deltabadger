@@ -116,7 +116,6 @@ const API = {
       use_subaccount: params.useSubaccount,
       selected_subaccount: params.selectedSubaccount
     }
-
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
   },
 
