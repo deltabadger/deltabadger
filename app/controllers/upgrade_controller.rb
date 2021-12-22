@@ -15,8 +15,10 @@ class UpgradeController < ApplicationController
     if result.success?
       redirect_to result.data[:payment_url]
     else
-      Raven.capture_message(result.errors)
-      flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      unless result.errors.include?('user error')
+        Raven.capture_exception(Exception.new(result.errors[0]))
+        flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      end
       render :index, locals: default_locals.merge(
         payment: result.data || new_payment,
         errors: result.errors
