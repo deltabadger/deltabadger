@@ -5,7 +5,7 @@ module Payments::Validators
 
       Result.new(
         data: payment,
-        errors: payment.errors.full_messages
+        errors: payment.errors.full_messages.push('user error')
       )
     end
   end
