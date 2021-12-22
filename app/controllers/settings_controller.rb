@@ -27,7 +27,8 @@ class SettingsController < ApplicationController
     else
       render :index, locals: {
         user: current_user,
-        api_keys: current_user.api_keys
+        trading_api_keys: current_user.trading_api_keys,
+        withdrawal_api_keys: current_user.withdrawal_api_keys
       }
     end
   end
@@ -40,7 +41,8 @@ class SettingsController < ApplicationController
     else
       render :index, locals: {
         user: current_user,
-        api_keys: current_user.api_keys
+        trading_api_keys: current_user.trading_api_keys,
+        withdrawal_api_keys: current_user.withdrawal_api_keys
       }
     end
   end
@@ -64,7 +66,8 @@ class SettingsController < ApplicationController
       current_user.errors.add(:otp_code_token, :invalid)
       render :index, locals: {
         user: current_user,
-        api_keys: current_user.api_keys,
+        trading_api_keys: current_user.trading_api_keys,
+        withdrawal_api_keys: current_user.withdrawal_api_keys,
         wrong_code: true
       }
     end
@@ -78,7 +81,8 @@ class SettingsController < ApplicationController
     else
       render :index, locals: {
         user: current_user,
-        api_keys: current_user.api_keys,
+        trading_api_keys: current_user.trading_api_keys,
+        withdrawal_api_keys: current_user.withdrawal_api_keys,
         wrong_code: true
       }
     end
