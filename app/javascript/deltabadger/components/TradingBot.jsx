@@ -66,7 +66,7 @@ const BotTemplate = ({
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
   const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount)
   const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount)
-  const [subaccountsList, setSubaccountsList] = useState([])
+  const [subaccountsList, setSubaccountsList] = useState([''])
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -206,17 +206,13 @@ const BotTemplate = ({
     }
   }
   const setSubaccounts = async () => {
-    if (showSubaccounts)
-      await API.getSubaccounts(exchangeId).then(data => {
-        setSubaccountsList(data.data['subaccounts']);
-        setShowSubaccounts(data.data['subaccounts'].length > 0);
-        setSelectedSubaccount(settings.use_subaccount ? settings.selected_subaccount : (data.data['subaccounts'].length>0 ? data.data['subaccounts'][0] : ''));
-      })
-    else
-    {
-      setSubaccountsList(['']);
-      setSelectedSubaccount(subaccountsList[0]);
-    }
+    if (!showSubaccounts)
+        return;
+    await API.getSubaccounts(exchangeId).then(data => {
+      setSubaccountsList(data.data['subaccounts']);
+      setShowSubaccounts(data.data['subaccounts'].length > 0);
+      setSelectedSubaccount(settings.use_subaccount ? settings.selected_subaccount : (data.data['subaccounts'].length>0 ? data.data['subaccounts'][0] : ''));
+    })
   }
 
   useEffect(() => {
