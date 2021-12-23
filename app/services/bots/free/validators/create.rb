@@ -145,13 +145,19 @@ module Bots::Free::Validators
       end
 
       def validate_use_subaccount
-        return if ([true, false].include?(@use_subaccount) || @use_subaccount.nil?) && subaccounts_allowed_exchange
+        if [true, false].include?(@use_subaccount) || @use_subaccount.nil?
+          if @use_subaccount
+            errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange') unless subaccounts_allowed_exchange
+            return
+          end
+          return
+        end
 
         errors.add(:use_subaccount, 'Wrong value of use_subaccount variable')
       end
 
       def validate_subaccount_name
-        return unless (!@selected_subaccount.nil? || @use_subaccount) && subaccounts_allowed_exchange
+        return unless @use_subaccount && !@selected_subaccount.nil? && !@selected_subaccount.length.zero?
 
         market = ExchangeApi::Markets::Get.call(@exchange_id)
         subaccounts = market.subaccounts(get_api_keys(@user, @exchange_id))
