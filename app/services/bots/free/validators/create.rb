@@ -27,7 +27,7 @@ module Bots::Free::Validators
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :free_plan_symbols,
                   :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name,
-                  :price_range_enabled, :price_range
+                  :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell sell_old].freeze
@@ -148,16 +148,13 @@ module Bots::Free::Validators
       def validate_use_subaccount
         if @use_subaccount
           errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange') unless subaccounts_allowed_exchange
-          return
         end
-
-        errors.add(:use_subaccount, 'Wrong value of use_subaccount variable')
       end
 
       def validate_subaccount_name
         return unless @use_subaccount
 
-        if @selected_subaccount.length.zero? || @selected_subaccount.nil?
+        if @selected_subaccount.nil? || @selected_subaccount.length.zero?
           errors.add(:selected_subaccount, 'No subaccount name supplied')
           return
         end
