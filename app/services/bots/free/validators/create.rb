@@ -157,7 +157,12 @@ module Bots::Free::Validators
       end
 
       def validate_subaccount_name
-        return unless @use_subaccount && !@selected_subaccount.nil? && !@selected_subaccount.length.zero?
+        return unless @use_subaccount
+
+        if @selected_subaccount.length.zero? || @selected_subaccount.nil?
+          errors.add(:selected_subaccount, 'No subaccount name supplied')
+          return
+        end
 
         market = ExchangeApi::Markets::Get.call(@exchange_id)
         subaccounts = market.subaccounts(get_api_keys(@user, @exchange_id))
