@@ -3,7 +3,7 @@ module ExchangeApi
     module Ftx
       include BaseFaraday
 
-      def get_headers(url, api_key, api_secret, body, request_path, method = 'GET', use_subaccount, selected_subaccount)
+      def get_headers(url, api_key, api_secret, body, request_path, method = 'GET', use_subaccount = false, selected_subaccount = '')
         if url.include? 'ftx.us'
           headers_us(api_key, api_secret, body, request_path, method, use_subaccount, selected_subaccount)
         else
