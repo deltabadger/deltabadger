@@ -10,7 +10,7 @@ module Bots::Free::Validators
       exchange_name = Exchange.find(bot.exchange_id).name.downcase
 
       bot_settings = BotSettings.new(bot.settings, user,
-                                     allowed_symbols.data, free_plan_symbols.data, exchange_name)
+                                     allowed_symbols.data, free_plan_symbols.data, exchange_name, bot.exchange_id)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -53,8 +53,10 @@ module Bots::Free::Validators
       validate :smart_intervals_above_minimum
       validate :hodler_if_price_range
       validate :validate_price_range
+      validate :validate_use_subaccount
+      validate :validate_subaccount_name
 
-      def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name)
+      def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name, exchange_id)
         @interval = params['interval']
         @base = params['base']
         @quote = params['quote']
@@ -72,6 +74,10 @@ module Bots::Free::Validators
         @hodler = user.subscription_name == 'hodler'
         @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
+        @use_subaccount = params['use_subaccount']
+        @selected_subaccount = params['selected_subaccount']
+        @exchange_id = exchange_id
+        @user = user
       end
 
       private
@@ -136,6 +142,31 @@ module Bots::Free::Validators
         return if hodler || !@price_range_enabled
 
         errors.add(:base, 'Price range is an hodler-only functionality')
+      end
+
+      def validate_use_subaccount
+        return if ([true, false].include?(@use_subaccount) || @use_subaccount.nil?) && subaccounts_allowed_exchange
+
+        errors.add(:use_subaccount, 'Wrong value of use_subaccount variable')
+      end
+
+      def validate_subaccount_name
+        return unless (!@selected_subaccount.nil? || @use_subaccount) && subaccounts_allowed_exchange
+
+        market = ExchangeApi::Markets::Get.call(@exchange_id)
+        subaccounts = market.subaccounts(get_api_keys(@user, @exchange_id))
+
+        return if subaccounts.success? && subaccounts.data.include?(@selected_subaccount)
+
+        errors.add(:selected_subaccount, 'Wrong subaccount name')
+      end
+
+      def get_api_keys(user, exchange_id)
+        ApiKey.find_by(user: user, exchange_id: exchange_id, key_type: 'trading')
+      end
+
+      def subaccounts_allowed_exchange
+        ['ftx', 'ftx.us'].include?(@exchange_name)
       end
     end
   end
