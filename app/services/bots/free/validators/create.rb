@@ -48,7 +48,7 @@ module Bots::Free::Validators
         greater_than_or_equal_to: 0,
         smaller_than: 100
       }
-      validates :use_subaccount, inclusion: { in: [true, false] }
+      validates :use_subaccount, inclusion: { in: [true, false, nil] }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
