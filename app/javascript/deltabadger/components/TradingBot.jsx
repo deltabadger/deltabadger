@@ -211,7 +211,7 @@ const BotTemplate = ({
     await API.getSubaccounts(exchangeId).then(data => {
       setSubaccountsList(data.data['subaccounts']);
       setShowSubaccounts(data.data['subaccounts'].length > 0);
-      setSelectedSubaccount(settings.use_subaccount ? settings.selected_subaccount : (data.data['subaccounts'].length>0 ? data.data['subaccounts'][0] : ''));
+      setSelectedSubaccount(settings.use_subaccount ? settings.selected_subaccount : (data.data['subaccounts'].length > 0 ? data.data['subaccounts'][0] : ''));
     })
   }
 

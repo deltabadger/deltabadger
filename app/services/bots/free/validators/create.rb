@@ -48,6 +48,7 @@ module Bots::Free::Validators
         greater_than_or_equal_to: 0,
         smaller_than: 100
       }
+      validates :use_subaccount, inclusion: { in: [true, false] }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
@@ -145,11 +146,8 @@ module Bots::Free::Validators
       end
 
       def validate_use_subaccount
-        if [true, false].include?(@use_subaccount) || @use_subaccount.nil?
-          if @use_subaccount
-            errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange') unless subaccounts_allowed_exchange
-            return
-          end
+        if @use_subaccount
+          errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange') unless subaccounts_allowed_exchange
           return
         end
 
@@ -167,7 +165,7 @@ module Bots::Free::Validators
         market = ExchangeApi::Markets::Get.call(@exchange_id)
         subaccounts = market.subaccounts(get_api_keys(@user, @exchange_id))
 
-        return if subaccounts.success? && subaccounts.data.include?(@selected_subaccount)
+        return if (subaccounts.success? && subaccounts.data.include?(@selected_subaccount)) || subaccounts.failure?
 
         errors.add(:selected_subaccount, 'Wrong subaccount name')
       end
