@@ -35,8 +35,8 @@ module Payments
               id: order_id,
               currency: currency(payment),
               discounted: cost_calculator.discount_percent.positive?,
-              commission: cost_calculator.commission,
-              crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
+              commission: cost_calculator.commission.to_s,
+              crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total).to_s
             )
             .merge(params)
         )
