@@ -26,13 +26,15 @@ module Payments
 
       update_params = {
         external_statuses: new_external_statuses(payment, external_status),
-        crypto_paid: params['btcPaid'],
-        commission: recalculate_commission(params, payment),
-        crypto_commission: recalculate_crypto_commission(params, payment)
+        crypto_paid: params['btcPaid']
       }
 
       update_params.merge!(status: status) unless payment.paid?
-      update_params.merge!(paid_at: paid_at(params)) if just_paid
+      if just_paid
+        update_params.merge!(paid_at: paid_at(params),
+                             commission: recalculate_commission(params, payment),
+                             crypto_commission: recalculate_crypto_commission(params, payment))
+      end
 
       payment = @payments_repository.update(payment.id, update_params)
 
