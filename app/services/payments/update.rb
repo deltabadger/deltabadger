@@ -24,11 +24,14 @@ module Payments
       status = internal_status(external_status)
       just_paid = just_paid?(payment, status)
 
+      commission = just_paid ? recalculate_commission(params, payment) : payment.commission
+      crypto_commission = just_paid ? recalculate_crypto_commission(params, payment) : payment.crypto_commission
+
       update_params = {
         external_statuses: new_external_statuses(payment, external_status),
         crypto_paid: params['btcPaid'],
-        commission: recalculate_commission(params, payment),
-        crypto_commission: recalculate_crypto_commission(params, payment)
+        commission: commission,
+        crypto_commission: crypto_commission
       }
 
       update_params.merge!(status: status) unless payment.paid?
