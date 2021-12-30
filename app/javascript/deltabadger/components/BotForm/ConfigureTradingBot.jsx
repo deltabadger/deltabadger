@@ -10,7 +10,7 @@ import {StartButton} from "../buttons";
 
 export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
-  const [showSubaccounts,setShowSubaccounts] = useState(shouldShowSubaccounts(currentExchange.name))
+  const [showSubaccounts,setShowSubaccounts] = useState(false)
 
   const compareSymbols = (x, y) => {
     if (shouldRenameSymbols) {
@@ -213,9 +213,6 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   }
 
   const setSubaccounts = async () => {
-    if (!showSubaccounts)
-        return;
-
     await API.getSubaccounts(currentExchange.id).then(data => {
             setSubaccountsList(data.data['subaccounts']);
             setShowSubaccounts(data.data['subaccounts'].length > 0);
