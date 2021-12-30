@@ -642,6 +642,7 @@ en:
         below: below
         counter: '%{countdown}'
         force_smart_intervals_html: 'Use <em>smart intervals</em> with orders of <split>$100</split> %{currency} each.'
+        subaccounts_info: 'Use subaccount '
         smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
