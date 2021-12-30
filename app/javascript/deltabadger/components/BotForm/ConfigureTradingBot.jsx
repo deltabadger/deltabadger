@@ -215,7 +215,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const setSubaccounts = async () => {
     await API.getSubaccounts(currentExchange.id).then(data => {
             setSubaccountsList(data.data['subaccounts']);
-            setShowSubaccounts(data.data['subaccounts'].length > 0);
+            setShowSubaccounts(data.data['subaccounts'].length > 0 && shouldShowSubaccounts(currentExchange.name));
             setSelectedSubaccount(data.data['subaccounts'].length > 0 ? data.data['subaccounts'][0] : '');
           });
   }
