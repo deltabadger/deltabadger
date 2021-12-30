@@ -80,7 +80,7 @@ const BotTemplate = ({
 
   const isLimitSelected = () => type === 'limit'
 
-  const [showSubaccounts,setShowSubaccounts] = useState(shouldShowSubaccounts(exchangeName))
+  const [showSubaccounts,setShowSubaccounts] = useState(false)
 
   const setLimitOrderCheckbox = () => {
     isLimitSelected() ? setType('market') : setType('limit')
@@ -206,11 +206,9 @@ const BotTemplate = ({
     }
   }
   const setSubaccounts = async () => {
-    if (!showSubaccounts)
-        return;
     await API.getSubaccounts(exchangeId).then(data => {
       setSubaccountsList(data.data['subaccounts']);
-      setShowSubaccounts(data.data['subaccounts'].length > 0);
+      setShowSubaccounts(data.data['subaccounts'].length > 0 && shouldShowSubaccounts(exchangeName));
       setSelectedSubaccount(settings.use_subaccount ? settings.selected_subaccount : (data.data['subaccounts'].length > 0 ? data.data['subaccounts'][0] : ''));
     })
   }
