@@ -10,7 +10,7 @@ module Bots::Free::Validators
       exchange_name = Exchange.find(bot.exchange_id).name.downcase
 
       bot_settings = BotSettings.new(bot.settings, user,
-                                     allowed_symbols.data, free_plan_symbols.data, exchange_name)
+                                     allowed_symbols.data, free_plan_symbols.data, exchange_name, bot.exchange_id)
 
       if bot.valid? && bot_settings.valid?
         Result::Success.new
@@ -27,7 +27,7 @@ module Bots::Free::Validators
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :free_plan_symbols,
                   :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name,
-                  :price_range_enabled, :price_range
+                  :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
       INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell sell_old].freeze
@@ -48,13 +48,16 @@ module Bots::Free::Validators
         greater_than_or_equal_to: 0,
         smaller_than: 100
       }
+      validates :use_subaccount, inclusion: { in: [true, false, nil] }
       validate :hodler_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
       validate :hodler_if_price_range
       validate :validate_price_range
+      validate :validate_use_subaccount
+      validate :validate_subaccount_name
 
-      def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name)
+      def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name, exchange_id)
         @interval = params['interval']
         @base = params['base']
         @quote = params['quote']
@@ -72,6 +75,10 @@ module Bots::Free::Validators
         @hodler = user.subscription_name == 'hodler'
         @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
+        @use_subaccount = params['use_subaccount']
+        @selected_subaccount = params['selected_subaccount']
+        @exchange_id = exchange_id
+        @user = user
       end
 
       private
@@ -136,6 +143,36 @@ module Bots::Free::Validators
         return if hodler || !@price_range_enabled
 
         errors.add(:base, 'Price range is an hodler-only functionality')
+      end
+
+      def validate_use_subaccount
+        if @use_subaccount
+          errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange') unless subaccounts_allowed_exchange
+        end
+      end
+
+      def validate_subaccount_name
+        return unless @use_subaccount
+
+        if @selected_subaccount.nil? || @selected_subaccount.length.zero?
+          errors.add(:selected_subaccount, 'No subaccount name supplied')
+          return
+        end
+
+        market = ExchangeApi::Markets::Get.call(@exchange_id)
+        subaccounts = market.subaccounts(get_api_keys(@user, @exchange_id))
+
+        return if (subaccounts.success? && subaccounts.data.include?(@selected_subaccount)) || subaccounts.failure?
+
+        errors.add(:selected_subaccount, 'Wrong subaccount name')
+      end
+
+      def get_api_keys(user, exchange_id)
+        ApiKey.find_by(user: user, exchange_id: exchange_id, key_type: 'trading')
+      end
+
+      def subaccounts_allowed_exchange
+        ['ftx', 'ftx.us'].include?(@exchange_name)
       end
     end
   end

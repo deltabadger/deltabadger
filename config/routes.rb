@@ -36,6 +36,7 @@ Rails.application.routes.draw do
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     get :smart_intervals_info, to: 'bots#smart_intervals_info'
+    get :subaccounts, to: 'bots#subaccounts'
     get :frequency_limit_exceeded, to: 'bots#frequency_limit_exceeded'
     get :withdrawal_minimums, to: 'bots#withdrawal_minimums'
     post :set_show_smart_intervals_info, to: 'bots#set_show_smart_intervals_info'

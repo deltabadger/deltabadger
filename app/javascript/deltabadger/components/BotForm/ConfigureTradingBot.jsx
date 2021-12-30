@@ -2,7 +2,7 @@ import React, {useEffect, useRef, useState} from 'react'
 import {Breadcrumbs} from './Breadcrumbs'
 import {Progressbar} from './Progressbar'
 import LimitOrderNotice from "./LimitOrderNotice";
-import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename} from "../../utils/symbols";
+import {getSpecialSymbols, renameCurrency, renameSymbol, shouldRename, shouldShowSubaccounts} from "../../utils/symbols";
 import I18n from "i18n-js";
 import {RawHTML} from "../RawHtml";
 import API from "../../lib/API";
@@ -10,6 +10,7 @@ import {StartButton} from "../buttons";
 
 export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleReset, handleSubmit, handleSmartIntervalsInfo, setShowInfo, disable, errors }) => {
   const shouldRenameSymbols = shouldRename(currentExchange.name)
+  const [showSubaccounts,setShowSubaccounts] = useState(false)
 
   const compareSymbols = (x, y) => {
     if (shouldRenameSymbols) {
@@ -40,6 +41,9 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const [interval, setInterval] = useState("hour");
   const [percentage, setPercentage] = useState("0.0");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
+  const [useSubaccount,setUseSubaccounts] = useState(false)
+  const [selectedSubaccount, setSelectedSubaccount] = useState('')
+  const [subaccountsList, setSubaccountsList] = useState([])
   const [smartIntervalsValue, setSmartIntervalsValue] = useState("0");
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(QUOTES[0]);
   const [priceRangeEnabled, setPriceRangeEnabled] = useState(false)
@@ -208,6 +212,14 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
     return botParams
   }
 
+  const setSubaccounts = async () => {
+    await API.getSubaccounts(currentExchange.id).then(data => {
+            setSubaccountsList(data.data['subaccounts']);
+            setShowSubaccounts(data.data['subaccounts'].length > 0 && shouldShowSubaccounts(currentExchange.name));
+            setSelectedSubaccount(data.data['subaccounts'].length > 0 ? data.data['subaccounts'][0] : '');
+          });
+  }
+
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
       const data = await handleSmartIntervalsInfo(getBotParams())
@@ -221,6 +233,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
 
       const minimum = data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
+      await setSubaccounts()
 
       setMinimumOrderParams(getMinimumOrderParams(data))
       setPercentage(data.data.fee)
@@ -256,7 +269,9 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       percentage: isLimitOrder() ? percentage.trim() : undefined,
       botType: 'free',
       priceRangeEnabled,
-      priceRange
+      priceRange,
+      useSubaccount,
+      selectedSubaccount
     }
     !disableSubmit && handleSubmit(botParams);
   }
@@ -409,25 +424,49 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
           </div>
 
-          <label
-            className="alert alert-primary"
-            disabled={!forceSmartIntervals}
+          {showSubaccounts && <label
+              className="alert alert-primary"
+              disabled={!useSubaccount}
           >
             <input
-              type="checkbox"
-              checked={forceSmartIntervals}
-              onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+                type="checkbox"
+                checked={useSubaccount}
+                onChange={() => setUseSubaccounts(!useSubaccount)}
             />
             <div>
-            <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.subaccounts_info'))}</RawHTML>
+              <select
+                  value={selectedSubaccount}
+                  onChange={e => setSelectedSubaccount(e.target.value)}
+                  className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+              >
+                {
+                  subaccountsList.map( x => <option key={x} value={x}>{x}</option>)
+                }
+              </select>
+
+            </div>
+          </label>}
+
+          <label
+              className="alert alert-primary"
+              disabled={!forceSmartIntervals}
+          >
+            <input
+                type="checkbox"
+                checked={forceSmartIntervals}
+                onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
+            />
+            <div>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
-                type="text"
-                size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
-                className="bot-input bot-input--sizable"
-                value={smartIntervalsValue}
-                onChange={e => setSmartIntervalsValue(e.target.value)}
-                onBlur={validateSmartIntervalsValue}
-                min={minimumOrderParams.value}
+                  type="text"
+                  size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
+                  className="bot-input bot-input--sizable"
+                  value={smartIntervalsValue}
+                  onChange={e => setSmartIntervalsValue(e.target.value)}
+                  onBlur={validateSmartIntervalsValue}
+                  min={minimumOrderParams.value}
               />
               <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
