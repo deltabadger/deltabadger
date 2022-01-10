@@ -1,3 +1,6 @@
+require 'stripe'
+require 'sinatra'
+
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
   protect_from_forgery except: %i[payment_callback wire_transfer]
@@ -37,6 +40,21 @@ class UpgradeController < ApplicationController
     Payments::Update.call(params['data'] || params)
 
     render json: {}
+  end
+
+  def pay_by_card
+    content_type 'application/json'
+    data = JSON.parse(request.body.read)
+
+    # Create a PaymentIntent with amount and currency
+    payment_intent = Stripe::PaymentIntent.create(
+      amount: 1200,
+      currency: 'usd'
+    )
+
+    {
+      clientSecret: payment_intent['client_secret'],
+    }.to_json
   end
 
   def wire_transfer
