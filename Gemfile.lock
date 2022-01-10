@@ -269,6 +269,8 @@ GEM
     msgpack (1.4.2)
     multi_xml (0.6.0)
     multipart-post (2.1.1)
+    mustermann (1.1.1)
+      ruby2_keywords (~> 0.0.1)
     nenv (0.3.0)
     nio4r (2.5.7)
     nokogiri (1.12.4)
@@ -291,6 +293,8 @@ GEM
     rack (2.2.3)
     rack-cors (1.1.1)
       rack (>= 2.0.0)
+    rack-protection (2.1.0)
+      rack
     rack-proxy (0.7.0)
       rack
     rack-test (1.1.0)
@@ -411,6 +415,11 @@ GEM
       connection_pool (>= 2.2.2)
       rack (~> 2.0)
       redis (>= 4.2.0)
+    sinatra (2.1.0)
+      mustermann (~> 1.0)
+      rack (~> 2.2)
+      rack-protection (= 2.1.0)
+      tilt (~> 2.0)
     spring (2.1.1)
     spring-commands-rspec (1.0.4)
       spring (>= 0.9.1)
@@ -424,6 +433,7 @@ GEM
       actionpack (>= 4.0)
       activesupport (>= 4.0)
       sprockets (>= 3.0.0)
+    stripe (5.42.0)
     telegram-bot (0.14.4)
       actionpack (>= 4.0, < 6.1)
       activesupport (>= 4.0, < 6.1)
@@ -504,9 +514,11 @@ DEPENDENCIES
   sentry-raven
   sidekiq
   sidekiq-limit_fetch!
+  sinatra
   spring
   spring-commands-rspec
   spring-watcher-listen (~> 2.0.0)
+  stripe
   telegram-bot (~> 0.14.4)
   tzinfo-data
   uglifier (>= 1.3.0)

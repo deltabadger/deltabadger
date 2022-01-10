@@ -61,6 +61,8 @@ Rails.application.routes.draw do
   get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
 
+  post '/create-payment-intent', to: 'upgrade#pay_by_card'
+
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
     namespace :upgrade do
       get '/', action: :index
