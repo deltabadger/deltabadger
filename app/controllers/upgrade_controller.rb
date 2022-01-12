@@ -3,7 +3,7 @@ require 'sinatra'
 
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer]
+  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent]
 
   def index
     render :index, locals: default_locals.merge(
@@ -13,6 +13,7 @@ class UpgradeController < ApplicationController
   end
 
   def pay
+    byebug
     result = Payments::Create.call(payment_params)
 
     if result.success?
@@ -42,17 +43,13 @@ class UpgradeController < ApplicationController
     render json: {}
   end
 
-  def pay_by_card
-    content_type 'application/json'
-    data = JSON.parse(request.body.read)
-
+  def create_card_intent
     # Create a PaymentIntent with amount and currency
     payment_intent = Stripe::PaymentIntent.create(
       amount: 1200,
       currency: 'usd'
     )
-
-    {
+    render json: {
       clientSecret: payment_intent['client_secret'],
     }.to_json
   end

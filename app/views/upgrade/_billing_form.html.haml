@@ -1,8 +1,4 @@
 - pending_wire_transfer = !current_user.pending_wire_transfer.nil?
-%head
-  %script{:src => 'https://js.stripe.com/v3/'}
-  %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
-  %script{:defer => "defer", :src => "card_client.js"}
 
 .modal-dialog.m-0(style="max-width: 100%"){:class => ('db-wire-transfer-in-progress' if pending_wire_transfer)}
   .modal-content
@@ -62,10 +58,122 @@
                   %path{d: 'M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z'}
 
         #payWire.tab-pane{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => ('active' if pending_wire_transfer)}
+          %script{:src => 'https://js.stripe.com/v3/'}
+          %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
+          :javascript
+            const stripe = Stripe("pk_test_tyVNuRkisL9Bv8RH7Rgxx6bV00t3lEYuWh");
+            const purchase = {
+              items: [{ id: "xl-tshirt" }]
+            };
+
+            // Disable the button until we have Stripe set up on the page
+            document.getElementsByClassName("card_submit").disabled = true;
+            fetch("/create-payment-intent", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(purchase)
+            })
+              .then(function(result) {
+                return result.json();
+              })
+              .then(function(data) {
+                const elements = stripe.elements();
+
+                const card_number = elements.create("cardNumber", {showIcon: true});
+                card_number.mount("#card-number");
+                const card_exp = elements.create("cardExpiry")
+                card_exp.mount("#card-exp")
+                const card_cvc = elements.create("cardCvc")
+                card_cvc.mount("#card-cvc")
+
+                card_number.on("change", function (event) {
+                  document.getElementsByClassName("card_submit").disabled = event.empty;
+                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                });
+
+                card_exp.on("change", function (event) {
+                  document.getElementsByClassName("card_submit").disabled = event.empty;
+                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                });
+
+                card_cvc.on("change", function (event) {
+                  document.getElementsByClassName("card_submit").disabled = event.empty;
+                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                });
+
+                const form = document.getElementById("payment-form");
+                form.addEventListener("card_submit", function(event) {
+                  event.preventDefault();
+                    // Complete payment when the submit button is clicked
+                  payWithCard(stripe, card_number, data.clientSecret);
+                });
+              });
+
+            // Calls stripe.confirmCardPayment
+            // If the card requires authentication Stripe shows a pop-up modal to
+            // prompt the user to enter authentication details without leaving your page.
+            const payWithCard = function(stripe, card, clientSecret) {
+              loading(true);
+              stripe
+                .confirmCardPayment(clientSecret, {
+                  payment_method: {
+                    card: card
+                  }
+                })
+                .then(function(result) {
+                  if (result.error) {
+                      // Show error to your customer
+                    showError(result.error.message);
+                  } else {
+                      // The payment succeeded!
+                    orderComplete(result.paymentIntent.id);
+                  }
+                });
+            };
+            const orderComplete = function(paymentIntentId) {
+              loading(false);
+              document
+                .querySelector(".result-message a")
+                .setAttribute(
+                "href",
+                  "https://dashboard.stripe.com/test/payments/" + paymentIntentId
+                );
+              document.querySelector(".result-message").classList.remove("hidden");
+              document.getElementsByClassName("card_submit").disabled = true;
+            };
+
+            // Show the customer the error from Stripe if their card fails to charge
+            const showError = function(errorMsgText) {
+              loading(false);
+              const errorMsg = document.querySelector("#card-error");
+              errorMsg.textContent = errorMsgText;
+              setTimeout(function() {
+                errorMsg.textContent = "";
+              }, 4000);
+            };
+
+            // Show a spinner on payment submission
+            const loading = function(isLoading) {
+              if (isLoading) {
+                // Disable the button and show a spinner
+                document.getElementsByClassName("card_submit").disabled = true;
+                document.querySelector("#spinner").classList.remove("hidden");
+                document.querySelector("#button-text").classList.add("hidden");
+              } else {
+                document.getElementsByClassName("card_submit").disabled = false;
+                document.querySelector("#spinner").classList.add("hidden");
+                document.querySelector("#button-text").classList.remove("hidden");
+              }
+            };
           %card-body
             %form#payment-form
-              #card-element
-              %button#submit
+              #card-number
+              %div#data-row
+                #card-exp
+                #card-cvc
+              %button.card_submit
                 #spinner.spinner.hidden
                 %span#button-text Pay now
               %p#card-error{:role => "alert"}
