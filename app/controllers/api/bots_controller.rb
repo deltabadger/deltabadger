@@ -85,6 +85,16 @@ module Api
       end
     end
 
+    def subaccounts
+      result = GetSubaccounts.call(current_user, params[:exchange_id])
+
+      if result.success?
+        render json: result, status: 200
+      else
+        render json: { errors: result.errors }, status: 422
+      end
+    end
+
     def withdrawal_minimums
       result = GetWithdrawalMinimums.call(params, current_user)
 
@@ -138,6 +148,8 @@ module Api
       force_smart_intervals
       smart_intervals_value
       price_range_enabled
+      use_subaccount
+      selected_subaccount
     ].freeze
 
     def trading_bot_create_params
@@ -171,6 +183,8 @@ module Api
       force_smart_intervals
       smart_intervals_value
       price_range_enabled
+      use_subaccount
+      selected_subaccount
     ].freeze
 
     def trading_bot_update_params
