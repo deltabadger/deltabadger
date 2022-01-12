@@ -7,7 +7,7 @@ import { Timer, FetchFromExchangeTimer } from './Timer';
 import { ProgressBar } from './ProgressBar';
 import LimitOrderNotice from "./BotForm/LimitOrderNotice";
 import { isNotEmpty } from '../utils/array';
-import {shouldRename, renameSymbol, renameCurrency} from "../utils/symbols";
+import {shouldRename, renameSymbol, renameCurrency, shouldShowSubaccounts} from "../utils/symbols";
 import { RawHTML } from './RawHtml'
 import { AddApiKey } from "./BotForm/AddApiKey";
 import { removeInvalidApiKeys, splitTranslation } from "./helpers";
@@ -64,6 +64,9 @@ const BotTemplate = ({
   const [priceRange, setPriceRange] = useState({ low: settings.price_range[0].toString(), high: settings.price_range[1].toString() })
   const [apiKeyExists, setApiKeyExists] = useState(true)
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
+  const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount)
+  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount)
+  const [subaccountsList, setSubaccountsList] = useState([''])
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -77,6 +80,8 @@ const BotTemplate = ({
 
   const isLimitSelected = () => type === 'limit'
 
+  const [showSubaccounts,setShowSubaccounts] = useState(false)
+
   const setLimitOrderCheckbox = () => {
     isLimitSelected() ? setType('market') : setType('limit')
   }
@@ -88,7 +93,9 @@ const BotTemplate = ({
       price: price.trim(),
       forceSmartIntervals,
       smartIntervalsValue,
-      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined
+      percentage: isLimitSelected() ? percentage && percentage.trim() : undefined,
+      useSubaccount,
+      selectedSubaccount
     }
 
     const oldSettings = {
@@ -97,7 +104,9 @@ const BotTemplate = ({
       price: settings.price.trim(),
       forceSmartIntervals: settings.force_smart_intervals,
       smartIntervalsValue: settings.smartIntervalsValue,
-      percentage: settings.order_type === 'limit' ? percentage && percentage.trim() : undefined
+      percentage: settings.order_type === 'limit' ? percentage && percentage.trim() : undefined,
+      useSubaccount: settings.useSubaccount,
+      selectedSubaccount: settings.selectedSubaccount
     }
 
     return !_.isEqual(newSettings, oldSettings)
@@ -132,7 +141,9 @@ const BotTemplate = ({
       percentage: isLimitSelected() ? percentage && percentage.trim() : undefined,
       smartIntervalsValue,
       priceRangeEnabled,
-      priceRange
+      priceRange,
+      useSubaccount,
+      selectedSubaccount
     }
 
     const continueParams = {
@@ -194,6 +205,13 @@ const BotTemplate = ({
       quoteValue: data.data.minimumQuote
     }
   }
+  const setSubaccounts = async () => {
+    await API.getSubaccounts(exchangeId).then(data => {
+      setSubaccountsList(data.data['subaccounts']);
+      setShowSubaccounts(data.data['subaccounts'].length > 0 && shouldShowSubaccounts(exchangeName));
+      setSelectedSubaccount(settings.use_subaccount ? settings.selected_subaccount : (data.data['subaccounts'].length > 0 ? data.data['subaccounts'][0] : ''));
+    })
+  }
 
   useEffect(() => {
     async function fetchSmartIntervalsInfo()  {
@@ -206,6 +224,7 @@ const BotTemplate = ({
       const minimum = data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(settings.base, exchangeName) : renameCurrency(settings.quote, exchangeName)
 
+      await setSubaccounts()
       setMinimumOrderParams(getMinimumOrderParams(data))
       if (smartIntervalsValue === "0") {
         setSmartIntervalsValue(minimum.toString())
@@ -381,6 +400,33 @@ const BotTemplate = ({
               </select>
             </div>
           </div>
+
+          {showSubaccounts && <label
+              className="alert alert-primary"
+              disabled={!useSubaccount}
+          >
+            <input
+                className="hide-when-running"
+                type="checkbox"
+                checked={useSubaccount}
+                onChange={() => setUseSubaccounts(!useSubaccount)}
+                disabled={working}
+            />
+            <div>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.subaccounts_info'))}</RawHTML>
+              <select
+                  value={selectedSubaccount}
+                  onChange={e => setSelectedSubaccount(e.target.value)}
+                  disabled={working}
+                  className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+              >
+                {
+                  subaccountsList.map( x => <option key={x} value={x}>{x}</option>)
+                }
+              </select>
+
+            </div>
+          </label>}
 
           <label
             className="alert alert-primary"
