@@ -114,6 +114,14 @@ class Bot < ApplicationRecord
     transactions.sum(:amount)
   end
 
+  def use_subaccount
+    settings.fetch('use_subaccount',false)
+  end
+
+  def selected_subaccount
+    settings.fetch('selected_subaccount','')
+  end
+
   def destroy
     update_attribute(:status, 'deleted')
   end
