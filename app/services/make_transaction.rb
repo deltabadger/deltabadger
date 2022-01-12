@@ -86,6 +86,11 @@ class MakeTransaction < BaseService
       force_smart_intervals: fixing_transaction?(price) ? false : bot.force_smart_intervals,
       smart_intervals_value: bot.smart_intervals_value.to_f
     }.compact
+    subaccount_settings = {
+      use_subaccount: bot.use_subaccount,
+      selected_subaccount: bot.selected_subaccount
+    }.compact
+    settings = settings.merge(subaccount_settings) if bot.use_subaccount
     result = if bot.buyer?
                api.buy(settings)
              else
