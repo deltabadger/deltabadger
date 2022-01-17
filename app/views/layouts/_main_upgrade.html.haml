@@ -56,6 +56,7 @@
           }
           document.getElementById("payment_plan_investor_wire").checked = true;
           document.getElementById("payment_plan_hodler_wire").checked = false;
+          refresh()
         })
         $(".db-plan-hodler").click(function(){
           $("#payment_plan_hodler").click()
@@ -72,6 +73,7 @@
           }
           document.getElementById("payment_plan_investor_wire").checked = false;
           document.getElementById("payment_plan_hodler_wire").checked = true;
+          refresh()
         })
       })
 
@@ -89,7 +91,8 @@
       $(document).ready(function(){
         function showPreview(newValue) {
           if (!newValue) return;
-
+          refresh()
+          /* This is just to keep wire transfers backup
           if ((newValue !== "" &&
               document.getElementById("payment_first_name_wire").value !== "" &&
               document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
@@ -123,7 +126,7 @@
             $("#wire_form_other").addClass("db-form__row--hidden");
             $("#wire_costs").removeClass("db-form__row--visible");
             $("#wire_costs").addClass("db-form__row--hidden");
-          }
+          }*/
         }
 
         function setPrices(select) {

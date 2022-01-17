@@ -64,6 +64,15 @@ module Payments
         currency: currency
       )
     end
+    
+    def card_payment
+      
+    end
+
+    def get_card_price(payment, current_user)
+      cost_calculator = get_cost_calculator(payment, current_user)
+      { total_price: cost_calculator.total_price }
+    end
 
     # HACK: It is needed to know the new record id before creating it
     def get_sequenced_id

@@ -11,6 +11,143 @@
         %li.nav-item{:class => ('disabled' if pending_wire_transfer)}
           %a#log-tab.nav-link{"aria-controls" => "payWire", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payWire", :role => "tab", :class => ('active disabled' if pending_wire_transfer)}= t('subscriptions.payment.wire_transfer')
       #payTabContent.tab-content
+        #payWire.tab-pane{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => ('active' if pending_wire_transfer)}
+          - if 'investor'.in?(upgrade_presenter.available_plans)
+            - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
+            %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected, change: "refresh()"}
+          - if 'hodler'.in?(upgrade_presenter.available_plans)
+            - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
+            %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
+          %script{:src => 'https://js.stripe.com/v3/'}
+          %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
+          :javascript
+            const stripe = Stripe("pk_test_tyVNuRkisL9Bv8RH7Rgxx6bV00t3lEYuWh");
+            function subscription_info() {
+            const country_element = document.getElementById("payment_country_wire")
+            const country_name = country_element.options[country_element.selectedIndex].value
+            return {subscription_plan_id: document.getElementById("payment_plan_investor_wire").checked ? 2 : 3,
+                      country: country_name}
+            };
+            function refresh() {
+              document.getElementsByClassName("card-submit").disabled = true;
+            fetch("/create-payment-intent", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(subscription_info())
+            })
+              .then(function(result) {
+                return result.json();
+              })
+              .then(function(data) {
+                const elements = stripe.elements();
+
+                const card_number = elements.create("cardNumber", {showIcon: true});
+                card_number.mount("#card-number");
+                const card_exp = elements.create("cardExpiry")
+                card_exp.mount("#card-exp")
+                const card_cvc = elements.create("cardCvc")
+                card_cvc.mount("#card-cvc")
+
+                card_number.on("change", function (event) {
+                  document.getElementsByClassName("card-submit").disabled = event.empty;
+                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                });
+
+                card_exp.on("change", function (event) {
+                  document.getElementsByClassName("card-submit").disabled = event.empty;
+                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                });
+
+                card_cvc.on("change", function (event) {
+                  document.getElementsByClassName("card-submit").disabled = event.empty;
+                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                });
+
+                const form = document.getElementById("payment-form");
+                form.addEventListener("submit", function(event) {
+                  event.preventDefault();
+                  payWithCard(stripe, card_number, data.clientSecret);
+                });
+              });
+              const payWithCard = function(stripe, card, clientSecret) {
+              loading(true);
+              stripe
+                .confirmCardPayment(clientSecret, {
+                  payment_method: {
+                    card: card
+                  }
+                })
+                .then(function(result) {
+                  if (result.error) {
+                    showError(result.error.message);
+                  } else {
+                    orderComplete(result.paymentIntent.id);
+                  }
+                });
+              };
+              const orderComplete = function(paymentIntentId) {
+              loading(false);
+              confirmPayment(paymentIntentId)
+              document.querySelector(".result-message").classList.remove("hidden");
+              document.getElementsByClassName("card-submit").disabled = true;
+            };
+
+            // Show the customer the error from Stripe if their card fails to charge
+            const showError = function(errorMsgText) {
+              loading(false);
+              const errorMsg = document.querySelector("#card-error");
+              errorMsg.textContent = errorMsgText;
+              setTimeout(function() {
+                errorMsg.textContent = "";
+              }, 4000);
+            };
+            const loading = function(isLoading) {
+              if (isLoading) {
+                document.getElementsByClassName("card-submit").disabled = true;
+                document.querySelector("#spinner").classList.remove("hidden");
+                document.querySelector("#button-text").classList.add("hidden");
+              } else {
+                document.getElementsByClassName("card-submit").disabled = false;
+                document.querySelector("#spinner").classList.add("hidden");
+                document.querySelector("#button-text").classList.remove("hidden");
+              }
+            };
+            const confirmPayment = function(paymentIntentId) {
+              console.log("XD NO TA")
+              fetch("/confirm-card-payment", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({payment_intent_id: paymentIntentId})
+            })
+            }
+            }
+            refresh()
+
+          %body.card-body
+            .country_card_input
+              %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'wire', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value); refresh();", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
+                - cost_presenters.each do |country, presenter|
+                  - selected = country == payment.country
+                  - translated_name = country
+                  - if translated_name == 'Other'
+                    - translated_name = t('helpers.label.payment.other')
+                  = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+              %label.db-form__label{:for => "payment_country"}= t('helpers.label.payment.country')
+            %form#payment-form.card-form
+              #card-number
+              %div#data-row
+                #card-exp
+                #card-cvc
+              %button.submit.card-submit
+                #spinner.spinner.hidden
+                %span#button-text Pay now
+              %p#card-error{:role => "alert"}
+              %p.result-message.hidden
+                Payment succeeded, you should be redirected within few seconds.
         #payBitcoin.tab-pane.show{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => ('active' unless pending_wire_transfer)}
           %h4.mb-4= t('subscriptions.payment.billing_information')
           = form_for payment, url: upgrade_pay_path do |f|
@@ -56,128 +193,3 @@
                 %span.mr-0= t('subscriptions.payment.pay_with_bitcoin')
                 %svg.ml-1{class: 'db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward', xmlns: 'http://www.w3.org/2000/svg', width: '24', viewBox: '0 0 24 24'}
                   %path{d: 'M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z'}
-
-        #payWire.tab-pane{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => ('active' if pending_wire_transfer)}
-          %script{:src => 'https://js.stripe.com/v3/'}
-          %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
-          :javascript
-            const stripe = Stripe("pk_test_tyVNuRkisL9Bv8RH7Rgxx6bV00t3lEYuWh");
-            const purchase = {
-              items: [{ id: "xl-tshirt" }]
-            };
-
-            // Disable the button until we have Stripe set up on the page
-            document.getElementsByClassName("card_submit").disabled = true;
-            fetch("/create-payment-intent", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify(purchase)
-            })
-              .then(function(result) {
-                return result.json();
-              })
-              .then(function(data) {
-                const elements = stripe.elements();
-
-                const card_number = elements.create("cardNumber", {showIcon: true});
-                card_number.mount("#card-number");
-                const card_exp = elements.create("cardExpiry")
-                card_exp.mount("#card-exp")
-                const card_cvc = elements.create("cardCvc")
-                card_cvc.mount("#card-cvc")
-
-                card_number.on("change", function (event) {
-                  document.getElementsByClassName("card_submit").disabled = event.empty;
-                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
-                });
-
-                card_exp.on("change", function (event) {
-                  document.getElementsByClassName("card_submit").disabled = event.empty;
-                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
-                });
-
-                card_cvc.on("change", function (event) {
-                  document.getElementsByClassName("card_submit").disabled = event.empty;
-                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
-                });
-
-                const form = document.getElementById("payment-form");
-                form.addEventListener("card_submit", function(event) {
-                  event.preventDefault();
-                    // Complete payment when the submit button is clicked
-                  payWithCard(stripe, card_number, data.clientSecret);
-                });
-              });
-
-            // Calls stripe.confirmCardPayment
-            // If the card requires authentication Stripe shows a pop-up modal to
-            // prompt the user to enter authentication details without leaving your page.
-            const payWithCard = function(stripe, card, clientSecret) {
-              loading(true);
-              stripe
-                .confirmCardPayment(clientSecret, {
-                  payment_method: {
-                    card: card
-                  }
-                })
-                .then(function(result) {
-                  if (result.error) {
-                      // Show error to your customer
-                    showError(result.error.message);
-                  } else {
-                      // The payment succeeded!
-                    orderComplete(result.paymentIntent.id);
-                  }
-                });
-            };
-            const orderComplete = function(paymentIntentId) {
-              loading(false);
-              document
-                .querySelector(".result-message a")
-                .setAttribute(
-                "href",
-                  "https://dashboard.stripe.com/test/payments/" + paymentIntentId
-                );
-              document.querySelector(".result-message").classList.remove("hidden");
-              document.getElementsByClassName("card_submit").disabled = true;
-            };
-
-            // Show the customer the error from Stripe if their card fails to charge
-            const showError = function(errorMsgText) {
-              loading(false);
-              const errorMsg = document.querySelector("#card-error");
-              errorMsg.textContent = errorMsgText;
-              setTimeout(function() {
-                errorMsg.textContent = "";
-              }, 4000);
-            };
-
-            // Show a spinner on payment submission
-            const loading = function(isLoading) {
-              if (isLoading) {
-                // Disable the button and show a spinner
-                document.getElementsByClassName("card_submit").disabled = true;
-                document.querySelector("#spinner").classList.remove("hidden");
-                document.querySelector("#button-text").classList.add("hidden");
-              } else {
-                document.getElementsByClassName("card_submit").disabled = false;
-                document.querySelector("#spinner").classList.add("hidden");
-                document.querySelector("#button-text").classList.remove("hidden");
-              }
-            };
-          %card-body
-            %form#payment-form
-              #card-number
-              %div#data-row
-                #card-exp
-                #card-cvc
-              %button.card_submit
-                #spinner.spinner.hidden
-                %span#button-text Pay now
-              %p#card-error{:role => "alert"}
-              %p.result-message.hidden
-                Payment succeeded, see the result in your
-                %a{:href => "", :target => "_blank"} Stripe dashboard.
-                Refresh the page to pay again.

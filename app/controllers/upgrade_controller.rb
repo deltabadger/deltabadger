@@ -3,7 +3,7 @@ require 'sinatra'
 
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent]
+  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent confirm_card_payment]
 
   def index
     render :index, locals: default_locals.merge(
@@ -13,7 +13,6 @@ class UpgradeController < ApplicationController
   end
 
   def pay
-    byebug
     result = Payments::Create.call(payment_params)
 
     if result.success?
@@ -43,15 +42,36 @@ class UpgradeController < ApplicationController
     render json: {}
   end
 
-  def create_card_intent
-    # Create a PaymentIntent with amount and currency
+  def create_card_intent #Create a intention of paying
+    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
     payment_intent = Stripe::PaymentIntent.create(
-      amount: 1200,
-      currency: 'usd'
+      amount: stripe_amount(card_price[:total_price]),
+      currency: fake_payment.eu? ? 'eur' : 'usd',
+      metadata: { user_id: current_user['id'],
+                  email: current_user['email'],
+                  subscription_plan_id: params['subscription_plan_id'],
+                  country: params['country']
+                }
     )
     render json: {
       clientSecret: payment_intent['client_secret'],
     }.to_json
+  end
+
+  def confirm_card_payment
+    payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
+    card_payment_succeeded = card_payment_succeeded(payment_intent)
+    return unless card_payment_succeeded
+
+    payment_metadata = payment_intent['metadata']
+    plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
+    cost_presenter = if plan == 'hodler'
+                       wire_params[:cost_presenters][wire_params[:country]][:hodler]
+                     else
+                       wire_params[:cost_presenters][wire_params[:country]][:investor]
+                     end
+
   end
 
   def wire_transfer
@@ -107,6 +127,14 @@ class UpgradeController < ApplicationController
   end
 
   private
+
+  def card_payment_succeeded(payment_intent)
+    payment_intent['status'] == 'succeded'
+  end
+
+  def stripe_amount(amount) #Stripe takes total amount of cents
+    (amount * 100).to_i
+  end
 
   def new_payment
     subscription_plan_id = current_plan.id != saver_plan.id ? hodler_plan.id : investor_plan.id
