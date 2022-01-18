@@ -60,6 +60,7 @@ class UpgradeController < ApplicationController
   end
 
   def confirm_card_payment
+    default_params = default_locals.merge(payment_intent_id: params['payment_intent_id'])
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
     card_payment_succeeded = card_payment_succeeded(payment_intent)
     return unless card_payment_succeeded
@@ -67,11 +68,19 @@ class UpgradeController < ApplicationController
     payment_metadata = payment_intent['metadata']
     plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
     cost_presenter = if plan == 'hodler'
-                       wire_params[:cost_presenters][wire_params[:country]][:hodler]
+                       default_params[:cost_presenters][payment_metadata['country']][:hodler]
                      else
-                       wire_params[:cost_presenters][wire_params[:country]][:investor]
+                       default_params[:cost_presenters][payment_metadata['country']][:investor]
                      end
+    payment_params = payment_metadata.to_hash.merge(default_params)
+    payment = Payments::Create.new.card_payment(
+      payment_params,
+      cost_presenter.discount_percent_amount.to_f.positive?
+    )
+    UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
 
+    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
+    redirect_to dashboard_path
   end
 
   def wire_transfer
@@ -129,7 +138,7 @@ class UpgradeController < ApplicationController
   private
 
   def card_payment_succeeded(payment_intent)
-    payment_intent['status'] == 'succeded'
+    payment_intent['status'] == 'succeeded'
   end
 
   def stripe_amount(amount) #Stripe takes total amount of cents

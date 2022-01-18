@@ -65,8 +65,25 @@ module Payments
       )
     end
     
-    def card_payment
-      
+    def card_payment(params, discounted)
+      cost_calculator = get_card_cost_calculator(params)
+      total = cost_calculator.total_price
+      currency = params[:country] == 'Other' ? 0 : 1
+      @payments_repository.create(
+        id: get_sequenced_id,
+        status: :paid,
+        user: User.find(params[:user_id]),
+        first_name: 'Credit',
+        last_name: 'Card',
+        country: params[:country],
+        subscription_plan_id: params[:subscription_plan_id],
+        birth_date: Time.now.strftime('%d/%m/%Y'),
+        discounted: discounted,
+        total: total,
+        currency: currency,
+        commission: cost_calculator.commission,
+        external_statuses: 'Card Payment'
+      )
     end
 
     def get_card_price(payment, current_user)
@@ -121,6 +138,9 @@ module Payments
 
     def get_wire_cost_calculator(params)
       params['cost_presenters'][params['country']][SubscriptionPlan.find(params['subscription_plan_id']).name].cost_calculator
+    end
+    def get_card_cost_calculator(params)
+      params[:cost_presenters][params[:country]][SubscriptionPlan.find(params[:subscription_plan_id]).name.to_sym].cost_calculator
     end
   end
 end

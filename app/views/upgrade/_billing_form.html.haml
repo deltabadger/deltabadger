@@ -5,13 +5,13 @@
     .modal-body
       %ul#payTab.nav.nav-tabs{:role => "tablist"}
         %li.nav-item{:class => ('disabled' if pending_wire_transfer)}
-          %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab" , :class => (pending_wire_transfer ? 'disabled' : 'active')}
+          %a#log-tab.nav-link.show{"aria-controls" => "payWire", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payWire", :role => "tab", :class => 'active'}= t('subscriptions.payment.wire_transfer')
+        %li.nav-item{:class => ('disabled' if pending_wire_transfer)}
+          %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => false, "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab" , :class => ''}
             .db-card-providers
               %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin-lightning.svg")}
-        %li.nav-item{:class => ('disabled' if pending_wire_transfer)}
-          %a#log-tab.nav-link{"aria-controls" => "payWire", "aria-selected" => "true", "data-toggle" => "tab", :href => "#payWire", :role => "tab", :class => ('active disabled' if pending_wire_transfer)}= t('subscriptions.payment.wire_transfer')
       #payTabContent.tab-content
-        #payWire.tab-pane{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => ('active' if pending_wire_transfer)}
+        #payWire.tab-pane.show{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => 'active'}
           - if 'investor'.in?(upgrade_presenter.available_plans)
             - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
             %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected, change: "refresh()"}
@@ -22,10 +22,12 @@
           %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
           :javascript
             const stripe = Stripe("pk_test_tyVNuRkisL9Bv8RH7Rgxx6bV00t3lEYuWh");
+            I18n.locale = document.body.dataset.locale || I18n.defaultLocale
+            console.log(I18n.locale)
             function subscription_info() {
             const country_element = document.getElementById("payment_country_wire")
             const country_name = country_element.options[country_element.selectedIndex].value
-            return {subscription_plan_id: document.getElementById("payment_plan_investor_wire").checked ? 2 : 3,
+            return {subscription_plan_id: document.getElementById("payment_plan_hodler_wire").checked ? 3 : 2,
                       country: country_name}
             };
             function refresh() {
@@ -44,6 +46,8 @@
                 const elements = stripe.elements();
 
                 const card_number = elements.create("cardNumber", {showIcon: true});
+                var number_field = document.getElementById("card-number")
+                number_field.remove();
                 card_number.mount("#card-number");
                 const card_exp = elements.create("cardExpiry")
                 card_exp.mount("#card-exp")
@@ -115,7 +119,6 @@
               }
             };
             const confirmPayment = function(paymentIntentId) {
-              console.log("XD NO TA")
               fetch("/confirm-card-payment", {
               method: "POST",
               headers: {
@@ -129,7 +132,7 @@
 
           %body.card-body
             .country_card_input
-              %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'wire', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value); refresh();", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
+              %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'wire', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value);", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
                 - cost_presenters.each do |country, presenter|
                   - selected = country == payment.country
                   - translated_name = country
@@ -148,7 +151,7 @@
               %p#card-error{:role => "alert"}
               %p.result-message.hidden
                 Payment succeeded, you should be redirected within few seconds.
-        #payBitcoin.tab-pane.show{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => ('active' unless pending_wire_transfer)}
+        #payBitcoin.tab-pane{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => ''}
           %h4.mb-4= t('subscriptions.payment.billing_information')
           = form_for payment, url: upgrade_pay_path do |f|
             - if 'investor'.in?(upgrade_presenter.available_plans)
