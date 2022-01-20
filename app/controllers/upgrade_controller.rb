@@ -3,7 +3,7 @@ require 'sinatra'
 
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent confirm_card_payment]
+  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
 
   def index
     render :index, locals: default_locals.merge(
@@ -56,14 +56,31 @@ class UpgradeController < ApplicationController
     )
     render json: {
       clientSecret: payment_intent['client_secret'],
+      payment_intent_id: payment_intent['id']
     }.to_json
+  end
+
+  def update_card_intent
+    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    Stripe::PaymentIntent.update(params['payment_intent_id'],
+                                 amount: stripe_amount(card_price[:total_price]),
+                                 currency: fake_payment.eu? ? 'eur' : 'usd',
+                                 metadata: {
+                                   country: params['country'],
+                                   subscription_plan_id: params['subscription_plan_id']
+                                 })
   end
 
   def confirm_card_payment
     default_params = default_locals.merge(payment_intent_id: params['payment_intent_id'])
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
     card_payment_succeeded = card_payment_succeeded(payment_intent)
-    return unless card_payment_succeeded
+    unless card_payment_succeeded
+      return render json: {
+        payment_status: "failed"
+      }.to_json
+    end
 
     payment_metadata = payment_intent['metadata']
     plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
@@ -79,8 +96,14 @@ class UpgradeController < ApplicationController
     )
     UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
 
-    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
-    redirect_to dashboard_path
+    render json: {
+      payment_status: "succeeded"
+    }.to_json
+
+  rescue StandardError
+    render json: {
+      payment_status: "failed"
+    }.to_json
   end
 
   def wire_transfer

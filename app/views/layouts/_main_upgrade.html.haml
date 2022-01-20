@@ -32,7 +32,6 @@
     :javascript
 
       // google
-
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
@@ -54,9 +53,11 @@
           } else {
             $(".db-plan-active-discount").removeClass("db-plans__item--hide");
           }
-          document.getElementById("payment_plan_investor_wire").checked = true;
-          document.getElementById("payment_plan_hodler_wire").checked = false;
-          refresh()
+          document.getElementById("payment_plan_investor_card").checked = true;
+          document.getElementById("payment_plan_hodler_card").checked = false;
+          //document.getElementById("payment_plan_investor_wire").checked = true;
+          //document.getElementById("payment_plan_hodler_wire").checked = false;
+          set_payment_intent()
         })
         $(".db-plan-hodler").click(function(){
           $("#payment_plan_hodler").click()
@@ -71,9 +72,11 @@
           } else {
             $(".db-plan-active-discount").removeClass("db-plans__item--hide");
           }
-          document.getElementById("payment_plan_investor_wire").checked = false;
-          document.getElementById("payment_plan_hodler_wire").checked = true;
-          refresh()
+          document.getElementById("payment_plan_investor_card").checked = false;
+          document.getElementById("payment_plan_hodler_card").checked = true;
+          //document.getElementById("payment_plan_investor_wire").checked = false;
+          //document.getElementById("payment_plan_hodler_wire").checked = true;
+          set_payment_intent()
         })
       })
 
@@ -91,8 +94,7 @@
       $(document).ready(function(){
         function showPreview(newValue) {
           if (!newValue) return;
-          refresh()
-          /* This is just to keep wire transfers backup
+          set_payment_intent()
           if ((newValue !== "" &&
               document.getElementById("payment_first_name_wire").value !== "" &&
               document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
@@ -126,7 +128,7 @@
             $("#wire_form_other").addClass("db-form__row--hidden");
             $("#wire_costs").removeClass("db-form__row--visible");
             $("#wire_costs").addClass("db-form__row--hidden");
-          }*/
+          }
         }
 
         function setPrices(select) {
@@ -158,6 +160,7 @@
           $(".hodler-total-vat").text(dataset.htv);
           $("#payment_country").val(select.value);
           $("#payment_country_wire").val(select.value);
+          $("#payment_country_card").val(select.value);
         }
 
         $("#payment_country").change(function(event) {
@@ -172,6 +175,13 @@
         });
 
         setPrices(document.getElementById("payment_country_wire"));
+
+        $("#payment_country_card").change(function(event) {
+          setPrices(event.target);
+          showPreview(event.target);
+        });
+
+        setPrices(document.getElementById("payment_country_card"));
 
         $("#payment_first_name_wire").change(function(event) {
           document.getElementById("payment_first_name").value = event.target.value;
@@ -201,7 +211,7 @@
           showPreview(event.target);
         });
 
-        showPreview(document.getElementById("payment_country_wire").value);
+        showPreview(document.getElementById("payment_country_card").value);
       });
 
       // referral program registration

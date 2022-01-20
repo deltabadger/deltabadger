@@ -63,6 +63,7 @@ Rails.application.routes.draw do
   post '/ref/accept', to: 'ref_codes#accept'
 
   post '/create-payment-intent', to: 'upgrade#create_card_intent'
+  post '/update-payment-intent', to: 'upgrade#update_card_intent'
   post '/confirm-card-payment', to: 'upgrade#confirm_card_payment'
 
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
