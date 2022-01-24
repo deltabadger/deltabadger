@@ -42,17 +42,16 @@ class UpgradeController < ApplicationController
     render json: {}
   end
 
-  def create_card_intent #Create a intention of paying
+  # Create a intention of paying
+  def create_card_intent
+    # We create a fake payment to calculate the costs of the transactions
     fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
     card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    metadata = get_payment_metadata(current_user, params)
     payment_intent = Stripe::PaymentIntent.create(
       amount: stripe_amount(card_price[:total_price]),
       currency: fake_payment.eu? ? 'eur' : 'usd',
-      metadata: { user_id: current_user['id'],
-                  email: current_user['email'],
-                  subscription_plan_id: params['subscription_plan_id'],
-                  country: params['country']
-                }
+      metadata: metadata
     )
     render json: {
       clientSecret: payment_intent['client_secret'],
@@ -63,13 +62,11 @@ class UpgradeController < ApplicationController
   def update_card_intent
     fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
     card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    metadata = get_update_metadata(params)
     Stripe::PaymentIntent.update(params['payment_intent_id'],
                                  amount: stripe_amount(card_price[:total_price]),
                                  currency: fake_payment.eu? ? 'eur' : 'usd',
-                                 metadata: {
-                                   country: params['country'],
-                                   subscription_plan_id: params['subscription_plan_id']
-                                 })
+                                 metadata: metadata)
   end
 
   def confirm_card_payment
@@ -160,11 +157,26 @@ class UpgradeController < ApplicationController
 
   private
 
+  def get_payment_metadata(current_user, params)
+    {
+      user_id: current_user['id'],
+      email: current_user['email'],
+      subscription_plan_id: params['subscription_plan_id'],
+      country: params['country']
+    }
+  end
+  def get_update_metadata(params)
+    {
+      country: params['country'],
+      subscription_plan_id: params['subscription_plan_id']
+    }
+  end
+
   def card_payment_succeeded(payment_intent)
     payment_intent['status'] == 'succeeded'
   end
 
-  def stripe_amount(amount) #Stripe takes total amount of cents
+  def stripe_amount(amount) # Stripe takes total amount of cents
     (amount * 100).to_i
   end
 
