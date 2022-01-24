@@ -23,7 +23,7 @@
           %script{:src => 'https://js.stripe.com/v3/'}
           %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
           :javascript
-            const stripe = Stripe("pk_test_tyVNuRkisL9Bv8RH7Rgxx6bV00t3lEYuWh",{locale: "#{I18n.locale}"});
+            const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
             function subscription_info() {
             const country_element = document.getElementById("payment_country_card");
             const country_name = country_element.options[country_element.selectedIndex].value;
