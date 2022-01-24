@@ -75,17 +75,12 @@ class UpgradeController < ApplicationController
     card_payment_succeeded = card_payment_succeeded(payment_intent)
     unless card_payment_succeeded
       return render json: {
-        payment_status: "failed"
+        payment_status: 'failed'
       }.to_json
     end
 
     payment_metadata = payment_intent['metadata']
-    plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
-    cost_presenter = if plan == 'hodler'
-                       default_params[:cost_presenters][payment_metadata['country']][:hodler]
-                     else
-                       default_params[:cost_presenters][payment_metadata['country']][:investor]
-                     end
+    cost_presenter = get_cost_presenter(payment_metadata, default_params)
     payment_params = payment_metadata.to_hash.merge(default_params)
     payment = Payments::Create.new.card_payment(
       payment_params,
@@ -94,12 +89,13 @@ class UpgradeController < ApplicationController
     UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
 
     render json: {
-      payment_status: "succeeded"
+      payment_status: 'succeeded'
     }.to_json
 
-  rescue StandardError
+  rescue StandardError => e
+    Raven.capture_exception(e)
     render json: {
-      payment_status: "failed"
+      payment_status: 'failed'
     }.to_json
   end
 
@@ -156,6 +152,15 @@ class UpgradeController < ApplicationController
   end
 
   private
+
+  def get_cost_presenter(payment_metadata, default_params)
+    plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
+    if plan == 'hodler'
+      default_params[:cost_presenters][payment_metadata['country']][:hodler]
+    else
+      default_params[:cost_presenters][payment_metadata['country']][:investor]
+    end
+  end
 
   def get_payment_metadata(current_user, params)
     {

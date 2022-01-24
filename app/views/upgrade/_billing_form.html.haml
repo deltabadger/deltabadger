@@ -27,11 +27,11 @@
           :javascript
             const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
             function subscription_info() {
-            const country_element = document.getElementById("payment_country_card");
-            const country_name = country_element.options[country_element.selectedIndex].value;
-            return {subscription_plan_id: document.getElementById("payment_plan_hodler_card").checked ? 3 : 2,
-                      country: country_name}
-            };
+              const country_element = document.getElementById("payment_country_card");
+              const country_name = country_element.options[country_element.selectedIndex].value;
+              return {subscription_plan_id: document.getElementById("payment_plan_hodler_card").checked ? 3 : 2,
+                        country: country_name}
+            }
             var updating = false;
             var payment_intent_id = '';
             function set_payment_intent() {
@@ -43,115 +43,111 @@
                   "Content-Type": "application/json"
                 },
                 body: JSON.stringify({...subscription_info(), ...{payment_intent_id: payment_intent_id}})
-              })
+                })
               }
               else {
-              updating = true;
-              fetch("/create-payment-intent", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify(subscription_info())
-              })
-              .then(function(result) {
-                return result.json();
-              })
-              .then(function(data) {
-                payment_intent_id = data.payment_intent_id;
-                const elements = stripe.elements();
-                const card_number = elements.create("cardNumber", {showIcon: true});
-                const card_exp = elements.create("cardExpiry");
-                const card_cvc = elements.create("cardCvc");
-                card_number.mount("#card-number");
-                card_exp.mount("#card-exp");
-                card_cvc.mount("#card-cvc");
-
-                card_number.on("change", function (event) {
-                  document.getElementsByClassName("card-submit").disabled = event.empty;
-                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
-                });
-
-                card_exp.on("change", function (event) {
-                  document.getElementsByClassName("card-submit").disabled = event.empty;
-                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
-                });
-
-                card_cvc.on("change", function (event) {
-                  document.getElementsByClassName("card-submit").disabled = event.empty;
-                  document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
-                });
-                const form = document.getElementById('payment-form')
-                form.addEventListener("submit", function(event) {
-                  event.preventDefault();
-                  payWithCard(stripe, card_number, data.clientSecret);
-                });
-              });
-              const payWithCard = function(stripe, card, clientSecret) {
-              loading(true);
-              stripe
-                .confirmCardPayment(clientSecret, {
-                  payment_method: {
-                    card: card
-                  }
+                updating = true;
+                fetch("/create-payment-intent", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify(subscription_info())
                 })
                 .then(function(result) {
-                  if (result.error) {
-                    showError(result.error.message);
-                  } else {
-                    orderComplete(result.paymentIntent.id);
-                  }
-                });
-              };
-              const orderComplete = function(paymentIntentId) {
-              loading(false);
-              document.getElementsByClassName("card-submit").disabled = true;
-              confirmPayment(paymentIntentId).then(function(data) {
-                if(data.payment_status === "succeeded"){
-                  document.querySelector(".result-message").classList.remove("hidden");
-                }
-                else{
-                  document.querySelector(".result-message").textContent = "Payment failed. Reload the page to try again.";
-                  document.querySelector(".result-message").classList.remove("hidden");
-                }
-              })
-            };
-
-            const showError = function(errorMsgText) {
-              loading(false);
-              const errorMsg = document.querySelector("#card-error");
-              errorMsg.textContent = errorMsgText;
-              setTimeout(function() {
-                errorMsg.textContent = "";
-              }, 4000);
-            };
-            const loading = function(isLoading) {
-              if (isLoading) {
-                document.getElementsByClassName("card-submit").disabled = true;
-                document.querySelector("#spinner").classList.remove("hidden");
-                document.querySelector("#button-text").classList.add("hidden");
-              } else {
-                document.getElementsByClassName("card-submit").disabled = false;
-                document.querySelector("#spinner").classList.add("hidden");
-                document.querySelector("#button-text").classList.remove("hidden");
-              }
-            };
-            function confirmPayment(paymentIntentId) {
-              return fetch("/confirm-card-payment", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({payment_intent_id: paymentIntentId})
-              })
-              .then(function(result) {
                   return result.json();
-              })
-              .then(function(data) {
-                  return data;
-              })
-            }
-            }
+                })
+                .then(function(data) {
+                  payment_intent_id = data.payment_intent_id;
+                  const elements = stripe.elements();
+                  const card_number = elements.create("cardNumber", {showIcon: true});
+                  const card_exp = elements.create("cardExpiry");
+                  const card_cvc = elements.create("cardCvc");
+                  card_number.mount("#card-number");
+                  card_exp.mount("#card-exp");
+                  card_cvc.mount("#card-cvc");
+                  card_number.on("change", function (event) {
+                    document.getElementsByClassName("card-submit").disabled = event.empty;
+                    document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                  });
+                  card_exp.on("change", function (event) {
+                    document.getElementsByClassName("card-submit").disabled = event.empty;
+                    document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                  });
+                  card_cvc.on("change", function (event) {
+                    document.getElementsByClassName("card-submit").disabled = event.empty;
+                    document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+                  });
+                  const form = document.getElementById('payment-form')
+                  form.addEventListener("submit", function(event) {
+                    event.preventDefault();
+                    payWithCard(stripe, card_number, data.clientSecret);
+                  });
+                });
+                const payWithCard = function(stripe, card, clientSecret) {
+                  loading(true);
+                  stripe
+                  .confirmCardPayment(clientSecret, {
+                    payment_method: {
+                      card: card
+                    }
+                  })
+                  .then(function(result) {
+                    if (result.error) {
+                      showError(result.error.message);
+                    } else {
+                      orderComplete(result.paymentIntent.id);
+                    }
+                  });
+                };
+                const orderComplete = function(paymentIntentId) {
+                  loading(false);
+                  document.getElementsByClassName("card-submit").disabled = true;
+                  confirmPayment(paymentIntentId).then(function(data) {
+                    if(data.payment_status === "succeeded"){
+                      document.querySelector(".result-message").classList.remove("hidden");
+                    }
+                    else{
+                      document.querySelector(".result-message").textContent = "Payment failed. Reload the page to try again.";
+                      document.querySelector(".result-message").classList.remove("hidden");
+                    }
+                  })
+                };
+                const showError = function(errorMsgText) {
+                  loading(false);
+                  const errorMsg = document.querySelector("#card-error");
+                  errorMsg.textContent = errorMsgText;
+                  setTimeout(function() {
+                    errorMsg.textContent = "";
+                  }, 4000);
+                };
+                const loading = function(isLoading) {
+                  if (isLoading) {
+                    document.getElementsByClassName("card-submit").disabled = true;
+                    document.querySelector("#spinner").classList.remove("hidden");
+                    document.querySelector("#button-text").classList.add("hidden");
+                  } else {
+                    document.getElementsByClassName("card-submit").disabled = false;
+                    document.querySelector("#spinner").classList.add("hidden");
+                    document.querySelector("#button-text").classList.remove("hidden");
+                  }
+                };
+                function confirmPayment(paymentIntentId) {
+                  return fetch("/confirm-card-payment", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({payment_intent_id: paymentIntentId})
+                  })
+                  .then(function(result) {
+                      return result.json();
+                  })
+                  .then(function(data) {
+                      return data;
+                  })
+                }
+              }
             }
 
           %body.card-body
