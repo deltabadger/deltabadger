@@ -14,7 +14,7 @@ class PaymentDashboard < Administrate::BaseDashboard
       searchable_field: 'email'
     ),
     payment_id: Field::String,
-    wire_transfer: Field::Boolean,
+    payment_type: Field::String.with_options(searchable: false),
     subscription_plan: Field::BelongsTo,
     status: Field::String.with_options(searchable: false),
     external_statuses: Field::String,
@@ -41,7 +41,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     id
     subscription_plan
-    wire_transfer
+    payment_type
     status
     total
     currency
@@ -60,7 +60,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     id
     subscription_plan
-    wire_transfer
+    payment_type
     status
     total
     currency
@@ -86,7 +86,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[
     subscription_plan
     status
-    wire_transfer
+    payment_type
     total
     currency
     first_name
@@ -110,8 +110,8 @@ class PaymentDashboard < Administrate::BaseDashboard
   COLLECTION_FILTERS = {
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
-    wire: ->(resources) { resources.where(wire_transfer: true) }
-
+    wire: ->(resources) { resources.where(payment_type: 'wire') },
+    card: ->(resources) { resources.where(payment_type: 'card') }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 

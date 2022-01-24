@@ -59,12 +59,12 @@ module Payments
         subscription_plan_id: params[:subscription_plan_id],
         birth_date: Time.now.strftime('%d/%m/%Y'),
         discounted: discounted,
-        wire_transfer: true,
+        payment_type: 'wire',
         total: total,
         currency: currency
       )
     end
-    
+
     def card_payment(params, discounted)
       cost_calculator = get_card_cost_calculator(params)
       total = cost_calculator.total_price
@@ -82,7 +82,8 @@ module Payments
         total: total,
         currency: currency,
         commission: cost_calculator.commission,
-        external_statuses: 'Card Payment'
+        payment_type: 'card',
+        paid_at: Time.now.strftime('%d/%m/%Y')
       )
     end
 
