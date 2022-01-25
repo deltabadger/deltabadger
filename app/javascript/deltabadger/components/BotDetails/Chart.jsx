@@ -84,13 +84,13 @@ export const Chart = ({bot}) => {
     scales: {
       xAxes: [{
         ticks: {
-          fontFamily: 'Inconsolata',
+          fontFamily: 'Montserrat',
           fontColor: '#789'
         }
       }],
       yAxes: [{
         ticks: {
-          fontFamily: 'Inconsolata',
+          fontFamily: 'Montserrat',
           fontColor: '#789'
         }
       }]
@@ -98,7 +98,7 @@ export const Chart = ({bot}) => {
     legend: {
       labels: {
         padding: 44,
-        fontFamily: 'Inconsolata',
+        fontFamily: 'Montserrat',
         fontColor: '#789'
       }
     }
