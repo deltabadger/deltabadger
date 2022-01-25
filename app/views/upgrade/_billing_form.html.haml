@@ -152,6 +152,7 @@
               }
             }
 
+<<<<<<< HEAD
           .card-body
             .country_card_input
               %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'card', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value);", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
@@ -174,6 +175,29 @@
               %p#card-error.card-error{:role => "alert"}
               %p.result-message.hidden
                 = t('subscriptions.payment.card_payment_succeeded')
+=======
+          .db-form__row
+            %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'card', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value);", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
+              - cost_presenters.each do |country, presenter|
+                - selected = country == payment.country
+                - translated_name = country
+                - if translated_name == 'Other'
+                  - translated_name = t('helpers.label.payment.other')
+                = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+            %label.db-form__label{:for => "payment_country"}= t('helpers.label.payment.country')
+          %form#payment-form
+            .db-form__row
+              #card-number.db-form__input
+            .db-form__row.db-card-details
+              #card-exp.db-form__input
+              #card-cvc.db-form__input
+            %button.submit.card-submit
+              #spinner.spinner.hidden
+              %span#button-text= t('subscriptions.payment.pay')
+            %p#card-error.card-error{:role => "alert"}
+            %p.result-message.hidden
+              = t('subscriptions.payment.card_payment_succeeded')
+>>>>>>> 71e90136 (css fixes)
         #payBitcoin.tab-pane{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => (pending_wire_transfer ? 'disabled' : ( 'active' if !show_card_payment && show_bitcoin_payment))}
           %h4.mb-4= t('subscriptions.payment.billing_information')
           = form_for payment, url: upgrade_pay_path do |f|

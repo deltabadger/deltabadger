@@ -50,12 +50,10 @@
 
       // scaling font-variation-settings: 'wght' var(--text-wght)
 
-      $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
-      $("html").css("--font-wght-adjustment", Math.min(Math.max(915000/($(this).width() + 600), 290), 400) - 290 + "");
-      window.addEventListener('resize', function(event){
-        $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
-        $("html").css("--font-wght-adjustment",  Math.min(Math.max(915000/($(this).width() + 600), 290), 400) - 290 + "");
-      });
+      // $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
+      // window.addEventListener('resize', function(event){
+      //   $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
+      // });
 
       let root = document.documentElement;
 
