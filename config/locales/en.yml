@@ -156,11 +156,9 @@ en:
         plan_4_year: '4-year plan'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         payment:
-            pay_now: 'Pay now'
             billing_information: 'Billing information'
             bitcoin: Bitcoin
             wire_transfer: 'Wire Transfer'
-            credit_card: 'Credit Card'
             card_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
             wire_transfer_description_html: 'To pay with a wire transfer, send a basic info for the invoice: <b>name</b>, <b>surname</b>, <b>physical address</b>, <b>email</b> used at Deltabadger, and the plan you want buy: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Pay with Bitcoin'

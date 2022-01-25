@@ -7,7 +7,8 @@
     .modal-body
       %ul#payTab.nav.nav-tabs{:role => "tablist"}
         %li.nav-item{:class => [('disabled' if pending_wire_transfer),('hidden' unless show_card_payment)]}
-          %a#log-tab.nav-link.show{"aria-controls" => "payCard", "aria-selected" => show_card_payment ? true : false, "data-toggle" => "tab", :href => "#payCard", :role => "tab", :class => (pending_wire_transfer ? 'disabled' : ('active' if show_card_payment))}= t('subscriptions.payment.credit_card')
+          %a#log-tab.nav-link.show{"aria-controls" => "payCard", "aria-selected" => show_card_payment ? true : false, "data-toggle" => "tab", :href => "#payCard", :role => "tab", :class => (pending_wire_transfer ? 'disabled' : ('active' if show_card_payment))}
+            %img.db-card-providers__item.db-card-providers__item--stripe{:src => asset_pack_path("media/images/stripe.svg")}
         %li.nav-item{:class => [('disabled' if pending_wire_transfer),('hidden' unless show_bitcoin_payment)]}
           %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => !show_card_payment && show_bitcoin_payment ? true : false , "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab" , :class =>  (pending_wire_transfer ? 'disabled' : ('active' if !show_card_payment && show_bitcoin_payment))}
             .db-card-providers
