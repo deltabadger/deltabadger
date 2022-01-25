@@ -1,7 +1,7 @@
 - pending_wire_transfer = !current_user.pending_wire_transfer.nil?
 - show_card_payment = true
-- show_wire_payment = true
-- show_bitcoin_payment = true
+- show_wire_payment = false
+- show_bitcoin_payment = false
 .modal-dialog.m-0(style="max-width: 100%"){:class => ('db-wire-transfer-in-progress' if pending_wire_transfer)}
   .modal-content
     .modal-body
