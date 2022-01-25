@@ -1,7 +1,7 @@
 - pending_wire_transfer = !current_user.pending_wire_transfer.nil?
 - show_card_payment = true
-- show_wire_payment = false
-- show_bitcoin_payment = false
+- show_wire_payment = true
+- show_bitcoin_payment = true
 .modal-dialog.m-0(style="max-width: 100%"){:class => ('db-wire-transfer-in-progress' if pending_wire_transfer)}
   .modal-content
     .modal-body
@@ -108,6 +108,7 @@
                   confirmPayment(paymentIntentId).then(function(data) {
                     if(data.payment_status === "succeeded"){
                       document.querySelector(".result-message").classList.remove("hidden");
+                      window.location.replace('/dashboard');
                     }
                     else{
                       document.querySelector(".result-message").textContent = "Payment failed. Reload the page to try again.";
