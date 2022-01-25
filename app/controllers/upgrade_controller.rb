@@ -1,9 +1,8 @@
-require 'stripe'
-require 'sinatra'
-
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
   protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
+
+  STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
 
   def index
     render :index, locals: default_locals.merge(
@@ -49,14 +48,14 @@ class UpgradeController < ApplicationController
     card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
     metadata = get_payment_metadata(current_user, params)
     payment_intent = Stripe::PaymentIntent.create(
-      amount: stripe_amount(card_price[:total_price]),
+      amount: amount_in_cents(card_price[:total_price]),
       currency: fake_payment.eu? ? 'eur' : 'usd',
       metadata: metadata
     )
     render json: {
       clientSecret: payment_intent['client_secret'],
       payment_intent_id: payment_intent['id']
-    }.to_json
+    }
   end
 
   def update_card_intent
@@ -64,24 +63,24 @@ class UpgradeController < ApplicationController
     card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
     metadata = get_update_metadata(params)
     Stripe::PaymentIntent.update(params['payment_intent_id'],
-                                 amount: stripe_amount(card_price[:total_price]),
+                                 amount: amount_in_cents(card_price[:total_price]),
                                  currency: fake_payment.eu? ? 'eur' : 'usd',
                                  metadata: metadata)
   end
 
   def confirm_card_payment
-    default_params = default_locals.merge(payment_intent_id: params['payment_intent_id'])
+    subscription_params = default_locals.merge(payment_intent_id: params['payment_intent_id'])
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
     card_payment_succeeded = card_payment_succeeded(payment_intent)
     unless card_payment_succeeded
       return render json: {
         payment_status: 'failed'
-      }.to_json
+      }
     end
 
     payment_metadata = payment_intent['metadata']
-    cost_presenter = get_cost_presenter(payment_metadata, default_params)
-    payment_params = payment_metadata.to_hash.merge(default_params)
+    cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
+    payment_params = payment_metadata.to_hash.merge(subscription_params)
     payment = Payments::Create.new.card_payment(
       payment_params,
       cost_presenter.discount_percent_amount.to_f.positive?
@@ -90,13 +89,13 @@ class UpgradeController < ApplicationController
 
     render json: {
       payment_status: 'succeeded'
-    }.to_json
+    }
 
   rescue StandardError => e
     Raven.capture_exception(e)
     render json: {
       payment_status: 'failed'
-    }.to_json
+    }
   end
 
   def wire_transfer
@@ -153,12 +152,12 @@ class UpgradeController < ApplicationController
 
   private
 
-  def get_cost_presenter(payment_metadata, default_params)
+  def get_cost_presenter(payment_metadata, subscription_params)
     plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
     if plan == 'hodler'
-      default_params[:cost_presenters][payment_metadata['country']][:hodler]
+      subscription_params[:cost_presenters][payment_metadata['country']][:hodler]
     else
-      default_params[:cost_presenters][payment_metadata['country']][:investor]
+      subscription_params[:cost_presenters][payment_metadata['country']][:investor]
     end
   end
 
@@ -170,6 +169,7 @@ class UpgradeController < ApplicationController
       country: params['country']
     }
   end
+
   def get_update_metadata(params)
     {
       country: params['country'],
@@ -178,11 +178,11 @@ class UpgradeController < ApplicationController
   end
 
   def card_payment_succeeded(payment_intent)
-    payment_intent['status'] == 'succeeded'
+    payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
   end
 
-  def stripe_amount(amount) # Stripe takes total amount of cents
-    (amount * 100).to_i
+  def amount_in_cents(amount) # Stripe takes total amount of cents
+    (amount * 100).round
   end
 
   def new_payment

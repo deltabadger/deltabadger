@@ -7,6 +7,8 @@ class PaymentDashboard < Administrate::BaseDashboard
   # Each different type represents an Administrate::Field object,
   # which determines how the attribute is displayed
   # on pages throughout the dashboard.
+  WIRE_TYPE = 'wire'.freeze
+  CARD_TYPE = 'card'.freeze
   ATTRIBUTE_TYPES = {
     id: Field::Number,
     user: Field::BelongsTo.with_options(
@@ -110,8 +112,8 @@ class PaymentDashboard < Administrate::BaseDashboard
   COLLECTION_FILTERS = {
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
-    wire: ->(resources) { resources.where(payment_type: 'wire') },
-    card: ->(resources) { resources.where(payment_type: 'card') }
+    wire: ->(resources) { resources.where(payment_type: WIRE_TYPE) },
+    card: ->(resources) { resources.where(payment_type: CARD_TYPE) }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 

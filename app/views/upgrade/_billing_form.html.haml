@@ -23,17 +23,19 @@
             - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
             %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_card', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
           %script{:src => 'https://js.stripe.com/v3/'}
-          %script{:src => 'https://polyfill.io/v3/polyfill.js?version=3.52.1&features=fetch'}
           :javascript
             const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
             function subscription_info() {
+              //Getting the droplist element and its value
               const country_element = document.getElementById("payment_country_card");
               const country_name = country_element.options[country_element.selectedIndex].value;
-              return {subscription_plan_id: document.getElementById("payment_plan_hodler_card").checked ? 3 : 2,
+              //Accessing the plan's id
+              const subscription_plan_id = document.getElementById("payment_plan_hodler_card").checked ? 3 : 2;
+              return {subscription_plan_id: subscription_plan_id,
                         country: country_name}
             }
-            var updating = false;
-            var payment_intent_id = '';
+            let updating = false;
+            let payment_intent_id = '';
             function set_payment_intent() {
               document.getElementsByClassName("card-submit").disabled = true;
               if(updating){
@@ -60,7 +62,7 @@
                 .then(function(data) {
                   payment_intent_id = data.payment_intent_id;
                   const elements = stripe.elements();
-                  const card_number = elements.create("cardNumber", {showIcon: true});
+                  const card_number = elements.create("cardNumber");
                   const card_exp = elements.create("cardExpiry");
                   const card_cvc = elements.create("cardCvc");
                   card_number.mount("#card-number");
@@ -150,7 +152,7 @@
               }
             }
 
-          %body.card-body
+          .card-body
             .country_card_input
               %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'card', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value);", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
                 - cost_presenters.each do |country, presenter|
@@ -167,7 +169,8 @@
                 #card-cvc
               %button.submit.card-submit
                 #spinner.spinner.hidden
-                %span#button-text Pay now
+                %span#button-text
+                  = t('subscriptions.payment.pay_now')
               %p#card-error.card-error{:role => "alert"}
               %p.result-message.hidden
                 = t('subscriptions.payment.card_payment_succeeded')

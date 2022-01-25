@@ -156,6 +156,7 @@ en:
         plan_4_year: '4-year plan'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         payment:
+            pay_now: 'Pay now'
             billing_information: 'Billing information'
             bitcoin: Bitcoin
             wire_transfer: 'Wire Transfer'
