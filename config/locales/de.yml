@@ -637,7 +637,6 @@ de:
             template_html: "<p>Oh Schreck 🧐,</p>\n<p>Der Bot konnte deine Bestellung nicht durchführen.<br>Es scheint so, als wäre dies ein Umtausch-Problem.<br>Wir versuchen es in %{delay} wieder.</p>\n<p>Alle Fehler sind im Bot Log einsehbar.<br>Melde dich an, um es dir anzusehen.</p>\n<p>Fehler:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Deltabadger Team 🧑‍🚀'
-        dca_profit_html: '💡 Wenn du vor einem Jahr mit dem DCA von Bitcoin<br> begonnen hättest, hättest du jetzt einen Gewinn von <span style="color:#079e60">%{dca_profit} %</span>.'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Zahlung'

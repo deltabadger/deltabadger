@@ -637,7 +637,6 @@ pt:
             template_html: "<p>Bolas 🧐,</p>\n<p>O bot não conseguiu efetuar o seu pedido.<br>Parece ser um problema de câmbio.<br>Voltaremos a tentar dentro de %{delay}.</p>\n<p>Todos os erros estão visíveis no registo do bot.<br>Inicie sessão para verificar.</p>\n<p>Erros:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Equipa Deltabadger 🧑‍🚀'
-        dca_profit_html: '💡Se iniciou o DCA em Bitcoin<br>há um ano, atualmente está em <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Pagamento à Deltabadger'
