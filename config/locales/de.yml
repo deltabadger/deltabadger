@@ -215,6 +215,7 @@ de:
     ads:
         dont_trade_automate_html: '<div>Handle nicht.</div> <div>Automatisiere.</div>'
         dca_profit_html: 'Wenn du im letzten Jahr<br>Dollar-Cost-Averaging zu<br>Bitcoin betrieben hättest, hättest du jetzt schon<br>einen Profit von <span class="text-success">+%{profit} %</span>'
+        dca_2y_profit_html: 'Wenn du im letzten zwei Jahren<br>Dollar-Cost-Averaging zu<br>Bitcoin betrieben hättest, hättest du jetzt schon<br>einen Profit von <span class="text-success">+%{profit} %</span>'
         features: "Auto-DCA auf deinem Börsenkonto;\n<i>Smart-Intervalle</i> und eine Einrichtung, die nur 5 Minuten dauert;\nUpdates und neue Funktionen jeden Monat;\nSupport und Telegram-Community"
         dca_standard_html: 'Dollar-Cost-Averaging zu<br>Bitcoin ist der neue Standard<br>für langfristige Sparer.'
         password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
