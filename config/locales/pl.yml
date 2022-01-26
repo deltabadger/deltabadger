@@ -230,6 +230,7 @@ pl:
     ads:
         dont_trade_automate_html: '<div>Nie spekuluj.</div> <div>Automatyzuj.</div>'
         dca_profit_html: 'Jeśli inwestowałeś w Bitcoina<br>uśredniając przez ostatni rok,<br>jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
+        dca_2y_profit_html: 'Jeśli inwestowałeś w Bitcoina<br>uśredniając przez ostatnie dwa lata,<br>jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
         features: "automatyczne uśrednianie wprost na twoim obecnym koncie;\n<i>smart interwały</i> i pięciominutowa konfiguracja;\naktualizacje i nowe funkcje co miesiąc;\nsupport i grupa na Telegramie"
         dca_standard_html: 'Inwestowanie w Bitcoina <br>przez uśrednianie to nowy <br>standard oszczędzania.'
         password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
@@ -652,7 +653,6 @@ pl:
             template_html: "<p>Hm… 🧐,</p>\n<p>Bot nie mógł zrealizować Twojego zamówienia.<br>Wygląda to na problem po stronie giełdy.<br>Spróbujemy ponownie za %{delay}.</p>\n<p>Wszystkie błędy są widoczne w panelu w logu bota.<br>Możesz je zobaczyć po zalogowaniu.</p>\n<p>Błędy:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}: %{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Zespół Deltabadgera 🧑‍🚀'
-        dca_profit_html: '💡Jeśli zacząłeś inwestować w Bitcoina przez uśrednianie<br>rok temu, jesteś teraz <span style="color:#079e60">%{dca_profit}%</span> na plusie.'
     subscription_mailer:
         invoice:
             subject: 'Płatność Deltabadger'
