@@ -628,7 +628,6 @@ vi:
             template_html: "<p>Ôi trời 🧐,</p>\n<p>Bot đã không thể thực hiện lệnh của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử lại lần nữa trong %{delay}.</p>\n<p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui lòng đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Đội ngũ Deltabadger 🧑‍🚀'
-        dca_profit_html: '💡 Nếu bạn bắt đầu trung bình giá Bitcoin<br>một năm trước, thì giờ đây tài khoản của bạn đã tăng <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Thanh toán Deltabadger'

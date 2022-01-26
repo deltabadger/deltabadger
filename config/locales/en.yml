@@ -219,6 +219,7 @@ en:
     ads:
         dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
         dca_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you''re now up <span class="text-success">+%{profit}%</span>'
+        dca_2y_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last two years,<br>you''re now up <span class="text-success">+%{profit}%</span>'
         features: "auto-DCA on your exchange account;\n<i>Smart intervals</i> and five-minute setup;\nupdates and new features every month;\nsupport and Telegram community"
         dca_standard_html: 'Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.'
         password_managers_html: 'Password managers<br>make security easier.'
@@ -690,7 +691,6 @@ en:
             template_html: "<p>Oh snap 🧐,</p>\n<p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p>\n<p>All error are visible in the bot log.<br>Sign in to check it out.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Deltabadger Team 🧑‍🚀'
-        dca_profit_html: '💡 If you started DCA into Bitcoin<br>a year ago, you''re now up <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Payment'
