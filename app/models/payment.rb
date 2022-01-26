@@ -5,8 +5,8 @@ class Payment < ApplicationRecord
   enum currency: %i[USD EUR PLN]
   # we only use unpaid, cancelled, paid
   enum status: %i[unpaid pending paid confirmed failure cancelled]
-
-  validates :first_name, :last_name, :birth_date, :user, presence: true
+  enum payment_type: %i[bitcoin wire card]
+  validates :birth_date, :user, presence: true
 
   def eu?
     country != VatRate::NOT_EU

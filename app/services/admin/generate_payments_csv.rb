@@ -24,8 +24,8 @@ module Admin
       @generate_csv = generate_csv
     end
 
-    def call(from:, to:, wire:)
-      payments = @payments_repository.paid_between(from: from, to: to, wire: wire)
+    def call(from:, to:, fiat:)
+      payments = @payments_repository.paid_between(from: from, to: to, fiat: fiat)
       formatted_data = payments.map { |p| format_payment(p) }
       @generate_csv.call(formatted_data)
     end

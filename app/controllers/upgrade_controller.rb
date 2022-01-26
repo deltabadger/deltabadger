@@ -1,6 +1,8 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer]
+  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
+
+  STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
 
   def index
     render :index, locals: default_locals.merge(
@@ -37,6 +39,63 @@ class UpgradeController < ApplicationController
     Payments::Update.call(params['data'] || params)
 
     render json: {}
+  end
+
+  # Create a intention of paying
+  def create_card_intent
+    # We create a fake payment to calculate the costs of the transactions
+    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    metadata = get_payment_metadata(current_user, params)
+    payment_intent = Stripe::PaymentIntent.create(
+      amount: amount_in_cents(card_price[:total_price]),
+      currency: fake_payment.eu? ? 'eur' : 'usd',
+      metadata: metadata
+    )
+    render json: {
+      clientSecret: payment_intent['client_secret'],
+      payment_intent_id: payment_intent['id']
+    }
+  end
+
+  def update_card_intent
+    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    metadata = get_update_metadata(params)
+    Stripe::PaymentIntent.update(params['payment_intent_id'],
+                                 amount: amount_in_cents(card_price[:total_price]),
+                                 currency: fake_payment.eu? ? 'eur' : 'usd',
+                                 metadata: metadata)
+  end
+
+  def confirm_card_payment
+    subscription_params = default_locals.merge(payment_intent_id: params['payment_intent_id'])
+    payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
+    card_payment_succeeded = card_payment_succeeded(payment_intent)
+    unless card_payment_succeeded
+      return render json: {
+        payment_status: 'failed'
+      }
+    end
+
+    payment_metadata = payment_intent['metadata']
+    cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
+    payment_params = payment_metadata.to_hash.merge(subscription_params)
+    payment = Payments::Create.new.card_payment(
+      payment_params,
+      cost_presenter.discount_percent_amount.to_f.positive?
+    )
+    UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
+
+    render json: {
+      payment_status: 'succeeded'
+    }
+
+  rescue StandardError => e
+    Raven.capture_exception(e)
+    render json: {
+      payment_status: 'failed'
+    }
   end
 
   def wire_transfer
@@ -92,6 +151,39 @@ class UpgradeController < ApplicationController
   end
 
   private
+
+  def get_cost_presenter(payment_metadata, subscription_params)
+    plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
+    if plan == 'hodler'
+      subscription_params[:cost_presenters][payment_metadata['country']][:hodler]
+    else
+      subscription_params[:cost_presenters][payment_metadata['country']][:investor]
+    end
+  end
+
+  def get_payment_metadata(current_user, params)
+    {
+      user_id: current_user['id'],
+      email: current_user['email'],
+      subscription_plan_id: params['subscription_plan_id'],
+      country: params['country']
+    }
+  end
+
+  def get_update_metadata(params)
+    {
+      country: params['country'],
+      subscription_plan_id: params['subscription_plan_id']
+    }
+  end
+
+  def card_payment_succeeded(payment_intent)
+    payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
+  end
+
+  def amount_in_cents(amount) # Stripe takes total amount of cents
+    (amount * 100).round
+  end
 
   def new_payment
     subscription_plan_id = current_plan.id != saver_plan.id ? hodler_plan.id : investor_plan.id

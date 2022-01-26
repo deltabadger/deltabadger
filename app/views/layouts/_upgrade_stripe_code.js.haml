@@ -1,0 +1,339 @@
+:javascript
+  // google
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'UA-60645901-3');
+
+  // payments plan
+  $(document).ready(function(){
+  $(".db-plan-investor").click(function(){
+    $("#payment_plan_investor").click()
+    $(".db-plan-investor").addClass("db-plan--selected")
+    $(".db-plan-investor").removeClass("db-plan--other")
+    $(".db-plan-hodler").addClass("db-plan--other")
+    $(".db-plan-hodler").removeClass("db-plan--selected")
+    $(".db-checkout").addClass("db-checkout--investor");
+    $(".db-checkout").removeClass("db-checkout--hodler");
+    if ("#{current_user.subscription_name}" === "investor") {
+      $(".db-plan-active-discount").addClass("db-plans__item--hide");
+    } else {
+      $(".db-plan-active-discount").removeClass("db-plans__item--hide");
+    }
+    document.getElementById("payment_plan_investor_card").checked = true;
+    document.getElementById("payment_plan_hodler_card").checked = false;
+    document.getElementById("payment_plan_investor_wire").checked = true;
+    document.getElementById("payment_plan_hodler_wire").checked = false;
+    set_payment_intent()
+  })
+  $(".db-plan-hodler").click(function(){
+    $("#payment_plan_hodler").click()
+    $(".db-plan-hodler").addClass("db-plan--selected")
+    $(".db-plan-hodler").removeClass("db-plan--other")
+    $(".db-plan-investor").addClass("db-plan--other")
+    $(".db-plan-investor").removeClass("db-plan--selected")
+    $(".db-checkout").addClass("db-checkout--hodler");
+    $(".db-checkout").removeClass("db-checkout--investor");
+    if ("#{current_user.subscription_name}" === "hodler") {
+      $(".db-plan-active-discount").addClass("db-plans__item--hide");
+    } else {
+      $(".db-plan-active-discount").removeClass("db-plans__item--hide");
+    }
+    document.getElementById("payment_plan_investor_card").checked = false;
+    document.getElementById("payment_plan_hodler_card").checked = true;
+    document.getElementById("payment_plan_investor_wire").checked = false;
+    document.getElementById("payment_plan_hodler_wire").checked = true;
+    set_payment_intent()
+  })
+  })
+
+  // scaling font-variation-settings: 'wght' var(--text-wght)
+
+  // $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
+  // window.addEventListener('resize', function(event){
+  //   $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
+  // });
+
+  // payments eu/non-eu
+
+  $(document).ready(function(){
+  function showPreview(newValue) {
+    if (!newValue) return;
+    set_payment_intent()
+    if ((newValue !== "" &&
+        document.getElementById("payment_first_name_wire").value !== "" &&
+        document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
+      $("#please_fill_wire_form").addClass("db-form__row--hidden");
+      $("#please_fill_wire_form").removeClass("db-form__row--visible");
+      $("#wire_costs").addClass("db-form__row--visible");
+      $("#wire_costs").removeClass("db-form__row--hidden");
+
+      if ("#{current_user.pending_wire_transfer}" !== "") {
+        $("#payment_country").val("#{current_user.pending_wire_transfer}");
+        $("#payment_country_wire").val("#{current_user.pending_wire_transfer}");
+      }
+
+      if( (document.getElementById("payment_country_wire").value.toLowerCase() === 'other') || "#{current_user.pending_wire_transfer}" === "other"){
+        $("#wire_form_other").addClass("db-form__row--visible");
+        $("#wire_form_other").removeClass("db-form__row--hidden");
+        $("#wire_form_eu").removeClass("db-form__row--visible");
+        $("#wire_form_eu").addClass("db-form__row--hidden");
+      } else {
+        $("#wire_form_eu").addClass("db-form__row--visible");
+        $("#wire_form_eu").removeClass("db-form__row--hidden");
+        $("#wire_form_other").removeClass("db-form__row--visible");
+        $("#wire_form_other").addClass("db-form__row--hidden");
+      }
+    } else {
+      $("#please_fill_wire_form").removeClass("db-form__row--hidden");
+      $("#please_fill_wire_form").addClass("db-form__row--visible");
+      $("#wire_form_eu").removeClass("db-form__row--visible");
+      $("#wire_form_eu").addClass("db-form__row--hidden");
+      $("#wire_form_other").removeClass("db-form__row--visible");
+      $("#wire_form_other").addClass("db-form__row--hidden");
+      $("#wire_costs").removeClass("db-form__row--visible");
+      $("#wire_costs").addClass("db-form__row--hidden");
+    }
+  }
+
+  function setPrices(select) {
+    if (!select) return;
+
+    if (select.value.toLowerCase() === 'other') {
+      $(".db-country").addClass("db-checkout--other");
+      $(".db-country").removeClass("db-checkout--eu");
+    } else {
+      $(".db-country").addClass("db-checkout--eu");
+      $(".db-country").removeClass("db-checkout--other");
+    }
+    var dataset = select.options[select.selectedIndex].dataset;
+
+    $(".vat-percent").text(dataset.vp);
+
+    $(".investor-total-price").text(dataset.itp);
+    $(".investor-base-price").text(dataset.ibp);
+    $(".investor-discounted-price").text(dataset.idp);
+    $(".investor-flat-discount").text(dataset.ifd);
+    $(".investor-discount-percent-amount").text(dataset.idpa);
+    $(".investor-total-vat").text(dataset.itv);
+
+    $(".hodler-total-price").text(dataset.htp);
+    $(".hodler-base-price").text(dataset.hbp);
+    $(".hodler-discounted-price").text(dataset.hdp);
+    $(".hodler-flat-discount").text(dataset.hfd);
+    $(".hodler-discount-percent-amount").text(dataset.hdpa);
+    $(".hodler-total-vat").text(dataset.htv);
+    $("#payment_country").val(select.value);
+    $("#payment_country_wire").val(select.value);
+    $("#payment_country_card").val(select.value);
+  }
+
+  $("#payment_country").change(function(event) {
+    setPrices(event.target);
+  });
+
+  setPrices(document.getElementById("payment_country"));
+
+  $("#payment_country_wire").change(function(event) {
+    setPrices(event.target);
+    showPreview(event.target);
+  });
+
+  setPrices(document.getElementById("payment_country_wire"));
+
+  $("#payment_country_card").change(function(event) {
+    setPrices(event.target);
+    showPreview(event.target);
+  });
+
+  setPrices(document.getElementById("payment_country_card"));
+
+  $("#payment_first_name_wire").change(function(event) {
+    document.getElementById("payment_first_name").value = event.target.value;
+    document.getElementById("payment_first_name").defaultValue = event.target.value;
+
+    showPreview(event.target);
+  });
+
+  $("#payment_last_name_wire").change(function(event) {
+    document.getElementById("payment_last_name").value = event.target.value;
+    document.getElementById("payment_last_name").defaultValue = event.target.value;
+
+    showPreview(event.target);
+  });
+
+  $("#payment_first_name").change(function(event) {
+    document.getElementById("payment_first_name_wire").value = event.target.value;
+    document.getElementById("payment_first_name_wire").defaultValue = event.target.value;
+
+    showPreview(event.target);
+  });
+
+  $("#payment_last_name").change(function(event) {
+    document.getElementById("payment_last_name_wire").value = event.target.value;
+    document.getElementById("payment_last_name_wire").defaultValue = event.target.value;
+
+    showPreview(event.target);
+  });
+
+  showPreview(document.getElementById("payment_country_card").value);
+  });
+
+  // referral program registration
+
+  $(document).ready(function(){
+  $(".radio--eu-company").click(function(){
+    $(".db-form-group--eu-company").addClass("db-form-group--eu-company__visible");
+  });
+  $(".radio--private").click(function(){
+    $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
+  });
+  $(".db-form-control-range--discount-ratio").on('input', function(e){
+    var discountPercent = Math.round(e.target.value * 100);
+    var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
+    $(".db-form-label-range--discount-percent").text(discountPercent);
+    $(".db-form-label-range--earn-percent").text(earnPercent);
+  })
+  $(".db-form-control-text--visible_name").on('input', function(e){
+    if (e.target.value.trim()) {
+     $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
+    } else {
+     $(".db-form-preview--visible_text").removeClass("db-form-preview--visible_text__visible");
+    }
+    $(".db-form-preview--visible_name").text(e.target.value);
+  })
+  });
+
+  if("#{current_user.subscription_name}" !== "hodler" && "#{current_user.subscription_name}" !== "investor") {
+  fomo.trigger('start')
+  } else {
+  fomo.trigger('stop')
+  }
+  const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
+  function subscription_info() {
+              //Getting the droplist element and its value
+    const country_element = document.getElementById("payment_country_card");
+    const country_name = country_element.options[country_element.selectedIndex].value;
+              //Accessing the plan's id
+    const subscription_plan_id = document.getElementById("payment_plan_hodler_card").checked ? 3 : 2;
+    return {subscription_plan_id: subscription_plan_id,
+      country: country_name}
+  }
+  let updating = false;
+  let payment_intent_id = '';
+  function set_payment_intent() {
+    document.getElementsByClassName("card-submit").disabled = true;
+    if(updating){
+      fetch("/update-payment-intent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({...subscription_info(), ...{payment_intent_id: payment_intent_id}})
+      })
+    }
+    else {
+      updating = true;
+      fetch("/create-payment-intent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(subscription_info())
+      })
+      .then(function(result) {
+        return result.json();
+      })
+      .then(function(data) {
+        payment_intent_id = data.payment_intent_id;
+        const elements = stripe.elements();
+        const card_number = elements.create("cardNumber");
+        const card_exp = elements.create("cardExpiry");
+        const card_cvc = elements.create("cardCvc");
+        card_number.mount("#card-number");
+        card_exp.mount("#card-exp");
+        card_cvc.mount("#card-cvc");
+        card_number.on("change", function (event) {
+          document.getElementsByClassName("card-submit").disabled = event.empty;
+          document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+        });
+        card_exp.on("change", function (event) {
+          document.getElementsByClassName("card-submit").disabled = event.empty;
+          document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+        });
+        card_cvc.on("change", function (event) {
+          document.getElementsByClassName("card-submit").disabled = event.empty;
+          document.querySelector("#card-error").textContent = event.error ? event.error.message : "";
+        });
+        const form = document.getElementById('payment-form')
+        form.addEventListener("submit", function(event) {
+          event.preventDefault();
+          payWithCard(stripe, card_number, data.clientSecret);
+        });
+      });
+      const payWithCard = function(stripe, card, clientSecret) {
+        loading(true);
+        stripe
+        .confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: card
+          }
+        })
+        .then(function(result) {
+          if (result.error) {
+            showError(result.error.message);
+          } else {
+            orderComplete(result.paymentIntent.id);
+          }
+        });
+      };
+      const orderComplete = function(paymentIntentId) {
+        loading(false);
+        document.getElementsByClassName("card-submit").disabled = true;
+        confirmPayment(paymentIntentId).then(function(data) {
+          if(data.payment_status === "succeeded"){
+            document.querySelector(".result-message").classList.remove("hidden");
+            window.location.replace('/dashboard');
+          }
+          else{
+            document.querySelector(".result-message").textContent = "Payment failed. Reload the page to try again.";
+            document.querySelector(".result-message").classList.remove("hidden");
+          }
+        })
+      };
+      const showError = function(errorMsgText) {
+        loading(false);
+        const errorMsg = document.querySelector("#card-error");
+        errorMsg.textContent = errorMsgText;
+        setTimeout(function() {
+          errorMsg.textContent = "";
+        }, 4000);
+      };
+      const loading = function(isLoading) {
+        if (isLoading) {
+          document.getElementsByClassName("card-submit").disabled = true;
+          document.querySelector("#spinner").classList.remove("hidden");
+          document.querySelector("#button-text").classList.add("hidden");
+        } else {
+          document.getElementsByClassName("card-submit").disabled = false;
+          document.querySelector("#spinner").classList.add("hidden");
+          document.querySelector("#button-text").classList.remove("hidden");
+        }
+      };
+      function confirmPayment(paymentIntentId) {
+        return fetch("/confirm-card-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({payment_intent_id: paymentIntentId})
+        })
+        .then(function(result) {
+          return result.json();
+        })
+        .then(function(data) {
+          return data;
+        })
+      }
+    }
+  }
