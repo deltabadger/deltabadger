@@ -170,6 +170,7 @@ pl:
             billing_information: 'Informacje rozliczeniowe'
             bitcoin: Bitcoin
             wire_transfer: 'Przelew bankowy'
+            credit_card: 'Karta kredytowa'
             wire_transfer_description_html: 'Aby zapłacić przelewem, wyślij podstawowe informacje do faktury: <b>imię</b>, <b>nazwisko</b>, <b>adres fizyczny</b>, <b>e-mail</b> używany w Deltabadger, oraz nazwę planu, który chcesz kupić: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Płać bitcoinem'
             active_plan_discount: 'Rabat z tytułu aktywnego planu'
