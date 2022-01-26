@@ -215,6 +215,7 @@ pt:
     ads:
         dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
         dca_profit_html: 'Se fez investimentos pelo<br>preço médio em Bitcoin no<br>último ano, está agora a <span class="text-success">+%{profit}%</span>'
+        dca_2y_profit_html: 'Se fez investimentos pelo<br>preço médio em Bitcoin nos<br>últimos dois anos, está agora a <span class="text-success">+%{profit}%</span>'
         features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
         dca_standard_html: 'O investimento pelo preço<br>médio em Bitcoin é a nova norma<br>para poupadores a longo prazo.'
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
@@ -637,7 +638,6 @@ pt:
             template_html: "<p>Bolas 🧐,</p>\n<p>O bot não conseguiu efetuar o seu pedido.<br>Parece ser um problema de câmbio.<br>Voltaremos a tentar dentro de %{delay}.</p>\n<p>Todos os erros estão visíveis no registo do bot.<br>Inicie sessão para verificar.</p>\n<p>Erros:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Equipa Deltabadger 🧑‍🚀'
-        dca_profit_html: '💡Se iniciou o DCA em Bitcoin<br>há um ano, atualmente está em <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Pagamento à Deltabadger'
