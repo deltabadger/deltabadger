@@ -628,7 +628,6 @@ id:
             template_html: "<p>Oh tidak 🧐,</p>\n<p>Bot tidak dapat melakukan order Anda.<br>Tampaknya ada masalah dengan pertukaran.<br>Kami akan mencobanya lagi dalam %{delay}.</p>\n<p>Semua kesalahan dapat dilihat di log bot.<br>Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Tim Deltabadger 🧑‍🚀'
-        dca_profit_html: '💡 Jika Anda memulai DCA untuk Bitcoin<br>setahun yang lalu, Anda bisa memperoleh keuntungan hingga <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Pembayaran Deltabadger'

@@ -628,7 +628,6 @@ zh-cn:
             template_html: "<p>天哪 🧐，</p>\n<p>机器人无法执行您的订单。<br>似乎发生了交易所问题。<br>我们将在 %{delay} 后重试。</p>\n<p>所有错误可在机器人日志中查看。<br>登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Deltabadger 团队 🧑‍🚀'
-        dca_profit_html: '💡 如果您在一年前开始定投比特币<br>，现在您将获利 <span style="color:#079e60">%{dca_profit}%</span>。'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger 付款'
