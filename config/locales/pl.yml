@@ -654,6 +654,7 @@ pl:
     mailer:
         signature_html: 'Zespół Deltabadgera 🧑‍🚀'
         dca_profit_html: '💡Jeśli zacząłeś inwestować w Bitcoina przez uśrednianie<br>rok temu, jesteś teraz <span style="color:#079e60">%{dca_profit}%</span> na plusie.'
+        dca_2y_profit_html: '💡Jeśli zacząłeś inwestować w Bitcoina przez uśrednianie<br>dwa lata temu, jesteś teraz <span style="color:#079e60">%{dca_profit}%</span> na plusie.'
     subscription_mailer:
         invoice:
             subject: 'Płatność Deltabadger'
