@@ -215,6 +215,7 @@ fr:
     ads:
         dont_trade_automate_html: '<div>Ne trade pas.</div> <div>Automatise.</div>'
         dca_profit_html: 'Si tu avais fait des achats<br>périodiques en en Bitcoin<br>l''année dernière, tu serais<br>maintenant en hausse de <span class="text-success"> +%{profit}% </span>'
+        dca_2y_profit_html: 'Si tu avais fait des achats<br>périodiques en en Bitcoin<br>au cours des deux dernières années, tu serais maintenant en hausse de <span class="text-success"> +%{profit}% </span>'
         features: "auto-DCA sur ton compte d'échange;\n <i> Intervalles intelligents </i> et configuration en cinq minutes;\n mises à jour et nouvelles fonctionnalités chaque mois;\n support et communauté Telegram"
         dca_standard_html: 'Les achats périodiques en<br> Bitcoin sont la nouvelle norme <br> pour les épargnants à long terme.'
         password_managers_html: 'Les gestionnaires de mots de passe <br> facilitent la sécurité.'
@@ -637,7 +638,6 @@ fr:
             template_html: "<p> Oh zut, </p>\n <p> Le bot n'a pas pu exécuter ta commande. <br> Cela ressemble à un problème d'échange. <br> Nous réessayerons dans %{delay}. </p>\n <p> Toutes les erreurs sont visibles dans le journal du bot. <br> Connecte-toi pour vérifier ça. </p>\n <p> Erreurs : </p>\n <blockquote>\n <b style=\"color: #0a45a4;\"> %{exchange} : %{base} %{quote} </b>\n <br>\n <b style=\"color: #0a45a4;\"> %{errors} </b>\n </blockquote>"
     mailer:
         signature_html: 'Équipe Deltabadger 🧑‍🚀'
-        dca_profit_html: '💡 Si tu avais lancé le DCA dans le Bitcoin <br> il y a un an, tu aurais maintenant un profit de <span style="color:#079e60"> %{dca_profit}% </span>.'
     subscription_mailer:
         invoice:
             subject: 'Paiement Deltabadger'
