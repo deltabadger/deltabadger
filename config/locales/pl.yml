@@ -230,6 +230,7 @@ pl:
     ads:
         dont_trade_automate_html: '<div>Nie spekuluj.</div> <div>Automatyzuj.</div>'
         dca_profit_html: 'Jeśli inwestowałeś w Bitcoina<br>uśredniając przez ostatni rok,<br>jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
+        dca_2y_profit_html: 'Jeśli inwestowałeś w Bitcoina<br>uśredniając przez ostatnie dwa lata,<br>jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
         features: "automatyczne uśrednianie wprost na twoim obecnym koncie;\n<i>smart interwały</i> i pięciominutowa konfiguracja;\naktualizacje i nowe funkcje co miesiąc;\nsupport i grupa na Telegramie"
         dca_standard_html: 'Inwestowanie w Bitcoina <br>przez uśrednianie to nowy <br>standard oszczędzania.'
         password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
