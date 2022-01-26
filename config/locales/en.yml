@@ -691,8 +691,6 @@ en:
             template_html: "<p>Oh snap 🧐,</p>\n<p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p>\n<p>All error are visible in the bot log.<br>Sign in to check it out.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     mailer:
         signature_html: 'Deltabadger Team 🧑‍🚀'
-        dca_profit_html: '💡 If you started DCA into Bitcoin<br>a year ago, you''re now up <span style="color:#079e60">%{dca_profit}%</span>.'
-        dca_2y_profit_html: '💡 If you started DCA into Bitcoin<br>two years ago, you''re now up <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Payment'
