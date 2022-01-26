@@ -692,6 +692,7 @@ en:
     mailer:
         signature_html: 'Deltabadger Team 🧑‍🚀'
         dca_profit_html: '💡 If you started DCA into Bitcoin<br>a year ago, you''re now up <span style="color:#079e60">%{dca_profit}%</span>.'
+        dca_2y_profit_html: '💡 If you started DCA into Bitcoin<br>two years ago, you''re now up <span style="color:#079e60">%{dca_profit}%</span>.'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Payment'
