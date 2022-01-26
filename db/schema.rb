@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2021_12_09_115702) do
+ActiveRecord::Schema.define(version: 2022_01_24_103933) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -125,7 +125,7 @@ ActiveRecord::Schema.define(version: 2021_12_09_115702) do
     t.boolean "discounted", default: false, null: false
     t.bigint "subscription_plan_id", null: false
     t.string "country", null: false
-    t.boolean "wire_transfer", default: false
+    t.integer "payment_type", default: 0, null: false
     t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end

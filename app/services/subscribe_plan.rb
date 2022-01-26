@@ -16,7 +16,6 @@ class SubscribePlan < BaseService
       end_time: start_time + subscription_plan.duration,
       credits: subscription_plan.credits
     )
-
     if wire_transfer?(email_params)
       @notifications.after_wire_transfer(
         user: user,
