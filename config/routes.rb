@@ -9,7 +9,7 @@ Rails.application.routes.draw do
       get :accounting_csv, on: :collection
       post :mark_as_exported, on: :collection
       post :mark_as_paid, on: :collection
-      put :get_wire_transfers_commissions, on: :collection
+      put :get_fiat_commissions, on: :collection
     end
     resources :api_keys, except: [:edit, :update]
     resources :bots
@@ -61,6 +61,10 @@ Rails.application.routes.draw do
 
   get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
+
+  post '/create-payment-intent', to: 'upgrade#create_card_intent'
+  post '/update-payment-intent', to: 'upgrade#update_card_intent'
+  post '/confirm-card-payment', to: 'upgrade#confirm_card_payment'
 
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
     namespace :upgrade do
