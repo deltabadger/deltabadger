@@ -25,12 +25,15 @@
   %label
     %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
 :javascript
-    function change(name,value) {
-      fetch("/admin/change_setting_flag", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ name, value })
-      })
-    }
+  const element = document.getElementsByName('csrf-token')[0];
+  const token = element && element.getAttribute('content');
+  function change(name,value) {
+    fetch("/admin/change_setting_flag", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        'X-CSRF-Token': token
+      },
+      body: JSON.stringify({ name, value })
+    })
+  }
