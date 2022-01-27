@@ -1,4 +1,4 @@
-- settings_repository = SettingsRepository.new
+- settings_repository = SettingFlagsRepository.new
 %h1 Dashboard
 
 %hr
@@ -26,7 +26,7 @@
     %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
 :javascript
     function change(name,value) {
-      fetch("/admin/change_setting", {
+      fetch("/admin/change_setting_flag", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json"
