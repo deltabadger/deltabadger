@@ -1,3 +1,4 @@
+- settings_repository = SettingsRepository.new
 %h1 Dashboard
 
 %hr
@@ -15,14 +16,14 @@
 %p
 %div
   %label
-    %input{:type => 'checkbox', :checked => Setting.show_card_payment, :onChange => "change('show_card_payment', checked)"} Card Payments (Stripe)
+    %input{:type => 'checkbox', :checked => settings_repository.show_card_payment, :onChange => "change('show_card_payment', checked)"} Card Payments (Stripe)
 %div
   %label
-    %input{:type => 'checkbox', :checked => Setting.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
+    %input{:type => 'checkbox', :checked => settings_repository.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
 
 %div
   %label
-    %input{:type => 'checkbox', :checked => Setting.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
+    %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
 :javascript
     function change(name,value) {
       fetch("/admin/change_setting", {
@@ -30,6 +31,6 @@
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({name: name, value: value})
+        body: JSON.stringify({ name, value })
       })
     }
