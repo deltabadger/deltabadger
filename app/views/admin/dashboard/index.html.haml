@@ -26,10 +26,10 @@
 :javascript
     function change(name,value) {
       fetch("/admin/change_setting", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({name: name, value: value})
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({name: name, value: value})
       })
     }
