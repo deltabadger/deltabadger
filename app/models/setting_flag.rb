@@ -1,0 +1,2 @@
+class SettingFlag < ApplicationRecord
+end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2022_01_24_103933) do
+ActiveRecord::Schema.define(version: 2022_01_27_133024) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -128,6 +128,11 @@ ActiveRecord::Schema.define(version: 2022_01_24_103933) do
     t.integer "payment_type", default: 0, null: false
     t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
+  end
+
+  create_table "setting_flags", force: :cascade do |t|
+    t.string "name"
+    t.boolean "value"
   end
 
   create_table "subscribers", force: :cascade do |t|
