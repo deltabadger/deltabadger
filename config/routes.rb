@@ -23,6 +23,8 @@ Rails.application.routes.draw do
       get :csv_wire, on: :collection
       put '/confirm/:id', action: :confirm, as: :confirm, on: :collection
     end
+    put '/change_setting_flag', to: 'settings#change_setting_flag'
+
     resources :vat_rates
 
     get :dashboard, to: 'dashboard#index'
