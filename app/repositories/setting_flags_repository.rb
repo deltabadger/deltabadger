@@ -1,4 +1,4 @@
-class SettingFlagsRepository
+class SettingFlagsRepository < BaseRepository
   SHOW_CARD_PAYMENT = 'show_card_payment'.freeze
   SHOW_WIRE_PAYMENT = 'show_wire_payment'.freeze
   SHOW_BITCOIN_PAYMENT = 'show_bitcoin_payment'.freeze
