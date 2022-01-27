@@ -19,12 +19,15 @@ html
   background: var(--background)
   overflow-x: hidden
 body
-  @include textAdjust(1)
   font-family: $fontText
+  text-rendering: geometricPrecision
+  //letter-spacing: .01em
+  word-spacing: .1em
   background:  none
   color: var(--text)
   overflow-x: hidden
   font-size:  1.6rem
+  line-height: 1.5
 .db-content-body
   min-height: calc(100vh - 22.3rem)
 a:not(.btn)
