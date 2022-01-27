@@ -1,3 +1,4 @@
+- settings_repository = SettingFlagsRepository.new
 %h1 Dashboard
 
 %hr
@@ -8,3 +9,31 @@
 %p= "Number of bots: #{number_of_all_bots}"
 %p= "Number of working bots: #{number_of_working_bots}"
 -# %p= "Number of all transactions: #{number_of_all_transactions}"
+
+%hr
+
+%label Payments' methods
+%p
+%div
+  %label
+    %input{:type => 'checkbox', :checked => settings_repository.show_card_payment, :onChange => "change('show_card_payment', checked)"} Card Payments (Stripe)
+%div
+  %label
+    %input{:type => 'checkbox', :checked => settings_repository.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
+
+%div
+  %label
+    %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
+:javascript
+  const element = document.getElementsByName('csrf-token')[0];
+  const token = element && element.getAttribute('content');
+  function change(name,value) {
+    fetch("/admin/change_setting_flag", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        'X-CSRF-Token': token
+      },
+      body: JSON.stringify({ name, value })
+    })
+  }
