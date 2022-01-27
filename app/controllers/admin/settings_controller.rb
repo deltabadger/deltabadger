@@ -1,7 +1,7 @@
 module Admin
   class SettingsController < Admin::ApplicationController
     before_action :authenticate_user!
-    skip_before_action :verify_authenticity_token
+    before_action :authenticate_admin
 
     def change_setting_flag
       setting = SettingFlag.find_by(name: params['name'])
