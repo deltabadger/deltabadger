@@ -1,5 +1,5 @@
 - pending_wire_transfer = !current_user.pending_wire_transfer.nil?
-- settings_repository = SettingsRepository.new
+- settings_repository = SettingFlagsRepository.new
 - show_card_payment = settings_repository.show_card_payment
 - show_wire_payment = settings_repository.show_wire_payment
 - show_bitcoin_payment = settings_repository.show_bitcoin_payment
