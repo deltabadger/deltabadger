@@ -1,6 +1,6 @@
 module ExchangeApi
   module Clients
-    module Bitbay
+    module Zonda
       include BaseFaraday
 
       def headers(api_key, api_secret, body)
