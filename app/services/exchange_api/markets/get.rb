@@ -18,8 +18,8 @@ module ExchangeApi
           ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
         when 'binance.us'
           ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
-        when 'bitbay'
-          ExchangeApi::Markets::Bitbay::Market.new
+        when 'zonda'
+          ExchangeApi::Markets::Zonda::Market.new
         when 'kraken'
           ExchangeApi::Markets::Kraken::Market.new
         when 'coinbase pro'

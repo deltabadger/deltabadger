@@ -18,8 +18,8 @@ module ExchangeApi
           binance_client(api_key, order_type, EU_URL_BASE)
         when 'binance.us'
           binance_client(api_key, order_type, US_URL_BASE)
-        when 'bitbay'
-          bitbay_client(api_key, order_type)
+        when 'zonda'
+          zonda_client(api_key, order_type)
         when 'kraken'
           kraken_client(api_key, order_type)
         when 'coinbase pro'
@@ -69,11 +69,11 @@ module ExchangeApi
         )
       end
 
-      def bitbay_client(api_key, order_type)
+      def zonda_client(api_key, order_type)
         client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Bitbay::LimitTrader
+                   ExchangeApi::Traders::Zonda::LimitTrader
                  else
-                   ExchangeApi::Traders::Bitbay::MarketTrader
+                   ExchangeApi::Traders::Zonda::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
