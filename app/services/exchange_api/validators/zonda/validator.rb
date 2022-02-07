@@ -1,10 +1,10 @@
 module ExchangeApi
   module Validators
-    module Bitbay
+    module Zonda
       class Validator < BaseValidator
-        include ExchangeApi::Clients::Bitbay
+        include ExchangeApi::Clients::Zonda
 
-        URL = 'https://api.bitbay.net/rest/trading/history/transactions'.freeze
+        URL = 'https://api.zonda.exchange/rest/trading/history/transactions'.freeze
 
         def validate_credentials(api_key:, api_secret:)
           request = Faraday.get(URL, {}, headers(api_key, api_secret, ''))
