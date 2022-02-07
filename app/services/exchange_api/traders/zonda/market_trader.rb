@@ -1,7 +1,7 @@
 module ExchangeApi
   module Traders
-    module Bitbay
-      class MarketTrader < ExchangeApi::Traders::Bitbay::BaseTrader
+    module Zonda
+      class MarketTrader < ExchangeApi::Traders::Zonda::BaseTrader
         def buy(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:)
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, force_smart_intervals, smart_intervals_value)
