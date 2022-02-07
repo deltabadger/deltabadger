@@ -24,8 +24,8 @@ module ExchangeApi
           Binance::Validator.new(url_base: EU_URL_BASE)
         when 'binance.us'
           Binance::Validator.new(url_base: US_URL_BASE)
-        when 'bitbay'
-          Bitbay::Validator.new
+        when 'zonda'
+          Zonda::Validator.new
         when 'kraken'
           Kraken::Validator.new
         when 'coinbase pro'

@@ -1,6 +1,6 @@
 Exchange.find_or_create_by!(name: 'Binance')
 Exchange.find_or_create_by!(name: 'Binance.US')
-Exchange.find_or_create_by!(name: 'BitBay')
+Exchange.find_or_create_by!(name: 'Zonda')
 Exchange.find_or_create_by!(name: 'Kraken')
 Exchange.find_or_create_by!(name: 'Coinbase Pro')
 Exchange.find_or_create_by!(name: 'Gemini')
