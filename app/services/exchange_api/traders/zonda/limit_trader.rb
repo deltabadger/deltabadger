@@ -2,8 +2,8 @@ require 'result'
 
 module ExchangeApi
   module Traders
-    module Bitbay
-      class LimitTrader < ExchangeApi::Traders::Bitbay::BaseTrader
+    module Zonda
+      class LimitTrader < ExchangeApi::Traders::Zonda::BaseTrader
         def buy(base:, quote:, price:, percentage:, force_smart_intervals:, smart_intervals_value:)
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value)
@@ -30,7 +30,7 @@ module ExchangeApi
             response.data.merge(rate: params[:rate], amount: params[:amount])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
+          Result::Failure.new('Could not make Zonda order', RECOVERABLE)
         end
 
         def parse_response(response)

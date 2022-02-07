@@ -1,5 +1,5 @@
 module ExchangeApi::MapErrors
-  class Bitbay < ExchangeApi::MapErrors::Base
+  class Zonda < ExchangeApi::MapErrors::Base
     def errors_mapping
       {
         'FUNDS_NOT_SUFFICIENT' => Error.new('Funds not sufficient', false),
