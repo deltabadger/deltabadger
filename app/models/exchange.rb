@@ -5,7 +5,7 @@ class Exchange < ApplicationRecord
     market = case name.downcase
              when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
              when 'binance.us' then ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
-             when 'bitbay' then ExchangeApi::Markets::Bitbay::Market.new
+             when 'zonda' then ExchangeApi::Markets::Zonda::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              when 'coinbase pro' then ExchangeApi::Markets::CoinbasePro::Market.new
              when 'gemini' then ExchangeApi::Markets::Gemini::Market.new

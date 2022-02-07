@@ -3,15 +3,15 @@ require 'result'
 # rubocop#disable Style/StringLiterals
 module ExchangeApi
   module Traders
-    module Bitbay
+    module Zonda
       class BaseTrader < ExchangeApi::Traders::BaseTrader
-        include ExchangeApi::Clients::Bitbay
+        include ExchangeApi::Clients::Zonda
 
         def initialize(
           api_key:,
           api_secret:,
-          market: ExchangeApi::Markets::Bitbay::Market.new,
-          map_errors: ExchangeApi::MapErrors::Bitbay.new
+          market: ExchangeApi::Markets::Zonda::Market.new,
+          map_errors: ExchangeApi::MapErrors::Zonda.new
         )
           @api_key = api_key
           @api_secret = api_secret
@@ -23,18 +23,18 @@ module ExchangeApi
           Result::Success.new(response_params)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch order parameters from Bitbay')
+          Result::Failure.new('Could not fetch order parameters from Zonda')
         end
 
         private
 
         def place_order(symbol, params)
-          url = "https://api.bitbay.net/rest/trading/offer/#{symbol}"
+          url = "https://api.zonda.exchange/rest/trading/offer/#{symbol}"
           body = params.to_json
           response = JSON.parse(Faraday.post(url, body, headers(@api_key, @api_secret, body)).body)
           parse_response(response)
         rescue StandardError
-          Result::Failure.new('Could not make Bitbay order', RECOVERABLE)
+          Result::Failure.new('Could not make Zonda order', RECOVERABLE)
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
