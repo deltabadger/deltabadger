@@ -9,10 +9,10 @@ export const exchanges = {
       url: 'https://www.binance.us/en/home',
       translation_key: 'binance',
   },
-  'bitbay': {
-      name: 'BitBay',
-      url: 'https://auth.bitbay.net/ref/Hhb7ZrAv2GrA',
-      translation_key: 'bitbay',
+  'zonda': {
+      name: 'Zonda',
+      url: 'https://zondaglobal.com/',
+      translation_key: 'zonda',
   },
   'kraken': {
       name: 'Kraken',

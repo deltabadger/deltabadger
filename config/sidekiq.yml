@@ -6,7 +6,7 @@
   - mailers
   - [binance, 1]
   - [binance.us, 1]
-  - [bitbay, 1]
+  - [zonda, 1]
   - [bitfinex, 1]
   - [bitso, 1]
   - [bitstamp, 1]
@@ -22,7 +22,7 @@
 :limits:
   binance: 1
   binance.us: 1
-  bitbay: 1
+  zonda: 1
   bitfinex: 1
   bitso: 1
   bitstamp: 1
