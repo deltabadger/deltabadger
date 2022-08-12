@@ -3,7 +3,7 @@ require 'telegram/bot'
 
 Rails.application.routes.draw do
   require 'sidekiq/prometheus/exporter'
-  mount Sidekiq::Prometheus::Exporter => '/metrics'
+  mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
   namespace :admin do
     resources :users, except: [:destroy]
