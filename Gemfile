@@ -37,6 +37,7 @@ gem 'i18n-js', '~> 3.8.0'
 gem 'telegram-bot', '~> 0.14.4'
 gem 'stripe'
 gem 'whenever', require: false
+gem 'sidekiq-prometheus-exporter', '~> 0.1'
 
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
