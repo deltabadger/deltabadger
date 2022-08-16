@@ -6,3 +6,5 @@ end
 Sidekiq.configure_client do |config|
   config.redis = { url: ENV.fetch('REDIS_AWS_URL') }
 end
+
+Sidekiq.logger = Logger.new(Rails.root.join("log/sidekiq.log"))
