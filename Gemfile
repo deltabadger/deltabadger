@@ -27,6 +27,7 @@ gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetc
 gem 'scenic'
 gem 'uglifier', '>= 1.3.0'
 gem 'unicorn'
+gem 'unicorn-worker-killer'
 gem 'webpacker'
 gem 'kraken_ruby_client', git: 'https://github.com/jonatack/kraken_ruby_client'
 gem 'sendinblue'
