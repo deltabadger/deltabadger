@@ -2,9 +2,10 @@ name: test workflow
 
 on:
   push:
-    branches: 
-      - '*'
-      - '*/*'
+    branches:
+      - 'abracadabra' 
+#       - '*'
+#       - '*/*'
 
 jobs:
   AutoDeploy:

@@ -1,4 +1,4 @@
-name: test workflow
+name: STAGE deltabadger autodeploy
 
 on:
   push:
@@ -6,22 +6,53 @@ on:
 
 jobs:
   AutoDeploy:
-    environment: prod/stage
+    environment: production
     runs-on: ubuntu-latest
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
       - name: Check out repository code
         uses: actions/checkout@v3
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - name: (debug) show me the secret!
+      
+      - name: Check out private submodule (deltabadger-ansible)
         env:
-          ENV_VAR_TEST: ${{ secrets.ENV_VAR_TEST }}
+          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
         run: |
-          echo ${{secrets.ENV_VAR_TEST}} | sed 's/./& /g'
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+          mkdir $HOME/.ssh && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa \
+          && chmod 600 $HOME/.ssh/id_rsa \
+          && perl -i -p -e 's|https://(.*?)/|git@\1:|g' .gitmodules \
+          && git submodule update --init --recursive 
+
+      - name: Install Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+
+      - name: Install ansible
+        run: |
+          sudo apt install ansible
+
+      - name: Generate .vault_password file from secret
+        run: |
+          sudo echo "${{ secrets.VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password    
+
+      - name: Decrypt private keys
+        run: |
+          ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-bastion.pem --output ~/.ssh/deltabadger-bastion.pem --vault-password-file=deltabadger-ansible/.vault_password
+          ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-production.pem --output ~/.ssh/deltabadger-production.pem --vault-password-file=deltabadger-ansible/.vault_password
+          sudo chmod 0600 ~/.ssh/deltabadger-*
+
+      - name: create ssh key from secret   
+        run: |
+          sudo mv ~/.ssh/deltabadger-bastion.pem ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          ssh-keyscan 3.136.156.106 >> ~/.ssh/known_hosts
+
+      - name: Create SSH tunnel to Bastion
+        run: |
+          sudo apt install sshuttle
+          nohup sshuttle -r ubuntu@3.136.156.106 172.16.0.0/12 < /dev/null & > /dev/null &
+
+      - name: Autodeploy
+        run: |
+          cd deltabadger-ansible \
+          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=production ansible-playbook site.yml -i inventories/production

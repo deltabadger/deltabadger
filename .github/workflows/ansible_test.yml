@@ -1,12 +1,15 @@
-name: STAGE deltabadger autodeploy
+name: test workflow
 
 on:
   push:
-    branches: [stage]
+    branches:
+      - 'abracadabra' 
+#       - '*'
+#       - '*/*'
 
 jobs:
   AutoDeploy:
-    environment: stage
+    environment: test
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -30,6 +33,19 @@ jobs:
         run: |
           sudo apt install ansible
 
+      # - name: Prepare ssh config
+      #   run: | 
+      #     sudo cp deltabadger-ansible/ssh_keys/config ~/.ssh/config
+
+      # - name: Add hosts to /etc/hosts
+      #   run: |
+      #     sudo echo "3.136.156.106   deltabadger-tunnel" | sudo tee -a /etc/hosts
+      #     sudo echo "3.18.115.153    deltabadger-test-web" | sudo tee -a /etc/hosts
+      #     sudo echo "3.135.88.39     deltabadger-test-sidekiq" | sudo tee -a /etc/hosts
+      #     sudo echo "3.141.184.0     deltabadger-production-web1" | sudo tee -a /etc/hosts
+      #     sudo echo "3.133.86.80     deltabadger-production-web2" | sudo tee -a /etc/hosts
+      #     sudo echo "3.18.70.231     deltabadger-production-sidekiq" | sudo tee -a /etc/hosts
+
       - name: Generate .vault_password file from secret
         run: |
           sudo echo "${{ secrets.VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password    
@@ -52,7 +68,20 @@ jobs:
           sudo apt install sshuttle
           nohup sshuttle -r ubuntu@3.136.156.106 172.16.0.0/12 < /dev/null & > /dev/null &
 
-      - name: Autodeploy
+      - name: Run ansible ping
         run: |
           cd deltabadger-ansible \
-          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test
+          && ANSIBLE_HOST_KEY_CHECKING=False ansible all -i inventories/test/ -m ping -vvvv
+
+      # - name: debug stuff
+      #   run: |
+      #     sudo cat ~/.ssh/config
+      #     sudo cat /etc/hosts
+      #     sudo ls -la ~/
+      #     sudo ls -la ~/.ssh/
+
+      # ANSIBLE_HOST_KEY_CHECKING=False put in config? hmm
+      - name: Autodeploy dry run
+        run: |
+          cd deltabadger-ansible \
+          && ANSIBLE_SCP_IF_SSH=y ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test --check -vvvv
