@@ -18,9 +18,9 @@ jobs:
         run: |
           mkdir $HOME/.ssh && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa \
           && chmod 600 $HOME/.ssh/id_rsa \
-          && perl -i -p -e 's|https://(.*?)/|git@\1:|g' .gitmodules \
           && git submodule update --init --recursive 
-
+        # && perl -i -p -e 's|https://(.*?)/|git@\1:|g' .gitmodules \
+          
       - name: Install Python 3.10
         uses: actions/setup-python@v4
         with:
