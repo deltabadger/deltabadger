@@ -1,3 +1,4 @@
 [submodule "deltabadger-ansible"]
 	path = deltabadger-ansible
-	url = https://github.com/deltabadger/deltabadger-ansible
+	url = https://github.com/deltabadger/deltabadger-ansible.git
+	branch = autodeploy
