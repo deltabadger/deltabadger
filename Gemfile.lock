@@ -320,10 +320,10 @@ GEM
     rainbow (3.1.1)
     raindrops (0.20.0)
     rake (13.0.6)
-    rb-fsevent (0.11.1)
+    rb-fsevent (0.11.2)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    recaptcha (5.10.1)
+    recaptcha (5.12.0)
       json
     redis (4.8.0)
     regexp_parser (2.5.0)
@@ -397,10 +397,10 @@ GEM
       faraday (>= 1.0)
     sexp_processor (4.16.1)
     shellany (0.0.1)
-    sidekiq (6.5.5)
-      connection_pool (>= 2.2.2)
+    sidekiq (6.5.6)
+      connection_pool (>= 2.2.5)
       rack (~> 2.0)
-      redis (>= 4.5.0)
+      redis (>= 4.5.0, < 5)
     sidekiq-prometheus-exporter (0.1.17)
       rack (>= 1.6.0)
       sidekiq (>= 3.3.1)
@@ -465,6 +465,7 @@ DEPENDENCIES
   bitcoin-ruby!
   bootsnap (>= 1.4.2)
   bundle-audit
+  bundler (~> 2.3, >= 2.3.20)
   byebug
   capybara
   capybara-selenium
@@ -518,4 +519,4 @@ RUBY VERSION
    ruby 3.0.2p107
 
 BUNDLED WITH
-   2.2.33
+   2.3.21
