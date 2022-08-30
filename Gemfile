@@ -37,7 +37,7 @@ gem 'i18n-js', '~> 3.8.0'
 gem 'stripe'
 gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
-gem 'bundler', '~> 2.3', '>= 2.3.20'
+gem 'bundler', '>= 2.3.5'
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop', '~> 0.74.0'
