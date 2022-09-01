@@ -9,13 +9,12 @@
     "@rails/actioncable": "^6.0.0",
     "@rails/activestorage": "^6.0.0",
     "@rails/ujs": "^6.0.0",
-    "@rails/webpacker": "5.4.3",
+    "@rails/webpacker": "4.3.0",
     "@sentry/react": "^7.11.1",
     "@sentry/tracing": "^7.11.1",
     "axios": "^0.27.2",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "chart.js": "^3.9.1",
-    "css-loader": "^6.7.1",
     "debounce": "^1.2.1",
     "dotenv": "^16.0.1",
     "i18n-js": "~3.8.0",
@@ -34,16 +33,12 @@
     "redux-thunk": "^2.4.1",
     "regenerator-runtime": "^0.13.9",
     "resolve-url-loader": "^5.0.0",
-    "sass-loader": "^13.0.2",
-    "style-loader": "3.3.1",
     "turbolinks": "^5.2.0",
-    "use-deep-compare-effect": "^1.8.1",
-    "webpack": "^4.46.0",
-    "webpack-cli": "^3.3.12"
+    "use-deep-compare-effect": "^1.8.1"
   },
   "version": "0.1.0",
   "devDependencies": {
     "@webpack-cli/serve": "^1.7.0",
-    "webpack-dev-server": "^3"
+    "webpack-dev-server": "~3"
   }
 }

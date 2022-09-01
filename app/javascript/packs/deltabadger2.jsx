@@ -5,7 +5,7 @@ import I18n from 'i18n-js/index.js.erb';
 import * as Sentry from "@sentry/react";
 import { Integrations } from "@sentry/tracing";
 import { Dashboard } from '../deltabadger/components/Dashboard';
-// import style from '../deltabadger/styles/main.scss';
+import style from '../deltabadger/styles/main.scss';
 import { CookieBanner } from '../deltabadger/components/CookieBanner';
 import { Provider } from 'react-redux'
 import { configureStore } from '../deltabadger/Store'
