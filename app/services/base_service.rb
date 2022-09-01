@@ -5,7 +5,7 @@ class BaseService
     puts "==========================="
     puts "=========== #{args.inspect}================"
     puts "==========================="
-    return if args.empty?
+    # return if args.empty?
     new.call(*args)
   end
 
