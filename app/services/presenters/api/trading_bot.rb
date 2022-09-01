@@ -48,7 +48,8 @@ module Presenters
       end
 
       def present_stats(bot, transactions)
-        Presenters::Api::Stats.call(bot: bot, transactions: transactions)
+        # Presenters::Api::Stats.call(bot: bot, transactions: transactions)
+        Presenters::Api::Stats.call(bot)
       end
 
       def present_transaction(transaction)
