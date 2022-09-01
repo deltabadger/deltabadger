@@ -9,7 +9,7 @@ class BaseService
     new.call(*args)
   end
 
-  def call
+  def call(args)
     raise NotImplementedError
   end
 end
