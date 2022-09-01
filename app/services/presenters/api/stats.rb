@@ -5,7 +5,7 @@ module Presenters
         @get_exchange_market = get_markets
       end
 
-      def call(bot:, transactions:)
+      def call(bot, transactions)
         return {} if transactions.empty?
 
         market = @get_exchange_market.call(bot.exchange_id)
