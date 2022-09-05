@@ -35,7 +35,7 @@ export const AddApiKey = ({
   const [passphrase, setPassphrase] = useState("");
   const [agreement, setAgreement] = useState(false);
   const uniqueId = new Date().getTime();
-
+  console.log("----STATUS----",status)
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
