@@ -1,5 +1,5 @@
 class ScheduleTransaction < BaseService
-  STARTING_BOTS_QUEUE = 'starting bots'.freeze
+  STARTING_BOTS_QUEUE = 'starting_bots'.freeze
   def initialize(
     bots_repository: BotsRepository.new,
     make_transaction_worker: MakeTransactionWorker,
