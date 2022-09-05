@@ -1,5 +1,5 @@
 class ScheduleWithdrawal < BaseService
-  STARTING_BOTS_QUEUE = 'starting bots'.freeze
+  STARTING_BOTS_QUEUE = 'starting_bots'.freeze
   def initialize(
     make_withdrawal_worker: MakeWithdrawalWorker,
     next_withdrawal_at: NextWithdrawalBotTransactionAt
