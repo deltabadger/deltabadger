@@ -1,7 +1,7 @@
 ---
 :concurrency: 2
 :queues:
-  - starting bots
+  - starting_bots
   - api keys validation
   - mailers
   - [binance, 1]
