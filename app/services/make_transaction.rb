@@ -64,9 +64,9 @@ class MakeTransaction < BaseService
 
     result
     rescue => e
-      puts "========================================"
+      puts "====================================================="
       puts "================= #{e.inspect} ======================="
-      puts "========================================"
+      puts "====================================================="
     puts e
     # @unschedule_transactions.call(bot)
     # @order_flow_helper.stop_bot(bot, notify)
