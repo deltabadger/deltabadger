@@ -26,51 +26,51 @@ class MakeTransaction < BaseService
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true, continue_params: nil)
     begin
-      bot = @bots_repository.find(bot_id)
-      return Result::Failure.new unless make_transaction?(bot)
+    bot = @bots_repository.find(bot_id)
+    return Result::Failure.new unless make_transaction?(bot)
 
-      continue_params = extract_continue_params(continue_params)
+    continue_params = extract_continue_params(continue_params)
 
-      continue_schedule = continue_params['continue_schedule']
-      fixing_price = continue_params['price']
-      range_check_result = @check_price_range.call(bot)
+    continue_schedule = continue_params['continue_schedule']
+    fixing_price = continue_params['price']
+    range_check_result = @check_price_range.call(bot)
 
-      if range_check_result.success? && !range_check_result.data[:valid]
-        continue_schedule = true
-        skip_if_not_in_range(bot, range_check_result.data)
-      end
+    if range_check_result.success? && !range_check_result.data[:valid]
+      continue_schedule = true
+      skip_if_not_in_range(bot, range_check_result.data)
+    end
 
-      result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
+    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
 
-      if continue_schedule
-        bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
-        result = @order_flow_helper.validate_limit(bot, notify)
-        @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
-        @schedule_transaction.call(bot) if result.success?
-      elsif result&.success?
-        @bots_repository.update(bot.id, status: 'pending')
-        result = @fetch_order_result.call(bot.id, result.data, fixing_price)
-      elsif restart && (!range_check_result.success? || recoverable?(result))
-        result = range_check_result if result.nil?
-        @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
-        bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
-        @schedule_transaction.call(bot)
-        @notifications.restart_occured(bot: bot, errors: result.errors) if notify
-        result = Result::Success.new
-      else
-        @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
-        @order_flow_helper.stop_bot(bot, notify, result.errors)
-      end
+    if continue_schedule
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
+      result = @order_flow_helper.validate_limit(bot, notify)
+      @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
+      @schedule_transaction.call(bot) if result.success?
+    elsif result&.success?
+      @bots_repository.update(bot.id, status: 'pending')
+      result = @fetch_order_result.call(bot.id, result.data, fixing_price)
+    elsif restart && (!range_check_result.success? || recoverable?(result))
+      result = range_check_result if result.nil?
+      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
+      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      @schedule_transaction.call(bot)
+      @notifications.restart_occured(bot: bot, errors: result.errors) if notify
+      result = Result::Success.new
+    else
+      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
+      @order_flow_helper.stop_bot(bot, notify, result.errors)
+    end
 
-      result
+    result
     rescue => e
       puts "========================================"
       puts "================= #{e.inspect} ======================="
       puts "========================================"
-      puts e
-      # @unschedule_transactions.call(bot)
-      # @order_flow_helper.stop_bot(bot, notify)
-      raise
+    puts e
+    # @unschedule_transactions.call(bot)
+    # @order_flow_helper.stop_bot(bot, notify)
+    raise
     end
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
