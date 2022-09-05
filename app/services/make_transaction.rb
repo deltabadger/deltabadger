@@ -25,6 +25,7 @@ class MakeTransaction < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true, continue_params: nil)
+    begin
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
@@ -62,12 +63,16 @@ class MakeTransaction < BaseService
     end
 
     result
-  rescue StandardError
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
+    rescue => e
+      puts "========================================"
+      puts "================= #{e.inspect} ======================="
+      puts "========================================"
+    puts e
+    # @unschedule_transactions.call(bot)
+    # @order_flow_helper.stop_bot(bot, notify)
     raise
+    end
   end
-
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
