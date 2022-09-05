@@ -22,8 +22,7 @@ class StartBot < BaseService
       @bots_repository.update(bot.id, status: 'stopped')
       return validate_limit_result
     end
-
-    # @bots_repository.update(bot.id, status: 'pending') if bot.trading?
+    @bots_repository.update(bot.id, status: 'pending') if bot.trading?
     bot.reload
 
     if bot.trading?
