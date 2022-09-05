@@ -15,7 +15,6 @@ class StartBot < BaseService
   def call(bot_id, continue_params = nil)
     bot = @bots_repository.find(bot_id)
     return Result::Success.new(bot) if bot.working?
-    byebug
     bot = set_start_bot_params(bot)
 
     validate_limit_result = @validate_limit.call(bot.user)
