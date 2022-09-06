@@ -41,15 +41,15 @@ class MakeWithdrawal < BaseService
       puts "=======================  make_withdrawal ELSE =============================="
       puts "================= #{result.errors.inspect} ======================="
       puts "====================================================="
-      # @order_flow_helper.stop_bot(bot, true, result.errors)
+      @order_flow_helper.stop_bot(bot, true, result.errors)
     end
     result
   rescue StandardError
     puts "=======================  make_withdrawal RESCUE =============================="
     puts "================= #{e.inspect} ======================="
     puts "====================================================="
-    # @unschedule_transactions.call(bot)
-    # @order_flow_helper.stop_bot(bot, true)
+    @unschedule_transactions.call(bot)
+    @order_flow_helper.stop_bot(bot, true)
     raise
   end
 
