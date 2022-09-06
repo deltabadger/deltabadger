@@ -14,7 +14,9 @@ module Helpers
       @validate_trial_ending_soon = validate_trial_ending_soon
     end
 
-    def stop_bot(bot, notify, errors = ['Something went wrong!'])
+    def stop_bot(bot, notify, errors = nil)
+      Rails.logger.info("stop_bot called",errors)
+      errors = errors || ['Something went wrong!']
       bot = @bots_repository.update(bot.id, status: 'stopped')
       @notifications.error_occured(bot: bot, errors: errors) if notify
     end
