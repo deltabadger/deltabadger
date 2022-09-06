@@ -58,13 +58,16 @@ class MakeTransaction < BaseService
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
+      puts "======================= Stop result.errors =============================="
+      puts "================= #{result.errors.inspect} ======================="
+      puts "====================================================="
       @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
-      @order_flow_helper.stop_bot(bot, notify, result.errors)
+      # @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     result
     rescue => e
-      puts "====================================================="
+      puts "======================= RESCUE =============================="
       puts "================= #{e.inspect} ======================="
       puts "====================================================="
     puts e
