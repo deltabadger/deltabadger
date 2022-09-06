@@ -67,12 +67,12 @@ class MakeTransaction < BaseService
 
     result
     rescue => e
-      Rails.logger.info "======================= RESCUE =============================="
+      Rails.logger.info "======================= RESCUE 1=============================="
       Rails.logger.info "================= #{e.inspect} ======================="
       Rails.logger.info "====================================================="
     puts e
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
+     @unschedule_transactions.call(bot)
+     @order_flow_helper.stop_bot(bot, notify)
     raise
     end
   end
@@ -100,10 +100,10 @@ class MakeTransaction < BaseService
     }.compact
     settings = settings.merge(subaccount_settings) if bot.use_subaccount
     result = if bot.buyer?
-               api.buy(settings)
+               api.buy(**settings)
              else
                is_legacy = bot.type == 'sell_old'
-               api.sell(settings.merge(is_legacy: is_legacy))
+               api.sell(**settings.merge(is_legacy: is_legacy))
              end
 
     result
