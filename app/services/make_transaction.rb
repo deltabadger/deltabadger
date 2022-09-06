@@ -62,7 +62,7 @@ class MakeTransaction < BaseService
       puts "================= #{result.errors.inspect} ======================="
       puts "====================================================="
       @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
-      # @order_flow_helper.stop_bot(bot, notify, result.errors)
+      @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     result
@@ -71,8 +71,8 @@ class MakeTransaction < BaseService
       puts "================= #{e.inspect} ======================="
       puts "====================================================="
     puts e
-    # @unschedule_transactions.call(bot)
-    # @order_flow_helper.stop_bot(bot, notify)
+    @unschedule_transactions.call(bot)
+    @order_flow_helper.stop_bot(bot, notify)
     raise
     end
   end
