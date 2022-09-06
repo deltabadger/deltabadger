@@ -53,7 +53,7 @@ class FetchOrderResult < BaseService
     bot.reload
     result
   rescue StandardError
-    Rails.logger.info "=======================  fetch_order_result RESCUE =============================="
+    Rails.logger.info "=======================   RESCUE 2 =============================="
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info "====================================================="
     @unschedule_transactions.call(bot)

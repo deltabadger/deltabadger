@@ -45,7 +45,7 @@ class MakeWithdrawal < BaseService
     end
     result
   rescue StandardError
-    Rails.logger.info "=======================  make_withdrawal RESCUE =============================="
+    Rails.logger.info "=======================  make_withdrawal RESCUE 2 =============================="
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info "====================================================="
     @unschedule_transactions.call(bot)
