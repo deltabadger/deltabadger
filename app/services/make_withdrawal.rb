@@ -38,12 +38,18 @@ class MakeWithdrawal < BaseService
       @schedule_withdrawal.call(bot)
     else
       @transactions_repository.create(failed_transaction_params(result, bot))
-      @order_flow_helper.stop_bot(bot, true, result.errors)
+      puts "=======================  make_withdrawal ELSE =============================="
+      puts "================= #{result.errors.inspect} ======================="
+      puts "====================================================="
+      # @order_flow_helper.stop_bot(bot, true, result.errors)
     end
     result
   rescue StandardError
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, true)
+    puts "=======================  make_withdrawal RESCUE =============================="
+    puts "================= #{e.inspect} ======================="
+    puts "====================================================="
+    # @unschedule_transactions.call(bot)
+    # @order_flow_helper.stop_bot(bot, true)
     raise
   end
 
