@@ -47,7 +47,7 @@ class FetchOrderResult < BaseService
       puts "======================= Fetch error result result.errors =============================="
       puts "================= #{result.errors.inspect} ======================="
       puts "====================================================="
-      # @order_flow_helper.stop_bot(bot, notify, result.errors)
+      @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     bot.reload
@@ -56,8 +56,8 @@ class FetchOrderResult < BaseService
     puts "=======================  fetch_order_result RESCUE =============================="
     puts "================= #{e.inspect} ======================="
     puts "====================================================="
-    # @unschedule_transactions.call(bot)
-    # @order_flow_helper.stop_bot(bot, notify)
+    @unschedule_transactions.call(bot)
+    @order_flow_helper.stop_bot(bot, notify)
     raise
   end
 
