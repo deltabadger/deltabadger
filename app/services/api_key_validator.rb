@@ -12,7 +12,7 @@ class ApiKeyValidator < BaseService
     api_key = @api_keys_repository.find(api_key_id)
     validator = @get_validator.call(api_key.exchange_id, api_key.key_type)
 
-    unless api_key.valid? && validator.validate_credentials(get_params(api_key))
+    unless api_key.valid? && validator.validate_credentials(**get_params(api_key))
       @api_keys_repository.update(api_key.id, status: 'incorrect')
       return Result::Failure.new(I18n.t('errors.invalid_api_keys'))
     end
