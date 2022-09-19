@@ -1,5 +1,5 @@
 class AddApiKey < BaseService
-  API_KEYS_VALIDATION_QUEUE = 'api_keys_validation'.freeze
+  API_KEYS_VALIDATION_QUEUE = 'api keys validation'.freeze
   def initialize(
     api_keys_repository: ApiKeysRepository.new,
     validator_worker: ApiKeyValidatorWorker

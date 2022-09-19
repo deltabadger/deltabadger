@@ -12,8 +12,7 @@
     %title= t('meta.title')
 
     %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
-    %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}/
-    = stylesheet_pack_tag 'guest2'
+    = stylesheet_pack_tag 'guest'
 
     = render 'layouts/content_meta_tags'
 
@@ -24,6 +23,7 @@
     #cookie_consent
 
     = render 'layouts/navbar/devise'
+
     = yield
 
     = javascript_pack_tag 'guest2'
