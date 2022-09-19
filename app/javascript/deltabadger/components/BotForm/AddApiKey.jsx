@@ -35,13 +35,13 @@ export const AddApiKey = ({
   const [passphrase, setPassphrase] = useState("");
   const [agreement, setAgreement] = useState(false);
   const uniqueId = new Date().getTime();
-
+  console.log("----STATUS----",status)
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
       className="btn btn-link btn--reset btn--reset-back"
     >
-      <i className="material-icons-round">close</i>
+      <i className="material-icons">close</i>
       <span>{I18n.t('bots.setup.cancel')}</span>
     </div>
   )

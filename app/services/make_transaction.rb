@@ -25,6 +25,7 @@ class MakeTransaction < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true, continue_params: nil)
+    begin
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
@@ -62,12 +63,16 @@ class MakeTransaction < BaseService
     end
 
     result
-  rescue StandardError
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
+    rescue => e
+      @unschedule_transactions.call(bot)
+      @order_flow_helper.stop_bot(bot, notify)
+      Rails.logger.info "======================= RESCUE 1=============================="
+      Rails.logger.info "================= #{e.inspect} ======================="
+      Rails.logger.info "====================================================="
+    
     raise
+    end
   end
-
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
@@ -92,10 +97,10 @@ class MakeTransaction < BaseService
     }.compact
     settings = settings.merge(subaccount_settings) if bot.use_subaccount
     result = if bot.buyer?
-               api.buy(settings)
+               api.buy(**settings)
              else
                is_legacy = bot.type == 'sell_old'
-               api.sell(settings.merge(is_legacy: is_legacy))
+               api.sell(**settings.merge(is_legacy: is_legacy))
              end
 
     result

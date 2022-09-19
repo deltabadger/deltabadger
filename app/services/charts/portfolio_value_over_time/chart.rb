@@ -10,7 +10,7 @@ module Charts::PortfolioValueOverTime
 
     def call(bot)
       data = @fetch_data.call(bot)
-
+      unless data.empty?
       time_now_point_result = calculate_time_now_point(bot, Time.now, data.last[1])
       if time_now_point_result.success?
         time_now_point = time_now_point_result.data
@@ -19,12 +19,12 @@ module Charts::PortfolioValueOverTime
         extrapolated_point = [Time.now, data.last[1], data.last[2]]
         data <<= extrapolated_point
       end
+      end
 
       Result::Success.new(data)
     rescue StandardError => e
       Result::Failure.new(e.message)
     end
-
     private
 
     def calculate_time_now_point(bot, date, total_invested)
