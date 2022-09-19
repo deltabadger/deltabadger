@@ -1,7 +1,7 @@
 import Rails from 'rails-ujs';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import I18n from 'i18n-js/index.js.erb';
+import I18n from 'i18n-js/index.js.erb'
 import * as Sentry from "@sentry/react";
 import { Integrations } from "@sentry/tracing";
 import { Dashboard } from '../deltabadger/components/Dashboard';

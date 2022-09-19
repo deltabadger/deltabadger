@@ -100,7 +100,7 @@ Rails.application.routes.draw do
     end
 
 
-    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations' }, skip: [:registrations]
+    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords' }, skip: [:registrations]
 
     as :user do
       scope :users do

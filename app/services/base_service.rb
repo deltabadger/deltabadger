@@ -1,9 +1,11 @@
+require 'result'
+
 class BaseService
-  def self.call(...)
-    new.call(...)
+  def self.call(*args)
+    new.call(*args)
   end
 
-  def call()
+  def call
     raise NotImplementedError
   end
 end
