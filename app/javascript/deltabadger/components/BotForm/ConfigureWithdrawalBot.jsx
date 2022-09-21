@@ -44,7 +44,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
       onClick={() => handleReset()}
       className="btn btn-link btn--reset btn--reset-back"
     >
-      <i className="material-icons-round">close</i>
+      <i className="material-icons">close</i>
       <span>Cancel</span>
     </div>
   )

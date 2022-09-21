@@ -44,12 +44,18 @@ class FetchOrderResult < BaseService
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
+      Rails.logger.info "======================= Fetch error result result.errors =============================="
+      Rails.logger.info "================= #{result.errors.inspect} ======================="
+      Rails.logger.info "====================================================="
       @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     bot.reload
     result
   rescue StandardError
+    Rails.logger.info "=======================   RESCUE 2 =============================="
+    Rails.logger.info "================= #{e.inspect} ======================="
+    Rails.logger.info "====================================================="
     @unschedule_transactions.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
     raise
