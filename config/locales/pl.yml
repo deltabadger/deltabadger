@@ -534,7 +534,7 @@ pl:
                 instructions_6_2_html: '<b>Read</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Aby spełnić limit %{frequency_limit} transakcji na minutę, twój harmonogram zostanie wykonany w zleceniach po %{price}%{currency} każde.'
+                limit_exceeded: 'Aby spełnić limit %{frequency_limit} transakcji na godzinę, twój harmonogram zostanie wykonany w zleceniach po %{price}%{currency} każde.'
                 back_to_settings: 'Wróć do ustawień'
                 start_the_bot: 'Zmień i uruchom'
         add_new_bot: 'Dodaj nowego bota'

@@ -561,7 +561,7 @@ en:
                     instructions_10_html: 'Press <b>Schedule for whitelisting</b>.'
                     instructions_11_html: "Adding address to whitelist has at least one day delay on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard."
             frequency_limit:
-                limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per minute, your schedule will be executed in orders of %{price}%{currency} each.'
+                limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per hour, your schedule will be executed in orders of %{price}%{currency} each.'
                 back_to_settings: 'Back to settings'
                 start_the_bot: 'Modify and start'
             withdrawal_html: 'Withdraw <split>%{currency}</split> to <split>%{address}</split> wallet.'
