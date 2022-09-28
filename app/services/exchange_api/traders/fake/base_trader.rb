@@ -22,10 +22,10 @@ module ExchangeApi
           elsif FETCHED
             Result::Failure.new('Something went wrong!')
           else
-            Result::Failure.new('Waiting for exchange response', NOT_FETCHED)
+            Result::Failure.new('Waiting for exchange response', **NOT_FETCHED)
           end
         rescue StandardError
-          Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
+          Result::Failure.new('Caught an error while making fake order', **RECOVERABLE)
         end
 
         private
@@ -39,7 +39,7 @@ module ExchangeApi
             Result::Failure.new('Something went wrong!')
           end
         rescue StandardError
-          Result::Failure.new('Caught an error while making fake order', RECOVERABLE)
+          Result::Failure.new('Caught an error while making fake order', **RECOVERABLE)
         end
 
         def common_order_params

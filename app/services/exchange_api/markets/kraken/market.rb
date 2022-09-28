@@ -28,7 +28,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new('Kraken exchange info is unavailable', RECOVERABLE)
+          Result::Failure.new('Kraken exchange info is unavailable', **RECOVERABLE)
         end
 
         def base_decimals(symbol)
@@ -78,7 +78,7 @@ module ExchangeApi
           found_symbol = response['result'].first[1] # Value of the only hash element
           Result::Success.new(found_symbol)
         rescue StandardError
-          Result::Failure.new('Could not fetch chosen symbol from Kraken', RECOVERABLE)
+          Result::Failure.new('Could not fetch chosen symbol from Kraken', **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
@@ -92,7 +92,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Kraken', RECOVERABLE)
+          Result::Failure.new('Could not fetch current price from Kraken', **RECOVERABLE)
         end
       end
     end

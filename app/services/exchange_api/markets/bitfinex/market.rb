@@ -23,7 +23,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex symbols", **RECOVERABLE)
         end
 
         def minimum_order_size(symbol)
@@ -69,7 +69,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex symbols", **RECOVERABLE)
         end
 
         def fetch_symbol(symbol)
@@ -79,7 +79,7 @@ module ExchangeApi
           symbol_details = symbols.data[0].detect { |s| s[0] == symbol }
           Result::Success.new(symbol_details)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex symbol", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex symbol", **RECOVERABLE)
         end
 
         def fetch_ticker(symbol)
@@ -88,7 +88,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex ticker", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex ticker", **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
@@ -101,7 +101,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Bitfinex", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Bitfinex", **RECOVERABLE)
         end
 
         def skip_symbol?(symbol_info)

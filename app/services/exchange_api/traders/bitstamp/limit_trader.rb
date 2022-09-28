@@ -52,7 +52,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:amount])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Bitstamp order', RECOVERABLE)
+          Result::Failure.new('Could not make Bitstamp order', **RECOVERABLE)
         end
 
         def get_limit_percentage(percentage, side)
