@@ -509,7 +509,7 @@ vi:
                 instructions_6_2_html: '<b>Đọc</b>'
                 instructions_6_3_html: '<b>Giao dịch</b>'
             frequency_limit:
-                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch mỗi phút, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
+                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch hàng giờ, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
                 back_to_settings: 'Trở lại cài đặt'
                 start_the_bot: 'Chỉnh sửa và bắt đầu'
         add_new_bot: 'Thêm bot mới'
