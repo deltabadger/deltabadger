@@ -29,11 +29,11 @@ module ExchangeApi
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
-          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless order_done?(request, response)
+          return Result::Failure.new('Waiting for Coinbase Pro response', **NOT_FETCHED) unless order_done?(request, response)
           return error_to_failure(['Order was canceled']) if canceled?(response)
 
           amount = response.fetch('filled_size').to_f
-          return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED) unless filled?(amount)
+          return Result::Failure.new('Waiting for Coinbase Pro response', **NOT_FETCHED) unless filled?(amount)
 
           Result::Success.new(
             offer_id: order_id,
@@ -55,7 +55,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Coinbase order', RECOVERABLE)
+          Result::Failure.new('Could not make Coinbase order', **RECOVERABLE)
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)

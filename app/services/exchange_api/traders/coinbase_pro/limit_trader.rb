@@ -79,7 +79,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:size])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Coinbase order', RECOVERABLE)
+          Result::Failure.new('Could not make Coinbase order', **RECOVERABLE)
         end
 
         def parse_request(request)
