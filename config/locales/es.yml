@@ -519,7 +519,7 @@ es:
                 instructions_6_2_html: '<b>Lectura</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Para respetar el límite del bot de %{frequency_limit} transacciones por minuto, la programación se ejecutará en pedidos de %{price}%{currency} cada uno.'
+                limit_exceeded: 'Para respetar el límite del bot de %{frequency_limit} transacciones por hora, la programación se ejecutará en pedidos de %{price}%{currency} cada uno.'
                 back_to_settings: 'Volver a la Configuración'
                 start_the_bot: 'Modificar y empezar'
         add_new_bot: 'Añadir nuevo bot'
