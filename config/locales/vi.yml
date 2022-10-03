@@ -143,10 +143,8 @@ vi:
         saver: Saver
         investor: Investor
         hodler: Hodler
-        legendary_badger: Legendary Badger
         plan_1_year: 'gói 1 năm'
         plan_4_year: 'gói 4 năm'
-        plan_life_time: 'Kế hoạch trọn đời'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
         payment:
             billing_information: 'Thông tin hóa đơn'
@@ -157,8 +155,6 @@ vi:
             active_plan_discount: 'Chiết khấu dành cho gói đang hoạt động'
             compensation_investor:
                 other: 'Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Investor.'
-            compensation_hodler:
-                other: 'Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Hodler.'
             discount: 'Chiết khấu %{discount_percent}%'
             referral_discount_html: 'Nhờ có liên kết giới thiệu từ <b><a href="%{visible_link}">%{visible_name}</a></b>, bạn sẽ nhận được chiết khấu cho lần mua hàng đầu tiên trên nền tảng.'
             you_pay: 'Số tiền thanh toán'
@@ -178,7 +174,6 @@ vi:
             paid_with_wire_transfer_other: 'Tôi đã chuyển khoản ngân hàng'
             wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
             wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_legendary_badger_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
             wire_cost_pending_html: 'Nếu bạn chưa thanh toán, hãy gửi <b>%{sign}%{price}</b> vào tài khoản ngân hàng sau:'
         upgrade_plan: 'Nâng cấp gói'
         prolong_upgrade: 'Gia hạn hoặc nâng cấp gói của bạn'
