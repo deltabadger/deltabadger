@@ -116,6 +116,7 @@ Rails.application.routes.draw do
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
     get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy
+    get '/legendary-badger', to: 'legendary_badger#show', as: :legendary_badger
     get '/contact', to: 'home#contact', as: :contact
     get '/about', to: 'home#about', as: :about
     get '/referral-program', to: 'home#referral_program', as: :referral_program
@@ -129,6 +130,7 @@ Rails.application.routes.draw do
   get '/referral_program' => redirect("/#{I18n.default_locale}/referral-program")
   get '/' => redirect("/#{I18n.default_locale}")
   get '*path' => redirect("/#{I18n.default_locale}")
+  get '/legendary_badger' => redirect("/#{I18n.default_locale}/legendary-badger")
 
   telegram_webhook TelegramWebhooksController
 end
