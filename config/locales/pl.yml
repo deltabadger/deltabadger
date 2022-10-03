@@ -161,13 +161,10 @@ pl:
         saver: Oszczędny
         investor: Inwestor
         hodler: Hodler
-        legendary_badger: Legendary Badger
         investor_description_html: 'Jeden rok <b class="badge badge-btc">bez limitu transakcji</b>, <b class="badge badge-btc">wszystkie waluty</b> i <b class="badge badge-btc">automatyczne wypłaty</b> (wkrótce).'
         hodler_description_html: 'DCA działa najlepiej jako długoterminowe zobowiązanie. Cztery lata <b class="badge badge-btc">nieograniczonych transakcji</b> dla <b class="badge badge-all">wszystkich walut</b> na giełdzie, <b class="badge badge-limit">zlecenia z limitem</b>, <b class="badge badge-limit">automatyczne wypłaty</b> (wkrótce), <b class="badge badge-limit">warunek ceny</b>, <b class="badge badge-limit">warunek czasu</b>(wkrótce), <b class="badge badge-limit">automatyczny staking</b>(wkrótce). Ten plan wspiera projekt, za co Hodlerzy otrzymują <b class="badge badge-priority">priorytetowy dostęp</b> do wszystkich nowych funkcji.'
-        legendary_badger_description_html: 'DCA działa najlepiej jako długoterminowe zobowiązanie. Cztery lata <b class="badge badge-btc">nieograniczonych transakcji</b> dla <b class="badge badge-all">wszystkich walut</b> na giełdzie, <b class="badge badge-limit">zlecenia z limitem</b>, <b class="badge badge-limit">automatyczne wypłaty</b> (wkrótce), <b class="badge badge-limit">warunek ceny</b>, <b class="badge badge-limit">warunek czasu</b>(wkrótce), <b class="badge badge-limit">automatyczny staking</b>(wkrótce). Ten plan wspiera projekt, za co Legendary Badgers otrzymują <b class="badge badge-priority">priorytetowy dostęp</b> do wszystkich nowych funkcji.'
         plan_1_year: 'Plan roczny'
         plan_4_year: 'Plan 4-letni'
-        plan_life_time: 'Plan na całe życie'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200$/rok. Aby kontynuować, wykup płatną subskrypcję.'
         payment:
             billing_information: 'Informacje rozliczeniowe'
@@ -182,11 +179,6 @@ pl:
                 few: 'Wyrównanie za %{count} pozostałe dni planu Inwestor.'
                 many: 'Wyrównanie za %{count} pozostałych dni planu Inwestor.'
                 other: 'Wyrównanie za %{count} pozostałych dni planu Inwestor.'
-            compensation_hodler:
-                one: 'Wyrównanie za jeden pozostały dzień planu Hodler.'
-                few: 'Wyrównanie za %{count} pozostałe dni planu Hodler.'
-                many: 'Wyrównanie za %{count} pozostałych dni planu Hodler.'
-                other: 'Wyrównanie za %{count} pozostałych dni planu Hodler.'
             discount: '%{discount_percent}% rabatu'
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
             you_pay: Płacisz
@@ -206,7 +198,6 @@ pl:
             paid_with_wire_transfer_other: 'Zrobiłem przelew'
             wire_cost_investor_html: 'Prześlij <b><span class=''investor-total-price''>%{price}</span><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span></b> na następujący rachunek bankowy:'
             wire_cost_hodler_html: 'Prześlij <b><span class=''hodler-total-price''>%{price}</span><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span></b> na następujący rachunek bankowy:'
-            wire_cost_legendary_badger_html: 'Prześlij <b><span class=''hodler-total-price''>%{price}</span><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span></b> na następujący rachunek bankowy:'
             wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{sign}%{price}</b> na poniższe konto bankowe:'
         upgrade_plan: 'Zrób upgrade'
         prolong_upgrade: 'Przedłuż lub zmień swój plan na wyższy'
