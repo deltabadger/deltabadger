@@ -24,6 +24,9 @@
           - if 'hodler'.in?(upgrade_presenter.available_plans)
             - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
             %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_card', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
+          - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+            - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
+            %input.db-plan-radio{type: 'radio', id: 'payment_plan_legendary_badger_card', name: 'payment[subscription_plan_id]', value: upgrade_presenter.legendary_badger_plan.id, checked: legendary_badger_selected}
           %script{:src => 'https://js.stripe.com/v3/'}
           .db-form__row
             %select#payment_country.db-form__input.db-form__input--select{:autocomplete => "country-name", :id => 'card', :name => "payment[country]", :onchange => "this.setAttribute(\"value\", this.value);", :onfocus => "this.setAttribute(\"value\", this.value);", :value => "", :disabled => pending_wire_transfer}
@@ -32,7 +35,7 @@
                 - translated_name = country
                 - if translated_name == 'Other'
                   - translated_name = t('helpers.label.payment.other')
-                = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+                = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price }
             %label.db-form__label{:for => "payment_country"}= t('helpers.label.payment.country')
           %form#payment-form
             .db-form__row
@@ -55,6 +58,9 @@
             - if 'hodler'.in?(upgrade_presenter.available_plans)
               - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
               %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected, :class => ('disabled' if pending_wire_transfer)}
+            - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+              - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
+              %input.db-plan-radio{type: 'radio', id: 'payment_plan_legendary_badger', name: 'payment[subscription_plan_id]', value: upgrade_presenter.legendary_badger_plan.id, checked: legendary_badger_selected, :class => ('disabled' if pending_wire_transfer)}
 
             .db-form__row
               = f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", onchange: 'this.setAttribute("value", this.value);'
@@ -81,7 +87,7 @@
                   - translated_name = country
                   - if translated_name == 'Other'
                     - translated_name = t('helpers.label.payment.other')
-                  = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+                  = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price }
               .db-form__info.db-form__info--invalid
                 = t('helpers.label.payment.country') + ' ' + t('errors.messages.blank')
               = f.label :country, class: 'db-form__label'
@@ -100,6 +106,9 @@
             - if 'hodler'.in?(upgrade_presenter.available_plans)
               - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
               %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
+            - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+              - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
+              %input.db-plan-radio{type: 'radio', id: 'payment_plan_legendary_badger_wire', name: 'payment[subscription_plan_id]', value: upgrade_presenter.legendary_badger_plan.id, checked: legendary_badger_selected}
 
             .db-form__row
               %input#payment_first_name.db-form__input{:autocomplete => "given-name", :id => 'wire', :name => "payment[first_name]", :onchange => "this.setAttribute(\"value\", this.value);", :type => "text", :value => "", :disabled => pending_wire_transfer}
@@ -115,7 +124,7 @@
                   - translated_name = country
                   - if translated_name == 'Other'
                     - translated_name = t('helpers.label.payment.other')
-                  = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price }
+                  = content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price }
               %label.db-form__label{:for => "payment_country"}= t('helpers.label.payment.country')
             .db-form__row--visible{:id => 'please_fill_wire_form'}
               = t('subscriptions.payment.wire_transfer_fill_form')
@@ -126,6 +135,8 @@
                 - name = @subscription_plan_repository.find(current_user.pending_plan_id).name
                 - if name == 'hodler'
                   - price = cost_presenters[current_user.pending_wire_transfer][:hodler].total_price
+                - elsif name == 'legendary_badger'
+                  - price = cost_presenters[current_user.pending_wire_transfer][:legendary_badger].total_price
                 - else
                   - price = cost_presenters[current_user.pending_wire_transfer][:investor].total_price
 
@@ -138,6 +149,9 @@
                 - if 'hodler'.in?(upgrade_presenter.available_plans)
                   %span.db-show--hodler
                     = t('subscriptions.payment.wire_cost_hodler_html', price: cost_presenters[payment.country][:hodler].total_price)
+                - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+                  %span.db-show--hodler
+                    = t('subscriptions.payment.wire_cost_legendary_badger_html', price: cost_presenters[payment.country][:legendary_badger].total_price)
 
             .db-form__row--hidden{:id => 'wire_form_eu'}
 

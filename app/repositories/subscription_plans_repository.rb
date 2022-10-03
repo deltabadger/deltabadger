@@ -15,6 +15,10 @@ class SubscriptionPlansRepository < BaseRepository
     find_by_name!(model::HODLER)
   end
 
+  def legendary_badger
+    find_by_name!(model::LEGENDARY_BADGER)
+  end
+
   private
 
   def plan_cache

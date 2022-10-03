@@ -55,8 +55,10 @@
           $(".db-plan-investor").removeClass("db-plan--other")
           $(".db-plan-hodler").addClass("db-plan--other")
           $(".db-plan-hodler").removeClass("db-plan--selected")
+          $(".db-plan-legendary_badger").addClass("db-plan--other")
+          $(".db-plan-legendary_badger").removeClass("db-plan--selected")
           $(".db-checkout").addClass("db-checkout--investor");
-          $(".db-checkout").removeClass("db-checkout--hodler");
+          $(".db-checkout").removeClass("db-checkout--hodler db-checkout--legendary_badger");
         })
         $(".db-plan-hodler").click(function(){
           $("#payment_plan_hodler").click()
@@ -64,8 +66,21 @@
           $(".db-plan-hodler").removeClass("db-plan--other")
           $(".db-plan-investor").addClass("db-plan--other")
           $(".db-plan-investor").removeClass("db-plan--selected")
+          $(".db-plan-legendary_badger").addClass("db-plan--other")
+          $(".db-plan-legendary_badger").removeClass("db-plan--selected")
           $(".db-checkout").addClass("db-checkout--hodler");
-          $(".db-checkout").removeClass("db-checkout--investor");
+          $(".db-checkout").removeClass("db-checkout--investor db-checkout--legendary_badger");
+        })
+        $(".db-plan-legendary_badger").click(function(){
+          $("#payment_plan_legendary_badger").click()
+          $(".db-plan-hodler").addClass("db-plan--other")
+          $(".db-plan-hodler").removeClass("db-plan--selected")
+          $(".db-plan-investor").addClass("db-plan--other")
+          $(".db-plan-investor").removeClass("db-plan--selected")
+          $(".db-plan-legendary_badger").addClass("db-plan--selected")
+          $(".db-plan-legendary_badger").removeClass("db-plan--other")
+          $(".db-checkout").addClass("db-checkout--legendary_badger");
+          $(".db-checkout").removeClass("db-checkout--investor db-checkout--hodler");
         })
       })
 
@@ -106,6 +121,13 @@
           $(".hodler-flat-discount").text(dataset.hfd);
           $(".hodler-discount-percent-amount").text(dataset.hdpa);
           $(".hodler-total-vat").text(dataset.htv);
+
+          $(".legendary_badger-total-price").text(dataset.lbtp);
+          $(".legendary_badger-base-price").text(dataset.lbbp);
+          $(".legendary_badger-discounted-price").text(dataset.lbdp);
+          $(".legendary_badger-flat-discount").text(dataset.lbfd);
+          $(".legendary_badger-discount-percent-amount").text(dataset.lbdpa);
+          $(".legendary_badger-total-vat").text(dataset.lbtv);
         }
 
         $("#payment_country").change(function(event) {
@@ -142,7 +164,7 @@
 
       });
 
-      if("#{current_user.subscription_name}" !== "hodler" && "#{current_user.subscription_name}" !== "investor") {
+      if("#{current_user.subscription_name}" === "saver") {
         fomo.trigger('start')
       } else {
         fomo.trigger('stop')

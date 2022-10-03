@@ -143,8 +143,10 @@ zh-cn:
         saver: 储蓄者
         investor: 投资者
         hodler: Hodler
+        legendary_badger: Legendary Badger
         plan_1_year: '1 年套餐'
         plan_4_year: '4 年套餐'
+        plan_life_time: '终身计划'
         limit_reached_html: '<b>恭喜！</b>您已达到每年 1200 美元的免费交易限制。要继续，请升级到无限制套餐。'
         payment:
             billing_information: 账单信息
@@ -153,8 +155,10 @@ zh-cn:
             wire_transfer_description_html: '要电汇支付，请发送发票的基本信息：<b>名字</b>、<b>姓氏</b>、<b>物理地址</b>、在 Deltabadger 使用的<b>电子邮件</b>，以及您想购买的套餐：<a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>。'
             pay_with_bitcoin: 使用比特币支付
             active_plan_discount: 有效套餐折扣
-            compensation:
+            compensation_investor:
                 other: '对投资者套餐中未使用的 %{count} 天的补偿。'
+            compensation_hodler:
+                other: 'Hodler 包中未使用的 %{count} 天的補償。'
             discount: '%{discount_percent}% 的折扣'
             referral_discount_html: '多亏来自 <b><a href="%{visible_link}">%{visible_name}</a></b> 的转介绍链接，您在平台上首次购买时可获得折扣。'
             you_pay: 您支付
@@ -174,6 +178,7 @@ zh-cn:
             paid_with_wire_transfer_other: 我进行了电汇
             wire_cost_investor_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_hodler_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_legendary_badger_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_pending_html: '如果尚未付款，请将 <b>%{sign}%{price}</b> 转账到以下银行账号：'
         upgrade_plan: 升级套餐
         prolong_upgrade: 延长或升级套餐

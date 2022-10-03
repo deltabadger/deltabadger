@@ -13,8 +13,11 @@
     $(".db-plan-investor").removeClass("db-plan--other")
     $(".db-plan-hodler").addClass("db-plan--other")
     $(".db-plan-hodler").removeClass("db-plan--selected")
+    $(".db-plan-legendary_badger").addClass("db-plan--other")
+    $(".db-plan-legendary_badger").removeClass("db-plan--selected")
     $(".db-checkout").addClass("db-checkout--investor");
-    $(".db-checkout").removeClass("db-checkout--hodler");
+    $(".db-checkout").removeClass("db-checkout--hodler db-checkout--legendary_badger");
+
     if ("#{current_user.subscription_name}" === "investor") {
       $(".db-plan-active-discount").addClass("db-plans__item--hide");
     } else {
@@ -22,8 +25,10 @@
     }
     document.getElementById("payment_plan_investor_card").checked = true;
     document.getElementById("payment_plan_hodler_card").checked = false;
+    document.getElementById("payment_plan_legendary_badger_card").checked = false;
     document.getElementById("payment_plan_investor_wire").checked = true;
     document.getElementById("payment_plan_hodler_wire").checked = false;
+    document.getElementById("payment_plan_legendary_badger_wire").checked = false;
     set_payment_intent()
   })
   $(".db-plan-hodler").click(function(){
@@ -32,8 +37,10 @@
     $(".db-plan-hodler").removeClass("db-plan--other")
     $(".db-plan-investor").addClass("db-plan--other")
     $(".db-plan-investor").removeClass("db-plan--selected")
+    $(".db-plan-legendary_badger").addClass("db-plan--other")
+    $(".db-plan-legendary_badger").removeClass("db-plan--selected")
     $(".db-checkout").addClass("db-checkout--hodler");
-    $(".db-checkout").removeClass("db-checkout--investor");
+    $(".db-checkout").removeClass("db-checkout--investor db-checkout--legendary_badger");
     if ("#{current_user.subscription_name}" === "hodler") {
       $(".db-plan-active-discount").addClass("db-plans__item--hide");
     } else {
@@ -41,8 +48,33 @@
     }
     document.getElementById("payment_plan_investor_card").checked = false;
     document.getElementById("payment_plan_hodler_card").checked = true;
+    document.getElementById("payment_plan_legendary_badger_card").checked = false;
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = true;
+    document.getElementById("payment_plan_legendary_badger_wire").checked = false;
+    set_payment_intent()
+  })
+  $(".db-plan-legendary_badger").click(function(){
+    $("#payment_plan_legendary_badger").click()
+    $(".db-plan-hodler").addClass("db-plan--other")
+    $(".db-plan-hodler").removeClass("db-plan--selected")
+    $(".db-plan-investor").addClass("db-plan--other")
+    $(".db-plan-investor").removeClass("db-plan--selected")
+    $(".db-plan-legendary_badger").addClass("db-plan--selected")
+    $(".db-plan-legendary_badger").removeClass("db-plan--other")
+    $(".db-checkout").addClass("db-checkout--legendary_badger");
+    $(".db-checkout").removeClass("db-checkout--investor db-checkout--hodler");
+    if ("#{current_user.subscription_name}" === "legendary_badger") {
+      $(".db-plan-active-discount").addClass("db-plans__item--hide");
+    } else {
+      $(".db-plan-active-discount").removeClass("db-plans__item--hide");
+    }
+    document.getElementById("payment_plan_investor_card").checked = false;
+    document.getElementById("payment_plan_hodler_card").checked = false;
+    document.getElementById("payment_plan_legendary_badger_card").checked = true;
+    document.getElementById("payment_plan_investor_wire").checked = false;
+    document.getElementById("payment_plan_hodler_wire").checked = false;
+    document.getElementById("payment_plan_legendary_badger_wire").checked = true;
     set_payment_intent()
   })
   })
@@ -123,6 +155,14 @@
     $(".hodler-flat-discount").text(dataset.hfd);
     $(".hodler-discount-percent-amount").text(dataset.hdpa);
     $(".hodler-total-vat").text(dataset.htv);
+
+    $(".legendary_badger-total-price").text(dataset.lbtp);
+    $(".legendary_badger-base-price").text(dataset.lbbp);
+    $(".legendary_badger-discounted-price").text(dataset.lbdp);
+    $(".legendary_badger-flat-discount").text(dataset.lbfd);
+    $(".legendary_badger-discount-percent-amount").text(dataset.lbdpa);
+    $(".legendary_badger-total-vat").text(dataset.lbtv);
+
     $("#payment_country").val(select.value);
     $("#payment_country_wire").val(select.value);
     $("#payment_country_card").val(select.value);
@@ -204,10 +244,10 @@
   })
   });
 
-  if("#{current_user.subscription_name}" !== "hodler" && "#{current_user.subscription_name}" !== "investor") {
-  fomo.trigger('start')
+  if("#{current_user.subscription_name}" === "saver") {
+    fomo.trigger('start')
   } else {
-  fomo.trigger('stop')
+    fomo.trigger('stop')
   }
   const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
   function subscription_info() {
@@ -215,7 +255,7 @@
     const country_element = document.getElementById("payment_country_card");
     const country_name = country_element.options[country_element.selectedIndex].value;
               //Accessing the plan's id
-    const subscription_plan_id = document.getElementById("payment_plan_hodler_card").checked ? 3 : 2;
+    const subscription_plan_id = document.querySelector('#payCard > [id^=payment_plan_]:checked').value;
     return {subscription_plan_id: subscription_plan_id,
       country: country_name}
   }

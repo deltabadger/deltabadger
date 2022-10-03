@@ -1,0 +1,32 @@
+%head
+  <script type="text/javascript" src="https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js"></script>
+  %meta{:charset => "UTF-8"}
+  %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
+  %meta{:content => "ie=edge", "http-equiv" => "X-UA-Compatible"}
+  = csrf_meta_tags
+  = csp_meta_tag
+
+  %title= t('meta.title')
+
+  %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
+  = stylesheet_pack_tag 'deltabadger2'
+
+  %body{ data: { locale: I18n.locale }}
+    #cookie_consent
+    .container
+      = yield
+    .container
+      = render 'layouts/footer'
+
+    //= render partial: 'layouts/drift' if !Rails.env.development?
+
+    #current_user_subscription{ data: current_user.subscription_name }
+    = javascript_pack_tag 'deltabadger2'
+
+    %script{:crossorigin => "anonymous", :integrity => "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN", :src => "https://code.jquery.com/jquery-3.2.1.slim.min.js"}
+    %script{:crossorigin => "anonymous", :integrity => "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", :src => "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"}
+    %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
+
+    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=UA-60645901-3"}
+
+    = render partial: 'layouts/upgrade_stripe_code.js'

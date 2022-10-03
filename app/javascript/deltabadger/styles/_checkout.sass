@@ -27,7 +27,7 @@
       grid:
         template:
           rows: 5rem auto auto !important
-    &--investor, &--hodler
+    &--investor, &--hodler, &--legendary_badger
       //min-height: 23rem
       grid:
         template:
@@ -139,11 +139,15 @@
     display: block
 
 .db-checkout--investor
-  .db-show--hodler
+  .db-show--hodler, .db-show--legendary_badger
     display: none
 
 .db-checkout--hodler
-  .db-show--investor
+  .db-show--investor, .db-show--legendary_badger
+    display: none
+
+.db-checkout--legendary_badger
+  .db-show--investor, .db-show--hodler
     display: none
 
 .db-checkout--eu

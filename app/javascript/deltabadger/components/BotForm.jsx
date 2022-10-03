@@ -28,6 +28,7 @@ const TYPES = [
 
 export const BotForm = ({
   isHodler,
+  isLegendaryBadger,
   open,
   currentBot,
   callbackAfterCreation,
@@ -257,7 +258,7 @@ export const BotForm = ({
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
-          showLimitOrders={isHodler}
+          showLimitOrders={isHodler || isLegendaryBadger}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureTradingBotHandler}
