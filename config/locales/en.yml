@@ -150,10 +150,13 @@ en:
         saver: Saver
         investor: Investor
         hodler: Hodler
+        legendary_badger: Legendary Badger
         investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b> (soon).'
         hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b> (soon), <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">automatic staking</b>(soon). This plan supports the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
+        legendary_badger_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b> (soon), <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">automatic staking</b>(soon). This plan supports the project, and that''s why Legendary Badgers get <b class="badge badge-priority">priority access</b> to all new features.'
         plan_1_year: '1-year plan'
         plan_4_year: '4-year plan'
+        plan_life_time: 'Lifetime Plan'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         payment:
             billing_information: 'Billing information'
@@ -164,9 +167,12 @@ en:
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay: 'Pay'
             active_plan_discount: 'Active plan discount'
-            compensation:
+            compensation_investor:
                 one: 'Compensation for 1 unused day of the Investor plan.'
                 other: 'Compensation for %{count} unused days of the Investor plan.'
+            compensation_hodler:
+                one: 'Compensation for 1 unused day of the Hodler plan.'
+                other: 'Compensation for %{count} unused days of the Hodler plan.'
             discount: '%{discount_percent}% discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             you_pay: 'You pay'
@@ -186,6 +192,7 @@ en:
             paid_with_wire_transfer_other: 'I made wire transfer'
             wire_cost_investor_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> to the following bank account:'
             wire_cost_hodler_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
+            wire_cost_legendary_badger_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
             wire_cost_pending_html: 'If you didn’t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
             server_error: 'payments server error. try again later'
         upgrade_plan: 'Upgrade plan'
