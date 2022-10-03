@@ -33,7 +33,8 @@ module Bots::Withdrawal::Validators
         @threshold_enabled = params['threshold_enabled']
         @interval_enabled = params['interval_enabled']
         @hodler = user.subscription_name == 'hodler'
-        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
+        @legendary_badger = user.subscription_name == 'legendary_badger'
+        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor' || user.subscription_name == 'legendary_badger'
         @minimums = GetWithdrawalMinimums.call({ exchange_id: bot.exchange_id }, user)
         @withdrawal_info_processor = get_withdrawal_info_processor(user.api_keys, bot.exchange_id)
         @exchange_id = bot.exchange_id

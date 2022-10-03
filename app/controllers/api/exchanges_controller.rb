@@ -44,7 +44,7 @@ module Api
     end
 
     def paid_subscription?(subscription_name)
-      %w[hodler investor].include?(subscription_name)
+      %w[hodler legendary_badger investor].include?(subscription_name)
     end
 
     def get_withdrawal_info_processor(api_keys, exchange)
