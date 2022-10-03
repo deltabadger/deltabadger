@@ -149,13 +149,10 @@ fr:
         saver: Saver
         investor: Investor
         hodler: Hodler
-        legendary_badger: Legendary Badger
         investor_description_html: 'Un an de <b class="badge badge-btc">transactions illimitées</b>, dans <b class="badge badge-btc">toutes les devises</b>, et de <b class="badge badge-btc">retraits automatiques</b> (bientôt).'
         hodler_description_html: 'Le DCA fonctionne mieux en tant qu''engagement à long terme. Quatre ans de <b class="badge badge-btc">transactions illimitées</b> pour <b class="badge badge-all">toutes les devises</b> de la bourse, <b class="badge badge-limit">ordres limités</b>, <b class="badge badge-limit">retraits automatiques</b> (bientôt), <b class="badge badge-limit">condition de prix</b>, <b class="badge badge-limit">condition de temps</b>(bientôt), <b class="badge badge-limit">jalonnement automatique</b>(bientôt). Ce plan soutient le projet, et c''est pourquoi les Hodlers ont un <b class="badge badge-priority">accès prioritaire</b> à toutes les nouvelles fonctionnalités.'
-        legendary_badger_description_html: 'Le DCA fonctionne mieux en tant qu''engagement à long terme. Quatre ans de <b class="badge badge-btc">transactions illimitées</b> pour <b class="badge badge-all">toutes les devises</b> de la bourse, <b class="badge badge-limit">ordres limités</b>, <b class="badge badge-limit">retraits automatiques</b> (bientôt), <b class="badge badge-limit">condition de prix</b>, <b class="badge badge-limit">condition de temps</b>(bientôt), <b class="badge badge-limit">jalonnement automatique</b>(bientôt). Ce plan soutient le projet, et c''est pourquoi les Legendary Badgers ont un <b class="badge badge-priority">accès prioritaire</b> à toutes les nouvelles fonctionnalités.'
         plan_1_year: 'Plan de 1 an'
         plan_4_year: 'Plan de 4 ans'
-        plan_life_time: 'Forfait à vie'
         limit_reached_html: '<b> Félicitations ! </b> Tu as atteint notre limite de transactions gratuites de 1200$/an. Pour continuer, passe au plan illimité.'
         payment:
             billing_information: 'Détails de facturation'
@@ -167,9 +164,6 @@ fr:
             compensation_investor:
                 one: 'Indemnisation pour 1 jour inutilisé du plan Investisseur.'
                 other: 'Indemnisation pour %{count} jours inutilisés du plan Investisseur.'
-            compensation_hodler:
-                one: 'Indemnisation pour 1 jour inutilisé du plan Hodler.'
-                other: 'Indemnisation pour %{count} jours inutilisés du plan Hodler.'
             discount: '%{discount_percent} % de réduction'
             referral_discount_html: 'Grâce au lien de parrainage de <b> <a href="%{visible_link}"> %{visible_name} </a> </b>, tu bénéficies d''une réduction pour le premier achat sur la plateforme.'
             you_pay: 'Tu payes'
@@ -189,7 +183,6 @@ fr:
             paid_with_wire_transfer_other: 'J''ai effectué un virement bancaire'
             wire_cost_investor_html: 'Merci d''envoyer <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> sur le compte bancaire suivant :'
             wire_cost_hodler_html: 'Merci d''envoyer <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_legendary_badger_html: 'Merci d''envoyer <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> sur le compte bancaire suivant :'
             wire_cost_pending_html: 'Si vous n''avez pas encore effectué de paiement, envoyez <b>%{sign}%{price}</b> sur le compte bancaire suivant :'
         upgrade_plan: 'Mise à niveau du plan'
         prolong_upgrade: 'Prolongez ou surclassez votre plan'
