@@ -161,13 +161,10 @@ ru:
         saver: Вкладчик
         investor: Инвестор
         hodler: Ходлер
-        legendary_badger: Легендарный Барсук
         investor_description_html: 'Один год <b class="badge badge-btc">неограниченных транзакций</b>, <b class="badge badge-btc">все валюты</b> и <b class="badge badge-btc">автоматическое снятие средств</b> (скоро).'
         hodler_description_html: 'DCA лучше всего работает как долгосрочное обязательство. Четыре года <b class="badge badge-btc">неограниченных сделок</b> по <b class="badge badge-all">всем валютам</b> на бирже, <b class="badge badge-limit">лимитные ордера</b>, <b class="badge badge-limit">автоматический вывод</b> средств (скоро), <b class="badge badge-limit">условие цены</b>, <b class="badge badge-limit">условие времени</b>(скоро), <b class="badge badge-limit">автоматический кол</b>(скоро). Этот план поддерживает проект, и поэтому Hodlers получают <b class="badge badge-priority">приоритетный доступ</b> ко всем новым функциям.'
-        legendary_badger_description_html: 'DCA лучше всего работает как долгосрочное обязательство. Четыре года <b class="badge badge-btc">неограниченных сделок</b> по <b class="badge badge-all">всем валютам</b> на бирже, <b class="badge badge-limit">лимитные ордера</b>, <b class="badge badge-limit">автоматический вывод</b> средств (скоро), <b class="badge badge-limit">условие цены</b>, <b class="badge badge-limit">условие времени</b>(скоро), <b class="badge badge-limit">автоматический кол</b>(скоро). Этот план поддерживает проект, и поэтому Legendary Badgers получают <b class="badge badge-priority">приоритетный доступ</b> ко всем новым функциям.'
         plan_1_year: 'Годовой план'
         plan_4_year: '4-летний план'
-        plan_life_time: 'Пожизненный'
         limit_reached_html: '<b>Поздравляем!</b> Вы достигли лимита бесплатных транзакций в размере 1200$ в год. Чтобы продолжить, перейдите на безлимитный план.'
         payment:
             billing_information: 'Информация об оплате'
@@ -181,11 +178,6 @@ ru:
                 few: 'Компенсация за %{count}  неиспользованных дня плана Инвестора.'
                 many: 'Компенсация за %{count}  неиспользованных дней плана Инвестора.'
                 other: 'Компенсация за %{count}  неиспользованных дней плана Инвестора.'
-            compensation_hodler:
-                one: 'Компенсация за 1 неиспользованный день плана Ходлера.'
-                few: 'Компенсация за %{count}  неиспользованных дня плана Ходлера.'
-                many: 'Компенсация за %{count}  неиспользованных дней плана Ходлера.'
-                other: 'Компенсация за %{count}  неиспользованных дней плана Ходлера.'
             discount: '%{discount_percent}% скидка'
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
             you_pay: 'Вы платите'
@@ -205,7 +197,6 @@ ru:
             paid_with_wire_transfer_other: 'Я сделал(а) банковский перевод'
             wire_cost_investor_html: 'Пожалуйста, отправьте <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> на следующий банковский счет:'
             wire_cost_hodler_html: 'Пожалуйста, отправьте <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> на следующий банковский счет:'
-            wire_cost_legendary_badger_html: 'Пожалуйста, отправьте <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> на следующий банковский счет:'
             wire_cost_pending_html: 'Если вы еще не совершили платеж, отправьте <b> %{sign} %{price} </b> на следующий банковский счет:'
         upgrade_plan: 'Обновить план'
         prolong_upgrade: 'Продлите или обновите свой план'

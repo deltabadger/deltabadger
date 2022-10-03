@@ -143,10 +143,8 @@ id:
         saver: Penabung
         investor: Investor
         hodler: Hodler
-        legendary_badger: Legendary Badger
         plan_1_year: 'Paket 1 tahun'
         plan_4_year: 'Paket 4 tahun'
-        plan_life_time: 'Paket seumur hidup'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
         payment:
             billing_information: 'Informasi penagihan'
@@ -157,8 +155,6 @@ id:
             active_plan_discount: 'Diskon paket aktif'
             compensation_investor:
                 other: 'Kompensasi atas %{count} hari yang tidak digunakan dari paket Investor.'
-            compensation_hodler:
-                other: 'Kompensasi atas %{count} hari yang tidak digunakan dari paket Hodler.'
             discount: 'Diskon %{discount_percent}%'
             referral_discount_html: 'Berkat tautan referral dari <b><a href="%{visible_link}">%{visible_name}</a></b>, Anda mendapatkan diskon untuk pembelian pertama di platform.'
             you_pay: 'Anda membayar'
@@ -178,7 +174,6 @@ id:
             paid_with_wire_transfer_other: 'Saya melakukan transfer bank'
             wire_cost_investor_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_hodler_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_legendary_badger_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_pending_html: 'Jika Anda belum melakukan pembayaran, kirimkan <b>%{sign}%{price}</b> ke rekening bank berikut:'
         upgrade_plan: 'Tingkatkan paket'
         prolong_upgrade: 'Perpanjang atau tingkatkan paket Anda'
