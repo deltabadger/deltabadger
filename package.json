@@ -10,7 +10,7 @@
     "@rails/activestorage": "^6.0.0",
     "@rails/ujs": "^6.0.0",
     "@rails/webpacker": "4.3.0",
-    "@sentry/react": "^7.11.1",
+    "@sentry/react": "^7.14.1",
     "@sentry/tracing": "^7.11.1",
     "axios": "^0.27.2",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
