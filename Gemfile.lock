@@ -283,7 +283,7 @@ GEM
       coderay (~> 1.1)
       method_source (~> 1.0)
     public_suffix (5.0.0)
-    puma (4.3.12)
+    puma (5.6.5)
       nio4r (~> 2.0)
     racc (1.6.0)
     rack (2.2.4)
@@ -493,7 +493,7 @@ DEPENDENCIES
   letter_opener
   listen (>= 3.0.5, < 3.2)
   pg (>= 0.18, < 2.0)
-  puma (~> 4.3)
+  puma (~> 5.6)
   rack-cors
   rails (~> 6.0.4, >= 6.0.4.1)
   recaptcha
