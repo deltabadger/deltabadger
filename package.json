@@ -16,7 +16,7 @@
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "chart.js": "2.9.1",
     "debounce": "^1.2.1",
-    "dotenv": "^16.0.1",
+    "dotenv": "^16.0.3",
     "i18n-js": "~3.8.0",
     "lodash": "^4.17.21",
     "moment": "^2.29.4",
