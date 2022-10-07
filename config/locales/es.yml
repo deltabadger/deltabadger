@@ -66,6 +66,7 @@ es:
                 email_used: 'Este correo electrónico ya se utiliza.'
                 email_suggestion_html: '¡Correo electrónico no válido! Quizás quisiste decir: <b>%{suggestion}</b>'
                 email_invalid: '¡Correo electrónico no válido!'
+                name_invalid: 'No tiene que ser real :)'
                 submit: 'Empezar ahora'
             edit:
                 awaiting_confirmation: 'Actualmente, esperando confirmación para: %{email}'
@@ -122,6 +123,7 @@ es:
             even: 'debe ser par'
             wrong_password: 'Contraseña incorrecta'
             wrong_email: 'Correo electrónico incorrecto'
+            name_invalid: 'No tiene que ser real :)'
             bad_credentials: 'Correo electrónico o contraseña incorrectos.'
             bad_credentials_with_code: 'Correo electrónico, contraseña o código 2FA incorrectos.'
             wrong_two_fa_token: 'El código indicado es erróneo'
@@ -304,6 +306,8 @@ es:
             title: Configuración
             email_section: 'Actualizar correo electrónico'
             submit_email: 'Actualizar correo electrónico'
+            name_section: 'Actualizar nombre'
+            submit_name: 'Actualizar nombre'
             password_section: 'Actualizar contraseña'
             submit_password: 'Cambiar contraseña'
             api_keys_section: 'Claves API'

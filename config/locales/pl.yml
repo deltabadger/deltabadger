@@ -68,6 +68,7 @@ pl:
                 email_used: 'Ten e-mail jest już używany.'
                 email_suggestion_html: 'E-mail nieprawidłowy! Czy chodziło Ci o: <b> %{suggestion} </b>'
                 email_invalid: 'E-mail nieprawidłowy!'
+                name_invalid: 'To nie musi być prawdziwe :)'
                 submit: 'Zacznij teraz'
             edit:
                 awaiting_confirmation: 'Aktualnie czekamy na potwierdzenie adresu %{email}'
@@ -132,6 +133,7 @@ pl:
             even: 'musi być równa'
             wrong_password: 'Błędne hasło.'
             wrong_email: 'Błędny adres e-mail.'
+            name_invalid: 'To nie musi być prawdziwe :)'
             bad_credentials: 'Błędny e-mail lub hasło.'
             bad_credentials_with_code: 'Błędny adres e-mail, hasło lub kod 2FA.'
             wrong_two_fa_token: 'Podany kod jest nieprawidłowy.'
@@ -319,6 +321,8 @@ pl:
             title: Ustawienia
             email_section: 'Zaktualizuj e-mail'
             submit_email: 'Zaktualizuj e-mail'
+            name_section: 'Aktualizuj nazwę'
+            submit_name: 'Aktualizuj nazwę'
             password_section: 'Zaktualizuj hasło'
             submit_password: 'Zmień hasło'
             api_keys_section: 'Klucze API'

@@ -65,6 +65,7 @@ zh-cn:
                 email_used: 此电子邮件已被使用。
                 email_suggestion_html: '电子邮件无效！您是指 <b>%{suggestion}</b> 吗？'
                 email_invalid: 电子邮件无效！
+                name_invalid: '它不一定是真实的:)'
                 submit: 立即开始
             edit:
                 awaiting_confirmation: '当前正在等待 %{email} 的确认'
@@ -117,6 +118,7 @@ zh-cn:
             even: 必须为偶数
             wrong_password: 错误的密码
             wrong_email: 错误的电子邮件。
+            name_invalid: '它不一定是真实的:)'
             bad_credentials: 错误的电子邮件或密码。
             bad_credentials_with_code: '错误的电子邮件、密码或 2FA 代码。'
             wrong_two_fa_token: 提供的代码是错误的。
@@ -294,6 +296,8 @@ zh-cn:
             title: 设置
             email_section: 更新电子邮件
             submit_email: 更新电子邮件
+            name_section: '更新名称'
+            submit_name: '更新名称'
             password_section: 更新密码
             submit_password: 更改密码
             api_keys_section: 'API 密钥'

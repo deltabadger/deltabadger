@@ -68,6 +68,7 @@ ru:
                 email_used: 'Этот электронный адрес уже используется.'
                 email_suggestion_html: 'Электронная почта недействительна! Вы имели в виду: <b>%{suggestion}</b>'
                 email_invalid: 'Электронная почта недействительна!'
+                name_invalid: 'Это не должно быть правдой :)'
                 submit: 'Начать сейчас'
             edit:
                 awaiting_confirmation: 'В настоящее время ожидает подтверждения для: %{email}'
@@ -132,6 +133,7 @@ ru:
             even: 'должно быть четным'
             wrong_password: 'Неправильный пароль'
             wrong_email: 'Неправильный адрес электронной почты'
+            name_invalid: 'Это не должно быть правдой :)'
             bad_credentials: 'Неправильный адрес электронной почты или пароль.'
             bad_credentials_with_code: 'Неверный адрес электронной почты, пароль или код 2FA.'
             wrong_two_fa_token: 'Предоставленный код неверный'
@@ -318,6 +320,8 @@ ru:
             title: Настройки
             email_section: 'Обновить электронную почту'
             submit_email: 'Обновить электронную почту'
+            name_section: 'Обновить имя'
+            submit_name: 'Обновить имя'
             password_section: 'Обновите пароль'
             submit_password: 'Изменить пароль'
             api_keys_section: 'Ключи API'
