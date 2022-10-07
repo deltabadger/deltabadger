@@ -15,7 +15,9 @@ class User < ApplicationRecord
   has_many :payments
 
   validates :terms_and_conditions, acceptance: true
+  validates :name, presence: true
   validate :active_referrer, on: :create
+  validate :validate_name
   validate :validate_email_with_sendgrid
   validate :password_complexity, if: -> { password.present? }
 
@@ -64,6 +66,10 @@ class User < ApplicationRecord
     api_keys.where(key_type: 'trading')
   end
 
+  def name_invalid?
+    name !~ /^(?<=^|\s)[a-zA-Z ]+(\s+[a-zA-Z ]+)*(?=\s|$)$/
+  end
+
   private
 
   def active_subscription
@@ -98,6 +104,12 @@ class User < ApplicationRecord
 
   def eligible_for_discount?
     !payments.paid.where(discounted: true).exists?
+  end
+
+  def validate_name
+    return unless name_invalid?
+
+    errors.add :name, I18n.t('devise.registrations.new.name_invalid')
   end
 
   def validate_email_with_sendgrid

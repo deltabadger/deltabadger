@@ -66,6 +66,7 @@ de:
                 email_used: 'Diese E-Mail wird bereits genutzt.'
                 email_suggestion_html: 'E-Mail ungültig! Meintest du <b>%{suggestion}</b>'
                 email_invalid: 'E-Mail ungültig!'
+                name_invalid: 'Es muss nicht echt sein :)'
                 submit: 'Starte jetzt'
             edit:
                 awaiting_confirmation: 'Aktuell warten wir auf die Bestätigung von: %{email}'
@@ -122,6 +123,7 @@ de:
             even: 'muss gerade sein'
             wrong_password: 'Falsches Passwort'
             wrong_email: 'Falsche E-Mail.'
+            name_invalid: 'Es muss nicht echt sein :)'
             bad_credentials: 'Falsche E-Mail oder falsches Passwort.'
             bad_credentials_with_code: 'Falsche E-Mail, falsches Passwort oder falscher 2FA-Code.'
             wrong_two_fa_token: 'Angegebener Code ist falsch.'
@@ -304,6 +306,8 @@ de:
             title: Einstellungen
             email_section: 'E-Mail aktualisieren'
             submit_email: 'E-Mail aktualisieren'
+            name_section: 'Namen aktualisieren'
+            submit_name: 'Namen aktualisieren'
             password_section: 'Passwort aktualisieren'
             submit_password: 'Passwort ändern'
             api_keys_section: API-Schlüssel
