@@ -59,6 +59,7 @@ en:
         email_used: This email is already used.
         email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
         email_invalid: Email invalid!
+        name_invalid: 'It doesn’t have to be real :)'
         submit: Start now
       edit:
         awaiting_confirmation: 'Currently waiting confirmation for: %{email}'

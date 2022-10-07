@@ -66,6 +66,7 @@ fr:
                 email_used: 'Cet e-mail est déjà pris.'
                 email_suggestion_html: 'E-mail non valide ! Est-ce que tu voulais dire : <b> %{suggestion} </b>'
                 email_invalid: 'E-mail non valide !'
+                name_invalid: "Ça n'a pas besoin d'être réel :)"
                 submit: 'Commencer maintenant'
             edit:
                 awaiting_confirmation: 'Actuellement, en attente de confirmation pour : %{email}'
@@ -122,6 +123,7 @@ fr:
             even: 'doit être un chiffre pair'
             wrong_password: 'Mot de passe incorrect'
             wrong_email: 'Adresse e-mail incorrecte'
+            name_invalid: "Ça n'a pas besoin d'être réel :)"
             bad_credentials: 'Adresse e-mail ou mot de passe incorrects.'
             bad_credentials_with_code: 'Adresse e-mail, mot de passe ou code A2F incorrects.'
             wrong_two_fa_token: 'Le code fourni est incorrect'
@@ -304,6 +306,8 @@ fr:
             title: Paramètres
             email_section: 'Mettre à jour l''e-mail'
             submit_email: 'Mettre à jour l''e-mail'
+            name_section: 'Mettre à jour le nom'
+            submit_name: 'Mettre à jour le nom'
             password_section: 'Mettre à jour le mot de passe'
             submit_password: 'Modifier le mot de passe'
             api_keys_section: 'Clés API'
