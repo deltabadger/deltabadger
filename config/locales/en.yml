@@ -66,6 +66,7 @@ en:
                 email_used: 'This email is already used.'
                 email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
                 email_invalid: 'Email invalid!'
+                name_invalid: 'It doesn’t have to be real :)'
                 submit: 'Start now'
             edit:
                 awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
@@ -122,6 +123,7 @@ en:
             even: 'must be even'
             wrong_password: 'Wrong password'
             wrong_email: 'Wrong email.'
+            name_invalid: 'It doesn’t have to be real :)'
             bad_credentials: 'Wrong email or password.'
             bad_credentials_with_code: 'Wrong email, password, or 2FA code.'
             wrong_two_fa_token: 'Supplied code is wrong.'
@@ -315,6 +317,8 @@ en:
             title: Settings
             email_section: 'Update email'
             submit_email: 'Update email'
+            name_section: 'Update name'
+            submit_name: 'Update name'
             password_section: 'Update password'
             submit_password: 'Change password'
             api_keys_section: 'API keys'

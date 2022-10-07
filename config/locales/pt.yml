@@ -66,6 +66,7 @@ pt:
                 email_used: 'Este e-mail já está a ser utilizado.'
                 email_suggestion_html: 'E-mail inválido! Queria dizer: <b>%{suggestion}</b>?'
                 email_invalid: 'E-mail inválido!'
+                name_invalid: 'Não precisa ser real :)'
                 submit: 'Começar agora'
             edit:
                 awaiting_confirmation: 'Atualmente, a aguardar confirmação para: %{email}'
@@ -122,6 +123,7 @@ pt:
             even: 'tem de ser igual a'
             wrong_password: 'Palavra-passe errada'
             wrong_email: 'Email errado.'
+            name_invalid: 'Não precisa ser real :)'
             bad_credentials: 'Email ou palavra-passe errada.'
             bad_credentials_with_code: 'Email, palavra-passe ou 2FA errado.'
             wrong_two_fa_token: 'O código fornecido está errado.'
@@ -304,6 +306,8 @@ pt:
             title: Definições
             email_section: 'Atualizar e-mail'
             submit_email: 'Atualizar e-mail'
+            name_section: 'Atualizar nome'
+            submit_name: 'Atualizar nome'
             password_section: 'Atualizar palavra-passe'
             submit_password: 'Alterar palavra-passe'
             api_keys_section: 'Chaves de API'
