@@ -187,7 +187,7 @@ de:
             wire_cost_hodler_html: 'Bitte überweisen Sie <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_pending_html: 'Falls Sie die Zahlung noch nicht durchgeführt haben, überweisen Sie <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
         upgrade_plan: 'Plan upgraden'
-        prolong_upgrade: 'Verlängern oder upgraden Sie Ihren Plan'
+        prolong_upgrade: 'Upgraden Sie Ihren Plan'
         maximalist_title: 'Bitcoin-Maximalisten-Rabatt von 50%'
         maximalist_info: 'Wenn Sie nur in Bitcoin bezahlen, zahlen Sie nur die Hälfte des regulären Preises.'
     links:

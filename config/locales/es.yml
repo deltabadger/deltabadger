@@ -187,7 +187,7 @@ es:
             wire_cost_hodler_html: 'Envía <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> a la siguiente cuenta bancaria:'
             wire_cost_pending_html: 'Si aún no has realizado el pago, envía <b>%{sign}%{price}</b> a la siguiente cuenta bancaria:'
         upgrade_plan: 'Actualizar plan'
-        prolong_upgrade: 'Extiende o mejora tu plan'
+        prolong_upgrade: 'Mejora tu plan'
         maximalist_title: 'Descuento maximalista bitcoin del 50 %'
         maximalist_info: 'Si solo compras bitcoins, pagas la mitad del precio normal.'
     links:
