@@ -10,10 +10,12 @@
   .db--upgrade__hide
     display: none
 .db-plans
+  display: flex
+  gap: 2rem
+  flex-direction: column
   &__item
     padding: 2.4rem 3rem
     background: var(--white)
-    margin-bottom: 1rem
     cursor: pointer
     display: grid
     border-radius: 1.6rem
@@ -32,6 +34,17 @@
       grid:
         template:
           rows: 8rem auto auto
+    &--legendary_badger
+      padding-bottom: 20rem
+      .db-plans__item__info
+        z-index: 2
+      .db_legendary-badger
+        position: absolute
+        bottom: -6rem
+        right: -20rem
+        width: 100%
+        height: 40rem
+        z-index: 1
 
     .badge
       background: var(--planBadge)
@@ -121,7 +134,7 @@
   box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   color: var(--planSelectedTxt)
   cursor: default
-  background: var(--planSelectedBg)
+  background: #183060
   border: .1rem solid var(--planSelectedBorder)
   .badge
     background: var(--planSelectedBadge)
@@ -135,6 +148,7 @@
 
 .db-checkout
   min-height: calc(100vh - 22.3rem)
+  &--
   @include media-breakpoint-down(sm)
     display: block
 

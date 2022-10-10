@@ -15,6 +15,7 @@
   - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
   .db-plans__item.db-plans__item--legendary_badger.db-plan-legendary_badger{class: "db-plan--#{legendary_badger_selected ? 'selected' : 'other'}"}
     = render partial: 'legendary_badger_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:legendary_badger] }
+    = render partial: 'layouts/svg_bubbleart_01'
 
 - if upgrade_presenter.current_plan_name == 'investor'
   .db-plans__item.db-plans__item--discount.db-plan-active-discount
