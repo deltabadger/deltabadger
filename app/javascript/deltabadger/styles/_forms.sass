@@ -4,10 +4,12 @@ $formUnit: 2rem
   display: inline-flex
   justify-content: center
   font-family: $fontButton
-  font-weight: 500
+  font-weight: 600
   cursor: pointer
   box-shadow: $boxShadowHome
   white-space: nowrap
+  &:focus
+    box-shadow: none
   span:first-child
     margin-left: 0.25rem !important
   &-link,&-outline-primary:not(:hover),&-outline-secondary:not(:hover),&-outline-success:not(:hover),&-outline-danger:not(:hover),&.disabled
