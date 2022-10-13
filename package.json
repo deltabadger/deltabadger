@@ -11,7 +11,7 @@
     "@rails/ujs": "^7.0.4",
     "@rails/webpacker": "5.4.3",
     "@sentry/react": "^7.14.1",
-    "@sentry/tracing": "^7.11.1",
+    "@sentry/tracing": "^7.15.0",
     "axios": "^0.27.2",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "chart.js": "2.9.4",
