@@ -407,12 +407,12 @@ GEM
     sidekiq-prometheus-exporter (0.1.17)
       rack (>= 1.6.0)
       sidekiq (>= 3.3.1)
-    spring (2.1.1)
+    spring (4.1.0)
     spring-commands-rspec (1.0.4)
       spring (>= 0.9.1)
-    spring-watcher-listen (2.0.1)
+    spring-watcher-listen (2.1.0)
       listen (>= 2.7, < 4.0)
-      spring (>= 1.2, < 3.0)
+      spring (>= 4)
     sprockets (4.1.1)
       concurrent-ruby (~> 1.0)
       rack (> 1, < 3)
@@ -510,7 +510,7 @@ DEPENDENCIES
   sidekiq-prometheus-exporter (~> 0.1)
   spring
   spring-commands-rspec
-  spring-watcher-listen (~> 2.0.0)
+  spring-watcher-listen (~> 2.1.0)
   stripe
   telegram-bot (~> 0.15.6)
   tzinfo-data
