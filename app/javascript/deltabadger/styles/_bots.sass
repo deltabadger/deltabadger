@@ -9,12 +9,12 @@ input
 .db-bots
   display:        grid
   grid-auto-rows: max-content
-  column-gap:     $grid-gutter-width/2
+  column-gap:     $grid-gutter-width*0.5
   @include media-breakpoint-up(xl)
     grid-template-columns: 50%
   &__item
     grid-column-start: 1
-    margin-bottom:     $grid-gutter-width/2
+    margin-bottom:     $grid-gutter-width*0.5
     &--homepage
       width:          100%
       height:         fit-content
@@ -175,7 +175,6 @@ input
     height:   8.9rem
     overflow: hidden
     cursor:   pointer
-    .db-bot__progress
   &__progress
     height: .4rem
     position: absolute
@@ -189,13 +188,12 @@ input
     *
       transition: all 200ms linear
   &__header
-    font-size:      1.4rem
     align-items:    flex-start
     text-align:     center
     display:        flex
     border-radius:  $btn-border-radius
     flex-direction: row-reverse
-    padding:        $bot-gutter-width/2 $bot-gutter-width/1.2 $bot-gutter-width/2 $bot-gutter-width/1.2
+    padding:        $bot-gutter-width*0.5 $bot-gutter-width*0.8333 $bot-gutter-width*0.5 $bot-gutter-width*0.8333
     .btn
       right:        -1rem
       position:      relative
@@ -249,7 +247,7 @@ input
       @include textAdjust(2)
       font-family:     Montserrat
       @include media-breakpoint-down(sm)
-        max-width: calc((100% - 1.6rem)/2)
+        max-width: calc((100% - 1.6rem)*0.5)
       &--unavailable
         display: none
       &:hover
@@ -272,7 +270,7 @@ input
 .db-bot-info__footer
   display:         flex
   justify-content: space-between
-  margin:          0 $bot-gutter-width/1.4 $bot-gutter-width/2
+  margin:          0 $bot-gutter-width*0.714 $bot-gutter-width*0.5
   height:          3.8rem
 
 .db-smallinfo

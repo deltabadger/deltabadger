@@ -537,7 +537,7 @@ ru:
                 instructions_6_2_html: '<b>Чтение</b>'
                 instructions_6_3_html: '<b>Торговля</b>'
             frequency_limit:
-                limit_exceeded: 'Чтобы выполнить ограничение бота на %{frequency_limit} транзакций в минуту, ваше расписание будет выполняться ордерами по %{price}%{currency} каждый.'
+                limit_exceeded: 'Чтобы выполнить ограничение бота на %{frequency_limit} транзакций в час, ваше расписание будет выполняться ордерами по %{price}%{currency} каждый.'
                 back_to_settings: 'Вернуться в настройки'
                 start_the_bot: 'Изменить и начать'
         add_new_bot: 'Добавить новый бот'

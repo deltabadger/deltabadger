@@ -37,7 +37,7 @@ module ExchangeApi
 
           Result::Success.new(all_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Zonda symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Zonda symbols", **RECOVERABLE)
         end
 
         def base_decimals(symbol)
@@ -91,20 +91,20 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new('Could not fetch chosen symbol from Zonda', RECOVERABLE)
+          Result::Failure.new('Could not fetch chosen symbol from Zonda', **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
           url = "https://api.zonda.exchange/rest/trading/ticker/#{symbol}"
           response = JSON.parse(@base_client.get(url).body)
 
-          return Result::Failure.new('Could not fetch current price from Zonda', RECOVERABLE) unless response['status'] == 'Ok'
+          return Result::Failure.new('Could not fetch current price from Zonda', **RECOVERABLE) unless response['status'] == 'Ok'
 
           bid = response.fetch('ticker').fetch('highestBid').to_f
           ask = response.fetch('ticker').fetch('lowestAsk').to_f
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Zonda', RECOVERABLE)
+          Result::Failure.new('Could not fetch current price from Zonda', **RECOVERABLE)
         end
       end
     end

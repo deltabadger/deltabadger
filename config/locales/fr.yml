@@ -523,7 +523,7 @@ fr:
                 instructions_6_2_html: '<b>Lecture</b>'
                 instructions_6_3_html: '<b> Négociation </b>'
             frequency_limit:
-                limit_exceeded: 'Pour remplir la limite du bot de %{frequency_limit} transactions par minute, votre planning sera exécuté par ordres de %{price}%{currency} chacun.'
+                limit_exceeded: 'Pour remplir la limite du bot de %{frequency_limit} transactions par heure, votre planning sera exécuté par ordres de %{price}%{currency} chacun.'
                 back_to_settings: 'Retour aux paramètres'
                 start_the_bot: 'Modifier et commencer'
         add_new_bot: 'Ajouter un nouveau bot'
