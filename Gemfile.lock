@@ -1,8 +1,8 @@
 GIT
   remote: https://github.com/brainopia/sidekiq-limit_fetch
-  revision: c7e6cac368a5c4c900398937cb7d734c0c80c1e0
+  revision: 9bf29b248458c80593939f937c67c42ad4fae7e1
   specs:
-    sidekiq-limit_fetch (4.3.1)
+    sidekiq-limit_fetch (4.3.2)
       redis (>= 4.6.0)
       sidekiq (>= 4)
 
@@ -139,7 +139,7 @@ GEM
     chunky_png (1.4.0)
     coderay (1.1.3)
     concurrent-ruby (1.1.10)
-    connection_pool (2.2.5)
+    connection_pool (2.3.0)
     crass (1.0.6)
     curb (1.0.1)
     devise (4.8.1)
@@ -249,7 +249,7 @@ GEM
     listen (3.0.8)
       rb-fsevent (~> 0.9, >= 0.9.4)
       rb-inotify (~> 0.9, >= 0.9.7)
-    loofah (2.18.0)
+    loofah (2.19.0)
       crass (~> 1.0.2)
       nokogiri (>= 1.5.9)
     lumberjack (1.2.8)
@@ -283,13 +283,13 @@ GEM
       coderay (~> 1.1)
       method_source (~> 1.0)
     public_suffix (5.0.0)
-    puma (4.3.12)
+    puma (5.6.5)
       nio4r (~> 2.0)
     racc (1.6.0)
     rack (2.2.4)
     rack-cors (1.1.1)
       rack (>= 2.0.0)
-    rack-proxy (0.7.2)
+    rack-proxy (0.7.4)
       rack
     rack-test (2.0.2)
       rack (>= 1.3)
@@ -325,7 +325,7 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    recaptcha (5.12.0)
+    recaptcha (5.12.3)
       json
     redis (4.8.0)
     regexp_parser (2.5.0)
@@ -392,6 +392,7 @@ GEM
       rexml (~> 3.2, >= 3.2.5)
       rubyzip (>= 1.2.2, < 3.0)
       websocket (~> 1.0)
+    semantic_range (3.0.0)
     sendinblue (2.4)
       httparty
       json
@@ -443,10 +444,11 @@ GEM
       activemodel (>= 6.0.0)
       bindex (>= 0.4.0)
       railties (>= 6.0.0)
-    webpacker (4.3.0)
-      activesupport (>= 4.2)
+    webpacker (5.4.3)
+      activesupport (>= 5.2)
       rack-proxy (>= 0.6.1)
-      railties (>= 4.2)
+      railties (>= 5.2)
+      semantic_range (>= 2.3.0)
     websocket (1.2.9)
     websocket-driver (0.7.5)
       websocket-extensions (>= 0.1.0)
@@ -455,7 +457,7 @@ GEM
       chronic (>= 0.6.3)
     xpath (3.2.0)
       nokogiri (~> 1.8)
-    zeitwerk (2.6.0)
+    zeitwerk (2.6.1)
 
 PLATFORMS
   x86_64-darwin-21
@@ -491,7 +493,7 @@ DEPENDENCIES
   letter_opener
   listen (>= 3.0.5, < 3.2)
   pg (>= 0.18, < 2.0)
-  puma (~> 4.3)
+  puma (~> 5.6)
   rack-cors
   rails (~> 6.0.4, >= 6.0.4.1)
   recaptcha
@@ -515,7 +517,7 @@ DEPENDENCIES
   uglifier (>= 1.3.0)
   unicorn
   web-console (>= 3.3.0)
-  webpacker (~> 4.0)
+  webpacker (~> 5.4)
   whenever
 
 RUBY VERSION

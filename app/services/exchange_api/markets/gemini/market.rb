@@ -24,7 +24,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Gemini symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Gemini symbols", **RECOVERABLE)
         end
 
         def minimum_base_size(symbol)
@@ -33,7 +33,7 @@ module ExchangeApi
 
           Result::Success.new(response.data['min_order_size'].to_f)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Gemini minimums", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Gemini minimums", **RECOVERABLE)
         end
 
         def base_decimals(symbol)
@@ -44,7 +44,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Gemini symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Gemini symbol details", **RECOVERABLE)
         end
 
         def quote_decimals(symbol)
@@ -55,7 +55,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Gemini symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Gemini symbol details", **RECOVERABLE)
         end
 
         def symbol(base, quote)
@@ -99,7 +99,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch chosen symbol from Gemini", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch chosen symbol from Gemini", **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
@@ -111,7 +111,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Gemini", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Gemini", **RECOVERABLE)
         end
 
         def get_quote(symbol)

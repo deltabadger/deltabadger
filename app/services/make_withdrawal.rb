@@ -63,7 +63,7 @@ class MakeWithdrawal < BaseService
     return balance unless balance.success?
 
     bot = @bots_repository.update(bot.id, account_balance: balance.data)
-    return Result::Failure.new(SKIPPED) unless check_balance_threshold(bot, balance)
+    return Result::Failure.new(**SKIPPED) unless check_balance_threshold(bot, balance)
 
     withdrawal_api.make_withdrawal(get_withdrawal_params(bot, balance))
   end
