@@ -11,7 +11,6 @@
   .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
     = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
-
 -# - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
 -#   - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
 -#   .db-plans__item.db-plans__item--legendary_badger.db-plan-legendary_badger{class: "db-plan--#{legendary_badger_selected ? 'selected' : 'other'}"}
