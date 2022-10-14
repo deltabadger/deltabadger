@@ -39,7 +39,7 @@ module ExchangeApi
           Result::Success.new(all_symbols)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch currencies from Kraken', RECOVERABLE)
+          Result::Failure.new('Could not fetch currencies from Kraken', **RECOVERABLE)
         end
 
         def available_wallets
@@ -58,7 +58,7 @@ module ExchangeApi
           Result::Success.new(data)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch funds from Kraken', RECOVERABLE)
+          Result::Failure.new('Could not fetch funds from Kraken', **RECOVERABLE)
         end
 
         private

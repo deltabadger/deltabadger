@@ -30,7 +30,7 @@ module ExchangeApi
           Result::Success.new(all_symbols)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch currencies from Ftx', RECOVERABLE)
+          Result::Failure.new('Could not fetch currencies from Ftx', **RECOVERABLE)
         end
 
         def available_wallets
@@ -49,7 +49,7 @@ module ExchangeApi
           Result::Success.new(addresses)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch wallets from Ftx', RECOVERABLE)
+          Result::Failure.new('Could not fetch wallets from Ftx', **RECOVERABLE)
         end
 
         def available_funds(bot)
@@ -64,7 +64,7 @@ module ExchangeApi
           Result::Success.new(coin_parameters.fetch('free'))
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch funds from Ftx', RECOVERABLE)
+          Result::Failure.new('Could not fetch funds from Ftx', **RECOVERABLE)
         end
 
         def withdrawal_minimum(_currency)

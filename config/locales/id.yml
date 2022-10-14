@@ -513,7 +513,7 @@ id:
                 instructions_6_2_html: '<b>Membaca</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per menit dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
+                limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per jam dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
                 back_to_settings: 'Kembali ke pengaturan'
                 start_the_bot: 'Ubah dan mulai'
         add_new_bot: 'Tambah bot baru'

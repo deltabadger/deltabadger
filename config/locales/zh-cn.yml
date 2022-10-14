@@ -513,7 +513,7 @@ zh-cn:
                 instructions_6_2_html: '<b>阅读</b>'
                 instructions_6_3_html: '<b>正在交易</b>'
             frequency_limit:
-                limit_exceeded: '要满足每分钟 %{frequency_limit} 个交易的机器人限制，您的安排将按各自 %{price}%{currency} 的单独订单执行。'
+                limit_exceeded: '要满足每小时 %{frequency_limit} 个交易的机器人限制，您的安排将按各自 %{price}%{currency} 的单独订单执行。'
                 back_to_settings: 返回设置
                 start_the_bot: 修订并开始
         add_new_bot: 添加新的机器人

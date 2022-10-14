@@ -23,7 +23,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols.compact)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch FTX symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch FTX symbols", **RECOVERABLE)
         end
 
         def minimum_order_price(symbol)
@@ -48,7 +48,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch FTX symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch FTX symbol details", **RECOVERABLE)
         end
 
         def quote_decimals(symbol)
@@ -59,7 +59,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch FTX symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch FTX symbol details", **RECOVERABLE)
         end
 
         def symbol(base, quote)
@@ -99,11 +99,11 @@ module ExchangeApi
           url = url_base[0...-1] + path
           headers = get_headers(url, api_keys.key, api_keys.secret, '', path, 'GET', false, nil)
           response = Faraday.get(url, nil, headers).body
-          return Result::Failure.new(["Couldn't fetch subaccounts from FTX", RECOVERABLE]) unless JSON.parse(response)['success']
+          return Result::Failure.new(["Couldn't fetch subaccounts from FTX", **RECOVERABLE]) unless JSON.parse(response)['success']
 
           Result::Success.new(JSON.parse(response)['result'].map { |x| x['nickname'] })
         rescue StandardError
-          Result::Failure.new(["Couldn't fetch subaccounts from FTX", RECOVERABLE])
+          Result::Failure.new(["Couldn't fetch subaccounts from FTX", **RECOVERABLE])
         end
 
         private
@@ -114,7 +114,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
           Result::Success.new(response.fetch('result'))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch chosen symbol from FTX", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch chosen symbol from FTX", **RECOVERABLE)
         end
 
         def get_client(cached = true)
@@ -131,7 +131,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from FTX", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from FTX", **RECOVERABLE)
         end
 
         def get_quote(symbol_info)

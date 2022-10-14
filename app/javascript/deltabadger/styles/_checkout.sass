@@ -10,10 +10,12 @@
   .db--upgrade__hide
     display: none
 .db-plans
+  display: flex
+  gap: 2rem
+  flex-direction: column
   &__item
     padding: 2.4rem 3rem
     background: var(--white)
-    margin-bottom: 1rem
     cursor: pointer
     display: grid
     border-radius: 1.6rem
@@ -23,6 +25,20 @@
       template:
         columns: auto 10rem
         rows: 5rem auto auto
+    &__legendary-badgers-left
+      position: absolute
+      bottom: 3rem
+      left: 3rem
+      color: lighten($success-dark,0%)
+      line-height: 4rem
+      font-weight: 500
+      .progress
+        border-radius: 1rem
+        overflow: hidden
+        background: transparentize(lighten($success-dark,0%), 0.65)
+      .progress-bar
+        background: lighten($success-dark,0%)
+        border-radius: 1rem
     &--saver
       grid:
         template:
@@ -32,6 +48,19 @@
       grid:
         template:
           rows: 8rem auto auto
+    &--legendary_badger
+      padding-bottom: 20rem
+      a
+        color: var(--white)
+      .db-plans__item__info
+        z-index: 2
+      .db_legendary-badger
+        position: absolute
+        bottom: -6rem
+        right: -20rem
+        width: 100%
+        height: 40rem
+        z-index: 1
 
     .badge
       background: var(--planBadge)
@@ -121,11 +150,17 @@
   box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   color: var(--planSelectedTxt)
   cursor: default
-  background: var(--planSelectedBg)
+  background: #183060
   border: .1rem solid var(--planSelectedBorder)
   .badge
     background: var(--planSelectedBadge)
     color: var(--planSelectedTxt)
+  .db-plans__item__legendary-badgers-left
+    color: lighten($success-dark,10%)
+    .progress
+      background: transparentize(lighten($success-dark,10%), 0.65)
+    .progress-bar
+      background: lighten($success-dark,10%)
 .db-plan--other
   box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   background: var(--planBg)
@@ -205,9 +240,9 @@
 #payTab
   background: var(--paperBorder)
   border-radius: 1.6rem 1.6rem 0 0
-  margin: -3.3rem
+  margin: -2.1rem
   margin-bottom: 0
-  border-bottom-color: transparent
+  border-bottom: 0
   a
     color: var(--text)
     text-decoration: none

@@ -11,10 +11,27 @@
   .db-plans__item.db-plans__item--hodler.db-plan-hodler{class: "db-plan--#{hodler_selected ? 'selected' : 'other'}"}
     = render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
 
-- if 'legendary_badger'.in?(upgrade_presenter.available_plans)
-  - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
-  .db-plans__item.db-plans__item--legendary_badger.db-plan-legendary_badger{class: "db-plan--#{legendary_badger_selected ? 'selected' : 'other'}"}
-    = render partial: 'legendary_badger_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:legendary_badger] }
+
+-# - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+-#   - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
+-#   .db-plans__item.db-plans__item--legendary_badger.db-plan-legendary_badger{class: "db-plan--#{legendary_badger_selected ? 'selected' : 'other'}"}
+-#     = render partial: 'legendary_badger_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:legendary_badger] }
+-#     = render partial: 'layouts/svg_bubbleart_01'
+-#     .db-plans__item__legendary-badgers-left
+-#       894
+-#       of
+-#       1000
+-#       left.
+-#       .progress
+-#         .progress-bar(role="progressbar" style="width: 25%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100")
+
+-# .db-plans__item.db-plans__item--discount.db-plan-active-discount
+-#   .db-plans__item__name
+-#     = t('subscriptions.payment.early_bird_discount')
+-#   .db-plans__item__amount
+-#     .db-plans__item__amount__t.db-plans__item__amount__t--discount
+-#       <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-early-bird-discount'>1000</span>
+-#   .db-plans__item__info= t('subscriptions.payment.early_bird_discount_info')
 
 - if upgrade_presenter.current_plan_name == 'investor'
   .db-plans__item.db-plans__item--discount.db-plan-active-discount
@@ -39,9 +56,6 @@
         .db-show--legendary_badger
           <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary_badger-flat-discount-with-vat'>#{cost_presenter[:legendary_badger].flat_discount}</span>
     .db-plans__item__info= t('subscriptions.payment.compensation_hodler', count: current_user.plan_days_left)
-
-
-
 
 - if upgrade_presenter.referrer_discount?
   - discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer)

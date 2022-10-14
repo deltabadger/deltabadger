@@ -25,10 +25,10 @@ module ExchangeApi
           url = @url_base + path
           headers = get_headers(url, @api_key, @api_secret, '', path, 'GET', use_subaccout, selected_subaccount)
           request = Faraday.get(url, nil, headers)
-          return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless success?(request)
+          return Result::Failure.new('Waiting for FTX response', **NOT_FETCHED) unless success?(request)
 
           response = JSON.parse(request.body).fetch('result')
-          return Result::Failure.new('Waiting for FTX response', NOT_FETCHED) unless closed?(response)
+          return Result::Failure.new('Waiting for FTX response', **NOT_FETCHED) unless closed?(response)
 
           # FTX does not return your fund, just closes order
           return error_to_failure(['Not enough balances']) if insufficient_funds?(response)
@@ -62,7 +62,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make FTX order', RECOVERABLE)
+          Result::Failure.new('Could not make FTX order', **RECOVERABLE)
         end
 
         def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)

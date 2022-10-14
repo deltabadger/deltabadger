@@ -187,7 +187,7 @@ de:
             wire_cost_hodler_html: 'Bitte überweisen Sie <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_pending_html: 'Falls Sie die Zahlung noch nicht durchgeführt haben, überweisen Sie <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
         upgrade_plan: 'Plan upgraden'
-        prolong_upgrade: 'Verlängern oder upgraden Sie Ihren Plan'
+        prolong_upgrade: 'Upgraden Sie Ihren Plan'
         maximalist_title: 'Bitcoin-Maximalisten-Rabatt von 50%'
         maximalist_info: 'Wenn Sie nur in Bitcoin bezahlen, zahlen Sie nur die Hälfte des regulären Preises.'
     links:
@@ -523,7 +523,7 @@ de:
                 instructions_6_2_html: '<b>Lesen</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Um das Bot-Limit von %{frequency_limit} Transaktionen pro Minute einzuhalten, wird dein Zeitplan in Aufträgen zu je %{price} %{currency} ausgeführt.'
+                limit_exceeded: 'Um das Bot-Limit von %{frequency_limit} Transaktionen pro Stunde einzuhalten, wird dein Zeitplan in Aufträgen zu je %{price} %{currency} ausgeführt.'
                 back_to_settings: 'Zurück zu Einstellungen'
                 start_the_bot: 'Ändern und beginnen'
         add_new_bot: 'Neuen Bot hinzufügen'

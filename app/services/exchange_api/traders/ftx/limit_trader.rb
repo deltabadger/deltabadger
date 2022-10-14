@@ -83,7 +83,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:size])
           )
         rescue StandardError
-          Result::Failure.new('Could not make FTX order', RECOVERABLE)
+          Result::Failure.new('Could not make FTX order', **RECOVERABLE)
         end
 
         def parse_request(request)

@@ -28,7 +28,7 @@ module ExchangeApi
           end
 
           return error_to_failure([order_data.fetch('reason')]) if canceled?(order_data)
-          return Result::Failure.new('Waiting for Kraken response', NOT_FETCHED) if opened?(order_data)
+          return Result::Failure.new('Waiting for Kraken response', **NOT_FETCHED) if opened?(order_data)
 
           rate = placed_order_rate(order_data)
           amount = order_data.fetch('vol').to_f
@@ -40,7 +40,7 @@ module ExchangeApi
           )
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Kraken order', RECOVERABLE)
+          Result::Failure.new('Could not make Kraken order', **RECOVERABLE)
         end
 
         private
@@ -54,7 +54,7 @@ module ExchangeApi
           Result::Success.new(result)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Kraken order', RECOVERABLE)
+          Result::Failure.new('Could not make Kraken order', **RECOVERABLE)
         end
 
         def parse_response(response)

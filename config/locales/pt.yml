@@ -523,7 +523,7 @@ pt:
                 instructions_6_2_html: '<b>Ler</b>'
                 instructions_6_3_html: '<b>Transações</b>'
             frequency_limit:
-                limit_exceeded: 'Para cumprir o limite de bot de %{frequency_limit} transações por minuto, a sua agenda será executada em ordens de moeda de %{price}%{currency} cada.'
+                limit_exceeded: 'Para cumprir o limite de bot de %{frequency_limit} transações por hora, a sua agenda será executada em ordens de moeda de %{price}%{currency} cada.'
                 back_to_settings: 'Voltar às definições'
                 start_the_bot: 'Modificar e iniciar'
         add_new_bot: 'Adicionar novo bot'

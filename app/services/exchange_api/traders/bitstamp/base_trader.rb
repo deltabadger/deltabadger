@@ -37,7 +37,7 @@ module ExchangeApi
           parse_response(response)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Bitstamp order', RECOVERABLE)
+          Result::Failure.new('Could not make Bitstamp order', **RECOVERABLE)
         end
 
         def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)

@@ -22,7 +22,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Probit symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit symbols", **RECOVERABLE)
         end
 
         def fetch_book(symbol)
@@ -30,17 +30,17 @@ module ExchangeApi
           book_data = symbols.find { |s| s['id'] == symbol }
           Result::Success.new(book_data)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Probit books", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit books", **RECOVERABLE)
         end
 
         def fetch_all_books
           request = @caching_client.get('/api/exchange/v1/market')
           response = JSON.parse(request.body)
-          return Result::Failure.new("Couldn't fetch Probit books", RECOVERABLE) unless request.status == 200
+          return Result::Failure.new("Couldn't fetch Probit books", **RECOVERABLE) unless request.status == 200
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Probit books", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit books", **RECOVERABLE)
         end
 
         def base_decimals(symbol)
@@ -49,7 +49,7 @@ module ExchangeApi
 
           Result::Success.new(response.data['quantity_precision'].to_d)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit symbol details", **RECOVERABLE)
         end
 
         def quote_decimals(symbol)
@@ -58,7 +58,7 @@ module ExchangeApi
 
           Result::Success.new(response.data['cost_precision'].to_d)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit symbol details", **RECOVERABLE)
         end
 
         def rate_decimals(symbol)
@@ -69,7 +69,7 @@ module ExchangeApi
           rate_decimal = characters_after_comma(price_increment)
           Result::Success.new(rate_decimal.to_d)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Probit symbol details", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Probit symbol details", **RECOVERABLE)
         end
 
         def minimum_order_parameters(symbol)
@@ -108,7 +108,7 @@ module ExchangeApi
           ask_array = response['data'].map { |x| x['price'].to_f if x['side'] == 'buy' }.compact
           Result::Success.new(BidAskPrice.new(bid_array.min.to_f, ask_array.max.to_f))
         rescue StandardError
-          Result::Failure.new('Could not fetch current price from Probit', RECOVERABLE)
+          Result::Failure.new('Could not fetch current price from Probit', **RECOVERABLE)
         end
 
         def current_fee

@@ -76,7 +76,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:amount].abs)
           )
         rescue StandardError
-          Result::Failure.new('Could not make Bitfinex order', RECOVERABLE)
+          Result::Failure.new('Could not make Bitfinex order', **RECOVERABLE)
         end
 
         def common_order_params(symbol)

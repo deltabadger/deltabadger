@@ -24,7 +24,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Coinbase symbols", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Coinbase symbols", **RECOVERABLE)
         end
 
         def minimum_order_price(symbol)
@@ -102,7 +102,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
@@ -113,7 +113,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", **RECOVERABLE)
         end
       end
     end
