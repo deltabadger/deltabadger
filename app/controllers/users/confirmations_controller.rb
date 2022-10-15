@@ -6,6 +6,7 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
   def show
     super do
       SendgridMailToList.new.call(@user)
+      ZapierMailToList.new.call(@user)
     end
   end
 end
