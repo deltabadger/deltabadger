@@ -66,6 +66,7 @@ es:
                 email_used: 'Este correo electrónico ya se utiliza.'
                 email_suggestion_html: '¡Correo electrónico no válido! Quizás quisiste decir: <b>%{suggestion}</b>'
                 email_invalid: '¡Correo electrónico no válido!'
+                name_invalid: 'No tiene que ser real :)'
                 submit: 'Empezar ahora'
             edit:
                 awaiting_confirmation: 'Actualmente, esperando confirmación para: %{email}'
@@ -122,6 +123,7 @@ es:
             even: 'debe ser par'
             wrong_password: 'Contraseña incorrecta'
             wrong_email: 'Correo electrónico incorrecto'
+            name_invalid: 'No tiene que ser real :)'
             bad_credentials: 'Correo electrónico o contraseña incorrectos.'
             bad_credentials_with_code: 'Correo electrónico, contraseña o código 2FA incorrectos.'
             wrong_two_fa_token: 'El código indicado es erróneo'
@@ -161,7 +163,7 @@ es:
             wire_transfer_description_html: 'Para pagar con una transferencia bancaria, envía los datos básicos de la factura: <b>nombre</b>, <b>apellidos</b>, <b>dirección física</b>, <b>correo electrónico</b> que se usan en Deltabadge, y el plan que quieres comprar: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Pagar con Bitcoin'
             active_plan_discount: 'Descuento del plan activo'
-            compensation:
+            compensation_investor:
                 one: 'Compensación por 1 día no usado del plan Inversor.'
                 other: 'Compensación por %{count} días no usados del plan Inversor.'
             discount: '%{discount_percent} % de descuento'
@@ -185,7 +187,7 @@ es:
             wire_cost_hodler_html: 'Envía <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> a la siguiente cuenta bancaria:'
             wire_cost_pending_html: 'Si aún no has realizado el pago, envía <b>%{sign}%{price}</b> a la siguiente cuenta bancaria:'
         upgrade_plan: 'Actualizar plan'
-        prolong_upgrade: 'Extiende o mejora tu plan'
+        prolong_upgrade: 'Mejora tu plan'
         maximalist_title: 'Descuento maximalista bitcoin del 50 %'
         maximalist_info: 'Si solo compras bitcoins, pagas la mitad del precio normal.'
     links:
@@ -304,6 +306,8 @@ es:
             title: Configuración
             email_section: 'Actualizar correo electrónico'
             submit_email: 'Actualizar correo electrónico'
+            name_section: 'Actualizar nombre'
+            submit_name: 'Actualizar nombre'
             password_section: 'Actualizar contraseña'
             submit_password: 'Cambiar contraseña'
             api_keys_section: 'Claves API'
@@ -519,7 +523,7 @@ es:
                 instructions_6_2_html: '<b>Lectura</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Para respetar el límite del bot de %{frequency_limit} transacciones por minuto, la programación se ejecutará en pedidos de %{price}%{currency} cada uno.'
+                limit_exceeded: 'Para respetar el límite del bot de %{frequency_limit} transacciones por hora, la programación se ejecutará en pedidos de %{price}%{currency} cada uno.'
                 back_to_settings: 'Volver a la Configuración'
                 start_the_bot: 'Modificar y empezar'
         add_new_bot: 'Añadir nuevo bot'

@@ -66,6 +66,7 @@ en:
                 email_used: 'This email is already used.'
                 email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
                 email_invalid: 'Email invalid!'
+                name_invalid: 'It doesn’t have to be real :)'
                 submit: 'Start now'
             edit:
                 awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
@@ -122,6 +123,7 @@ en:
             even: 'must be even'
             wrong_password: 'Wrong password'
             wrong_email: 'Wrong email.'
+            name_invalid: 'It doesn’t have to be real :)'
             bad_credentials: 'Wrong email or password.'
             bad_credentials_with_code: 'Wrong email, password, or 2FA code.'
             wrong_two_fa_token: 'Supplied code is wrong.'
@@ -150,10 +152,13 @@ en:
         saver: Saver
         investor: Investor
         hodler: Hodler
-        investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b> (soon).'
-        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b> (soon), <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">automatic staking</b>(soon). This plan supports the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
+        legendary_badger: Legendary Badger NFT
+        investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b>.'
+        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">automatic staking</b>(soon). This plan supports the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
+        legendary_badger_description_html: '<p>All the features of the Hodler plan, but for <b class="badge badge-btc">lifetime</b>. Because it''s <b class="badge badge-btc">NFT</b>, you can <b class="badge badge-btc">transfer</b> it between accounts, or <b class="badge badge-btc">sell</b>s on decentraized marketplaces like Opensea. Each token has a unique <b class="badge badge-btc">procedural artwork</b>. Among them there are hidden 21 manually crafted "easter eggs" for lucky buyers.</p><p>The token will be distributed very soon.</p>'
         plan_1_year: '1-year plan'
         plan_4_year: '4-year plan'
+        plan_life_time: 'Lifetime Plan'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         payment:
             billing_information: 'Billing information'
@@ -164,10 +169,15 @@ en:
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay: 'Pay'
             active_plan_discount: 'Active plan discount'
-            compensation:
+            compensation_investor:
                 one: 'Compensation for 1 unused day of the Investor plan.'
                 other: 'Compensation for %{count} unused days of the Investor plan.'
+            compensation_hodler:
+                one: 'Compensation for 1 unused day of the Hodler plan.'
+                other: 'Compensation for %{count} unused days of the Hodler plan.'
             discount: '%{discount_percent}% discount'
+            early_bird_discount: "Early Bird discount"
+            early_bird_discount_info: "With every sale the discount decreases $1. Don't wait!"
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             you_pay: 'You pay'
             payment_ordered: 'Payment ordered!'
@@ -186,10 +196,11 @@ en:
             paid_with_wire_transfer_other: 'I made wire transfer'
             wire_cost_investor_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> to the following bank account:'
             wire_cost_hodler_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
+            wire_cost_legendary_badger_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
             wire_cost_pending_html: 'If you didn’t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
             server_error: 'payments server error. try again later'
         upgrade_plan: 'Upgrade plan'
-        prolong_upgrade: 'Prolong or upgrade your plan'
+        prolong_upgrade: 'Upgrade your plan'
         maximalist_title: 'Bitcoin Maximalist discount 50%'
         maximalist_info: 'If you buy only Bitcoin, you pay half of the regular price.'
     links:
@@ -306,9 +317,11 @@ en:
     settings:
         index:
             title: Settings
-            email_section: 'Update email'
+            email_section: 'Email'
             submit_email: 'Update email'
-            password_section: 'Update password'
+            name_section: 'Name'
+            submit_name: 'Update name'
+            password_section: 'Password'
             submit_password: 'Change password'
             api_keys_section: 'API keys'
             api_key_confirmation: 'Are you sure?'
@@ -561,7 +574,7 @@ en:
                     instructions_10_html: 'Press <b>Schedule for whitelisting</b>.'
                     instructions_11_html: "Adding address to whitelist has at least one day delay on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard."
             frequency_limit:
-                limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per minute, your schedule will be executed in orders of %{price}%{currency} each.'
+                limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per hour, your schedule will be executed in orders of %{price}%{currency} each.'
                 back_to_settings: 'Back to settings'
                 start_the_bot: 'Modify and start'
             withdrawal_html: 'Withdraw <split>%{currency}</split> to <split>%{address}</split> wallet.'

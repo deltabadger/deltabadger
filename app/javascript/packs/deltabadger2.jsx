@@ -31,11 +31,12 @@ if (document.getElementById('dashboard')) {
   const node = document.getElementById('current_user_subscription')
   const data = node.getAttribute('data')
   const isHodler = data === 'hodler'
+  const isLegendaryBadger = data === 'legendary_badger'
 
   document.addEventListener('DOMContentLoaded', () => {
     ReactDOM.render(
       <Provider store={store}>
-        <Dashboard isHodler={isHodler} />
+        <Dashboard isHodler={isHodler} isLegendaryBadger={isLegendaryBadger} />
       </Provider>,
       document.getElementById('dashboard')
     )

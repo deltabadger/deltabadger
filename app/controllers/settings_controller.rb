@@ -47,6 +47,20 @@ class SettingsController < ApplicationController
     end
   end
 
+  def update_name
+    user = current_user
+    if user.update(update_name_params)
+      bypass_sign_in(user)
+      redirect_to settings_path
+    else
+      render :index, locals: {
+        user: current_user,
+        trading_api_keys: current_user.trading_api_keys,
+        withdrawal_api_keys: current_user.withdrawal_api_keys
+      }
+    end
+  end
+
   def remove_api_key
     user = current_user
     api_key = user.api_keys.find(params[:id])
@@ -109,5 +123,9 @@ class SettingsController < ApplicationController
 
   def update_email_params
     params.require(:user).permit(:email, :current_password)
+  end
+
+  def update_name_params
+    params.require(:user).permit(:name)
   end
 end

@@ -66,6 +66,7 @@ de:
                 email_used: 'Diese E-Mail wird bereits genutzt.'
                 email_suggestion_html: 'E-Mail ungültig! Meintest du <b>%{suggestion}</b>'
                 email_invalid: 'E-Mail ungültig!'
+                name_invalid: 'Es muss nicht echt sein :)'
                 submit: 'Starte jetzt'
             edit:
                 awaiting_confirmation: 'Aktuell warten wir auf die Bestätigung von: %{email}'
@@ -122,6 +123,7 @@ de:
             even: 'muss gerade sein'
             wrong_password: 'Falsches Passwort'
             wrong_email: 'Falsche E-Mail.'
+            name_invalid: 'Es muss nicht echt sein :)'
             bad_credentials: 'Falsche E-Mail oder falsches Passwort.'
             bad_credentials_with_code: 'Falsche E-Mail, falsches Passwort oder falscher 2FA-Code.'
             wrong_two_fa_token: 'Angegebener Code ist falsch.'
@@ -161,7 +163,7 @@ de:
             wire_transfer_description_html: 'Um per Überweisung zu bezahlen, sende uns die Details für die Rechnung mit <b>Name</b>, <b>Nachname</b>, <b>Adresse</b>, <b>E-Mail</b>, die du bei Deltabadger verwendest, und teile uns den Plan mit, den du kaufen möchtest, an <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             active_plan_discount: 'Rabatt für Pläne aktiv'
-            compensation:
+            compensation_investor:
                 one: 'Entschädigung für 1 ungenutzten Tag des Plans Investor.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Plans Investor'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
@@ -185,7 +187,7 @@ de:
             wire_cost_hodler_html: 'Bitte überweisen Sie <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_pending_html: 'Falls Sie die Zahlung noch nicht durchgeführt haben, überweisen Sie <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
         upgrade_plan: 'Plan upgraden'
-        prolong_upgrade: 'Verlängern oder upgraden Sie Ihren Plan'
+        prolong_upgrade: 'Upgraden Sie Ihren Plan'
         maximalist_title: 'Bitcoin-Maximalisten-Rabatt von 50%'
         maximalist_info: 'Wenn Sie nur in Bitcoin bezahlen, zahlen Sie nur die Hälfte des regulären Preises.'
     links:
@@ -304,6 +306,8 @@ de:
             title: Einstellungen
             email_section: 'E-Mail aktualisieren'
             submit_email: 'E-Mail aktualisieren'
+            name_section: 'Namen aktualisieren'
+            submit_name: 'Namen aktualisieren'
             password_section: 'Passwort aktualisieren'
             submit_password: 'Passwort ändern'
             api_keys_section: API-Schlüssel
@@ -519,7 +523,7 @@ de:
                 instructions_6_2_html: '<b>Lesen</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Um das Bot-Limit von %{frequency_limit} Transaktionen pro Minute einzuhalten, wird dein Zeitplan in Aufträgen zu je %{price} %{currency} ausgeführt.'
+                limit_exceeded: 'Um das Bot-Limit von %{frequency_limit} Transaktionen pro Stunde einzuhalten, wird dein Zeitplan in Aufträgen zu je %{price} %{currency} ausgeführt.'
                 back_to_settings: 'Zurück zu Einstellungen'
                 start_the_bot: 'Ändern und beginnen'
         add_new_bot: 'Neuen Bot hinzufügen'
