@@ -1,0 +1,12 @@
+%h4.db-modal__subtitle #{t('settings.index.name_section')}
+= form_for(user, url: settings_update_name_path) do |f|
+
+  .db-form__row.db-form__row--input
+    = f.text_field :name, class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
+    .db-form__info.db-form__info--invalid
+      = t('errors.messages.name_invalid')
+    = f.label :name, class: "db-form__label"
+
+  .form-group.db-form-group--main-btn
+    = f.submit t('settings.index.submit_name'), class: "btn btn-lg btn-primary"
+

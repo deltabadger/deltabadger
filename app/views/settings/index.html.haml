@@ -3,6 +3,8 @@
     %h2= t('.title')
   .col-md-6
     .db-box.mb-3
+      = render partial: 'update_name_form', locals: { user: user }
+    .db-box.mb-3
       = render partial: 'update_email_form', locals: { user: user }
     .db-box.mb-3
       = render partial: 'update_password_form', locals: { user: user }

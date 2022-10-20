@@ -5,12 +5,12 @@ class SendgridMailToList < BaseService
   LIST_NAME = ENV.fetch('SENDGRID_NEW_USERS_LIST').freeze
 
 
-  def call(email)
+  def call(user)
     if list_ids.present?
-      add_email_to_list(email)
+      add_email_to_list(user)
     else
       new_list_id = create_list_id
-      add_email_to_list(email, [new_list_id])
+      add_email_to_list(user, [new_list_id])
     end
   rescue StandardError => e
     Raven.capture_exception(e)
@@ -38,8 +38,8 @@ class SendgridMailToList < BaseService
     body.fetch('id')
   end
 
-  def add_email_to_list(email, email_list_ids = list_ids)
-    response = Faraday.put(CONTACTS_URL, add_email_request_body(email, email_list_ids).to_json, headers)
+  def add_email_to_list(user, email_list_ids = list_ids)
+    response = Faraday.put(CONTACTS_URL, add_email_request_body(user.email, user.name, email_list_ids).to_json, headers)
     body = JSON.parse(response.body)
 
     raise StandardError, body["errors"] unless response.status == 202
@@ -63,11 +63,14 @@ class SendgridMailToList < BaseService
     }
   end
 
-  def add_email_request_body(email, email_list_ids)
+  def add_email_request_body(email, name, email_list_ids)
     {
         'list_ids' => email_list_ids,
         'contacts' => [
-            {'email' => email}
+            {
+                'email' => email,
+                'name' => name
+            }
         ]
     }
   end

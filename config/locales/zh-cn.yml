@@ -65,6 +65,7 @@ zh-cn:
                 email_used: 此电子邮件已被使用。
                 email_suggestion_html: '电子邮件无效！您是指 <b>%{suggestion}</b> 吗？'
                 email_invalid: 电子邮件无效！
+                name_invalid: '它不一定是真实的:)'
                 submit: 立即开始
             edit:
                 awaiting_confirmation: '当前正在等待 %{email} 的确认'
@@ -117,6 +118,7 @@ zh-cn:
             even: 必须为偶数
             wrong_password: 错误的密码
             wrong_email: 错误的电子邮件。
+            name_invalid: '它不一定是真实的:)'
             bad_credentials: 错误的电子邮件或密码。
             bad_credentials_with_code: '错误的电子邮件、密码或 2FA 代码。'
             wrong_two_fa_token: 提供的代码是错误的。
@@ -153,7 +155,7 @@ zh-cn:
             wire_transfer_description_html: '要电汇支付，请发送发票的基本信息：<b>名字</b>、<b>姓氏</b>、<b>物理地址</b>、在 Deltabadger 使用的<b>电子邮件</b>，以及您想购买的套餐：<a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>。'
             pay_with_bitcoin: 使用比特币支付
             active_plan_discount: 有效套餐折扣
-            compensation:
+            compensation_investor:
                 other: '对投资者套餐中未使用的 %{count} 天的补偿。'
             discount: '%{discount_percent}% 的折扣'
             referral_discount_html: '多亏来自 <b><a href="%{visible_link}">%{visible_name}</a></b> 的转介绍链接，您在平台上首次购买时可获得折扣。'
@@ -294,6 +296,8 @@ zh-cn:
             title: 设置
             email_section: 更新电子邮件
             submit_email: 更新电子邮件
+            name_section: '更新名称'
+            submit_name: '更新名称'
             password_section: 更新密码
             submit_password: 更改密码
             api_keys_section: 'API 密钥'
@@ -509,7 +513,7 @@ zh-cn:
                 instructions_6_2_html: '<b>阅读</b>'
                 instructions_6_3_html: '<b>正在交易</b>'
             frequency_limit:
-                limit_exceeded: '要满足每分钟 %{frequency_limit} 个交易的机器人限制，您的安排将按各自 %{price}%{currency} 的单独订单执行。'
+                limit_exceeded: '要满足每小时 %{frequency_limit} 个交易的机器人限制，您的安排将按各自 %{price}%{currency} 的单独订单执行。'
                 back_to_settings: 返回设置
                 start_the_bot: 修订并开始
         add_new_bot: 添加新的机器人

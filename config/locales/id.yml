@@ -65,6 +65,7 @@ id:
                 email_used: 'Email ini sudah digunakan.'
                 email_suggestion_html: 'Email tidak valid! Maksud Anda: <b>%{suggestion}</b>'
                 email_invalid: 'Email tidak valid!'
+                name_invalid: 'Tidak harus nyata :)'
                 submit: 'Mulai sekarang'
             edit:
                 awaiting_confirmation: 'Saat ini, menunggu konfirmasi untuk: %{email}'
@@ -117,6 +118,7 @@ id:
             even: 'harus genap'
             wrong_password: 'Kata sandi salah'
             wrong_email: 'Email salah.'
+            name_invalid: 'Tidak harus nyata :)'
             bad_credentials: 'Email atau kata sandi salah.'
             bad_credentials_with_code: 'Email, kata sandi, atau kode 2FA salah.'
             wrong_two_fa_token: 'Kode yang diberikan salah.'
@@ -153,7 +155,7 @@ id:
             wire_transfer_description_html: 'Untuk membayar dengan transfer bank, kirim info utama untuk invois: <b>nama</b>, <b>nama belakang</b>, <b>alamat rumah</b>, <b>email</b> yang digunakan di Deltabadger, dan paket yang ingin Anda beli ke: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Bayar dengan Bitcoin'
             active_plan_discount: 'Diskon paket aktif'
-            compensation:
+            compensation_investor:
                 other: 'Kompensasi atas %{count} hari yang tidak digunakan dari paket Investor.'
             discount: 'Diskon %{discount_percent}%'
             referral_discount_html: 'Berkat tautan referral dari <b><a href="%{visible_link}">%{visible_name}</a></b>, Anda mendapatkan diskon untuk pembelian pertama di platform.'
@@ -294,6 +296,8 @@ id:
             title: Pengaturan
             email_section: 'Perbarui email'
             submit_email: 'Perbarui email'
+            name_section: 'Perbarui nama'
+            submit_name: 'Perbarui nama'
             password_section: 'Perbarui kata sandi'
             submit_password: 'Ubah kata sandi'
             api_keys_section: 'Kunci API'
@@ -509,7 +513,7 @@ id:
                 instructions_6_2_html: '<b>Membaca</b>'
                 instructions_6_3_html: '<b>Trading</b>'
             frequency_limit:
-                limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per menit dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
+                limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per jam dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
                 back_to_settings: 'Kembali ke pengaturan'
                 start_the_bot: 'Ubah dan mulai'
         add_new_bot: 'Tambah bot baru'

@@ -65,6 +65,7 @@ vi:
                 email_used: 'Email này đã được sử dụng'
                 email_suggestion_html: 'Email không hợp lệ! Có phải ý bạn là: <b>%{suggestion}</b>'
                 email_invalid: 'Email không hợp lệ!'
+                name_invalid: 'Nó không nhất thiết phải có thật :)'
                 submit: 'Bắt đầu ngay bây giờ'
             edit:
                 awaiting_confirmation: 'Hiện đang chờ xác nhận đối với: %{email}'
@@ -117,6 +118,7 @@ vi:
             even: 'phải là số chẵn'
             wrong_password: 'Mật khẩu không chính xác'
             wrong_email: 'Email không chính xác.'
+            name_invalid: 'Nó không nhất thiết phải có thật :)'
             bad_credentials: 'Email hoặc mật khẩu không chính xác.'
             bad_credentials_with_code: 'Email, mật khẩu hoặc mã xác thực hai yếu tố không chính xác.'
             wrong_two_fa_token: 'Mã được cung cấp không chính xác.'
@@ -153,7 +155,7 @@ vi:
             wire_transfer_description_html: 'Để thanh toán bằng chuyển khoản ngân hàng, vui lòng gửi thông tin cơ bản để lập hóa đơn: <b>tên</b>, <b>họ</b>, <b>địa chỉ</b>, <b>email</b> sử dụng tại Deltabadger, và gói bạn dự định mua tới địa chỉ: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Trả bằng Bitcoin'
             active_plan_discount: 'Chiết khấu dành cho gói đang hoạt động'
-            compensation:
+            compensation_investor:
                 other: 'Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Investor.'
             discount: 'Chiết khấu %{discount_percent}%'
             referral_discount_html: 'Nhờ có liên kết giới thiệu từ <b><a href="%{visible_link}">%{visible_name}</a></b>, bạn sẽ nhận được chiết khấu cho lần mua hàng đầu tiên trên nền tảng.'
@@ -294,6 +296,8 @@ vi:
             title: 'Cài đặt'
             email_section: 'Cập nhật email'
             submit_email: 'Cập nhật email'
+            name_section: 'Cập nhật tên'
+            submit_name: 'Cập nhật tên'
             password_section: 'Cập nhật mật khẩu'
             submit_password: 'Thay đổi mật khẩu'
             api_keys_section: 'Khóa API'
@@ -509,7 +513,7 @@ vi:
                 instructions_6_2_html: '<b>Đọc</b>'
                 instructions_6_3_html: '<b>Giao dịch</b>'
             frequency_limit:
-                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch mỗi phút, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
+                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch hàng giờ, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
                 back_to_settings: 'Trở lại cài đặt'
                 start_the_bot: 'Chỉnh sửa và bắt đầu'
         add_new_bot: 'Thêm bot mới'

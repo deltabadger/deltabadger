@@ -103,6 +103,8 @@ class UpgradeController < ApplicationController
     plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
     cost_presenter = if plan == 'hodler'
                        wire_params[:cost_presenters][wire_params[:country]][:hodler]
+                     elsif plan == 'legendary_badger'
+                       wire_params[:cost_presenters][wire_params[:country]][:legendary_badger]
                      else
                        wire_params[:cost_presenters][wire_params[:country]][:investor]
                      end
@@ -156,6 +158,8 @@ class UpgradeController < ApplicationController
     plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
     if plan == 'hodler'
       subscription_params[:cost_presenters][payment_metadata['country']][:hodler]
+    elsif plan == 'legendary_badger'
+      subscription_params[:cost_presenters][payment_metadata['country']][:legendary_badger]
     else
       subscription_params[:cost_presenters][payment_metadata['country']][:investor]
     end
@@ -186,7 +190,14 @@ class UpgradeController < ApplicationController
   end
 
   def new_payment
-    subscription_plan_id = current_plan.id != saver_plan.id ? hodler_plan.id : investor_plan.id
+    subscription_plan_id = if current_plan.id == hodler_plan.id
+      legendary_badger_plan.id
+    elsif current_plan.id == investor_plan.id
+      hodler_plan.id
+    else
+      investor_plan.id
+    end
+
     Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
   end
 
@@ -197,11 +208,12 @@ class UpgradeController < ApplicationController
       referrer: referrer,
       current_plan: current_plan,
       investor_plan: investor_plan,
-      hodler_plan: hodler_plan
-    }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan))
+      hodler_plan: hodler_plan,
+      legendary_badger_plan: legendary_badger_plan
+    }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan))
   end
 
-  def cost_calculators(referrer, current_plan, investor_plan, hodler_plan)
+  def cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan)
     discount = referrer&.discount_percent || 0
 
     factory = Payments::CostCalculatorFactory.new
@@ -209,7 +221,7 @@ class UpgradeController < ApplicationController
 
     build_presenter = ->(args) { presenter.new(factory.call(**args)) }
 
-    plans = { investor: investor_plan, hodler: hodler_plan }
+    plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
     cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,
@@ -261,5 +273,9 @@ class UpgradeController < ApplicationController
 
   def hodler_plan
     @hodler_plan ||= subscription_plan_repository.hodler
+  end
+
+  def legendary_badger_plan
+    @legendary_badger_plan ||= subscription_plan_repository.legendary_badger
   end
 end

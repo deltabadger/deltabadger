@@ -4,13 +4,10 @@
 
 .alert {
   position: relative;
-  padding: 2rem 2.5rem 2.4rem;
-  margin-bottom: 1.6rem;
+  padding: $alert-padding-y $alert-padding-x;
+  margin-bottom: $alert-margin-bottom;
   border: $alert-border-width solid transparent;
   @include border-radius($alert-border-radius);
-  .close {
-    font-size: 2rem
-  }
 }
 
 // Headings for larger alerts
@@ -37,6 +34,7 @@
     position: absolute;
     top: 0;
     right: 0;
+    z-index: 2;
     padding: $alert-padding-y $alert-padding-x;
     color: inherit;
   }

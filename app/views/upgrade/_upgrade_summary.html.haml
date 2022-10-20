@@ -10,6 +10,9 @@
       - if 'hodler'.in?(upgrade_presenter.available_plans)
         %span.db-show--hodler
           <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-vat'>#{cost_presenter[:hodler].total_vat}</span>
+      - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+        %span.db-show--legendary_badger
+          <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='legendary_badger-total-vat'>#{cost_presenter[:legendary_badger].total_vat}</span>
   .db-checkout-summary__item.db-checkout-summary__item--sum
     .db-checkout-summary__item__info= t('subscriptions.payment.you_pay')
     .db-checkout-summary__item__quote
@@ -20,3 +23,7 @@
       - if 'hodler'.in?(upgrade_presenter.available_plans)
         %span.db-show--hodler
           = render partial: 'upgrade_summary_plan', locals: { plan: 'hodler', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] }
+
+      - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
+        %span.db-show--legendary_badger
+          = render partial: 'upgrade_summary_plan', locals: { plan: 'legendary_badger', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:legendary_badger] }

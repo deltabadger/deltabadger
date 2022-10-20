@@ -20,9 +20,16 @@
           - if @code_present
             = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
+          .db-form__row.db-form__row--input
+            = f.text_field :name, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+
+            .db-form__info.db-form__info--invalid
+              -if @name_invalid
+                = t('.name_invalid')
+            = f.label :name, class: "db-form__label"
 
           .db-form__row.db-form__row--input
-            = f.email_field :email, autofocus: true, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            = f.email_field :email, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
 
             .db-form__info.db-form__info--invalid
               -if @email_in_use
@@ -33,7 +40,6 @@
               -else
                 = t('.email_invalid')
             = f.label :email, class: "db-form__label"
-
 
           .db-form__row.db-has-unmask(onselectstart="return false;")
             = f.password_field :password, autocomplete: "new-password", value: "", class: "db-form__input db-form__input--has-icon", onchange: 'this.setAttribute("value", this.value);', id: "passwordInput"

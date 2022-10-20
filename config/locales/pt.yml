@@ -66,6 +66,7 @@ pt:
                 email_used: 'Este e-mail já está a ser utilizado.'
                 email_suggestion_html: 'E-mail inválido! Queria dizer: <b>%{suggestion}</b>?'
                 email_invalid: 'E-mail inválido!'
+                name_invalid: 'Não precisa ser real :)'
                 submit: 'Começar agora'
             edit:
                 awaiting_confirmation: 'Atualmente, a aguardar confirmação para: %{email}'
@@ -122,6 +123,7 @@ pt:
             even: 'tem de ser igual a'
             wrong_password: 'Palavra-passe errada'
             wrong_email: 'Email errado.'
+            name_invalid: 'Não precisa ser real :)'
             bad_credentials: 'Email ou palavra-passe errada.'
             bad_credentials_with_code: 'Email, palavra-passe ou 2FA errado.'
             wrong_two_fa_token: 'O código fornecido está errado.'
@@ -161,7 +163,7 @@ pt:
             wire_transfer_description_html: 'Para pagar por transferência bancária, envie a informação necessária para a fatura: <b>primeiro nome</b>, <b>último nome</b>, <b>endereço físico</b>, <b>e-mail</b> utilizado na Deltabadger, bem como o plano que pretende comprar: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Pagar com Bitcoin'
             active_plan_discount: 'Desconto do plano ativo'
-            compensation:
+            compensation_investor:
                 one: 'Compensação de 1 dia não utilizado do plano Investor.'
                 other: 'Compensação de %{count} dias não utilizados no plano Investor.'
             discount: '%{discount_percent}% de desconto'
@@ -304,6 +306,8 @@ pt:
             title: Definições
             email_section: 'Atualizar e-mail'
             submit_email: 'Atualizar e-mail'
+            name_section: 'Atualizar nome'
+            submit_name: 'Atualizar nome'
             password_section: 'Atualizar palavra-passe'
             submit_password: 'Alterar palavra-passe'
             api_keys_section: 'Chaves de API'
@@ -519,7 +523,7 @@ pt:
                 instructions_6_2_html: '<b>Ler</b>'
                 instructions_6_3_html: '<b>Transações</b>'
             frequency_limit:
-                limit_exceeded: 'Para cumprir o limite de bot de %{frequency_limit} transações por minuto, a sua agenda será executada em ordens de moeda de %{price}%{currency} cada.'
+                limit_exceeded: 'Para cumprir o limite de bot de %{frequency_limit} transações por hora, a sua agenda será executada em ordens de moeda de %{price}%{currency} cada.'
                 back_to_settings: 'Voltar às definições'
                 start_the_bot: 'Modificar e iniciar'
         add_new_bot: 'Adicionar novo bot'

@@ -17,6 +17,7 @@ let apiKeyTimeout;
 
 const DashboardTemplate = ({
   isHodler,
+  isLegendaryBadger,
   bots = [],
   numberOfPages = 0,
   errors = {},
@@ -59,7 +60,7 @@ const DashboardTemplate = ({
     if(b.bot_type === 'free') {
       botsToRender.push(
         <TradingBot
-          showLimitOrders={isHodler}
+          showLimitOrders={isHodler || isLegendaryBadger}
           key={`${b.id}-${b.id == currentBot}`}
           bot={b}
           open={currentBot && (b.id == currentBot.id)}
@@ -73,7 +74,7 @@ const DashboardTemplate = ({
     } else {
       botsToRender.push(
         <WithdrawalBot
-          showLimitOrders={isHodler}
+          showLimitOrders={isHodler || isLegendaryBadger}
           key={`${b.id}-${b.id == currentBot}`}
           bot={b}
           open={currentBot && (b.id == currentBot.id)}
@@ -97,6 +98,7 @@ const DashboardTemplate = ({
     <div className="db-bots">
       <BotForm
         isHodler={isHodler}
+        isLegendaryBadger={isLegendaryBadger}
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {

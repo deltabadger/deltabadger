@@ -21,21 +21,21 @@ $spinnerColor: darken(#e9ecef,3%);
 }
 
 @keyframes colors {
-	0% { stroke: $spinnerColor; }
-	25% { stroke: $spinnerColor; }
-	50% { stroke: $spinnerColor; }
-	75% { stroke: $spinnerColor; }
+  0% { stroke: $spinnerColor; }
+  25% { stroke: $spinnerColor; }
+  50% { stroke: $spinnerColor; }
+  75% { stroke: $spinnerColor; }
   100% { stroke: $spinnerColor; }
 }
 
 @keyframes dash {
- 0% { stroke-dashoffset: $offset; }
- 50% {
-   stroke-dashoffset: $offset/4;
-   transform:rotate(135deg);
- }
- 100% {
-   stroke-dashoffset: $offset;
-   transform:rotate(450deg);
- }
+  0% { stroke-dashoffset: $offset; }
+  50% {
+    stroke-dashoffset: $offset*0.25;
+    transform:rotate(135deg);
+  }
+  100% {
+    stroke-dashoffset: $offset;
+    transform:rotate(450deg);
+  }
 }
