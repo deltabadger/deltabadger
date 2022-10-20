@@ -32,6 +32,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
       user.update(referrer_id: affiliate.id) if affiliate.present?
 
+      check_name_format
       set_email_in_use
       set_email_suggestion
     end
@@ -45,6 +46,14 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def set_email_in_use
     @email_in_use = I18n.t('devise.registrations.new.email_used') if User.where(email: @user.email).exists?
+  end
+
+  def check_name_format
+    @name_invalid = I18n.t('devise.registrations.new.name_invalid') if name_invalid?
+  end
+
+  def name_invalid?
+    @user.name_invalid?
   end
 
   def set_email_suggestion

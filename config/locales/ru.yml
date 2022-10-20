@@ -68,6 +68,7 @@ ru:
                 email_used: 'Этот электронный адрес уже используется.'
                 email_suggestion_html: 'Электронная почта недействительна! Вы имели в виду: <b>%{suggestion}</b>'
                 email_invalid: 'Электронная почта недействительна!'
+                name_invalid: 'Это не должно быть правдой :)'
                 submit: 'Начать сейчас'
             edit:
                 awaiting_confirmation: 'В настоящее время ожидает подтверждения для: %{email}'
@@ -132,6 +133,7 @@ ru:
             even: 'должно быть четным'
             wrong_password: 'Неправильный пароль'
             wrong_email: 'Неправильный адрес электронной почты'
+            name_invalid: 'Это не должно быть правдой :)'
             bad_credentials: 'Неправильный адрес электронной почты или пароль.'
             bad_credentials_with_code: 'Неверный адрес электронной почты, пароль или код 2FA.'
             wrong_two_fa_token: 'Предоставленный код неверный'
@@ -173,7 +175,7 @@ ru:
             wire_transfer_description_html: 'Для оплаты безналичным переводом отправьте основную информацию для счета: <b>имя</b>, <b>фамилия</b>, <b>физический адрес</b>, <b>электронная почта</b>, которые используются в Deltabadger, и план, который вы хотите купить: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Оплатить биткоинами'
             active_plan_discount: 'Скидка на активный план'
-            compensation:
+            compensation_investor:
                 one: 'Компенсация за 1 неиспользованный день плана Инвестора.'
                 few: 'Компенсация за %{count}  неиспользованных дня плана Инвестора.'
                 many: 'Компенсация за %{count}  неиспользованных дней плана Инвестора.'
@@ -318,6 +320,8 @@ ru:
             title: Настройки
             email_section: 'Обновить электронную почту'
             submit_email: 'Обновить электронную почту'
+            name_section: 'Обновить имя'
+            submit_name: 'Обновить имя'
             password_section: 'Обновите пароль'
             submit_password: 'Изменить пароль'
             api_keys_section: 'Ключи API'
@@ -533,7 +537,7 @@ ru:
                 instructions_6_2_html: '<b>Чтение</b>'
                 instructions_6_3_html: '<b>Торговля</b>'
             frequency_limit:
-                limit_exceeded: 'Чтобы выполнить ограничение бота на %{frequency_limit} транзакций в минуту, ваше расписание будет выполняться ордерами по %{price}%{currency} каждый.'
+                limit_exceeded: 'Чтобы выполнить ограничение бота на %{frequency_limit} транзакций в час, ваше расписание будет выполняться ордерами по %{price}%{currency} каждый.'
                 back_to_settings: 'Вернуться в настройки'
                 start_the_bot: 'Изменить и начать'
         add_new_bot: 'Добавить новый бот'
