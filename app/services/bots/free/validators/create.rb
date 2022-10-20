@@ -26,7 +26,7 @@ module Bots::Free::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :free_plan_symbols,
-                  :hodler, :force_smart_intervals, :smart_intervals_value, :exchange_name,
+                  :hodler, :legendary_badger, :force_smart_intervals, :smart_intervals_value, :exchange_name,
                   :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
       INTERVALS = %w[month week day hour].freeze
@@ -49,10 +49,10 @@ module Bots::Free::Validators
         smaller_than: 100
       }
       validates :use_subaccount, inclusion: { in: [true, false, nil] }
-      validate :hodler_if_limit_order
+      validate :hodler_or_legendary_badger_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
-      validate :hodler_if_price_range
+      validate :hodler_or_legendary_badger_if_price_range
       validate :validate_price_range
       validate :validate_use_subaccount
       validate :validate_subaccount_name
@@ -73,7 +73,8 @@ module Bots::Free::Validators
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
-        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor'
+        @legendary_badger = user.subscription_name == 'legendary_badger'
+        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor' || user.subscription_name == 'legendary_badger'
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
         @use_subaccount = params['use_subaccount']
         @selected_subaccount = params['selected_subaccount']
@@ -97,10 +98,10 @@ module Bots::Free::Validators
         errors.add(:symbol, "#{symbol} is not supported in your subscription")
       end
 
-      def hodler_if_limit_order
-        return if hodler || order_type == 'market'
+      def hodler_or_legendary_badger_if_limit_order
+        return if hodler || legendary_badger || order_type == 'market'
 
-        errors.add(:base, 'Limit orders are an hodler-only functionality')
+        errors.add(:base, 'Limit orders are an hodler and legendary_badger only functionality')
       end
 
       def percentage_if_limit_order
@@ -139,10 +140,10 @@ module Bots::Free::Validators
         order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
       end
 
-      def hodler_if_price_range
-        return if hodler || !@price_range_enabled
+      def hodler_or_legendary_badger_if_price_range
+        return if hodler || legendary_badger || !@price_range_enabled
 
-        errors.add(:base, 'Price range is an hodler-only functionality')
+        errors.add(:base, 'Price range is a hodler and legendary badger only functionality')
       end
 
       def validate_use_subaccount
