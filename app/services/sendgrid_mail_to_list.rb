@@ -69,7 +69,7 @@ class SendgridMailToList < BaseService
         'contacts' => [
             {
                 'email' => email,
-                'name' => name
+                'first_name' => name
             }
         ]
     }
