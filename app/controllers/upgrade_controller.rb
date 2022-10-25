@@ -3,6 +3,7 @@ class UpgradeController < ApplicationController
   protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
+  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def index
     render :index, locals: default_locals.merge(
@@ -209,7 +210,11 @@ class UpgradeController < ApplicationController
       current_plan: current_plan,
       investor_plan: investor_plan,
       hodler_plan: hodler_plan,
-      legendary_badger_plan: legendary_badger_plan
+      legendary_badger_plan: legendary_badger_plan,
+      initial_early_birds_count: initial_early_birds_count,
+      purchased_early_birds_count: purchased_early_birds_count,
+      purchased_early_birds_percent: purchased_early_birds_percent,
+      allowable_early_birds_count: allowable_early_birds_count
     }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan))
   end
 
@@ -253,6 +258,22 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(:subscription_plan_id, :first_name, :last_name, :country)
       .merge(user: current_user)
+  end
+
+  def initial_early_birds_count
+    @initial_early_birds_count ||= EARLY_BIRD_DISCOUNT_INITIAL_VALUE
+  end
+
+  def purchased_early_birds_count
+    @purchased_early_birds_count ||= SubscriptionsRepository.new.all_current_count('legendary_badger')
+  end
+
+  def purchased_early_birds_percent
+    @purchased_early_birds_percent ||= purchased_early_birds_count*100/initial_early_birds_count
+  end
+
+  def allowable_early_birds_count
+    @allowable_early_birds_count ||= initial_early_birds_count - purchased_early_birds_count
   end
 
   def subscription_plan_repository
