@@ -48,10 +48,6 @@ module Presenters
         format_price(cost_calculator.total_price)
       end
 
-      def early_bird_discount
-        format_price(cost_calculator.early_bird_discount)
-      end
-
       private
 
       def format_price(price)
