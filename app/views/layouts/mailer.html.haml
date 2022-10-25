@@ -2,10 +2,13 @@
 %html
   %head
     %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
-  %body
-    %div{ :style => ""}
+    :css
+      @import url('https://fonts.googleapis.com/css?family=Montserrat&display=swap');
 
-      %img{:alt => "🦡", :border => "0", :height => "20", :style => "height: 20px; font-size: 2em; display: block; line-height: 20px; margin-bottom: 0.75em;", :referrerpolicy => "no-referrer", :src => "https://deltabadger.com/logo160c.png"}
+  %body
+    %div{ :style => "background: var(--white); font-family: 'Montserrat', sans-serif; font-size: 1.6em; width: 18em; letter-spacing: .02em; color: #234; padding: 1.6em;"}
+
+      %img{:alt => "🦡", :border => "0", :height => "20", :style => "height: 20px; font-size: 2em; display: block; line-height: 20px; margin-bottom: 0.75em;", :referrerpolicy => "no-referrer", :src => "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAAoCAMAAAAVFl7eAAAAkFBMVEUAAAAKRaUKRaU0ab4LRaUMRqYKRqUKRaULRaUKRqULSKUKRaULRqUMR6YLRaULRqULRqULS6lpadIKRaQKRaQKRqUKR6UbU7QKRaUKRqULRqUNR6YMSakOSacMT6wUTrELRqUMRqYKRaUKRaUNSKcRSqkLRqULRqULRqUMRqUKRqULRqYLRqUMSawOSqkKRaQG0fZJAAAAL3RSTlMA/KoE8FPO2tWYLuZnQOu6pRcC9sSQSAngf3JOKCITDIdsyLE1HrSei4N5XVgZEUd/6DEAAAI/SURBVFjDvdfnkqpAEAXggyBBRIKoKwbM4Rr6/d/uVo3LDCMyguB+/ywoTrfdQynUot66E1sGfWb4YwaXEHXsHIOa6/RQ1diklhxTVDE/UHvsCo3qU40YN1jvFik+M1l4U/Mx1dnbFjfsRq0zjtCEmI/WV69pMmSJfg9t0EfsaSuUW8TsFuOKtvTZlAK99PqjxXiP9lxYpn/HK3ufmJOONl1Zpr1/VU529rV2Zftf2I5wS19mjCHpDujrtPwBvQf0F4yJOLEu/Q0PD6lDSu1Hej8kWPRNg5S9fUckbL0RfYlYn51oa+jM0dNaaMXvvLaaA9DPGr9xGgKIGwcO1zpUznyEfba+fWpsBrUhMZtuxD4um78ODlBj36O29fCrhcPSxxthEJ8XyOyouS7qiEwSDPOzyAR1rPOJnkESzelyV0U5JmoIjVzi7kpc8ZdQQMLPaipVMIZayXMGPfiUY8mbP9eI26aAnl+7DSrzpMSblms50SE5ENd5XBpVP5iCblPGnQOJGOJoCdlYTuSZdaf5T0qELzpWFBdEyJxqn5P9kK8DO6f8sY5isY8RhBVl7AhVbOVEOPyzDtnSeEosZl6gJo/H2oOZbMreYE5p/2e5TLWJlSXeeDN2NtoJ8noaTyyY8jKr744dgguzzDUEsVcjoDzTVbeZWxZTOg6339Zj5IQ8UVm7h3ceD9/cIYg+TakOYk4okRQjFcXFKZ4szeJgfP5vUZFp6Xhr6g5OExSkR9dNnsoIDEu5HTPbOCxQ6j8dkI2TRpT0ugAAAABJRU5ErkJggg=="}
 
       = yield
 
