@@ -43,8 +43,6 @@ module Payments
       )
     end
 
-
-
     def early_bird_discount(subscription_plan)
       subscription_plan.name == "legendary_badger" && !allowable_early_birds_count.negative? ? allowable_early_birds_count : 0
     end
