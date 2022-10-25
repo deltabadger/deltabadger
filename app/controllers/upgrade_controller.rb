@@ -6,6 +6,7 @@ class UpgradeController < ApplicationController
   EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def index
+    return redirect_to legendary_badger_path if current_plan.name == "legendary_badger"
     render :index, locals: default_locals.merge(
       payment: new_payment,
       errors: []
