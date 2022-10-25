@@ -1,8 +1,8 @@
 module Presenters
   module Api
     class Log < BaseService
-      PRICE_RANGE_VIOLATION_MESSAGE = 'Trigger price not met'.freeze
-      WITHDRAWAL_TO_SMALL_AMOUNT_MESSAGE = 'Amount to small to withdraw'.freeze
+      PRICE_RANGE_VIOLATION_MESSAGE = 'Checking… The trigger price has not been met yet.'.freeze
+      WITHDRAWAL_TO_SMALL_AMOUNT_MESSAGE = 'Checking… The balance has not reached the withdrawal size yet.'.freeze
 
       def call(transaction)
         {
