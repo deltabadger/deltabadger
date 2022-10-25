@@ -1,14 +1,21 @@
 Hi #{@name},
 %br
 %br
-Thanks. I will check the payment in a few days, but activated your #{@subscription_plan.display_name} plan already.
+Thanks! I booked your #{@subscription_plan.display_name} plan, and will wait for the payment.
 %br
 I will appreciate if you could send me the transfer confirmation.
+%br
+%br
+Let me know if you have any questions.
 %br
 %br
 Best,
 %br
 Jan
+%br
+%br
+<span style="color:rgb(181,181,181);">Deltabadger Team</span>
+<img src="https://deltabadger.com/logo20gp.png" alt="logo">
 %br
 %br
 PS If you didn’t pay yet, please, send #{@amount}#{@type == 'Other' ? '$' : '€'}  to

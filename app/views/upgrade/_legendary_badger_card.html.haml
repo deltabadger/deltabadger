@@ -19,3 +19,10 @@
   =t('subscriptions.legendary_badger_description_html')
   %a(href="https://deltabadger.com/legendary" _target="blank")
     =t('cookie.read_more')
+  .db-plans__item__legendary-badgers-left
+    =@allowable_early_birds_count
+    of
+    =@initial_early_birds_count
+    left.
+    .progress
+      .progress-bar(role="progressbar" style="width: #{@purchased_early_birds_percent}%" aria-valuenow="#{@purchased_early_birds_percent}" aria-valuemin="0" aria-valuemax="100")
