@@ -39,14 +39,12 @@ module Payments
         flat_discount: flat_discount,
         discount_percent: discount_percent,
         commission_percent: commission_percent,
-        early_bird_discount: early_bird_discount
+        early_bird_discount: early_bird_discount(subscription_plan)
       )
     end
 
-
-
-    def early_bird_discount
-      !allowable_early_birds_count.negative? ? allowable_early_birds_count : 0
+    def early_bird_discount(subscription_plan)
+      subscription_plan.name == "legendary_badger" && !allowable_early_birds_count.negative? ? allowable_early_birds_count : 0
     end
 
     def allowable_early_birds_count

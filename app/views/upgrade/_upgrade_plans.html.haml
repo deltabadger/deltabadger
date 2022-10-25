@@ -23,7 +23,7 @@
     = t('subscriptions.payment.early_bird_discount')
   .db-plans__item__amount
     .db-plans__item__amount__t.db-plans__item__amount__t--discount
-      <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-early-bird-discount'>#{cost_presenter[upgrade_presenter.current_plan_name.to_sym].early_bird_discount}</span>
+      <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-early-bird-discount'>#{@allowable_early_birds_count}</span>
   .db-plans__item__info= t('subscriptions.payment.early_bird_discount_info')
 
 - if upgrade_presenter.current_plan_name == 'investor'
