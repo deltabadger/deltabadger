@@ -1,6 +1,7 @@
 class MetricsRepository < BaseRepository
   METRICS_KEY = 'metrics'.freeze
   BOTS_IN_PROFIT_KEY = 'bots_in_profit'.freeze
+  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def initialize
     @redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
@@ -10,7 +11,8 @@ class MetricsRepository < BaseRepository
     telegram_metrics = FetchTelegramMetrics.new.call
     metrics = {
       liveBots: BotsRepository.new.count_with_status('working'),
-      btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought)
+      btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
+      availableLegendaryBadgers: EARLY_BIRD_DISCOUNT_INITIAL_VALUE - SubscriptionsRepository.new.all_current_count('legendary_badger')
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)
   end
