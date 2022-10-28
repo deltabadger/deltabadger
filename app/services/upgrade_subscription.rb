@@ -17,10 +17,10 @@ class UpgradeSubscription < BaseService
       email_params: email_params
     )
 
-    unless payment_id.nil?
-      payment = Payment.find(payment_id)
-      payment.update(status: :paid)
-    end
+    # unless payment_id.nil?
+    #   payment = Payment.find(payment_id)
+    #   payment.update(status: :paid)
+    # end
 
     user.update(
       pending_wire_transfer: nil,
