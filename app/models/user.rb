@@ -15,7 +15,7 @@ class User < ApplicationRecord
   has_many :payments
 
   validates :terms_and_conditions, acceptance: true
-  validates :name, presence: true
+  validates :name, presence: true, if: -> { new_record? }
   validate :active_referrer, on: :create
   validate :validate_name
   validate :validate_email_with_sendgrid
@@ -66,8 +66,15 @@ class User < ApplicationRecord
     api_keys.where(key_type: 'trading')
   end
 
-  def name_invalid?
-    name !~ /^(?<=^|\s)[a-zA-Z ]+(\s+[a-zA-Z ]+)*(?=\s|$)$/
+  def name_invalid?(params_name = nil)
+    (params_name || name) !~ /^(?<=^|\s)[a-zA-Z ]+(\s+[a-zA-Z ]+)*(?=\s|$)$/
+  end
+
+  def validate_update_name(params)
+    return true unless name_invalid?(params[:name])
+
+    errors.add :name, I18n.t('devise.registrations.new.name_invalid')
+    false
   end
 
   private
@@ -107,7 +114,7 @@ class User < ApplicationRecord
   end
 
   def validate_name
-    return unless name_invalid?
+    return unless new_record? && name_invalid?
 
     errors.add :name, I18n.t('devise.registrations.new.name_invalid')
   end
