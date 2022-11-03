@@ -27,7 +27,10 @@ module ExchangeApi
       end
 
       def basic_headers
-        { 'Content-Type': 'application/json' }
+        {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Deltabadger'
+        }
       end
 
       def token_body
