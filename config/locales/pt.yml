@@ -110,13 +110,11 @@ pt:
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
         buttons:
-            automatic_withdrawal: ''
             delete:
                 cancel: Cancelar
                 ok: 'Remover completamente'
                 text: Eliminar
                 warning_html: 'Isto irá remover o bot<br> com os seus dados históricos. Tem a certeza?'
-            dollar_cost_averaging: ''
             pending:
                 info_html: 'A processar…'
                 text: Pendente
@@ -138,7 +136,6 @@ pt:
                     info_html: 'Ainda tem <b>%{time}</b> até ao próximo pedido. Pode ignorá-lo e executar imediatamente o próximo pedido ou continuar a contagem decrescente original.'
                     skip: Ignorar
         buy: Comprar
-        counter: ''
         day: Dia
         details:
             info:
@@ -156,7 +153,6 @@ pt:
                 bought: Comprado
                 chart:
                     total_invested: 'Total investido'
-                    value: ''
                 csv_download_html: 'A tabela acima mostra apenas as últimas 10 transações.<br>O relatório completo está disponível para transferência no formato CSV, abaixo.'
                 current_value: 'Valor atual'
                 current_value_sold: 'Valor atual de %{base} vendido'
@@ -174,12 +170,9 @@ pt:
         hour: Hora
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
         month: Mês
         next_buy: 'Próxima compra em %{countdown}'
         next_sell: 'Próxima venda em %{countdown}'
-        next_withdrawal: ''
         price: 'do preço'
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
         price_range_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
@@ -279,7 +272,6 @@ pt:
                 instructions_9_html: 'Cole ambas as chaves no formulário acima.'
                 private_key: 'Chave secreta'
                 public_key: 'Chave API'
-            how_to_add_withdrawal_bot: ''
             how_to_get_keys: 'Como obter chaves de API de %{exchange}:'
             kraken:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
@@ -318,7 +310,6 @@ pt:
                 public_key: 'Chave API'
             limit_warning: 'O bot para limitar pedido é uma funcionalidade experimentar. Nem todos os pedidos serão preenchidos. Para obter bons resultados, precisa de aumentar proporcionalmente o montante investido. Atualmente, a Deltabadger ainda não oferece ajuda para estimar este ajuste, pelo que precisará de recorrer às suas verificações anteriores. Utilize-o apenas se souber o que está a fazer.'
             next: Próximo
-            no_wallet_found: ''
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu <b>A minha página</b> (canto superior direito) aceda a <b>Gestão de API</b>.'
@@ -347,7 +338,6 @@ pt:
                     instructions_2_html: 'Aceda ao menu de definições (canto superior direito).'
                     instructions_3_html: 'Desloque para baixo até à secção <b>Chave de API</b>.'
                     instructions_4_html: 'Prima em <b>Criar chave de API</b>.'
-                    instructions_5_html: ''
                     instructions_6_html: 'Cole ambas as chaves no formulário acima.'
                 kraken:
                     instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
@@ -356,29 +346,14 @@ pt:
                     instructions_4_html: 'Defina as permissões para o seguinte:'
                     instructions_5_1_html: 'Fundos:'
                     instructions_5_2_html: '<b>Consulta de fundos</b>'
-                    instructions_5_3_html: ''
                     instructions_6_html: 'Prima em <b>Gerar chave</b>.'
                     instructions_7_html: 'Cole ambas as chaves no formulário acima.'
             withdrawal_address:
                 ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
                     instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                     instructions_2_html: 'Aceda ao menu de definições (canto superior direito).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                    instructions_2_html: ''
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-            withdrawal_html: ''
             zonda:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.'
@@ -399,16 +374,11 @@ pt:
         stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
-        withdraw_interval_html: ''
-        withdraw_threshold_html: ''
-        withdrawal_percentage: ''
     cookie:
         agree: Concordo
         description: 'Utilizamos cookies para simplificar tudo.'
         read_more: 'Saber mais'
     days_left:
-        one: ''
-        other: ''
     deltabadger: Deltabadger
     devise:
         confirmations:
@@ -491,7 +461,6 @@ pt:
             unlocked: 'A sua conta foi desbloqueada com sucesso. Inicie sessão para continuar.'
     errors:
         bitcoin_address_not_updated: 'Não foi possível atualizar o endereço Bitcoin'
-        format: ''
         frequency_limit: 'Excedido o limite de frequência'
         invalid_api_keys: 'Tokens inválidos'
         limit_reached: 'Atingido o limite do plano gratuito'
@@ -524,24 +493,12 @@ pt:
             not_found: 'não encontrado.'
             not_locked: 'não estava bloqueado'
             not_saved:
-                one: ''
-                other: ''
             odd: 'tem de ser ímpar'
             other_than: 'tem de ser diferente de %{count}'
             password_not_match: 'As palavras-passe não coincidem'
             present: 'tem de estar em branco'
-            too_long:
-                one: ''
-                other: ''
-            too_short:
-                one: ''
-                other: ''
             too_short_password: 'A palavra-passe é demasiado curta'
-            too_simple_password: ''
             wrong_email: 'Email errado.'
-            wrong_length:
-                one: ''
-                other: ''
             wrong_password: 'Palavra-passe errada'
             wrong_two_fa_token: 'O código fornecido está errado.'
         referral_program_inactive: 'O seu programa de referência está inativo'
@@ -652,15 +609,10 @@ pt:
             subject: 'Plano %{plan_name} garantido'
             template_html: "<p>Uau 💙,</p><p>Obrigado por comprar o nosso</p><p> <b> plano %{plan_name} de %{years} anos </b></p><p>É incrível! 🔥</p>"
     subscriptions:
-        days_left:
-            one: ''
-            other: ''
         hodler: Hodler
         hodler_description_html: 'O DCA funciona melhor como um compromisso a longo prazo. Quatro anos de <b class="badge badge-btc">transacções ilimitadas</b> para <b class="badge badge-all">todas as moedas</b> na bolsa, <b class="badge badge-limit">ordens de limite</b>, <b class="badge badge-limit">levantamentos automáticos</b> (em breve), <b class="badge badge-limit">condição de preço</b>, <b class="badge badge-limit">condição de tempo</b>(em breve), <b class="badge badge-limit">aposta automática</b>(em breve). Este plano apoia o projecto, e é por isso que Hodlers tem <b class="badge badge-priority">acesso prioritário</b> a todas as novas funcionalidades.'
         investor: Investor
         investor_description_html: 'Um ano de <b class="badge badge-btc"> transações ilimitadas </b>, <b class="badge badge-btc"> todas as moedas </b> e <b class="badge badge-btc"> saques automáticos </b> (em breve).'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
         limit_reached_html: '<b>Parabéns!</b> Atingiu o nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         maximalist_info: 'Se comprar apenas Bitcoin, paga metade do preço normal.'
         maximalist_title: 'Desconto Maximalista Bitcoin 50%'
@@ -673,26 +625,18 @@ pt:
             bank_address: 'Endereço do banco'
             billing_information: 'Informação de faturação'
             bitcoin: Bitcoin
-            card_payment_succeeded: ''
-            compensation_hodler:
-                one: ''
-                other: ''
             compensation_investor:
                 one: 'Compensação de 1 dia não utilizado do plano Investor.'
                 other: 'Compensação de %{count} dias não utilizados no plano Investor.'
             discount: '%{discount_percent}% de desconto'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
             paid_with_wire_transfer_other: 'Fiz transferência bancária'
-            pay: ''
             pay_with_bitcoin: 'Pagar com Bitcoin'
             payment_ordered: 'Pagamento solicitado!'
             referral_discount_html: "Graças à ligação de referência de <b><a href=\"%{visible_link}\">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma."
             routing_number: 'Número de encaminhamento'
-            server_error: ''
             vat: IVA
             wire_cost_hodler_html: 'Por favor, envie <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> para a seguinte conta bancária:'
             wire_cost_investor_html: 'Por favor, envie <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> para a seguinte conta bancária:'
@@ -705,8 +649,6 @@ pt:
             you_pay: 'Pago por si'
         plan_1_year: 'Plano de 1 ano'
         plan_4_year: 'Plano de 4 anos'
-        plan_life_time: ''
-        prolong_upgrade: ''
         saver: Saver
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'
