@@ -1,365 +1,192 @@
 id:
-    mail: "<p>Halo 👋,</p>\n<p>Keren! Tautan referral Anda <br>mulai diminati!</p>\n<p>Kami mentransfer komisi sebesar</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>ke dompet Bitcoin Anda.</p>\n<p>Terima kasih sudah mengembangkan <br/>tim badger!</p>"
-    days_left:
-        other: '%{count} hari tersisa'
-    devise:
-        confirmations:
-            confirmed: 'Alamat email Anda berhasil dikonfirmasi.'
-            send_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
-            send_paranoid_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
-            new:
-                title: 'Kirim ulang petunjuk'
-                submit: 'Kirim ulang tautan konfirmasi'
-        failure:
-            already_authenticated: 'Anda sudah masuk.'
-            inactive: 'Akun Anda belum diaktifkan.'
-            invalid: '%{authentication_keys} atau kata sandi tidak valid.'
-            locked: 'Akun Anda dikunci.'
-            last_attempt: 'Anda memiliki satu percobaan lagi sebelum akun Anda dikunci.'
-            not_found_in_database: '%{authentication_keys} atau kata sandi tidak valid.'
-            timeout: 'Sesi Anda berakhir. Silakan masuk kembali untuk melanjutkan.'
-            unauthenticated: 'Anda perlu masuk atau mendaftar sebelum melanjutkan.'
-            unconfirmed: 'Anda harus mengonfirmasi alamat email Anda sebelum melanjutkan.'
-        mailer:
-            confirmation_instructions:
-                subject: 'Selamat datang di Deltabadger 🎉'
-                template_html: "<p>Selamat Datang di Deltabadger 🎉,</p>\n<p>Dollar-cost averaging otomatis<br>untuk Bitcoin hanya dengan satu klik:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Konfirmasikan akun saya</a>\n</p>\n<p>Anda tidak ingat bahwa mendaftar?<br>Jangan khawatir. Abaikan saja.</p>"
-            reset_password_instructions:
-                subject: 'Reset kata sandi 🔑'
-                template_html: "<p>Halo 👋,</p>\n<p>Tampaknya Anda ingin mengubah<br/>kata sandi 🔑. Langkah bagus!</p>\n<p>Mari mulai:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Ubah kata sandi</a>\n  </p>\n<p>Anda tidak mengirim permintaan ini?<br/>Jangan khawatir! Abaikan saja.</p>"
-            unlock_instructions:
-                subject: 'Buka petunjuk 🔓'
-                template_html: "<p>Halo 👋,</p>\n<p>Kami mengunci akun Anda karena<br>banyaknya percobaan masuk yang gagal.</p>\n<p>Klik tautan di bawah ini untuk membukanya:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Buka kunci akun saya</a>\n</p>"
-            email_changed:
-                subject: 'Alamat email baru 📨'
-                template_html: "<p>Halo 👋,</p>\n<p>Kami mengirim email ini untuk memberi tahu Anda bahwa alamat email yang terkait dengan akun Anda di Deltabadger telah diubah menjadi:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
-            password_change:
-                subject: 'Kata sandi baru 🔑'
-                template_html: "<p>Selesai 🎉!</p>\n<p>Kata sandi Anda 🔑 telah diubah.</p>"
-        omniauth_callbacks:
-            failure: 'Tidak dapat mengautentikasi Anda dari %{kind} karena "%{reason}".'
-            success: 'Berhasil diautentikasi dari %{kind} akun.'
-        passwords:
-            no_token: 'Anda tidak bisa mengakses halaman ini tanpa melalui email reset kata sandi. Jika Anda sudah melakukannya, pastikan Anda menggunakan URL lengkap yang diberikan.'
-            send_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
-            send_paranoid_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
-            updated: 'Selesai! Kata sandi Anda sudah diubah.'
-            updated_not_active: 'Selesai! Kata sandi Anda sudah diubah.'
-            new:
-                title: 'Lupa kata sandi Anda?'
-                submit: 'Kirimkan saya petunjuk'
-            edit:
-                title: 'Ubah kata sandi Anda'
-                submit: 'Ubah kata sandi saya'
-        registrations:
-            destroyed: 'Selamat tinggal! Semoga kita berjumpa lagi...'
-            signed_up: 'Senang bertemu Anda!'
-            signed_up_but_inactive: 'Hai, akun Anda belum diaktifkan. Sudahkah Anda memeriksa email?'
-            signed_up_but_locked: 'Ups, akun Anda dikunci.'
-            signed_up_but_unconfirmed: 'Periksa email Anda lalu klik tautan konfirmasi.'
-            update_needs_confirmation: 'Periksa email Anda lalu ikuti tautan konfirmasi untuk mengonfirmasi alamat email baru Anda.'
-            updated: 'Akun Anda berhasil diperbarui.'
-            updated_but_not_signed_in: 'Akun Anda berhasil diperbarui, silakan masuk kembali.'
-            new:
-                title_html: 'Buat akun <span class="text-success">gratis</span>'
-                email_used: 'Email ini sudah digunakan.'
-                email_suggestion_html: 'Email tidak valid! Maksud Anda: <b>%{suggestion}</b>'
-                email_invalid: 'Email tidak valid!'
-                name_invalid: 'Tidak harus nyata :)'
-                submit: 'Mulai sekarang'
-            edit:
-                awaiting_confirmation: 'Saat ini, menunggu konfirmasi untuk: %{email}'
-        sessions:
-            signed_in: 'Lama tidak berjumpa!'
-            signed_out: 'Sampai jumpa lagi!'
-            already_signed_out: 'Saya sedih Anda pergi. Jumpa lagi nanti?'
-            new:
-                title: Masuk
-                submit: Masuk
-                forgot_password: 'Lupa kata sandi?'
-        unlocks:
-            send_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
-            send_paranoid_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
-            unlocked: 'Akun Anda berhasil dibuka. Silakan masuk untuk melanjutkan.'
-    errors:
-        messages:
-            already_confirmed: 'sudah dikonfirmasi, silakan coba masuk.'
-            confirmation_period_expired: 'perlu dikonfirmasi dalam %{period}, silakan minta yang baru.'
-            expired: 'sudah kedaluwarsa, silakan minta yang baru.'
-            not_found: 'tidak ditemukan.'
-            not_locked: 'tidak dikunci.'
-            not_saved:
-                other: '%{count} kesalahan menghalangi tersimpannya %{resource} ini:'
-            model_invalid: 'Validasi gagal: %{errors}'
-            inclusion: 'tidak disertakan dalam daftar'
-            exclusion: disimpan
-            invalid: 'tidak valid'
-            confirmation: 'tidak cocok dengan %{attribute}'
-            accepted: 'harus diterima'
-            empty: 'tidak boleh kosong'
-            blank: 'tidak boleh kosong'
-            present: 'harus kosong'
-            too_long:
-                other: 'terlalu panjang (maksimum %{count} karakter)'
-            too_short:
-                other: 'terlalu pendek (minimum %{count} karakter)'
-            wrong_length:
-                other: 'panjang yang salah (harus %{count} karakter)'
-            not_a_number: 'bukan angka'
-            not_an_integer: 'harus bilangan bulat'
-            greater_than: 'harus lebih besar dari %{count}'
-            greater_than_or_equal_to: 'harus lebih besar dari atau sama dengan %{count}'
-            equal_to: 'harus sama dengan %{count}'
-            less_than: 'harus kurang dari %{count}'
-            less_than_or_equal_to: 'harus kurang dari atau sama dengan %{count}'
-            other_than: 'harus selain dari %{count}'
-            in: 'harus dalam %{count}'
-            odd: 'harus ganjil'
-            even: 'harus genap'
-            wrong_password: 'Kata sandi salah'
-            wrong_email: 'Email salah.'
-            name_invalid: 'Tidak harus nyata :)'
-            bad_credentials: 'Email atau kata sandi salah.'
-            bad_credentials_with_code: 'Email, kata sandi, atau kode 2FA salah.'
-            wrong_two_fa_token: 'Kode yang diberikan salah.'
-            too_short_password: 'Kata sandi terlalu pendek'
-            password_not_match: 'Kata sandi tidak cocok'
-            bad_2fa_code: 'Kode tidak valid. Coba lagi.'
-            empty_two_fa_token: 'Kode 2FA terlewat. Coba lagi.'
-        unverified_request: 'Segarkan browser Anda lalu coba lagi'
-        format: '%{attribute}%{message}'
-        referral_program_inactive: 'Program referral Anda tidak aktif'
-        bitcoin_address_not_updated: 'Alamat Bitcoin tidak dapat diperbarui'
-        frequency_limit: 'Limit frekuensi terlampaui'
-        limit_reached: 'Limit paket gratis tercapai'
-        invalid_api_keys: 'Token tidak valid'
-    deltabadger: Deltabadger
-    welcome:
-        default: 'Hai, selamat datang di Deltabadger'
-        saver: 'Hapus limit dan tingkatkan paket!'
-        banner_html: "Selamat datang! Anda saat ini menikmati <b>paket gratis dengan limit transaksi sebesar $1200/tahun</b>, tetapi tidak akan diberlakukan untuk bulan pertama. Cobalah jadwal mana saja yang Anda inginkan. Anda juga bisa meningkatkan paket agar nanti menikmati transaksi tanpa batas. Selain itu, paket Hodler 4 tahun memberi akses ke fitur eksperimental baru (misalnya semua mata uang untuk pertukaran). Kami mengapresiasi semua masukan. Bergabunglah dengan\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grup Telegram</a> dan ikuti kami di <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Selamat ber-averaging!"
-    subscriptions:
-        upgrade: 'Tingkatkan Paket'
-        days_left:
-            other: '%{count} hari tersisa'
-        saver: Penabung
-        investor: Investor
-        hodler: Hodler
-        plan_1_year: 'Paket 1 tahun'
-        plan_4_year: 'Paket 4 tahun'
-        limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
-        payment:
-            billing_information: 'Informasi penagihan'
-            bitcoin: Bitcoin
-            wire_transfer: 'Transfer Bank'
-            wire_transfer_description_html: 'Untuk membayar dengan transfer bank, kirim info utama untuk invois: <b>nama</b>, <b>nama belakang</b>, <b>alamat rumah</b>, <b>email</b> yang digunakan di Deltabadger, dan paket yang ingin Anda beli ke: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
-            pay_with_bitcoin: 'Bayar dengan Bitcoin'
-            active_plan_discount: 'Diskon paket aktif'
-            compensation_investor:
-                other: 'Kompensasi atas %{count} hari yang tidak digunakan dari paket Investor.'
-            discount: 'Diskon %{discount_percent}%'
-            referral_discount_html: 'Berkat tautan referral dari <b><a href="%{visible_link}">%{visible_name}</a></b>, Anda mendapatkan diskon untuk pembelian pertama di platform.'
-            you_pay: 'Anda membayar'
-            payment_ordered: 'Pembayaran diorder!'
-            vat: VAT
-            after_wire_transfer_html: 'Terima kasih! Kami akan segera kembali! Jika Anda memerlukan bantuan lebih lanjut, beri tahu kami: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
-            invalid_vat_number: 'Nomor VAT UE tidak valid'
-            account_holder: 'Pemilik rekening'
-            routing_number: 'Nomor routing'
-            account_number: 'Nomor rekening'
-            account_type: 'Jenis rekening'
-            wire_transfer_fill_form: 'Harap isi formulir di atas untuk melanjutkan...'
-            eu_bank_country: Belgia
-            bank_address: 'Alamat bank'
-            paid_with_wire_transfer: 'Saya melakukan transfer SEPA'
-            wire_transfer_pending: 'Terima kasih! Kami akan segera mengaktifkan akun Anda dan menghubungi Anda melalui email.'
-            paid_with_wire_transfer_other: 'Saya melakukan transfer bank'
-            wire_cost_investor_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_hodler_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_pending_html: 'Jika Anda belum melakukan pembayaran, kirimkan <b>%{sign}%{price}</b> ke rekening bank berikut:'
-        upgrade_plan: 'Tingkatkan paket'
-        prolong_upgrade: 'Perpanjang atau tingkatkan paket Anda'
-        maximalist_title: 'Diskon Maksimal 50% Bitcoin'
-        maximalist_info: 'Jika Anda membeli Bitcoin saja, Anda membayar separuh dari harga normal.'
-    links:
-        homepage: 'Tautan ke beranda'
-        log_in: Masuk
-        sign_up: Daftar
-        log_out: Keluar
-        create_account: 'Buat akun gratis'
-        resend_link: 'Kirim ulang tautan'
-        terms_and_conditions: 'Syarat & Ketentuan'
-        privacy_policy: 'Kebijakan Privasi'
-        cookies_policy: 'Kebijakan Kuki'
-        start_fast: 'Mulai dalam 5 menit'
-        start_fast_longer_html: 'Mulai <span class="d-none d-sm-inline">secara gratis</span> dalam 5 menit'
-        contact: Kontak
-        about: Tentang
-        about_html: 'Tentang <span class="d-none d-xl-inline">proyek</span>'
-        dashboard: Dasbor
-        referral_program: 'Program referral'
-        settings: Pengaturan
-        menu: Menu
-    social:
-        telegram: 'Bergabunglah ke grup Telegram kami'
-        twitter: 'Ikuti kami di Twitter'
-        blog: 'Baca blog kami'
-        knowledge_base: 'Dasar pengetahuan'
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'harus berisi karakter alfabet numerik kapital'
     ads:
-        dont_trade_automate_html: '<div>Jangan&nbsp;hanya trading.</div> <div>Automasikan.</div>'
-        dca_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
-        features: "DCA otomatis di akun pertukaran Anda;\n<i>Smart interval</i> dan pengaturan hanya lima menit;\npembaruan dan fitur baru setiap bulan;\ndukungan dan komunitas Telegram"
-        dca_standard_html: 'Dollar-cost averaging untuk<br>Bitcoin adalah standar baru bagi<br>penabung jangka panjang.'
-        password_managers_html: 'Pengelola kata sandi<br>membuat keamanan lebih mudah.'
-        bitwarden_title: 'Coba Bitwarden'
         bitwarden_text: '. Gratis dan sumber terbuka.'
-    meta:
-        title: 'Deltabadger • Automasikan Dollar-Cost Averaging untuk Kripto Apa Saja'
-        twitter_image_alt: 'Dollar-cost averaging otomatis untuk Bitcoin, Ethereum, Polkadot, Cardano, Solana, dan aset digital lainnya.'
-        title_short: 'Deltabadger • DCA Otomatis untuk Bitcoin dan Aset Lainnya'
-        desc: 'Mulailah secara gratis strategi yang terbukti efektif untuk Binance, FTX, Coinbase, Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.'
-    home:
-        confirm_registration:
-            title: 'Terima kasih!'
-            text_html: 'Periksa kotak surat Anda lalu klik <b>tautan konfirmasi</b> yang kami kirimkan kepada Anda. Kemudian, buka halaman masuk.'
-            deliverability_html: '<b>Penting sekali!</b><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
-        contact:
-            title: Kontak
-            general_questions_html: 'Untuk pertanyaan umum, silakan coba <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">saluran Telegram</a> kami. Biasanya ini adalah cara tercepat untuk memperoleh jawaban. Selain itu: kami juga menerima semua masukan, ide produk, dan permintaan pertukaran.'
-            specific_questions_html: 'Untuk masalah spesifik lainnya, kirimkan email ke: %{email} atau pesan langsung di Telegram atau <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+        bitwarden_title: 'Coba Bitwarden'
+        dca_2y_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
+        dca_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
+        dca_standard_html: 'Dollar-cost averaging untuk<br>Bitcoin adalah standar baru bagi<br>penabung jangka panjang.'
+        dont_trade_automate_html: '<div>Jangan&nbsp;hanya trading.</div> <div>Automasikan.</div>'
+        features: "DCA otomatis di akun pertukaran Anda; <i>Smart interval</i> dan pengaturan hanya lima menit; pembaruan dan fitur baru setiap bulan; dukungan dan komunitas Telegram"
+        password_managers_html: 'Pengelola kata sandi<br>membuat keamanan lebih mudah.'
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: 'Konfirmasikan alamat Bitcoin yang baru 📒'
+            template_html: "<p>Halo 👋,</p><p>Tampaknya Anda ingin mengubah alamat Bitcoin Anda ke:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>Alamat ini akan digunakan untuk pembayaran Anda dari program referral kami.</p><p>Apakah Anda yakin?</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Ya, mari ubah!</a></p><p>Anda tidak mengirim permintaan ini?<br>Jangan khawatir! Abaikan saja.</p><p>Alamat tidak akan berubah sampai Anda mengakses tautan di atas.</p>"
+        referrals_payout_notification:
+            subject: 'Saatnya gajian! 💸'
+            template_html: "<p>Halo 👋,</p><p>Keren! Tautan referral Anda <br>mulai diminati!</p><p>Kami mentransfer komisi sebesar</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>ke dompet Bitcoin Anda.</p><p>Terima kasih sudah mengembangkan <br/>tim badger!</p>"
+        registration_reminder:
+            subject: 'Wow! Anda mendapatkan %{amount} BTC! 💸'
+            template_html: "<p>Wow!</p><p>Anda memiliki komisi baru dari program referral yang menanti Anda! Selesaikan pendaftaran untuk mendapatkan bitcoin Anda:</p><p><a href=%{link}>Selesaikan pendaftaran.</a></p>"
     affiliates:
-        new:
-            title: 'Pendaftaran program referral'
-            upgrade: 'Untuk bergabung dengan program referral kami yang terkenal, tingkatkan paket ke salah satu dari paket berbayar kami.'
-            referrer_info: 'Info pemberi referral'
-            payout_address: 'Alamat pembayaran'
-            visible_info: 'Info yang terlihat'
-            private: Privat
-            eu_company: 'Perusahaan UE'
-            unchangable_warning: 'Pengaturan dalam bagian ini tidak dapat diubah nanti.'
-            discount_info_html: 'Anda akan <b> mendapatkan <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b> sedangkan penerima referral akan mendapatkan diskon <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%</b>.'
-            checked: 'Saya memeriksa semuanya dengan saksama.'
-            submit: 'Mari mulai!'
-            program_settings_html: 'Tautan <span class="text-danger">(tidak bisa diubah)</span>'
-            pick_referral_code: 'Pilih kode referral Anda'
-            discount_preview_html: 'Diskon <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% untuk pembelian pertama.<br>'
-            thanks_referral: 'Berkat tautan referral dari'
-            title_info: 'Anda bisa mulai segera membagikan tautan Anda, tetapi untuk bisa mendapatkan pembayaran Bitcoin, Anda perlu menyelesaikan pendaftaran terlebih dahulu.'
-            share_html: 'Bagikan tautan ini dan <span class="text-success">dapatkan bitcoin</span>'
-        create:
-            saver_error: 'Anda harus meningkatkan paket untuk mendaftar'
-            error: 'Pendaftaran program referral gagal'
-        show:
-            title: 'Program referral'
-            deactivated:
-                notice: 'Tampaknya program ini dinonaktifkan. Hubungi kami jika Anda tidak memahami mengapa hal ini terjadi.'
-                contact: 'Hubungi kami'
-            expired: 'Oh, tidak... masa berlangganan Anda sudah berakhir. Perbarui paket Anda untuk terus mendapatkan manfaat dari program referral Anda.'
-            your_link: 'Tautan referral Anda'
-            stats: Statistik
-            referees: 'Penerima referral'
-            paid_so_far: 'Yang sudah dibayar (BTC)'
-            unpaid: 'Belum dibayar (BTC)'
-            update_info: 'Perbarui info yang terlihat'
-            update_bitcoin_address: 'Perbarui alamat Bitcoin'
-            info_preview: 'Pratinjau info yang terlihat oleh penerima referral:'
-            submit_info: 'Perbarui info yang terlihat'
-            submit_bitcoin_address: 'Perbarui alamat Bitcoin'
-            manual_title: 'Bagaimana cara kerjanya?'
-            paid_commission: 'Dibayar (BTC)'
-            unpaid_commission: 'Harus dibayar (BTC)'
-            link_title: 'Tautan Anda'
-            submit: Perbarui
-        discount:
-            flash_html: 'Halo! nikmati diskon %{discount_percent}% dari <span class="text-success text-success--lighter">%{visible_name}</span>'
-            congrats_html: 'Selamat! ! Diskon <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% sudah aktif.'
-            referrer_html: "Berkat tautan referral dari\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
-            valid_for: 'Valid untuk pembelian pertama di platform.'
-            accepted: 'Anda telah menerima tautan referral'
-            invalid: 'Tautan referral tampaknya tidak valid atau usang'
-            already_used: 'Anda telah menggunakan tautan referral'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Program referral kami <b>memberikan bayaran hingga $50</b><sup>1</sup> tiap pengguna dalam BTC (menggunakan rasio pertukaran dari transaksi). Contoh:</p>\n  <ol>\n    <li>Secara sederhana, harga Bitcoin sebesar ~$10000, diskon sebesar 10%, dan margin Anda sebesar 20%.</li>\n    <li>Penerima referral membeli paket 1 tahun seharga $49.99 dengan membayar $44.99 setelah dipotong diskon yang setara dengan 0.0045 BTC. Dari sini, Anda mendapatkan 0.001 BTC (20% dari $49.99).</li>\n    <li>Harga Bitcoin yang berubah tidak akan berpengaruh. Profit Anda dikunci dalam BTC.</li>\n    <li>Pada kesempatan berikutnya, penerima referral membeli paket 4 tahun seharga $149.99 dan membayar 0.015 BTC. Dia tidak lagi mendapatkan diskon, tetapi Anda tetap mendapatkan margin 20% yang setara dengan 0.003 BTC.</li>\n    <li>Anda tetap mendapatkan profit selama Anda memiliki paket aktif<sup>2</sup> dan total profit Anda tiap penerima referral tidak mencapai $50.</li>\n  </ol>\n  <p><em>Mendapatkan bitcoin adalah jenis dollar-cost averaging yang terbaik!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Limit bisa sebesar 50 USD atau 50 EUR, bergantung pada mata uang dari harga yang ditentukan.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Bagi penerima referral, tautan referral tetap berfungsi meskipun masa berlangganan Anda sudah berakhir.</small>\n</div>"
+        add_link_info: 'Anda bisa menambahkan nama Anda dan tautan ke situs web Anda agar penerima referral mengetahui dari mana diskon yang dia terima. Anda juga bisa mengosonginya:'
         apply_code:
-            title: 'Tautan Referral'
             accept: Terima
             reject: Kembali
-        btc_address_confirmation_sent: 'Email konfirmasi dikirim'
+            title: 'Tautan Referral'
         btc_address_changed: 'Alamat Bitcoin diubah'
-        program_joined: 'Anda telah bergabung dengan program referral'
-        your_bitcoin_address: 'Alamat Bitcoin Anda'
-        invalid_bitcoin_address: 'Alamat Bitcoin tidak valid'
-        info_preview: 'Ini adalah pratinjau dari tampilan yang terlihat oleh penerima referral selama pendaftaran:'
-        add_link_info: 'Anda bisa menambahkan nama Anda dan tautan ke situs web Anda agar penerima referral mengetahui dari mana diskon yang dia terima. Anda juga bisa mengosonginya:'
+        btc_address_confirmation_sent: 'Email konfirmasi dikirim'
+        create:
+            error: 'Pendaftaran program referral gagal'
+            saver_error: 'Anda harus meningkatkan paket untuk mendaftar'
         current_bitcoin_address: 'Alamat Bitcoin saat ini'
-    settings:
-        index:
-            title: Pengaturan
-            email_section: 'Perbarui email'
-            submit_email: 'Perbarui email'
-            name_section: 'Perbarui nama'
-            submit_name: 'Perbarui nama'
-            password_section: 'Perbarui kata sandi'
-            submit_password: 'Ubah kata sandi'
-            api_keys_section: 'Kunci API'
-            api_key_confirmation: 'Apakah Anda yakin?'
-            current_password: 'Kata sandi saat ini (untuk konfirmasi)'
-            two_factor_section: 'Autentikasi Dua Faktor'
-    forms:
-        for_confirmation: '(untuk konfirmasi)'
-        minimum_length: 'Minimum %{length} karakter'
-    helpers:
-        label:
-            affiliate:
-                btc_address: 'Alamat BTC'
-                btc_address_tooltip: 'Alamat BTC yang menjadi tujuan pengiriman pembayaran Anda.'
-                code_tooltip: 'Pilih kode referral yang Anda inginkan.'
-                name: 'Nama perusahaan:'
-                address: 'Alamat perusahaan:'
-                vat_number: 'Nomor Vat (opsional):'
-                visible_name: 'Nama di pratinjau'
-                visible_link: Tautan
-                check: Periksa
-            user:
-                email: Email
-                password: 'Kata sandi'
-                current_password: 'Kata sandi saat ini'
-                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
-                remember_me: 'Ingat saya'
-                new_password: 'Kata sandi baru'
-                new_password_confirmation: 'Konfirmasikan kata sandi baru'
-                password_confirmation: 'Konfirmasi kata sandi'
-            payment:
-                first_name: Nama
-                last_name: 'Nama Belakang'
-                birth_date: 'Tanggal lahir'
-                country: Negara
-                other: Lainnya
-                submit_investor_order: 'Paket Investor Order'
-                submit_hodler_order: 'Paket Hodler Order'
-                business_invoice: 'Saya perlu invois bisnis.'
-            settings:
-                enable_two_fa: 'Aktifkan 2FA'
-                disable_two_fa: 'Nonaktifkan 2FA'
-                current_status: 'Status saat ini:'
-                enabled: Diaktifkan
-                disabled: Dinonaktifkan
-                enter_two_fa_code: 'Masukkan kode 2FA'
-                scan_code_info: 'Pindai kode QR atau salin kode di bawah ini:'
-    cookie:
-        agree: 'Saya setuju'
-        description: 'Kami menggunakan kuki agar segalanya lebih mudah.'
-        read_more: 'Baca selengkapnya'
+        discount:
+            accepted: 'Anda telah menerima tautan referral'
+            already_used: 'Anda telah menggunakan tautan referral'
+            congrats_html: 'Selamat! ! Diskon <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% sudah aktif.'
+            flash_html: 'Halo! nikmati diskon %{discount_percent}% dari <span class="text-success text-success--lighter">%{visible_name}</span>'
+            invalid: 'Tautan referral tampaknya tidak valid atau usang'
+            referrer_html: "Berkat tautan referral dari <b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
+            valid_for: 'Valid untuk pembelian pertama di platform.'
+        info_preview: 'Ini adalah pratinjau dari tampilan yang terlihat oleh penerima referral selama pendaftaran:'
+        invalid_bitcoin_address: 'Alamat Bitcoin tidak valid'
+        manual_html: "<div class=\"alert alert-success\"><p class=\"mt-1\">Program referral kami <b>memberikan bayaran hingga $50</b><sup>1</sup> tiap pengguna dalam BTC (menggunakan rasio pertukaran dari transaksi). Contoh:</p> <ol><li>Secara sederhana, harga Bitcoin sebesar ~$10000, diskon sebesar 10%, dan margin Anda sebesar 20%.</li><li>Penerima referral membeli paket 1 tahun seharga $49.99 dengan membayar $44.99 setelah dipotong diskon yang setara dengan 0.0045 BTC. Dari sini, Anda mendapatkan 0.001 BTC (20% dari $49.99).</li><li>Harga Bitcoin yang berubah tidak akan berpengaruh. Profit Anda dikunci dalam BTC.</li><li>Pada kesempatan berikutnya, penerima referral membeli paket 4 tahun seharga $149.99 dan membayar 0.015 BTC. Dia tidak lagi mendapatkan diskon, tetapi Anda tetap mendapatkan margin 20% yang setara dengan 0.003 BTC.</li><li>Anda tetap mendapatkan profit selama Anda memiliki paket aktif<sup>2</sup> dan total profit Anda tiap penerima referral tidak mencapai $50.</li> </ol><p><em>Mendapatkan bitcoin adalah jenis dollar-cost averaging yang terbaik!</em></p> <small class=\"mb-2\"><sup>1</sup> Limit bisa sebesar 50 USD atau 50 EUR, bergantung pada mata uang dari harga yang ditentukan.</small> <br> <small class=\"mb-5\"><sup>2</sup> Bagi penerima referral, tautan referral tetap berfungsi meskipun masa berlangganan Anda sudah berakhir.</small> </div>"
+        new:
+            checked: 'Saya memeriksa semuanya dengan saksama.'
+            discount_info_html: 'Anda akan <b> mendapatkan <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b> sedangkan penerima referral akan mendapatkan diskon <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%</b>.'
+            discount_preview_html: 'Diskon <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% untuk pembelian pertama.<br>'
+            eu_company: 'Perusahaan UE'
+            payout_address: 'Alamat pembayaran'
+            pick_referral_code: 'Pilih kode referral Anda'
+            private: Privat
+            program_settings_html: 'Tautan <span class="text-danger">(tidak bisa diubah)</span>'
+            referrer_info: 'Info pemberi referral'
+            share_html: 'Bagikan tautan ini dan <span class="text-success">dapatkan bitcoin</span>'
+            submit: 'Mari mulai!'
+            thanks_referral: 'Berkat tautan referral dari'
+            title: 'Pendaftaran program referral'
+            title_info: 'Anda bisa mulai segera membagikan tautan Anda, tetapi untuk bisa mendapatkan pembayaran Bitcoin, Anda perlu menyelesaikan pendaftaran terlebih dahulu.'
+            unchangable_warning: 'Pengaturan dalam bagian ini tidak dapat diubah nanti.'
+            upgrade: 'Untuk bergabung dengan program referral kami yang terkenal, tingkatkan paket ke salah satu dari paket berbayar kami.'
+            visible_info: 'Info yang terlihat'
+        program_joined: 'Anda telah bergabung dengan program referral'
+        show:
+            deactivated:
+                contact: 'Hubungi kami'
+                notice: 'Tampaknya program ini dinonaktifkan. Hubungi kami jika Anda tidak memahami mengapa hal ini terjadi.'
+            expired: 'Oh, tidak... masa berlangganan Anda sudah berakhir. Perbarui paket Anda untuk terus mendapatkan manfaat dari program referral Anda.'
+            info_preview: 'Pratinjau info yang terlihat oleh penerima referral:'
+            link_title: 'Tautan Anda'
+            manual_title: 'Bagaimana cara kerjanya?'
+            paid_commission: 'Dibayar (BTC)'
+            paid_so_far: 'Yang sudah dibayar (BTC)'
+            referees: 'Penerima referral'
+            stats: Statistik
+            submit: Perbarui
+            submit_bitcoin_address: 'Perbarui alamat Bitcoin'
+            submit_info: 'Perbarui info yang terlihat'
+            title: 'Program referral'
+            unpaid: 'Belum dibayar (BTC)'
+            unpaid_commission: 'Harus dibayar (BTC)'
+            update_bitcoin_address: 'Perbarui alamat Bitcoin'
+            update_info: 'Perbarui info yang terlihat'
+            your_link: 'Tautan referral Anda'
+        your_bitcoin_address: 'Alamat Bitcoin Anda'
+    bot_alerts_mailer:
+        first_month_ending_soon:
+            subject: 'Uji coba bulan pertama akan segera berakhir!'
+            template_html: "<p>Halo 👋,</p><p>Anda telah menggunakan Deltabadger selama hampir satu bulan sekarang!</p><p>Uji coba gratis tanpa batas Anda akan segera berakhir. Pastikan untuk meningkatkan paket agar badger Anda yang lebih besar tetap bekerja!</p>"
+        limit_almost_reached:
+            subject: 'Limit hampir tercapai ⌛'
+            template_html: "<p>Halo 👋,</p><p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p><p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br> atau <b style=\"color: #0a45a4;\">Hodler</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
+        limit_reached:
+            subject: 'Anda telah mencapai limit 🥳'
+            template_html: "<p>Halo 👋,</p><p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p><p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p><p>Kami harap Anda senang dengan<br>hasilnya.</p><p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br>atau <b style=\"color: #0a45a4;\">Hodler</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
+        notify_about_error:
+            subject: 'Ada yang salah 😵'
+            template_html: "<p>Ups… 😵</p><p>Ada yang salah saat<br>memproses transaksi terakhir.</p><p>Anda bisa melihat kesalahan itu di<br>log bot. Silakan masuk untuk memeriksanya.</p><p>Kesalahan:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
+        notify_about_restart:
+            subject: 'Ups! Percobaan berikutnya… 🧐'
+            template_html: "<p>Oh tidak 🧐,</p><p>Bot tidak dapat melakukan order Anda.<br>Tampaknya ada masalah dengan pertukaran.<br>Kami akan mencobanya lagi dalam %{delay}.</p><p>Semua kesalahan dapat dilihat di log bot.<br>Silakan masuk untuk memeriksanya.</p><p>Kesalahan:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
     bots:
+        above: 'di atas'
+        add_new_bot: 'Tambah bot baru'
+        below: 'di bawah'
+        buttons:
+            automatic_withdrawal: ''
+            delete:
+                cancel: Batal
+                ok: 'Hapus semuanya'
+                text: Hapus
+                warning_html: 'Tindakan ini akan menghapus bot dengan semua<br>data riwayatnya. Apakah Anda yakin?'
+            dollar_cost_averaging: ''
+            pending:
+                info_html: Memproses...
+                text: Tertunda
+            start:
+                changed_missed:
+                    continue: 'Ya, beli dan lanjutkan'
+                    info_html: 'Apakah Anda ingin menginvestasikan <b>%{amount} %{quote}</b> yang terlewat saat bot dijeda? Jadwal baru akan dimulai setelah hitung mundur saat ini selesai.'
+                    skip: 'Abaikan bagian yang terlewat'
+                changed_on_schedule:
+                    continue: 'Saya mengerti'
+                    info_html: 'Jadwal baru akan dimulai setelah <b>%{time}</b> tersisa dari jadwal terakhir selesai.'
+                    skip: 'Abaikan dan segera mulai'
+                missed:
+                    continue: 'Ya, beli dan lanjutkan'
+                    info_html: 'Apakah Anda ingin menginvestasikan <b>%{amount} %{quote}</b> yang terlewat saat bot dijeda dan melanjutkan jadwal waktu semula?'
+                    skip: 'Lewati bagian yang terlewat'
+                on_schedule:
+                    continue: 'Lanjutkan jadwal semula'
+                    info_html: 'Anda masih memiliki <b>%{time}</b> tersisa untuk melanjutkan ke order berikutnya. Anda bisa melewatinya dan segera mengeksekusi order berikutnya atau melanjutkan hitung mundur semula.'
+                    skip: Lewati
+        buy: Beli
+        counter: ''
+        day: Hari
+        details:
+            info:
+                exchanges_html: "<p className=\"mt-2\"><b>Pertukaran</b></p><p>Deltabadger cocok untuk berbagai pertukaran mata uang kripto. Saat ini, kami mendukung <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a>, dan <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Kami merekomendasikan Kraken sebagai pertukaran standar karena belum pernah dibajak. Gunakan Bitbay jika Anda ingin melakukan pembelian dalam PLN.</p><p>Untuk memanfaatkan bot Anda, pertama, Anda perlu memverifikasi akun pertukaran Anda dan mentransfer sejumlah dana ke dalamnya.</p><p>Namun, jangan terlalu lama menyimpan koin Anda di pertukaran mana pun. Masuklah ke akun Anda dan lakukan penarikan secara rutin setidaknya satu bulan sekali.</p><p>Ke depan, kami akan menambahkan lebih banyak jenis pertukaran. Beri tahu kami jika Anda tertarik dengan salah satunya.</p>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>Asing dengan dollar-cost averaging?</b></p><p>Tautan berikut akan membantu:</p><ul className=\"mb-5\"> <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA untuk Pemula (video)</a></li> <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Kemampuan DCA untuk Bitcoin</a></li> <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">Simulator DCA</a></li></ul>"
+                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smart interval\"</b></p><p>Saat smart interval diaktifkan, Deltabadger mengeksekusi jadwal yang Anda inginkan dalam beberapa transaksi paling kecil yang diperbolehkan menurut pertukaran. Jika tidak diaktifkan, fitur ini akan digunakan hanya bila diperlukan.</p><p className=\"mt-2\"><b>Mengapa?</b></p><p>Ada dua manfaat:</p><p>Jadwal yang lebih sering memungkinkan Anda merasakan manfaat DCA lebih cepat dan menjalankannya lebih mudah.</p><p>Selain itu, kadang smart interval juga diperlukan. Setiap pertukaran memiliki limit besaran minimum transaksi. Beberapa pertukaran ditetapkan dalam BTC, sehingga nilai USD berubah seiring waktu. Jika jumlah yang ingin Anda beli lebih kecil, Deltabadger menjaga rasio yang Anda inginkan dengan menggunakan besaran minimum yang diperbolehkan dan mengatur interval waktu. Tindakan ini mencegah bot terhenti saat jumlah yang Anda tetapkan berada di bawah ambang batas.</p><p className=\"mt-2\"><b>Contoh:</b></p><p>Katakanlah limit pertukaran saat ini sebesar $20. Jika Anda menetapkan besaran transaksi $24/hari, bot akan melakukan transaksi dengan nilai tersebut. Namun, jika Anda menetapkan transaksi sebesar $1/jam, bot akan mengadaptasi rasio menggunakan besaran yang diperbolehkan, setara dengan $20 setiap 20 jam. Secara rata-rata, bot menghasilkan rasio yang sama ($24/hari = $1/jam = $20/20jam).</p>"
+                title: Info
+            log:
+                date: Tanggal
+                errors: Kesalahan
+                title: Log
+            stats:
+                amount: 'Jumlah(%{base})'
+                average_price: 'Harga rata-rata'
+                bought: Dibeli
+                chart:
+                    total_invested: 'Total investasi'
+                    value: ''
+                csv_download_html: 'Tabel di atas hanya menampilkan sepuluh transaksi terakhir.<br>Laporan selengkapnya tersedia untuk diunduh dalam format CSV di bawah ini.'
+                current_value: 'Nilai saat ini'
+                current_value_sold: 'Nilai saat ini dari %{base} yang dijual'
+                date: Tanggal
+                download_csv: 'Unduh .csv'
+                exchange_unavailable_html: 'API pertukaran saat ini tidak merespons.<br>Kalkulasi berdasarkan data terakhir yang tersedia.'
+                order: Order
+                profit_loss: Untung/Rugi
+                rate: 'Nilai(%{quote})'
+                sold: Dijual
+                title: Statistik
+                total_invested: 'Total investasi'
+        for: seharga
+        force_smart_intervals_html: 'Gunakan <em>smart interval</em> dengan order masing-masing senilai <split>$100</split> %{currency}.'
+        hour: Jam
+        limit_buy: 'Beli limit'
+        limit_sell: 'Jual limit'
+        minimum_withdrawal_disclaimer: ''
+        minimum_withdrawal_disclaimer_usd: ''
+        month: Bulan
+        next_buy: 'Beli berikutnya dalam %{countdown}'
+        next_sell: 'Jual berikutnya dalam %{countdown}'
+        next_withdrawal: ''
+        price: harga
+        price_range_buy_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
+        price_range_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
+        price_range_sell_html: 'Hanya jual dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
+        sell: Jual
         setup:
-            step_exchange: Pertukaran
-            step_api_key: 'Kunci API'
-            step_schedule: Jadwal
-            cancel: Batal
-            limit_warning: 'Bot order limit adalah fitur eksperimental. Tidak semua order akan diselesaikan. Untuk mencapai hasil yang bagus, Anda perlu meningkatkan nilai investasi secara proporsional. Saat ini, Deltabadger belum menawarkan bantuan untuk mengestimasikan pengaturan ini, jadi Anda perlu melakukan prosedur backtesting sendiri. Gunakan prosedur tersebut hanya jika Anda memahaminya.'
-            how_to_get_keys: 'Bagaimana cara mendapatkan kunci API dari %{exchange}:'
             binance:
-                private_key: 'Kunci Rahasia'
-                public_key: 'Kunci API'
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                 instructions_2_html: 'Buka <b>Manajemen API</b> di menu pengguna (ikon bundar di pojok kanan atas).'
                 instructions_3_html: 'Beri nama kunci API baru dengan menekan <b>Buat</b>.'
@@ -369,23 +196,92 @@ id:
                 instructions_7_html: 'Tekan <b>Simpan</b> lalu konfirmasikan dengan kode sekali pakai lainnya bila perlu.'
                 instructions_8_html: 'Ingat bahwa Kunci Rahasia hanya terlihat selama pembuatan, jadi pastikan Anda menyalin kedua kunci sebelum meninggalkan tampilan.'
                 instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-            zonda:
+                private_key: 'Kunci Rahasia'
+                public_key: 'Kunci API'
+            bitfinex:
+                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                instructions_2_html: 'Buka <b>Kunci API</b> di menu akun (pojok kanan atas).'
+                instructions_3_html: 'Buka <b>Buat Kunci Baru</b>.'
+                instructions_4_1_html: 'Tetapkan izin untuk:'
+                instructions_4_2_html: '<b>Mendapatkan order dan status.</b>'
+                instructions_4_3_html: '<b>Membuat dan membatalkan order.</b>'
+                instructions_5_html: 'Berikan <b>Label</b> ke kunci API Anda.'
+                instructions_6_html: 'Tekan <b>Hasilkan kunci API</b>.'
+                instructions_7_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                private_key: 'API Rahasia'
+                public_key: 'Kunci API'
+            bitso:
+                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                instructions_2_html: 'Buka <b>Profil</b> di menu akun (pojok kanan atas).'
+                instructions_3_html: 'Pilih <b>API</b> (sisi kiri).'
+                instructions_4_html: 'Tekan <b>Tambah API baru</b>.'
+                instructions_5_html: 'Isi <b>Nama API</b> lalu berikan <b>PIN Transaksi</b> Anda.'
+                instructions_6_1_html: 'Tetapkan izin untuk:'
+                instructions_6_2_html: '<b>Melakukan trading</b>'
+                instructions_6_3_html: '<b>Melihat saldo</b>'
+                instructions_6_4_html: '<b>Melihat informasi akun</b>'
+                instructions_7_html: 'Tekan <b>Simpan</b>.'
+                instructions_8_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                private_key: 'API Rahasia'
+                public_key: 'Kunci API'
+            bitstamp:
+                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                instructions_2_html: 'Buka <b>Pengaturan</b> di menu akun (pojok kanan atas).'
+                instructions_3_html: 'Buka <b>Akses API</b> dalam <b>Kontrol Akses</b>.'
+                instructions_4_html: 'Tekan <b>Kunci API Baru</b>.'
+                instructions_5_html: 'Jika Anda ingin membatasi akses ke kunci hanya bagi Deltabadger, tetapkan <b>Filter Alamat IP</b> ke IP ini:<b>3.18.70.231</b>'
+                instructions_6_1_html: 'Tetapkan izin untuk:'
+                instructions_6_2_html: '<b>Membuka order.</b>'
+                instructions_6_3_html: '<b>Membatalkan order.</b>'
+                instructions_6_4_html: '<b>Membeli order limit/pasar.</b>'
+                instructions_6_5_html: '<b>Menjual order limit/pasar.</b>'
+                instructions_7_html: 'Tekan <b>Masukkan 2FA & Kirim</b>.'
+                instructions_8_html: 'Tekan <b>Aktifkan</b>.'
+                instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                private_key: 'API Rahasia'
+                public_key: 'Kunci API'
+            cancel: Batal
+            coinbase_pro:
+                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                instructions_2_html: 'Buka <b>API</b> di menu pengguna (pojok kanan atas).'
+                instructions_3_html: 'Tekan <b>Kunci API Baru</b>.'
+                instructions_4_1_html: 'Tetapkan izin untuk:'
+                instructions_4_2_html: '<b>Melihat</b>'
+                instructions_4_3_html: '<b>Trading</b>'
+                instructions_5_html: 'Tekan <b>Buat Kunci API</b>.'
+                instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                passphrase: 'Frasa Sandi'
+                private_key: 'Kunci Rahasia'
+                public_key: 'Kunci API'
+            error_info: 'Validasi gagal. Coba lagi atau hasilkan kunci baru.'
+            frequency_limit:
+                back_to_settings: 'Kembali ke pengaturan'
+                limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per menit dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
+                start_the_bot: 'Ubah dan mulai'
+            ftx:
+                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
+                instructions_3_html: 'Gulir turun ke bagian <b>Kunci API</b>.'
+                instructions_4_html: 'Tekan <b>Buat Kunci API</b>.'
+                instructions_5_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
                 private_key: 'Kunci Privat'
                 public_key: 'Kunci Publik'
+            gemini:
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka <b>Pengaturan API</b> di menu pengguna (pojok kanan atas).'
-                instructions_3_html: 'Tekan <b>Tambah Kunci Baru</b>.'
-                instructions_5_html: 'Tekan <b>Buat</b>.'
-                instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                instructions_4_1_html: 'Tetapkan izin untuk:'
-                instructions_4_2_html: '<b>Riwayat</b>'
-                instructions_4_3_html: '<b>Mendapatkan order dan konfigurasi pasar</b>'
-                instructions_4_4_html: '<b>Mengelola order dan mengubah konfigurasi pasar</b>'
-            kraken:
-                trading_agreement_html: '<b>Halo!</b> Jika akun Kraken Anda diverifikasi dengan alamat Jerman, Anda perlu menyetujui <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">perjanjian trading</a> untuk membuat order pasar dan order margin.'
-                trading_agreement_label_html: 'Saya menyetujui <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">perjanjian trading</a>.'
-                private_key: 'Kunci Privat'
+                instructions_2_html: 'Buka <b>Pengaturan</b> di menu akun (pojok kanan atas).'
+                instructions_3_html: 'Pilih <b>API</b> (sisi kiri).'
+                instructions_4_html: 'Tekan <b>Buat kunci API baru</b>.'
+                instructions_5_html: 'Pilih <b>Primer</b> dari menu tarik-turun <b>Cakupan</b>.'
+                instructions_6_html: 'Tekan <b>Buat kunci API baru</b>.'
+                instructions_7_1_html: 'Tetapkan pengaturan kunci API:'
+                instructions_7_2_html: '<b>Trading</b>'
+                instructions_8_html: 'Jangan centang <b>Wajibkan heartbeat session</b>'
+                instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                private_key: 'Kunci Rahasia'
                 public_key: 'Kunci API'
+            how_to_add_withdrawal_bot: ''
+            how_to_get_keys: 'Bagaimana cara mendapatkan kunci API dari %{exchange}:'
+            kraken:
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                 instructions_2_html: 'Buka <b>Keamanan</b> → <b>API</b> di menu pengguna.'
                 instructions_3_html: 'Tekan <b>Hasilkan Kunci Baru</b>.'
@@ -399,246 +295,414 @@ id:
                 instructions_6_5_html: '<b>Membatalkan/Menutup Order</b>'
                 instructions_7_html: 'Tekan <b>Hasilkan Kunci</b>.'
                 instructions_8_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-            coinbase_pro:
-                private_key: 'Kunci Rahasia'
-                public_key: 'Kunci API'
-                passphrase: 'Frasa Sandi'
-                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka <b>API</b> di menu pengguna (pojok kanan atas).'
-                instructions_3_html: 'Tekan <b>Kunci API Baru</b>.'
-                instructions_5_html: 'Tekan <b>Buat Kunci API</b>.'
-                instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                instructions_4_1_html: 'Tetapkan izin untuk:'
-                instructions_4_2_html: '<b>Melihat</b>'
-                instructions_4_3_html: '<b>Trading</b>'
-            gemini:
-                private_key: 'Kunci Rahasia'
-                public_key: 'Kunci API'
-                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka <b>Pengaturan</b> di menu akun (pojok kanan atas).'
-                instructions_3_html: 'Pilih <b>API</b> (sisi kiri).'
-                instructions_4_html: 'Tekan <b>Buat kunci API baru</b>.'
-                instructions_5_html: 'Pilih <b>Primer</b> dari menu tarik-turun <b>Cakupan</b>.'
-                instructions_6_html: 'Tekan <b>Buat kunci API baru</b>.'
-                instructions_8_html: 'Jangan centang <b>Wajibkan heartbeat session</b>'
-                instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                instructions_7_1_html: 'Tetapkan pengaturan kunci API:'
-                instructions_7_2_html: '<b>Trading</b>'
-            ftx:
                 private_key: 'Kunci Privat'
-                public_key: 'Kunci Publik'
-                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
-                instructions_3_html: 'Gulir turun ke bagian <b>Kunci API</b>.'
-                instructions_4_html: 'Tekan <b>Buat Kunci API</b>.'
-                instructions_5_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-            next: Berikutnya
-            bitso:
-                private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka <b>Profil</b> di menu akun (pojok kanan atas).'
-                instructions_3_html: 'Pilih <b>API</b> (sisi kiri).'
-                instructions_4_html: 'Tekan <b>Tambah API baru</b>.'
-                instructions_5_html: 'Isi <b>Nama API</b> lalu berikan <b>PIN Transaksi</b> Anda.'
-                instructions_7_html: 'Tekan <b>Simpan</b>.'
-                instructions_8_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                instructions_6_1_html: 'Tetapkan izin untuk:'
-                instructions_6_2_html: '<b>Melakukan trading</b>'
-                instructions_6_3_html: '<b>Melihat saldo</b>'
-                instructions_6_4_html: '<b>Melihat informasi akun</b>'
-            smart_intervals:
-                dont_show_again: 'Jangan tampilkan lagi'
-                info_html:
-                    force_smart_intervals: 'Untuk %{base}%{quote}, %{exchangeName} memiliki order minimum sebesar <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger akan mengeksekusi jadwal ini menggunakan order %{minimumValue}%{minimumCurrency} dan mengatur interval waktu agar sesuai dengan jadwal Anda. Kami menyebutnya <i>smart interval</i>.'
-                    other: 'Untuk %{base}%{quote}, %{exchangeName} memiliki order minimum sebesar <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger dapat mengeksekusi jadwal ini menggunakan order %{minimumValue}%{minimumCurrency} dan mengatur interval waktu agar sesuai dengan jadwal Anda. Kami menyebutnya <i>smart interval</i>.'
-            validating: Memvalidasi
-            error_info: 'Validasi gagal. Coba lagi atau hasilkan kunci baru.'
+                trading_agreement_html: '<b>Halo!</b> Jika akun Kraken Anda diverifikasi dengan alamat Jerman, Anda perlu menyetujui <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">perjanjian trading</a> untuk membuat order pasar dan order margin.'
+                trading_agreement_label_html: 'Saya menyetujui <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">perjanjian trading</a>.'
             kucoin:
-                private_key: 'API Rahasia'
-                public_key: 'Kunci API'
-                passphrase: 'Frasa Sandi'
+                instructions_10_html: 'Konfirmasikan pembuatan kunci API dengan Kata Sandi dan 2FA Trading.'
+                instructions_11_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                 instructions_2_html: 'Buka <b>Manajemen API</b> di menu akun (pojok kanan atas di sebelah pilihan bahasa).'
                 instructions_3_html: 'Tekan <b>Buat API</b>.'
                 instructions_4_html: 'Jika Anda membuat kunci API untuk pertama kalinya, tetapkan dan simpan <b>Kata Sandi Trading</b>.'
                 instructions_5_html: 'Berikan <b>Nama API</b>.'
                 instructions_6_html: 'Berikan dan simpan <b>Frasa Sandi API</b>.'
-                instructions_8_html: 'Jika Anda ingin membatasi akses ke kunci hanya bagi Deltabadger, tetapkan <b>Pembatasan IP</b> menjadi ya lalu tambahkan IP ini:<b>3.18.70.231</b>'
-                instructions_9_html: 'Tekan <b>Berikutnya</b>.'
-                instructions_10_html: 'Konfirmasikan pembuatan kunci API dengan Kata Sandi dan 2FA Trading.'
-                instructions_11_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
                 instructions_7_1_html: 'Tetapkan izin untuk:'
                 instructions_7_2_html: '<b>Umum</b>'
                 instructions_7_3_html: '<b>Trading</b>'
-            bitfinex:
+                instructions_8_html: 'Jika Anda ingin membatasi akses ke kunci hanya bagi Deltabadger, tetapkan <b>Pembatasan IP</b> menjadi ya lalu tambahkan IP ini:<b>3.18.70.231</b>'
+                instructions_9_html: 'Tekan <b>Berikutnya</b>.'
+                passphrase: 'Frasa Sandi'
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka <b>Kunci API</b> di menu akun (pojok kanan atas).'
-                instructions_3_html: 'Buka <b>Buat Kunci Baru</b>.'
-                instructions_5_html: 'Berikan <b>Label</b> ke kunci API Anda.'
-                instructions_6_html: 'Tekan <b>Hasilkan kunci API</b>.'
-                instructions_7_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                instructions_4_1_html: 'Tetapkan izin untuk:'
-                instructions_4_2_html: '<b>Mendapatkan order dan status.</b>'
-                instructions_4_3_html: '<b>Membuat dan membatalkan order.</b>'
-            bitstamp:
-                private_key: 'API Rahasia'
-                public_key: 'Kunci API'
-                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                instructions_2_html: 'Buka <b>Pengaturan</b> di menu akun (pojok kanan atas).'
-                instructions_3_html: 'Buka <b>Akses API</b> dalam <b>Kontrol Akses</b>.'
-                instructions_4_html: 'Tekan <b>Kunci API Baru</b>.'
-                instructions_5_html: 'Jika Anda ingin membatasi akses ke kunci hanya bagi Deltabadger, tetapkan <b>Filter Alamat IP</b> ke IP ini:<b>3.18.70.231</b>'
-                instructions_7_html: 'Tekan <b>Masukkan 2FA & Kirim</b>.'
-                instructions_8_html: 'Tekan <b>Aktifkan</b>.'
-                instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                instructions_6_1_html: 'Tetapkan izin untuk:'
-                instructions_6_2_html: '<b>Membuka order.</b>'
-                instructions_6_3_html: '<b>Membatalkan order.</b>'
-                instructions_6_4_html: '<b>Membeli order limit/pasar.</b>'
-                instructions_6_5_html: '<b>Menjual order limit/pasar.</b>'
-            set: Tetapkan
+            limit_warning: 'Bot order limit adalah fitur eksperimental. Tidak semua order akan diselesaikan. Untuk mencapai hasil yang bagus, Anda perlu meningkatkan nilai investasi secara proporsional. Saat ini, Deltabadger belum menawarkan bantuan untuk mengestimasikan pengaturan ini, jadi Anda perlu melakukan prosedur backtesting sendiri. Gunakan prosedur tersebut hanya jika Anda memahaminya.'
+            next: Berikutnya
+            no_wallet_found: ''
             probit:
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                 instructions_2_html: 'Buka <b>Manajemen API</b> di menu <b>Halaman Saya</b> (pojok kanan atas).'
                 instructions_3_html: 'Berikan label kunci API lalu tekan <b>Buat kunci baru</b>.'
                 instructions_4_html: 'Konfirmasikan pembuatan kunci API.'
                 instructions_5_html: 'Jika Anda ingin membatasi akses agar hanya Deltabadger yang bisa menggunakan kunci, tekan <b>Edit</b> lalu tetapkan <b>Pembatasan Alamat IP</b> ke IP ini:<b>3.18.70.231</b>'
-                instructions_7_html: 'Salin dan tempel ID Klien baru dan Kunci Rahasia Klien Anda ke dalam formulir di atas.'
-                private_key: 'Kunci Rahasia Klien'
-                public_key: 'ID Klien'
                 instructions_6_1_html: 'Tetapkan izin untuk:'
                 instructions_6_2_html: '<b>Membaca</b>'
                 instructions_6_3_html: '<b>Trading</b>'
-            frequency_limit:
-                limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per jam dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
-                back_to_settings: 'Kembali ke pengaturan'
-                start_the_bot: 'Ubah dan mulai'
-        add_new_bot: 'Tambah bot baru'
-        start: Mulai
-        stop: Jeda
-        buy: Beli
-        limit_buy: 'Beli limit'
-        sell: Jual
-        limit_sell: 'Jual limit'
-        for: seharga
-        hour: Jam
-        day: Hari
-        week: Minggu
-        month: Bulan
-        next_buy: 'Beli berikutnya dalam %{countdown}'
-        next_sell: 'Jual berikutnya dalam %{countdown}'
-        buttons:
-            start:
-                changed_on_schedule:
-                    info_html: 'Jadwal baru akan dimulai setelah <b>%{time}</b> tersisa dari jadwal terakhir selesai.'
-                    skip: 'Abaikan dan segera mulai'
-                    continue: 'Saya mengerti'
-                changed_missed:
-                    info_html: 'Apakah Anda ingin menginvestasikan <b>%{amount} %{quote}</b> yang terlewat saat bot dijeda? Jadwal baru akan dimulai setelah hitung mundur saat ini selesai.'
-                    skip: 'Abaikan bagian yang terlewat'
-                    continue: 'Ya, beli dan lanjutkan'
-                missed:
-                    info_html: 'Apakah Anda ingin menginvestasikan <b>%{amount} %{quote}</b> yang terlewat saat bot dijeda dan melanjutkan jadwal waktu semula?'
-                    skip: 'Lewati bagian yang terlewat'
-                    continue: 'Ya, beli dan lanjutkan'
-                on_schedule:
-                    info_html: 'Anda masih memiliki <b>%{time}</b> tersisa untuk melanjutkan ke order berikutnya. Anda bisa melewatinya dan segera mengeksekusi order berikutnya atau melanjutkan hitung mundur semula.'
-                    skip: Lewati
-                    continue: 'Lanjutkan jadwal semula'
-            delete:
-                text: Hapus
-                warning_html: 'Tindakan ini akan menghapus bot dengan semua<br>data riwayatnya. Apakah Anda yakin?'
-                cancel: Batal
-                ok: 'Hapus semuanya'
-            pending:
-                text: Tertunda
-                info_html: Memproses...
-        details:
-            stats:
-                title: Statistik
-                chart:
-                    total_invested: 'total investasi'
-                    value: nilai
-                bought: Dibeli
-                average_price: 'Harga rata-rata'
-                total_invested: 'Total investasi'
-                current_value: 'Nilai saat ini'
-                profit_loss: Untung/Rugi
-                exchange_unavailable_html: 'API pertukaran saat ini tidak merespons.<br>Kalkulasi berdasarkan data terakhir yang tersedia.'
-                csv_download_html: 'Tabel di atas hanya menampilkan sepuluh transaksi terakhir.<br>Laporan selengkapnya tersedia untuk diunduh dalam format CSV di bawah ini.'
-                download_csv: 'Unduh .csv'
-                date: Tanggal
-                order: Order
-                amount: 'Jumlah(%{base})'
-                rate: 'Nilai(%{quote})'
-                sold: Dijual
-                current_value_sold: 'Nilai saat ini dari %{base} yang dijual'
-            log:
-                title: Log
-                date: Tanggal
-                errors: Kesalahan
-            info:
-                title: Info
-                exchanges_html: "<p className=\"mt-2\"><b>Pertukaran</b></p>\n<p>Deltabadger cocok untuk berbagai pertukaran mata uang kripto. Saat ini, kami mendukung <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondaglobal.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zonda\">Zonda</a>, <a href=\"https://bitfinex.com\" target=\"_blank\" rel=\"nofollow\" title=\"Bitfinex\">Bitfinex</a>, <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitso\">Bitso</a>, <a href=\"https://bitstamp.net/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitstamp\">Bitstamp</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a>, <a href=\"https://ftx.us\" target=\"_blank\" rel=\"nofollow\">FTX.US</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>, <a href=\"https://kucoin.com/\" target=\"_blank\" title=\"KuCoin\">KuCoin</a> dan <a href=\"https://www.probit.com/\" target=\"_blank\" title=\"ProBit Global\">ProBit Global</a>. Kami merekomendasikan Kraken sebagai pertukaran standar karena belum pernah dibajak. Gunakan Zonda jika Anda ingin melakukan pembelian dalam PLN.</p>\n<p>Untuk memanfaatkan bot Anda, pertama, Anda perlu memverifikasi akun pertukaran Anda dan mentransfer sejumlah dana ke dalamnya.</p>\n<p>Namun, jangan terlalu lama menyimpan koin Anda di pertukaran mana pun. Masuklah ke akun Anda dan lakukan penarikan secara rutin setidaknya satu bulan sekali.</p>\n<p>Ke depan, kami akan menambahkan lebih banyak jenis pertukaran. Beri tahu kami jika Anda tertarik dengan salah satunya.</p>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smart interval\"</b></p>\n<p>Saat smart interval diaktifkan, Deltabadger mengeksekusi jadwal yang Anda inginkan dalam beberapa transaksi paling kecil yang diperbolehkan menurut pertukaran. Jika tidak diaktifkan, fitur ini akan digunakan hanya bila diperlukan.</p>\n<p className=\"mt-2\"><b>Mengapa?</b></p>\n<p>Ada dua manfaat:</p>\n<p>Jadwal yang lebih sering memungkinkan Anda merasakan manfaat DCA lebih cepat dan menjalankannya lebih mudah.</p>\n<p>Selain itu, kadang smart interval juga diperlukan. Setiap pertukaran memiliki limit besaran minimum transaksi. Beberapa pertukaran ditetapkan dalam BTC, sehingga nilai USD berubah seiring waktu. Jika jumlah yang ingin Anda beli lebih kecil, Deltabadger menjaga rasio yang Anda inginkan dengan menggunakan besaran minimum yang diperbolehkan dan mengatur interval waktu. Tindakan ini mencegah bot terhenti saat jumlah yang Anda tetapkan berada di bawah ambang batas.</p>\n<p className=\"mt-2\"><b>Contoh:</b></p>\n<p>Katakanlah limit pertukaran saat ini sebesar $20. Jika Anda menetapkan besaran transaksi $24/hari, bot akan melakukan transaksi dengan nilai tersebut. Namun, jika Anda menetapkan transaksi sebesar $1/jam, bot akan mengadaptasi rasio menggunakan besaran yang diperbolehkan, setara dengan $20 setiap 20 jam. Secara rata-rata, bot menghasilkan rasio yang sama ($24/hari = $1/jam = $20/20jam).</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>Asing dengan dollar-cost averaging?</b></p>\n<p>Tautan berikut akan membantu:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=CdKRjuaUtOc\" target=\"_blank\" rel=\"nofollow\">DCA untuk Pemula (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Kemampuan DCA untuk Bitcoin</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">Simulator DCA</a></li>\n</ul>"
-        starting: Mulai
-        price: harga
-        above: 'di atas'
-        below: 'di bawah'
-        counter: '%{countdown}'
-        force_smart_intervals_html: 'Gunakan <em>smart interval</em> dengan order masing-masing senilai <split>$100</split> %{currency}.'
+                instructions_7_html: 'Salin dan tempel ID Klien baru dan Kunci Rahasia Klien Anda ke dalam formulir di atas.'
+                private_key: 'Kunci Rahasia Klien'
+                public_key: 'ID Klien'
+            set: Tetapkan
+            smart_intervals:
+                dont_show_again: 'Jangan tampilkan lagi'
+                info_html:
+                    force_smart_intervals: 'Untuk %{base}%{quote}, %{exchangeName} memiliki order minimum sebesar <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger akan mengeksekusi jadwal ini menggunakan order %{minimumValue}%{minimumCurrency} dan mengatur interval waktu agar sesuai dengan jadwal Anda. Kami menyebutnya <i>smart interval</i>.'
+                    other: 'Untuk %{base}%{quote}, %{exchangeName} memiliki order minimum sebesar <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger dapat mengeksekusi jadwal ini menggunakan order %{minimumValue}%{minimumCurrency} dan mengatur interval waktu agar sesuai dengan jadwal Anda. Kami menyebutnya <i>smart interval</i>.'
+            step_api_key: 'Kunci API'
+            step_exchange: Pertukaran
+            step_schedule: Jadwal
+            validating: Memvalidasi
+            withdrawal:
+                ftx:
+                    instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                    instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
+                    instructions_3_html: 'Gulir turun ke bagian <b>Kunci API</b>.'
+                    instructions_4_html: 'Tekan <b>Buat Kunci API</b>.'
+                    instructions_5_html: ''
+                    instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                kraken:
+                    instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                    instructions_2_html: 'Buka <b>Keamanan</b> → <b>API</b> di menu pengguna.'
+                    instructions_3_html: 'Tekan <b>Hasilkan Kunci Baru</b>.'
+                    instructions_4_html: 'Tetapkan izin untuk:'
+                    instructions_5_1_html: 'Dana:'
+                    instructions_5_2_html: '<b>Menanyakan Dana</b>'
+                    instructions_5_3_html: ''
+                    instructions_6_html: 'Tekan <b>Hasilkan Kunci</b>.'
+                    instructions_7_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+            withdrawal_address:
+                ftx:
+                    instructions_10_html: ''
+                    instructions_11_html: ''
+                    instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                    instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
+                    instructions_3_html: ''
+                    instructions_4_html: ''
+                    instructions_5_html: ''
+                    instructions_6_html: ''
+                    instructions_7_html: ''
+                    instructions_8_html: ''
+                    instructions_9_html: ''
+                kraken:
+                    instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                    instructions_2_html: ''
+                    instructions_3_html: ''
+                    instructions_4_html: ''
+                    instructions_5_html: ''
+            withdrawal_html: ''
+            zonda:
+                instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
+                instructions_2_html: 'Buka <b>Pengaturan API</b> di menu pengguna (pojok kanan atas).'
+                instructions_3_html: 'Tekan <b>Tambah Kunci Baru</b>.'
+                instructions_4_1_html: 'Tetapkan izin untuk:'
+                instructions_4_2_html: '<b>Riwayat</b>'
+                instructions_4_3_html: '<b>Mendapatkan order dan konfigurasi pasar</b>'
+                instructions_4_4_html: '<b>Mengelola order dan mengubah konfigurasi pasar</b>'
+                instructions_5_html: 'Tekan <b>Buat</b>.'
+                instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
+                private_key: 'Kunci Privat'
+                public_key: 'Kunci Publik'
+        smart_intervals_disclaimer: 'Besar order untuk %{exchange} ditetapkan dalam %{currency}. Order minimum sebesar %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'Besar order untuk %{exchange} ditetapkan dalam %{currency}. Order minimum sebesar %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'Order minimum sebesar %{minimum}%{currency}.'
-        smart_intervals_disclaimer: 'Besar order untuk %{exchange} ditetapkan dalam %{currency}. Order minimum sebesar %{minimum}%{currency}.'
-        price_range_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
-        price_range_buy_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Hanya jual dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
-    activerecord:
-        errors:
-            models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'harus berisi karakter alfabet numerik kapital'
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: 'Konfirmasikan alamat Bitcoin yang baru 📒'
-            template_html: "<p>Halo 👋,</p>\n<p>Tampaknya Anda ingin mengubah alamat Bitcoin Anda ke:</p>\n<p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p>\n<p>Alamat ini akan digunakan untuk pembayaran Anda dari program referral kami.</p>\n<p>Apakah Anda yakin?</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Ya, mari ubah!</a>\n</p>\n<p>Anda tidak mengirim permintaan ini?<br>Jangan khawatir! Abaikan saja.</p>\n<p>Alamat tidak akan berubah sampai Anda mengakses tautan di atas.</p>"
-        referrals_payout_notification:
-            subject: 'Saatnya gajian! 💸'
-            template_html: "<p>Halo 👋,</p>\n<p>Keren! Tautan referral Anda mulai diminati!</p>\n<p>Kami mentransfer komisi sebesar</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>ke dompet Bitcoin Anda.</p>\n<p>Terima kasih sudah mengembangkan<br>tim badger!</p>"
-        registration_reminder:
-            subject: 'Wow! Anda mendapatkan %{amount} BTC! 💸'
-            template_html: "<p>Wow!</p>\n<p>Anda memiliki komisi baru dari program referral yang menanti Anda! Selesaikan pendaftaran untuk mendapatkan bitcoin Anda:</p>\n<p><a href=%{link}>Selesaikan pendaftaran.</a></p>"
-    bot_alerts_mailer:
-        first_month_ending_soon:
-            subject: 'Uji coba bulan pertama akan segera berakhir!'
-            template_html: "<p>Halo 👋,</p>\n<p>Anda telah menggunakan Deltabadger selama hampir satu bulan sekarang!</p>\n<p>Uji coba gratis tanpa batas Anda akan segera berakhir. Pastikan untuk meningkatkan paket agar badger Anda yang lebih besar tetap bekerja!</p>"
-        limit_almost_reached:
-            subject: 'Limit hampir tercapai ⌛'
-            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br> atau <b style=\"color: #0a45a4;\">Hodler</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
-        limit_reached:
-            subject: 'Anda telah mencapai limit 🥳'
-            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br>atau <b style=\"color: #0a45a4;\">Hodler</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
-        notify_about_error:
-            subject: 'Ada yang salah 😵'
-            template_html: "<p>Ups… 😵</p>\n<p>Ada yang salah saat<br>memproses transaksi terakhir.</p>\n<p>Anda bisa melihat kesalahan itu di<br>log bot. Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
-        notify_about_restart:
-            subject: 'Ups! Percobaan berikutnya… 🧐'
-            template_html: "<p>Oh tidak 🧐,</p>\n<p>Bot tidak dapat melakukan order Anda.<br>Tampaknya ada masalah dengan pertukaran.<br>Kami akan mencobanya lagi dalam %{delay}.</p>\n<p>Semua kesalahan dapat dilihat di log bot.<br>Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+        start: Mulai
+        starting: Mulai
+        stop: Jeda
+        subaccounts_info: 'Gunakan subrekening'
+        week: Minggu
+        withdraw_interval_html: ''
+        withdraw_threshold_html: ''
+        withdrawal_percentage: ''
+    cookie:
+        agree: 'Saya setuju'
+        description: 'Kami menggunakan kuki agar segalanya lebih mudah.'
+        read_more: 'Baca selengkapnya'
+    days_left:
+        other: ''
+    deltabadger: Deltabadger
+    devise:
+        confirmations:
+            confirmed: 'Alamat email Anda berhasil dikonfirmasi.'
+            new:
+                submit: 'Kirim ulang tautan konfirmasi'
+                title: 'Kirim ulang petunjuk'
+            send_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
+            send_paranoid_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
+        failure:
+            already_authenticated: 'Anda sudah masuk.'
+            inactive: 'Akun Anda belum diaktifkan.'
+            invalid: '%{authentication_keys} atau kata sandi tidak valid.'
+            last_attempt: 'Anda memiliki satu percobaan lagi sebelum akun Anda dikunci.'
+            locked: 'Akun Anda dikunci.'
+            not_found_in_database: '%{authentication_keys} atau kata sandi tidak valid.'
+            timeout: 'Sesi Anda berakhir. Silakan masuk kembali untuk melanjutkan.'
+            unauthenticated: 'Anda perlu masuk atau mendaftar sebelum melanjutkan.'
+            unconfirmed: 'Anda harus mengonfirmasi alamat email Anda sebelum melanjutkan.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Selamat datang di Deltabadger 🎉'
+                template_html: "<p>Selamat Datang di Deltabadger 🎉,</p><p>Dollar-cost averaging otomatis<br>untuk Bitcoin hanya dengan satu klik:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Konfirmasikan akun saya</a></p><p>Anda tidak ingat bahwa mendaftar?<br>Jangan khawatir. Abaikan saja.</p>"
+            email_changed:
+                subject: 'Alamat email baru 📨'
+                template_html: "<p>Halo 👋,</p><p>Kami mengirim email ini untuk memberi tahu Anda bahwa alamat email yang terkait dengan akun Anda di Deltabadger telah diubah menjadi:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+            password_change:
+                subject: 'Kata sandi baru 🔑'
+                template_html: "<p>Selesai 🎉!</p><p>Kata sandi Anda 🔑 telah diubah.</p>"
+            reset_password_instructions:
+                subject: 'Reset kata sandi 🔑'
+                template_html: "<p>Halo 👋,</p><p>Tampaknya Anda ingin mengubah<br/>kata sandi 🔑. Langkah bagus!</p><p>Mari mulai:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Ubah kata sandi</a> </p><p>Anda tidak mengirim permintaan ini?<br/>Jangan khawatir! Abaikan saja.</p>"
+            unlock_instructions:
+                subject: 'Buka petunjuk 🔓'
+                template_html: "<p>Halo 👋,</p><p>Kami mengunci akun Anda karena<br>banyaknya percobaan masuk yang gagal.</p><p>Klik tautan di bawah ini untuk membukanya:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Buka kunci akun saya</a></p>"
+        omniauth_callbacks:
+            failure: 'Tidak dapat mengautentikasi Anda dari %{kind} karena "%{reason}".'
+            success: 'Berhasil diautentikasi dari %{kind} akun.'
+        passwords:
+            edit:
+                submit: 'Ubah kata sandi saya'
+                title: 'Ubah kata sandi Anda'
+            new:
+                submit: 'Kirimkan saya petunjuk'
+                title: 'Lupa kata sandi Anda?'
+            no_token: 'Anda tidak bisa mengakses halaman ini tanpa melalui email reset kata sandi. Jika Anda sudah melakukannya, pastikan Anda menggunakan URL lengkap yang diberikan.'
+            send_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
+            send_paranoid_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
+            updated: 'Selesai! Kata sandi Anda sudah diubah.'
+            updated_not_active: 'Selesai! Kata sandi Anda sudah diubah.'
+        registrations:
+            destroyed: 'Selamat tinggal! Semoga kita berjumpa lagi...'
+            edit:
+                awaiting_confirmation: 'Saat ini, menunggu konfirmasi untuk: %{email}'
+            new:
+                email_invalid: 'Email tidak valid!'
+                email_suggestion_html: 'Email tidak valid! Maksud Anda: <b>%{suggestion}</b>'
+                email_used: 'Email ini sudah digunakan.'
+                name_invalid: 'Tidak harus nyata :)'
+                submit: 'Mulai sekarang'
+                title_html: 'Buat akun <span class="text-success">gratis</span>'
+            signed_up: 'Senang bertemu Anda!'
+            signed_up_but_inactive: 'Hai, akun Anda belum diaktifkan. Sudahkah Anda memeriksa email?'
+            signed_up_but_locked: 'Ups, akun Anda dikunci.'
+            signed_up_but_unconfirmed: 'Periksa email Anda lalu klik tautan konfirmasi.'
+            update_needs_confirmation: 'Periksa email Anda lalu ikuti tautan konfirmasi untuk mengonfirmasi alamat email baru Anda.'
+            updated: 'Akun Anda berhasil diperbarui.'
+            updated_but_not_signed_in: 'Akun Anda berhasil diperbarui, silakan masuk kembali.'
+        sessions:
+            already_signed_out: 'Saya sedih Anda pergi. Jumpa lagi nanti?'
+            new:
+                forgot_password: 'Lupa kata sandi?'
+                submit: Masuk
+                title: Masuk
+            signed_in: 'Lama tidak berjumpa!'
+            signed_out: 'Sampai jumpa lagi!'
+        unlocks:
+            send_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
+            send_paranoid_instructions: 'Dalam beberapa menit lagi, Anda akan menerima email berisi petunjuk.'
+            unlocked: 'Akun Anda berhasil dibuka. Silakan masuk untuk melanjutkan.'
+    errors:
+        bitcoin_address_not_updated: 'Alamat Bitcoin tidak dapat diperbarui'
+        format: ''
+        frequency_limit: 'Limit frekuensi terlampaui'
+        invalid_api_keys: 'Token tidak valid'
+        limit_reached: 'Limit paket gratis tercapai'
+        messages:
+            accepted: 'harus diterima'
+            already_confirmed: 'sudah dikonfirmasi, silakan coba masuk.'
+            bad_2fa_code: 'Kode tidak valid. Coba lagi.'
+            bad_credentials: 'Email atau kata sandi salah.'
+            bad_credentials_with_code: 'Email, kata sandi, atau kode 2FA salah.'
+            blank: 'tidak boleh kosong'
+            confirmation: 'tidak cocok dengan %{attribute}'
+            confirmation_period_expired: 'perlu dikonfirmasi dalam %{period}, silakan minta yang baru.'
+            empty: 'tidak boleh kosong'
+            empty_two_fa_token: 'Kode 2FA terlewat. Coba lagi.'
+            equal_to: 'harus sama dengan %{count}'
+            even: 'harus genap'
+            exclusion: disimpan
+            expired: 'sudah kedaluwarsa, silakan minta yang baru.'
+            greater_than: 'harus lebih besar dari %{count}'
+            greater_than_or_equal_to: 'harus lebih besar dari atau sama dengan %{count}'
+            in: 'harus dalam %{count}'
+            inclusion: 'tidak disertakan dalam daftar'
+            invalid: 'tidak valid'
+            less_than: 'harus kurang dari %{count}'
+            less_than_or_equal_to: 'harus kurang dari atau sama dengan %{count}'
+            model_invalid: 'Validasi gagal: %{errors}'
+            name_invalid: 'Tidak harus nyata :)'
+            not_a_number: 'bukan angka'
+            not_an_integer: 'harus bilangan bulat'
+            not_found: 'tidak ditemukan.'
+            not_locked: 'tidak dikunci.'
+            not_saved:
+                other: ''
+            odd: 'harus ganjil'
+            other_than: 'harus selain dari %{count}'
+            password_not_match: 'Kata sandi tidak cocok'
+            present: 'harus kosong'
+            too_long:
+                other: ''
+            too_short:
+                other: ''
+            too_short_password: 'Kata sandi terlalu pendek'
+            too_simple_password: ''
+            wrong_email: 'Email salah.'
+            wrong_length:
+                other: ''
+            wrong_password: 'Kata sandi salah'
+            wrong_two_fa_token: 'Kode yang diberikan salah.'
+        referral_program_inactive: 'Program referral Anda tidak aktif'
+        unverified_request: 'Segarkan browser Anda lalu coba lagi'
+    forms:
+        for_confirmation: '(untuk konfirmasi)'
+        minimum_length: 'Minimum %{length} karakter'
+    helpers:
+        label:
+            affiliate:
+                address: 'Alamat perusahaan:'
+                btc_address: 'Alamat BTC'
+                btc_address_tooltip: 'Alamat BTC yang menjadi tujuan pengiriman pembayaran Anda.'
+                check: Periksa
+                code_tooltip: 'Pilih kode referral yang Anda inginkan.'
+                name: 'Nama perusahaan:'
+                vat_number: 'Nomor Vat (opsional):'
+                visible_link: Tautan
+                visible_name: 'Nama di pratinjau'
+            payment:
+                birth_date: 'Tanggal lahir'
+                business_invoice: 'Saya perlu invois bisnis.'
+                country: Negara
+                first_name: Nama
+                last_name: 'Nama Belakang'
+                other: Lainnya
+                submit_hodler_order: 'Paket Hodler Order'
+                submit_investor_order: 'Paket Investor Order'
+            settings:
+                current_status: 'Status saat ini:'
+                disable_two_fa: 'Nonaktifkan 2FA'
+                disabled: Dinonaktifkan
+                enable_two_fa: 'Aktifkan 2FA'
+                enabled: Diaktifkan
+                enter_two_fa_code: 'Masukkan kode 2FA'
+                scan_code_info: 'Pindai kode QR atau salin kode di bawah ini:'
+            user:
+                current_password: 'Kata sandi saat ini'
+                email: Email
+                new_password: 'Kata sandi baru'
+                new_password_confirmation: 'Konfirmasikan kata sandi baru'
+                password: 'Kata sandi'
+                password_confirmation: 'Konfirmasi kata sandi'
+                remember_me: 'Ingat saya'
+                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
+    home:
+        confirm_registration:
+            deliverability_html: '<b>Penting sekali!</b><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
+            text_html: 'Periksa kotak surat Anda lalu klik <b>tautan konfirmasi</b> yang kami kirimkan kepada Anda. Kemudian, buka halaman masuk.'
+            title: 'Terima kasih!'
+        contact:
+            general_questions_html: 'Untuk pertanyaan umum, silakan coba <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">saluran Telegram</a> kami. Biasanya ini adalah cara tercepat untuk memperoleh jawaban. Selain itu: kami juga menerima semua masukan, ide produk, dan permintaan pertukaran.'
+            specific_questions_html: 'Untuk masalah spesifik lainnya, kirimkan email ke: %{email} atau pesan langsung di Telegram atau <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            title: Kontak
+    links:
+        about: Tentang
+        about_html: 'Tentang <span class="d-none d-xl-inline">proyek</span>'
+        contact: Kontak
+        cookies_policy: 'Kebijakan Kuki'
+        create_account: 'Buat akun gratis'
+        dashboard: Dasbor
+        homepage: 'Tautan ke beranda'
+        log_in: Masuk
+        log_out: Keluar
+        menu: Menu
+        privacy_policy: 'Kebijakan Privasi'
+        referral_program: 'Program referral'
+        resend_link: 'Kirim ulang tautan'
+        settings: Pengaturan
+        sign_up: Daftar
+        start_fast: 'Mulai dalam 5 menit'
+        start_fast_longer_html: 'Mulai <span class="d-none d-sm-inline">secara gratis</span> dalam 5 menit'
+        terms_and_conditions: 'Syarat & Ketentuan'
+    mail: "<p>Halo 👋,</p><p>Keren! Tautan referral Anda <br>mulai diminati!</p><p>Kami mentransfer komisi sebesar</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>ke dompet Bitcoin Anda.</p><p>Terima kasih sudah mengembangkan <br/>tim badger!</p>"
     mailer:
         signature_html: 'Tim Deltabadger 🧑‍🚀'
-    subscription_mailer:
-        invoice:
-            subject: 'Pembayaran Deltabadger'
-            template_html: "<h1>Invois</h1>\n<p><b>Dibayar pada:</b></p>\n<p>%{paid_at}</p>\n<p><b>Penjual:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  No.Reg.14781461\n</p>\n<p><b>Pembeli:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Paket %{plan_name} Deltabadger (%{years}-tahun)</h2>\n<p>\n  <b>Dibayar:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: 'Paket %{plan_name} diberikan'
-            template_html: "<p>Wow 💙,</p>\n<p>Terima kasih sudah membeli</p>\n<p>\n  <b>\n    paket %{plan_name} %{years}-tahun kami\n  </b>\n</p>\n<p>Keren! 🔥</p>"
+    meta:
+        desc: 'Mulailah secara gratis strategi yang terbukti efektif untuk Binance, FTX, Coinbase, Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.'
+        title: 'Deltabadger • Automasikan Dollar-Cost Averaging untuk Kripto Apa Saja'
+        title_short: 'Deltabadger • DCA Otomatis untuk Bitcoin dan Aset Lainnya'
+        twitter_image_alt: 'Dollar-cost averaging otomatis untuk Bitcoin, Ethereum, Polkadot, Cardano, Solana, dan aset digital lainnya.'
     referral:
         banner_html: '<b>Bagikan tautan referral Anda kepada teman dan <a href="/referral-program" alt="Read more">dapatkan hingga $50 dalam BTC</a>. Cara terbaik melakukan DCA untuk Bitcoin adalah dengan mendapatkannya!</b>'
         copied: Disalin!
+    settings:
+        index:
+            api_key_confirmation: 'Apakah Anda yakin?'
+            api_keys_section: 'Kunci API'
+            current_password: 'Kata sandi saat ini (untuk konfirmasi)'
+            email_section: Email
+            name_section: 'Perbarui nama'
+            password_section: 'Kata sandi'
+            submit_email: 'Perbarui email'
+            submit_name: 'Perbarui nama'
+            submit_password: 'Ubah kata sandi'
+            title: Pengaturan
+            two_factor_section: 'Autentikasi Dua Faktor'
+    social:
+        blog: 'Baca blog kami'
+        knowledge_base: 'Dasar pengetahuan'
+        telegram: 'Bergabunglah ke grup Telegram kami'
+        twitter: 'Ikuti kami di Twitter'
+    subscription_mailer:
+        invoice:
+            subject: 'Pembayaran Deltabadger'
+            template_html: "<h1>Invois</h1><p><b>Dibayar pada:</b></p><p>%{paid_at}</p><p><b>Penjual:</b></p><p> Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn <br> Estonia <br> No.Reg.14781461</p><p><b>Pembeli:</b></p><p> %{first_name} %{last_name} <br> %{email}</p><h2>Paket %{plan_name} Deltabadger (%{years}-tahun)</h2><p> <b>Dibayar:</b></p><h2>%{total_paid} %{currency}</h2>"
+        subscription_granted:
+            subject: 'Paket %{plan_name} diberikan'
+            template_html: "<p>Wow 💙,</p><p>Terima kasih sudah membeli</p><p> <b> paket %{plan_name} %{years}-tahun kami </b></p><p>Keren! 🔥</p>"
+    subscriptions:
+        days_left:
+            other: ''
+        hodler: Hodler
+        hodler_description_html: 'DCA bekerja paling baik sebagai komitmen jangka panjang. Empat tahun <b class="badge badge-btc"> transaksi tak terbatas </b> untuk <b class="badge badge-all"> semua mata uang </b> di bursa, <b class="badge badge-limit"> limit order </b> , <b class="badge badge-limit"> penarikan otomatis </b> (segera), <b class="badge badge-limit"> kondisi harga </b> , <b class="badge badge-limit"> kondisi waktu </b> (segera), <b class="badge badge-limit"> staking otomatis </b> (segera). Paket ini mendukung proyek, dan itulah sebabnya Hodlers mendapatkan <b class="badge badge-priority"> akses prioritas </b> ke semua fitur baru.'
+        investor: Investor
+        investor_description_html: 'Satu tahun <b class="badge badge-btc"> transaksi tak terbatas </b> , <b class="badge badge-btc"> semua mata uang </b> , dan <b class="badge badge-btc"> penarikan otomatis </b> (segera).'
+        legendary_badger: ''
+        legendary_badger_description_html: ''
+        limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
+        maximalist_info: 'Jika Anda membeli Bitcoin saja, Anda membayar separuh dari harga normal.'
+        maximalist_title: 'Diskon Maksimal 50% Bitcoin'
+        payment:
+            account_holder: 'Pemilik rekening'
+            account_number: 'Nomor rekening'
+            account_type: 'Jenis rekening'
+            active_plan_discount: 'Diskon paket aktif'
+            after_wire_transfer_html: 'Terima kasih! Kami akan segera kembali! Jika Anda memerlukan bantuan lebih lanjut, beri tahu kami: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            bank_address: 'Alamat bank'
+            billing_information: 'Informasi penagihan'
+            bitcoin: Bitcoin
+            card_payment_succeeded: ''
+            compensation_hodler:
+                other: ''
+            compensation_investor:
+                other: 'Kompensasi atas %{count} hari yang tidak digunakan dari paket Investor.'
+            discount: 'Diskon %{discount_percent}%'
+            early_bird_discount: ''
+            early_bird_discount_info: ''
+            eu_bank_country: Belgia
+            invalid_vat_number: 'Nomor VAT UE tidak valid'
+            paid_with_wire_transfer: 'Saya melakukan transfer SEPA'
+            paid_with_wire_transfer_other: 'Saya melakukan transfer bank'
+            pay: ''
+            pay_with_bitcoin: 'Bayar dengan Bitcoin'
+            payment_ordered: 'Pembayaran diorder!'
+            referral_discount_html: 'Berkat tautan referral dari <b><a href="%{visible_link}">%{visible_name}</a></b>, Anda mendapatkan diskon untuk pembelian pertama di platform.'
+            routing_number: 'Nomor routing'
+            server_error: ''
+            vat: VAT
+            wire_cost_hodler_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_investor_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_legendary_badger_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_pending_html: 'Jika Anda belum melakukan pembayaran, kirimkan <b>%{sign}%{price}</b> ke rekening bank berikut:'
+            wire_transfer: 'Transfer Bank'
+            wire_transfer_description_html: 'Untuk membayar dengan transfer bank, kirim info utama untuk invois: <b>nama</b>, <b>nama belakang</b>, <b>alamat rumah</b>, <b>email</b> yang digunakan di Deltabadger, dan paket yang ingin Anda beli ke: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+            wire_transfer_fill_form: 'Harap isi formulir di atas untuk melanjutkan...'
+            wire_transfer_pending: 'Terima kasih! Kami akan segera mengaktifkan akun Anda dan menghubungi Anda melalui email.'
+            you_pay: 'Anda membayar'
+        plan_1_year: 'Paket 1 tahun'
+        plan_4_year: 'Paket 4 tahun'
+        plan_life_time: ''
+        prolong_upgrade: ''
+        saver: Penabung
+        upgrade: 'Tingkatkan Paket'
+        upgrade_plan: 'Tingkatkan paket'
+    welcome:
+        banner_html: "Selamat datang! Anda saat ini menikmati <b>paket gratis dengan limit transaksi sebesar $1200/tahun</b>, tetapi tidak akan diberlakukan untuk bulan pertama. Cobalah jadwal mana saja yang Anda inginkan. Anda juga bisa meningkatkan paket agar nanti menikmati transaksi tanpa batas. Selain itu, paket Hodler 4 tahun memberi akses ke fitur eksperimental baru (misalnya semua mata uang untuk pertukaran). Kami mengapresiasi semua masukan. Bergabunglah dengan <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grup Telegram</a> dan ikuti kami di <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Selamat ber-averaging!"
+        default: 'Hai, selamat datang di Deltabadger'
+        saver: 'Hapus limit dan tingkatkan paket!'
