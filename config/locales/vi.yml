@@ -1,7 +1,7 @@
 vi:
     mail: "<p>Xin chào 👋,</p>\n    <p>Tuyệt quá! Liên hết giới thiệu của bạn<br>bắt đầu được sử dụng!</p>\n    <p>Chúng tôi sẽ chuyển hoa hồng là</p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n    </p>\n    <p>vào ví Bitcoin của bạn.</p>\n    <p>Cảm ơn bạn đã mở rộng<br/>nền tảng của chúng ta!</p>"
     days_left:
-        other: ''
+        other: 'còn lại %{count} ngày'
     devise:
         confirmations:
             confirmed: 'Địa chỉ email của bạn đã được xác nhận thành công.'
@@ -65,8 +65,8 @@ vi:
                 email_used: 'Email này đã được sử dụng'
                 email_suggestion_html: 'Email không hợp lệ! Có phải ý bạn là: <b>%{suggestion}</b>'
                 email_invalid: 'Email không hợp lệ!'
-                submit: 'Bắt đầu ngay bây giờ'
                 name_invalid: 'Nó không nhất thiết phải có thật :)'
+                submit: 'Bắt đầu ngay bây giờ'
             edit:
                 awaiting_confirmation: 'Hiện đang chờ xác nhận đối với: %{email}'
         sessions:
@@ -89,7 +89,7 @@ vi:
             not_found: 'không tìm thấy.'
             not_locked: 'không bị khóa.'
             not_saved:
-                other: ''
+                other: '%{count} lỗi ngăn không cho lưu %{resource} này:'
             model_invalid: 'Xác thực không thành công: %{errors}'
             inclusion: 'không được bao gồm trong danh sách'
             exclusion: 'được bảo lưu'
@@ -100,11 +100,11 @@ vi:
             blank: 'không thể để trống'
             present: 'phải để trống'
             too_long:
-                other: ''
+                other: 'quá dài (tối đa %{count} ký tự)'
             too_short:
-                other: ''
+                other: 'quá ngắn (tối thiểu %{count} ký tự)'
             wrong_length:
-                other: ''
+                other: 'độ dài chưa chính xác (phải gồm %{count} ký tự)'
             not_a_number: 'không phải là số'
             not_an_integer: 'phải là số nguyên'
             greater_than: 'phải lớn hơn %{count}'
@@ -118,6 +118,7 @@ vi:
             even: 'phải là số chẵn'
             wrong_password: 'Mật khẩu không chính xác'
             wrong_email: 'Email không chính xác.'
+            name_invalid: 'Nó không nhất thiết phải có thật :)'
             bad_credentials: 'Email hoặc mật khẩu không chính xác.'
             bad_credentials_with_code: 'Email, mật khẩu hoặc mã xác thực hai yếu tố không chính xác.'
             wrong_two_fa_token: 'Mã được cung cấp không chính xác.'
@@ -125,10 +126,8 @@ vi:
             password_not_match: 'Mật khẩu không khớp'
             bad_2fa_code: 'Mã không hợp lệ. Vui lòng thử lại.'
             empty_two_fa_token: 'Bạn đã bỏ lỡ mã xác thực hai yếu tố. Vui lòng thử lại.'
-            too_simple_password: ''
-            name_invalid: 'Nó không nhất thiết phải có thật :)'
         unverified_request: 'Vui lòng làm mới trình duyệt của bạn và thử lại'
-        format: ''
+        format: '%{attribute}%{message}'
         referral_program_inactive: 'Chương trình giới thiệu của bạn không hoạt động'
         bitcoin_address_not_updated: 'Không thể cập nhật địa chỉ Bitcoin'
         frequency_limit: 'Đã vượt giới hạn tần suất'
@@ -142,12 +141,10 @@ vi:
     subscriptions:
         upgrade: 'Nâng cấp'
         days_left:
-            other: ''
+            other: 'còn lại %{count} ngày'
         saver: Saver
         investor: Investor
         hodler: Hodler
-        investor_description_html: 'Một năm <b class="badge badge-btc"> giao dịch không giới hạn </b> , <b class="badge badge-btc"> tất cả các loại tiền </b> và <b class="badge badge-btc"> rút tiền tự động </b> (sớm).'
-        hodler_description_html: ''
         plan_1_year: 'gói 1 năm'
         plan_4_year: 'gói 4 năm'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
@@ -158,6 +155,8 @@ vi:
             wire_transfer_description_html: 'Để thanh toán bằng chuyển khoản ngân hàng, vui lòng gửi thông tin cơ bản để lập hóa đơn: <b>tên</b>, <b>họ</b>, <b>địa chỉ</b>, <b>email</b> sử dụng tại Deltabadger, và gói bạn dự định mua tới địa chỉ: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             pay_with_bitcoin: 'Trả bằng Bitcoin'
             active_plan_discount: 'Chiết khấu dành cho gói đang hoạt động'
+            compensation_investor:
+                other: 'Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Investor.'
             discount: 'Chiết khấu %{discount_percent}%'
             referral_discount_html: 'Nhờ có liên kết giới thiệu từ <b><a href="%{visible_link}">%{visible_name}</a></b>, bạn sẽ nhận được chiết khấu cho lần mua hàng đầu tiên trên nền tảng.'
             you_pay: 'Số tiền thanh toán'
@@ -175,26 +174,13 @@ vi:
             paid_with_wire_transfer: 'Tôi đã chuyển khoản SEPA'
             wire_transfer_pending: 'Cảm ơn bạn! Chúng tôi sẽ sớm kích hoạt tài khoản của bạn và liên hệ với bạn qua email.'
             paid_with_wire_transfer_other: 'Tôi đã chuyển khoản ngân hàng'
-            wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
+            wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
+            wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
             wire_cost_pending_html: 'Nếu bạn chưa thanh toán, hãy gửi <b>%{sign}%{price}</b> vào tài khoản ngân hàng sau:'
-            server_error: ''
-            card_payment_succeeded: ''
-            pay: ''
-            compensation_investor:
-                other: 'Khoản tiền bù đắp cho %%1$s ngày không sử dụng trong gói Investor.'
-            compensation_hodler:
-                other: ''
-            early_bird_discount: ''
-            early_bird_discount_info: ''
-            wire_cost_legendary_badger_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
         upgrade_plan: 'Nâng cấp gói'
-        prolong_upgrade: ''
+        prolong_upgrade: 'Gia hạn hoặc nâng cấp gói của bạn'
         maximalist_title: 'Bitcoin Maximalist được giảm giá 50%'
         maximalist_info: 'Nếu bạn chỉ mua Bitcoin, bạn trả một nửa giá thông thường.'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
-        plan_life_time: ''
     links:
         homepage: 'Liên kết về trang chủ'
         log_in: 'Đăng nhập'
@@ -227,7 +213,6 @@ vi:
         password_managers_html: 'Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.'
         bitwarden_title: 'Thử Bitwarden'
         bitwarden_text: '. Đây là nguồn mở và miễn phí.'
-        dca_2y_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
     meta:
         title: 'Deltabadger • Tự động trung bình giá bất kỳ loại tiền điện tử nào'
         twitter_image_alt: 'Tự động trung bình giá Bitcoin, Ethereum, Polkadot, Cardano, Solana và các tài sản kỹ thuật số khác.'
@@ -309,16 +294,16 @@ vi:
     settings:
         index:
             title: 'Cài đặt'
-            email_section: Email
+            email_section: 'Cập nhật email'
             submit_email: 'Cập nhật email'
-            password_section: 'Mật khẩu'
+            name_section: 'Cập nhật tên'
+            submit_name: 'Cập nhật tên'
+            password_section: 'Cập nhật mật khẩu'
             submit_password: 'Thay đổi mật khẩu'
             api_keys_section: 'Khóa API'
             api_key_confirmation: 'Bạn có chắc chắn không?'
             current_password: 'Mật khẩu hiện tại (để xác nhận)'
             two_factor_section: 'Xác thực hai yếu tố'
-            name_section: 'Cập nhật tên'
-            submit_name: 'Cập nhật tên'
     forms:
         for_confirmation: '(để xác nhận)'
         minimum_length: 'Tối thiểu %{length} ký tự'
@@ -375,7 +360,7 @@ vi:
             binance:
                 private_key: 'Khóa bí mật'
                 public_key: 'Khóa API'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Tại menu người dùng (biểu tượng tròn ở góc trên bên phải), đi đến <b>Quản lý API</b>.'
                 instructions_3_html: 'Đặt tên cho khóa API mới bằng cách nhấn <b>Tạo</b>.'
                 instructions_4_html: 'Xác nhận tạo khóa bằng (các) mã dùng một lần.'
@@ -384,12 +369,24 @@ vi:
                 instructions_7_html: 'Nhấn <b>Lưu</b> và xác nhận bằng mã một lần khác nếu cần.'
                 instructions_8_html: 'Hãy nhớ rằng Khóa bí mật chỉ hiển thị trong quá trình tạo, vì vậy đảm bảo rằng bạn đã sao chép cả hai khóa trước khi rời khỏi chế độ xem.'
                 instructions_9_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
+            zonda:
+                private_key: 'Khóa riêng tư'
+                public_key: 'Khóa công khai'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
+                instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>Cài đặt API</b>.'
+                instructions_3_html: 'Nhấn <b>Thêm khóa mới</b>.'
+                instructions_5_html: 'Nhấn <b>Tạo</b>.'
+                instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
+                instructions_4_1_html: 'Thiết lập quyền đối với:'
+                instructions_4_2_html: '<b>Lịch sử</b>'
+                instructions_4_3_html: '<b>Nhận lệnh và cấu hình thị trường</b>'
+                instructions_4_4_html: '<b>Quản lý lệnh và thay đổi cấu hình thị trường</b>'
             kraken:
                 trading_agreement_html: '<b>Xin chào!</b> Nếu tài khoản Kraken của bạn được xác minh bằng địa chỉ ở Đức, bạn sẽ cần phải chấp nhận <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">thỏa thuận giao dịch</a> để đặt lệnh thị trường và lệnh ký quỹ.'
                 trading_agreement_label_html: 'Tôi đồng ý với <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">thỏa thuận giao dịch</a>.'
                 private_key: 'Khóa riêng tư'
                 public_key: 'Khóa API'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.'
                 instructions_3_html: 'Nhấn <b>Tạo khóa mới</b>.'
                 instructions_4_html: 'Thiết lập quyền đối với:'
@@ -406,7 +403,7 @@ vi:
                 private_key: 'Khóa bí mật'
                 public_key: 'Khóa API'
                 passphrase: 'Cụm mật khẩu'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>API</b>.'
                 instructions_3_html: 'Nhấn <b>Khóa API mới</b>.'
                 instructions_5_html: 'Nhấn <b>Tạo khóa API</b>.'
@@ -417,7 +414,7 @@ vi:
             gemini:
                 private_key: 'Khóa bí mật'
                 public_key: 'Khóa API'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.'
                 instructions_3_html: 'Chọn <b>API</b> (bên trái).'
                 instructions_4_html: 'Nhấn <b>Tạo khóa API mới</b>.'
@@ -430,7 +427,7 @@ vi:
             ftx:
                 private_key: 'Khóa riêng tư'
                 public_key: 'Khóa công khai'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
                 instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
                 instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
@@ -439,7 +436,7 @@ vi:
             bitso:
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Trong menu tài khoản (góc trên bên phải), đi đến <b>Hồ sơ</b>.'
                 instructions_3_html: 'Chọn <b>API</b> (bên trái).'
                 instructions_4_html: 'Nhấn <b>Thêm API mới</b>.'
@@ -461,7 +458,7 @@ vi:
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
                 passphrase: 'Cụm mật khẩu'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Trong menu tài khoản (góc trên bên phải bên cạnh bộ chọn ngôn ngữ), đi đến <b>Quản lý API</b>.'
                 instructions_3_html: 'Nhấn <b>Tạo API</b>.'
                 instructions_4_html: 'Nếu đây là lần đầu bạn tạo khóa API của mình, hãy đặt và lưu <b>Mật khẩu giao dịch</b>.'
@@ -477,7 +474,7 @@ vi:
             bitfinex:
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Trong menu tài khoản (góc trên bên phải), đi đến <b>Khóa API</b>.'
                 instructions_3_html: 'Đi đến <b>Tạo khóa mới</b>.'
                 instructions_5_html: 'Cung cấp <b>Nhãn</b> cho khóa API của bạn.'
@@ -489,7 +486,7 @@ vi:
             bitstamp:
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.'
                 instructions_3_html: 'Dưới mục <b>Kiểm soát quyền truy cập</b>, đi đến <b>Truy cập API</b>.'
                 instructions_4_html: 'Nhấn <b>Khóa API mới</b>.'
@@ -504,7 +501,7 @@ vi:
                 instructions_6_5_html: '<b>Lệnh chờ bán/lệnh thị trường.</b>'
             set: Đặt
             probit:
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
+                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Trong menu <b>Trang của tôi</b> (góc trên bên phải), đi đến <b>Quản lý API</b>.'
                 instructions_3_html: 'Cung cấp nhãn khóa API và nhấn <b>Tạo khóa mới</b>.'
                 instructions_4_html: 'Xác nhận tạo khóa API.'
@@ -516,61 +513,9 @@ vi:
                 instructions_6_2_html: '<b>Đọc</b>'
                 instructions_6_3_html: '<b>Giao dịch</b>'
             frequency_limit:
-                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch mỗi phút, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
+                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch hàng giờ, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
                 back_to_settings: 'Trở lại cài đặt'
                 start_the_bot: 'Chỉnh sửa và bắt đầu'
-            withdrawal:
-                kraken:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
-                    instructions_2_html: 'Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.'
-                    instructions_3_html: 'Nhấn <b>Tạo khóa mới</b>.'
-                    instructions_4_html: 'Thiết lập quyền đối với:'
-                    instructions_5_1_html: 'Tiền:'
-                    instructions_5_2_html: '<b>Truy vấn tiền</b>'
-                    instructions_5_3_html: ''
-                    instructions_6_html: 'Nhấn <b>Tạo khóa</b>.'
-                    instructions_7_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                ftx:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
-                    instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                    instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
-                    instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
-                    instructions_5_html: ''
-                    instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-            withdrawal_address:
-                kraken:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
-                    instructions_2_html: ''
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                ftx:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
-                    instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
-                    instructions_10_html: ''
-                    instructions_11_html: ''
-            withdrawal_html: ''
-            no_wallet_found: ''
-            how_to_add_withdrawal_bot: ''
-            zonda:
-                private_key: 'Khóa riêng tư'
-                public_key: 'Khóa công khai'
-                instructions_1_html: 'Đăng nhập vào tài khoản %%1$s của bạn.'
-                instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>Cài đặt API</b>.'
-                instructions_3_html: 'Nhấn <b>Thêm khóa mới</b>.'
-                instructions_5_html: 'Nhấn <b>Tạo</b>.'
-                instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                instructions_4_1_html: 'Thiết lập quyền đối với:'
-                instructions_4_2_html: '<b>Lịch sử</b>'
-                instructions_4_3_html: '<b>Nhận lệnh và cấu hình thị trường</b>'
-                instructions_4_4_html: '<b>Quản lý lệnh và thay đổi cấu hình thị trường</b>'
         add_new_bot: 'Thêm bot mới'
         start: 'Bắt đầu'
         stop: 'Tạm dừng'
@@ -611,14 +556,12 @@ vi:
             pending:
                 text: 'Đang chờ'
                 info_html: 'Đang xử lý'
-            automatic_withdrawal: ''
-            dollar_cost_averaging: ''
         details:
             stats:
                 title: 'Thống kê'
                 chart:
-                    total_invested: 'Tổng giá trị đầu tư'
-                    value: ''
+                    total_invested: 'tổng giá trị đầu tư'
+                    value: 'giá trị'
                 bought: 'Đã mua'
                 average_price: 'Giá bình quân'
                 total_invested: 'Tổng giá trị đầu tư'
@@ -639,14 +582,14 @@ vi:
                 errors: Lỗi
             info:
                 title: 'Thông tin'
-                exchanges_html: "<p className=\"mt-2\"><b>Sàn giao dịch</b></p>\n<p>Deltabadger làm việc với các sàn giao dịch tiền số. Hiện tại, chúng tôi hỗ trợ <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://auth.bitbay.net/ref/Hhb7ZrAv2GrA\" target=\"_blank\" rel=\"nofollow\" title=\"Bitbay\">Bitbay</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> và <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Chúng tôi khuyên bạn sử dụng Kraken vì đây là sàn giao dịch uy tín chưa bao giờ bị hack. Sử dụng Bitbay nếu bạn muốn tiến hành giao dịch mua bằng PLN.</p>\n<p>Để làm cho bot hữu ích, trước tiên, bạn cần xác minh tài khoản giao dịch của mình và chuyển một số tiền vào đó.</p>\n<p>Tuy nhiên, đừng giữ tiền ở sàn giao dịch quá lâu. Hãy đăng nhập vào tài khoản của bạn và thường xuyên rút tiền ít nhất một lần một tháng.</p>\n<p>Chúng tôi sẽ bổ sung thêm nhiều sàn giao dịch trong tương lai. Nếu bạn quan tâm đến một sàn giao dịch cụ thể, hãy cho chúng tôi biết.</p>"
+                exchanges_html: "<p className=\"mt-2\"><b>Sàn giao dịch</b></p>\n<p>Deltabadger làm việc với các sàn giao dịch tiền số. Hiện tại, chúng tôi hỗ trợ <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondaglobal.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zonda\">Zonda</a>, <a href=\"https://bitfinex.com\" target=\"_blank\" rel=\"nofollow\" title=\"Bitfinex\">Bitfinex</a>, <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitso\">Bitso</a>, <a href=\"https://bitstamp.net/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitstamp\">Bitstamp</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a>, <a href=\"https://ftx.us\" target=\"_blank\" rel=\"nofollow\">FTX.US</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>, <a href=\"https://kucoin.com/\" target=\"_blank\" title=\"KuCoin\">KuCoin</a> và <a href=\"https://www.probit.com/\" target=\"_blank\" title=\"ProBit Global\">ProBit Global</a>. Chúng tôi khuyên bạn sử dụng Kraken vì đây là sàn giao dịch uy tín chưa bao giờ bị hack. Sử dụng Zonda nếu bạn muốn tiến hành giao dịch mua bằng PLN.</p>\n<p>Để làm cho bot hữu ích, trước tiên, bạn cần xác minh tài khoản giao dịch của mình và chuyển một số tiền vào đó.</p>\n<p>Tuy nhiên, đừng giữ tiền ở sàn giao dịch quá lâu. Hãy đăng nhập vào tài khoản của bạn và thường xuyên rút tiền ít nhất một lần một tháng.</p>\n<p>Chúng tôi sẽ bổ sung thêm nhiều sàn giao dịch trong tương lai. Nếu bạn quan tâm đến một sàn giao dịch cụ thể, hãy cho chúng tôi biết.</p>"
                 smart_intervals_html: "<p className=\"mt-2\"><b>\"Thời khoảng thông minh\"</b></p>\n<p>Khi bạn bật tính năng thời khoảng thông minh, Deltabadger sẽ thực hiện lịch trình mong muốn của bạn trong các giao dịch nhỏ nhất mà sàn giao dịch cho phép. Nếu không, thời khoảng thông minh sẽ chỉ được sử dụng khi cần.</p>\n<p className=\"mt-2\"><b>Tại sao?</b></p>\n<p>Có hai lợi ích:</p>\n<p>Lịch trình càng thường xuyên thì bạn càng nhanh nhận được những lợi ích của chiến lược trung bình giá và giao dịch càng thông suốt.</p>\n<p>Ngoài ra, đôi khi thời khoảng thông minh cũng rất cần thiết. Mọi sàn giao dịch đều có giới hạn giá trị giao dịch tối thiểu. Một số sàn giao dịch xác định giá trị này bằng BTC, do đó giá trị USD sẽ thay đổi theo thời gian. Nếu bạn muốn mua số lượng nhỏ hơn, Deltabadger duy trì tỷ lệ mong muốn của bạn bằng cách sử dụng giá trị tối thiểu cho phép nhưng điều chỉnh thời khoảng. Điều này giúp bot không bị dừng hoạt động khi số tiền đã định của bạn giảm xuống dưới ngưỡng.</p>\n<p className=\"mt-2\"><b>Ví dụ:</b></p>\n<p>Ví dụ như giới hạn giao dịch hiện tại là $20. Nếu bạn đặt giá trị giao dịch là $24/ngày, bot sẽ thực hiện chính xác như vậy. Tuy nhiên, nếu bạn đặt giá trị là $1/giờ, bot sẽ bắt chước tỷ lệ này bằng cách sử dụng giá trị cho phép, tương đương $20 mỗi 20 giờ. Tính trung bình, điều này mang lại tỷ lệ như nhau ($24/ngày = $1/giờ = $20/20 giờ).</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>Bạn chưa quen thuộc với phương pháp trung bình giá?</b></p>\n<p>Hãy tìm hiểu thông tin trên các liên kết dưới đây:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA cho người mới bắt đầu (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Sức mảnh của DCA đối với Bitcoin</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">Mô phỏng DCA</a></li>\n</ul>"
+                new_to_dca_html: "<p className=\"mt-2\"><b>Bạn chưa quen thuộc với phương pháp trung bình giá?</b></p>\n<p>Hãy tìm hiểu thông tin trên các liên kết dưới đây:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=CdKRjuaUtOc\" target=\"_blank\" rel=\"nofollow\">DCA cho người mới bắt đầu (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Sức mảnh của DCA đối với Bitcoin</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">Mô phỏng DCA</a></li>\n</ul>"
         starting: 'Bắt đầu'
         price: giá
         above: 'trên đây'
         below: 'dưới đây'
-        counter: ''
+        counter: '%{countdown}'
         force_smart_intervals_html: 'Sử dụng <em>thời khoảng thông minh</em> để đặt lệnh với giá trị <split>$100</split> %{currency} mỗi lệnh.'
         smart_intervals_disclaimer_base: 'Giá trị đặt lệnh trên %{exchange} được xác định bằng %{currency}. Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.'
@@ -654,13 +597,6 @@ vi:
         price_range_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         price_range_buy_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Chỉ bán trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
-        withdraw_threshold_html: ''
-        withdraw_interval_html: ''
-        minimum_withdrawal_disclaimer: ''
-        withdrawal_percentage: ''
-        next_withdrawal: ''
-        minimum_withdrawal_disclaimer_usd: ''
-        subaccounts_info: 'Sử dụng tài khoản phụ'
     activerecord:
         errors:
             models:
