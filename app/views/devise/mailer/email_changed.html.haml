@@ -1,2 +1,2 @@
-- email = @resource.try(:unconfirmed_email) || @resource(:email)
+- email = @resource.try(:unconfirmed_email) || @resource.try(:email)
 = t('.template_html', email: email)
