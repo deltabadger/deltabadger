@@ -110,13 +110,11 @@ vi:
         add_new_bot: 'Thêm bot mới'
         below: 'dưới đây'
         buttons:
-            automatic_withdrawal: ''
             delete:
                 cancel: 'Hủy bỏ'
                 ok: 'Xóa toàn bộ'
                 text: Xóa
                 warning_html: 'Thao tác này sẽ xóa bot cùng với tất cả<br> dữ liệu lịch sử. Bạn có chắc muốn xóa không?'
-            dollar_cost_averaging: ''
             pending:
                 info_html: 'Đang xử lý'
                 text: 'Đang chờ'
@@ -138,7 +136,6 @@ vi:
                     info_html: 'Bạn vẫn còn <b>%{time}</b> còn lại cho lệnh tiếp theo. Bạn có thể bỏ qua và thực hiện lệnh tiếp theo ngay lập tức hoặc tiếp tục quá trình đếm ngược ban đầu.'
                     skip: 'Bỏ qua'
         buy: Mua
-        counter: ''
         day: Ngày
         details:
             info:
@@ -156,7 +153,6 @@ vi:
                 bought: 'Đã mua'
                 chart:
                     total_invested: 'Tổng giá trị đầu tư'
-                    value: ''
                 csv_download_html: 'Bảng trên chỉ hiển thị mười giao dịch gần nhất.<br>Bạn có thể tải báo cáo đầy đủ ở định dạng CSV dưới đây.'
                 current_value: 'Giá trị hiện tại'
                 current_value_sold: 'Giá trị hiện tại của %{base} đã bán'
@@ -174,12 +170,9 @@ vi:
         hour: Giờ
         limit_buy: 'Lệnh chờ mua'
         limit_sell: 'Lệnh chờ bán'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
         month: Tháng
         next_buy: 'Lần mua tiếp theo trong %{countdown}'
         next_sell: 'Lần bán tiếp theo trong %{countdown}'
-        next_withdrawal: ''
         price: giá
         price_range_buy_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         price_range_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
@@ -279,7 +272,6 @@ vi:
                 instructions_9_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
                 private_key: 'Khóa bí mật'
                 public_key: 'Khóa API'
-            how_to_add_withdrawal_bot: ''
             how_to_get_keys: 'Làm thế nào để nhận khóa API từ %{exchange}:'
             kraken:
                 instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
@@ -318,7 +310,6 @@ vi:
                 public_key: 'Khóa API'
             limit_warning: 'Bot lệnh giới hạn là tính năng thử nghiệm. Hiện giờ bot chưa thể thực hiện tất cả các lệnh. Để đạt kết quả tốt nhất, bạn cần tăng số tiền đầu tư lên một cách tương xứng. Hiện tại, Deltabadger vẫn chưa cung cấp công cụ nào để ước tính số tiền điều chỉnh, vì vậy bạn cần tự mình thử nghiệm. Chỉ sử dụng nếu bạn biết mình đang làm gì.'
             next: 'Tiếp theo'
-            no_wallet_found: ''
             probit:
                 instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Trong menu <b>Trang của tôi</b> (góc trên bên phải), đi đến <b>Quản lý API</b>.'
@@ -347,7 +338,6 @@ vi:
                     instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
                     instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
                     instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
-                    instructions_5_html: ''
                     instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
                 kraken:
                     instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
@@ -356,29 +346,14 @@ vi:
                     instructions_4_html: 'Thiết lập quyền đối với:'
                     instructions_5_1_html: 'Tiền:'
                     instructions_5_2_html: '<b>Truy vấn tiền</b>'
-                    instructions_5_3_html: ''
                     instructions_6_html: 'Nhấn <b>Tạo khóa</b>.'
                     instructions_7_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
             withdrawal_address:
                 ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
                     instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                     instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                    instructions_2_html: ''
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-            withdrawal_html: ''
             zonda:
                 instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
                 instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>Cài đặt API</b>.'
@@ -399,15 +374,11 @@ vi:
         stop: 'Tạm dừng'
         subaccounts_info: 'Sử dụng tài khoản phụ'
         week: Tuần
-        withdraw_interval_html: ''
-        withdraw_threshold_html: ''
-        withdrawal_percentage: ''
     cookie:
         agree: 'Tôi đồng ý'
         description: 'Chúng tôi sử dụng cookie để giúp mọi thứ đơn giản hơn.'
         read_more: 'Tìm hiểu thêm'
     days_left:
-        other: ''
     deltabadger: Deltabadger
     devise:
         confirmations:
@@ -490,7 +461,6 @@ vi:
             unlocked: 'Tài khoản của bạn đã được mở khóa thành công. Vui lòng đăng nhập để tiếp tục.'
     errors:
         bitcoin_address_not_updated: 'Không thể cập nhật địa chỉ Bitcoin'
-        format: ''
         frequency_limit: 'Đã vượt giới hạn tần suất'
         invalid_api_keys: 'Token không hợp lệ'
         limit_reached: 'Đã đạt hạn mức gói miễn phí'
@@ -522,21 +492,12 @@ vi:
             not_an_integer: 'phải là số nguyên'
             not_found: 'không tìm thấy.'
             not_locked: 'không bị khóa.'
-            not_saved:
-                other: ''
             odd: 'phải là số lẻ'
             other_than: 'phải khác với %{count}'
             password_not_match: 'Mật khẩu không khớp'
             present: 'phải để trống'
-            too_long:
-                other: ''
-            too_short:
-                other: ''
             too_short_password: 'Mật khẩu quá ngắn'
-            too_simple_password: ''
             wrong_email: 'Email không chính xác.'
-            wrong_length:
-                other: ''
             wrong_password: 'Mật khẩu không chính xác'
             wrong_two_fa_token: 'Mã được cung cấp không chính xác.'
         referral_program_inactive: 'Chương trình giới thiệu của bạn không hoạt động'
@@ -647,14 +608,9 @@ vi:
             subject: 'Đã cấp gói %{plan_name}'
             template_html: "<p>Tuyệt quá 💙,</p><p>Cảm ơn bạn đã mua gói</p><p> <b> %{years} năm %{plan_name} của chúng tôi </b></p><p>Bạn thật tuyệt! 🔥</p>"
     subscriptions:
-        days_left:
-            other: ''
         hodler: Hodler
-        hodler_description_html: ''
         investor: Investor
         investor_description_html: 'Một năm <b class="badge badge-btc"> giao dịch không giới hạn </b> , <b class="badge badge-btc"> tất cả các loại tiền </b> và <b class="badge badge-btc"> rút tiền tự động </b> (sớm).'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
         maximalist_info: 'Nếu bạn chỉ mua Bitcoin, bạn trả một nửa giá thông thường.'
         maximalist_title: 'Bitcoin Maximalist được giảm giá 50%'
@@ -667,24 +623,17 @@ vi:
             bank_address: 'Địa chỉ ngân hàng'
             billing_information: 'Thông tin hóa đơn'
             bitcoin: Bitcoin
-            card_payment_succeeded: ''
-            compensation_hodler:
-                other: ''
             compensation_investor:
                 other: 'Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Investor.'
             discount: 'Chiết khấu %{discount_percent}%'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
             eu_bank_country: Bỉ
             invalid_vat_number: 'Mã số thuế GTGT châu Âu không hợp lệ'
             paid_with_wire_transfer: 'Tôi đã chuyển khoản SEPA'
             paid_with_wire_transfer_other: 'Tôi đã chuyển khoản ngân hàng'
-            pay: ''
             pay_with_bitcoin: 'Trả bằng Bitcoin'
             payment_ordered: 'Đã yêu cầu thanh toán!'
             referral_discount_html: 'Nhờ có liên kết giới thiệu từ <b><a href="%{visible_link}">%{visible_name}</a></b>, bạn sẽ nhận được chiết khấu cho lần mua hàng đầu tiên trên nền tảng.'
             routing_number: 'Số định tuyến'
-            server_error: ''
             vat: 'Thuế GTGT'
             wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
             wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
@@ -697,8 +646,6 @@ vi:
             you_pay: 'Số tiền thanh toán'
         plan_1_year: 'gói 1 năm'
         plan_4_year: 'gói 4 năm'
-        plan_life_time: ''
-        prolong_upgrade: ''
         saver: Saver
         upgrade: 'Nâng cấp'
         upgrade_plan: 'Nâng cấp gói'
