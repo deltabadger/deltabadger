@@ -110,13 +110,11 @@ id:
         add_new_bot: 'Tambah bot baru'
         below: 'di bawah'
         buttons:
-            automatic_withdrawal: ''
             delete:
                 cancel: Batal
                 ok: 'Hapus semuanya'
                 text: Hapus
                 warning_html: 'Tindakan ini akan menghapus bot dengan semua<br>data riwayatnya. Apakah Anda yakin?'
-            dollar_cost_averaging: ''
             pending:
                 info_html: Memproses...
                 text: Tertunda
@@ -138,7 +136,6 @@ id:
                     info_html: 'Anda masih memiliki <b>%{time}</b> tersisa untuk melanjutkan ke order berikutnya. Anda bisa melewatinya dan segera mengeksekusi order berikutnya atau melanjutkan hitung mundur semula.'
                     skip: Lewati
         buy: Beli
-        counter: ''
         day: Hari
         details:
             info:
@@ -156,7 +153,6 @@ id:
                 bought: Dibeli
                 chart:
                     total_invested: 'Total investasi'
-                    value: ''
                 csv_download_html: 'Tabel di atas hanya menampilkan sepuluh transaksi terakhir.<br>Laporan selengkapnya tersedia untuk diunduh dalam format CSV di bawah ini.'
                 current_value: 'Nilai saat ini'
                 current_value_sold: 'Nilai saat ini dari %{base} yang dijual'
@@ -174,12 +170,9 @@ id:
         hour: Jam
         limit_buy: 'Beli limit'
         limit_sell: 'Jual limit'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
         month: Bulan
         next_buy: 'Beli berikutnya dalam %{countdown}'
         next_sell: 'Jual berikutnya dalam %{countdown}'
-        next_withdrawal: ''
         price: harga
         price_range_buy_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
         price_range_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
@@ -279,7 +272,6 @@ id:
                 instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
                 private_key: 'Kunci Rahasia'
                 public_key: 'Kunci API'
-            how_to_add_withdrawal_bot: ''
             how_to_get_keys: 'Bagaimana cara mendapatkan kunci API dari %{exchange}:'
             kraken:
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
@@ -318,7 +310,6 @@ id:
                 public_key: 'Kunci API'
             limit_warning: 'Bot order limit adalah fitur eksperimental. Tidak semua order akan diselesaikan. Untuk mencapai hasil yang bagus, Anda perlu meningkatkan nilai investasi secara proporsional. Saat ini, Deltabadger belum menawarkan bantuan untuk mengestimasikan pengaturan ini, jadi Anda perlu melakukan prosedur backtesting sendiri. Gunakan prosedur tersebut hanya jika Anda memahaminya.'
             next: Berikutnya
-            no_wallet_found: ''
             probit:
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                 instructions_2_html: 'Buka <b>Manajemen API</b> di menu <b>Halaman Saya</b> (pojok kanan atas).'
@@ -347,7 +338,6 @@ id:
                     instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
                     instructions_3_html: 'Gulir turun ke bagian <b>Kunci API</b>.'
                     instructions_4_html: 'Tekan <b>Buat Kunci API</b>.'
-                    instructions_5_html: ''
                     instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
                 kraken:
                     instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
@@ -356,29 +346,14 @@ id:
                     instructions_4_html: 'Tetapkan izin untuk:'
                     instructions_5_1_html: 'Dana:'
                     instructions_5_2_html: '<b>Menanyakan Dana</b>'
-                    instructions_5_3_html: ''
                     instructions_6_html: 'Tekan <b>Hasilkan Kunci</b>.'
                     instructions_7_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
             withdrawal_address:
                 ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
                     instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                     instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
-                    instructions_2_html: ''
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-            withdrawal_html: ''
             zonda:
                 instructions_1_html: 'Masuk ke akun %{exchange_link} Anda.'
                 instructions_2_html: 'Buka <b>Pengaturan API</b> di menu pengguna (pojok kanan atas).'
@@ -399,15 +374,10 @@ id:
         stop: Jeda
         subaccounts_info: 'Gunakan subrekening'
         week: Minggu
-        withdraw_interval_html: ''
-        withdraw_threshold_html: ''
-        withdrawal_percentage: ''
     cookie:
         agree: 'Saya setuju'
         description: 'Kami menggunakan kuki agar segalanya lebih mudah.'
         read_more: 'Baca selengkapnya'
-    days_left:
-        other: ''
     deltabadger: Deltabadger
     devise:
         confirmations:
@@ -490,7 +460,6 @@ id:
             unlocked: 'Akun Anda berhasil dibuka. Silakan masuk untuk melanjutkan.'
     errors:
         bitcoin_address_not_updated: 'Alamat Bitcoin tidak dapat diperbarui'
-        format: ''
         frequency_limit: 'Limit frekuensi terlampaui'
         invalid_api_keys: 'Token tidak valid'
         limit_reached: 'Limit paket gratis tercapai'
@@ -522,21 +491,12 @@ id:
             not_an_integer: 'harus bilangan bulat'
             not_found: 'tidak ditemukan.'
             not_locked: 'tidak dikunci.'
-            not_saved:
-                other: ''
             odd: 'harus ganjil'
             other_than: 'harus selain dari %{count}'
             password_not_match: 'Kata sandi tidak cocok'
             present: 'harus kosong'
-            too_long:
-                other: ''
-            too_short:
-                other: ''
             too_short_password: 'Kata sandi terlalu pendek'
-            too_simple_password: ''
             wrong_email: 'Email salah.'
-            wrong_length:
-                other: ''
             wrong_password: 'Kata sandi salah'
             wrong_two_fa_token: 'Kode yang diberikan salah.'
         referral_program_inactive: 'Program referral Anda tidak aktif'
@@ -648,13 +608,10 @@ id:
             template_html: "<p>Wow 💙,</p><p>Terima kasih sudah membeli</p><p> <b> paket %{plan_name} %{years}-tahun kami </b></p><p>Keren! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
         hodler: Hodler
         hodler_description_html: 'DCA bekerja paling baik sebagai komitmen jangka panjang. Empat tahun <b class="badge badge-btc"> transaksi tak terbatas </b> untuk <b class="badge badge-all"> semua mata uang </b> di bursa, <b class="badge badge-limit"> limit order </b> , <b class="badge badge-limit"> penarikan otomatis </b> (segera), <b class="badge badge-limit"> kondisi harga </b> , <b class="badge badge-limit"> kondisi waktu </b> (segera), <b class="badge badge-limit"> staking otomatis </b> (segera). Paket ini mendukung proyek, dan itulah sebabnya Hodlers mendapatkan <b class="badge badge-priority"> akses prioritas </b> ke semua fitur baru.'
         investor: Investor
         investor_description_html: 'Satu tahun <b class="badge badge-btc"> transaksi tak terbatas </b> , <b class="badge badge-btc"> semua mata uang </b> , dan <b class="badge badge-btc"> penarikan otomatis </b> (segera).'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
         maximalist_info: 'Jika Anda membeli Bitcoin saja, Anda membayar separuh dari harga normal.'
         maximalist_title: 'Diskon Maksimal 50% Bitcoin'
@@ -667,24 +624,17 @@ id:
             bank_address: 'Alamat bank'
             billing_information: 'Informasi penagihan'
             bitcoin: Bitcoin
-            card_payment_succeeded: ''
-            compensation_hodler:
-                other: ''
             compensation_investor:
                 other: 'Kompensasi atas %{count} hari yang tidak digunakan dari paket Investor.'
             discount: 'Diskon %{discount_percent}%'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
             eu_bank_country: Belgia
             invalid_vat_number: 'Nomor VAT UE tidak valid'
             paid_with_wire_transfer: 'Saya melakukan transfer SEPA'
             paid_with_wire_transfer_other: 'Saya melakukan transfer bank'
-            pay: ''
             pay_with_bitcoin: 'Bayar dengan Bitcoin'
             payment_ordered: 'Pembayaran diorder!'
             referral_discount_html: 'Berkat tautan referral dari <b><a href="%{visible_link}">%{visible_name}</a></b>, Anda mendapatkan diskon untuk pembelian pertama di platform.'
             routing_number: 'Nomor routing'
-            server_error: ''
             vat: VAT
             wire_cost_hodler_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_investor_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
@@ -697,8 +647,6 @@ id:
             you_pay: 'Anda membayar'
         plan_1_year: 'Paket 1 tahun'
         plan_4_year: 'Paket 4 tahun'
-        plan_life_time: ''
-        prolong_upgrade: ''
         saver: Penabung
         upgrade: 'Tingkatkan Paket'
         upgrade_plan: 'Tingkatkan paket'

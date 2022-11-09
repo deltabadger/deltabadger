@@ -110,13 +110,11 @@ zh-cn:
         add_new_bot: 添加新的机器人
         below: 低于
         buttons:
-            automatic_withdrawal: ''
             delete:
                 cancel: 取消
                 ok: 完全移除
                 text: 删除
                 warning_html: 这将移除机器人及其所有<br>历史数据。确定吗？
-            dollar_cost_averaging: ''
             pending:
                 info_html: 正在处理...
                 text: 待处理
@@ -174,12 +172,9 @@ zh-cn:
         hour: 小时
         limit_buy: 限价购买
         limit_sell: 限价出售
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
         month: 月
         next_buy: '%{countdown} 后下次买入'
         next_sell: '%{countdown} 后下次出售'
-        next_withdrawal: ''
         price: 价格
         price_range_buy_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内买入。'
         price_range_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内买入。'
@@ -279,7 +274,6 @@ zh-cn:
                 instructions_9_html: '复制新 API 密钥并粘贴到上面的表单中。'
                 private_key: 私钥
                 public_key: 'API 密钥'
-            how_to_add_withdrawal_bot: ''
             how_to_get_keys: '如何从 %{exchange} 获取 API 密钥：'
             kraken:
                 instructions_1_html: '登录到 %{exchange_link} 账号。'
@@ -318,7 +312,6 @@ zh-cn:
                 public_key: 'API 密钥'
             limit_warning: '限价订单机器人是试验功能。尚无法填入所有订单。为了获得良好的结果，您需要按比例增加投资的金额。目前，Deltabadger 尚无法就此次调整的估计提供任何帮助，因此，您需要自己进行回测。请仅在您清楚自己的行为时使用。'
             next: 下一步
-            no_wallet_found: ''
             probit:
                 instructions_1_html: '登录到 %{exchange_link} 账号。'
                 instructions_2_html: '在<b>我的页面</b>菜单（右上角）中，转到 <b>API 管理</b>。'
@@ -347,7 +340,6 @@ zh-cn:
                     instructions_2_html: 转到“设置”菜单（右上角）。
                     instructions_3_html: '向下滚动到 <b>API 密钥</b>部分。'
                     instructions_4_html: '按<b>创建 API 密钥</b>。'
-                    instructions_5_html: ''
                     instructions_6_html: '复制新 API 密钥并粘贴到上面的表单中。'
                 kraken:
                     instructions_1_html: '登录到 %{exchange_link} 账号。'
@@ -356,29 +348,14 @@ zh-cn:
                     instructions_4_html: 为以下对象设置权限：
                     instructions_5_1_html: 资金：
                     instructions_5_2_html: '<b>查询资金</b>'
-                    instructions_5_3_html: ''
                     instructions_6_html: 按<b>生成密钥</b>。
                     instructions_7_html: '复制新 API 密钥并粘贴到上面的表单中。'
             withdrawal_address:
                 ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
                     instructions_1_html: '登录到 %{exchange_link} 账号。'
                     instructions_2_html: 转到“设置”菜单（右上角）。
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: '登录到 %{exchange_link} 账号。'
-                    instructions_2_html: ''
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-            withdrawal_html: ''
             zonda:
                 instructions_1_html: '登录到 %{exchange_link} 账号。'
                 instructions_2_html: '在“用户”菜单（右上角）中，转到 <b>API 设置</b>。'
@@ -399,9 +376,6 @@ zh-cn:
         stop: 暂停
         subaccounts_info: '使用子账户 '
         week: 周
-        withdraw_interval_html: ''
-        withdraw_threshold_html: ''
-        withdrawal_percentage: ''
     cookie:
         agree: 我同意
         description: '我们会使用 cookie 让事情更简单。'
@@ -533,7 +507,6 @@ zh-cn:
             too_short:
                 other: '太短（最少 %{count} 个字符）'
             too_short_password: 密码太短
-            too_simple_password: ''
             wrong_email: 错误的电子邮件。
             wrong_length:
                 other: '是错误的长度（应该为 %{count} 个字符）'
@@ -653,8 +626,6 @@ zh-cn:
         hodler_description_html: 'DCA作为一个长期承诺，效果最好。四年内对交易所的<b class="badge badge-all">所有货币</b> <b class="badge badge-btc">进行无限制的交易</b>，<b class="badge badge-limit">限价单</b>，<b class="badge badge-limit">自动取款</b>（很快），<b class="badge badge-limit">价格条件</b>，<b class="badge badge-limit">时间条件</b>（很快），<b class="badge badge-limit">自动定投</b>（很快）。该计划支持该项目，这就是为什么Hodlers可以<b class="badge badge-priority">优先使用</b>所有新功能。'
         investor: 投资者
         investor_description_html: '一年内<b class="badge badge-btc">无限制的交易</b>，<b class="badge badge-btc">所有货币</b>，和<b class="badge badge-btc">自动提款</b>（很快）。'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
         limit_reached_html: '<b>恭喜！</b>您已达到每年 1200 美元的免费交易限制。要继续，请升级到无限制套餐。'
         maximalist_info: 如果您仅买入比特币，您只需支付正常价格的一半。
         maximalist_title: '比特币信徒可享受 50% 的折扣'
@@ -667,24 +638,17 @@ zh-cn:
             bank_address: 银行地址
             billing_information: 账单信息
             bitcoin: 比特币
-            card_payment_succeeded: ''
-            compensation_hodler:
-                other: ''
             compensation_investor:
                 other: '对投资者套餐中未使用的 %{count} 天的补偿。'
             discount: '%{discount_percent}% 的折扣'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
             eu_bank_country: 比利时
             invalid_vat_number: '无效的 EU VAT 编号'
             paid_with_wire_transfer: '我进行了 SEPA 汇款'
             paid_with_wire_transfer_other: 我进行了电汇
-            pay: ''
             pay_with_bitcoin: 使用比特币支付
             payment_ordered: 已下达付款指令！
             referral_discount_html: '多亏来自 <b><a href="%{visible_link}">%{visible_name}</a></b> 的转介绍链接，您在平台上首次购买时可获得折扣。'
             routing_number: 汇款路线号码
-            server_error: ''
             vat: VAT
             wire_cost_hodler_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_investor_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> 转账到以下银行账号：'
@@ -697,7 +661,6 @@ zh-cn:
             you_pay: 您支付
         plan_1_year: '1 年套餐'
         plan_4_year: '4 年套餐'
-        plan_life_time: ''
         prolong_upgrade: 延长或升级套餐
         saver: 储蓄者
         upgrade: 升级
