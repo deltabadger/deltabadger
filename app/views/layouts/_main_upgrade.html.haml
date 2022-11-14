@@ -10,6 +10,14 @@
 
   %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
   = stylesheet_pack_tag 'deltabadger2'
+  - if user_signed_in?
+    %script{:defer => "defer", :src => "https://static.bonjoro.com/js/v1/bonjoro.js"}
+
+    :javascript
+      (()=>{"use strict";(()=>{var o;const n=function(){n.q.push(arguments)};n.q=[],null!==(o=window.bonjoro)&&void 0!==o||(window.bonjoro=n)})()})();
+
+      bonjoro('create', "#{bonjoro_app_id}");
+      bonjoro('identify', "#{current_user.email}", { userHash: "#{escape_javascript bonjoro_user_hash(current_user.email)}" });
 
   %body{ data: { locale: I18n.locale }}
     #cookie_consent
