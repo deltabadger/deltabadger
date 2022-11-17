@@ -192,7 +192,7 @@ pl:
                 instructions_3_html: 'Nadaj nazwę nowemu kluczowi API i kliknij <b>Utworzenie klucza API</b>.'
                 instructions_4_html: 'Potwierdź za pomocą jednorazowego kodu.'
                 instructions_5_html: 'Upewnij się, że opcja <b>Włącz Handel Spot i Margin</b> jest zaznaczona.'
-                instructions_6_html: 'Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, kliknij <b>Edit restrictions</b>, zaznacz <b>Restrict access to trusted IPs only (Recommended)</b> i dodaj ten IP w następnym kroku: <b>3.18.70.231</b>'
+                instructions_6_html: 'Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, kliknij <b>Edit restrictions</b>, zaznacz <b>Restrict access to trusted IPs only (Recommended)</b> i dodaj ten IP w następnym kroku: <b>3.66.146.13</b>'
                 instructions_7_html: 'Naciśnij <b>Zapisz</b> i potwierdź kolejnym kodem jednorazowym, jeśli to konieczne.'
                 instructions_8_html: 'Pamiętaj, że Secret Key jest widoczny tylko podczas tworzenia, więc upewnij się, że skopiowałeś oba klucze przed opuszczeniem widoku.'
                 instructions_9_html: 'Wklej oba klucze do danych wejściowych powyżej.'
