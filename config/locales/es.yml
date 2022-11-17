@@ -192,7 +192,7 @@ es:
                 instructions_3_html: 'Nombra la nueva clave API pulsando <b>Crear</b>.'
                 instructions_4_html: 'Confirma la creación con un código único.'
                 instructions_5_html: 'Asegúrate de que la opción <b>Habilitar operaciones al contado y con margen</b> está marcada.'
-                instructions_6_html: 'Si quieres restringir el acceso a la clave solo para Deltabadger, pulsa <b>Editar restricciones</b>, marca <b>Restringir el acceso solo a IP de confianza (Recomendado)</b> y añade esta IP en el siguiente paso: <b>3.18.70.231</b>'
+                instructions_6_html: 'Si quieres restringir el acceso a la clave solo para Deltabadger, pulsa <b>Editar restricciones</b>, marca <b>Restringir el acceso solo a IP de confianza (Recomendado)</b> y añade esta IP en el siguiente paso: <b>3.66.146.13</b>'
                 instructions_7_html: 'Pulsa <b>Guardar</b> y confirma con otro código de un solo uso si es necesario.'
                 instructions_8_html: 'Recuerda que la clave secreta solo es visible durante la creación, así que asegúrate de copiar ambas claves antes de salir de la vista.'
                 instructions_9_html: 'Pega ambas claves en las entradas de arriba.'
