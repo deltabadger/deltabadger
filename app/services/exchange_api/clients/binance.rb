@@ -20,12 +20,18 @@ module ExchangeApi
       end
 
       def signed_client(api_key, api_secret, url_base)
-        Faraday.new(url: url_base) do |conn|
+        faraday_connector(url_base) do |conn|
           conn.headers['X-MBX-APIKEY'] = api_key
           conn.use AddTimestamp
           conn.use AddSignature, api_secret
           conn.adapter Faraday.default_adapter
         end
+      end
+
+      def faraday_connector(url_base)
+        return Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP')) if url_base.in? [BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE]
+
+        Faraday.new(url: url_base)
       end
     end
   end

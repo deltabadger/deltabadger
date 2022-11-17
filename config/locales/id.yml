@@ -185,7 +185,7 @@ id:
                 instructions_3_html: 'Beri nama kunci API baru dengan menekan <b>Buat</b>.'
                 instructions_4_html: 'Konfirmasikan pembuatan dengan kode sekali pakai.'
                 instructions_5_html: 'Pastikan bahwa <b>Aktifkan Trading Spot & Margin</b> dicentang.'
-                instructions_6_html: 'Jika Anda ingin membatasi akses ke kunci hanya bagi Deltabadger, klik <b>Edit pembatasan</b>, centang <b>Batasi akses hanya untuk IP yang tepercaya (Disarankan)</b>, lalu tambahkan IP ini di langkah berikutnya:<b>3.18.70.231</b>'
+                instructions_6_html: 'Jika Anda ingin membatasi akses ke kunci hanya bagi Deltabadger, klik <b>Edit pembatasan</b>, centang <b>Batasi akses hanya untuk IP yang tepercaya (Disarankan)</b>, lalu tambahkan IP ini di langkah berikutnya:<b>3.66.146.13</b>'
                 instructions_7_html: 'Tekan <b>Simpan</b> lalu konfirmasikan dengan kode sekali pakai lainnya bila perlu.'
                 instructions_8_html: 'Ingat bahwa Kunci Rahasia hanya terlihat selama pembuatan, jadi pastikan Anda menyalin kedua kunci sebelum meninggalkan tampilan.'
                 instructions_9_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
