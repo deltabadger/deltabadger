@@ -192,7 +192,7 @@ en:
                 instructions_3_html: 'Name the new API key by pressing <b>Create</b>.'
                 instructions_4_html: 'Confirm creation with one-time code(s).'
                 instructions_5_html: 'Make sure that <b>Enable Spot & Margin Trading</b> is checked.'
-                instructions_6_html: 'If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>3.18.70.231</b>'
+                instructions_6_html: 'If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>3.66.146.13</b>'
                 instructions_7_html: 'Press <b>Save</b> and confirm with another one-time code if necessary.'
                 instructions_8_html: 'Remember that the Secret Key is visible only during creation, so make sure you copy both keys before leaving the view.'
                 instructions_9_html: 'Copy and paste your new API keys into the form above.'

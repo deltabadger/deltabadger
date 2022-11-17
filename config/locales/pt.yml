@@ -185,7 +185,7 @@ pt:
                 instructions_3_html: 'Atribua um nome à nova chave de API premindo em <b>Criar</b>.'
                 instructions_4_html: 'Confirme a criação com código(s) único(s).'
                 instructions_5_html: 'Certifique-se de que marcou <b>Permitir transações a contado e de margens</b>.'
-                instructions_6_html: 'Se pretender restringir o acesso à chave apenas para a Deltabadger, clique em <b>Editar restrições</b>, marque <b>Restringir o acesso para IPs de confiança apenas (recomendado)</b>, e adicione este IP no passo seguinte: <b>3.18.70.231</b>'
+                instructions_6_html: 'Se pretender restringir o acesso à chave apenas para a Deltabadger, clique em <b>Editar restrições</b>, marque <b>Restringir o acesso para IPs de confiança apenas (recomendado)</b>, e adicione este IP no passo seguinte: <b>3.66.146.13</b>'
                 instructions_7_html: 'Prima em <b>Guardar</b> e confirme com outro código único, se necessário.'
                 instructions_8_html: 'Lembre-se que a sua chave secreta só é visível no momento da criação. Por isso, certifique-se de que copia ambas as chaves antes de sair do ecrã.'
                 instructions_9_html: 'Cole ambas as chaves no formulário acima.'
