@@ -1,6 +1,6 @@
 import Rails from 'rails-ujs';
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import I18n from 'i18n-js/index.js.erb'
 import style from '../deltabadger/styles/main.scss'
 import { CookieBanner } from '../deltabadger/components/CookieBanner';
@@ -14,18 +14,28 @@ I18n.locale = document.body.dataset.locale || I18n.defaultLocale
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {
-    ReactDOM.render(
-      <CookieBanner />,
+    // ReactDOM.render(
+    //   <CookieBanner />,
+    //   document.getElementById('cookie_consent')
+    // )
+    createRoot(
       document.getElementById('cookie_consent')
+    ).render(
+      <CookieBanner />
     )
   })
 }
 
 if (document.getElementById('newsletter')) {
   document.addEventListener('DOMContentLoaded', () => {
-    ReactDOM.render(
-      <NewsletterForm />,
+    // ReactDOM.render(
+    //   <NewsletterForm />,
+    //   document.getElementById('newsletter')
+    // )
+    createRoot(
       document.getElementById('newsletter')
+    ).render(
+      <NewsletterForm />
     )
   })
 }
