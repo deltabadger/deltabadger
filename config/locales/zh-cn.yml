@@ -187,7 +187,7 @@ zh-cn:
                 instructions_3_html: '通过按<b>创建</b>，对新 API 密钥命名。'
                 instructions_4_html: 使用一次性代码确认创建。
                 instructions_5_html: 确保选中<b>启用现货杠杆交易</b>。
-                instructions_6_html: '如果您希望将密钥访问权限仅限于 Deltabadger，请单击<b>编辑限制</b>，选中<b>将访问权限仅限于可信 IP（推荐）</b>，并在下一步中添加此 IP：<b>3.66.146.13</b>'
+                instructions_6_html: '如果您希望将密钥访问权限仅限于 Deltabadger，请单击<b>编辑限制</b>，选中<b>将访问权限仅限于可信 IP（推荐）</b>，并在下一步中添加此 IP：<b>3.18.70.231</b>'
                 instructions_7_html: 按<b>保存</b>并根据需要使用另一个一次性代码进行确认。
                 instructions_8_html: 记住，私钥仅在创建期间可见，因此请确保在离开视图之前复制这两个密钥。
                 instructions_9_html: '复制新 API 密钥并粘贴到上面的表单中。'
