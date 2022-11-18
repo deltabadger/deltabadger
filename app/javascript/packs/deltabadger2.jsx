@@ -34,12 +34,6 @@ if (document.getElementById('dashboard')) {
   const isLegendaryBadger = data === 'legendary_badger'
 
   document.addEventListener('DOMContentLoaded', () => {
-    // ReactDOM.render(
-    //   <Provider store={store}>
-    //     <Dashboard isHodler={isHodler} isLegendaryBadger={isLegendaryBadger} />
-    //   </Provider>,
-    //   document.getElementById('dashboard')
-    // )
     createRoot(
       document.getElementById('dashboard')
     ).render(
@@ -52,10 +46,6 @@ if (document.getElementById('dashboard')) {
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {
-    // ReactDOM.render(
-    //   <CookieBanner />,
-    //   document.getElementById('cookie_consent')
-    // )
     createRoot(
       document.getElementById('cookie_consent')
     ).render(
