@@ -19,10 +19,6 @@ Hello.propTypes = {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ReactDOM.render(
-  //   <Hello name="React" />,
-  //   document.body.appendChild(document.createElement('div')),
-  // )
   createRoot(
     document.body.appendChild(document.createElement('div'))
   ).render(

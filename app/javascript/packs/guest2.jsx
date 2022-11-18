@@ -14,10 +14,6 @@ I18n.locale = document.body.dataset.locale || I18n.defaultLocale
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {
-    // ReactDOM.render(
-    //   <CookieBanner />,
-    //   document.getElementById('cookie_consent')
-    // )
     createRoot(
       document.getElementById('cookie_consent')
     ).render(
@@ -28,10 +24,6 @@ if (document.getElementById('cookie_consent')) {
 
 if (document.getElementById('newsletter')) {
   document.addEventListener('DOMContentLoaded', () => {
-    // ReactDOM.render(
-    //   <NewsletterForm />,
-    //   document.getElementById('newsletter')
-    // )
     createRoot(
       document.getElementById('newsletter')
     ).render(
