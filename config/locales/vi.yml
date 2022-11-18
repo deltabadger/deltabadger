@@ -185,7 +185,7 @@ vi:
                 instructions_3_html: 'Đặt tên cho khóa API mới bằng cách nhấn <b>Tạo</b>.'
                 instructions_4_html: 'Xác nhận tạo khóa bằng (các) mã dùng một lần.'
                 instructions_5_html: 'Đảm bảo rằng bạn đã chọn <b>Cho phép Giao dịch giao ngay & ký quỹ</b>.'
-                instructions_6_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền truy cập khóa, nhấp <b>Hạn chế chỉnh sửa</b>, chọn <b>Hạn chế chỉ truy cập vào các IP đáng tin cậy (Khuyến nghị)</b> và thêm IP này ở bước tiếp theo: <b>3.18.70.231</b>'
+                instructions_6_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền truy cập khóa, nhấp <b>Hạn chế chỉnh sửa</b>, chọn <b>Hạn chế chỉ truy cập vào các IP đáng tin cậy (Khuyến nghị)</b> và thêm IP này ở bước tiếp theo: <b>3.66.146.13</b>'
                 instructions_7_html: 'Nhấn <b>Lưu</b> và xác nhận bằng mã một lần khác nếu cần.'
                 instructions_8_html: 'Hãy nhớ rằng Khóa bí mật chỉ hiển thị trong quá trình tạo, vì vậy đảm bảo rằng bạn đã sao chép cả hai khóa trước khi rời khỏi chế độ xem.'
                 instructions_9_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'

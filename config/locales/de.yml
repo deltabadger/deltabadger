@@ -192,7 +192,7 @@ de:
                 instructions_3_html: 'Benenne den neuen API-Schlüssel, indem du auf "Erstellen" klickst.'
                 instructions_4_html: 'Bestätige mit einem einmaligen Code.'
                 instructions_5_html: 'Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.'
-                instructions_6_html: 'Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.18.70.231</b>'
+                instructions_6_html: 'Wenn du den Schlüssel-Zugang auf Deltabadger beschränken willst, klicke auf <b>Beschränkungen bearbeiten</b>, aktiviere <b>Zugang auf vertrauliche IPs beschränken (Empfohlen)</b>, und füge die folgende IP im nächsten Schritt hinzu: <b>3.66.146.13</b>'
                 instructions_7_html: 'Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.'
                 instructions_8_html: 'Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.'
                 instructions_9_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
