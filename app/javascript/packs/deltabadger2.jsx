@@ -1,6 +1,6 @@
 import Rails from 'rails-ujs';
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import I18n from 'i18n-js/index.js.erb';
 import * as Sentry from "@sentry/react";
 import { Integrations } from "@sentry/tracing";
@@ -34,20 +34,32 @@ if (document.getElementById('dashboard')) {
   const isLegendaryBadger = data === 'legendary_badger'
 
   document.addEventListener('DOMContentLoaded', () => {
-    ReactDOM.render(
+    // ReactDOM.render(
+    //   <Provider store={store}>
+    //     <Dashboard isHodler={isHodler} isLegendaryBadger={isLegendaryBadger} />
+    //   </Provider>,
+    //   document.getElementById('dashboard')
+    // )
+    createRoot(
+      document.getElementById('dashboard')
+    ).render(
       <Provider store={store}>
         <Dashboard isHodler={isHodler} isLegendaryBadger={isLegendaryBadger} />
-      </Provider>,
-      document.getElementById('dashboard')
+      </Provider>
     )
   })
 }
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {
-    ReactDOM.render(
-      <CookieBanner />,
+    // ReactDOM.render(
+    //   <CookieBanner />,
+    //   document.getElementById('cookie_consent')
+    // )
+    createRoot(
       document.getElementById('cookie_consent')
+    ).render(
+      <CookieBanner />
     )
   })
 }

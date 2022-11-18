@@ -3,7 +3,7 @@
 // of the page.
 
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import PropTypes from 'prop-types'
 
 const Hello = props => (
@@ -19,8 +19,13 @@ Hello.propTypes = {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  ReactDOM.render(
-    <Hello name="React" />,
-    document.body.appendChild(document.createElement('div')),
+  // ReactDOM.render(
+  //   <Hello name="React" />,
+  //   document.body.appendChild(document.createElement('div')),
+  // )
+  createRoot(
+    document.body.appendChild(document.createElement('div'))
+  ).render(
+    <Hello name="React" />
   )
 })
