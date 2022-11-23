@@ -4,6 +4,6 @@ class ExchangesRepository < BaseRepository
   end
 
   def all
-    model.order(:name).all
+    model.order(:name).where.not(name: ["FTX", "FTX.US", "Coinbase Pro"])
   end
 end

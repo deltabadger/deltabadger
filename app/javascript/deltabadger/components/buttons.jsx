@@ -13,12 +13,14 @@ export const startButtonType = {
     FAILED: "failed"
 }
 let timeout;
+const NOT_RELEVANT_BOTS = ["FTX", "FTX.US", "Coinbase Pro"];
 
 export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo, exchangeName, newSettings}) => {
   const [isOpen, setOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
   const [missedAmount, setMissedAmount] = useState(0.0)
+  const [showStart, setShowStart] = useState(!NOT_RELEVANT_BOTS.includes(exchangeName))
   const node = useRef()
 
   const handleClickOutside = e => {
@@ -143,6 +145,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
 
   return(
     <div>
+     { showStart &&
      <div
          onClick={_handleRestarts}
          className="btn btn-success">
@@ -151,6 +154,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
           <path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/>
         </svg>
      </div>
+     }
       { isOpen &&
       <div ref={node} className="db-bot__modal">
         <div className="db-bot__modal__content">
