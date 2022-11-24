@@ -254,6 +254,7 @@ en:
                 private_key: 'Secret Key'
                 public_key: 'API Key'
             error_info: 'Validation failed. Try again or generate new keys.'
+            api_not_available: 'Exchange API is not available'
             frequency_limit:
                 back_to_settings: 'Back to settings'
                 limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per hour, your schedule will be executed in orders of %{price}%{currency} each.'
