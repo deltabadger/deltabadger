@@ -20,6 +20,7 @@ const apiKeyNames = exchangeName => {
 const isPassphraseRequired = exchangeName => {
   return ['Coinbase Pro', 'KuCoin'].includes(exchangeName)
 }
+const NOT_RELEVANT_BOTS = ["FTX", "FTX.US", "Coinbase Pro"];
 
 export const AddApiKey = ({
   pickedExchangeName,
@@ -34,6 +35,7 @@ export const AddApiKey = ({
   const [secret, setSecret] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [agreement, setAgreement] = useState(false);
+  const [showError, setShowError] = useState(false)
   const uniqueId = new Date().getTime();
   console.log("----STATUS----",status)
   const ResetButton = () => (
@@ -52,7 +54,16 @@ export const AddApiKey = ({
 
   const _handleSubmit = (evt) => {
       evt.preventDefault();
-      !disableSubmit && handleSubmit(key, secret, passphrase, agreement, type)
+
+      if(!disableSubmit) {
+        if(!NOT_RELEVANT_BOTS.includes(pickedExchangeName)) {
+          setShowError(false);
+
+          handleSubmit(key, secret, passphrase, agreement, type);
+        } else {
+          setShowError(true);
+        }
+      }
   }
 
   const getBotName = () => {
@@ -117,6 +128,7 @@ export const AddApiKey = ({
               <div className="db-form__info db-form__info--invalid">
                 {I18n.t('bots.setup.error_info')}
               </div>
+              {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bots.setup.api_not_available')}</div>}
               <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
             </div>
           </div>
