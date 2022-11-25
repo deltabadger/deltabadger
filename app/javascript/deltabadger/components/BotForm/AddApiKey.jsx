@@ -20,7 +20,7 @@ const apiKeyNames = exchangeName => {
 const isPassphraseRequired = exchangeName => {
   return ['Coinbase Pro', 'KuCoin'].includes(exchangeName)
 }
-const NOT_RELEVANT_BOTS = ["FTX", "FTX.US", "Coinbase Pro"];
+const NOT_RELEVANT_BOTS = ["FTX", "FTX.US"];
 
 export const AddApiKey = ({
   pickedExchangeName,
@@ -37,7 +37,6 @@ export const AddApiKey = ({
   const [agreement, setAgreement] = useState(false);
   const [showError, setShowError] = useState(false)
   const uniqueId = new Date().getTime();
-  console.log("----STATUS----",status)
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
