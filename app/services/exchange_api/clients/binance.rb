@@ -33,6 +33,10 @@ module ExchangeApi
 
         Faraday.new(url: url_base)
       end
+
+      def binance_log
+        @binance_log ||= Logger.new("log/binance_log.log")
+      end
     end
   end
 end
