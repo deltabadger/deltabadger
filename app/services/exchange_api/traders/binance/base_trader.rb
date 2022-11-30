@@ -28,13 +28,18 @@ module ExchangeApi
         private
 
         def place_order(order_params)
+          binance_log.info(@signed_client)
+          binance_log.info("POST 'order' #{order_params}")
           request = @signed_client.post('order') do |req|
             req.params = order_params
           end
 
           response = JSON.parse(request.body)
+          binance_log.info(response)
           parse_response(response)
-        rescue StandardError
+        rescue StandardError => e
+          binance_log.error(e.inspect)
+          binance_log.error(e.backtrace)
           Result::Failure.new('Could not make Binance order', **RECOVERABLE)
         end
 
