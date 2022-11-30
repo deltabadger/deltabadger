@@ -97,8 +97,15 @@ module ExchangeApi
           exchange_id = Exchange.find_by(name: @base_client.url_prefix.to_s.include?('us') ? 'Binance.US' : 'Binance').id
           fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
           client = signed_client(fee_api_keys.key, fee_api_keys.secret, @base_client.url_prefix.to_s)
+          binance_log.info(client)
+          binance_log.info("GET 'account'")
           response = JSON.parse(client.get('account').body)
+          binance_log.info(response)
           response['makerCommission'] / 100.to_f
+        rescue StandardError => e
+          binance_log.error(e.inspect)
+          binance_log.error(e.backtrace)
+          false
         end
 
         def minimum_order_parameters(symbol)
