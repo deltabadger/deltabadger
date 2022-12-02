@@ -28,13 +28,26 @@ module ExchangeApi
         end
       end
       def faraday_connector(url_base)
-        return Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP')) if url_base.in? [BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE]
 
-        Faraday.new(url: url_base)
+        binance_log.info("=== faraday_connector ===")
+        binance_log.info(url_base)
+        binance_log.info(url_base.in? [BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE])
+        binance_log.info(ENV.fetch('EU_PROXY_IP'))
+
+        connector = if url_base.in? [BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE]
+                      Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP'))
+                    else
+                      Faraday.new(url: url_base)
+                    end
+
+        binance_log.info("connector")
+        binance_log.info(connector)
+
+        connector
       end
 
       def binance_log
-        @binance_log ||= Logger.new("log/binance_log.log")
+        @binance_log ||= Logger.new("log/binance_log_2.log")
       end
     end
   end
