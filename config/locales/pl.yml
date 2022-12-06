@@ -645,7 +645,7 @@ pl:
             name_section: Imię
             password_section: Hasło
             submit_email: 'Zaktualizuj e-mail'
-            submit_name: Imię
+            submit_name: 'Zaktualizuj imię'
             submit_password: 'Zmień hasło'
             title: Ustawienia
             two_factor_section: 'Uwierzytelnianie drugim czynnikiem (2FA)'
