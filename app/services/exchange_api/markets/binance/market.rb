@@ -94,7 +94,11 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError => e
-          binance_log.info("=== fetch_all_symbols rescue StandardError ===")
+          binance_log.info("=== fetch_all_symbols rescue StandardError => e ===")
+          binance_log.error(e.inspect)
+          Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
+        rescue => e
+          binance_log.info("=== fetch_all_symbols rescue => e ===")
           binance_log.error(e.inspect)
           Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
         end
@@ -140,7 +144,11 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError => e
-          binance_log.info("=== current_bid_ask_price rescue StandardError ===")
+          binance_log.info("=== current_bid_ask_price StandardError => e ===")
+          binance_log.error(e.inspect)
+          Result::Failure.new('Could not fetch current price from Binance', **RECOVERABLE)
+        rescue => e
+          binance_log.info("=== current_bid_ask_price => e ===")
           binance_log.error(e.inspect)
           Result::Failure.new('Could not fetch current price from Binance', **RECOVERABLE)
         end
