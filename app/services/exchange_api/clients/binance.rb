@@ -42,7 +42,7 @@ module ExchangeApi
       end
 
       def binance_log
-        @binance_log ||= Logger.new("log/binance_log_6.log")
+        @binance_log ||= Logger.new("log/binance_log_7.log")
       end
     end
   end

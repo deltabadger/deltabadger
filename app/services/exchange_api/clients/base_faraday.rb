@@ -5,6 +5,9 @@ module ExchangeApi
         Faraday.new(attributes(url_base)) do |conn|
           conn.adapter Faraday.default_adapter
         end
+      rescue => e
+        binance_log.info("=== ExchangeApi::Clients::BaseFaraday.base_client(#{url_base}) rescue => e ===")
+        binance_log.error(e.inspect)
       end
 
       def caching_client(url_base, expire_time = ENV['DEFAULT_MARKET_CACHING_TIME'])
@@ -13,6 +16,9 @@ module ExchangeApi
                       expires_in: expire_time
           builder.adapter Faraday.default_adapter
         end
+      rescue => e
+        binance_log.info("=== ExchangeApi::Clients::BaseFaraday.caching_client(#{url_base}, #{expire_time}) rescue => e ===")
+        binance_log.error(e.inspect)
       end
 
       def attributes(url_base)
