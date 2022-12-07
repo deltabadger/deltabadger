@@ -8,6 +8,10 @@ module ExchangeApi
         def initialize(url_base:)
           @base_client = base_client(url_base)
           @caching_client = caching_client(url_base)
+        rescue => e
+          binance_log.info("=== ExchangeApi::Markets::Binance::Market.initialize(url_base: #{url_base}) rescue => e ===")
+          binance_log.error(e.inspect)
+          Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
         end
 
         PRICE_FILTER = 'PRICE_FILTER'.freeze
