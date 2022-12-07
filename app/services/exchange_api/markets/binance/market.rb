@@ -6,6 +6,7 @@ module ExchangeApi
         include ExchangeApi::Clients::Binance
 
         def initialize(url_base:)
+          binance_log.info("=== ExchangeApi::Markets::Binance::Market.initialize() ===")
           @base_client = base_client(url_base)
           @caching_client = caching_client(url_base)
         rescue => e
@@ -235,12 +236,19 @@ module ExchangeApi
         end
 
         def fetch_symbol_info(symbol)
+          binance_log.info("=== fetch_symbol_info(symbol) ===")
           request = @caching_client.get('exchangeInfo')
+          binance_log.info(request.status)
+          binance_log.info(request) unless request.status == 200
           response = JSON.parse(request.body)
+          binance_log.info(response) unless request.status == 200
           found_symbol = find_symbol_in_exchange_info(symbol, response)
           return found_symbol unless found_symbol.success?
 
           Result::Success.new(found_symbol.data)
+        rescue => e
+          binance_log.info("=== fetch_symbol_info => e ===")
+          binance_log.error(e.inspect)
         end
       end
     end
