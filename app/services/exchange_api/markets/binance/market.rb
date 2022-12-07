@@ -79,8 +79,12 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
+          binance_log.info("=== fetch_all_symbols ===")
           request = @base_client.get('exchangeInfo')
+          binance_log.info(request.status)
+          binance_log.info(request) unless request.status == 200
           exchange_info = JSON.parse(request.body)
+          binance_log.info(exchange_info) unless request.status == 200
           symbols = exchange_info['symbols']
 
           market_symbols = symbols.map do |symbol_info|
@@ -89,7 +93,9 @@ module ExchangeApi
             MarketSymbol.new(base, quote)
           end
           Result::Success.new(market_symbols)
-        rescue StandardError
+        rescue StandardError => e
+          binance_log.info("=== fetch_all_symbols rescue StandardError ===")
+          binance_log.error(e.inspect)
           Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
         end
 
@@ -122,14 +128,20 @@ module ExchangeApi
         private
 
         def current_bid_ask_price(symbol)
+          binance_log.info("=== current_bid_ask_price ===")
           request = @base_client.get('ticker/bookTicker', { symbol: symbol }, {})
+          binance_log.info(request.status)
+          binance_log.info(request) unless request.status == 200
           response = JSON.parse(request.body)
+          binance_log.info(response) unless request.status == 200
 
           bid = response.fetch('bidPrice').to_d
           ask = response.fetch('askPrice').to_d
 
           Result::Success.new(BidAskPrice.new(bid, ask))
-        rescue StandardError
+        rescue StandardError => e
+          binance_log.info("=== current_bid_ask_price rescue StandardError ===")
+          binance_log.error(e.inspect)
           Result::Failure.new('Could not fetch current price from Binance', **RECOVERABLE)
         end
 
