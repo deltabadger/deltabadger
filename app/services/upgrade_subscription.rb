@@ -10,12 +10,16 @@ class UpgradeSubscription < BaseService
   def call(user_id, subscription_plan_id, email_params, payment_id)
     user = User.find(user_id)
     subscription_plan = @subscriptions_repository.find(subscription_plan_id)
+    current_plan_name = user.subscription_name
+    new_plan_name = subscription_plan.name
 
     @subscribe_plan.call(
       user: user,
       subscription_plan: subscription_plan,
       email_params: email_params
     )
+
+    SendgridMailToList.new.change_list(user, current_plan_name, new_plan_name)
 
     # unless payment_id.nil?
     #   payment = Payment.find(payment_id)
