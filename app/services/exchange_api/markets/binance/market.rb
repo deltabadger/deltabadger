@@ -6,12 +6,8 @@ module ExchangeApi
         include ExchangeApi::Clients::Binance
 
         def initialize(url_base:)
-          binance_log.info("=== ExchangeApi::Markets::Binance::Market.initialize() ===")
           @base_client = base_client(url_base)
           @caching_client = caching_client(url_base)
-        rescue => e
-          binance_log.info("=== ExchangeApi::Markets::Binance::Market.initialize() rescue => e ===")
-          binance_log.error(e.inspect)
         end
 
         PRICE_FILTER = 'PRICE_FILTER'.freeze
@@ -83,12 +79,8 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          binance_log.info("=== fetch_all_symbols ===")
           request = @base_client.get('exchangeInfo')
-          binance_log.info(request.status)
-          binance_log.info(request) unless request.status == 200
           exchange_info = JSON.parse(request.body)
-          binance_log.info(exchange_info) unless request.status == 200
           symbols = exchange_info['symbols']
 
           market_symbols = symbols.map do |symbol_info|
@@ -98,12 +90,6 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError => e
-          binance_log.info("=== fetch_all_symbols rescue StandardError => e ===")
-          binance_log.error(e.inspect)
-          Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
-        rescue => e
-          binance_log.info("=== fetch_all_symbols rescue => e ===")
-          binance_log.error(e.inspect)
           Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
         end
 
@@ -111,14 +97,9 @@ module ExchangeApi
           exchange_id = Exchange.find_by(name: @base_client.url_prefix.to_s.include?('us') ? 'Binance.US' : 'Binance').id
           fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
           client = signed_client(fee_api_keys.key, fee_api_keys.secret, @base_client.url_prefix.to_s)
-          binance_log.info(client)
-          binance_log.info("GET 'account'")
           response = JSON.parse(client.get('account').body)
-          binance_log.info(response)
           response['makerCommission'] / 100.to_f
         rescue StandardError => e
-          binance_log.error(e.inspect)
-          binance_log.error(e.backtrace)
           false
         end
 
@@ -136,24 +117,14 @@ module ExchangeApi
         private
 
         def current_bid_ask_price(symbol)
-          binance_log.info("=== current_bid_ask_price ===")
           request = @base_client.get('ticker/bookTicker', { symbol: symbol }, {})
-          binance_log.info(request.status)
-          binance_log.info(request) unless request.status == 200
           response = JSON.parse(request.body)
-          binance_log.info(response) unless request.status == 200
 
           bid = response.fetch('bidPrice').to_d
           ask = response.fetch('askPrice').to_d
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError => e
-          binance_log.info("=== current_bid_ask_price StandardError => e ===")
-          binance_log.error(e.inspect)
-          Result::Failure.new('Could not fetch current price from Binance', **RECOVERABLE)
-        rescue => e
-          binance_log.info("=== current_bid_ask_price => e ===")
-          binance_log.error(e.inspect)
           Result::Failure.new('Could not fetch current price from Binance', **RECOVERABLE)
         end
 
@@ -236,19 +207,12 @@ module ExchangeApi
         end
 
         def fetch_symbol_info(symbol)
-          binance_log.info("=== fetch_symbol_info(symbol) ===")
           request = @caching_client.get('exchangeInfo')
-          binance_log.info(request.status)
-          binance_log.info(request) unless request.status == 200
           response = JSON.parse(request.body)
-          binance_log.info(response) unless request.status == 200
           found_symbol = find_symbol_in_exchange_info(symbol, response)
           return found_symbol unless found_symbol.success?
 
           Result::Success.new(found_symbol.data)
-        rescue => e
-          binance_log.info("=== fetch_symbol_info => e ===")
-          binance_log.error(e.inspect)
         end
       end
     end
