@@ -88,7 +88,9 @@ module ExchangeApi
             quote = symbol_info['quoteAsset']
             MarketSymbol.new(base, quote)
           end
+
           Result::Success.new(market_symbols)
+
         rescue StandardError => e
           Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
         end
