@@ -3,9 +3,9 @@ class SendgridMailToList < BaseService
   CONTACTS_URL = 'https://api.sendgrid.com/v3/marketing/contacts'.freeze
   API_KEY = ENV.fetch('SENDGRID_VALIDATION_API_KEY').freeze
   LIST_NAME = ENV.fetch('SENDGRID_NEW_USERS_LIST').freeze
-  INVESTOR_LIST_NAME = ENV.fetch('SENDGRID_INVESTOR_LIST').freeze
-  HODLER_LIST_NAME = ENV.fetch('SENDGRID_HODLER_LIST').freeze
-  LEGENDARY_BADGER_LIST_NAME = ENV.fetch('SENDGRID_LEGENDARY_BADGER_LIST').freeze
+  INVESTOR_LIST_NAME = ENV.fetch('SENDGRID_INVESTORS_LIST').freeze
+  HODLER_LIST_NAME = ENV.fetch('SENDGRID_HODLERS_LIST').freeze
+  LEGENDARY_BADGER_LIST_NAME = ENV.fetch('SENDGRID_LEGENDARY_BADGERS_LIST').freeze
 
   def call(user)
     add_user(user, LIST_NAME)
