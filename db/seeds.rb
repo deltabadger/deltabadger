@@ -24,6 +24,7 @@ VatRate.find_or_create_by!(country: 'Estonia', vat: 0.2)
 User.find_or_create_by(
   email: "test@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
 end
