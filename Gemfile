@@ -40,7 +40,7 @@ gem 'sidekiq-prometheus-exporter', '~> 0.1'
 gem 'bundler', '>= 2.3.5'
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
-  gem 'rubocop', '~> 0.74.0'
+  gem 'rubocop', '~> 1.40.0'
   gem 'rspec-rails', '~> 5.1'
   gem 'factory_bot_rails'
   gem 'faker'
