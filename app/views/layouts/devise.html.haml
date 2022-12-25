@@ -46,6 +46,17 @@
         fomo.trigger('start')
       }
 
+      // input labels
+
+      window.addEventListener('load', function() {
+        document.querySelectorAll('input').forEach(function(input) {
+          input.classList.toggle('db-form__input--empty', input.value === '');
+          input.addEventListener('input', function() {
+            this.classList.toggle('db-form__input--empty', this.value === '');
+          });
+        });
+      });
+
       // scaling
 
       // $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
