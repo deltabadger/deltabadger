@@ -33,14 +33,14 @@ gem 'sendinblue'
 gem 'sentry-raven'
 gem 'bitcoin-ruby', git: 'https://github.com/lian/bitcoin-ruby', branch: 'master', require: 'bitcoin'
 gem 'recaptcha'
-gem 'i18n-js', '~> 4.2.0'
+gem 'i18n-js', '~> 3.8.0'
 gem 'stripe'
 gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
 gem 'bundler', '>= 2.3.5'
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
-  gem 'rubocop', '~> 0.74.0'
+  gem 'rubocop', '~> 1.40.0'
   gem 'rspec-rails', '~> 5.1'
   gem 'factory_bot_rails'
   gem 'faker'
