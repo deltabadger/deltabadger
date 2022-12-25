@@ -173,7 +173,7 @@ $formUnit: 2rem
         color: var(--link)
         font-weight: bold
         @include textAdjust(2)
-    &--select,&:focus,&:not([value=""])
+    &--select,&:focus,&:not([value=""]),&:not(.db-form__input--empty)
       opacity: 1
       &~.db-form__label
         top: -.9rem

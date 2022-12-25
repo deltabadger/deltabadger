@@ -70,6 +70,17 @@
 
       fomo.trigger('start')
 
+      // input labels
+
+      window.addEventListener('load', function() {
+        document.querySelectorAll('input').forEach(function(input) {
+          input.classList.toggle('db-form__input--empty', input.value === '');
+          input.addEventListener('input', function() {
+            this.classList.toggle('db-form__input--empty', this.value === '');
+          });
+        });
+      });
+
       // let start;
       //
       // function step(timestamp) {

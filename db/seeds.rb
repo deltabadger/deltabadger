@@ -24,6 +24,7 @@ VatRate.find_or_create_by!(country: 'Estonia', vat: 0.2)
 User.find_or_create_by(
   email: "test@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
 end
@@ -31,6 +32,7 @@ end
 User.find_or_create_by(
   email: "admin@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.admin = true
@@ -39,6 +41,7 @@ end
 User.find_or_create_by(
   email: "free@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current - 30.days, credits: investor.credits)
@@ -47,6 +50,7 @@ end
 User.find_or_create_by(
   email: "investor@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current + investor.duration + 1.day, credits: investor.credits)
@@ -56,6 +60,7 @@ end
 User.find_or_create_by(
   email: "hodler@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.subscriptions << Subscription.new(subscription_plan: hodler, end_time: Time.current + hodler.duration + 1.day, credits: hodler.credits)
@@ -65,6 +70,7 @@ end
 User.find_or_create_by(
   email: "legendary_badger@test.com"
 ) do |user|
+  user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.subscriptions << Subscription.new(subscription_plan: legendary_badger, end_time: Time.current + legendary_badger.duration + 1.day, credits: legendary_badger.credits)
