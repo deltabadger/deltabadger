@@ -64,6 +64,14 @@ module Notifications
       ).first_month_ending_soon.deliver_later
     end
 
+    def end_of_funds(bot:)
+      BotAlertsMailer.with(
+          bot: bot,
+          user: bot.user,
+          quote: bot.quote
+      ).end_of_funds.deliver_later
+    end
+
     private
 
     def was_sent_more_than_day_ago?(notification_sent_at)
