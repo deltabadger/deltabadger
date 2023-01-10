@@ -660,7 +660,6 @@ es:
         investor: Inversor
         investor_description_html: 'Un año de <b class="badge badge-btc">transacciones ilimitadas</b>, <b class="badge badge-btc">todas las monedas</b> y <b class="badge badge-btc">retiros automáticos</b> (pronto).'
         legendary_badger: 'Legendary Badger NFT'
-        legendary_badger_description_html: '<p>Con todas las características del plan Hodler, pero <b class="badge badge-btc">de por vida</b>. Como se trata de <b class="badge badge-btc">NFT</b>, se pueden <b class="badge badge-btc">transferir</b> a otras cuentas o <b class="badge badge-btc">venderse</b> en mercados descentralizados como Opensea. Cada token tiene una <b class="badge badge-btc">obra de arte procedimental</b> única. Entre ellas se esconden 21 "huevos de pascua" hechos a mano para los afortunados compradores.</p><p>El token se distribuirá muy pronto.</p>'
         limit_reached_html: '<b>¡Felicidades!</b> Has alcanzado nuestro límite de transacciones gratuitas de 1200 dólares/año. Para continuar, actualiza al plan ilimitado.'
         maximalist_info: 'Si solo compras bitcoins, pagas la mitad del precio normal.'
         maximalist_title: 'Descuento maximalista bitcoin del 50 %'
