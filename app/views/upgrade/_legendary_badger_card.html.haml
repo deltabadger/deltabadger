@@ -17,8 +17,8 @@
         <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='legendary_badger-base-price'>#{cost_presenter.base_price}</span>
 .db-plans__item__info
   =t('subscriptions.legendary_badger_description_html')
-  %a(href="https://deltabadger.com/legendary" _target="blank")
-    =t('cookie.read_more')
+  -# %a(href="https://deltabadger.com/legendary" _target="blank")
+  -#   =t('cookie.read_more')
   .db-plans__item__legendary-badgers-left
     =@allowable_early_birds_count
     of
