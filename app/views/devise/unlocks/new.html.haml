@@ -11,14 +11,13 @@
           .material-icons check
           %a.db-signup__list__item__text(href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow")Follow us on Twitter
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
-      .db-box
-        %h3.db-modal-title Resend unlock instructions
-        = form_for(resource, as: resource_name, url: unlock_path(resource_name), html: { method: :post }) do |f|
-          = render "devise/shared/error_messages", resource: resource
-          .field
-            = f.label :email
-            %br/
-            = f.email_field :email, autofocus: true, autocomplete: "email"
-          .actions
-            = f.submit "Resend unlock instructions"
-        = render "devise/shared/links"
+      %h3.db-modal-title Resend unlock instructions
+      = form_for(resource, as: resource_name, url: unlock_path(resource_name), html: { method: :post }) do |f|
+        = render "devise/shared/error_messages", resource: resource
+        .field
+          = f.label :email
+          %br/
+          = f.email_field :email, autofocus: true, autocomplete: "email"
+        .actions
+          = f.submit "Resend unlock instructions"
+      = render "devise/shared/links"

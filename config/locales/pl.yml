@@ -672,7 +672,6 @@ pl:
         investor: Inwestor
         investor_description_html: 'Jeden rok <b class="badge badge-btc">bez limitu transakcji</b>, <b class="badge badge-btc">wszystkie waluty</b> i <b class="badge badge-btc">automatyczne wypłaty</b> (wkrótce).'
         legendary_badger: 'Legendarny Borsuk NFT'
-        legendary_badger_description_html: '<p>Wszystkie funkcje planu Hodler, ale na <b class="badge badge-btc">całe życie</b>. Ponieważ jest to <b class="badge badge-btc">NFT</b>, możesz go <b class="badge badge-btc">przenieść</b> między kontami lub <b class="badge badge-btc">sprzedać</b>na przyzwoitych rynkach, takich jak Opensea. Każdy token posiada unikalne <b class="badge badge-btc">proceduralne dzieło sztuki</b>. Wśród nich ukrytych jest 21 ręcznie wykonanych "easter eggs" dla szczęśliwych nabywców.</p><p>Token będzie dystrybuowany w najbliższym czasie.</p>'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200$/rok. Aby kontynuować, wykup płatną subskrypcję.'
         maximalist_info: 'Jeśli inwestujesz tylko w Bitcoina, zapłacisz połowę regularnej ceny.'
         maximalist_title: 'Zniżka dla bitcoinowych maksymalistów 50%'

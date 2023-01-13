@@ -1,10 +1,20 @@
-.btn:active,.btn:focus
+.db-art
+  &--devise
+    &--legendary-badger
+      max-width: 66%
+      top: -1.5rem
+      height: auto
+      position: relative
+  
+  .btn:active,.btn:focus
   box-shadow: 0 0 inherit !important
 
 .db--devise
-  background: var(--background)
+  background: var(--background-devise)
+  label
+    background-color: var(--background-devise) !important
   .db-modal-title, .form-check-label
-    color: var(--text)
+    color: var(--link)
   .navbar
     .btn, .btn-link, .db-logo-svg-shape
       color: var(--link) !important
@@ -88,3 +98,9 @@
       margin-bottom: 2.4rem
       &__text
         margin-left: .75rem
+  &--legendary-badger-box
+    display: flex !important
+    flex-direction: column
+    align-items: center
+    margin-bottom: 5rem
+    margin-top: -3rem
