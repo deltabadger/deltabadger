@@ -660,7 +660,6 @@ fr:
         investor: Investor
         investor_description_html: 'Un an de <b class="badge badge-btc">transactions illimitées</b>, dans <b class="badge badge-btc">toutes les devises</b>, et de <b class="badge badge-btc">retraits automatiques</b> (bientôt).'
         legendary_badger: 'NFT Legendary Badger'
-        legendary_badger_description_html: "<p>Toutes les fonctionnalités du forfait Hodler, mais <b class=\"badge badge-btc\">à vie</b>. Parce qu'il s'agit de <b class=\"badge badge-btc\">NFT</b>, vous pouvez les <b class=\"badge badge-btc\">transférer</b>entre les comptes ou <b class=\"badge badge-btc\">vendre</b> sur les marchés décentralisés comme Opensea. Chaque jeton relève d'un <b class=\"badge badge-btc\">art procédural</b> unique. En leur sein se cachent 21 «\_œufs de Pâques\_» faits à la main pour les acheteurs chanceux.</p><p>Ce jeton sera distribué très prochainement.</p>"
         limit_reached_html: '<b> Félicitations ! </b> Tu as atteint notre limite de transactions gratuites de 1200$/an. Pour continuer, passe au plan illimité.'
         maximalist_info: 'Si vous n''achetez que des bitcoins vous payez la moitié du prix habituel.'
         maximalist_title: 'Remise maximaliste de 50 % sur le bitcoin'
