@@ -11,34 +11,33 @@
           .material-icons check
           %a.db-signup__list__item__text(href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow")Follow us on Twitter
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
-      .db-box
-        %h3.db-modal-title Edit #{resource_name.to_s.humanize}
-        = form_for(resource, as: resource_name, url: registration_path(resource_name), html: { method: :put }) do |f|
-          = render "devise/shared/error_messages", resource: resource
-          .form-group
-            = f.label :email
-            = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
-          - if devise_mapping.confirmable? && resource.pending_reconfirmation?
-            %div
-              Currently waiting confirmation for: #{resource.unconfirmed_email}
-          .form-group
-            = f.label :password
-            %i (leave blank if you don't want to change it)
-            = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg"
-            - if @minimum_password_length
-              %em
-                = @minimum_password_length
-                characters minimum
-          .form-group
-            = f.label :password_confirmation
-            = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control form-control-lg"
-          .form-group
-            = f.label :current_password
-            %i (for confirmation)
-            = f.password_field :current_password, autocomplete: "current-password", class: "form-control form-control-lg"
-          .form-group
-            = f.submit "Update", class: "btn btn-lg btn-primary"
-        -# %h3 Cancel my account
-        -# %p
-        -#   Unhappy? #{button_to "Cancel my account", registration_path(resource_name), data: { confirm: "Are you sure?" }, method: :delete}
-        -# = link_to "Back", :back
+      %h3.db-modal-title Edit #{resource_name.to_s.humanize}
+      = form_for(resource, as: resource_name, url: registration_path(resource_name), html: { method: :put }) do |f|
+        = render "devise/shared/error_messages", resource: resource
+        .form-group
+          = f.label :email
+          = f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control form-control-lg"
+        - if devise_mapping.confirmable? && resource.pending_reconfirmation?
+          %div
+            Currently waiting confirmation for: #{resource.unconfirmed_email}
+        .form-group
+          = f.label :password
+          %i (leave blank if you don't want to change it)
+          = f.password_field :password, autocomplete: "new-password", class: "form-control form-control-lg"
+          - if @minimum_password_length
+            %em
+              = @minimum_password_length
+              characters minimum
+        .form-group
+          = f.label :password_confirmation
+          = f.password_field :password_confirmation, autocomplete: "new-password", class: "form-control form-control-lg"
+        .form-group
+          = f.label :current_password
+          %i (for confirmation)
+          = f.password_field :current_password, autocomplete: "current-password", class: "form-control form-control-lg"
+        .form-group
+          = f.submit "Update", class: "btn btn-lg btn-primary"
+      -# %h3 Cancel my account
+      -# %p
+      -#   Unhappy? #{button_to "Cancel my account", registration_path(resource_name), data: { confirm: "Are you sure?" }, method: :delete}
+      -# = link_to "Back", :back

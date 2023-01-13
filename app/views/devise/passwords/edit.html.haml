@@ -8,33 +8,32 @@
           %a.db-signup__list__item__text(href="https://bitwarden.com/" target="_blank" ref="nofollow")= t('ads.bitwarden_title')
           = t('ads.bitwarden_text')
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
-      .db-box
-        %h3.db-modal-title= t('.title')
-        = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :put }) do |f|
-          = f.hidden_field :reset_password_token
-          .db-form__row
-            = f.password_field :password, autofocus: true, autocomplete: "new-password", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-            - if resource.errors.details[:password].present?
-              .db-form__info.db-form__info--invalid
-                - if resource.errors.details[:password][0][:error] == :too_short
-                  = t('forms.minimum_length', length: @minimum_password_length)
-                - else
-                  = resource.errors[:password][0]
-            = f.label :password, t('helpers.label.user.new_password'), class: "db-form__label"
-          .db-form__row
-            = f.password_field :password_confirmation, autocomplete: "off", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+      %h3.db-modal-title= t('.title')
+      = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :put }) do |f|
+        = f.hidden_field :reset_password_token
+        .db-form__row
+          = f.password_field :password, autofocus: true, autocomplete: "new-password", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+          - if resource.errors.details[:password].present?
             .db-form__info.db-form__info--invalid
-              - if resource.errors.messages[:password_confirmation]
-                #{resource.errors.full_messages[0]}
-            = f.label :password_confirmation, t('helpers.label.user.new_password_confirmation'), class: "db-form__label"
-          - if @two_fa_enabled || resource&.otp_module_enabled?
-            .db-form__row
-              = f.text_field :otp_code_token, autocomplete: 'off', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-              .db-form__info.db-form__info--invalid
-                - if @error_message
-                  #{@error_message}
-              = f.label :otp_code_token, "2FA code", class: "db-form__label"
-          .db-form__row.db-form__row--final-button
-            = f.submit t('.submit'), class: "btn btn-primary btn-lg w-100"
-        .db-form__other-links
-          = render "devise/shared/links"
+              - if resource.errors.details[:password][0][:error] == :too_short
+                = t('forms.minimum_length', length: @minimum_password_length)
+              - else
+                = resource.errors[:password][0]
+          = f.label :password, t('helpers.label.user.new_password'), class: "db-form__label"
+        .db-form__row
+          = f.password_field :password_confirmation, autocomplete: "off", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+          .db-form__info.db-form__info--invalid
+            - if resource.errors.messages[:password_confirmation]
+              #{resource.errors.full_messages[0]}
+          = f.label :password_confirmation, t('helpers.label.user.new_password_confirmation'), class: "db-form__label"
+        - if @two_fa_enabled || resource&.otp_module_enabled?
+          .db-form__row
+            = f.text_field :otp_code_token, autocomplete: 'off', value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+            .db-form__info.db-form__info--invalid
+              - if @error_message
+                #{@error_message}
+            = f.label :otp_code_token, "2FA code", class: "db-form__label"
+        .db-form__row.db-form__row--final-button
+          = f.submit t('.submit'), class: "btn btn-primary btn-lg w-100"
+      .db-form__other-links
+        = render "devise/shared/links"
