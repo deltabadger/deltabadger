@@ -15,7 +15,8 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     credits: Field::String.with_options(searchable: false),
-    limit_almost_reached_sent: Field::Boolean
+    limit_almost_reached_sent: Field::Boolean,
+    sequence_number: Field::Number
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -28,6 +29,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     subscription_plan
     user
     end_time
+    sequence_number
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -41,6 +43,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     updated_at
     credits
     limit_almost_reached_sent
+    sequence_number
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -52,6 +55,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     end_time
     credits
     limit_almost_reached_sent
+    sequence_number
   ].freeze
 
   # COLLECTION_FILTERS
