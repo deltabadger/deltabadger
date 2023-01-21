@@ -25,7 +25,7 @@ class ZapierMailToList < BaseService
   def add_email_request_body(email, name)
     {
         email: email,
-        name: name
+        name: name.split.first.capitalize
     }
   end
 
