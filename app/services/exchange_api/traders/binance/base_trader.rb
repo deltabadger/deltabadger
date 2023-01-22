@@ -25,6 +25,16 @@ module ExchangeApi
           Result::Failure.new('Could not fetch order parameters from Binance')
         end
 
+        def currency_balance(currency)
+          request = @signed_client.get('account')
+
+          response = JSON.parse(request.body)
+          balance = response["balances"].find{|balance| balance["asset"] == currency}.try(:[], "free").to_f
+          Result::Success.new(balance)
+        rescue StandardError => e
+          Result::Failure.new('Could not fetch account info from Binance')
+        end
+
         private
 
         def place_order(order_params)
