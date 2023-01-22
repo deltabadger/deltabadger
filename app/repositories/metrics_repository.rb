@@ -12,7 +12,8 @@ class MetricsRepository < BaseRepository
     metrics = {
       liveBots: BotsRepository.new.count_with_status('working'),
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      availableLegendaryBadgers: EARLY_BIRD_DISCOUNT_INITIAL_VALUE - SubscriptionsRepository.new.all_current_count('legendary_badger')
+      availableLegendaryBadgers: EARLY_BIRD_DISCOUNT_INITIAL_VALUE - SubscriptionsRepository.new.all_current_count('legendary_badger'),
+      takenLegendaryBadgerNumbers: SubscriptionsRepository.new.model.used_sequence_numbers
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)
   end
