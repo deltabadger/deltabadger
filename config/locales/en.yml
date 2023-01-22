@@ -105,6 +105,9 @@ en:
         notify_about_restart:
             subject: 'Oops! Next try… 🧐'
             template_html: "<p>Oh snap 🧐,</p><p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p><p>All error are visible in the bot log.<br>Sign in to check it out.</p><p>Errors:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
+        end_of_funds:
+            subject: 'Your bot is running out of funds soon'
+            template_html: "<p>It looks like your bot is<br>running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name}<br>to be sure the bot is working continuously.</p>"
     bots:
         above: above
         add_new_bot: 'Add new bot'
@@ -661,7 +664,7 @@ en:
         investor: Investor
         investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b>.'
         legendary_badger: 'Legendary Badger NFT'
-        legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p>Never pay to use the service ever again.</p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, subscription pricing will go up, but you''ll have lifetime access to everything for free.</p><p>The NFT gives you the ability to sell your subscription. What? Yes! Nothing like this exists on the market.</p><p>To celebrate the NFT form factor, each token is associated with procedural artwork. Can you find all unique "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a special private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>There are only 1000 sits on the Legendary Badgers spaceship — cement your DCA status, and become Legendary.</p>'
+        legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p><b>Never pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, the pricing will go up, but you''ll have lifetime access to everything for free.</p><p>Sell your subscription any time on decentralized markets. Yes! Nothing like this exists on the market.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your DCA status, and be Legendary.</p>'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         maximalist_info: 'If you buy only Bitcoin, you pay half of the regular price.'
         maximalist_title: 'Bitcoin Maximalist discount 50%'

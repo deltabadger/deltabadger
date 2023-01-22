@@ -3,81 +3,102 @@
 .container.container--signup
   .row
     .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
+
+      %h3.db-modal-companion-title
+        Why DCA?
+
       -if @profit.present? && @profit.success?
         %h3.db-modal-companion-title= t('ads.dca_2y_profit_html', profit: @profit.data.to_i)
 
       .db-signup__list
-        - t('ads.features').split(';').each do |feature|
-          .db-signup__list__item
-            .material-icons check
-            %div.db-signup__list__item__text= raw feature
+
+        .db-signup__list__item
+          .material-icons check
+          %div.db-signup__list__item__text
+            Eliminate the need to time the market
+        .db-signup__list__item
+          .material-icons check
+          %div.db-signup__list__item__text
+            Buy more coins when prices are low
+        .db-signup__list__item
+          .material-icons check
+          %div.db-signup__list__item__text
+            Reduce investment stress and anxiety
+        .db-signup__list__item
+          .material-icons check
+          %div.db-signup__list__item__text
+            Get peace of mind and focus on other aspects of life
+
+        -# - t('ads.features').split(';').each do |feature|
+        -#   .db-signup__list__item
+        -#     .material-icons check
+        -#     %div.db-signup__list__item__text= raw feature
 
     .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
-      .db-box
-        %h3.db-modal-title= t('.title_html')
+      %h3.db-modal-title= t('.title_html')
 
-        = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
-          - if @code_present
-            = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
+      = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
+        - if @code_present
+          = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
-          .db-form__row.db-form__row--input
-            = f.text_field :name, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+        .db-form__row.db-form__row--input
+          = f.text_field :name, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
 
+          .db-form__info.db-form__info--invalid
+            -if @name_invalid
+              = t('.name_invalid')
+          = f.label :name, class: "db-form__label"
+
+        .db-form__row.db-form__row--input
+          = f.email_field :email, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+
+          .db-form__info.db-form__info--invalid
+            -if @email_in_use
+              #{@email_in_use}
+              = link_to t('links.log_in'), new_session_path(resource_name)
+            -elsif @email_suggestion
+              = t('.email_suggestion_html', suggestion: @email_suggestion)
+            -else
+              = t('.email_invalid')
+          = f.label :email, class: "db-form__label"
+
+        .db-form__row.db-has-unmask(onselectstart="return false;")
+          = f.password_field :password, autocomplete: "new-password", value: "", class: "db-form__input db-form__input--has-icon", onchange: 'this.setAttribute("value", this.value);', id: "passwordInput"
+
+          - if resource.errors.details[:password].present?
             .db-form__info.db-form__info--invalid
-              -if @name_invalid
-                = t('.name_invalid')
-            = f.label :name, class: "db-form__label"
+              - if resource.errors.details[:password][0][:error] == :too_short
+                = t('forms.minimum_length', length: @minimum_password_length)
+              - else
+                = resource.errors[:password][0]
+          = f.label :password, class: "db-form__label"
 
-          .db-form__row.db-form__row--input
-            = f.email_field :email, autocomplete: "email", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
-
-            .db-form__info.db-form__info--invalid
-              -if @email_in_use
-                #{@email_in_use}
-                = link_to t('links.log_in'), new_session_path(resource_name)
-              -elsif @email_suggestion
-                = t('.email_suggestion_html', suggestion: @email_suggestion)
-              -else
-                = t('.email_invalid')
-            = f.label :email, class: "db-form__label"
-
-          .db-form__row.db-has-unmask(onselectstart="return false;")
-            = f.password_field :password, autocomplete: "new-password", value: "", class: "db-form__input db-form__input--has-icon", onchange: 'this.setAttribute("value", this.value);', id: "passwordInput"
-
-            - if resource.errors.details[:password].present?
-              .db-form__info.db-form__info--invalid
-                - if resource.errors.details[:password][0][:error] == :too_short
-                  = t('forms.minimum_length', length: @minimum_password_length)
-                - else
-                  = resource.errors[:password][0]
-            = f.label :password, class: "db-form__label"
-
-            .db-unmask{:onclick => "unmaskPassword()"}
-              = render "layouts/svg_mi_visibility"
-              = render "layouts/svg_mi_visibility-off"
-            :javascript
-              function unmaskPassword() {
-                var x = document.getElementById("passwordInput");
-                if (x.type === "password") {
-                  x.type = "text";
-                } else {
-                  x.type = "password";
-                }
+          .db-unmask{:onclick => "unmaskPassword()"}
+            = render "layouts/svg_mi_visibility"
+            = render "layouts/svg_mi_visibility-off"
+          :javascript
+            function unmaskPassword() {
+              var x = document.getElementById("passwordInput");
+              if (x.type === "password") {
+                x.type = "text";
+              } else {
+                x.type = "password";
               }
+            }
 
-          .db-form__row.db-form__row--check.ml-0
-            = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
-            = f.label :terms_and_conditions, class: "form-check-label" do
-              = raw t('helpers.label.user.terms_and_conditions_tooltip',
-                           terms_and_conditions: link_to(t('links.terms_and_conditions'), terms_and_conditions_path),
-                           privacy_policy: link_to(t('links.privacy_policy'), privacy_policy_path))
+        .db-form__row.db-form__row--check.ml-0
+          = f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked"
+          = f.label :terms_and_conditions, class: "form-check-label" do
+            = raw t('helpers.label.user.terms_and_conditions_tooltip',
+                          terms_and_conditions: link_to(t('links.terms_and_conditions'), terms_and_conditions_path),
+                          privacy_policy: link_to(t('links.privacy_policy'), privacy_policy_path))
 
-          -# .form-check.mb-4
-          -#   = f.check_box :updates_agreement, class: "form-check-input db-selectable"
-          -#   = f.label :updates_agreement, class: "form-check-label" do
-          -#     I agree to receive rare emails about new features and other updates.
+        -# .form-check.mb-4
+        -#   = f.check_box :updates_agreement, class: "form-check-input db-selectable"
+        -#   = f.label :updates_agreement, class: "form-check-label" do
+        -#     I agree to receive rare emails about new features and other updates.
 
-          .db-form__row.db-form__row--final-button
-            = invisible_recaptcha_tags text: t('.submit'), class: "btn btn-success btn-lg w-100"
-        .db-form__other-links
-          = render "devise/shared/links"
+        .db-form__row.db-form__row--final-button
+          = invisible_recaptcha_tags text: t('.submit'), class: "btn btn-success btn-lg w-100"
+      .db-form__other-links
+        = render "devise/shared/links"
