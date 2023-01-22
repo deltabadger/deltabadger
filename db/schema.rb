@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2022_10_04_114015) do
+ActiveRecord::Schema.define(version: 2023_01_11_121111) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -162,6 +162,7 @@ ActiveRecord::Schema.define(version: 2022_10_04_114015) do
     t.decimal "credits"
     t.boolean "limit_almost_reached_sent", default: false
     t.datetime "first_month_ending_sent_at"
+    t.integer "sequence_number"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
