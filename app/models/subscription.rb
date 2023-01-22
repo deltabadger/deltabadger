@@ -41,7 +41,7 @@ class Subscription < ApplicationRecord
 
   def next_sequence_number
     allowable_sequence_numbers = [*0..999] - self.class.used_sequence_numbers
-    allowable_sequence_numbers.min
+    allowable_sequence_numbers.sample
   end
 
 end

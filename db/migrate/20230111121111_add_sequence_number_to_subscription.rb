@@ -6,7 +6,7 @@ class AddSequenceNumberToSubscription < ActiveRecord::Migration[6.0]
       dir.up do
         legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_BADGER)
         subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
-        subscriptions.each_with_index{|subscription, index| subscription.update sequence_number: index}
+        subscriptions.each{|subscription| subscription.update sequence_number: subscription.send(:next_sequence_number)}
       end
     end
   end
