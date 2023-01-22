@@ -25,7 +25,6 @@ class MakeTransaction < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true, continue_params: nil)
-    begin
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
@@ -50,6 +49,7 @@ class MakeTransaction < BaseService
     elsif result&.success?
       @bots_repository.update(bot.id, status: 'pending')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
+      check_allowable_balance(get_api(bot), bot, fixing_price, notify)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
       @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
@@ -63,19 +63,27 @@ class MakeTransaction < BaseService
     end
 
     result
-    rescue => e
-      @unschedule_transactions.call(bot)
-      @order_flow_helper.stop_bot(bot, notify)
-      Rails.logger.info "======================= RESCUE 1=============================="
-      Rails.logger.info "================= #{e.inspect} ======================="
-      Rails.logger.info "====================================================="
-    
+  rescue => e
+    @unschedule_transactions.call(bot)
+    @order_flow_helper.stop_bot(bot, notify)
+    Rails.logger.info "======================= RESCUE 1=============================="
+    Rails.logger.info "================= #{e.inspect} ======================="
+    Rails.logger.info "====================================================="
+
     raise
-    end
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
+
+  def check_allowable_balance(api, bot, price = nil, notify = true)
+    price = fixing_transaction?(price) ? price.to_f : bot.price.to_f
+    balance = api.currency_balance(bot.quote)
+    return unless balance.success?
+
+    amount_needed = calculate_amount_needed(bot.interval, price)
+    @notifications.end_of_funds(bot: bot) if balance.data < amount_needed && notify
+  end
 
   def get_api(bot)
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
@@ -149,5 +157,16 @@ class MakeTransaction < BaseService
       bot_price: fixing_transaction?(price) ? price : bot.price,
       transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
     }
+  end
+
+  def calculate_amount_needed(interval, price)
+    case interval
+    when 'hour'
+      price * 24 * 3
+    when 'day'
+      price * 3
+    else
+      price
+    end
   end
 end
