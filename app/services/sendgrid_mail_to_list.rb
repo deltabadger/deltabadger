@@ -85,7 +85,8 @@ class SendgridMailToList < BaseService
   end
 
   def add_email_to_list(user, email_list_ids = list_ids)
-    response = Faraday.put(CONTACTS_URL, add_email_request_body(user.email, user.name, email_list_ids).to_json, headers)
+    user_first_name_only = user.name.split.first.capitalize
+    response = Faraday.put(CONTACTS_URL, add_email_request_body(user.email, user_first_name_only, email_list_ids).to_json, headers)
     body = JSON.parse(response.body)
 
     raise StandardError, body["errors"] unless response.status == 202

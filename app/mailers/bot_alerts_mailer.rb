@@ -38,4 +38,13 @@ class BotAlertsMailer < ApplicationMailer
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
+
+  def end_of_funds
+    @user = params[:user]
+    @bot = params[:bot]
+    @quote = params[:quote]
+    @exchange_name = Exchange.find(@bot.exchange_id).name
+
+    mail(to: @user.email, subject: default_i18n_subject)
+  end
 end
