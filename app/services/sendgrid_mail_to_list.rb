@@ -86,11 +86,9 @@ class SendgridMailToList < BaseService
 
   def add_email_to_list(user, email_list_ids = list_ids)
     user_first_name_only = user.name.split.first.capitalize
-    response = Faraday.post(CONTACTS_URL, add_email_request_body(email, user_first_name_only).to_json, headers.merge({'list_ids': list_ids.join(',')}))
+    response = Faraday.post(CONTACTS_URL, add_email_request_body(user.email, user_first_name_only).to_json, headers.merge({'list_ids': email_list_ids.join(',')}))
     body = JSON.parse(response.body)
-
-    raise StandardError, body["errors"] unless response.status == 202
-
+    raise StandardError, body["errors"] unless response.status == 201
     body
   rescue StandardError => e
     Raven.capture_exception(e)
