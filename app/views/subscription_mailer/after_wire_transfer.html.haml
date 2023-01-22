@@ -1,84 +1,69 @@
-Hi #{@name},
-%br
-%br
-Thanks! I booked your #{@subscription_plan.display_name} plan, and will wait for the payment.
-%br
-I will appreciate if you could send me the transfer confirmation.
-%br
-%br
-Let me know if you have any questions.
-%br
-%br
-Best,
-%br
-Jan
-%br
-%br
-<span style="color:rgb(181,181,181);">Deltabadger Team</span>
-<img src="https://deltabadger.com/logo20gp.png" alt="logo">
-%br
-%br
-PS If you didn’t pay yet, please, send #{@amount}#{@type == 'Other' ? '$' : '€'}  to
-%br
-%br
-- if @type == 'Other'
-  Account holder
+%p
+  Hi #{@name},
+%p
+  Thanks! I booked your #{@subscription_plan.display_name} plan, and will wait for the payment.
   %br
-  Deltabadger OÜ
+  I will appreciate if you could send me the transfer confirmation.
+%p
+  Let me know if you have any questions.
+%p
+  Best,
   %br
-  %br
-  Routing number
-  %br
-  084009519
-  %br
-  %br
-  Account number
-  %br
-  9600 0000 0051 1836
-  %br
-  %br
-  Account type
-  %br
-  Checking
-  %br
-  %br
-  Bank address
-  %br
-  TransferWise
-  %br
-  19 W 24th Street
-  %br
-  New York NY 10010
-  %br
-  United States
-  %br
+  Jan
 
-- else
-  Account holder
-  %br
-  Deltabadger OÜ
-  %br
-  %br
-  BIC
-  %br
-  TRWIBEB1XXX
-  %br
-  %br
-  IBAN (Belgium)
-  %br
-  BE83 9670 6500 4615
-  %br
-  %br
-  Bank address
-  %br
-  Avenue Louise 54, Room S52
-  %br
-  Brussels
-  %br
-  1050
-  %br
-  Belgium
-  %br
+%p{style: "color:#9d9d9d; margin-top: 20px; margin-bottom: 8px"} Deltabadger Team
+%img{alt: "Logo", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}/
 
-
-
+%p
+  PS If you didn’t pay yet, please, send #{@amount}#{@type == 'Other' ? '$' : '€'}  to
+%p
+  - if @type == 'Other'
+    %p
+      Account holder
+      %br
+      Deltabadger OÜ
+    %p
+      Routing number
+      %br
+      084009519
+    %p
+      Account number
+      %br
+      9600 0000 0051 1836
+    %p
+      Account type
+      %br
+      Checking
+    %p
+      Bank address
+      %br
+      TransferWise
+      %br
+      19 W 24th Street
+      %br
+      New York NY 10010
+      %br
+      United States
+  - else
+    %p
+      Account holder
+      %br
+      Deltabadger OÜ
+    %p
+      BIC
+      %br
+      TRWIBEB1XXX
+    %p
+      IBAN (Belgium)
+      %br
+      BE83 9670 6500 4615
+    %p
+      Bank address
+      %br
+      Avenue Louise 54, Room S52
+      %br
+      Brussels
+      %br
+      1050
+      %br
+      Belgium

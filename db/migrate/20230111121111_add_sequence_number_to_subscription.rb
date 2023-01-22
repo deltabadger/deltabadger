@@ -5,8 +5,10 @@ class AddSequenceNumberToSubscription < ActiveRecord::Migration[6.0]
     reversible do |dir|
       dir.up do
         legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_BADGER)
-        subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
-        subscriptions.each{|subscription| subscription.update sequence_number: subscription.send(:next_sequence_number)}
+        if legendary_badger_plan
+          subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
+          subscriptions.each{|subscription| subscription.update sequence_number: subscription.send(:next_sequence_number)}
+        end
       end
     end
   end
