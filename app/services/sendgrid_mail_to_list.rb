@@ -95,7 +95,7 @@ class SendgridMailToList < BaseService
   rescue StandardError => e
     Raven.capture_exception(e)
     nil
-  end
+  endą
 
   def headers
     {
