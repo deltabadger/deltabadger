@@ -64,7 +64,8 @@ jobs:
 
       - name: test ssh connection by executing test commands
         run: |
-          ssh -t ubuntu@172.31.38.233 -i ~/.ssh/deltabadger-staging.pem 'cd /some/path; bash -l'
+          ssh-keyscan 172.31.38.233 >> ~/.ssh/known_hosts
+          ssh -t ubuntu@172.31.38.233 -i ~/.ssh/deltabadger-staging.pem 'cd; touch test123'
 
 #       - name: Autodeploy
 #         run: |
