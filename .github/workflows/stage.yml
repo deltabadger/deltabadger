@@ -40,6 +40,13 @@ jobs:
           ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-bastion.pem --output ~/.ssh/deltabadger-bastion.pem --vault-password-file=deltabadger-ansible/.vault_password
           ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-staging.pem --output ~/.ssh/deltabadger-staging.pem --vault-password-file=deltabadger-ansible/.vault_password
           sudo chmod 0600 ~/.ssh/deltabadger-*
+          
+      - name: private keys verifying
+        run: |
+          cd deltabadger-ansible/ssh_keys/
+          ls -lh
+          cd ~/.ssh/
+          ls -lh
 
       - name: create ssh key from secret   
         run: |
