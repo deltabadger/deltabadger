@@ -56,4 +56,4 @@ jobs:
       - name: Autodeploy
         run: |
           cd deltabadger-ansible \
-          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test
+          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test -vvvv
