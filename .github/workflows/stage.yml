@@ -47,6 +47,7 @@ jobs:
           ls -lh
           cd ~/.ssh/
           ls -lh
+          ls -d ~/.ssh/
 
       - name: create ssh key from secret   
         run: |
