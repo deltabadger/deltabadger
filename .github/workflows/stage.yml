@@ -7,7 +7,7 @@ on:
 jobs:
   AutoDeploy:
     environment: stage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     timeout-minutes: 10
     steps:
       - name: Check out repository code
@@ -40,6 +40,14 @@ jobs:
           ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-bastion.pem --output ~/.ssh/deltabadger-bastion.pem --vault-password-file=deltabadger-ansible/.vault_password
           ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-staging.pem --output ~/.ssh/deltabadger-staging.pem --vault-password-file=deltabadger-ansible/.vault_password
           sudo chmod 0600 ~/.ssh/deltabadger-*
+          
+#       - name: private keys verifying
+#         run: |
+#           cd deltabadger-ansible/ssh_keys/
+#           ls -lh
+#           cd ~/.ssh/
+#           ls -lh
+#           ls -d ~/.ssh/
 
       - name: create ssh key from secret   
         run: |
@@ -53,7 +61,14 @@ jobs:
           sudo apt install sshuttle
           nohup sshuttle -r ubuntu@3.136.156.106 172.16.0.0/12 < /dev/null & > /dev/null &
 
+      - name: add local endpoints as known 
+        run: |
+          # stage IPs test (to avoid ANSIBLE_HOST_KEY_CHECKING=False)
+          # safe to use since it's local addresses
+          ssh-keyscan 172.31.38.233 >> ~/.ssh/known_hosts
+          ssh-keyscan 172.31.17.97 >> ~/.ssh/known_hosts
+
       - name: Autodeploy
         run: |
-          cd deltabadger-ansible \
-          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test
+          cd deltabadger-ansible
+          BRANCH=stage ansible-playbook site.yml -i inventories/test
