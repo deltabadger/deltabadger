@@ -61,13 +61,13 @@ jobs:
           sudo apt install sshuttle
           nohup sshuttle -r ubuntu@3.136.156.106 172.16.0.0/12 < /dev/null & > /dev/null &
 
-
-      - name: test ssh connection by executing test commands
+      - name: add local endpoints as known 
         run: |
+          # stage IPs test (should be ignored by ANSIBLE_HOST_KEY_CHECKING=False in next step but let's give it a shot)
           ssh-keyscan 172.31.38.233 >> ~/.ssh/known_hosts
-          ssh -t ubuntu@172.31.38.233 -i ~/.ssh/deltabadger-staging.pem 'cd; touch test123'
+          ssh-keyscan 172.31.17.97 >> ~/.ssh/known_hosts
 
-#       - name: Autodeploy
-#         run: |
-#           cd deltabadger-ansible \
-#           && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test -vvvv
+      - name: Autodeploy
+        run: |
+          cd deltabadger-ansible \
+          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test -vvvv
