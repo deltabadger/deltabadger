@@ -41,13 +41,13 @@ jobs:
           ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-staging.pem --output ~/.ssh/deltabadger-staging.pem --vault-password-file=deltabadger-ansible/.vault_password
           sudo chmod 0600 ~/.ssh/deltabadger-*
           
-      - name: private keys verifying
-        run: |
-          cd deltabadger-ansible/ssh_keys/
-          ls -lh
-          cd ~/.ssh/
-          ls -lh
-          ls -d ~/.ssh/
+#       - name: private keys verifying
+#         run: |
+#           cd deltabadger-ansible/ssh_keys/
+#           ls -lh
+#           cd ~/.ssh/
+#           ls -lh
+#           ls -d ~/.ssh/
 
       - name: create ssh key from secret   
         run: |
@@ -63,11 +63,12 @@ jobs:
 
       - name: add local endpoints as known 
         run: |
-          # stage IPs test (should be ignored by ANSIBLE_HOST_KEY_CHECKING=False in next step but let's give it a shot)
+          # stage IPs test (to avoid ANSIBLE_HOST_KEY_CHECKING=False)
+          # safe to use since it's local addresses
           ssh-keyscan 172.31.38.233 >> ~/.ssh/known_hosts
           ssh-keyscan 172.31.17.97 >> ~/.ssh/known_hosts
 
       - name: Autodeploy
         run: |
-          cd deltabadger-ansible \
-          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test -vvvv
+          cd deltabadger-ansible
+          BRANCH=stage ansible-playbook site.yml -i inventories/test
