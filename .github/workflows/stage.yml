@@ -53,7 +53,19 @@ jobs:
           sudo apt install sshuttle
           nohup sshuttle -r ubuntu@3.136.156.106 172.16.0.0/12 < /dev/null & > /dev/null &
 
-      - name: Autodeploy
-        run: |
-          cd deltabadger-ansible \
-          && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test -vvvv
+
+      - name: test ssh connection by executing test commands
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: "172.31.38.233"
+          username: "ubuntu"
+          key: "~/.ssh/deltabadger-staging.pem"
+          port: 22
+          script: |
+            cd 
+            touch test123
+
+#       - name: Autodeploy
+#         run: |
+#           cd deltabadger-ansible \
+#           && ANSIBLE_HOST_KEY_CHECKING=False BRANCH=stage ansible-playbook site.yml -i inventories/test -vvvv
