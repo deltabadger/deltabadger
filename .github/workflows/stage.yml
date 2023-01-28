@@ -63,15 +63,8 @@ jobs:
 
 
       - name: test ssh connection by executing test commands
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: "172.31.38.233"
-          username: "ubuntu"
-          key_path: /home/runner/.ssh/deltabadger-staging.pem
-          port: 22
-          script: |
-            cd 
-            touch test123
+        run: |
+          ssh -t ubuntu@172.31.38.233 -i ~/.ssh/deltabadger-staging.pem 'cd /some/path; bash -l'
 
 #       - name: Autodeploy
 #         run: |
