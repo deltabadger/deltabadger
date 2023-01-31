@@ -8,18 +8,22 @@ class Subscription < ApplicationRecord
   delegate :display_name, to: :subscription_plan
   delegate :unlimited?, to: :subscription_plan
 
+  before_validation :set_sequence_number
+
   validates :sequence_number, presence: true, if: -> { legendary_badger? }
   validates :sequence_number,
             inclusion: { in: 0..999, message: "%{value} is incorrect, please enter a number from 0 to 999" },
             if: -> { sequence_number_present? && legendary_badger? }
   validate do
     errors.add :sequence_number, :used, message: "is only available for the Legendary Badger NFT plan" if sequence_number_present? && !legendary_badger?
-    errors.add :sequence_number, :used, message: "%{value} is already used" if legendary_badger? && sequence_number_present? && sequence_number.in?(Subscription.used_sequence_numbers)
+    errors.add :sequence_number, :used, message: "%{value} is already used" if sequence_number_already_used?
   end
 
-  before_create :set_sequence_number
-
   private
+
+  def sequence_number_already_used?
+    legendary_badger? && sequence_number_present? && sequence_number.in?(Subscription.used_sequence_numbers - [sequence_number_was])
+  end
 
   def legendary_badger?
     name == SubscriptionPlan::LEGENDARY_BADGER
@@ -30,7 +34,7 @@ class Subscription < ApplicationRecord
   end
 
   def set_sequence_number
-    self.sequence_number = next_sequence_number if legendary_badger?
+    self.sequence_number = next_sequence_number if legendary_badger? && !sequence_number_present?
   end
 
   def self.used_sequence_numbers

@@ -21,10 +21,10 @@ class UpgradeSubscription < BaseService
 
     SendgridMailToList.new.change_list(user, current_plan_name, new_plan_name)
 
-    unless payment_id.nil?
-      payment = Payment.find(payment_id)
-      payment.update(status: :paid)
-    end
+    # unless payment_id.nil?
+    #   payment = Payment.find(payment_id)
+    #   payment.update(status: :paid)
+    # end
 
     user.update(
       pending_wire_transfer: nil,
