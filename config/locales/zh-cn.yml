@@ -666,6 +666,7 @@ zh-cn:
         upgrade: 升级
         upgrade_plan: 升级套餐
     welcome:
-        banner_html: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的 <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
+        banner_html: "嗨，用户！<b>请检查您的邮箱</b>，找到我为您准备的完美机器人设置的技巧和提示。 <b>如果它落入了垃圾邮件文, Jan"
+        banner_html_old: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的 <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
         default: '嗨，欢迎来到 Deltabadger'
         saver: 摆脱限制，进行升级！
