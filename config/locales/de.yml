@@ -617,7 +617,7 @@ de:
         terms_and_conditions: AGB
     mail: "<p>Hallo 👋,</p><p>Toll! Dein Empfehlungslink kommt gut an!</p><p>Wir überweisen dir eine Kommission von</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>auf dein Bitcoin Wallet.</p><p>Danke, dass du die <br>Badger Gang vergrößerst!</p>"
     mailer:
-        signature_html: 'Deltabadger Team 🧑‍🚀'
+        signature_html: 'Deltabadger Team'
     meta:
         desc: 'Starte jetzt kostenfrei die bewährteste Strategie, die mit Binance, Coinbase, Kraken, Kucoin und anderen Börsen funktioniert. Keine KYC.'
         title: 'Deltabadger | Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung'
@@ -710,6 +710,7 @@ de:
         upgrade: Upgrade
         upgrade_plan: 'Plan upgraden'
     welcome:
-        banner_html: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 1200 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge uns auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
+        banner_html: 'Hallo Benutzer! <b>Überprüfe deinen Posteingang</b> und finde Tipps und Tricks für die perfekte Bot-Einrichtung, die ich für dich vorbereitet habe. <b>Wenn es im Spam-Ordner gelandet ist, verschiebe es in deinen Posteingang</b>, damit du in Zukunft unsere Nachrichten sehen kannst. Danke, Jan'
+        banner_html_old: 'Willkommen! Du hast derzeit den <b>kostenlosen Plan mit einem Transaktionslimit von 1200 $/Jahr</b>, aber es wird nicht für den ersten Monat durchgesetzt werden. Probiere jeden Plan aus, den du möchtest. Du kannst ihn auch später upgraden, um unbegrenzte Transaktionen zu genießen. Der 4-Jahres-Anleger-Plan gibt zusätzlich Zugang zu neuen experimentellen Funktionen (z.B. alle Währungen auf der Börse). Jedes Feedback ist willkommen. Tritt unserer <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Gruppe</a> bei und folge uns auf <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>. Viel Spaß beim Averaging!'
         default: 'Hallo, willkommen bei Deltabadger'
         saver: 'Werde die Limits los und führe ein Upgrade durch!'
