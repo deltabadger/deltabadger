@@ -710,7 +710,7 @@ fr:
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mise à niveau du plan'
     welcome:
-        banner_html: "Salut, utilisateur ! <b>Vérifiez votre boîte de réception</b> et trouvez des astuces et des conseils pour la configuration parfaite du bot que je vous ai préparé. <b>Si cela est arrivé dans le dossier de spam, déplacez-le dans votre boîte de réception</b> afin que vous puissiez voir nos messages à l'avenir. Merci, Jan"
+        banner_html: "Salut ! <b>Vérifiez votre boîte de réception</b> et trouvez des astuces et des conseils pour la configuration parfaite du bot que je vous ai préparé. <b>Si cela est arrivé dans le dossier de spam, déplacez-le dans votre boîte de réception</b> afin que vous puissiez voir nos messages à l'avenir. Merci, Jan"
         banner_html_old: "Bienvenue ! Tu bénéficies actuellement du <b> plan gratuit avec une limite de transaction de 1200 USD/an</b>, mais il ne sera pas appliqué le premier mois. Essaie n'importe quel plan que tu veux. Tu peux également le mettre à niveau pour profiter ultérieurement de transactions illimitées. Le plan Hodler de 4 ans donne en outre accès à de nouvelles fonctionnalités expérimentales (par exemple toutes les devises de l'échange). Tous les commentaires sont appréciés. Rejoins notre <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\"> groupe Telegram</a> et suis-nous sur <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\"> Twitter</a>. Bon échange !"
         default: 'Bonjour, bienvenue sur le site de Deltabadger'
         saver: 'Débarrassez-vous des limites et effectuez une mise à niveau !'
