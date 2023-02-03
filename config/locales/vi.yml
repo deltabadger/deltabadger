@@ -650,7 +650,7 @@ vi:
         upgrade: 'Nâng cấp'
         upgrade_plan: 'Nâng cấp gói'
     welcome:
-        banner_html: "Xin chào, người dùng! <b>Hãy kiểm tra hộp thư của bạn</b> và tìm các mẹo vặt và gợi ý cho cấu hình bot hoàn hảo mà tôi đã chuẩn bị cho bạn. <b>Nếu nó đạt đến thư mục spam, hãy di chuyển nó vào hộp thư của bạn</b>, để bạn có thể xem các tin nhắn của chúng tôi trong tương lai. Cảm ơn, Jan"
+        banner_html: "Xin chào! <b>Hãy kiểm tra hộp thư của bạn</b> và tìm các mẹo vặt và gợi ý cho cấu hình bot hoàn hảo mà tôi đã chuẩn bị cho bạn. <b>Nếu nó đạt đến thư mục spam, hãy di chuyển nó vào hộp thư của bạn</b>, để bạn có thể xem các tin nhắn của chúng tôi trong tương lai. Cảm ơn, Jan"
         banner_html_old: "Chào mừng bạn! Bạn hiện đang sử dụng <b>gói miễn phí với hạn mức giao dịch là $1200/năm</b>, tuy nhiên gói này sẽ không có hiệu lực trong tháng đầu tiên. Hãy thử bất kỳ thời gian nào bạn muốn. Bạn cũng có thể nâng cấp gói để tận hưởng các giao dịch không giới hạn sau này. Ngoài ra, gói Hodler 4 năm còn cung cấp quyền truy cập vào các tính năng thử nghiệm mới (ví dụ: giao dịch bằng tất cả các đồng tiền). Chúng tôi hoan nghênh tất cả các ý kiến phản hồi. Tham gia <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">nhóm Telegram</a> của chúng tôi, hoặc theo dõi chúng tôi trên <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Chúc bạn trung bình giá thành công!"
         default: 'Xin chào, chào mừng bạn đến với Deltabadger'
         saver: 'Xóa bỏ giới hạn, và thực hiện nâng cấp!'

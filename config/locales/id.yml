@@ -651,7 +651,7 @@ id:
         upgrade: 'Tingkatkan Paket'
         upgrade_plan: 'Tingkatkan paket'
     welcome:
-        banner_html: "Hei, pengguna! <b>Periksa kotak masuk Anda</b> dan temukan tips dan trik untuk pengaturan bot yang sempurna yang saya siapkan untuk Anda. <b>Jika itu jatuh ke folder spam, pindahkan ke kotak masuk Anda</b>, sehingga Anda dapat melihat pesan kami di masa depan. Terima kasih, Jan"
+        banner_html: "Hei! <b>Periksa kotak masuk Anda</b> dan temukan tips dan trik untuk pengaturan bot yang sempurna yang saya siapkan untuk Anda. <b>Jika itu jatuh ke folder spam, pindahkan ke kotak masuk Anda</b>, sehingga Anda dapat melihat pesan kami di masa depan. Terima kasih, Jan"
         banner_html_old: "Selamat datang! Anda saat ini menikmati <b>paket gratis dengan limit transaksi sebesar $1200/tahun</b>, tetapi tidak akan diberlakukan untuk bulan pertama. Cobalah jadwal mana saja yang Anda inginkan. Anda juga bisa meningkatkan paket agar nanti menikmati transaksi tanpa batas. Selain itu, paket Hodler 4 tahun memberi akses ke fitur eksperimental baru (misalnya semua mata uang untuk pertukaran). Kami mengapresiasi semua masukan. Bergabunglah dengan <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grup Telegram</a> dan ikuti kami di <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Selamat ber-averaging!"
         default: 'Hai, selamat datang di Deltabadger'
         saver: 'Hapus limit dan tingkatkan paket!'
