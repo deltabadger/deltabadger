@@ -726,7 +726,7 @@ pl:
         upgrade: Upgrade
         upgrade_plan: 'Zrób upgrade'
     welcome:
-        banner_html: 'Cześć, użytkowniku! <b>Sprawdź swoją skrzynkę odbiorczą</b> i znajdź wskazówki i triki dotyczące idealnej konfiguracji bota, który przygotowałem dla Ciebie. <b>Jeśli wpadł do folderu ze spamem, przenieś go do swojej skrzynki odbiorczej</b>, aby mieć pewność, że w przyszłości będziesz mógł zobaczyć nasze wiadomości. Dzięki, Jan'
+        banner_html: 'Cześć! <b>Sprawdź swoją skrzynkę odbiorczą</b> i znajdź wskazówki i triki dotyczące idealnej konfiguracji bota, który przygotowałem dla Ciebie. <b>Jeśli wpadł do folderu ze spamem, przenieś go do swojej skrzynki odbiorczej</b>, aby mieć pewność, że w przyszłości będziesz mógł zobaczyć nasze wiadomości. Dzięki, Jan'
         banner_html_old: 'Witamy! Jesteś obecnie na <b>darmowym planie z limitem transakcji 1200 USD/rok</b>, ale nie będzie to egzekwowane przez pierwszy miesiąc. Wypróbuj dowolny harmonogram. Możesz również od razu zrobić upgrade, aby później cieszyć się nieograniczoną liczbą transakcji. 4-letni plan Hodler dodatkowo daje dostęp do nowych, eksperymentalnych funkcji (np. wszystkie waluty na giełdzie). Wszystkie opinie są mile widziane. Dołącz do naszej <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">grupy na Telegramie</a>, i śledź nas na <a href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitterze</a>. Udanego uśredniania!'
         default: 'Cześć, witamy w Deltabadger'
         saver: 'Zrób upgrade i pozbądź się limitów!'
