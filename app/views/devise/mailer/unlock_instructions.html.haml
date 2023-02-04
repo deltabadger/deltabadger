@@ -1,1 +1,9 @@
+%table.mail-block{style: "width:100%; text-align:center;"}
+  %tr{style: "vertical-align:middle;"}
+    %td{style: "width:64px;"}
+      %img{src: "https://deltabadger.com/m/mail-icon-spinner.png", alt: "your-image-description", style: "width:64px; height: 64px; display: block; margin-right: 16px;"}
+    %td
+      %h1{style: "margin:0; text-align: left;"}= t('.subject')
+
 = t('.template_html', unlock_url: unlock_url(@resource, unlock_token: @token))
+
