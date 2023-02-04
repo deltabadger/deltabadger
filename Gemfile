@@ -34,6 +34,7 @@ gem 'sentry-raven'
 gem 'bitcoin-ruby', git: 'https://github.com/lian/bitcoin-ruby', branch: 'master', require: 'bitcoin'
 gem 'recaptcha'
 gem 'i18n-js', '~> 3.8.0'
+gem 'i18n-tasks'
 gem 'stripe'
 gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
