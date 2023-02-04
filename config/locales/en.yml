@@ -443,8 +443,8 @@ en:
                 subject: 'New password 🔑'
                 template_html: "<p>It's done 🎉!</p><p>Your password 🔑 has been changed.</p>"
             reset_password_instructions:
-                subject: 'Password reset 🔑'
-                template_html: "<p>Hello 👋,</p><p>It looks like you want to change<br/>your password 🔑. Smart move!</p><p>Let's go:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Change my password</a> </p><p>You didn't send this request?<br/>No worries! Just ignore it.</p>"
+                subject: 'Password recovery'
+                template_html: "<p>Aye captain,</p><p>Password recovery initiated! Hang tight, we'll have you back in the game in no time.</p><a class='mail-button' href=\"%{edit_password_url}\">Change my password</a>"
             unlock_instructions:
                 subject: 'Unlock instructions 🔓'
                 template_html: "<p>Hello 👋,</p><p>We locked your account due to<br>a high number of unsuccessful log in attempts.</p><p>Click the link below to unlock it:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Unlock my account</a></p>"
