@@ -2,15 +2,61 @@
 %html
   %head
     %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
+    :css
+      body {
+        padding: 0 16px;
+      }
+      body, div, p, ol, ul {
+        font: 16px/24px sans-serif;
+        color: #091638;
+      }
+      a {
+        color: #2948A1;
+      }
+      p, ol, ul {
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-family: "Arial Rounded MT Bold", sans-serif;
+        font-weight: 400;
+        color: #2948A1;
+        font-size: 20px;
+        line-height: 24px;
+      }
+      ol {
+        padding-left: 18px;
+      }
+      .mail-block {
+        margin-top: 32px;
+        margin-bottom: 32px;
+      }
+      .mail-button {
+        margin-top: 32px;
+        margin-bottom: 32px;
+        width: 220px;
+        text-align: center;
+        font-family: 'Arial Rounded MT Bold', sans-serif;
+        letter-spacing: 0.01em;
+        line-height: 43px;
+        border: 2px solid #2948A1;
+        border-radius: 24px;
+        padding: 0 24px 1px;
+        background: #2948A1;
+        color: #fff;
+        display: inline-block;
+        box-shadow: 1px 2px 5px rgba(0,0,0,.5);
+        text-decoration: none;
+      }
   %body
-    %div{ :style => ""}
-
-      %img{:alt => "🦡", :border => "0", :height => "20", :style => "height: 20px; font-size: 2em; display: block; line-height: 20px; margin-bottom: 0.75em;", :referrerpolicy => "no-referrer", :src => "https://deltabadger.com/logo160c.png"}
+    %div
 
       = yield
 
-      %p —
-      %p= t('mailer.signature_html')
-      - if @dca_profit.success?
-        %p
-        %p= t('ads.dca_2y_profit_html', profit: @dca_profit.data.to_i)
+      -# %p= t('mailer.signature_html')
+      -# - if @dca_profit.success?
+      -#   %p
+      -#   %p= t('ads.dca_2y_profit_html', profit: @dca_profit.data.to_i)
+      .mail-block
+        %p{style: "color:#9d9d9d; margin-top: 20px; margin-bottom: 8px"} &mdash;
+        %p{style: "color:#9d9d9d; margin-bottom: 8px"} Deltabadger Team
+        %img{alt: "Logo", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}
