@@ -1,3 +1,12 @@
 -# set dca_profit to failure in order to prevent footer from rendering
 - @dca_profit = Result::Failure.new
+
+
+%table.mail-block{style: "width:100%; text-align:center;"}
+  %tr{style: "vertical-align:middle;"}
+    %td{style: "width:64px;"}
+      %img{src: "https://deltabadger.com/m/mail-icon-heart.png", alt: "your-image-description", style: "width:64px; height: 58px; display: block; margin-right: 16px;"}
+    %td
+      %h1{style: "margin:0; text-align: left;"}= t('.subject')
+
 = t('.template_html', confirmation_url: confirmation_url(@resource, confirmation_token: @token, lang: I18n.locale, new_user: @resource.email.in?(controller.message.to)))
