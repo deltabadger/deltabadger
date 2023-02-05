@@ -877,9 +877,9 @@ fr:
     twitter_image_alt: Achats périodiques automatisés en Bitcoin, Ethereum, Polkadot,
       Cardano, Solana, et autres actifs numériques.
   referral:
-    banner_html: <b>Partagez votre lien de parrainage avec des amis et <a href="/referral-program"
+    banner_html: Partagez votre lien de parrainage avec des amis et <a href="/referral-program"
       alt="Read more">gagnez jusqu'à 50 $ en BTC</a>. La meilleure façon de faire
-      un DCA en Bitcoin est d'en gagner !</b>
+      un DCA en Bitcoin est d'en gagner !
     copied: Copié !
   settings:
     index:

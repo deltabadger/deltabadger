@@ -810,9 +810,9 @@ en:
     twitter_image_alt: Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot,
       Cardano, Solana, and other digital assets.
   referral:
-    banner_html: <b>Share your referral link with friends, and <a href="/referral-program"
+    banner_html: Share your referral link with friends, and <a href="/referral-program"
       alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin
-      is to earn it!</b>
+      is to earn it!
     copied: Copied!
   settings:
     index:

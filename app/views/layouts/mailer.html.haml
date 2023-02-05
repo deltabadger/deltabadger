@@ -20,8 +20,9 @@
         font-family: "Arial Rounded MT Bold", sans-serif;
         font-weight: 400;
         color: #2948A1;
-        font-size: 20px;
-        line-height: 24px;
+        font-size: 24px;
+        line-height: 32px;
+        margin-bottom: 40px;
       }
       ol {
         padding-left: 18px;
@@ -47,8 +48,16 @@
         box-shadow: 1px 2px 5px rgba(0,0,0,.5);
         text-decoration: none;
       }
+      @media only screen and (min-width: 600px) {
+        h1 {
+          font-size: 28px;
+          line-height: 40px;
+        }
+      }
   %body
-    %div
+    %div{ style: "margin: 0 auto; max-width: 600px" }
+
+      %img{alt: "Deltabadger", src: "https://deltabadger.com/logo160alert.png", style: "margin: 40px 0; width: 80px; height: auto; display: block;"}
 
       = yield
 
@@ -57,6 +66,18 @@
       -#   %p
       -#   %p= t('ads.dca_2y_profit_html', profit: @dca_profit.data.to_i)
 
-      %p{style: "color:#9d9d9d; margin-bottom: 8px"} &mdash;
-      %p{style: "color:#9d9d9d; margin-top: 12px; margin-bottom: 8px"} Invincible team of badgers at your service, Legend!
-      %img{alt: "Deltabadger", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}
+      %p{style: "color:#9d9d9d;  margin: 24px 0;"} &mdash;
+      %p{style: "color:#9d9d9d;  margin: 24px 0;"} Invincible team of badgers at your service.
+      -# %img{alt: "Deltabadger", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}
+
+      %p{style: "color:#9d9d9d; margin: 24px 0;"}
+        Questions? Reply to this email, or join our community on
+        %a{href: "https://t.me/deltabadger", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
+          Telegram →
+        %br
+        Don't forget to follow us on
+        %a{href: "https://twitter.com/deltabadger", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
+          Twitter →
+
+      %p{style: "color:#9d9d9d;  margin: 24px 0;"}
+        &copy; 2023 Deltabadger. All rights hyperbitconized.

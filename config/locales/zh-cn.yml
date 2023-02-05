@@ -660,8 +660,8 @@ zh-cn:
     title_short: Deltabadger • 自动定期定额投资比特币和其他资产
     twitter_image_alt: 自动定期定额投资比特币、以太坊、波卡、卡尔达诺、索拉纳和其他数字资产。
   referral:
-    banner_html: <b>与朋友分享转介绍链接，即可<a href="/referral-program" alt="Read more">赚取最高价值
-      50 美元的比特币。</a>。定投比特币的最佳方式就是赚取比特币！</b>
+    banner_html: 与朋友分享转介绍链接，即可<a href="/referral-program" alt="Read more">赚取最高价值
+      50 美元的比特币。</a>。定投比特币的最佳方式就是赚取比特币！
     copied: 已复制！
   settings:
     index:

@@ -848,9 +848,9 @@ de:
     twitter_image_alt: Automatisiertes Dollar-Cost-Averaging in Bitcoin, Ethereum,
       Polkadot, Cardano, Solana und anderen digitalen Assets.
   referral:
-    banner_html: <b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program"
+    banner_html: Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program"
       alt="Read more">verdienen Sie bis zu 50$ in BTC</a>. Der beste Weg zum Durchschnittskosteneffekt
-      ist, sich Bitcoins zu verdienen!</b>
+      ist, sich Bitcoins zu verdienen!
     copied: Kopiert!
   settings:
     index:

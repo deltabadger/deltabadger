@@ -783,9 +783,9 @@ pt:
     twitter_image_alt: Média automatizada do custo do dólar em Bitcoin, Ethereum,
       Polkadot, Cardano, Solana e outros ativos digitais.
   referral:
-    banner_html: <b>Partilhe o seu link de referência com amigos e <a href="/referral-program"
+    banner_html: Partilhe o seu link de referência com amigos e <a href="/referral-program"
       alt="Read more">ganhe até $50 em BTC</a>. A melhor forma de fazer DCA em Bitcoin
-      é ganhá-lo!</b>
+      é ganhá-lo!
     copied: Copiado!
   settings:
     index:

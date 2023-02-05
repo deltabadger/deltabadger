@@ -792,9 +792,9 @@ id:
     twitter_image_alt: Dollar-cost averaging otomatis untuk Bitcoin, Ethereum, Polkadot,
       Cardano, Solana, dan aset digital lainnya.
   referral:
-    banner_html: <b>Bagikan tautan referral Anda kepada teman dan <a href="/referral-program"
+    banner_html: Bagikan tautan referral Anda kepada teman dan <a href="/referral-program"
       alt="Read more">dapatkan hingga $50 dalam BTC</a>. Cara terbaik melakukan DCA
-      untuk Bitcoin adalah dengan mendapatkannya!</b>
+      untuk Bitcoin adalah dengan mendapatkannya!
     copied: Disalin!
   settings:
     index:
