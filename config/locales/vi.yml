@@ -796,9 +796,9 @@ vi:
     twitter_image_alt: Tự động trung bình giá Bitcoin, Ethereum, Polkadot, Cardano,
       Solana và các tài sản kỹ thuật số khác.
   referral:
-    banner_html: <b>Chia sẻ liên kết giới thiệu với bạn bè của bạn, và <a href="/referral-program"
+    banner_html: Chia sẻ liên kết giới thiệu với bạn bè của bạn, và <a href="/referral-program"
       alt="Read more">nhận ngay BTC trị giá tới $50</a>. Phương thức trung bình giá
-      Bitcoin tốt nhất chính là kiếm thêm Bitcoin!</b>
+      Bitcoin tốt nhất chính là kiếm thêm Bitcoin!
     copied: Đã sao chép!
   settings:
     index:

@@ -779,9 +779,9 @@ ru:
     twitter_image_alt: Автоматизированное усреднение долларовой стоимости для Bitcoin,
       Ethereum, Polkadot, Cardano, Solana и других цифровых активов.
   referral:
-    banner_html: <b>Поделитесь реферальной ссылкой с друзьями и <a href="/referral-program"
+    banner_html: Поделитесь реферальной ссылкой с друзьями и <a href="/referral-program"
       alt="Read more">заработайте до $50 в BTC</a>. Лучший способ использовать DCA
-      в Bitcoin – это заработать его!</b>
+      в Bitcoin – это заработать его!
     copied: Скопировано!
   settings:
     index:
