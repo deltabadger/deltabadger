@@ -5,6 +5,8 @@
   display: block
   border: rgba(0,0,0,.1)
   background: rgba(255,255,255,.5)
+  @media ( prefers-color-scheme: dark )
+    background: rgba(255,255,255,.05)
   float: left
   padding: 0 1.5rem 0.3rem
   border-radius: 3rem
@@ -13,7 +15,7 @@
   .invisible
     display: none
 .alert
-  padding:      2rem 2.3rem
+  padding: 2rem 2.3rem
   margin-bottom: 2rem
   a
       color: var(--alertSuccessText)
