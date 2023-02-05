@@ -1,656 +1,906 @@
+---
 vi:
-    activerecord:
-        errors:
-            models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'phải gồm các ký tự chữ viết hoa và số'
-    ads:
-        bitwarden_text: '. Đây là nguồn mở và miễn phí.'
-        bitwarden_title: 'Thử Bitwarden'
-        dca_2y_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
-        dca_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Saver dài hạn.'
-        dont_trade_automate_html: '<div>Đừng&nbsp;lướt sóng.</div> <div>Hãy tự động hóa.</div>'
-        features: "tự động trung bình giá trên tài khoản giao dịch của bạn; <i>Thời khoảng thông minh</i> chỉ mất 5 phút để thiết lập; cập nhật các tính năng mới hàng tháng; hỗ trợ cộng đồng Telegram"
-        password_managers_html: 'Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.'
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: 'Xác nhận địa chỉ Bitcoin mới 📒'
-            template_html: "<p>Xin chào 👋,</p><p>Có vẻ như bạn muốn thay đổi địa chỉ Bitcoin của bạn thành:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>Địa chỉ này sẽ được dùng để nhận các khoản thanh toán của bạn từ chương trình giới thiệu của chúng tôi.</p><p>Bạn có chắc chắn muốn thay đổi không?</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Có, hãy thay đổi địa chỉ!</a></p><p>Bạn không gửi yêu cầu này?<br>Đừng lo lắng! Nếu vậy bạn không cần để ý.</p><p>Địa chỉ sẽ không thay đổi trừ khi bạn truy cập liên kết trên đây.</p>"
-        referrals_payout_notification:
-            subject: 'Hôm nay là ngày thanh toán! 💸'
-            template_html: "<p>Xin chào 👋,</p><p>Tuyệt lắm! Liên kết giới thiệu của bạn đã hoạt động!</p><p>Chúng tôi sẽ chuyển khoản hoa hồng</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>vào ví Bitcoin của bạn.</p><p>Cảm ơn bạn đã mở rộng<br>nền tảng của chúng ta!</p>"
-        registration_reminder:
-            subject: 'Tuyệt quá! Bạn đã kiếm được %{amount} BTC! 💸'
-            template_html: "<p>Tuyệt quá!</p><p>Có một khoản hoa hồng mới từ chương trình giới thiệu đang chờ bạn! Hãy hoàn tất đăng ký để nhận bitcoin của bạn:</p><p><a href=%{link}>Hoàn tất đăng ký.</a></p>"
-    affiliates:
-        add_link_info: 'Bạn có thể thêm tên và liên kết đến trang web của mình để người được giới thiệu biết họ được chiết khấu từ ai. Bạn cũng có thể để trống:'
-        apply_code:
-            accept: 'Chấp nhận'
-            reject: 'Quay lại'
-            title: 'Liên kết giới thiệu'
-        btc_address_changed: 'Đã thay đổi địa chỉ Bitcoin'
-        btc_address_confirmation_sent: 'Đã gửi email xác nhận'
-        create:
-            error: 'Đăng ký chương trình giới thiệu không thành công'
-            saver_error: 'Bạn cần nâng cấp để đăng ký'
-        current_bitcoin_address: 'Địa chỉ Bitcoin hiện tại'
-        discount:
-            accepted: 'Bạn đã chấp nhận liên kết giới thiệu'
-            already_used: 'Bạn đã vừa sử dụng liên kết giới thiệu'
-            congrats_html: 'Xin chúc mừng! Chiết khấu <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% đang có hiệu lực.'
-            flash_html: 'Xin chào! Hãy tận hưởng chiết khấu %{discount_percent}% từ <span class="text-success text-success--lighter">%{visible_name}</span>'
-            invalid: 'Liên kết giới thiệu có vẻ không hợp lệ hoặc không cập nhật'
-            referrer_html: "Nhờ có liên kết giới thiệu từ <b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
-            valid_for: 'Có giá trị cho lần mua đầu tiên trên nền tảng.'
-        info_preview: 'Đây là những nội dung sẽ hiển thị với người được giới thiệu trong quá trình đăng ký:'
-        invalid_bitcoin_address: 'Địa chỉ Bitcoin không hợp lệ'
-        manual_html: "<div class=\"alert alert-success\"><p class=\"mt-1\">Chương trình giới thiệu của chúng tôi <b>trả tới $50</b><sup>1</sup> mỗi người dùng bằng BTC (sử dụng tỷ giá chuyển đổi từ giao dịch). Ví dụ:</p> <ol><li>Đơn giản như thế này, giá Bitcoin là ~$10000, tỷ lệ chiết khấu là 10%, và tỷ lệ margin của bạn là 20%.</li><li>Người được giới thiệu mua gói một năm trị giá $49.99, giá trị thanh toán sau chiết khấu là $44.99, tương đương 0.0045BTC. Bạn nhận được 0.001BTC (20% của $49.99).</li><li>Dù giá Bitcoin có thay đổi theo thời gian thì cũng không thành vấn đề. Lợi nhuận của bạn luôn được quy đổi thành BTC.</li><li>Lần sau, người được giới thiệu mua gói 4 năm trị giá $149.99 và trả 0.015BTC. Họ không còn được hưởng chiết khấu nữa, nhưng bạn vẫn nhận được 20%, tương đương 0.003BTC.</li><li>Bạn sẽ tiếp tục được lợi chừng nào gói của bạn vẫn còn hiện hoạt<sup>2</sup>, và tổng lợi nhuận bạn nhận được từ người được giới thiệu chưa vượt quá $50.</li> </ol><p><em>Kiếm thêm Bitcoin là phương thức trung bình giá hiệu quả nhất!</em></p> <small class=\"mb-2\"><sup>1</sup> Giới hạn là 50USD hoặc 50EUR, tùy thuộc vào loại tiền giao dịch.</small> <br> <small class=\"mb-5\"><sup>2</sup> Đối với người được giới thiệu, liên kết giới thiệu vẫn có hiệu lực ngay cả khi gói đăng ký của bạn đã hết hạn.</small> </div>"
-        new:
-            checked: 'Tôi đã kiểm tra mọi thứ cẩn thận.'
-            discount_info_html: "Bạn sẽ <b> nhận được <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>, và người được giới thiệu sẽ nhận được chiết khấu <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>%</b>."
-            discount_preview_html: 'Chiếu khấu <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% cho lần mua hàng đầu tiên.<br>'
-            eu_company: 'Công ty thuộc Liên minh châu Âu'
-            payout_address: 'Địa chỉ thanh toán'
-            pick_referral_code: 'Chọn mã giới thiệu của bạn'
-            private: 'Riêng tư'
-            program_settings_html: 'Liên kết <span class="text-danger">(không thể thay đổi)</span>'
-            referrer_info: 'Thông tin người giới thiệu'
-            share_html: 'Chia sẻ liên kết này và <span class="text-success">nhận bitcoin</span>'
-            submit: 'Hãy bắt đầu!'
-            thanks_referral: 'Nhờ có liên kết giới thiệu từ'
-            title: 'Đăng ký chương trình giới thiệu'
-            title_info: 'Bạn có thể bắt đầu chia sẻ liên kết của mình ngay bây giờ, nhưng để nhận được thanh toán Bitcoin, trước tiên bạn cần hoàn tất đăng ký.'
-            unchangable_warning: 'Sau này bạn sẽ không thể thay đổi cài đặt trong phần này.'
-            upgrade: 'Để tham gia chương trình giới thiệu nổi tiếng này, hãy nâng cấp lên một trong các gói trả phí của chúng tôi.'
-            visible_info: 'Thông tin hiển thị'
-        program_joined: 'Bạn vừa tham gia chương trình giới thiệu'
-        show:
-            deactivated:
-                contact: 'Liên hệ với chúng tôi'
-                notice: 'Có vẻ như chương trình này đã bị hủy kích hoạt. Liên hệ với chúng tôi nếu bạn không biết rõ nguyên nhân.'
-            expired: 'Ồ, không… Gói đăng ký của bạn đã hết hạn. Gia hạn gói để tiếp tục hưởng ưu đãi từ chương trình giới thiệu của bạn.'
-            info_preview: 'Xem lại thông tin hiển thị với người được giới thiệu:'
-            link_title: 'Liên kết của bạn'
-            manual_title: 'Cách thức hoạt động như thế nào?'
-            paid_commission: 'Đã thanh toán (BTC)'
-            paid_so_far: 'Đã thanh toán (BTC)'
-            referees: 'Người được giới thiệu'
-            stats: 'Thống kê'
-            submit: 'Cập nhật'
-            submit_bitcoin_address: 'Cập nhật địa chỉ Bitcoin'
-            submit_info: 'Cập nhật thông tin hiển thị'
-            title: 'Chương trình giới thiệu'
-            unpaid: 'Chưa thanh toán (BTC)'
-            unpaid_commission: 'Phải thanh toán (BTC)'
-            update_bitcoin_address: 'Cập nhật địa chỉ Bitcoin'
-            update_info: 'Cập nhật thông tin hiển thị'
-            your_link: 'Liên kết giới thiệu của bạn'
-        your_bitcoin_address: 'Địa chỉ Bitcoin của bạn'
-    bot_alerts_mailer:
-        first_month_ending_soon:
-            subject: 'Thời hạn dùng thử tháng đầu tiên sắp kết thúc!'
-            template_html: "<p>Xin chào 👋,</p><p>Bạn đã sử dụng Deltabadger được gần một tháng!</p><p>Thời hạn dùng thử miễn phí không giới hạn của bạn đã sắp hết. Hãy đảm bảo nâng cấp gói để giữ cho tài khoản của bạn tiếp tục hoạt động!</p>"
-        limit_almost_reached:
-            subject: 'Gần đạt hạn mức giao dịch ⌛'
-            template_html: "<p>Xin chào 👋,</p><p>Bạn đã gần đạt <br>hạn mức giao dịch gói</p> <b style=\"color: #0a45a4;\">Saver</b>. <p>Hãy cập nhật lên gói <b style=\"color: #0a45a4;\">Investor</b><br> hoặc <b style=\"color: #0a45a4;\">Hodler</b> để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
-        limit_reached:
-            subject: 'Bạn đã đạt hạn mức giao dịch 🥳'
-            template_html: "<p>Xin chào 👋,</p><p>Ồ, tốt lắm! Bạn đã đạt đến hạn mức gói <b style=\"color: #0a45a4;\">Saver</b><br>.</p><p>Có vẻ như bạn đã thực hiện trung bình giá<br>được một thời gian.</p><p>Chúng tôi hy vọng bạn hài lòng với<br>kết quả thu được.</p><p>Nâng cấp gói của bạn lên <b style=\"color: #0a45a4;\">Investor</b><br>hoặc <b style=\"color: #0a45a4;\">Hodler</b> để gỡ bỏ tất cả hạn mức và<br>giúp bot của bạn hoạt động trở lại.</p>"
-        notify_about_error:
-            subject: 'Đã xảy ra lỗi 😵'
-            template_html: "<p>Ồ… 😵</p><p>Đã có lỗi xảy ra khi<br>xử lý giao dịch gần nhất.</p><p>Bạn có thể xem lỗi trong<br>nhật ký bot. Đăng nhập để kiểm tra.</p><p>Lỗi:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
-        notify_about_restart:
-            subject: 'Ồ! Bạn hãy thử lại nhé... 🧐'
-            template_html: "<p>Ôi trời 🧐,</p><p>Bot đã không thể thực hiện lệnh của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử lại lần nữa trong %{delay}.</p><p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui lòng đăng nhập để kiểm tra.</p><p>Lỗi:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
-    bots:
-        above: 'trên đây'
-        add_new_bot: 'Thêm bot mới'
-        below: 'dưới đây'
-        buttons:
-            delete:
-                cancel: 'Hủy bỏ'
-                ok: 'Xóa toàn bộ'
-                text: Xóa
-                warning_html: 'Thao tác này sẽ xóa bot cùng với tất cả<br> dữ liệu lịch sử. Bạn có chắc muốn xóa không?'
-            pending:
-                info_html: 'Đang xử lý'
-                text: 'Đang chờ'
-            start:
-                changed_missed:
-                    continue: 'Có, mua và tiếp tục'
-                    info_html: 'Bạn có muốn đầu tư <b>%{amount} %{quote}</b> bị lỡ khi bot đang tạm dừng không? Lịch trình mới sẽ bắt đầu sau khi quá trình đếm ngược hiện tại kết thúc.'
-                    skip: 'Bỏ qua phần bị lỡ!'
-                changed_on_schedule:
-                    continue: 'Tôi hiểu'
-                    info_html: 'Lịch trình mới sẽ bắt đầu sau khi <b>%{time}</b> còn lại của lịch trình cuối cùng kết thúc.'
-                    skip: 'Bỏ qua và bắt đầu ngay lập tức'
-                missed:
-                    continue: 'Có, mua và tiếp tục'
-                    info_html: 'Bạn có muốn đầu tư <b>%{amount} %{quote}</b> bị lỡ khi bot đang tạm dừng, và tiếp tục với lịch trình ban đầu không?'
-                    skip: 'Bỏ qua phần bị lỡ'
-                on_schedule:
-                    continue: 'Tiếp tục lịch trình ban đầu'
-                    info_html: 'Bạn vẫn còn <b>%{time}</b> còn lại cho lệnh tiếp theo. Bạn có thể bỏ qua và thực hiện lệnh tiếp theo ngay lập tức hoặc tiếp tục quá trình đếm ngược ban đầu.'
-                    skip: 'Bỏ qua'
-        buy: Mua
-        day: Ngày
-        details:
-            info:
-                exchanges_html: "<p className=\"mt-2\"><b>Sàn giao dịch</b></p><p>Deltabadger làm việc với các sàn giao dịch tiền số. Hiện tại, chúng tôi hỗ trợ <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondaglobal.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zonda\">Zonda</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a> và <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Chúng tôi khuyên bạn sử dụng Kraken vì đây là sàn giao dịch uy tín chưa bao giờ bị hack. Sử dụng Zonda nếu bạn muốn tiến hành giao dịch mua bằng PLN.</p><p>Để làm cho bot hữu ích, trước tiên, bạn cần xác minh tài khoản giao dịch của mình và chuyển một số tiền vào đó.</p><p>Tuy nhiên, đừng giữ tiền ở sàn giao dịch quá lâu. Hãy đăng nhập vào tài khoản của bạn và thường xuyên rút tiền ít nhất một lần một tháng.</p><p>Chúng tôi sẽ bổ sung thêm nhiều sàn giao dịch trong tương lai. Nếu bạn quan tâm đến một sàn giao dịch cụ thể, hãy cho chúng tôi biết.</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>Bạn chưa quen thuộc với phương pháp trung bình giá?</b></p><p>Hãy tìm hiểu thông tin trên các liên kết dưới đây:</p><ul className=\"mb-5\"> <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA cho người mới bắt đầu (video)</a></li> <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Sức mảnh của DCA đối với Bitcoin</a></li> <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">Mô phỏng DCA</a></li></ul>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Thời khoảng thông minh\"</b></p><p>Khi bạn bật tính năng thời khoảng thông minh, Deltabadger sẽ thực hiện lịch trình mong muốn của bạn trong các giao dịch nhỏ nhất mà sàn giao dịch cho phép. Nếu không, thời khoảng thông minh sẽ chỉ được sử dụng khi cần.</p><p className=\"mt-2\"><b>Tại sao?</b></p><p>Có hai lợi ích:</p><p>Lịch trình càng thường xuyên thì bạn càng nhanh nhận được những lợi ích của chiến lược trung bình giá và giao dịch càng thông suốt.</p><p>Ngoài ra, đôi khi thời khoảng thông minh cũng rất cần thiết. Mọi sàn giao dịch đều có giới hạn giá trị giao dịch tối thiểu. Một số sàn giao dịch xác định giá trị này bằng BTC, do đó giá trị USD sẽ thay đổi theo thời gian. Nếu bạn muốn mua số lượng nhỏ hơn, Deltabadger duy trì tỷ lệ mong muốn của bạn bằng cách sử dụng giá trị tối thiểu cho phép nhưng điều chỉnh thời khoảng. Điều này giúp bot không bị dừng hoạt động khi số tiền đã định của bạn giảm xuống dưới ngưỡng.</p><p className=\"mt-2\"><b>Ví dụ:</b></p><p>Ví dụ như giới hạn giao dịch hiện tại là $20. Nếu bạn đặt giá trị giao dịch là $24/ngày, bot sẽ thực hiện chính xác như vậy. Tuy nhiên, nếu bạn đặt giá trị là $1/giờ, bot sẽ bắt chước tỷ lệ này bằng cách sử dụng giá trị cho phép, tương đương $20 mỗi 20 giờ. Tính trung bình, điều này mang lại tỷ lệ như nhau ($24/ngày = $1/giờ = $20/20 giờ).</p>"
-                title: 'Thông tin'
-            log:
-                date: Ngày
-                errors: Lỗi
-                title: 'Nhật ký'
-            stats:
-                amount: 'Giá trị(%{base})'
-                average_price: 'Giá bình quân'
-                bought: 'Đã mua'
-                chart:
-                    total_invested: 'Tổng giá trị đầu tư'
-                csv_download_html: 'Bảng trên chỉ hiển thị mười giao dịch gần nhất.<br>Bạn có thể tải báo cáo đầy đủ ở định dạng CSV dưới đây.'
-                current_value: 'Giá trị hiện tại'
-                current_value_sold: 'Giá trị hiện tại của %{base} đã bán'
-                date: Ngày
-                download_csv: 'Tải .csv'
-                exchange_unavailable_html: 'API sàn giao dịch hiện không phản hồi.<br>Số liệu tính toán dựa trên dữ liệu mới nhất được cung cấp.'
-                order: Lệnh
-                profit_loss: Lãi/Lỗ
-                rate: 'Tỷ giá(%{quote})'
-                sold: 'Đã bán'
-                title: 'Thống kê'
-                total_invested: 'Tổng giá trị đầu tư'
-        for: cho
-        force_smart_intervals_html: 'Sử dụng <em>thời khoảng thông minh</em> để đặt lệnh với giá trị <split>$100</split> %{currency} mỗi lệnh.'
-        hour: Giờ
-        limit_buy: 'Lệnh chờ mua'
-        limit_sell: 'Lệnh chờ bán'
-        month: Tháng
-        next_buy: 'Lần mua tiếp theo trong %{countdown}'
-        next_sell: 'Lần bán tiếp theo trong %{countdown}'
-        price: giá
-        price_range_buy_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
-        price_range_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Chỉ bán trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
-        sell: Bán
-        setup:
-            binance:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Tại menu người dùng (biểu tượng tròn ở góc trên bên phải), đi đến <b>Quản lý API</b>.'
-                instructions_3_html: 'Đặt tên cho khóa API mới bằng cách nhấn <b>Tạo</b>.'
-                instructions_4_html: 'Xác nhận tạo khóa bằng (các) mã dùng một lần.'
-                instructions_5_html: 'Đảm bảo rằng bạn đã chọn <b>Cho phép Giao dịch giao ngay & ký quỹ</b>.'
-                instructions_6_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền truy cập khóa, nhấp <b>Hạn chế chỉnh sửa</b>, chọn <b>Hạn chế chỉ truy cập vào các IP đáng tin cậy (Khuyến nghị)</b> và thêm IP này ở bước tiếp theo: <b>18.132.181.159</b>'
-                instructions_7_html: 'Nhấn <b>Lưu</b> và xác nhận bằng mã một lần khác nếu cần.'
-                instructions_8_html: 'Hãy nhớ rằng Khóa bí mật chỉ hiển thị trong quá trình tạo, vì vậy đảm bảo rằng bạn đã sao chép cả hai khóa trước khi rời khỏi chế độ xem.'
-                instructions_9_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Khóa bí mật'
-                public_key: 'Khóa API'
-            bitfinex:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Trong menu tài khoản (góc trên bên phải), đi đến <b>Khóa API</b>.'
-                instructions_3_html: 'Đi đến <b>Tạo khóa mới</b>.'
-                instructions_4_1_html: 'Thiết lập quyền đối với:'
-                instructions_4_2_html: '<b>Nhận lệnh và trạng thái.</b>'
-                instructions_4_3_html: '<b>Tạo và hủy lệnh.</b>'
-                instructions_5_html: 'Cung cấp <b>Nhãn</b> cho khóa API của bạn.'
-                instructions_6_html: 'Nhấn <b>Tạo khóa API</b>.'
-                instructions_7_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Mã bí mật API'
-                public_key: 'Khóa API'
-            bitso:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Trong menu tài khoản (góc trên bên phải), đi đến <b>Hồ sơ</b>.'
-                instructions_3_html: 'Chọn <b>API</b> (bên trái).'
-                instructions_4_html: 'Nhấn <b>Thêm API mới</b>.'
-                instructions_5_html: 'Nhập <b>Tên API</b> và cung cấp <b>Mã PIN giao dịch</b> của bạn.'
-                instructions_6_1_html: 'Thiết lập quyền đối với:'
-                instructions_6_2_html: '<b>Thực hiện giao dịch</b>'
-                instructions_6_3_html: '<b>Xem số dư</b>'
-                instructions_6_4_html: '<b>Xem thông tin tài khoản</b>'
-                instructions_7_html: 'Nhấn <b>Lưu</b>.'
-                instructions_8_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Mã bí mật API'
-                public_key: 'Khóa API'
-            bitstamp:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.'
-                instructions_3_html: 'Dưới mục <b>Kiểm soát quyền truy cập</b>, đi đến <b>Truy cập API</b>.'
-                instructions_4_html: 'Nhấn <b>Khóa API mới</b>.'
-                instructions_5_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền truy cập khóa, thiết lập <b>Lọc địa chỉ IP</b> cho IP này: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Thiết lập quyền đối với:'
-                instructions_6_2_html: '<b>Lệnh chưa khớp.</b>'
-                instructions_6_3_html: '<b>Hủy lệnh.</b>'
-                instructions_6_4_html: '<b>Lệnh chờ mua/lệnh thị trường.</b>'
-                instructions_6_5_html: '<b>Lệnh chờ bán/lệnh thị trường.</b>'
-                instructions_7_html: 'Nhấn <b>Nhập xác thực hai yếu tố & Gửi</b>.'
-                instructions_8_html: 'Nhấn <b>Kích hoạt</b>.'
-                instructions_9_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Mã bí mật API'
-                public_key: 'Khóa API'
-            cancel: 'Hủy bỏ'
-            coinbase_pro:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>API</b>.'
-                instructions_3_html: 'Nhấn <b>Khóa API mới</b>.'
-                instructions_4_1_html: 'Thiết lập quyền đối với:'
-                instructions_4_2_html: '<b>Xem</b>'
-                instructions_4_3_html: '<b>Giao dịch</b>'
-                instructions_5_html: 'Nhấn <b>Tạo khóa API</b>.'
-                instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                passphrase: 'Cụm mật khẩu'
-                private_key: 'Khóa bí mật'
-                public_key: 'Khóa API'
-            error_info: 'Xác thực không thành công. Vui lòng thử lại hoặc tạo khóa mới.'
-            frequency_limit:
-                back_to_settings: 'Trở lại cài đặt'
-                limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch mỗi phút, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
-                start_the_bot: 'Chỉnh sửa và bắt đầu'
-            ftx:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
-                instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
-                instructions_5_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Khóa riêng tư'
-                public_key: 'Khóa công khai'
-            gemini:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.'
-                instructions_3_html: 'Chọn <b>API</b> (bên trái).'
-                instructions_4_html: 'Nhấn <b>Tạo khóa API mới</b>.'
-                instructions_5_html: 'Từ menu thả xuống <b>Phạm vi</b>, chọn <b>Chính</b>.'
-                instructions_6_html: 'Nhấn <b>Tạo khóa API mới</b>.'
-                instructions_7_1_html: 'Thiết lập cài đặt khóa API:'
-                instructions_7_2_html: '<b>Giao dịch</b>'
-                instructions_8_html: 'Không chọn <b>Yêu cầu tốc độ của phiên</b>'
-                instructions_9_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Khóa bí mật'
-                public_key: 'Khóa API'
-            how_to_get_keys: 'Làm thế nào để nhận khóa API từ %{exchange}:'
-            kraken:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.'
-                instructions_3_html: 'Nhấn <b>Tạo khóa mới</b>.'
-                instructions_4_html: 'Thiết lập quyền đối với:'
-                instructions_5_1_html: 'Tiền:'
-                instructions_5_2_html: '<b>Truy vấn tiền</b>'
-                instructions_6_1_html: 'Lệnh & giao dịch:'
-                instructions_6_2_html: '<b>Truy vấn lệnh chưa khớp & giao dịch</b>'
-                instructions_6_3_html: '<b>Truy vấn lệnh đóng & giao dịch</b>'
-                instructions_6_4_html: '<b>Sửa lệnh</b>'
-                instructions_6_5_html: '<b>Hủy/Đóng lệnh</b>'
-                instructions_7_html: 'Nhấn <b>Tạo khóa</b>.'
-                instructions_8_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Khóa riêng tư'
-                public_key: 'Khóa API'
-                trading_agreement_html: '<b>Xin chào!</b> Nếu tài khoản Kraken của bạn được xác minh bằng địa chỉ ở Đức, bạn sẽ cần phải chấp nhận <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">thỏa thuận giao dịch</a> để đặt lệnh thị trường và lệnh ký quỹ.'
-                trading_agreement_label_html: 'Tôi đồng ý với <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">thỏa thuận giao dịch</a>.'
-            kucoin:
-                instructions_10_html: 'Xác nhận tạo khóa API bằng Mật khẩu giao dịch và Xác thực hai yếu tố.'
-                instructions_11_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Trong menu tài khoản (góc trên bên phải bên cạnh bộ chọn ngôn ngữ), đi đến <b>Quản lý API</b>.'
-                instructions_3_html: 'Nhấn <b>Tạo API</b>.'
-                instructions_4_html: 'Nếu đây là lần đầu bạn tạo khóa API của mình, hãy đặt và lưu <b>Mật khẩu giao dịch</b>.'
-                instructions_5_html: 'Cung cấp <b>Tên API</b>.'
-                instructions_6_html: 'Cung cấp và lưu <b>Cụm mật khẩu API</b>.'
-                instructions_7_1_html: 'Thiết lập quyền đối với:'
-                instructions_7_2_html: '<b>Chung</b>'
-                instructions_7_3_html: '<b>Giao dịch</b>'
-                instructions_8_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền truy cập khóa, thiết lập <b>Hạn chế IP</b> thành Có và thêm IP này: <b>3.18.70.231</b>'
-                instructions_9_html: 'Nhấn <b>Tiếp theo</b>.'
-                passphrase: 'Cụm mật khẩu'
-                private_key: 'Mã bí mật API'
-                public_key: 'Khóa API'
-            limit_warning: 'Bot lệnh giới hạn là tính năng thử nghiệm. Hiện giờ bot chưa thể thực hiện tất cả các lệnh. Để đạt kết quả tốt nhất, bạn cần tăng số tiền đầu tư lên một cách tương xứng. Hiện tại, Deltabadger vẫn chưa cung cấp công cụ nào để ước tính số tiền điều chỉnh, vì vậy bạn cần tự mình thử nghiệm. Chỉ sử dụng nếu bạn biết mình đang làm gì.'
-            next: 'Tiếp theo'
-            probit:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Trong menu <b>Trang của tôi</b> (góc trên bên phải), đi đến <b>Quản lý API</b>.'
-                instructions_3_html: 'Cung cấp nhãn khóa API và nhấn <b>Tạo khóa mới</b>.'
-                instructions_4_html: 'Xác nhận tạo khóa API.'
-                instructions_5_html: 'Nếu bạn muốn hạn chế quyền truy cập sao cho chỉ Deltabadger mới có thể sử dụng khóa, nhấn <b>Sửa</b> và đặt <b>Hạn chế địa chỉ IP</b> cho IP này: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Thiết lập quyền đối với:'
-                instructions_6_2_html: '<b>Đọc</b>'
-                instructions_6_3_html: '<b>Giao dịch</b>'
-                instructions_7_html: 'Sao chép và dán ID khách hàng mới của bạn và khóa bí mật của khách hàng vào biểu mẫu trên đây.'
-                private_key: 'Khóa bí mật của khách hàng'
-                public_key: 'ID khách hàng'
-            set: Đặt
-            smart_intervals:
-                dont_show_again: 'Không hiển thị lại'
-                info_html:
-                    force_smart_intervals: 'Đối với %{base}%{quote}, %{exchangeName} có giá trị đặt lệnh tối thiểu là <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger có thể thực hiện lịch này bằng cách sử dụng lệnh %{minimumValue}%{minimumCurrency}, và điều chỉnh thời khoảng để phù hợp với lịch của bạn. Chúng tôi gọi đó là <i>thời khoảng thông minh</i>.'
-                    other: 'Đối với %{base}%{quote}, %{exchangeName} có giá trị đặt lệnh tối thiểu là <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger có thể thực hiện lịch này bằng cách sử dụng lệnh %{minimumValue}%{minimumCurrency}, và điều chỉnh thời khoảng để phù hợp với lịch của bạn. Chúng tôi gọi đó là <i>thời khoảng thông minh</i>.'
-            step_api_key: 'Khóa API'
-            step_exchange: 'Sàn giao dịch'
-            step_schedule: 'Lịch trình'
-            validating: 'Đang xác thực'
-            withdrawal:
-                ftx:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                    instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                    instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
-                    instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
-                    instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                kraken:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                    instructions_2_html: 'Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.'
-                    instructions_3_html: 'Nhấn <b>Tạo khóa mới</b>.'
-                    instructions_4_html: 'Thiết lập quyền đối với:'
-                    instructions_5_1_html: 'Tiền:'
-                    instructions_5_2_html: '<b>Truy vấn tiền</b>'
-                    instructions_6_html: 'Nhấn <b>Tạo khóa</b>.'
-                    instructions_7_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-            withdrawal_address:
-                ftx:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                    instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                kraken:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-            zonda:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{exchange_link} của bạn.'
-                instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>Cài đặt API</b>.'
-                instructions_3_html: 'Nhấn <b>Thêm khóa mới</b>.'
-                instructions_4_1_html: 'Thiết lập quyền đối với:'
-                instructions_4_2_html: '<b>Lịch sử</b>'
-                instructions_4_3_html: '<b>Nhận lệnh và cấu hình thị trường</b>'
-                instructions_4_4_html: '<b>Quản lý lệnh và thay đổi cấu hình thị trường</b>'
-                instructions_5_html: 'Nhấn <b>Tạo</b>.'
-                instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Khóa riêng tư'
-                public_key: 'Khóa công khai'
-        smart_intervals_disclaimer: 'Giá trị đặt lệnh trên %{exchange} được xác định bằng %{currency}. Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Giá trị đặt lệnh trên %{exchange} được xác định bằng %{currency}. Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.'
-        start: 'Bắt đầu'
-        starting: 'Bắt đầu'
-        stop: 'Tạm dừng'
-        subaccounts_info: 'Sử dụng tài khoản phụ'
-        week: Tuần
-    cookie:
-        agree: 'Tôi đồng ý'
-        description: 'Chúng tôi sử dụng cookie để giúp mọi thứ đơn giản hơn.'
-        read_more: 'Tìm hiểu thêm'
-    days_left:
-    deltabadger: Deltabadger
-    devise:
-        confirmations:
-            confirmed: 'Địa chỉ email của bạn đã được xác nhận thành công.'
-            new:
-                submit: 'Gửi lại liên kết xác nhận'
-                title: 'Gửi lại hướng dẫn'
-            send_instructions: 'Bạn sẽ nhận được email hướng dẫn sau vài phút.'
-            send_paranoid_instructions: 'Bạn sẽ nhận được email hướng dẫn sau vài phút.'
-        failure:
-            already_authenticated: 'Bạn đã đăng nhập.'
-            inactive: 'Tài khoản của bạn chưa được kich hoạt.'
-            invalid: '%{authentication_keys} hoặc mật khẩu không hợp lệ.'
-            last_attempt: 'Bạn còn một lần thử nữa trước khi tài khoản của bạn bị khóa.'
-            locked: 'Tài khoản của bạn đã bị khóa.'
-            not_found_in_database: '%{authentication_keys} hoặc mật khẩu không hợp lệ.'
-            timeout: 'Phiên đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.'
-            unauthenticated: 'Bạn cần đăng nhập hoặc đăng ký trước khi tiếp tục.'
-            unconfirmed: 'Bạn phải xác nhận địa chỉ email trước khi tiếp tục.'
-        mailer:
-            confirmation_instructions:
-                subject: 'Chào mừng bạn đến với Deltabadger 🎉'
-                template_html: "<p>Chào mừng bạn đến với Deltabadger 🎉,</p><p>Để tự động trung bình giá<br>Bitcoin, bạn chỉ cần nhấp vào liên kết sau:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Xác nhận tài khoản của tôi</a></p><p>Bạn không nhớ đã đăng ký?<br>Đừng lo lắng. Nếu vậy bạn không cần để ý.</p>"
-            email_changed:
-                subject: 'Địa chỉ email mới 📨'
-                template_html: "<p>Xin chào 👋,</p><p>Chúng tôi gửi email này để thông báo rằng địa chỉ email được liên kết với tài khoản của bạn tại Deltabadger đã được thay đổi thành:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
-            password_change:
-                subject: 'Mật khẩu mới 🔑'
-                template_html: "<p>Đã xong 🎉!</p><p>Mật khẩu của bạn 🔑 đã được thay đổi.</p>"
-            reset_password_instructions:
-                subject: 'Đặt lại mật khẩu 🔑'
-                template_html: "<p>Xin chào 👋,</p><p>Có vẻ như bạn muốn thay đổi<br/>mật khẩu của bạn 🔑. Tốt lắm!</p><p>Hãy bắt đầu nhé:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Thay đổi mật khẩu của tôi</a> </p><p>Bạn không gửi yêu cầu này?<br/>Đừng lo! Nếu vậy bạn không cần để ý.</p>"
-            unlock_instructions:
-                subject: 'Mở khóa hướng dẫn 🔓'
-                template_html: "<p>Xin chào 👋,</p><p>Chúng tôi đã khóa tài khoản của bạn do<br>bạn đã vượt quá số lần đăng nhập không thành công.</p><p>Hãy nhấp vào liên kết dưới đây để mở khóa tài khoản:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Mở khóa tài khoản của tôi</a></p>"
-        omniauth_callbacks:
-            failure: 'Không thể xác thực bạn từ %{kind} do "%{reason}".'
-            success: 'Xác thực thành công từ tài khoản %{kind}'
-        passwords:
-            edit:
-                submit: 'Thay đổi mật khẩu của tôi'
-                title: 'Thay đổi mật khẩu của bạn'
-            new:
-                submit: 'Gửi hướng dẫn cho tôi'
-                title: 'Bạn quên mật khẩu?'
-            no_token: 'Bạn không thể truy cập trang này nếu không nhận được email đặt lại mật khẩu. Nếu bạn nhận được email đặt lại mật khẩu, vui lòng sử dụng URL hoàn chỉnh được cung cấp kèm theo email.'
-            send_instructions: 'Bạn sẽ nhận được email hướng dẫn sau vài phút.'
-            send_paranoid_instructions: 'Bạn sẽ nhận được email hướng dẫn sau vài phút.'
-            updated: 'Xong rồi! Mật khẩu của bạn đã được thay đổi.'
-            updated_not_active: 'Xong rồi! Mật khẩu của bạn đã được thay đổi.'
-        registrations:
-            destroyed: 'Tạm biệt! Chúng tôi hy vọng sẽ sớm gặp lại bạn...'
-            edit:
-                awaiting_confirmation: 'Hiện đang chờ xác nhận đối với: %{email}'
-            new:
-                email_invalid: 'Email không hợp lệ!'
-                email_suggestion_html: 'Email không hợp lệ! Có phải ý bạn là: <b>%{suggestion}</b>'
-                email_used: 'Email này đã được sử dụng'
-                name_invalid: 'Nó không nhất thiết phải có thật :)'
-                submit: 'Bắt đầu ngay bây giờ'
-                title_html: 'Tạo tài khoản <span class="text-success">miễn phí</span>'
-            signed_up: 'Rất vui được gặp bạn!'
-            signed_up_but_inactive: 'Xin chào, tài khoản của bạn chưa được kích hoạt. Bạn đã kiểm tra email của bạn chưa?'
-            signed_up_but_locked: 'Ồ, tài khoản của bạn đã bị khóa.'
-            signed_up_but_unconfirmed: 'Kiểm tra email và nhấp vào liên kết xác nhận.'
-            update_needs_confirmation: 'Kiểm tra email và nhấp vào liên kết xác nhận để xác nhận địa chỉ email mới của bạn.'
-            updated: 'Tài khoản của bạn đã được cập nhật thành công.'
-            updated_but_not_signed_in: 'Tài khoản của bạn đã được cập nhật thành công, hãy đăng nhập lại.'
-        sessions:
-            already_signed_out: 'Tôi ghét phải nói lời tạm biệt. Chúng ta sẽ sớm gặp lại nhau chứ?'
-            new:
-                forgot_password: 'Bạn đã quên mật khẩu?'
-                submit: 'Đăng nhập'
-                title: 'Đăng nhập'
-            signed_in: 'Lâu rồi không gặp!'
-            signed_out: 'Hẹn gặp lại!'
-        unlocks:
-            send_instructions: 'Bạn sẽ nhận được email hướng dẫn sau vài phút.'
-            send_paranoid_instructions: 'Bạn sẽ nhận được email hướng dẫn sau vài phút.'
-            unlocked: 'Tài khoản của bạn đã được mở khóa thành công. Vui lòng đăng nhập để tiếp tục.'
+  activerecord:
     errors:
-        bitcoin_address_not_updated: 'Không thể cập nhật địa chỉ Bitcoin'
-        frequency_limit: 'Đã vượt giới hạn tần suất'
-        invalid_api_keys: 'Token không hợp lệ'
-        limit_reached: 'Đã đạt hạn mức gói miễn phí'
-        messages:
-            accepted: 'phải được chấp thuận'
-            already_confirmed: 'đã được xác nhận, vui lòng thử đăng nhập.'
-            bad_2fa_code: 'Mã không hợp lệ. Vui lòng thử lại.'
-            bad_credentials: 'Email hoặc mật khẩu không chính xác.'
-            bad_credentials_with_code: 'Email, mật khẩu hoặc mã xác thực hai yếu tố không chính xác.'
-            blank: 'không thể để trống'
-            confirmation: 'không khớp %{attribute}'
-            confirmation_period_expired: 'cần được xác nhận trong %{period}, vui lòng yêu cầu mã mới.'
-            empty: 'không thể để trống'
-            empty_two_fa_token: 'Bạn đã bỏ lỡ mã xác thực hai yếu tố. Vui lòng thử lại.'
-            equal_to: 'phải bằng %{count}'
-            even: 'phải là số chẵn'
-            exclusion: 'được bảo lưu'
-            expired: 'đã hết hạn, vui lòng yêu cầu mã mới.'
-            greater_than: 'phải lớn hơn %{count}'
-            greater_than_or_equal_to: 'phải lớn hơn hoặc bằng %{count}'
-            in: 'phải bằng %{count}'
-            inclusion: 'không được bao gồm trong danh sách'
-            invalid: 'không hợp lệ'
-            less_than: 'phải nhỏ hơn %{count}'
-            less_than_or_equal_to: 'phải nhỏ hơn hoặc bằng %{count}'
-            model_invalid: 'Xác thực không thành công: %{errors}'
-            name_invalid: 'Nó không nhất thiết phải có thật :)'
-            not_a_number: 'không phải là số'
-            not_an_integer: 'phải là số nguyên'
-            not_found: 'không tìm thấy.'
-            not_locked: 'không bị khóa.'
-            odd: 'phải là số lẻ'
-            other_than: 'phải khác với %{count}'
-            password_not_match: 'Mật khẩu không khớp'
-            present: 'phải để trống'
-            too_short_password: 'Mật khẩu quá ngắn'
-            wrong_email: 'Email không chính xác.'
-            wrong_password: 'Mật khẩu không chính xác'
-            wrong_two_fa_token: 'Mã được cung cấp không chính xác.'
-        referral_program_inactive: 'Chương trình giới thiệu của bạn không hoạt động'
-        unverified_request: 'Vui lòng làm mới trình duyệt của bạn và thử lại'
-    forms:
-        for_confirmation: '(để xác nhận)'
-        minimum_length: 'Tối thiểu %{length} ký tự'
-    helpers:
-        label:
-            affiliate:
-                address: 'Địa chỉ công ty:'
-                btc_address: 'Địa chỉ BTC'
-                btc_address_tooltip: 'Địa chỉ BTC mà bạn muốn nhận thanh toán.'
-                check: 'Kiểm tra'
-                code_tooltip: 'Chọn mã giới thiệu mà bạn thích.'
-                name: 'Tên công ty:'
-                vat_number: 'Mã số thuế GTGT (không bắt buộc):'
-                visible_link: 'Liên kết'
-                visible_name: 'Xem lại tên'
-            payment:
-                birth_date: 'Ngày sinh'
-                business_invoice: 'Tôi cần hóa đơn doanh nghiệp.'
-                country: 'Quốc gia'
-                first_name: Tên
-                last_name: Họ
-                other: Khác
-                submit_hodler_order: 'Gói đặt lệnh Hodler'
-                submit_investor_order: 'Gói đặt lệnh Investor'
-            settings:
-                current_status: 'Trạng thái hiện tại:'
-                disable_two_fa: 'Tắt xác thực hai yếu tố'
-                disabled: 'Đã tắt'
-                enable_two_fa: 'Bật xác thực hai yếu tố'
-                enabled: 'Đã bật'
-                enter_two_fa_code: 'Nhập mã xác thực hai yếu tố'
-                scan_code_info: 'Quét mã QR hoặc sao chép mã dưới đây:'
-            user:
-                current_password: 'Mật khẩu hiện tại'
-                email: Email
-                new_password: 'Mật khẩu mới'
-                new_password_confirmation: 'Xác nhận mật khẩu mới'
-                password: 'Mật khẩu'
-                password_confirmation: 'Xác nhận mật khẩu'
-                remember_me: 'Nhớ tôi'
-                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy} của Deltabadger.'
-    home:
-        confirm_registration:
-            deliverability_html: '<b>Lưu ý quan trọng!</b><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'
-            text_html: 'Kiểm tra hộp thư của bạn và nhấp vào <b>liên kết xác nhận</b> mà chúng tôi đã gửi cho bạn. Sau đó vào trang đăng nhập.'
-            title: 'Cảm ơn bạn!'
-        contact:
-            general_questions_html: 'Đối với các câu hỏi chung, vui lòng truy cập <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">kênh Telegram</a> của chúng tôi. Đây thường là kênh phản hồi nhanh nhất. Ngoài ra: chúng tôi hoan nghênh tất cả các phản hồi, ý tưởng sản phẩm và yêu cầu giao dịch từ bạn.'
-            specific_questions_html: 'Đối với các vấn đề cụ thể hơn, vui lòng gửi email cho chúng tôi tại: %{email}, hoặc nhắn tin trực tiếp trên Telegram hoặc <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
-            title: 'Liên hệ'
-    links:
-        about: Về
-        about_html: 'Về <span class="d-none d-xl-inline">dự án</span>'
-        contact: 'Liên hệ'
-        cookies_policy: 'Chính sách Cookie'
-        create_account: 'Tạo tài khoản miễn phí'
-        dashboard: 'Bảng tổng quan'
-        homepage: 'Liên kết về trang chủ'
-        log_in: 'Đăng nhập'
-        log_out: 'Đăng xuất'
-        menu: Menu
-        privacy_policy: 'Chính sách Quyền riêng tư'
-        referral_program: 'Chương trình giới thiệu'
-        resend_link: 'Gửi lại liên kết'
-        settings: 'Cài đặt'
-        sign_up: 'Đăng ký'
-        start_fast: 'Bắt đầu trong 5 phút'
-        start_fast_longer_html: 'Bắt đầu <span class="d-none d-sm-inline">miễn phí</span> trong 5 phút'
-        terms_and_conditions: 'Điều khoản và Điều kiện'
-    mail: "<p>Xin chào 👋,</p><p>Tuyệt quá! Liên hết giới thiệu của bạn<br>bắt đầu được sử dụng!</p><p>Chúng tôi sẽ chuyển hoa hồng là</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b> </p><p>vào ví Bitcoin của bạn.</p><p>Cảm ơn bạn đã mở rộng<br/>nền tảng của chúng ta!</p>"
+      models:
+        affiliate:
+          attributes:
+            code:
+              invalid_format: phải gồm các ký tự chữ viết hoa và số
+  ads:
+    bitwarden_text: ". Đây là nguồn mở và miễn phí."
+    bitwarden_title: Thử Bitwarden
+    dca_2y_profit_html: Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài
+      khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>
+    dca_profit_html: Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài
+      khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>
+    dca_standard_html: Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Saver
+      dài hạn.
+    dont_trade_automate_html: "<div>Đừng&nbsp;lướt sóng.</div> <div>Hãy tự động hóa.</div>"
+    features: tự động trung bình giá trên tài khoản giao dịch của bạn; <i>Thời khoảng
+      thông minh</i> chỉ mất 5 phút để thiết lập; cập nhật các tính năng mới hàng
+      tháng; hỗ trợ cộng đồng Telegram
+    password_managers_html: Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.
+  affiliate_mailer:
+    new_btc_address_confirmation:
+      subject: "Xác nhận địa chỉ Bitcoin mới 📒"
+      template_html: "<p>Xin chào 👋,</p><p>Có vẻ như bạn muốn thay đổi địa
+        chỉ Bitcoin của bạn thành:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>Địa
+        chỉ này sẽ được dùng để nhận các khoản thanh toán của bạn từ chương trình
+        giới thiệu của chúng tôi.</p><p>Bạn có chắc chắn muốn thay đổi không?</p><p
+        style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color:
+        #0a45a4;\">Có, hãy thay đổi địa chỉ!</a></p><p>Bạn không gửi yêu cầu này?<br>Đừng
+        lo lắng! Nếu vậy bạn không cần để ý.</p><p>Địa chỉ sẽ không thay đổi trừ khi
+        bạn truy cập liên kết trên đây.</p>"
+    referrals_payout_notification:
+      subject: "Hôm nay là ngày thanh toán! 💸"
+      template_html: "<p>Xin chào 👋,</p><p>Tuyệt lắm! Liên kết giới thiệu
+        của bạn đã hoạt động!</p><p>Chúng tôi sẽ chuyển khoản hoa hồng</p><p style=\"margin:
+        1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>vào
+        ví Bitcoin của bạn.</p><p>Cảm ơn bạn đã mở rộng<br>nền tảng của chúng ta!</p>"
+    registration_reminder:
+      subject: "Tuyệt quá! Bạn đã kiếm được %{amount} BTC! 💸"
+      template_html: "<p>Tuyệt quá!</p><p>Có một khoản hoa hồng mới từ chương trình
+        giới thiệu đang chờ bạn! Hãy hoàn tất đăng ký để nhận bitcoin của bạn:</p><p><a
+        href=%{link}>Hoàn tất đăng ký.</a></p>"
+  affiliates:
+    add_link_info: 'Bạn có thể thêm tên và liên kết đến trang web của mình để người
+      được giới thiệu biết họ được chiết khấu từ ai. Bạn cũng có thể để trống:'
+    apply_code:
+      accept: Chấp nhận
+      reject: Quay lại
+      title: Liên kết giới thiệu
+    btc_address_changed: Đã thay đổi địa chỉ Bitcoin
+    btc_address_confirmation_sent: Đã gửi email xác nhận
+    create:
+      error: Đăng ký chương trình giới thiệu không thành công
+      saver_error: Bạn cần nâng cấp để đăng ký
+    current_bitcoin_address: Địa chỉ Bitcoin hiện tại
+    discount:
+      accepted: Bạn đã chấp nhận liên kết giới thiệu
+      already_used: Bạn đã vừa sử dụng liên kết giới thiệu
+      congrats_html: Xin chúc mừng! Chiết khấu <span class="db-form-label-range--discount-percent">%{discount_percent}</span>%
+        đang có hiệu lực.
+      flash_html: Xin chào! Hãy tận hưởng chiết khấu %{discount_percent}% từ <span
+        class="text-success text-success--lighter">%{visible_name}</span>
+      invalid: Liên kết giới thiệu có vẻ không hợp lệ hoặc không cập nhật
+      referrer_html: Nhờ có liên kết giới thiệu từ <b><a href='%{visible_link}'><span
+        class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>
+      valid_for: Có giá trị cho lần mua đầu tiên trên nền tảng.
+    info_preview: 'Đây là những nội dung sẽ hiển thị với người được giới thiệu trong
+      quá trình đăng ký:'
+    invalid_bitcoin_address: Địa chỉ Bitcoin không hợp lệ
+    manual_html: <div class="alert alert-success"><p class="mt-1">Chương trình giới
+      thiệu của chúng tôi <b>trả tới $50</b><sup>1</sup> mỗi người dùng bằng BTC (sử
+      dụng tỷ giá chuyển đổi từ giao dịch). Ví dụ:</p> <ol><li>Đơn giản như thế này,
+      giá Bitcoin là ~$10000, tỷ lệ chiết khấu là 10%, và tỷ lệ margin của bạn là
+      20%.</li><li>Người được giới thiệu mua gói một năm trị giá $49.99, giá trị thanh
+      toán sau chiết khấu là $44.99, tương đương 0.0045BTC. Bạn nhận được 0.001BTC
+      (20% của $49.99).</li><li>Dù giá Bitcoin có thay đổi theo thời gian thì cũng
+      không thành vấn đề. Lợi nhuận của bạn luôn được quy đổi thành BTC.</li><li>Lần
+      sau, người được giới thiệu mua gói 4 năm trị giá $149.99 và trả 0.015BTC. Họ
+      không còn được hưởng chiết khấu nữa, nhưng bạn vẫn nhận được 20%, tương đương
+      0.003BTC.</li><li>Bạn sẽ tiếp tục được lợi chừng nào gói của bạn vẫn còn hiện
+      hoạt<sup>2</sup>, và tổng lợi nhuận bạn nhận được từ người được giới thiệu chưa
+      vượt quá $50.</li> </ol><p><em>Kiếm thêm Bitcoin là phương thức trung bình giá
+      hiệu quả nhất!</em></p> <small class="mb-2"><sup>1</sup> Giới hạn là 50USD hoặc
+      50EUR, tùy thuộc vào loại tiền giao dịch.</small> <br> <small class="mb-5"><sup>2</sup>
+      Đối với người được giới thiệu, liên kết giới thiệu vẫn có hiệu lực ngay cả khi
+      gói đăng ký của bạn đã hết hạn.</small> </div>
+    new:
+      checked: Tôi đã kiểm tra mọi thứ cẩn thận.
+      discount_info_html: Bạn sẽ <b> nhận được <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>,
+        và người được giới thiệu sẽ nhận được chiết khấu <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%</b>.
+      discount_preview_html: Chiếu khấu <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%
+        cho lần mua hàng đầu tiên.<br>
+      eu_company: Công ty thuộc Liên minh châu Âu
+      payout_address: Địa chỉ thanh toán
+      pick_referral_code: Chọn mã giới thiệu của bạn
+      private: Riêng tư
+      program_settings_html: Liên kết <span class="text-danger">(không thể thay đổi)</span>
+      referrer_info: Thông tin người giới thiệu
+      share_html: Chia sẻ liên kết này và <span class="text-success">nhận bitcoin</span>
+      submit: Hãy bắt đầu!
+      thanks_referral: Nhờ có liên kết giới thiệu từ
+      title: Đăng ký chương trình giới thiệu
+      title_info: Bạn có thể bắt đầu chia sẻ liên kết của mình ngay bây giờ, nhưng
+        để nhận được thanh toán Bitcoin, trước tiên bạn cần hoàn tất đăng ký.
+      unchangable_warning: Sau này bạn sẽ không thể thay đổi cài đặt trong phần này.
+      upgrade: Để tham gia chương trình giới thiệu nổi tiếng này, hãy nâng cấp lên
+        một trong các gói trả phí của chúng tôi.
+      visible_info: Thông tin hiển thị
+    program_joined: Bạn vừa tham gia chương trình giới thiệu
+    show:
+      deactivated:
+        contact: Liên hệ với chúng tôi
+        notice: Có vẻ như chương trình này đã bị hủy kích hoạt. Liên hệ với chúng
+          tôi nếu bạn không biết rõ nguyên nhân.
+      expired: Ồ, không… Gói đăng ký của bạn đã hết hạn. Gia hạn gói để tiếp tục hưởng
+        ưu đãi từ chương trình giới thiệu của bạn.
+      info_preview: 'Xem lại thông tin hiển thị với người được giới thiệu:'
+      link_title: Liên kết của bạn
+      manual_title: Cách thức hoạt động như thế nào?
+      paid_commission: Đã thanh toán (BTC)
+      paid_so_far: Đã thanh toán (BTC)
+      referees: Người được giới thiệu
+      stats: Thống kê
+      submit: Cập nhật
+      submit_bitcoin_address: Cập nhật địa chỉ Bitcoin
+      submit_info: Cập nhật thông tin hiển thị
+      title: Chương trình giới thiệu
+      unpaid: Chưa thanh toán (BTC)
+      unpaid_commission: Phải thanh toán (BTC)
+      update_bitcoin_address: Cập nhật địa chỉ Bitcoin
+      update_info: Cập nhật thông tin hiển thị
+      your_link: Liên kết giới thiệu của bạn
+    your_bitcoin_address: Địa chỉ Bitcoin của bạn
+  bot_alerts_mailer:
+    end_of_funds:
+      subject: Bot của bạn sắp hết nguồn vốn
+      template_html: "<p>Có vẻ như bot của bạn sắp hết %{quote} rồi.</p><p>Hãy thực
+        hiện chuyển khoản đến %{exchange_name} để đảm bảo bot hoạt động liên tục.</p>"
+    first_month_ending_soon:
+      subject: Thời hạn dùng thử tháng đầu tiên sắp kết thúc!
+      template_html: "<p>Xin chào 👋,</p><p>Bạn đã sử dụng Deltabadger được
+        gần một tháng!</p><p>Thời hạn dùng thử miễn phí không giới hạn của bạn đã
+        sắp hết. Hãy đảm bảo nâng cấp gói để giữ cho tài khoản của bạn tiếp tục hoạt
+        động!</p>"
+    limit_almost_reached:
+      subject: Gần đạt hạn mức giao dịch ⌛
+      template_html: "<p>Xin chào 👋,</p><p>Bạn đã gần đạt <br>hạn mức giao
+        dịch gói</p> <b style=\"color: #0a45a4;\">Saver</b>. <p>Hãy cập nhật lên gói
+        <b style=\"color: #0a45a4;\">Investor</b><br> hoặc <b style=\"color: #0a45a4;\">Hodler</b>
+        để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
+    limit_reached:
+      subject: "Bạn đã đạt hạn mức giao dịch 🥳"
+      template_html: "<p>Xin chào 👋,</p><p>Ồ, tốt lắm! Bạn đã đạt đến hạn
+        mức gói <b style=\"color: #0a45a4;\">Saver</b><br>.</p><p>Có vẻ như bạn đã
+        thực hiện trung bình giá<br>được một thời gian.</p><p>Chúng tôi hy vọng bạn
+        hài lòng với<br>kết quả thu được.</p><p>Nâng cấp gói của bạn lên <b style=\"color:
+        #0a45a4;\">Investor</b><br>hoặc <b style=\"color: #0a45a4;\">Hodler</b> để
+        gỡ bỏ tất cả hạn mức và<br>giúp bot của bạn hoạt động trở lại.</p>"
+    notify_about_error:
+      subject: "Đã xảy ra lỗi 😵"
+      template_html: "<p>Ồ… 😵</p><p>Đã có lỗi xảy ra khi<br>xử lý giao dịch
+        gần nhất.</p><p>Bạn có thể xem lỗi trong<br>nhật ký bot. Đăng nhập để kiểm
+        tra.</p><p>Lỗi:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>
+        <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
+    notify_about_restart:
+      subject: "Ồ! Bạn hãy thử lại nhé… 🧐"
+      template_html: "<p>Ôi trời 🧐,</p><p>Bot đã không thể thực hiện lệnh
+        của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử
+        lại lần nữa trong %{delay}.</p><p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui
+        lòng đăng nhập để kiểm tra.</p><p>Lỗi:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>
+        <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
+  bots:
+    above: trên đây
+    add_new_bot: Thêm bot mới
+    below: dưới đây
+    buttons:
+      delete:
+        cancel: Hủy bỏ
+        ok: Xóa toàn bộ
+        text: Xóa
+        warning_html: Thao tác này sẽ xóa bot cùng với tất cả<br> dữ liệu lịch sử.
+          Bạn có chắc muốn xóa không?
+      pending:
+        info_html: Đang xử lý
+        text: Đang chờ
+      start:
+        changed_missed:
+          continue: Có, mua và tiếp tục
+          info_html: Bạn có muốn đầu tư <b>%{amount} %{quote}</b> bị lỡ khi bot đang
+            tạm dừng không? Lịch trình mới sẽ bắt đầu sau khi quá trình đếm ngược
+            hiện tại kết thúc.
+          skip: Bỏ qua phần bị lỡ!
+        changed_on_schedule:
+          continue: Tôi hiểu
+          info_html: Lịch trình mới sẽ bắt đầu sau khi <b>%{time}</b> còn lại của
+            lịch trình cuối cùng kết thúc.
+          skip: Bỏ qua và bắt đầu ngay lập tức
+        missed:
+          continue: Có, mua và tiếp tục
+          info_html: Bạn có muốn đầu tư <b>%{amount} %{quote}</b> bị lỡ khi bot đang
+            tạm dừng, và tiếp tục với lịch trình ban đầu không?
+          skip: Bỏ qua phần bị lỡ
+        on_schedule:
+          continue: Tiếp tục lịch trình ban đầu
+          info_html: Bạn vẫn còn <b>%{time}</b> còn lại cho lệnh tiếp theo. Bạn có
+            thể bỏ qua và thực hiện lệnh tiếp theo ngay lập tức hoặc tiếp tục quá
+            trình đếm ngược ban đầu.
+          skip: Bỏ qua
+    buy: Mua
+    day: Ngày
+    details:
+      info:
+        exchanges_html: '<p className="mt-2"><b>Sàn giao dịch</b></p><p>Deltabadger
+          làm việc với các sàn giao dịch tiền số. Hiện tại, chúng tôi hỗ trợ <a href="https://www.binance.com/en/register?ref=NUYVIP6R"
+          target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us"
+          target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondaglobal.com"
+          target="_blank" rel="nofollow" title="Zonda">Zonda</a>, <a href="https://pro.coinbase.com/"
+          target="_blank" rel="nofollow">Coinbase Pro</a>, <a href="https://exchange.gemini.com"
+          target="_blank" rel="nofollow">Gemini</a> và <a href="https://r.kraken.com/deltabadger"
+          target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>.
+          Chúng tôi khuyên bạn sử dụng Kraken vì đây là sàn giao dịch uy tín chưa
+          bao giờ bị hack. Sử dụng Zonda nếu bạn muốn tiến hành giao dịch mua bằng
+          PLN.</p><p>Để làm cho bot hữu ích, trước tiên, bạn cần xác minh tài khoản
+          giao dịch của mình và chuyển một số tiền vào đó.</p><p>Tuy nhiên, đừng giữ
+          tiền ở sàn giao dịch quá lâu. Hãy đăng nhập vào tài khoản của bạn và thường
+          xuyên rút tiền ít nhất một lần một tháng.</p><p>Chúng tôi sẽ bổ sung thêm
+          nhiều sàn giao dịch trong tương lai. Nếu bạn quan tâm đến một sàn giao dịch
+          cụ thể, hãy cho chúng tôi biết.</p>'
+        new_to_dca_html: <p className="mt-2"><b>Bạn chưa quen thuộc với phương pháp
+          trung bình giá?</b></p><p>Hãy tìm hiểu thông tin trên các liên kết dưới
+          đây:</p><ul className="mb-5"> <li><a href="https://www.youtube.com/watch?v=dltaIrhUUvY"
+          target="_blank" rel="nofollow">DCA cho người mới bắt đầu (video)</a></li>
+          <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6"
+          target="_blank" rel="nofollow">Sức mảnh của DCA đối với Bitcoin</a></li>
+          <li><a href="https://www.dca-cc.com/" target="_blank" rel="nofollow">Mô
+          phỏng DCA</a></li></ul>
+        smart_intervals_html: <p className="mt-2"><b>"Thời khoảng thông minh"</b></p><p>Khi
+          bạn bật tính năng thời khoảng thông minh, Deltabadger sẽ thực hiện lịch
+          trình mong muốn của bạn trong các giao dịch nhỏ nhất mà sàn giao dịch cho
+          phép. Nếu không, thời khoảng thông minh sẽ chỉ được sử dụng khi cần.</p><p
+          className="mt-2"><b>Tại sao?</b></p><p>Có hai lợi ích:</p><p>Lịch trình
+          càng thường xuyên thì bạn càng nhanh nhận được những lợi ích của chiến lược
+          trung bình giá và giao dịch càng thông suốt.</p><p>Ngoài ra, đôi khi thời
+          khoảng thông minh cũng rất cần thiết. Mọi sàn giao dịch đều có giới hạn
+          giá trị giao dịch tối thiểu. Một số sàn giao dịch xác định giá trị này bằng
+          BTC, do đó giá trị USD sẽ thay đổi theo thời gian. Nếu bạn muốn mua số lượng
+          nhỏ hơn, Deltabadger duy trì tỷ lệ mong muốn của bạn bằng cách sử dụng giá
+          trị tối thiểu cho phép nhưng điều chỉnh thời khoảng. Điều này giúp bot không
+          bị dừng hoạt động khi số tiền đã định của bạn giảm xuống dưới ngưỡng.</p><p
+          className="mt-2"><b>Ví dụ:</b></p><p>Ví dụ như giới hạn giao dịch hiện tại
+          là $20. Nếu bạn đặt giá trị giao dịch là $24/ngày, bot sẽ thực hiện chính
+          xác như vậy. Tuy nhiên, nếu bạn đặt giá trị là $1/giờ, bot sẽ bắt chước
+          tỷ lệ này bằng cách sử dụng giá trị cho phép, tương đương $20 mỗi 20 giờ.
+          Tính trung bình, điều này mang lại tỷ lệ như nhau ($24/ngày = $1/giờ = $20/20
+          giờ).</p>
+        title: Thông tin
+      log:
+        date: Ngày
+        errors: Lỗi
+        title: Nhật ký
+      stats:
+        amount: Giá trị(%{base})
+        average_price: Giá bình quân
+        bought: Đã mua
+        chart:
+          total_invested: Tổng giá trị đầu tư
+        csv_download_html: Bảng trên chỉ hiển thị mười giao dịch gần nhất.<br>Bạn
+          có thể tải báo cáo đầy đủ ở định dạng CSV dưới đây.
+        current_value: Giá trị hiện tại
+        current_value_sold: Giá trị hiện tại của %{base} đã bán
+        date: Ngày
+        download_csv: Tải .csv
+        exchange_unavailable_html: API sàn giao dịch hiện không phản hồi.<br>Số liệu
+          tính toán dựa trên dữ liệu mới nhất được cung cấp.
+        order: Lệnh
+        profit_loss: Lãi/Lỗ
+        rate: Tỷ giá(%{quote})
+        sold: Đã bán
+        title: Thống kê
+        total_invested: Tổng giá trị đầu tư
+    for: cho
+    force_smart_intervals_html: Sử dụng <em>thời khoảng thông minh</em> để đặt lệnh
+      với giá trị <split>$100</split> %{currency} mỗi lệnh.
+    hour: Giờ
+    limit_buy: Lệnh chờ mua
+    limit_sell: Lệnh chờ bán
+    month: Tháng
+    next_buy: Lần mua tiếp theo trong %{countdown}
+    next_sell: Lần bán tiếp theo trong %{countdown}
+    price: giá
+    price_range_buy_html: Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split>
+      %{currency}.
+    price_range_html: Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split>
+      %{currency}.
+    price_range_sell_html: Chỉ bán trong khoảng giá từ <split>$100</split> đến <split>$1000</split>
+      %{currency}.
+    sell: Bán
+    setup:
+      binance:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Tại menu người dùng (biểu tượng tròn ở góc trên bên phải),
+          đi đến <b>Quản lý API</b>.
+        instructions_3_html: Đặt tên cho khóa API mới bằng cách nhấn <b>Tạo</b>.
+        instructions_4_html: Xác nhận tạo khóa bằng (các) mã dùng một lần.
+        instructions_5_html: Đảm bảo rằng bạn đã chọn <b>Cho phép Giao dịch giao ngay
+          & ký quỹ</b>.
+        instructions_6_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền
+          truy cập khóa, nhấp <b>Hạn chế chỉnh sửa</b>, chọn <b>Hạn chế chỉ truy cập
+          vào các IP đáng tin cậy (Khuyến nghị)</b> và thêm IP này ở bước tiếp theo:
+          <b>18.132.181.159</b>'
+        instructions_7_html: Nhấn <b>Lưu</b> và xác nhận bằng mã một lần khác nếu
+          cần.
+        instructions_8_html: Hãy nhớ rằng Khóa bí mật chỉ hiển thị trong quá trình
+          tạo, vì vậy đảm bảo rằng bạn đã sao chép cả hai khóa trước khi rời khỏi
+          chế độ xem.
+        instructions_9_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Khóa bí mật
+        public_key: Khóa API
+      bitfinex:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Trong menu tài khoản (góc trên bên phải), đi đến <b>Khóa
+          API</b>.
+        instructions_3_html: Đi đến <b>Tạo khóa mới</b>.
+        instructions_4_1_html: 'Thiết lập quyền đối với:'
+        instructions_4_2_html: "<b>Nhận lệnh và trạng thái.</b>"
+        instructions_4_3_html: "<b>Tạo và hủy lệnh.</b>"
+        instructions_5_html: Cung cấp <b>Nhãn</b> cho khóa API của bạn.
+        instructions_6_html: Nhấn <b>Tạo khóa API</b>.
+        instructions_7_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Mã bí mật API
+        public_key: Khóa API
+      bitso:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Trong menu tài khoản (góc trên bên phải), đi đến <b>Hồ
+          sơ</b>.
+        instructions_3_html: Chọn <b>API</b> (bên trái).
+        instructions_4_html: Nhấn <b>Thêm API mới</b>.
+        instructions_5_html: Nhập <b>Tên API</b> và cung cấp <b>Mã PIN giao dịch</b>
+          của bạn.
+        instructions_6_1_html: 'Thiết lập quyền đối với:'
+        instructions_6_2_html: "<b>Thực hiện giao dịch</b>"
+        instructions_6_3_html: "<b>Xem số dư</b>"
+        instructions_6_4_html: "<b>Xem thông tin tài khoản</b>"
+        instructions_7_html: Nhấn <b>Lưu</b>.
+        instructions_8_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Mã bí mật API
+        public_key: Khóa API
+      bitstamp:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.
+        instructions_3_html: Dưới mục <b>Kiểm soát quyền truy cập</b>, đi đến <b>Truy
+          cập API</b>.
+        instructions_4_html: Nhấn <b>Khóa API mới</b>.
+        instructions_5_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền
+          truy cập khóa, thiết lập <b>Lọc địa chỉ IP</b> cho IP này: <b>3.18.70.231</b>'
+        instructions_6_1_html: 'Thiết lập quyền đối với:'
+        instructions_6_2_html: "<b>Lệnh chưa khớp.</b>"
+        instructions_6_3_html: "<b>Hủy lệnh.</b>"
+        instructions_6_4_html: "<b>Lệnh chờ mua/lệnh thị trường.</b>"
+        instructions_6_5_html: "<b>Lệnh chờ bán/lệnh thị trường.</b>"
+        instructions_7_html: Nhấn <b>Nhập xác thực hai yếu tố & Gửi</b>.
+        instructions_8_html: Nhấn <b>Kích hoạt</b>.
+        instructions_9_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Mã bí mật API
+        public_key: Khóa API
+      cancel: Hủy bỏ
+      coinbase_pro:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Tại menu người dùng (góc trên bên phải), đi đến <b>API</b>.
+        instructions_3_html: Nhấn <b>Khóa API mới</b>.
+        instructions_4_1_html: 'Thiết lập quyền đối với:'
+        instructions_4_2_html: "<b>Xem</b>"
+        instructions_4_3_html: "<b>Giao dịch</b>"
+        instructions_5_html: Nhấn <b>Tạo khóa API</b>.
+        instructions_6_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        passphrase: Cụm mật khẩu
+        private_key: Khóa bí mật
+        public_key: Khóa API
+      error_info: Xác thực không thành công. Vui lòng thử lại hoặc tạo khóa mới.
+      frequency_limit:
+        back_to_settings: Trở lại cài đặt
+        limit_exceeded: Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch mỗi
+          phút, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency}
+          mỗi lệnh.
+        start_the_bot: Chỉnh sửa và bắt đầu
+      ftx:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Đi đến menu Cài đặt (góc trên bên phải).
+        instructions_3_html: Cuộc xuống phần <b>Khóa API</b>.
+        instructions_4_html: Nhấn <b>Tạo khóa API</b>.
+        instructions_5_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Khóa riêng tư
+        public_key: Khóa công khai
+      gemini:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.
+        instructions_3_html: Chọn <b>API</b> (bên trái).
+        instructions_4_html: Nhấn <b>Tạo khóa API mới</b>.
+        instructions_5_html: Từ menu thả xuống <b>Phạm vi</b>, chọn <b>Chính</b>.
+        instructions_6_html: Nhấn <b>Tạo khóa API mới</b>.
+        instructions_7_1_html: 'Thiết lập cài đặt khóa API:'
+        instructions_7_2_html: "<b>Giao dịch</b>"
+        instructions_8_html: Không chọn <b>Yêu cầu tốc độ của phiên</b>
+        instructions_9_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Khóa bí mật
+        public_key: Khóa API
+      how_to_get_keys: 'Làm thế nào để nhận khóa API từ %{exchange}:'
+      kraken:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.
+        instructions_3_html: Nhấn <b>Tạo khóa mới</b>.
+        instructions_4_html: 'Thiết lập quyền đối với:'
+        instructions_5_1_html: 'Tiền:'
+        instructions_5_2_html: "<b>Truy vấn tiền</b>"
+        instructions_6_1_html: 'Lệnh & giao dịch:'
+        instructions_6_2_html: "<b>Truy vấn lệnh chưa khớp & giao dịch</b>"
+        instructions_6_3_html: "<b>Truy vấn lệnh đóng & giao dịch</b>"
+        instructions_6_4_html: "<b>Sửa lệnh</b>"
+        instructions_6_5_html: "<b>Hủy/Đóng lệnh</b>"
+        instructions_7_html: Nhấn <b>Tạo khóa</b>.
+        instructions_8_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Khóa riêng tư
+        public_key: Khóa API
+        trading_agreement_html: <b>Xin chào!</b> Nếu tài khoản Kraken của bạn được
+          xác minh bằng địa chỉ ở Đức, bạn sẽ cần phải chấp nhận <a href="https://support.kraken.com/hc/en-us/articles/360036157952"
+          target="_blank" rel="nofollow" title="Trading agreement">thỏa thuận giao
+          dịch</a> để đặt lệnh thị trường và lệnh ký quỹ.
+        trading_agreement_label_html: Tôi đồng ý với <a href="https://support.kraken.com/hc/en-us/articles/360036157952"
+          target="_blank" rel="nofollow" title="Trading agreement">thỏa thuận giao
+          dịch</a>.
+      kucoin:
+        instructions_10_html: Xác nhận tạo khóa API bằng Mật khẩu giao dịch và Xác
+          thực hai yếu tố.
+        instructions_11_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Trong menu tài khoản (góc trên bên phải bên cạnh bộ chọn
+          ngôn ngữ), đi đến <b>Quản lý API</b>.
+        instructions_3_html: Nhấn <b>Tạo API</b>.
+        instructions_4_html: Nếu đây là lần đầu bạn tạo khóa API của mình, hãy đặt
+          và lưu <b>Mật khẩu giao dịch</b>.
+        instructions_5_html: Cung cấp <b>Tên API</b>.
+        instructions_6_html: Cung cấp và lưu <b>Cụm mật khẩu API</b>.
+        instructions_7_1_html: 'Thiết lập quyền đối với:'
+        instructions_7_2_html: "<b>Chung</b>"
+        instructions_7_3_html: "<b>Giao dịch</b>"
+        instructions_8_html: 'Nếu bạn muốn hạn chế để chỉ Deltabadger mới có quyền
+          truy cập khóa, thiết lập <b>Hạn chế IP</b> thành Có và thêm IP này: <b>3.18.70.231</b>'
+        instructions_9_html: Nhấn <b>Tiếp theo</b>.
+        passphrase: Cụm mật khẩu
+        private_key: Mã bí mật API
+        public_key: Khóa API
+      limit_warning: Bot lệnh giới hạn là tính năng thử nghiệm. Hiện giờ bot chưa
+        thể thực hiện tất cả các lệnh. Để đạt kết quả tốt nhất, bạn cần tăng số tiền
+        đầu tư lên một cách tương xứng. Hiện tại, Deltabadger vẫn chưa cung cấp công
+        cụ nào để ước tính số tiền điều chỉnh, vì vậy bạn cần tự mình thử nghiệm.
+        Chỉ sử dụng nếu bạn biết mình đang làm gì.
+      next: Tiếp theo
+      probit:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Trong menu <b>Trang của tôi</b> (góc trên bên phải),
+          đi đến <b>Quản lý API</b>.
+        instructions_3_html: Cung cấp nhãn khóa API và nhấn <b>Tạo khóa mới</b>.
+        instructions_4_html: Xác nhận tạo khóa API.
+        instructions_5_html: 'Nếu bạn muốn hạn chế quyền truy cập sao cho chỉ Deltabadger
+          mới có thể sử dụng khóa, nhấn <b>Sửa</b> và đặt <b>Hạn chế địa chỉ IP</b>
+          cho IP này: <b>3.18.70.231</b>'
+        instructions_6_1_html: 'Thiết lập quyền đối với:'
+        instructions_6_2_html: "<b>Đọc</b>"
+        instructions_6_3_html: "<b>Giao dịch</b>"
+        instructions_7_html: Sao chép và dán ID khách hàng mới của bạn và khóa bí
+          mật của khách hàng vào biểu mẫu trên đây.
+        private_key: Khóa bí mật của khách hàng
+        public_key: ID khách hàng
+      set: Đặt
+      smart_intervals:
+        dont_show_again: Không hiển thị lại
+        info_html:
+          force_smart_intervals: Đối với %{base}%{quote}, %{exchangeName} có giá trị
+            đặt lệnh tối thiểu là <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}.
+            Deltabadger có thể thực hiện lịch này bằng cách sử dụng lệnh %{minimumValue}%{minimumCurrency},
+            và điều chỉnh thời khoảng để phù hợp với lịch của bạn. Chúng tôi gọi đó
+            là <i>thời khoảng thông minh</i>.
+          other: Đối với %{base}%{quote}, %{exchangeName} có giá trị đặt lệnh tối
+            thiểu là <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}.
+            Deltabadger có thể thực hiện lịch này bằng cách sử dụng lệnh %{minimumValue}%{minimumCurrency},
+            và điều chỉnh thời khoảng để phù hợp với lịch của bạn. Chúng tôi gọi đó
+            là <i>thời khoảng thông minh</i>.
+      step_api_key: Khóa API
+      step_exchange: Sàn giao dịch
+      step_schedule: Lịch trình
+      validating: Đang xác thực
+      withdrawal:
+        ftx:
+          instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+          instructions_2_html: Đi đến menu Cài đặt (góc trên bên phải).
+          instructions_3_html: Cuộc xuống phần <b>Khóa API</b>.
+          instructions_4_html: Nhấn <b>Tạo khóa API</b>.
+          instructions_6_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+            trên đây.
+        kraken:
+          instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+          instructions_2_html: Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.
+          instructions_3_html: Nhấn <b>Tạo khóa mới</b>.
+          instructions_4_html: 'Thiết lập quyền đối với:'
+          instructions_5_1_html: 'Tiền:'
+          instructions_5_2_html: "<b>Truy vấn tiền</b>"
+          instructions_6_html: Nhấn <b>Tạo khóa</b>.
+          instructions_7_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+            trên đây.
+      withdrawal_address:
+        ftx:
+          instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+          instructions_2_html: Đi đến menu Cài đặt (góc trên bên phải).
+        kraken:
+          instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+      zonda:
+        instructions_1_html: Đăng nhập vào tài khoản %{exchange_link} của bạn.
+        instructions_2_html: Tại menu người dùng (góc trên bên phải), đi đến <b>Cài
+          đặt API</b>.
+        instructions_3_html: Nhấn <b>Thêm khóa mới</b>.
+        instructions_4_1_html: 'Thiết lập quyền đối với:'
+        instructions_4_2_html: "<b>Lịch sử</b>"
+        instructions_4_3_html: "<b>Nhận lệnh và cấu hình thị trường</b>"
+        instructions_4_4_html: "<b>Quản lý lệnh và thay đổi cấu hình thị trường</b>"
+        instructions_5_html: Nhấn <b>Tạo</b>.
+        instructions_6_html: Sao chép và dán các khóa API mới của bạn vào biểu mẫu
+          trên đây.
+        private_key: Khóa riêng tư
+        public_key: Khóa công khai
+    smart_intervals_disclaimer: Giá trị đặt lệnh trên %{exchange} được xác định bằng
+      %{currency}. Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.
+    smart_intervals_disclaimer_base: Giá trị đặt lệnh trên %{exchange} được xác định
+      bằng %{currency}. Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.
+    smart_intervals_disclaimer_quote: Giá trị đặt lệnh tối thiểu là %{minimum}%{currency}.
+    start: Bắt đầu
+    starting: Bắt đầu
+    stop: Tạm dừng
+    subaccounts_info: Sử dụng tài khoản phụ
+    week: Tuần
+  cookie:
+    agree: Tôi đồng ý
+    description: Chúng tôi sử dụng cookie để giúp mọi thứ đơn giản hơn.
+    read_more: Tìm hiểu thêm
+  days_left:
+  deltabadger: Deltabadger
+  devise:
+    confirmations:
+      confirmed: Địa chỉ email của bạn đã được xác nhận thành công.
+      new:
+        submit: Gửi lại liên kết xác nhận
+        title: Gửi lại hướng dẫn
+      send_instructions: Bạn sẽ nhận được email hướng dẫn sau vài phút.
+      send_paranoid_instructions: Bạn sẽ nhận được email hướng dẫn sau vài phút.
+    failure:
+      already_authenticated: Bạn đã đăng nhập.
+      inactive: Tài khoản của bạn chưa được kich hoạt.
+      invalid: "%{authentication_keys} hoặc mật khẩu không hợp lệ."
+      last_attempt: Bạn còn một lần thử nữa trước khi tài khoản của bạn bị khóa.
+      locked: Tài khoản của bạn đã bị khóa.
+      not_found_in_database: "%{authentication_keys} hoặc mật khẩu không hợp lệ."
+      timeout: Phiên đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.
+      unauthenticated: Bạn cần đăng nhập hoặc đăng ký trước khi tiếp tục.
+      unconfirmed: Bạn phải xác nhận địa chỉ email trước khi tiếp tục.
     mailer:
-        signature_html: 'Đội ngũ Deltabadger 🧑‍🚀'
-    meta:
-        desc: 'Bắt đầu áp dụng miễn phí chiến lược tốt nhất hiệu quả với cả Binance, Coinbase, Kraken, Kucoin và các sàn giao dịch khác. Không cần KYC.'
-        title: 'Deltabadger • Tự động trung bình giá bất kỳ loại tiền điện tử nào'
-        title_short: 'Deltabadger • Tự động trung bình giá Bitcoin và các tài sản khác'
-        twitter_image_alt: 'Tự động trung bình giá Bitcoin, Ethereum, Polkadot, Cardano, Solana và các tài sản kỹ thuật số khác.'
-    referral:
-        banner_html: '<b>Chia sẻ liên kết giới thiệu với bạn bè của bạn, và <a href="/referral-program" alt="Read more">nhận ngay BTC trị giá tới $50</a>. Phương thức trung bình giá Bitcoin tốt nhất chính là kiếm thêm Bitcoin!</b>'
-        copied: 'Đã sao chép!'
-    settings:
-        index:
-            api_key_confirmation: 'Bạn có chắc chắn không?'
-            api_keys_section: 'Khóa API'
-            current_password: 'Mật khẩu hiện tại (để xác nhận)'
-            email_section: Email
-            name_section: 'Cập nhật tên'
-            password_section: 'Mật khẩu'
-            submit_email: 'Cập nhật email'
-            submit_name: 'Cập nhật tên'
-            submit_password: 'Thay đổi mật khẩu'
-            title: 'Cài đặt'
-            two_factor_section: 'Xác thực hai yếu tố'
-    social:
-        blog: 'Xem blog của chúng tôi'
-        knowledge_base: 'Nền tảng kiến thức'
-        telegram: 'Tham gia nhóm Telegram của chúng tôi'
-        twitter: 'Theo dõi chúng tôi trên Twitter'
-    subscription_mailer:
-        invoice:
-            subject: 'Thanh toán Deltabadger'
-            template_html: "<h1>Hóa đơn</h1><p><b>Thanh toán ngày:</b></p><p>%{paid_at}</p><p><b>Người bán:</b></p><p> Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn <br> Estonia <br> Số đăng ký 14781461</p><p><b>Người mua:</b></p><p> %{first_name} %{last_name} <br> %{email}</p><h2>Gói Deltabadger %{plan_name} (%{years} năm)</h2><p> <b>Thanh toán:</b></p><h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: 'Đã cấp gói %{plan_name}'
-            template_html: "<p>Tuyệt quá 💙,</p><p>Cảm ơn bạn đã mua gói</p><p> <b> %{years} năm %{plan_name} của chúng tôi </b></p><p>Bạn thật tuyệt! 🔥</p>"
-    subscriptions:
-        hodler: Hodler
-        investor: Investor
-        investor_description_html: 'Một năm <b class="badge badge-btc"> giao dịch không giới hạn </b> , <b class="badge badge-btc"> tất cả các loại tiền </b> và <b class="badge badge-btc"> rút tiền tự động </b> (sớm).'
-        limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
-        maximalist_info: 'Nếu bạn chỉ mua Bitcoin, bạn trả một nửa giá thông thường.'
-        maximalist_title: 'Bitcoin Maximalist được giảm giá 50%'
-        payment:
-            account_holder: 'Chủ tài khoản'
-            account_number: 'Số tài khoản'
-            account_type: 'Loại tài khoản'
-            active_plan_discount: 'Chiết khấu dành cho gói đang hoạt động'
-            after_wire_transfer_html: 'Cảm ơn bạn! Chúng tôi sẽ sớm liên hệ với bạn! Nếu cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi tại: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
-            bank_address: 'Địa chỉ ngân hàng'
-            billing_information: 'Thông tin hóa đơn'
-            bitcoin: Bitcoin
-            compensation_investor:
-                other: 'Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Investor.'
-            discount: 'Chiết khấu %{discount_percent}%'
-            eu_bank_country: Bỉ
-            invalid_vat_number: 'Mã số thuế GTGT châu Âu không hợp lệ'
-            paid_with_wire_transfer: 'Tôi đã chuyển khoản SEPA'
-            paid_with_wire_transfer_other: 'Tôi đã chuyển khoản ngân hàng'
-            pay_with_bitcoin: 'Trả bằng Bitcoin'
-            payment_ordered: 'Đã yêu cầu thanh toán!'
-            referral_discount_html: 'Nhờ có liên kết giới thiệu từ <b><a href="%{visible_link}">%{visible_name}</a></b>, bạn sẽ nhận được chiết khấu cho lần mua hàng đầu tiên trên nền tảng.'
-            routing_number: 'Số định tuyến'
-            vat: 'Thuế GTGT'
-            wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_legendary_badger_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_pending_html: 'Nếu bạn chưa thanh toán, hãy gửi <b>%{sign}%{price}</b> vào tài khoản ngân hàng sau:'
-            wire_transfer: 'Chuyển khoản ngân hàng'
-            wire_transfer_description_html: 'Để thanh toán bằng chuyển khoản ngân hàng, vui lòng gửi thông tin cơ bản để lập hóa đơn: <b>tên</b>, <b>họ</b>, <b>địa chỉ</b>, <b>email</b> sử dụng tại Deltabadger, và gói bạn dự định mua tới địa chỉ: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
-            wire_transfer_fill_form: 'Vui lòng điền vào biểu mẫu trên đây để tiếp tục...'
-            wire_transfer_pending: 'Cảm ơn bạn! Chúng tôi sẽ sớm kích hoạt tài khoản của bạn và liên hệ với bạn qua email.'
-            you_pay: 'Số tiền thanh toán'
-        plan_1_year: 'gói 1 năm'
-        plan_4_year: 'gói 4 năm'
-        saver: Saver
-        upgrade: 'Nâng cấp'
-        upgrade_plan: 'Nâng cấp gói'
-    welcome:
-        banner_html: "Xin chào! <b>Hãy kiểm tra hộp thư của bạn</b> và tìm các mẹo vặt và gợi ý cho cấu hình bot hoàn hảo mà tôi đã chuẩn bị cho bạn. <b>Nếu nó đạt đến thư mục spam, hãy di chuyển nó vào hộp thư của bạn</b>, để bạn có thể xem các tin nhắn của chúng tôi trong tương lai. Cảm ơn, Jan"
-        banner_html_old: "Chào mừng bạn! Bạn hiện đang sử dụng <b>gói miễn phí với hạn mức giao dịch là $1200/năm</b>, tuy nhiên gói này sẽ không có hiệu lực trong tháng đầu tiên. Hãy thử bất kỳ thời gian nào bạn muốn. Bạn cũng có thể nâng cấp gói để tận hưởng các giao dịch không giới hạn sau này. Ngoài ra, gói Hodler 4 năm còn cung cấp quyền truy cập vào các tính năng thử nghiệm mới (ví dụ: giao dịch bằng tất cả các đồng tiền). Chúng tôi hoan nghênh tất cả các ý kiến phản hồi. Tham gia <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">nhóm Telegram</a> của chúng tôi, hoặc theo dõi chúng tôi trên <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Chúc bạn trung bình giá thành công!"
-        default: 'Xin chào, chào mừng bạn đến với Deltabadger'
-        saver: 'Xóa bỏ giới hạn, và thực hiện nâng cấp!'
+      confirmation_instructions:
+        subject: "Chào mừng bạn đến với Deltabadger 🎉"
+        template_html: "<p>Chào mừng bạn đến với Deltabadger 🎉,</p><p>Để
+          tự động trung bình giá<br>Bitcoin, bạn chỉ cần nhấp vào liên kết sau:</p><p
+          style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color:
+          #0a45a4;\">Xác nhận tài khoản của tôi</a></p><p>Bạn không nhớ đã đăng ký?<br>Đừng
+          lo lắng. Nếu vậy bạn không cần để ý.</p>"
+      email_changed:
+        subject: "Địa chỉ email mới 📨"
+        template_html: "<p>Xin chào 👋,</p><p>Chúng tôi gửi email này để thông
+          báo rằng địa chỉ email được liên kết với tài khoản của bạn tại Deltabadger
+          đã được thay đổi thành:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+      password_change:
+        subject: "Mật khẩu mới 🔑"
+        template_html: "<p>Đã xong 🎉!</p><p>Mật khẩu của bạn 🔑 đã
+          được thay đổi.</p>"
+      reset_password_instructions:
+        subject: "Đặt lại mật khẩu 🔑"
+        template_html: "<p>Xin chào 👋,</p><p>Có vẻ như bạn muốn thay đổi<br/>mật
+          khẩu của bạn 🔑. Tốt lắm!</p><p>Hãy bắt đầu nhé:</p><p style=\"margin:
+          1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Thay
+          đổi mật khẩu của tôi</a> </p><p>Bạn không gửi yêu cầu này?<br/>Đừng lo!
+          Nếu vậy bạn không cần để ý.</p>"
+      unlock_instructions:
+        subject: "Mở khóa hướng dẫn 🔓"
+        template_html: "<p>Xin chào 👋,</p><p>Chúng tôi đã khóa tài khoản
+          của bạn do<br>bạn đã vượt quá số lần đăng nhập không thành công.</p><p>Hãy
+          nhấp vào liên kết dưới đây để mở khóa tài khoản:</p><p style=\"margin: 1em
+          0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Mở khóa
+          tài khoản của tôi</a></p>"
+    omniauth_callbacks:
+      failure: Không thể xác thực bạn từ %{kind} do "%{reason}".
+      success: Xác thực thành công từ tài khoản %{kind}
+    passwords:
+      edit:
+        submit: Thay đổi mật khẩu của tôi
+        title: Thay đổi mật khẩu của bạn
+      new:
+        submit: Gửi hướng dẫn cho tôi
+        title: Bạn quên mật khẩu?
+      no_token: Bạn không thể truy cập trang này nếu không nhận được email đặt lại
+        mật khẩu. Nếu bạn nhận được email đặt lại mật khẩu, vui lòng sử dụng URL hoàn
+        chỉnh được cung cấp kèm theo email.
+      send_instructions: Bạn sẽ nhận được email hướng dẫn sau vài phút.
+      send_paranoid_instructions: Bạn sẽ nhận được email hướng dẫn sau vài phút.
+      updated: Xong rồi! Mật khẩu của bạn đã được thay đổi.
+      updated_not_active: Xong rồi! Mật khẩu của bạn đã được thay đổi.
+    registrations:
+      destroyed: Tạm biệt! Chúng tôi hy vọng sẽ sớm gặp lại bạn…
+      edit:
+        awaiting_confirmation: 'Hiện đang chờ xác nhận đối với: %{email}'
+      new:
+        email_invalid: Email không hợp lệ!
+        email_suggestion_html: 'Email không hợp lệ! Có phải ý bạn là: <b>%{suggestion}</b>'
+        email_used: Email này đã được sử dụng
+        name_invalid: Nó không nhất thiết phải có thật :)
+        submit: Bắt đầu ngay bây giờ
+        title_html: Tạo tài khoản <span class="text-success">miễn phí</span>
+      signed_up: Rất vui được gặp bạn!
+      signed_up_but_inactive: Xin chào, tài khoản của bạn chưa được kích hoạt. Bạn
+        đã kiểm tra email của bạn chưa?
+      signed_up_but_locked: Ồ, tài khoản của bạn đã bị khóa.
+      signed_up_but_unconfirmed: Kiểm tra email và nhấp vào liên kết xác nhận.
+      update_needs_confirmation: Kiểm tra email và nhấp vào liên kết xác nhận để xác
+        nhận địa chỉ email mới của bạn.
+      updated: Tài khoản của bạn đã được cập nhật thành công.
+      updated_but_not_signed_in: Tài khoản của bạn đã được cập nhật thành công, hãy
+        đăng nhập lại.
+    sessions:
+      already_signed_out: Tôi ghét phải nói lời tạm biệt. Chúng ta sẽ sớm gặp lại
+        nhau chứ?
+      new:
+        forgot_password: Bạn đã quên mật khẩu?
+        submit: Đăng nhập
+        title: Đăng nhập
+      signed_in: Lâu rồi không gặp!
+      signed_out: Hẹn gặp lại!
+    unlocks:
+      send_instructions: Bạn sẽ nhận được email hướng dẫn sau vài phút.
+      send_paranoid_instructions: Bạn sẽ nhận được email hướng dẫn sau vài phút.
+      unlocked: Tài khoản của bạn đã được mở khóa thành công. Vui lòng đăng nhập để
+        tiếp tục.
+  errors:
+    bitcoin_address_not_updated: Không thể cập nhật địa chỉ Bitcoin
+    frequency_limit: Đã vượt giới hạn tần suất
+    invalid_api_keys: Token không hợp lệ
+    limit_reached: Đã đạt hạn mức gói miễn phí
+    messages:
+      accepted: phải được chấp thuận
+      already_confirmed: đã được xác nhận, vui lòng thử đăng nhập.
+      bad_2fa_code: Mã không hợp lệ. Vui lòng thử lại.
+      bad_credentials: Email hoặc mật khẩu không chính xác.
+      bad_credentials_with_code: Email, mật khẩu hoặc mã xác thực hai yếu tố không
+        chính xác.
+      blank: không thể để trống
+      confirmation: không khớp %{attribute}
+      confirmation_period_expired: cần được xác nhận trong %{period}, vui lòng yêu
+        cầu mã mới.
+      empty: không thể để trống
+      empty_two_fa_token: Bạn đã bỏ lỡ mã xác thực hai yếu tố. Vui lòng thử lại.
+      equal_to: phải bằng %{count}
+      even: phải là số chẵn
+      exclusion: được bảo lưu
+      expired: đã hết hạn, vui lòng yêu cầu mã mới.
+      greater_than: phải lớn hơn %{count}
+      greater_than_or_equal_to: phải lớn hơn hoặc bằng %{count}
+      in: phải bằng %{count}
+      inclusion: không được bao gồm trong danh sách
+      invalid: không hợp lệ
+      less_than: phải nhỏ hơn %{count}
+      less_than_or_equal_to: phải nhỏ hơn hoặc bằng %{count}
+      model_invalid: 'Xác thực không thành công: %{errors}'
+      name_invalid: Nó không nhất thiết phải có thật :)
+      not_a_number: không phải là số
+      not_an_integer: phải là số nguyên
+      not_found: không tìm thấy.
+      not_locked: không bị khóa.
+      odd: phải là số lẻ
+      other_than: phải khác với %{count}
+      password_not_match: Mật khẩu không khớp
+      present: phải để trống
+      too_short_password: Mật khẩu quá ngắn
+      wrong_email: Email không chính xác.
+      wrong_password: Mật khẩu không chính xác
+      wrong_two_fa_token: Mã được cung cấp không chính xác.
+    referral_program_inactive: Chương trình giới thiệu của bạn không hoạt động
+    unverified_request: Vui lòng làm mới trình duyệt của bạn và thử lại
+  forms:
+    for_confirmation: "(để xác nhận)"
+    minimum_length: Tối thiểu %{length} ký tự
+  helpers:
+    label:
+      affiliate:
+        address: 'Địa chỉ công ty:'
+        btc_address: Địa chỉ BTC
+        btc_address_tooltip: Địa chỉ BTC mà bạn muốn nhận thanh toán.
+        check: Kiểm tra
+        code_tooltip: Chọn mã giới thiệu mà bạn thích.
+        name: 'Tên công ty:'
+        vat_number: 'Mã số thuế GTGT (không bắt buộc):'
+        visible_link: Liên kết
+        visible_name: Xem lại tên
+      payment:
+        birth_date: Ngày sinh
+        business_invoice: Tôi cần hóa đơn doanh nghiệp.
+        country: Quốc gia
+        first_name: Tên
+        last_name: Họ
+        other: Khác
+        submit_hodler_order: Gói đặt lệnh Hodler
+        submit_investor_order: Gói đặt lệnh Investor
+      settings:
+        current_status: 'Trạng thái hiện tại:'
+        disable_two_fa: Tắt xác thực hai yếu tố
+        disabled: Đã tắt
+        enable_two_fa: Bật xác thực hai yếu tố
+        enabled: Đã bật
+        enter_two_fa_code: Nhập mã xác thực hai yếu tố
+        scan_code_info: 'Quét mã QR hoặc sao chép mã dưới đây:'
+      user:
+        current_password: Mật khẩu hiện tại
+        email: Email
+        new_password: Mật khẩu mới
+        new_password_confirmation: Xác nhận mật khẩu mới
+        password: Mật khẩu
+        password_confirmation: Xác nhận mật khẩu
+        remember_me: Nhớ tôi
+        terms_and_conditions_tooltip: Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions}
+          và %{privacy_policy} của Deltabadger.
+  home:
+    confirm_registration:
+      deliverability_html: "<b>Lưu ý quan trọng!</b><br> Nếu bạn không nhận được email
+        xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email,
+        vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan"
+      text_html: Kiểm tra hộp thư của bạn và nhấp vào <b>liên kết xác nhận</b> mà
+        chúng tôi đã gửi cho bạn. Sau đó vào trang đăng nhập.
+      title: Cảm ơn bạn!
+    contact:
+      general_questions_html: 'Đối với các câu hỏi chung, vui lòng truy cập <a class="db-social-link"
+        href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">kênh Telegram</a>
+        của chúng tôi. Đây thường là kênh phản hồi nhanh nhất. Ngoài ra: chúng tôi
+        hoan nghênh tất cả các phản hồi, ý tưởng sản phẩm và yêu cầu giao dịch từ
+        bạn.'
+      specific_questions_html: 'Đối với các vấn đề cụ thể hơn, vui lòng gửi email
+        cho chúng tôi tại: %{email}, hoặc nhắn tin trực tiếp trên Telegram hoặc <a
+        class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank"
+        rel="nofollow">Twitter</a>.'
+      title: Liên hệ
+  links:
+    about: Về
+    about_html: Về <span class="d-none d-xl-inline">dự án</span>
+    contact: Liên hệ
+    cookies_policy: Chính sách Cookie
+    create_account: Tạo tài khoản miễn phí
+    dashboard: Bảng tổng quan
+    homepage: Liên kết về trang chủ
+    log_in: Đăng nhập
+    log_out: Đăng xuất
+    menu: Menu
+    privacy_policy: Chính sách Quyền riêng tư
+    referral_program: Chương trình giới thiệu
+    resend_link: Gửi lại liên kết
+    settings: Cài đặt
+    sign_up: Đăng ký
+    start_fast: Bắt đầu trong 5 phút
+    start_fast_longer_html: Bắt đầu <span class="d-none d-sm-inline">miễn phí</span>
+      trong 5 phút
+    terms_and_conditions: Điều khoản và Điều kiện
+  mail: "<p>Xin chào 👋,</p><p>Tuyệt quá! Liên hết giới thiệu của bạn<br>bắt
+    đầu được sử dụng!</p><p>Chúng tôi sẽ chuyển hoa hồng là</p><p style=\"margin:
+    1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b> </p><p>vào ví
+    Bitcoin của bạn.</p><p>Cảm ơn bạn đã mở rộng<br/>nền tảng của chúng ta!</p>"
+  mailer:
+    signature_html: "Đội ngũ Deltabadger 🧑‍🚀"
+  meta:
+    desc: Bắt đầu áp dụng miễn phí chiến lược tốt nhất hiệu quả với cả Binance, Coinbase,
+      Kraken, Kucoin và các sàn giao dịch khác. Không cần KYC.
+    title: Deltabadger • Tự động trung bình giá bất kỳ loại tiền điện tử nào
+    title_short: Deltabadger • Tự động trung bình giá Bitcoin và các tài sản khác
+    twitter_image_alt: Tự động trung bình giá Bitcoin, Ethereum, Polkadot, Cardano,
+      Solana và các tài sản kỹ thuật số khác.
+  referral:
+    banner_html: Chia sẻ liên kết giới thiệu với bạn bè của bạn, và <a href="/referral-program"
+      alt="Read more">nhận ngay BTC trị giá tới $50</a>. Phương thức trung bình giá
+      Bitcoin tốt nhất chính là kiếm thêm Bitcoin!
+    copied: Đã sao chép!
+  settings:
+    index:
+      api_key_confirmation: Bạn có chắc chắn không?
+      api_keys_section: Khóa API
+      current_password: Mật khẩu hiện tại (để xác nhận)
+      email_section: Email
+      name_section: Cập nhật tên
+      password_section: Mật khẩu
+      submit_email: Cập nhật email
+      submit_name: Cập nhật tên
+      submit_password: Thay đổi mật khẩu
+      title: Cài đặt
+      two_factor_section: Xác thực hai yếu tố
+  social:
+    blog: Xem blog của chúng tôi
+    knowledge_base: Nền tảng kiến thức
+    telegram: Tham gia nhóm Telegram của chúng tôi
+    twitter: Theo dõi chúng tôi trên Twitter
+  subscription_mailer:
+    invoice:
+      subject: Thanh toán Deltabadger
+      template_html: "<h1>Hóa đơn</h1><p><b>Thanh toán ngày:</b></p><p>%{paid_at}</p><p><b>Người
+        bán:</b></p><p> Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn
+        <br> Estonia <br> Số đăng ký 14781461</p><p><b>Người mua:</b></p><p> %{first_name}
+        %{last_name} <br> %{email}</p><h2>Gói Deltabadger %{plan_name} (%{years} năm)</h2><p>
+        <b>Thanh toán:</b></p><h2>%{total_paid} %{currency}</h2>"
+    subscription_granted:
+      subject: Đã cấp gói %{plan_name}
+      template_html: "<p>Tuyệt quá 💙,</p><p>Cảm ơn bạn đã mua gói</p><p>
+        <b> %{years} năm %{plan_name} của chúng tôi </b></p><p>Bạn thật tuyệt! 🔥</p>"
+  subscriptions:
+    hodler: Hodler
+    investor: Investor
+    investor_description_html: Một năm <b class="badge badge-btc"> giao dịch không
+      giới hạn </b> , <b class="badge badge-btc"> tất cả các loại tiền </b> và <b
+      class="badge badge-btc"> rút tiền tự động </b> (sớm).
+    limit_reached_html: "<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí
+      của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn."
+    maximalist_info: Nếu bạn chỉ mua Bitcoin, bạn trả một nửa giá thông thường.
+    maximalist_title: Bitcoin Maximalist được giảm giá 50%
+    payment:
+      account_holder: Chủ tài khoản
+      account_number: Số tài khoản
+      account_type: Loại tài khoản
+      active_plan_discount: Chiết khấu dành cho gói đang hoạt động
+      after_wire_transfer_html: 'Cảm ơn bạn! Chúng tôi sẽ sớm liên hệ với bạn! Nếu
+        cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi tại: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+      bank_address: Địa chỉ ngân hàng
+      billing_information: Thông tin hóa đơn
+      bitcoin: Bitcoin
+      compensation_investor:
+        other: Khoản tiền bù đắp cho %{count} ngày không sử dụng trong gói Investor.
+      discount: Chiết khấu %{discount_percent}%
+      eu_bank_country: Bỉ
+      invalid_vat_number: Mã số thuế GTGT châu Âu không hợp lệ
+      paid_with_wire_transfer: Tôi đã chuyển khoản SEPA
+      paid_with_wire_transfer_other: Tôi đã chuyển khoản ngân hàng
+      pay_with_bitcoin: Trả bằng Bitcoin
+      payment_ordered: Đã yêu cầu thanh toán!
+      referral_discount_html: Nhờ có liên kết giới thiệu từ <b><a href="%{visible_link}">%{visible_name}</a></b>,
+        bạn sẽ nhận được chiết khấu cho lần mua hàng đầu tiên trên nền tảng.
+      routing_number: Số định tuyến
+      vat: Thuế GTGT
+      wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span
+        class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b>
+        vào tài khoản ngân hàng sau:'
+      wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span
+        class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b>
+        vào tài khoản ngân hàng sau:'
+      wire_cost_legendary_badger_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span
+        class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b>
+        vào tài khoản ngân hàng sau:'
+      wire_cost_pending_html: 'Nếu bạn chưa thanh toán, hãy gửi <b>%{sign}%{price}</b>
+        vào tài khoản ngân hàng sau:'
+      wire_transfer: Chuyển khoản ngân hàng
+      wire_transfer_description_html: 'Để thanh toán bằng chuyển khoản ngân hàng,
+        vui lòng gửi thông tin cơ bản để lập hóa đơn: <b>tên</b>, <b>họ</b>, <b>địa
+        chỉ</b>, <b>email</b> sử dụng tại Deltabadger, và gói bạn dự định mua tới
+        địa chỉ: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+      wire_transfer_fill_form: Vui lòng điền vào biểu mẫu trên đây để tiếp tục…
+      wire_transfer_pending: Cảm ơn bạn! Chúng tôi sẽ sớm kích hoạt tài khoản của
+        bạn và liên hệ với bạn qua email.
+      you_pay: Số tiền thanh toán
+    plan_1_year: gói 1 năm
+    plan_4_year: gói 4 năm
+    saver: Saver
+    upgrade: Nâng cấp
+    upgrade_plan: Nâng cấp gói
+  welcome:
+    banner_html: Xin chào! <b>Hãy kiểm tra hộp thư của bạn</b> và tìm các mẹo vặt
+      và gợi ý cho cấu hình bot hoàn hảo mà tôi đã chuẩn bị cho bạn. <b>Nếu nó đạt
+      đến thư mục spam, hãy di chuyển nó vào hộp thư của bạn</b>, để bạn có thể xem
+      các tin nhắn của chúng tôi trong tương lai. Cảm ơn, Jan
+    banner_html_old: 'Chào mừng bạn! Bạn hiện đang sử dụng <b>gói miễn phí với hạn
+      mức giao dịch là $1200/năm</b>, tuy nhiên gói này sẽ không có hiệu lực trong
+      tháng đầu tiên. Hãy thử bất kỳ thời gian nào bạn muốn. Bạn cũng có thể nâng
+      cấp gói để tận hưởng các giao dịch không giới hạn sau này. Ngoài ra, gói Hodler
+      4 năm còn cung cấp quyền truy cập vào các tính năng thử nghiệm mới (ví dụ: giao
+      dịch bằng tất cả các đồng tiền). Chúng tôi hoan nghênh tất cả các ý kiến phản
+      hồi. Tham gia <a href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">nhóm
+      Telegram</a> của chúng tôi, hoặc theo dõi chúng tôi trên <a href="https://twitter.com/deltabadgerapp"
+      target="_blank" rel="nofollow">Twitter</a>. Chúc bạn trung bình giá thành công!'
+    default: Xin chào, chào mừng bạn đến với Deltabadger
+    saver: Xóa bỏ giới hạn, và thực hiện nâng cấp!
