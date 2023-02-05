@@ -858,9 +858,9 @@ es:
     twitter_image_alt: Inversión constante automatizada en Bitcoin, Ethereum, Polkadot,
       Cardano, Solana y otros activos digitales.
   referral:
-    banner_html: <b>Comparte tu enlace para invitar a tus amigos y <a href="/referral-program"
+    banner_html: Comparte tu enlace para invitar a tus amigos y <a href="/referral-program"
       alt="Read more">gana hasta 50 dólares en BTC</a>. ¡La mejor manera de seguir
-      la estrategia DCA e invertir en bitcoins es ganándolos!</b>
+      la estrategia DCA e invertir en bitcoins es ganándolos!
     copied: "¡Copiado!"
   settings:
     index:
