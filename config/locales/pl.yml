@@ -834,9 +834,9 @@ pl:
     twitter_image_alt: Automatyczne uśrednianie ceny Bitcoina, Ethereum, Polkadot,
       Cardano, Solany i innych aktywów cyfrowych.
   referral:
-    banner_html: <b> Udostępnij swój link referencyjny znajomym i <a href="/referral-program"
+    banner_html: Udostępnij swój link referencyjny znajomym i <a href="/referral-program"
       alt="Read more"> zarób do 50 USD w BTC </a> . Najlepszym sposobem na uśrednianie
-      ceny to zarabianie w bitcoinach! </b>
+      ceny to zarabianie w bitcoinach!
     copied: Skopiowane!
   settings:
     index:
