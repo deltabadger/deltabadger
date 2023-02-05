@@ -109,13 +109,6 @@ GEM
     attr_encrypted (3.1.0)
       encryptor (~> 3.0.0)
     bcrypt (3.1.18)
-    better_html (2.0.1)
-      actionview (>= 6.0)
-      activesupport (>= 6.0)
-      ast (~> 2.0)
-      erubi (~> 1.4)
-      parser (>= 2.4)
-      smart_properties
     bindex (0.8.1)
     bootsnap (1.13.0)
       msgpack (~> 1.2)
@@ -212,23 +205,11 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
-    highline (2.1.0)
     httpclient (2.8.3)
     i18n (1.12.0)
       concurrent-ruby (~> 1.0)
     i18n-js (3.8.4)
       i18n (>= 0.6.6)
-    i18n-tasks (1.0.12)
-      activesupport (>= 4.0.2)
-      ast (>= 2.1.0)
-      better_html (>= 1.0, < 3.0)
-      erubi
-      highline (>= 2.0.0)
-      i18n
-      parser (>= 2.2.3.0)
-      rails-i18n
-      rainbow (>= 2.2.2, < 4.0)
-      terminal-table (>= 1.5.1)
     io-like (0.3.1)
     jbuilder (2.11.5)
       actionview (>= 5.0.0)
@@ -318,9 +299,6 @@ GEM
       nokogiri (>= 1.6)
     rails-html-sanitizer (1.4.3)
       loofah (~> 2.3)
-    rails-i18n (7.0.6)
-      i18n (>= 0.7, < 2)
-      railties (>= 6.0.0, < 8)
     railties (6.0.5.1)
       actionpack (= 6.0.5.1)
       activesupport (= 6.0.5.1)
@@ -414,7 +392,6 @@ GEM
     sidekiq-prometheus-exporter (0.1.17)
       rack (>= 1.6.0)
       sidekiq (>= 3.3.1)
-    smart_properties (1.17.0)
     spring (4.1.0)
     spring-commands-rspec (1.0.4)
       spring (>= 0.9.1)
@@ -434,8 +411,6 @@ GEM
       activesupport (>= 4.0, < 7.1)
       httpclient (~> 2.7)
     temple (0.8.2)
-    terminal-table (3.0.2)
-      unicode-display_width (>= 1.1.1, < 3)
     thor (1.2.1)
     thread_safe (0.3.6)
     tilt (2.0.11)
@@ -497,7 +472,6 @@ DEPENDENCIES
   guard-rubocop
   haml-rails (~> 2.1)
   i18n-js (~> 3.8.0)
-  i18n-tasks
   jbuilder (~> 2.5)
   kaminari
   kraken_ruby_client!
