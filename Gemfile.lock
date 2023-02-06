@@ -7,8 +7,7 @@ GIT
 
 GIT
   remote: https://github.com/dobs/faraday-manual-cache
-  revision: f2f44122e01d46ebd1f75feccddb9d0c1cb41434
-  ref: f2f44122e01d46ebd1f75feccddb9d0c1cb41434
+  revision: c75cb9b0f2f4a94af00eacadd9671b65382ca1a8
   specs:
     faraday-manual-cache (0.5.0)
       activesupport (>= 3.0.0)
@@ -268,7 +267,7 @@ GEM
     net-smtp (0.3.3)
       net-protocol
     nio4r (2.5.8)
-    nokogiri (1.14.1-x86_64-darwin)
+    nokogiri (1.14.1-x86_64-linux)
       racc (~> 1.4)
     notiffany (0.1.3)
       nenv (~> 0.1)
@@ -463,7 +462,7 @@ GEM
     zeitwerk (2.6.6)
 
 PLATFORMS
-  x86_64-darwin-21
+  x86_64-linux
 
 DEPENDENCIES
   active_model_otp
@@ -526,4 +525,4 @@ RUBY VERSION
    ruby 3.0.2p107
 
 BUNDLED WITH
-   2.4.4
+   2.3.21
