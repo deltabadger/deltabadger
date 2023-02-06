@@ -7,68 +7,20 @@ on:
 jobs:
   AutoDeploy:
     environment: stage
-    runs-on: ubuntu-20.04
-    timeout-minutes: 10
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v3
-      
-      - name: Check out private submodule (deltabadger-ansible)
-        env:
-          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
-        run: |
-          mkdir $HOME/.ssh && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa \
-          && chmod 600 $HOME/.ssh/id_rsa \
-          && git submodule update --init --recursive 
-        # && perl -i -p -e 's|https://(.*?)/|git@\1:|g' .gitmodules \
-          
-      - name: Install Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10' 
-
-      - name: Install ansible
-        run: |
-          sudo apt-get -o Acquire::Retries=3 install ansible 
-
-      - name: Generate .vault_password file from secret
-        run: |
-          sudo echo "${{ secrets.VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password    
-
-      - name: Decrypt private keys
-        run: |
-          ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-bastion.pem --output ~/.ssh/deltabadger-bastion.pem --vault-password-file=deltabadger-ansible/.vault_password
-          ansible-vault decrypt deltabadger-ansible/ssh_keys/ENCRYPTED_deltabadger-staging.pem --output ~/.ssh/deltabadger-staging.pem --vault-password-file=deltabadger-ansible/.vault_password
-          sudo chmod 0600 ~/.ssh/deltabadger-*
-          
-#       - name: private keys verifying
-#         run: |
-#           cd deltabadger-ansible/ssh_keys/
-#           ls -lh
-#           cd ~/.ssh/
-#           ls -lh
-#           ls -d ~/.ssh/
-
-      - name: create ssh key from secret   
-        run: |
-          sudo mv ~/.ssh/deltabadger-bastion.pem ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          ssh-keyscan 3.136.156.106 >> ~/.ssh/known_hosts
-
-      - name: Create SSH tunnel to Bastion
-        run: |
-          sudo apt-get -o Acquire::Retries=3 install sshuttle
-          nohup sshuttle -r ubuntu@3.136.156.106 172.16.0.0/12 < /dev/null & > /dev/null &
-
-      - name: add local endpoints as known 
-        run: |
-          # stage IPs test (to avoid ANSIBLE_HOST_KEY_CHECKING=False)
-          # safe to use since it's local addresses
-          ssh-keyscan 172.31.38.233 >> ~/.ssh/known_hosts
-          ssh-keyscan 172.31.17.97 >> ~/.ssh/known_hosts
-
-      - name: Autodeploy
-        run: |
-          cd deltabadger-ansible
-          BRANCH=stage ansible-playbook site.yml -i inventories/test
+    - name: execute remote ssh commands
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: 3.17.104.213 # ssh-tunnel (Bastion)
+        username: ubuntu
+        key: ${{ secrets.bastion_key }}
+        port: 22
+        script: |
+           rm -r deltabadger
+           git clone git@deltabadger:deltabadger/deltabadger.git --branch stage
+           cd deltabadger && git clone git@deltabadger-ansible:deltabadger/deltabadger-ansible
+           sudo echo "${{ secrets.VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password 
+           cd deltabadger-ansible && BRANCH=stage ansible-playbook site.yml -i inventories/test
