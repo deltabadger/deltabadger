@@ -2,7 +2,7 @@ name: STAGE deltabadger autodeploy
 
 on:
   push:
-    branches: [stage-new-deploy] # test on dif branch
+    branches: [stage]
 
 jobs:
   AutoDeploy:
