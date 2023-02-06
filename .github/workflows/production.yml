@@ -8,7 +8,7 @@ jobs:
   AutoDeploy:
     environment: production
     runs-on: ubuntu-22.04
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
     - name: execute remote ssh commands
