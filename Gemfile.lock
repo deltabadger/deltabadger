@@ -205,9 +205,6 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
-    httparty (0.21.0)
-      mini_mime (>= 1.0.0)
-      multi_xml (>= 0.5.2)
     httpclient (2.8.3)
     i18n (1.12.0)
       concurrent-ruby (~> 1.0)
@@ -254,7 +251,6 @@ GEM
     mini_mime (1.1.2)
     minitest (5.16.3)
     msgpack (1.5.6)
-    multi_xml (0.6.0)
     nenv (0.3.0)
     nio4r (2.5.8)
     nokogiri (1.13.8-x86_64-darwin)
@@ -386,9 +382,6 @@ GEM
       rubyzip (>= 1.2.2, < 3.0)
       websocket (~> 1.0)
     semantic_range (3.0.0)
-    sendinblue (2.4)
-      httparty
-      json
     sentry-raven (3.1.2)
       faraday (>= 1.0)
     shellany (0.0.1)
@@ -495,7 +488,6 @@ DEPENDENCIES
   sass-rails (>= 6)
   scenic
   selenium-webdriver
-  sendinblue
   sentry-raven
   sidekiq
   sidekiq-limit_fetch!

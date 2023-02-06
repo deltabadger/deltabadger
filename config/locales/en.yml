@@ -585,7 +585,8 @@ en:
     mailer:
       confirmation_instructions:
         subject: Confirm email address
-        template_html: <p>Ahoy captain,</p><p>Your email address is one click away from joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p><a class="mail-button" href="%{confirmation_url}">Confirm
+        template_html: <p>Ahoy captain,</p><p>Your email address is one confirmation
+          away from awesomeness!</p><a class="mail-button" href="%{confirmation_url}">Confirm
           this email</a>
       email_changed:
         subject: Email confirmed
