@@ -1,3 +1,6 @@
 -# set dca_profit to failure in order to prevent footer from rendering
 - @dca_profit = Result::Failure.new
+
+%h1{class: "mail-header"}= t('.subject')
+
 = t('.template_html', confirmation_url: confirmation_url(@resource, confirmation_token: @token, lang: I18n.locale, new_user: @resource.email.in?(controller.message.to)))

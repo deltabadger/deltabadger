@@ -12,30 +12,35 @@
   Jan
 
 %p{style: "color:#9d9d9d; margin-top: 20px; margin-bottom: 8px"} Deltabadger Team
-%img{alt: "Logo", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}/
+%img{alt: "Logo", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}
 
 %p
   PS If you didn’t pay yet, please, send #{@amount}#{@type == 'Other' ? '$' : '€'}  to
 %p
   - if @type == 'Other'
     %p
-      Account holder
+      %b
+        Account holder
       %br
       Deltabadger OÜ
     %p
-      Routing number
+      %b
+        Routing number
       %br
       084009519
     %p
-      Account number
+      %b
+        Account number
       %br
       9600 0000 0051 1836
     %p
-      Account type
+      %b
+        Account type
       %br
       Checking
     %p
-      Bank address
+      %b
+        Bank address
       %br
       TransferWise
       %br
@@ -46,19 +51,23 @@
       United States
   - else
     %p
-      Account holder
+      %b
+        Account holder
       %br
       Deltabadger OÜ
     %p
-      BIC
+      %b
+        BIC
       %br
       TRWIBEB1XXX
     %p
-      IBAN (Belgium)
+      %b
+        IBAN (Belgium)
       %br
       BE83 9670 6500 4615
     %p
-      Bank address
+      %b
+        Bank address
       %br
       Avenue Louise 54, Room S52
       %br

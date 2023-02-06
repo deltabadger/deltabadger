@@ -2,15 +2,89 @@
 %html
   %head
     %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
+    :css
+      body {
+        padding: 0 16px;
+      }
+      body, div, p, ol, ul {
+        font: 16px/24px sans-serif;
+        color: #091638;
+      }
+      a {
+        color: #2948A1;
+      }
+      p, ol, ul {
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-family: "Arial Rounded MT Bold", sans-serif;
+        font-weight: 400;
+        color: #2948A1;
+        font-size: 24px;
+        line-height: 32px;
+        margin-bottom: 40px;
+      }
+      ol {
+        padding-left: 18px;
+      }
+      .mail-block {
+        margin-top: 32px;
+        margin-bottom: 32px;
+      }
+      .mail-button {
+        margin-top: 32px;
+        margin-bottom: 32px;
+        width: 220px;
+        text-align: center;
+        font-family: 'Arial Rounded MT Bold', sans-serif;
+        letter-spacing: 0.01em;
+        line-height: 43px;
+        border: 2px solid #2948A1;
+        border-radius: 24px;
+        padding: 0 24px 1px;
+        background: #2948A1;
+        color: #fff;
+        display: inline-block;
+        box-shadow: 1px 2px 5px rgba(0,0,0,.5);
+        text-decoration: none;
+      }
+      .mail-button:active,
+      .mail-button:hover,
+      .mail-button:focus,
+      .mail-button:visited,
+      .mail-button:link {
+        color: #fff !important;
+      }
+      @media only screen and (min-width: 600px) {
+        h1 {
+          font-size: 28px;
+          line-height: 40px;
+        }
+      }
   %body
-    %div{ :style => ""}
+    %div{ style: "margin: 0 auto; max-width: 600px" }
 
-      %img{:alt => "🦡", :border => "0", :height => "20", :style => "height: 20px; font-size: 2em; display: block; line-height: 20px; margin-bottom: 0.75em;", :referrerpolicy => "no-referrer", :src => "https://deltabadger.com/logo160c.png"}
+      %img{alt: "Deltabadger", src: "https://deltabadger.com/logo160alert.png", style: "margin: 40px 0; width: 80px; height: auto; display: block;"}
 
       = yield
 
-      %p —
-      %p= t('mailer.signature_html')
-      - if @dca_profit.success?
-        %p
-        %p= t('ads.dca_2y_profit_html', profit: @dca_profit.data.to_i)
+      -# %p= t('mailer.signature_html')
+      -# - if @dca_profit.success?
+      -#   %p
+      -#   %p= t('ads.dca_2y_profit_html', profit: @dca_profit.data.to_i)
+
+      %p{style: "color:#9d9d9d;  margin: 24px 0;"} &mdash;
+      %p{style: "color:#9d9d9d;  margin: 24px 0;"} Invincible team of badgers at your service.
+      -# %img{alt: "Deltabadger", src: "https://deltabadger.com/logo20g.png", style: "margin-bottom: 24px"}
+
+      %p{style: "color:#9d9d9d; margin: 24px 0;"}
+        Questions? Reply to this email, or join our community on
+        %a{href: "https://t.me/deltabadger", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
+          Telegram →
+        %br
+        Don't forget to follow us on
+        %a{href: "https://twitter.com/deltabadger", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
+          Twitter →
+
+      %p{style: "color:#9d9d9d;  margin: 24px 0;"}
+        &copy; 2023 Deltabadger. All rights hyperbitconized.
