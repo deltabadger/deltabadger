@@ -7,6 +7,7 @@ gem 'active_model_otp'
 gem "administrate"
 gem "attr_encrypted", "~> 3.1.0"
 gem 'bootsnap', '>= 1.4.2', require: false
+gem 'date', "= 3.3.3"
 gem 'devise'
 gem 'dotenv-rails'
 gem 'dotiw'
@@ -18,6 +19,7 @@ gem 'jbuilder', '~> 2.5'
 gem 'kaminari'
 gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 5.6'
+gem "rack", "= 2.2.6.2"
 gem 'rack-cors'
 gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
 gem 'rqrcode'
