@@ -23,4 +23,4 @@ jobs:
            git clone git@deltabadger:deltabadger/deltabadger.git --branch stage
            cd deltabadger && git clone git@deltabadger-ansible:deltabadger/deltabadger-ansible --branch autodeploy
            sudo echo "${{ secrets.VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password 
-           cd deltabadger-ansible && BRANCH=stage ansible-playbook site.yml -i inventories/test
+           cd deltabadger-ansible && BRANCH=stage ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook site.yml -i inventories/test
