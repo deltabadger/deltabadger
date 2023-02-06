@@ -18,6 +18,7 @@ gem 'jbuilder', '~> 2.5'
 gem 'kaminari'
 gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 5.6'
+gem "rack", "= 2.2.6.2"
 gem 'rack-cors'
 gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
 gem 'rqrcode'
