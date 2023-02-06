@@ -173,6 +173,7 @@ GEM
     ffi-compiler (1.0.1)
       ffi (>= 1.0.0)
       rake
+    fomo (0.1.0)
     formatador (1.1.0)
     globalid (1.1.0)
       activesupport (>= 5.0)
@@ -480,6 +481,7 @@ DEPENDENCIES
   faker
   faraday
   faraday-manual-cache!
+  fomo (~> 0.1.0)
   guard-rspec
   guard-rubocop
   haml-rails (~> 2.1)
