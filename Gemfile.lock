@@ -173,6 +173,7 @@ GEM
     ffi-compiler (1.0.1)
       ffi (>= 1.0.0)
       rake
+    fomo (0.1.0)
     formatador (1.1.0)
     globalid (1.1.0)
       activesupport (>= 5.0)
@@ -324,8 +325,7 @@ GEM
       ffi (~> 1.0)
     recaptcha (5.12.3)
       json
-    redis-client (0.12.1)
-      connection_pool
+    redis (4.8.0)
     regexp_parser (2.6.2)
     responders (3.1.0)
       actionpack (>= 5.2)
@@ -399,11 +399,10 @@ GEM
     sentry-raven (3.1.2)
       faraday (>= 1.0)
     shellany (0.0.1)
-    sidekiq (7.0.3)
-      concurrent-ruby (< 2)
-      connection_pool (>= 2.3.0)
-      rack (>= 2.2.4)
-      redis-client (>= 0.11.0)
+    sidekiq (6.5.8)
+      connection_pool (>= 2.2.5, < 3)
+      rack (~> 2.0)
+      redis (>= 4.5.0, < 5)
     sidekiq-prometheus-exporter (0.1.17)
       rack (>= 1.6.0)
       sidekiq (>= 3.3.1)
@@ -482,6 +481,7 @@ DEPENDENCIES
   faker
   faraday
   faraday-manual-cache!
+  fomo (~> 0.1.0)
   guard-rspec
   guard-rubocop
   haml-rails (~> 2.1)
@@ -504,7 +504,7 @@ DEPENDENCIES
   selenium-webdriver
   sendinblue
   sentry-raven
-  sidekiq
+  sidekiq (~> 6.5)
   sidekiq-limit_fetch!
   sidekiq-prometheus-exporter (~> 0.1)
   spring
