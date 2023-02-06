@@ -474,6 +474,7 @@ DEPENDENCIES
   capybara
   capybara-selenium
   chromedriver-helper
+  date (= 3.3.3)
   devise
   dotenv-rails
   dotiw
