@@ -1,721 +1,952 @@
+---
 en:
-    activerecord:
-        errors:
-            models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'has to consist of uppercase alphanumeric characters'
-    ads:
-        bitwarden_text: '. It''s free and open-source.'
-        bitwarden_title: 'Try Bitwarden'
-        dca_2y_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last two years,<br>you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.'
-        dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
-        features: "auto-DCA on your exchange account; <i>Smart intervals</i> and five-minute setup; updates and new features every month; support and Telegram community"
-        password_managers_html: 'Password managers<br>make security easier.'
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: 'Confirm new Bitcoin address 📒'
-            template_html: "<p>Hello 👋,</p><p>It looks like you want to change your Bitcoin address to:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Yes, let's change it!</a></p><p>You didn't send this request?<br>No worries! Just ignore it.</p><p>The address won't change until you access the link above.</p>"
-        referrals_payout_notification:
-            subject: 'It''s a payday! 💸'
-            template_html: "<p>Hello 👋,</p><p>Sweet! Your referral link is gaining traction!</p><p>We transfer a commission of</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the<br>badger gang!</p>"
-        registration_reminder:
-            subject: 'Wow! You earned %{amount} BTC! 💸'
-            template_html: "<p>Wow!</p><p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><p><a href=%{link}>Complete registration.</a></p>"
-    affiliates:
-        add_link_info: 'You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:'
-        apply_code:
-            accept: Accept
-            reject: Back
-            title: 'Referral Link'
-        btc_address_changed: 'Bitcoin address changed'
-        btc_address_confirmation_sent: 'Confirmation email sent'
-        create:
-            error: 'Referral program registration failed'
-            saver_error: 'You have to upgrade to register'
-        current_bitcoin_address: 'Current Bitcoin address'
-        discount:
-            accepted: 'You have accepted the referral link'
-            already_used: 'You have already used a referral link'
-            congrats_html: 'Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% discount is active.'
-            flash_html: 'Hello! enjoy %{discount_percent}% discount from <span class="text-success text-success--lighter">%{visible_name}</span>'
-            invalid: 'The referral link seems invalid or obsolete'
-            referrer_html: "Thanks to the referral link from <b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
-            valid_for: 'Valid for the first purchase on the platform.'
-        info_preview: 'This is a preview of what referees will see during registration:'
-        invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: "<div class=\"alert alert-success\"><p class=\"mt-1\">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class=\"mb-2\"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class=\"mb-5\"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small> </div>"
-        new:
-            checked: 'I checked everything carefully.'
-            discount_info_html: "You will <b> earn <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>, and referee will get <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>% discount</b>."
-            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.<br>'
-            eu_company: 'EU company'
-            payout_address: 'Payout address'
-            pick_referral_code: 'Pick your referral code'
-            private: Private
-            program_settings_html: 'Link <span class="text-danger">(can''t be changed)</span>'
-            referrer_info: 'Referrer info'
-            share_html: 'Share this link and <span class="text-success">earn bitcoins</span>'
-            submit: 'Let''s start!'
-            thanks_referral: 'Thanks to the referral link from'
-            title: 'Referral program registration'
-            title_info: 'You can start sharing your link immediately, but to receive Bitcoin payouts, you need to finish the registration first.'
-            unchangable_warning: 'Settings in this section can''t be changed later.'
-            upgrade: 'To join our famous referral program, upgrade to one of our paid plans.'
-            visible_info: 'Visible info'
-        program_joined: 'You have joined the referral program'
-        show:
-            deactivated:
-                contact: 'Contact us'
-                notice: 'It looks like this program got deactivated. Contact us if you''re not sure why it happened.'
-            expired: 'Oh, no… your subscription has expired. Renew your plan to continue benefiting from your referral program.'
-            info_preview: 'Preview of the info visible for referee:'
-            link_title: 'Your link'
-            manual_title: 'How does it work?'
-            paid_commission: 'Paid (BTC)'
-            paid_so_far: 'Paid so far (BTC)'
-            referees: Referees
-            stats: Stats
-            submit: Update
-            submit_bitcoin_address: 'Update Bitcoin address'
-            submit_info: 'Update visible info'
-            title: 'Referral program'
-            unpaid: 'Unpaid (BTC)'
-            unpaid_commission: 'To pay (BTC)'
-            update_bitcoin_address: 'Update Bitcoin address'
-            update_info: 'Update visible info'
-            your_link: 'Your referral link'
-        your_bitcoin_address: 'Your Bitcoin address'
-    bot_alerts_mailer:
-        first_month_ending_soon:
-            subject: 'First month trial ending soon!'
-            template_html: "<p>Hello 👋,</p><p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>"
-        limit_almost_reached:
-            subject: 'Limit almost reached ⌛'
-            template_html: "<p>Hello 👋,</p><p>You've almost reached the <b style=\"color: #0a45a4;\">Saver</b> <br>plan transaction limit.</p><p>Upgrade your plan to <b style=\"color: #0a45a4;\">Investor</b><br> or <b style=\"color: #0a45a4;\">Hodler</b> to make sure that your</br>bots will continue to work.</p>"
-        limit_reached:
-            subject: 'You''ve reached the limit 🥳'
-            template_html: "<p>Hello 👋,</p><p>Oh, well done! Your <b style=\"color: #0a45a4;\">Saver</b> plan<br>limit has been reached.</p><p>It looks like you do dollar-cost<br>averaging for a while now.</p><p>We hope you're happy about<br>the results.</p><p>Upgrade your plan to <b style=\"color: #0a45a4;\">Investor</b><br>or <b style=\"color: #0a45a4;\">Hodler</b> to remove all limits and<br>put your bots back to work.</p>"
-        notify_about_error:
-            subject: 'Something went wrong 😵'
-            template_html: "<p>Oops… 😵</p><p>Something went wrong while<br>processing the last transaction.</p><p>You can see the error in the<br>bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
-        notify_about_restart:
-            subject: 'Oops! Next try… 🧐'
-            template_html: "<p>Oh snap 🧐,</p><p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p><p>All error are visible in the bot log.<br>Sign in to check it out.</p><p>Errors:</p><blockquote> <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b> <br> <b style=\"color: #0a45a4;\">%{errors}</b> </blockquote>"
-        end_of_funds:
-            subject: 'Your bot is running out of funds soon'
-            template_html: "<p>It looks like your bot is<br>running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name}<br>to be sure the bot is working continuously.</p>"
-    bots:
-        above: above
-        add_new_bot: 'Add new bot'
-        below: below
-        buttons:
-            automatic_withdrawal: 'Automatic Withdrawal'
-            delete:
-                cancel: Cancel
-                ok: 'Remove completely'
-                text: Delete
-                warning_html: 'That will remove the bot with all<br>its historical data. Are you sure?'
-            dollar_cost_averaging: 'Dollar-Cost Averaging'
-            pending:
-                info_html: Processing...
-                text: Pending
-            start:
-                changed_missed:
-                    continue: 'Yes, buy and continue'
-                    info_html: 'Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused? The new schedule will start after the current countdown is finished.'
-                    skip: 'Ignore the missed part'
-                changed_on_schedule:
-                    continue: 'I understand'
-                    info_html: 'The new schedule will start after the remaining <b>%{time}</b> of the last one is finished.'
-                    skip: 'Ignore it and start immediately'
-                missed:
-                    continue: 'Yes, buy and continue'
-                    info_html: 'Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused, and continue the original time schedule?'
-                    skip: 'Skip the missed part'
-                on_schedule:
-                    continue: 'Continue original schedule'
-                    info_html: 'You have still <b>%{time}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.'
-                    skip: 'Skip it'
-        buy: Buy
-        counter: '%{countdown}'
-        day: Day
-        details:
-            info:
-                exchanges_html: "<p className=\"mt-2\"><b>Exchanges</b></p><p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondaglobal.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zonda\">Zonda</a>, <a href=\"https://bitfinex.com\" target=\"_blank\" rel=\"nofollow\" title=\"Bitfinex\">Bitfinex</a>, <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitso\">Bitso</a>, <a href=\"https://bitstamp.net/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitstamp\">Bitstamp</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>, <a href=\"https://kucoin.com/\" target=\"_blank\" title=\"KuCoin\">KuCoin</a> and <a href=\"https://www.probit.com/\" target=\"_blank\" title=\"ProBit Global\">ProBit Global</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Zonda if you want to make your purchases in PLN.</p><p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p><p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p><p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>New to dollar-cost averaging?</b></p><p>Those links will help:</p><ul className=\"mb-5\"> <li><a href=\"https://www.youtube.com/watch?v=CdKRjuaUtOc\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li> <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li> <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li></ul>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smart intervals\"</b></p><p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p><p className=\"mt-2\"><b>Why?</b></p><p>There are two benefits:</p><p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p><p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p><p className=\"mt-2\"><b>Example:</b></p><p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>"
-                title: Info
-            log:
-                date: Date
-                errors: Errors
-                title: Log
-            stats:
-                amount: 'Amount(%{base})'
-                average_price: 'Average price'
-                bought: Bought
-                chart:
-                    total_invested: 'Total invested'
-                    value: Value
-                csv_download_html: 'The table above shows only the last ten transactions.<br>The full report is available to download in CSV format below.'
-                current_value: 'Current value'
-                current_value_sold: 'Current value of the %{base} sold'
-                date: Date
-                download_csv: 'Download .csv'
-                exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
-                order: Order
-                profit_loss: Profit/Loss
-                rate: 'Rate(%{quote})'
-                sold: Sold
-                title: Statistics
-                total_invested: 'Total invested'
-        for: for
-        force_smart_intervals_html: 'Use <em>smart intervals</em> with orders of <split>$100</split> %{currency} each.'
-        hour: Hour
-        limit_buy: 'Limit buy'
-        limit_sell: 'Limit sell'
-        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
-        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum}USD.'
-        month: Month
-        next_buy: 'Next buy in %{countdown}'
-        next_sell: 'Next sell in %{countdown}'
-        next_withdrawal: 'Next withdrawal in %{countdown}'
-        price: 'the price'
-        price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
-        price_range_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
-        sell: Sell
-        setup:
-            binance:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu (round icon in the top right corner) go to <b>API Management</b>.'
-                instructions_3_html: 'Name the new API key by pressing <b>Create</b>.'
-                instructions_4_html: 'Confirm creation with one-time code(s).'
-                instructions_5_html: 'Make sure that <b>Enable Spot & Margin Trading</b> is checked.'
-                instructions_6_html: 'If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>18.132.181.159</b>'
-                instructions_7_html: 'Press <b>Save</b> and confirm with another one-time code if necessary.'
-                instructions_8_html: 'Remember that the Secret Key is visible only during creation, so make sure you copy both keys before leaving the view.'
-                instructions_9_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'
-            bitfinex:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner) go to <b>API Keys</b>.'
-                instructions_3_html: 'Go to <b>Create New Key</b>.'
-                instructions_4_1_html: 'Set permissions for:'
-                instructions_4_2_html: '<b>Get orders and statuses.</b>'
-                instructions_4_3_html: '<b>Create and cancel orders.</b>'
-                instructions_5_html: 'Provide <b>Label</b> to your API key.'
-                instructions_6_html: 'Press <b>Generate API key</b>.'
-                instructions_7_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'API Secret'
-                public_key: 'API Key'
-            bitso:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner) go to <b>Profile</b>.'
-                instructions_3_html: 'Pick <b>API</b> (left side).'
-                instructions_4_html: 'Press <b>Add new API</b>.'
-                instructions_5_html: 'Fill <b>API Name</b> and provide your <b>Transaction PIN</b>.'
-                instructions_6_1_html: 'Set permissions for:'
-                instructions_6_2_html: '<b>Perform trades</b>'
-                instructions_6_3_html: '<b>View balances</b>'
-                instructions_6_4_html: '<b>View account information</b>'
-                instructions_7_html: 'Press <b>Save</b>.'
-                instructions_8_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'API Secret'
-                public_key: 'API Key'
-            bitstamp:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner) go to <b>Settings</b>.'
-                instructions_3_html: 'Under <b>Access Control</b> go to <b>API access</b>.'
-                instructions_4_html: 'Press <b>New API Key</b>.'
-                instructions_5_html: 'If you want to restrict access to the key only for Deltabadger set <b>IP Address Filter</b> to this IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Set permissions for:'
-                instructions_6_2_html: '<b>Open orders.</b>'
-                instructions_6_3_html: '<b>Cancel order.</b>'
-                instructions_6_4_html: '<b>Buy limit/market orders.</b>'
-                instructions_6_5_html: '<b>Sell limit/market orders.</b>'
-                instructions_7_html: 'Press <b>Enter 2FA & Submit</b>.'
-                instructions_8_html: 'Press <b>Activate</b>.'
-                instructions_9_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'API Secret'
-                public_key: 'API Key'
-            cancel: Cancel
-            coinbase_pro:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu (top right corner) go to <b>API</b>.'
-                instructions_3_html: 'Press <b>New API Key</b>.'
-                instructions_4_1_html: 'Set permissions for:'
-                instructions_4_2_html: '<b>View</b>'
-                instructions_4_3_html: '<b>Trade</b>'
-                instructions_5_html: 'Press <b>Create API Key</b>.'
-                instructions_6_html: 'Copy and paste your new API keys into the form above.'
-                passphrase: Passphrase
-                private_key: 'Secret Key'
-                public_key: 'API Key'
-            error_info: 'Validation failed. Try again or generate new keys.'
-            api_not_available: 'Exchange API is not available'
-            frequency_limit:
-                back_to_settings: 'Back to settings'
-                limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per hour, your schedule will be executed in orders of %{price}%{currency} each.'
-                start_the_bot: 'Modify and start'
-            ftx:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'Go to the Settings menu (top right corner).'
-                instructions_3_html: 'Scroll down to the <b>API Key</b> section.'
-                instructions_4_html: 'Press <b>Create API Key</b>.'
-                instructions_5_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Private Key'
-                public_key: 'Public Key'
-            gemini:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner) go to <b>Settings</b>.'
-                instructions_3_html: 'Pick <b>API</b> (left side).'
-                instructions_4_html: 'Press <b>Create a new API key</b>.'
-                instructions_5_html: 'From the dropdown <b>Scope</b> pick <b>Primary</b>.'
-                instructions_6_html: 'Press <b>Create a new API key</b>.'
-                instructions_7_1_html: 'Set API key settings:'
-                instructions_7_2_html: '<b>Trading</b>'
-                instructions_8_html: 'Do not check <b>Require session heartbeat</b>'
-                instructions_9_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'
-            how_to_add_withdrawal_bot: 'How to set up withdrawal bot:'
-            how_to_get_keys: 'How to get API keys from %{exchange}:'
-            kraken:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
-                instructions_3_html: 'Press <b>Generate New Key</b>.'
-                instructions_4_html: 'Set permissions for:'
-                instructions_5_1_html: 'Funds:'
-                instructions_5_2_html: '<b>Query Funds</b>'
-                instructions_6_1_html: 'Order & Trades:'
-                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
-                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
-                instructions_6_4_html: '<b>Modify Orders</b>'
-                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
-                instructions_7_html: 'Press <b>Generate Key</b>.'
-                instructions_8_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Private Key'
-                public_key: 'API Key'
-                trading_agreement_html: '<b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.'
-                trading_agreement_label_html: 'I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>.'
-            kucoin:
-                instructions_10_html: 'Confirm creation of API keys by Trading Password and 2FA.'
-                instructions_11_html: 'Copy and paste your new API keys into the form above.'
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner next to the language picker) go to <b>API Management</b>.'
-                instructions_3_html: 'Press <b>Create API</b>.'
-                instructions_4_html: 'If you create your API keys for the first time, set and save <b>Trading Password</b>.'
-                instructions_5_html: 'Provide <b>API Name</b>.'
-                instructions_6_html: 'Provide and save <b>API Passphrase</b>.'
-                instructions_7_1_html: 'Set permissions for:'
-                instructions_7_2_html: '<b>General</b>'
-                instructions_7_3_html: '<b>Trade</b>'
-                instructions_8_html: 'If you want to restrict access to the key only for Deltabadger set <b>IP Restriction</b> to yes and add this IP: <b>3.18.70.231</b>'
-                instructions_9_html: 'Press <b>Next</b>.'
-                passphrase: Passphrase
-                private_key: 'API Secret'
-                public_key: 'API Key'
-            limit_warning: 'The limit order bot is an experimental feature. Not all orders will get filled. To achieve good results, you need to increase the invested amount proportionally. At the moment, Deltabadger does not yet offer any help with estimating this adjustment, so your own backtesting is necessary. Use it only if you know what you''re doing.'
-            next: Next
-            no_wallet_found: ' No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
-            probit:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the <b>My Page</b> menu (top right corner) go to <b>API Management</b>.'
-                instructions_3_html: 'Provide API key label and press <b>Create new key</b>.'
-                instructions_4_html: 'Confirm creation of API keys.'
-                instructions_5_html: 'If you want to restrict the access so only Deltabadger can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b> to this IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Set permissions for:'
-                instructions_6_2_html: '<b>Read</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Copy and paste your new Client ID and Client''s Secret Key into the form above.'
-                private_key: 'Client''s Secret Key'
-                public_key: 'Client ID'
-            set: Set
-            smart_intervals:
-                dont_show_again: 'Don''t show again'
-                info_html:
-                    force_smart_intervals: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger will execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
-                    other: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
-            step_api_key: 'API Key'
-            step_exchange: Exchange
-            step_schedule: Schedule
-            validating: Validating
-            withdrawal:
-                ftx:
-                    instructions_1_html: 'Log into your %{exchange_link} account.'
-                    instructions_2_html: 'Go to the Settings menu (top right corner).'
-                    instructions_3_html: 'Scroll down to the <b>API Key</b> section.'
-                    instructions_4_html: 'Press <b>Create API Key</b>.'
-                    instructions_5_html: 'Edit permissions and set <b>Withdrawals enabled</b>.'
-                    instructions_6_html: 'Copy and paste your new API keys into the form above.'
-                kraken:
-                    instructions_1_html: 'Log into your %{exchange_link} account.'
-                    instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
-                    instructions_3_html: 'Press <b>Generate New Key</b>.'
-                    instructions_4_html: 'Set permissions for:'
-                    instructions_5_1_html: 'Funds:'
-                    instructions_5_2_html: '<b>Query Funds</b>'
-                    instructions_5_3_html: '<b>Withdraw Funds</b>'
-                    instructions_6_html: 'Press <b>Generate Key</b>.'
-                    instructions_7_html: 'Copy and paste your new API keys into the form above.'
-            withdrawal_address:
-                ftx:
-                    instructions_10_html: 'Press <b>Schedule for whitelisting</b>.'
-                    instructions_11_html: 'Adding address to whitelist has at least one day delay on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard.'
-                    instructions_1_html: 'Log in to your %{exchange_link} account.'
-                    instructions_2_html: 'Go to the Settings menu (top right corner).'
-                    instructions_3_html: 'Go to <b>Security</b> tab.'
-                    instructions_4_html: 'In the <b>2FA for Withdrawals</b> section, disable 2FA for withdrawals by pressing <b>Disable 2FA For Withdrawals</b>.'
-                    instructions_5_html: 'In the <b>Withdrawal Destination Whitelisting</b> section, enable whitelisting by pressing <b>Restrict Withdrawals To Whitelist</b>. '
-                    instructions_6_html: 'On the same view, click the <b>Saved Addresses</b> hyperlink.'
-                    instructions_7_html: 'On the <b>Manage Saved Addresses</b> page, press <b>Create Saved Address</b>.'
-                    instructions_8_html: 'Provide withdrawal address and press <b>Save Address</b>.'
-                    instructions_9_html: 'In <b>Whitelist Status</b> column, press edit (pencil icon).'
-                kraken:
-                    instructions_1_html: 'Log in to your %{exchange_link} account.'
-                    instructions_2_html: 'Go to <b>Funding</b> → <b>Withdraw</b>.'
-                    instructions_3_html: 'Pick asset you are interested in.'
-                    instructions_4_html: 'Add new withdrawal address or manage already created addresses.'
-                    instructions_5_html: 'Copy description you assigned to withdrawal address in to the form above.'
-            withdrawal_html: 'Withdraw <split>%{currency}</split> to <split>%{address}</split> wallet.'
-            zonda:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu (top right corner) go to <b>API Settings</b>.'
-                instructions_3_html: 'Press <b>Add New Key</b>.'
-                instructions_4_1_html: 'Set permissions for:'
-                instructions_4_2_html: '<b>History</b>'
-                instructions_4_3_html: '<b>Get orders and market configurations</b>'
-                instructions_4_4_html: '<b>Manage orders and change market configurations</b>'
-                instructions_5_html: 'Press <b>Create</b>.'
-                instructions_6_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Private Key'
-                public_key: 'Public Key'
-        smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
-        start: Start
-        starting: Starting
-        stop: Pause
-        subaccounts_info: 'Use subaccount '
-        week: Week
-        withdraw_interval_html: 'Withdraw every <split>2</split> days.'
-        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
-        withdrawal_percentage: '%{percentage}% to next withdrawal'
-    cookie:
-        agree: 'I agree'
-        description: 'We use cookies to make things simpler.'
-        read_more: 'Read more'
-    days_left:
-        one: '1 day left'
-        other: '%{count} days left'
-    deltabadger: Deltabadger
-    devise:
-        confirmations:
-            confirmed: 'Your email address has been successfully confirmed.'
-            new:
-                submit: 'Resend confirmation link'
-                title: 'Resend instructions'
-            send_instructions: 'You will receive an email with instructions in a few minutes.'
-            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
-        failure:
-            already_authenticated: 'You are already signed in.'
-            inactive: 'Your account is not activated yet.'
-            invalid: 'Invalid %{authentication_keys} or password.'
-            last_attempt: 'You have one more attempt before your account is locked.'
-            locked: 'Your account is locked.'
-            not_found_in_database: 'Invalid %{authentication_keys} or password.'
-            timeout: 'Your session expired. Please sign in again to continue.'
-            unauthenticated: 'You need to sign in or sign up before continuing.'
-            unconfirmed: 'You have to confirm your email address before continuing.'
-        mailer:
-            confirmation_instructions:
-                subject: 'Welcome to Deltabadger 🎉'
-                template_html: "<p>Welcome to Deltabadger 🎉,</p><p>Automated dollar-cost averaging<br>into Bitcoin is only one click away:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Confirm my account</a></p><p>You don't remember signing up?<br>No worries. Just ignore it.</p>"
-            email_changed:
-                subject: 'New email address 📨'
-                template_html: "<p>Hello 👋,</p><p>We send this email to notify you that the email address associated with your account at Deltabadger has been changed to:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
-            password_change:
-                subject: 'New password 🔑'
-                template_html: "<p>It's done 🎉!</p><p>Your password 🔑 has been changed.</p>"
-            reset_password_instructions:
-                subject: 'Password reset 🔑'
-                template_html: "<p>Hello 👋,</p><p>It looks like you want to change<br/>your password 🔑. Smart move!</p><p>Let's go:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Change my password</a> </p><p>You didn't send this request?<br/>No worries! Just ignore it.</p>"
-            unlock_instructions:
-                subject: 'Unlock instructions 🔓'
-                template_html: "<p>Hello 👋,</p><p>We locked your account due to<br>a high number of unsuccessful log in attempts.</p><p>Click the link below to unlock it:</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Unlock my account</a></p>"
-        omniauth_callbacks:
-            failure: 'Could not authenticate you from %{kind} because "%{reason}".'
-            success: 'Successfully authenticated from %{kind} account.'
-        passwords:
-            edit:
-                submit: 'Change my password'
-                title: 'Change your password'
-            new:
-                submit: 'Send me instructions'
-                title: 'Forgot your password?'
-            no_token: 'You can''t access this page without coming from a password reset email. If you do come from a password reset email, please make sure you used the full URL provided.'
-            send_instructions: 'You will receive an email with instructions in a few minutes.'
-            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
-            updated: 'Done! Your password has been changed.'
-            updated_not_active: 'Done! Your password has been changed.'
-        registrations:
-            destroyed: 'Bye! We hope to see you again soon…'
-            edit:
-                awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
-            new:
-                email_invalid: 'Email invalid!'
-                email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
-                email_used: 'This email is already used.'
-                name_invalid: 'It doesn’t have to be real :)'
-                submit: 'Start now'
-                title_html: 'Create <span class="text-success">free</span> account'
-            signed_up: 'Nice to meet you!'
-            signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
-            signed_up_but_locked: 'Oops, your account is locked.'
-            signed_up_but_unconfirmed: 'Check your email and click in the confirmation link.'
-            update_needs_confirmation: 'Check your email and follow the confirm link to confirm your new email address.'
-            updated: 'Your account has been updated successfully.'
-            updated_but_not_signed_in: 'Your account has been updated successfully, sign again.'
-        sessions:
-            already_signed_out: 'I hate goodbyes. See you soon?'
-            new:
-                forgot_password: 'Forgot password?'
-                submit: 'Log in'
-                title: 'Sign in'
-            signed_in: 'Long time no see!'
-            signed_out: 'See you soon!'
-        unlocks:
-            send_instructions: 'You will receive an email with instructions in a few minutes.'
-            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
-            unlocked: 'Your account has been unlocked successfully. Please sign in to continue.'
+  activerecord:
     errors:
-        bitcoin_address_not_updated: 'Bitcoin address could not be updated'
-        format: '%{attribute} %{message}'
-        frequency_limit: 'Frequency limit exceeded'
-        invalid_api_keys: 'Invalid tokens'
-        limit_reached: 'Free plan limit reached'
-        messages:
-            accepted: 'must be accepted'
-            already_confirmed: 'was already confirmed, please try signing in.'
-            bad_2fa_code: 'Invalid code. Try again.'
-            bad_credentials: 'Wrong email or password.'
-            bad_credentials_with_code: 'Wrong email, password, or 2FA code.'
-            blank: 'can''t be blank'
-            confirmation: 'doesn''t match %{attribute}'
-            confirmation_period_expired: 'needs to be confirmed within %{period}, please request a new one.'
-            empty: 'can''t be empty'
-            empty_two_fa_token: 'Missed 2FA code. Try again.'
-            equal_to: 'must be equal to %{count}'
-            even: 'must be even'
-            exclusion: 'is reserved'
-            expired: 'has expired, please request a new one.'
-            greater_than: 'must be greater than %{count}'
-            greater_than_or_equal_to: 'must be greater than or equal to %{count}'
-            in: 'must be in %{count}'
-            inclusion: 'is not included in the list'
-            invalid: 'is invalid'
-            less_than: 'must be less than %{count}'
-            less_than_or_equal_to: 'must be less than or equal to %{count}'
-            model_invalid: 'Validation failed: %{errors}'
-            name_invalid: 'It doesn’t have to be real :)'
-            not_a_number: 'is not a number'
-            not_an_integer: 'must be an integer'
-            not_found: 'not found.'
-            not_locked: 'was not locked.'
-            not_saved:
-                one: '1 error prohibited this %{resource} from being saved:'
-                other: '%{count} errors prohibited this %{resource} from being saved:'
-            odd: 'must be odd'
-            other_than: 'must be other than %{count}'
-            password_not_match: 'Passwords do not match'
-            present: 'must be blank'
-            too_long:
-                one: 'is too long (maximum is 1 character)'
-                other: 'is too long (maximum is %{count} characters)'
-            too_short:
-                one: 'is too short (minimum is 1 character)'
-                other: 'is too short (minimum is %{count} characters)'
-            too_short_password: 'Password is too short'
-            too_simple_password: 'Password must contain characters from each of the following categories: uppercase characters (A-Z), lowercase characters (a-z),  digits (0-9), special characters (e.g. #,?,!).'
-            wrong_email: 'Wrong email.'
-            wrong_length:
-                one: 'is the wrong length (should be 1 character)'
-                other: 'is the wrong length (should be %{count} characters)'
-            wrong_password: 'Wrong password'
-            wrong_two_fa_token: 'Supplied code is wrong.'
-        referral_program_inactive: 'Your referral program is inactive'
-        unverified_request: 'Please refresh your browser and try again'
-    forms:
-        for_confirmation: '(for confirmation)'
-        minimum_length: '%{length} characters minimum'
-    helpers:
-        label:
-            affiliate:
-                address: 'Address of the company:'
-                btc_address: 'BTC Address'
-                btc_address_tooltip: 'BTC address to which you want to receive your payouts.'
-                check: Check
-                code_tooltip: 'Pick your desired referral code.'
-                name: 'Name of the company:'
-                vat_number: 'Vat number (optional):'
-                visible_link: Link
-                visible_name: 'Name on the preview'
-            payment:
-                birth_date: 'Birth date'
-                business_invoice: 'I need business invoice.'
-                country: Country
-                first_name: Name
-                last_name: Surname
-                other: Other
-                submit_hodler_order: 'Order Hodler plan'
-                submit_investor_order: 'Order Investor plan'
-            settings:
-                current_status: 'Current status:'
-                disable_two_fa: 'Disable 2FA'
-                disabled: Disabled
-                enable_two_fa: 'Enable 2FA'
-                enabled: Enabled
-                enter_two_fa_code: 'Enter 2FA code'
-                scan_code_info: 'Scan QR code or copy the code below:'
-            user:
-                current_password: 'Current password'
-                email: Email
-                new_password: 'New password'
-                new_password_confirmation: 'Confirm new password'
-                password: Password
-                password_confirmation: 'Password confirmation'
-                remember_me: 'Remember me'
-                terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.'
-    home:
-        confirm_registration:
-            deliverability_html: '<b>This is very important!</b><br> If you didn''t get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, email me at %{email}. <br><br>Thanks, Jan'
-            text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
-            title: Thanks!
-        contact:
-            general_questions_html: 'For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.'
-            specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
-            title: Contact
-    links:
-        about: About
-        about_html: 'About <span class="d-none d-xl-inline">the project</span>'
-        contact: Contact
-        cookies_policy: 'Cookies Policy'
-        create_account: 'Create free account'
-        dashboard: Dashboard
-        homepage: 'Link to the homepage'
-        log_in: 'Log in'
-        log_out: Logout
-        menu: Menu
-        privacy_policy: 'Privacy Policy'
-        referral_program: 'Referral program'
-        resend_link: 'Resend link'
-        settings: Settings
-        sign_up: 'Sign up'
-        start_fast: 'Start in 5 minutes'
-        start_fast_longer_html: 'Start <span class="d-none d-sm-inline">for free</span> in 5 minutes'
-        terms_and_conditions: 'Terms & Conditions'
-    mail: "<p>Hello 👋,</p><p>Sweet! Your referral link is<br>gaining traction!</p><p>We transfer a commission of</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b> </p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the<br/>badger gang!</p>"
+      models:
+        affiliate:
+          attributes:
+            code:
+              invalid_format: has to consist of uppercase alphanumeric characters
+  ads:
+    bitwarden_text: ". It's free and open-source."
+    bitwarden_title: Try Bitwarden
+    dca_2y_profit_html: If you were dollar-cost averaging into Bitcoin for the last
+      two years, you're now up <span class="text-success">+%{profit}%</span>
+    dca_profit_html: If you were dollar-cost averaging into Bitcoin for the last year,
+      you're now up <span class="text-success">+%{profit}%</span>
+    dca_standard_html: Dollar-cost averaging into Bitcoin is the new standard for
+      long-term savers.
+    dont_trade_automate_html: "<div>Don't&nbsp;trade.</div> <div>Automate.</div>"
+    features: auto-DCA on your exchange account; <i>Smart intervals</i> and five-minute
+      setup; updates and new features every month; support and Telegram community
+    password_managers_html: Password managers make security easier.
+  affiliate_mailer:
+    new_btc_address_confirmation:
+      subject: Confirm new Bitcoin address
+      template_html: <p>Ahoy captain,</p><p>It looks like you want to change your
+        Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will
+        be used for your payouts from our referral program.</p><p>Are you sure?</p><a
+        class="mail-button" href="%{confirmation_url}">Yes, let's change it!</a>
+    referrals_payout_notification:
+      subject: It's a payday!
+      template_html: "<p>Ahoy captain,</p><p>Your referral link is gaining traction!
+        Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to
+        your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>"
+    registration_reminder:
+      subject: Wow! You earned %{amount} BTC!
+      template_html: <p>Ahoy captain,</p><p>You have a new commission from the referral
+        program waiting for you! Finish registration to receive your bitcoins:</p><a
+        class="email-button" href=%{link}>Complete registration.</a>
+  affiliates:
+    add_link_info: 'You can add your name and link to your website to let the referee
+      know where the discount is coming from. You can also leave it blank:'
+    apply_code:
+      accept: Accept
+      reject: Back
+      title: Referral Link
+    btc_address_changed: Bitcoin address changed
+    btc_address_confirmation_sent: Confirmation email sent
+    create:
+      error: Referral program registration failed
+      saver_error: You have to upgrade to register
+    current_bitcoin_address: Current Bitcoin address
+    discount:
+      accepted: You have accepted the referral link
+      already_used: You have already used a referral link
+      congrats_html: Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>%
+        discount is active.
+      flash_html: Hello! enjoy %{discount_percent}% discount from <span class="text-success
+        text-success--lighter">%{visible_name}</span>
+      invalid: The referral link seems invalid or obsolete
+      referrer_html: Thanks to the referral link from <b><a href="%{visible_link}"><span
+        class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>
+      valid_for: Valid for the first purchase on the platform.
+    info_preview: 'This is a preview of what referees will see during registration:'
+    invalid_bitcoin_address: Invalid Bitcoin address
+    manual_html: <div class="alert alert-success"><p class="mt-1">Our referral program
+      <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from
+      the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin
+      is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys
+      a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC.
+      You earn 0.001BTC (20% of $49.99).</li><li>It doesn't matter if the price of
+      Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next
+      time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she
+      doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You
+      continue to profit as long as you have an active plan<sup>2</sup>, and your
+      total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins
+      is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup>
+      The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small>
+      <br> <small class="mb-5"><sup>2</sup> For the referee, the referral link works
+      even if your subscription has expired.</small> </div>
+    new:
+      checked: I checked everything carefully.
+      discount_info_html: You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>,
+        and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%
+        discount</b>.
+      discount_preview_html: <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%
+        discount for the first purchase.
+      eu_company: EU company
+      payout_address: Payout address
+      pick_referral_code: Pick your referral code
+      private: Private
+      program_settings_html: Link <span class="text-danger">(can't be changed)</span>
+      referrer_info: Referrer info
+      share_html: Share this link and <span class="text-success">earn bitcoins</span>
+      submit: Let's start!
+      thanks_referral: Thanks to the referral link from
+      title: Referral program registration
+      title_info: You can start sharing your link immediately, but to receive Bitcoin
+        payouts, you need to finish the registration first.
+      unchangable_warning: Settings in this section can't be changed later.
+      upgrade: To join our famous referral program, upgrade to one of our paid plans.
+      visible_info: Visible info
+    program_joined: You have joined the referral program
+    show:
+      deactivated:
+        contact: Contact us
+        notice: It looks like this program got deactivated. Contact us if you're not
+          sure why it happened.
+      expired: Oh, no… your subscription has expired. Renew your plan to continue
+        benefiting from your referral program.
+      info_preview: 'Preview of the info visible for referee:'
+      link_title: Your link
+      manual_title: How does it work?
+      paid_commission: Paid (BTC)
+      paid_so_far: Paid so far (BTC)
+      referees: Referees
+      stats: Stats
+      submit: Update
+      submit_bitcoin_address: Update Bitcoin address
+      submit_info: Update visible info
+      title: Referral program
+      unpaid: Unpaid (BTC)
+      unpaid_commission: To pay (BTC)
+      update_bitcoin_address: Update Bitcoin address
+      update_info: Update visible info
+      your_link: Your referral link
+    your_bitcoin_address: Your Bitcoin address
+  bot_alerts_mailer:
+    end_of_funds:
+      subject: Your bot is running out of funds soon
+      template_html: "<p>It looks like your bot is running out of %{quote} very soon.</p><p>Make
+        a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
+    first_month_ending_soon:
+      subject: First month trial ending soon!
+      template_html: "<p>Ahoy captain,</p><p>You have been using Deltabadger for almost
+        a month now!</p><p>Your free unlimited trial is ending soon. Make sure to
+        upgrade in order to keep your heavier badgers running!</p>"
+    limit_almost_reached:
+      subject: Limit almost reached
+      template_html: "<p>Ahoy captain,</p><p>You've almost reached the <b>Saver</b>
+        \ plan transaction limit.</p><p>Upgrade your plan to <b>Investor</b>  or <b>Hodler</b>
+        to make sure that your</br>bots will continue to work.</p>"
+    limit_reached:
+      subject: You've reached the limit
+      template_html: "<p>Ahoy captain,</p><p>Oh, well done! Your <b>Saver</b> plan
+        limit has been reached.</p><p>It looks like you do dollar-cost averaging for
+        a while now.</p><p>We hope you're happy about the results.</p><p>Upgrade your
+        plan to <b>Investor</b> or <b>Hodler</b> to remove all limits and put your
+        bots back to work.</p>"
+    notify_about_error:
+      subject: Something went wrong
+      template_html: "<p>Ahoy captain,</p><p>Something went wrong while processing
+        the last transaction.</p><p>You can see the error in the bot log. Sign in
+        to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b>
+        <b>%{errors}</b></blockquote>"
+    notify_about_restart:
+      subject: Oops! Next try…
+      template_html: "<p>Ahoy captain,</p><p>The bot couldn't perform your order.
+        It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error
+        are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote>
+        <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
+  bots:
+    above: above
+    add_new_bot: Add new bot
+    below: below
+    buttons:
+      automatic_withdrawal: Automatic Withdrawal
+      delete:
+        cancel: Cancel
+        ok: Remove completely
+        text: Delete
+        warning_html: That will remove the bot with all<br>its historical data. Are
+          you sure?
+      dollar_cost_averaging: Dollar-Cost Averaging
+      pending:
+        info_html: Processing…
+        text: Pending
+      start:
+        changed_missed:
+          continue: Yes, buy and continue
+          info_html: Do you want to invest <b>%{amount} %{quote}</b> missed while
+            the bot was paused? The new schedule will start after the current countdown
+            is finished.
+          skip: Ignore the missed part
+        changed_on_schedule:
+          continue: I understand
+          info_html: The new schedule will start after the remaining <b>%{time}</b>
+            of the last one is finished.
+          skip: Ignore it and start immediately
+        missed:
+          continue: Yes, buy and continue
+          info_html: Do you want to invest <b>%{amount} %{quote}</b> missed while
+            the bot was paused, and continue the original time schedule?
+          skip: Skip the missed part
+        on_schedule:
+          continue: Continue original schedule
+          info_html: You have still <b>%{time}</b> remaining to the next order. You
+            can skip it, and execute the next order immediately, or continue the original
+            countdown.
+          skip: Skip it
+    buy: Buy
+    counter: "%{countdown}"
+    day: Day
+    details:
+      info:
+        exchanges_html: '<p className="mt-2"><b>Exchanges</b></p><p>Deltabadger works
+          with cryptocurrency exchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R"
+          target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us"
+          target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondaglobal.com"
+          target="_blank" rel="nofollow" title="Zonda">Zonda</a>, <a href="https://bitfinex.com"
+          target="_blank" rel="nofollow" title="Bitfinex">Bitfinex</a>, <a href="https://bitso.com/"
+          target="_blank" rel="nofollow" title="Bitso">Bitso</a>, <a href="https://bitstamp.net/"
+          target="_blank" rel="nofollow" title="Bitstamp">Bitstamp</a>, <a href="https://pro.coinbase.com/"
+          target="_blank" rel="nofollow">Coinbase Pro</a>, <a href="https://exchange.gemini.com"
+          target="_blank" rel="nofollow">Gemini</a>, <a href="https://r.kraken.com/deltabadger"
+          target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>,
+          <a href="https://kucoin.com/" target="_blank" title="KuCoin">KuCoin</a>
+          and <a href="https://www.probit.com/" target="_blank" title="ProBit Global">ProBit
+          Global</a>. We recommend Kraken as a reputable exchange that has never been
+          hacked. Use Zonda if you want to make your purchases in PLN.</p><p>To make
+          your bot useful, first, you need to verify your exchange account and transfer
+          some funds there.</p><p>However, don''t keep your coins at any exchange
+          too long. Login to your account and do regularly withdraws at least once
+          a month.</p><p>We will add more exchanges in the future. Let us know if
+          you are interested in a particular one.</p>'
+        new_to_dca_html: <p className="mt-2"><b>New to dollar-cost averaging?</b></p><p>Those
+          links will help:</p><ul className="mb-5"> <li><a href="https://www.youtube.com/watch?v=CdKRjuaUtOc"
+          target="_blank" rel="nofollow">DCA for Beginners (video)</a></li> <li><a
+          href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6"
+          target="_blank" rel="nofollow">The power of DCA into Bitcoin</a></li> <li><a
+          href="https://www.dca-cc.com/" target="_blank" rel="nofollow">DCA Simulator</a></li></ul>
+        smart_intervals_html: <p className="mt-2"><b>"Smart intervals"</b></p><p>When
+          smart intervals are turned on, Deltabadger executes your desired schedule
+          in the smallest transactions allowed by the exchange. Otherwise, they'll
+          be used only if necessary.</p><p className="mt-2"><b>Why?</b></p><p>There
+          are two benefits:</p><p>The more frequent schedule allows you to experience
+          the benefits of DCA quicker and smooths it out even more.</p><p>Also, sometimes
+          smart intervals are necessary. Every exchange has a minimum transaction
+          size limit. Some exchanges define it in BTC, so the USD value changes over
+          time. If the amount you want to buy is smaller, Deltabadger keeps your desired
+          ratio using the minimum allowed size but adjusting the time interval. It
+          protects bot from being stopped when your defined amount falls below the
+          threshold.</p><p className="mt-2"><b>Example:</b></p><p>Let's say the current
+          exchange limit is $20. If you set the transaction size for $24/day, the
+          bot will do exactly that. However, if you define it as $1/hour, it will
+          mimic the ratio using the allowed size, which equals $20 every 20 hours.
+          On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>
+        title: Info
+      log:
+        date: Date
+        errors: Errors
+        title: Log
+      stats:
+        amount: Amount(%{base})
+        average_price: Average price
+        bought: Bought
+        chart:
+          total_invested: Total invested
+          value: Value
+        csv_download_html: The table above shows only the last ten transactions.<br>The
+          full report is available to download in CSV format below.
+        current_value: Current value
+        current_value_sold: Current value of the %{base} sold
+        date: Date
+        download_csv: Download .csv
+        exchange_unavailable_html: The exchange API does not respond at the moment.<br>Calculations
+          are based on the last data available.
+        order: Order
+        profit_loss: Profit/Loss
+        rate: Rate(%{quote})
+        sold: Sold
+        title: Statistics
+        total_invested: Total invested
+    for: for
+    force_smart_intervals_html: Use <em>smart intervals</em> with orders of <split>$100</split>
+      %{currency} each.
+    hour: Hour
+    limit_buy: Limit buy
+    limit_sell: Limit sell
+    minimum_withdrawal_disclaimer: The minimum withdrawal size is %{minimum}%{currency}.
+    minimum_withdrawal_disclaimer_usd: The minimum withdrawal size is %{minimum}USD.
+    month: Month
+    next_buy: Next buy in %{countdown}
+    next_sell: Next sell in %{countdown}
+    next_withdrawal: Next withdrawal in %{countdown}
+    price: the price
+    price_range_buy_html: Buy only in the price range from <split>$100</split> to
+      <split>$1000</split> %{currency}.
+    price_range_html: Buy only in the price range from <split>$100</split> to <split>$1000</split>
+      %{currency}.
+    price_range_sell_html: Sell only in the price range from <split>$100</split> to
+      <split>$1000</split> %{currency}.
+    sell: Sell
+    setup:
+      api_not_available: Exchange API is not available
+      binance:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In user menu (round icon in the top right corner) go
+          to <b>API Management</b>.
+        instructions_3_html: Name the new API key by pressing <b>Create</b>.
+        instructions_4_html: Confirm creation with one-time code(s).
+        instructions_5_html: Make sure that <b>Enable Spot & Margin Trading</b> is
+          checked.
+        instructions_6_html: 'If you want to restrict access to the key only for Deltabadger,
+          click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs
+          only (Recommended)</b>, and add this IP in the next step: <b>18.132.181.159</b>'
+        instructions_7_html: Press <b>Save</b> and confirm with another one-time code
+          if necessary.
+        instructions_8_html: Remember that the Secret Key is visible only during creation,
+          so make sure you copy both keys before leaving the view.
+        instructions_9_html: Copy and paste your new API keys into the form above.
+        private_key: Secret Key
+        public_key: API Key
+      bitfinex:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In the account menu (top right corner) go to <b>API Keys</b>.
+        instructions_3_html: Go to <b>Create New Key</b>.
+        instructions_4_1_html: 'Set permissions for:'
+        instructions_4_2_html: "<b>Get orders and statuses.</b>"
+        instructions_4_3_html: "<b>Create and cancel orders.</b>"
+        instructions_5_html: Provide <b>Label</b> to your API key.
+        instructions_6_html: Press <b>Generate API key</b>.
+        instructions_7_html: Copy and paste your new API keys into the form above.
+        private_key: API Secret
+        public_key: API Key
+      bitso:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In the account menu (top right corner) go to <b>Profile</b>.
+        instructions_3_html: Pick <b>API</b> (left side).
+        instructions_4_html: Press <b>Add new API</b>.
+        instructions_5_html: Fill <b>API Name</b> and provide your <b>Transaction
+          PIN</b>.
+        instructions_6_1_html: 'Set permissions for:'
+        instructions_6_2_html: "<b>Perform trades</b>"
+        instructions_6_3_html: "<b>View balances</b>"
+        instructions_6_4_html: "<b>View account information</b>"
+        instructions_7_html: Press <b>Save</b>.
+        instructions_8_html: Copy and paste your new API keys into the form above.
+        private_key: API Secret
+        public_key: API Key
+      bitstamp:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In the account menu (top right corner) go to <b>Settings</b>.
+        instructions_3_html: Under <b>Access Control</b> go to <b>API access</b>.
+        instructions_4_html: Press <b>New API Key</b>.
+        instructions_5_html: 'If you want to restrict access to the key only for Deltabadger
+          set <b>IP Address Filter</b> to this IP: <b>3.18.70.231</b>'
+        instructions_6_1_html: 'Set permissions for:'
+        instructions_6_2_html: "<b>Open orders.</b>"
+        instructions_6_3_html: "<b>Cancel order.</b>"
+        instructions_6_4_html: "<b>Buy limit/market orders.</b>"
+        instructions_6_5_html: "<b>Sell limit/market orders.</b>"
+        instructions_7_html: Press <b>Enter 2FA & Submit</b>.
+        instructions_8_html: Press <b>Activate</b>.
+        instructions_9_html: Copy and paste your new API keys into the form above.
+        private_key: API Secret
+        public_key: API Key
+      cancel: Cancel
+      coinbase_pro:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In user menu (top right corner) go to <b>API</b>.
+        instructions_3_html: Press <b>New API Key</b>.
+        instructions_4_1_html: 'Set permissions for:'
+        instructions_4_2_html: "<b>View</b>"
+        instructions_4_3_html: "<b>Trade</b>"
+        instructions_5_html: Press <b>Create API Key</b>.
+        instructions_6_html: Copy and paste your new API keys into the form above.
+        passphrase: Passphrase
+        private_key: Secret Key
+        public_key: API Key
+      error_info: Validation failed. Try again or generate new keys.
+      frequency_limit:
+        back_to_settings: Back to settings
+        limit_exceeded: To meet the bot limit of %{frequency_limit} transactions per
+          hour, your schedule will be executed in orders of %{price}%{currency} each.
+        start_the_bot: Modify and start
+      ftx:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: Go to the Settings menu (top right corner).
+        instructions_3_html: Scroll down to the <b>API Key</b> section.
+        instructions_4_html: Press <b>Create API Key</b>.
+        instructions_5_html: Copy and paste your new API keys into the form above.
+        private_key: Private Key
+        public_key: Public Key
+      gemini:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In the account menu (top right corner) go to <b>Settings</b>.
+        instructions_3_html: Pick <b>API</b> (left side).
+        instructions_4_html: Press <b>Create a new API key</b>.
+        instructions_5_html: From the dropdown <b>Scope</b> pick <b>Primary</b>.
+        instructions_6_html: Press <b>Create a new API key</b>.
+        instructions_7_1_html: 'Set API key settings:'
+        instructions_7_2_html: "<b>Trading</b>"
+        instructions_8_html: Do not check <b>Require session heartbeat</b>
+        instructions_9_html: Copy and paste your new API keys into the form above.
+        private_key: Secret Key
+        public_key: API Key
+      how_to_add_withdrawal_bot: 'How to set up withdrawal bot:'
+      how_to_get_keys: 'How to get API keys from %{exchange}:'
+      kraken:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In user menu go to <b>Security</b> → <b>API</b>.
+        instructions_3_html: Press <b>Generate New Key</b>.
+        instructions_4_html: 'Set permissions for:'
+        instructions_5_1_html: 'Funds:'
+        instructions_5_2_html: "<b>Query Funds</b>"
+        instructions_6_1_html: 'Order & Trades:'
+        instructions_6_2_html: "<b>Query Open Orders & Trades</b>"
+        instructions_6_3_html: "<b>Query Closed Orders & Trades</b>"
+        instructions_6_4_html: "<b>Modify Orders</b>"
+        instructions_6_5_html: "<b>Cancel/Close Orders</b>"
+        instructions_7_html: Press <b>Generate Key</b>.
+        instructions_8_html: Copy and paste your new API keys into the form above.
+        private_key: Private Key
+        public_key: API Key
+        trading_agreement_html: <b>Hallo!</b> If your Kraken account is verified with
+          a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952"
+          target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>
+          in order to place market and margin orders.
+        trading_agreement_label_html: I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952"
+          target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>.
+      kucoin:
+        instructions_10_html: Confirm creation of API keys by Trading Password and
+          2FA.
+        instructions_11_html: Copy and paste your new API keys into the form above.
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In the account menu (top right corner next to the language
+          picker) go to <b>API Management</b>.
+        instructions_3_html: Press <b>Create API</b>.
+        instructions_4_html: If you create your API keys for the first time, set and
+          save <b>Trading Password</b>.
+        instructions_5_html: Provide <b>API Name</b>.
+        instructions_6_html: Provide and save <b>API Passphrase</b>.
+        instructions_7_1_html: 'Set permissions for:'
+        instructions_7_2_html: "<b>General</b>"
+        instructions_7_3_html: "<b>Trade</b>"
+        instructions_8_html: 'If you want to restrict access to the key only for Deltabadger
+          set <b>IP Restriction</b> to yes and add this IP: <b>3.18.70.231</b>'
+        instructions_9_html: Press <b>Next</b>.
+        passphrase: Passphrase
+        private_key: API Secret
+        public_key: API Key
+      limit_warning: The limit order bot is an experimental feature. Not all orders
+        will get filled. To achieve good results, you need to increase the invested
+        amount proportionally. At the moment, Deltabadger does not yet offer any help
+        with estimating this adjustment, so your own backtesting is necessary. Use
+        it only if you know what you're doing.
+      next: Next
+      no_wallet_found: " No wallet found. Go to %{exchangeName} and add a withdrawal
+        wallet."
+      probit:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In the <b>My Page</b> menu (top right corner) go to <b>API
+          Management</b>.
+        instructions_3_html: Provide API key label and press <b>Create new key</b>.
+        instructions_4_html: Confirm creation of API keys.
+        instructions_5_html: 'If you want to restrict the access so only Deltabadger
+          can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b>
+          to this IP: <b>3.18.70.231</b>'
+        instructions_6_1_html: 'Set permissions for:'
+        instructions_6_2_html: "<b>Read</b>"
+        instructions_6_3_html: "<b>Trading</b>"
+        instructions_7_html: Copy and paste your new Client ID and Client's Secret
+          Key into the form above.
+        private_key: Client's Secret Key
+        public_key: Client ID
+      set: Set
+      smart_intervals:
+        dont_show_again: Don't show again
+        info_html:
+          force_smart_intervals: For %{base}%{quote}, %{exchangeName} has a minimum
+            order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}.
+            Deltabadger will execute this schedule using %{minimumValue}%{minimumCurrency}
+            orders, and adjusting the time interval to match your schedule. We call
+            it <i>smart intervals</i>.
+          other: For %{base}%{quote}, %{exchangeName} has a minimum order size of
+            <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger
+            may execute this schedule using %{minimumValue}%{minimumCurrency} orders,
+            and adjusting the time interval to match your schedule. We call it <i>smart
+            intervals</i>.
+      step_api_key: API Key
+      step_exchange: Exchange
+      step_schedule: Schedule
+      validating: Validating
+      withdrawal:
+        ftx:
+          instructions_1_html: Log into your %{exchange_link} account.
+          instructions_2_html: Go to the Settings menu (top right corner).
+          instructions_3_html: Scroll down to the <b>API Key</b> section.
+          instructions_4_html: Press <b>Create API Key</b>.
+          instructions_5_html: Edit permissions and set <b>Withdrawals enabled</b>.
+          instructions_6_html: Copy and paste your new API keys into the form above.
+        kraken:
+          instructions_1_html: Log into your %{exchange_link} account.
+          instructions_2_html: In user menu go to <b>Security</b> → <b>API</b>.
+          instructions_3_html: Press <b>Generate New Key</b>.
+          instructions_4_html: 'Set permissions for:'
+          instructions_5_1_html: 'Funds:'
+          instructions_5_2_html: "<b>Query Funds</b>"
+          instructions_5_3_html: "<b>Withdraw Funds</b>"
+          instructions_6_html: Press <b>Generate Key</b>.
+          instructions_7_html: Copy and paste your new API keys into the form above.
+      withdrawal_address:
+        ftx:
+          instructions_10_html: Press <b>Schedule for whitelisting</b>.
+          instructions_11_html: Adding address to whitelist has at least one day delay
+            on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard.
+          instructions_1_html: Log in to your %{exchange_link} account.
+          instructions_2_html: Go to the Settings menu (top right corner).
+          instructions_3_html: Go to <b>Security</b> tab.
+          instructions_4_html: In the <b>2FA for Withdrawals</b> section, disable
+            2FA for withdrawals by pressing <b>Disable 2FA For Withdrawals</b>.
+          instructions_5_html: 'In the <b>Withdrawal Destination Whitelisting</b>
+            section, enable whitelisting by pressing <b>Restrict Withdrawals To Whitelist</b>. '
+          instructions_6_html: On the same view, click the <b>Saved Addresses</b>
+            hyperlink.
+          instructions_7_html: On the <b>Manage Saved Addresses</b> page, press <b>Create
+            Saved Address</b>.
+          instructions_8_html: Provide withdrawal address and press <b>Save Address</b>.
+          instructions_9_html: In <b>Whitelist Status</b> column, press edit (pencil
+            icon).
+        kraken:
+          instructions_1_html: Log in to your %{exchange_link} account.
+          instructions_2_html: Go to <b>Funding</b> → <b>Withdraw</b>.
+          instructions_3_html: Pick asset you are interested in.
+          instructions_4_html: Add new withdrawal address or manage already created
+            addresses.
+          instructions_5_html: Copy description you assigned to withdrawal address
+            in to the form above.
+      withdrawal_html: Withdraw <split>%{currency}</split> to <split>%{address}</split>
+        wallet.
+      zonda:
+        instructions_1_html: Log into your %{exchange_link} account.
+        instructions_2_html: In user menu (top right corner) go to <b>API Settings</b>.
+        instructions_3_html: Press <b>Add New Key</b>.
+        instructions_4_1_html: 'Set permissions for:'
+        instructions_4_2_html: "<b>History</b>"
+        instructions_4_3_html: "<b>Get orders and market configurations</b>"
+        instructions_4_4_html: "<b>Manage orders and change market configurations</b>"
+        instructions_5_html: Press <b>Create</b>.
+        instructions_6_html: Copy and paste your new API keys into the form above.
+        private_key: Private Key
+        public_key: Public Key
+    smart_intervals_disclaimer: Orders size on %{exchange} is defined in %{currency}.
+      The minimum order size is %{minimum}%{currency}.
+    smart_intervals_disclaimer_base: Orders size on %{exchange} is defined in %{currency}.
+      The minimum order size is %{minimum}%{currency}.
+    smart_intervals_disclaimer_quote: The minimum order size is %{minimum}%{currency}.
+    start: Start
+    starting: Starting
+    stop: Pause
+    subaccounts_info: 'Use subaccount '
+    week: Week
+    withdraw_interval_html: Withdraw every <split>2</split> days.
+    withdraw_threshold_html: Withdraw when at least <split>0.001</split> %{currency}
+      is available.
+    withdrawal_percentage: "%{percentage}% to next withdrawal"
+  cookie:
+    agree: I agree
+    description: We use cookies to make things simpler.
+    read_more: Read more
+  days_left:
+    one: 1 day left
+    other: "%{count} days left"
+  deltabadger: Deltabadger
+  devise:
+    confirmations:
+      confirmed: Your email address has been successfully confirmed.
+      new:
+        submit: Resend confirmation link
+        title: Resend instructions
+      send_instructions: You will receive an email with instructions in a few minutes.
+      send_paranoid_instructions: You will receive an email with instructions in a
+        few minutes.
+    failure:
+      already_authenticated: You are already signed in.
+      inactive: Your account is not activated yet.
+      invalid: Invalid %{authentication_keys} or password.
+      last_attempt: You have one more attempt before your account is locked.
+      locked: Your account is locked.
+      not_found_in_database: Invalid %{authentication_keys} or password.
+      timeout: Your session expired. Please sign in again to continue.
+      unauthenticated: You need to sign in or sign up before continuing.
+      unconfirmed: You have to confirm your email address before continuing.
     mailer:
-        signature_html: 'Deltabadger Team'
-    meta:
-        desc: 'Start for free the most-proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC.'
-        title: 'Deltabadger • Automate Dollar-Cost Averaging into Any Crypto'
-        title_short: 'Deltabadger • Auto-DCA into Bitcoin and Other Assets'
-        twitter_image_alt: 'Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets.'
-    referral:
-        banner_html: '<b>Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!</b>'
-        copied: Copied!
-    settings:
-        index:
-            api_key_confirmation: 'Are you sure?'
-            api_keys_section: 'API keys'
-            current_password: 'Current password (for confirmation)'
-            email_section: Email
-            name_section: Name
-            password_section: Password
-            submit_email: 'Update email'
-            submit_name: 'Update name'
-            submit_password: 'Change password'
-            title: Settings
-            two_factor_section: 'Second Factor Authentication'
-    social:
-        blog: 'Read our blog'
-        knowledge_base: 'Knowledge base'
-        telegram: 'Join our Telegram group'
-        twitter: 'Follow us on Twitter'
-    subscription_mailer:
-        invoice:
-            subject: 'Deltabadger Payment'
-            template_html: "<h1>Invoice</h1><p><b>Paid at:</b></p><p>%{paid_at}</p><p><b>Seller:</b></p><p> Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn <br> Estonia <br> Reg.No.14781461</p><p><b>Buyer:</b></p><p> %{first_name} %{last_name} <br> %{email}</p><h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2><p> <b>Paid:</b></p><h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: '%{plan_name} plan granted'
-            template_html: "<p>Wow 💙,</p><p>Thanks for buying our</p><p> <b> %{years}-year %{plan_name} plan </b></p><p>You rock! 🔥</p>"
-    subscriptions:
-        days_left:
-            one: '1 day left'
-            other: '%{count} days left'
-        hodler: Hodler
-        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">automatic staking</b>(soon). This plan supports the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
-        investor: Investor
-        investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b>.'
-        legendary_badger: 'Legendary Badger NFT'
-        legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p><b>Never pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, the pricing will go up, but you''ll have lifetime access to everything for free.</p><p>Sell your subscription any time on decentralized markets. Yes! Nothing like this exists on the market.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your DCA status, and be Legendary.</p>'
-        limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
-        maximalist_info: 'If you buy only Bitcoin, you pay half of the regular price.'
-        maximalist_title: 'Bitcoin Maximalist discount 50%'
-        payment:
-            account_holder: 'Account holder'
-            account_number: 'Account number'
-            account_type: 'Account type'
-            active_plan_discount: 'Active plan discount'
-            after_wire_transfer_html: 'Thank you! We''ll be back to you soon! If you need further assistance, let us know: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
-            bank_address: 'Bank address'
-            billing_information: 'Billing information'
-            bitcoin: Bitcoin
-            card_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
-            compensation_hodler:
-                one: 'Compensation for 1 unused day of the Hodler plan.'
-                other: 'Compensation for %{count} unused days of the Hodler plan.'
-            compensation_investor:
-                one: 'Compensation for 1 unused day of the Investor plan.'
-                other: 'Compensation for %{count} unused days of the Investor plan.'
-            discount: '%{discount_percent}% discount'
-            early_bird_discount: 'Early Bird discount'
-            early_bird_discount_info: 'With every sale the discount decreases $1. Don''t wait!'
-            eu_bank_country: Belgium
-            invalid_vat_number: 'Invalid EU VAT number'
-            paid_with_wire_transfer: 'I made SEPA transfer'
-            paid_with_wire_transfer_other: 'I made wire transfer'
-            pay: Pay
-            pay_with_bitcoin: 'Pay with Bitcoin'
-            payment_ordered: 'Payment ordered!'
-            referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
-            routing_number: 'Routing number'
-            server_error: 'payments server error. try again later'
-            vat: VAT
-            wire_cost_hodler_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
-            wire_cost_investor_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> to the following bank account:'
-            wire_cost_legendary_badger_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
-            wire_cost_pending_html: 'If you didn’t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
-            wire_transfer: 'Wire Transfer'
-            wire_transfer_description_html: 'To pay with a wire transfer, send a basic info for the invoice: <b>name</b>, <b>surname</b>, <b>physical address</b>, <b>email</b> used at Deltabadger, and the plan you want buy: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
-            wire_transfer_fill_form: 'Please, fill the form above to proceed…'
-            wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
-            you_pay: 'You pay'
-        plan_1_year: '1-year plan'
-        plan_4_year: '4-year plan'
-        plan_life_time: 'Lifetime Plan'
-        prolong_upgrade: 'Upgrade your plan'
-        saver: Saver
-        upgrade: Upgrade
-        upgrade_plan: 'Upgrade plan'
-    welcome:
-        banner_html: "Hey! <b>Check your mailbox</b> and find tips and tricks of the perfect bot setup I prepared for you. <b>If it landed in the spam folder, move it to your inbox</b>, so you can see our messages in the future. Thanks, Jan"
-        banner_html_old: "Welcome to Deltabadger! You're currently on the <b>free plan with a transaction limit of $1200/year</b>, but it will not be enforced for the first month. Try any schedule you want. You can also upgrade it to enjoy unlimited transactions later on. The 4-year Hodler plan additionally gives access to new experimental features (e.g. all currencies on the exchange). All feedback is appreciated. Join our <a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram group</a>, and follow us on <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Happy averaging!"
-        default: 'Hi, welcome to Deltabadger'
-        saver: 'Get rid of the limits, and make an upgrade!'
+      confirmation_instructions:
+        subject: Confirm email address
+        template_html: <p>Ahoy captain,</p><p>Your email address is one click away from joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p><a class="mail-button" href="%{confirmation_url}">Confirm
+          this email</a>
+      email_changed:
+        subject: Email confirmed
+        template_html: "<p>Ahoy captain,</p><p>Done! This is your brand new and shiny
+          Deltabadger address:</p><p><b>%{email}</b></p>"
+      password_change:
+        subject: Password changed
+        template_html: "<p>It's done!</p><p>Your password has been changed.</p><p>Your
+          secrets are safer than ever!</p>"
+      reset_password_instructions:
+        subject: Password recovery
+        template_html: <p>Ahoy captain,</p><p>Password recovery initiated! Hang tight,
+          we'll have you back in the game in no time.</p><a class="mail-button" href="%{edit_password_url}">Change
+          my password</a>
+      unlock_instructions:
+        subject: Unlock instructions
+        template_html: <p>Ahoy captain,</p><p>We locked your account due to<br>a high
+          number of unsuccessful log in attempts.</p><p>Click the link below to unlock
+          it:</p><a class="mail-button" href="%{unlock_url}">Unlock my account</a>
+    omniauth_callbacks:
+      failure: Could not authenticate you from %{kind} because "%{reason}".
+      success: Successfully authenticated from %{kind} account.
+    passwords:
+      edit:
+        submit: Change my password
+        title: Change your password
+      new:
+        submit: Send me instructions
+        title: Forgot your password?
+      no_token: You can't access this page without coming from a password reset email.
+        If you do come from a password reset email, please make sure you used the
+        full URL provided.
+      send_instructions: You will receive an email with instructions in a few minutes.
+      send_paranoid_instructions: You will receive an email with instructions in a
+        few minutes.
+      updated: Done! Your password has been changed.
+      updated_not_active: Done! Your password has been changed.
+    registrations:
+      destroyed: Bye! We hope to see you again soon…
+      edit:
+        awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
+      new:
+        email_invalid: Email invalid!
+        email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
+        email_used: This email is already used.
+        name_invalid: It doesn't have to be real :)
+        submit: Start now
+        title_html: Create <span class="text-success">free</span> account
+      signed_up: Nice to meet you!
+      signed_up_but_inactive: Hi, your account is not yet activated. Have you checked
+        your email?
+      signed_up_but_locked: Oops, your account is locked.
+      signed_up_but_unconfirmed: Check your email and click in the confirmation link.
+      update_needs_confirmation: Check your email and follow the confirm link to confirm
+        your new email address.
+      updated: Your account has been updated successfully.
+      updated_but_not_signed_in: Your account has been updated successfully, sign
+        again.
+    sessions:
+      already_signed_out: I hate goodbyes. See you soon?
+      new:
+        forgot_password: Forgot password?
+        submit: Log in
+        title: Sign in
+      signed_in: Long time no see!
+      signed_out: See you soon!
+    unlocks:
+      send_instructions: You will receive an email with instructions in a few minutes.
+      send_paranoid_instructions: You will receive an email with instructions in a
+        few minutes.
+      unlocked: Your account has been unlocked successfully. Please sign in to continue.
+  errors:
+    bitcoin_address_not_updated: Bitcoin address could not be updated
+    format: "%{attribute} %{message}"
+    frequency_limit: Frequency limit exceeded
+    invalid_api_keys: Invalid tokens
+    limit_reached: Free plan limit reached
+    messages:
+      accepted: must be accepted
+      already_confirmed: was already confirmed, please try signing in.
+      bad_2fa_code: Invalid code. Try again.
+      bad_credentials: Wrong email or password.
+      bad_credentials_with_code: Wrong email, password, or 2FA code.
+      blank: can't be blank
+      confirmation: doesn't match %{attribute}
+      confirmation_period_expired: needs to be confirmed within %{period}, please
+        request a new one.
+      empty: can't be empty
+      empty_two_fa_token: Missed 2FA code. Try again.
+      equal_to: must be equal to %{count}
+      even: must be even
+      exclusion: is reserved
+      expired: has expired, please request a new one.
+      greater_than: must be greater than %{count}
+      greater_than_or_equal_to: must be greater than or equal to %{count}
+      in: must be in %{count}
+      inclusion: is not included in the list
+      invalid: is invalid
+      less_than: must be less than %{count}
+      less_than_or_equal_to: must be less than or equal to %{count}
+      model_invalid: 'Validation failed: %{errors}'
+      name_invalid: It doesn't have to be real :)
+      not_a_number: is not a number
+      not_an_integer: must be an integer
+      not_found: not found.
+      not_locked: was not locked.
+      not_saved:
+        one: '1 error prohibited this %{resource} from being saved:'
+        other: "%{count} errors prohibited this %{resource} from being saved:"
+      odd: must be odd
+      other_than: must be other than %{count}
+      password_not_match: Passwords do not match
+      present: must be blank
+      too_long:
+        one: is too long (maximum is 1 character)
+        other: is too long (maximum is %{count} characters)
+      too_short:
+        one: is too short (minimum is 1 character)
+        other: is too short (minimum is %{count} characters)
+      too_short_password: Password is too short
+      too_simple_password: 'Password must contain characters from each of the following
+        categories: uppercase characters (A-Z), lowercase characters (a-z),  digits
+        (0-9), special characters (e.g. #,?,!).'
+      wrong_email: Wrong email.
+      wrong_length:
+        one: is the wrong length (should be 1 character)
+        other: is the wrong length (should be %{count} characters)
+      wrong_password: Wrong password
+      wrong_two_fa_token: Supplied code is wrong.
+    referral_program_inactive: Your referral program is inactive
+    unverified_request: Please refresh your browser and try again
+  forms:
+    for_confirmation: "(for confirmation)"
+    minimum_length: "%{length} characters minimum"
+  helpers:
+    label:
+      affiliate:
+        address: 'Address of the company:'
+        btc_address: BTC Address
+        btc_address_tooltip: BTC address to which you want to receive your payouts.
+        check: Check
+        code_tooltip: Pick your desired referral code.
+        name: 'Name of the company:'
+        vat_number: 'Vat number (optional):'
+        visible_link: Link
+        visible_name: Name on the preview
+      payment:
+        birth_date: Birth date
+        business_invoice: I need business invoice.
+        country: Country
+        first_name: Name
+        last_name: Surname
+        other: Other
+        submit_hodler_order: Order Hodler plan
+        submit_investor_order: Order Investor plan
+      settings:
+        current_status: 'Current status:'
+        disable_two_fa: Disable 2FA
+        disabled: Disabled
+        enable_two_fa: Enable 2FA
+        enabled: Enabled
+        enter_two_fa_code: Enter 2FA code
+        scan_code_info: 'Scan QR code or copy the code below:'
+      user:
+        current_password: Current password
+        email: Email
+        new_password: New password
+        new_password_confirmation: Confirm new password
+        password: Password
+        password_confirmation: Password confirmation
+        remember_me: Remember me
+        terms_and_conditions_tooltip: By continuing I agree to the %{terms_and_conditions}
+          and %{privacy_policy} of Deltabadger.
+  home:
+    confirm_registration:
+      deliverability_html: "<b>This is very important!</b><br> If you didn't get the
+        confirmation email, check your <b>junk folder</b>. If you still cannot find
+        it, please, email me at %{email}. <br><br>Thanks, Jan"
+      text_html: Check your mailbox and click on the <b>confirmation link</b> we've
+        sent to you. Then go to the login page.
+      title: Thanks!
+    contact:
+      general_questions_html: 'For general questions, please try our <a class="db-social-link"
+        href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram
+        channel</a>. This is usually the quickest way to get an answer. Also: all
+        feedback, product ideas, and exchange requests are welcomed.'
+      specific_questions_html: 'For more specific issues, email us: %{email}, or a
+        direct message on Telegram or <a class="db-social-link" href="https://twitter.com/deltabadgerapp"
+        target="_blank" rel="nofollow">Twitter</a>.'
+      title: Contact
+  links:
+    about: About
+    about_html: About <span class="d-none d-xl-inline">the project</span>
+    contact: Contact
+    cookies_policy: Cookies Policy
+    create_account: Create free account
+    dashboard: Dashboard
+    homepage: Link to the homepage
+    log_in: Log in
+    log_out: Logout
+    menu: Menu
+    privacy_policy: Privacy Policy
+    referral_program: Referral program
+    resend_link: Resend link
+    settings: Settings
+    sign_up: Sign up
+    start_fast: Start in 5 minutes
+    start_fast_longer_html: Start <span class="d-none d-sm-inline">for free</span>
+      in 5 minutes
+    terms_and_conditions: Terms & Conditions
+  mail: '<p>Ahoy captain,</p><p>Sweet! Your referral link is<br>gaining traction!</p><p>We
+    transfer a commission of</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b>
+    </p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
+  mailer:
+    signature_html: Deltabadger Team
+  meta:
+    desc: Start for free the most-proven strategy that works with Binance, Coinbase,
+      Kraken, Kucoin, and other exchanges. No KYC.
+    title: Deltabadger • Automate Dollar-Cost Averaging into Any Crypto
+    title_short: Deltabadger • Auto-DCA into Bitcoin and Other Assets
+    twitter_image_alt: Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot,
+      Cardano, Solana, and other digital assets.
+  referral:
+    banner_html: Share your referral link with friends, and <a href="/referral-program"
+      alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin
+      is to earn it!
+    copied: Copied!
+  settings:
+    index:
+      api_key_confirmation: Are you sure?
+      api_keys_section: API keys
+      current_password: Current password (for confirmation)
+      email_section: Email
+      name_section: Name
+      password_section: Password
+      submit_email: Update email
+      submit_name: Update name
+      submit_password: Change password
+      title: Settings
+      two_factor_section: Second Factor Authentication
+  social:
+    blog: Read our blog
+    knowledge_base: Knowledge base
+    telegram: Join our Telegram group
+    twitter: Follow us on Twitter
+  subscription_mailer:
+    invoice:
+      subject: Deltabadger Payment
+      template_html: "<h1>Invoice</h1><p><b>Paid at:</b></p><p>%{paid_at}</p><p><b>Seller:</b></p><p>
+        Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn <br> Estonia <br>
+        Reg.No.14781461</p><p><b>Buyer:</b></p><p> %{first_name} %{last_name} <br>
+        %{email}</p><h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2><p> <b>Paid:</b></p><h2>%{total_paid}
+        %{currency}</h2>"
+    subscription_granted:
+      subject: "%{plan_name} plan granted"
+      template_html: "<p>Wow,</p><p>Thanks for buying our <b>%{plan_name} plan</b></p><p>You
+        rock!</p>"
+  subscriptions:
+    days_left:
+      one: 1 day left
+      other: "%{count} days left"
+    hodler: Hodler
+    hodler_description_html: DCA works best as a long-term commitment. Four years
+      of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge
+      badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit
+      orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge
+      badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon),
+      <b class="badge badge-limit">automatic staking</b>(soon). This plan supports
+      the project, and that's why Hodlers get <b class="badge badge-priority">priority
+      access</b> to all new features.
+    investor: Investor
+    investor_description_html: One year of <b class="badge badge-btc">unlimited transactions</b>,
+      <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic
+      withdrawals</b>.
+    legendary_badger: Legendary Badger NFT
+    legendary_badger_description_html: <p>One of a kind. Limited. Legendary.</p><p><b>Never
+      pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio
+      rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b>
+      launch, the pricing will go up, but you'll have lifetime access to everything
+      for free.</p><p>Sell your subscription any time on decentralized markets. Yes!
+      Nothing like this exists on the market.</p><p>Each token is associated with
+      procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/"
+      class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community
+      for financial freedom seekers. Within a private Telegram channel, your voice
+      will be important in the further growth of the platform. Together we make history.</p><p>Only
+      1000 sits on the Legendary Badgers' spaceship. Cement your DCA status, and be
+      Legendary.</p>
+    limit_reached_html: "<b>Congrats!</b> You have reached our free transaction limit
+      of $1200/year. To continue, upgrade to the unlimited plan."
+    maximalist_info: If you buy only Bitcoin, you pay half of the regular price.
+    maximalist_title: Bitcoin Maximalist discount 50%
+    payment:
+      account_holder: Account holder
+      account_number: Account number
+      account_type: Account type
+      active_plan_discount: Active plan discount
+      after_wire_transfer_html: 'Thank you! We''ll be back to you soon! If you need
+        further assistance, let us know: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+      bank_address: Bank address
+      billing_information: Billing information
+      bitcoin: Bitcoin
+      card_payment_succeeded: Payment succeeded, you should be redirected within few
+        seconds.
+      compensation_hodler:
+        one: Compensation for 1 unused day of the Hodler plan.
+        other: Compensation for %{count} unused days of the Hodler plan.
+      compensation_investor:
+        one: Compensation for 1 unused day of the Investor plan.
+        other: Compensation for %{count} unused days of the Investor plan.
+      discount: "%{discount_percent}% discount"
+      early_bird_discount: Early Bird discount
+      early_bird_discount_info: With every sale the discount decreases $1. Don't wait!
+      eu_bank_country: Belgium
+      invalid_vat_number: Invalid EU VAT number
+      paid_with_wire_transfer: I made SEPA transfer
+      paid_with_wire_transfer_other: I made wire transfer
+      pay: Pay
+      pay_with_bitcoin: Pay with Bitcoin
+      payment_ordered: Payment ordered!
+      referral_discount_html: Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>,
+        you get a discount for the first purchase on the platform.
+      routing_number: Routing number
+      server_error: payments server error. try again later
+      vat: VAT
+      wire_cost_hodler_html: 'Please, send <b><span class="db-show--eu">€</span><span
+        class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b>
+        to the following bank account:'
+      wire_cost_investor_html: 'Please, send <b><span class="db-show--eu">€</span><span
+        class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b>
+        to the following bank account:'
+      wire_cost_legendary_badger_html: 'Please, send <b><span class="db-show--eu">€</span><span
+        class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b>
+        to the following bank account:'
+      wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{sign}%{price}</b>
+        to the following bank account:'
+      wire_transfer: Wire Transfer
+      wire_transfer_description_html: 'To pay with a wire transfer, send a basic info
+        for the invoice: <b>name</b>, <b>surname</b>, <b>physical address</b>, <b>email</b>
+        used at Deltabadger, and the plan you want buy: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+      wire_transfer_fill_form: Please, fill the form above to proceed…
+      wire_transfer_pending: Thanks! We'll activate your account soon and contact
+        you by email.
+      you_pay: You pay
+    plan_1_year: 1-year plan
+    plan_4_year: 4-year plan
+    plan_life_time: Lifetime Plan
+    prolong_upgrade: Upgrade your plan
+    saver: Saver
+    upgrade: Upgrade
+    upgrade_plan: Upgrade plan
+  welcome:
+    banner_html: Hey! <b>Check your mailbox</b> and find tips and tricks of the perfect
+      bot setup I prepared for you. <b>If it landed in the spam folder, move it to
+      your inbox</b>, so you can see our messages in the future. Thanks, Jan
+    banner_html_old: Welcome to Deltabadger! You're currently on the <b>free plan
+      with a transaction limit of $1200/year</b>, but it will not be enforced for
+      the first month. Try any schedule you want. You can also upgrade it to enjoy
+      unlimited transactions later on. The 4-year Hodler plan additionally gives access
+      to new experimental features (e.g. all currencies on the exchange). All feedback
+      is appreciated. Join our <a href="https://t.me/deltabadgerchat" target="_blank"
+      rel="nofollow">Telegram group</a>, and follow us on <a href="https://twitter.com/deltabadgerapp"
+      target="_blank" rel="nofollow">Twitter</a>. Happy averaging!
+    default: Hi, welcome to Deltabadger
+    saver: Get rid of the limits, and make an upgrade!
