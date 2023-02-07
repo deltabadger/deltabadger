@@ -595,7 +595,7 @@ vi:
     passwords:
       edit:
         submit: Thay đổi mật khẩu của tôi
-        title: Thay đổi mật khẩu của bạn 
+        title: Thay đổi mật khẩu của bạn
       new:
         submit: Gửi hướng dẫn cho tôi
         title: Bạn quên mật khẩu?
