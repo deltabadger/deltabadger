@@ -944,7 +944,7 @@ en:
     upgrade: Upgrade
     upgrade_plan: Upgrade plan
   welcome:
-    banner_html: Hey! <b>Check your mailbox</b> and find tips and tricks of the perfect
+    banner_html: Hey %{name}! <b>Check your mailbox</b> and find tips and tricks of the perfect
       bot setup I prepared for you. <b>If it landed in the spam folder, move it to
       your inbox</b>, so you can see our messages in the future. Thanks, Jan
     banner_html_old: Welcome to Deltabadger! You're currently on the <b>free plan

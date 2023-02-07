@@ -953,7 +953,7 @@ pl:
     upgrade: Upgrade
     upgrade_plan: Zrób upgrade
   welcome:
-    banner_html: Cześć! <b>Sprawdź swoją skrzynkę odbiorczą</b> i znajdź wskazówki
+    banner_html: Cześć %{name}! <b>Sprawdź swoją skrzynkę odbiorczą</b> i znajdź wskazówki
       i triki dotyczące idealnej konfiguracji bota, który przygotowałem dla Ciebie.
       <b>Jeśli wpadł do folderu ze spamem, przenieś go do swojej skrzynki odbiorczej</b>,
       aby mieć pewność, że w przyszłości będziesz mógł zobaczyć nasze wiadomości.

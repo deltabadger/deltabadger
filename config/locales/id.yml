@@ -887,7 +887,7 @@ id:
     upgrade: Tingkatkan Paket
     upgrade_plan: Tingkatkan paket
   welcome:
-    banner_html: Hei! <b>Periksa kotak masuk Anda</b> dan temukan tips dan trik untuk
+    banner_html: Hei %{name}! <b>Periksa kotak masuk Anda</b> dan temukan tips dan trik untuk
       pengaturan bot yang sempurna yang saya siapkan untuk Anda. <b>Jika itu jatuh
       ke folder spam, pindahkan ke kotak masuk Anda</b>, sehingga Anda dapat melihat
       pesan kami di masa depan. Terima kasih, Jan

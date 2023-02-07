@@ -880,7 +880,7 @@ vi:
     upgrade: Nâng cấp
     upgrade_plan: Nâng cấp gói
   welcome:
-    banner_html: Xin chào! <b>Hãy kiểm tra hộp thư của bạn</b> và tìm các mẹo vặt
+    banner_html: Xin chào %{name}! <b>Hãy kiểm tra hộp thư của bạn</b> và tìm các mẹo vặt
       và gợi ý cho cấu hình bot hoàn hảo mà tôi đã chuẩn bị cho bạn. <b>Nếu nó đạt
       đến thư mục spam, hãy di chuyển nó vào hộp thư của bạn</b>, để bạn có thể xem
       các tin nhắn của chúng tôi trong tương lai. Cảm ơn, Jan
