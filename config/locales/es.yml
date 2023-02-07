@@ -25,7 +25,7 @@ es:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: "Confirmar la nueva dirección de Bitcoin 📒"
-      template_html: "<p>Hola 👋:</p><p>Parece que quieres cambiar tu dirección
+      template_html: "<p>Parece que quieres cambiar tu dirección
         de Bitcoin a:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>Esta
         dirección será utilizada para los pagos de nuestro programa de referidos.</p><p>¿Estás
         seguro?</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\"
@@ -34,7 +34,7 @@ es:
         no cambiará hasta que accedas al enlace anterior.</p>"
     referrals_payout_notification:
       subject: "¡Es un día de pago! 💸"
-      template_html: "<p> Hola 👋, </p><p> ¡Dulce! Su enlace de referencia
+      template_html: "<p> ¡Dulce! Su enlace de referencia
         es <br> ganando terreno! </p><p> Transferimos una comisión de </p><p style=\"margin:
         1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\"> %{amount} BTC </b> </p><p>
         a su billetera Bitcoin. </p><p> Gracias por ampliar la <br/> banda de tejones!
@@ -145,18 +145,18 @@ es:
         de forma continua.</p>"
     first_month_ending_soon:
       subject: "¡El primer mes de prueba termina pronto!"
-      template_html: "<p>Hola 👋:</p><p>¡Llevas casi un mes usando Deltabadger!</p><p>Tu
+      template_html: "<p>¡Llevas casi un mes usando Deltabadger!</p><p>Tu
         prueba gratuita e ilimitada terminará pronto. ¡Asegúrate de actualizar para
         que tus tejones más fuertes sigan funcionando!</p>"
     limit_almost_reached:
       subject: Límite casi alcanzado ⌛
-      template_html: "<p>Hola 👋:</p><p>Casi has alcanzado el límite de transacciones
+      template_html: "<p>Casi has alcanzado el límite de transacciones
         del <br>plan de <b style=\"color: #0a45a4;\">Ahorrador</b>.</p><p>Actualiza
         tu plan a <b style=\"color: #0a45a4;\">Inversor</b><br> o <b style=\"color:
         #0a45a4;\">Hodler</b> para asegurarte de que tus</br>bots sigan funcionando.</p>"
     limit_reached:
       subject: "Has alcanzado el límite 🥳"
-      template_html: "<p>Hola 👋:</p><p>¡Oh, bien hecho! Se ha alcanzado el
+      template_html: "<p>¡Oh, bien hecho! Se ha alcanzado el
         <br>límite de tu plan de <b style=\"color: #0a45a4;\">Ahorrador</b>.</p><p>Parece
         que llevas un tiempo haciendo un promedio<br> de costes en dólares.</p><p>Esperamos
         que estés contento con los<br>resultados.</p><p>Actualiza tu plan a <b style=\"color:
@@ -625,7 +625,7 @@ es:
           te preocupes. Simplemente ignóralo.</p>"
       email_changed:
         subject: "Nueva dirección de correo electrónico 📨"
-        template_html: "<p>Hola 👋:</p><p>Te enviamos este correo para notificarte
+        template_html: "<p>Te enviamos este correo para notificarte
           que la dirección de correo electrónico asociada a tu cuenta en Deltabadger
           ha sido cambiada por:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
       password_change:
@@ -634,14 +634,14 @@ es:
           tu contraseña.</p>"
       reset_password_instructions:
         subject: "Restablecimiento de contraseña 🔑"
-        template_html: "<p>Hola 👋:</p><p>Parece que quieres cambiar<br/>tu
+        template_html: "<p>Parece que quieres cambiar<br/>tu
           contraseña 🔑. ¡Muy inteligente!</p><p>Allá vamos:</p><p style=\"margin:
           1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Cambiar
           mi contraseña</a> </p><p>¿No enviaste esta solicitud?<br/>¡No te preocupes!
           Simplemente ignórala.</p>"
       unlock_instructions:
         subject: "Instrucciones de desbloqueo 🔓"
-        template_html: "<p>Hola 👋:</p><p>Hemos bloqueado tu cuenta debido
+        template_html: "<p>Hemos bloqueado tu cuenta debido
           a un<br>alto número de intentos de inicio de sesión infructuosos.</p><p>Haz
           clic en el siguiente enlace para desbloquearla:</p><p style=\"margin: 1em
           0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Desbloquear
@@ -844,12 +844,17 @@ es:
     start_fast_longer_html: Empieza <span class="d-none d-sm-inline">gratis</span>
       en 5 minutos
     terms_and_conditions: Términos y condiciones
-  mail: "<p>Hola 👋,</p><p>¡Qué bien! ¡Tu enlace de referencia está ganando<br>tracción!</p><p>Transferimos
+  mail: "<p>¡Qué bien! ¡Tu enlace de referencia está ganando<br>tracción!</p><p>Transferimos
     una comisión de</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount}
     BTC</b> </p><p>a tu cartera de Bitcoin.</p><p>¡Gracias por ampliar la banda de
     tejones de<br/>!</p>"
   mailer:
-    signature_html: "Equipo Deltabadger 🧑‍🚀"
+    greeting: ¡Hola capitán!
+    signature_html: Equipo Deltabadger
+    signature_badgers: Equipo de tejones invictos a su servicio.
+    email_or_telegram: ¿Preguntas? Responda a este correo electrónico o únase a nuestra comunidad en
+    follow_us_twitter: No se olvide de seguirnos en
+    all_rights_reserved: Todos los derechos hiperbitcoinizados.
   meta:
     desc: Prueba ahora gratis la estrategia que mejor funciona con Binance, FTX, Coinbase,
       Kraken, Kucoin y otras plataformas de intercambio. Sin verificación KYC.
