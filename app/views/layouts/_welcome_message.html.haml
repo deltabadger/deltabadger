@@ -1,7 +1,7 @@
 - if @show_welcome_banner
   .container
     .alert.alert-primary.db-alert--welcome.db-alert--flex
-      %span= t('welcome.banner_html')
+      %span= t('welcome.banner_html', name: @user.name)
       %button(type="button" id="hide_welcome_banner_button" class="close" data-dismiss="alert" aria-label="Close")
         %span(aria-hidden="true")
           &times;
