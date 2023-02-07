@@ -26,7 +26,7 @@ id:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: "Konfirmasikan alamat Bitcoin yang baru 📒"
-      template_html: "<p>Halo 👋,</p><p>Tampaknya Anda ingin mengubah alamat
+      template_html: "<p>Tampaknya Anda ingin mengubah alamat
         Bitcoin Anda ke:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>Alamat
         ini akan digunakan untuk pembayaran Anda dari program referral kami.</p><p>Apakah
         Anda yakin?</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\"
@@ -35,7 +35,7 @@ id:
         Anda mengakses tautan di atas.</p>"
     referrals_payout_notification:
       subject: "Saatnya gajian! 💸"
-      template_html: "<p>Halo 👋,</p><p>Keren! Tautan referral Anda <br>mulai
+      template_html: "<p>Keren! Tautan referral Anda <br>mulai
         diminati!</p><p>Kami mentransfer komisi sebesar</p><p style=\"margin: 1em
         0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>ke dompet
         Bitcoin Anda.</p><p>Terima kasih sudah mengembangkan <br/>tim badger!</p>"
@@ -144,19 +144,19 @@ id:
         transfer ke %{exchange_name} untuk memastikan bahwa bot bekerja secara terus-menerus.</p>"
     first_month_ending_soon:
       subject: Uji coba bulan pertama akan segera berakhir!
-      template_html: "<p>Halo 👋,</p><p>Anda telah menggunakan Deltabadger
+      template_html: "<p>Anda telah menggunakan Deltabadger
         selama hampir satu bulan sekarang!</p><p>Uji coba gratis tanpa batas Anda
         akan segera berakhir. Pastikan untuk meningkatkan paket agar badger Anda yang
         lebih besar tetap bekerja!</p>"
     limit_almost_reached:
       subject: Limit hampir tercapai ⌛
-      template_html: "<p>Halo 👋,</p><p>Anda hampir mencapai <br>limit transaksi
+      template_html: "<p>Anda hampir mencapai <br>limit transaksi
         paket <b style=\"color: #0a45a4;\">Penabung</b>.</p><p>Tingkatkan paket Anda
         ke <b style=\"color: #0a45a4;\">Investor</b><br> atau <b style=\"color: #0a45a4;\">Hodler</b>
         untuk memastikan</br>bot Anda akan terus bekerja.</p>"
     limit_reached:
       subject: "Anda telah mencapai limit 🥳"
-      template_html: "<p>Halo 👋,</p><p>Oh, bagus! Limit<br>paket <b style=\"color:
+      template_html: "<p>Oh, bagus! Limit<br>paket <b style=\"color:
         #0a45a4;\">Penabung</b> Anda telah tercapai.</p><p>Tampaknya, untuk saat ini
         Anda melakukan dollar-cost<br>averaging.</p><p>Kami harap Anda senang dengan<br>hasilnya.</p><p>Tingkatkan
         paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br>atau <b style=\"color:
@@ -581,7 +581,7 @@ id:
           Abaikan saja.</p>"
       email_changed:
         subject: "Alamat email baru 📨"
-        template_html: "<p>Halo 👋,</p><p>Kami mengirim email ini untuk memberi
+        template_html: "<p>Kami mengirim email ini untuk memberi
           tahu Anda bahwa alamat email yang terkait dengan akun Anda di Deltabadger
           telah diubah menjadi:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
       password_change:
@@ -590,14 +590,14 @@ id:
           diubah.</p>"
       reset_password_instructions:
         subject: "Reset kata sandi 🔑"
-        template_html: "<p>Halo 👋,</p><p>Tampaknya Anda ingin mengubah<br/>kata
+        template_html: "<p>Tampaknya Anda ingin mengubah<br/>kata
           sandi 🔑. Langkah bagus!</p><p>Mari mulai:</p><p style=\"margin:
           1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Ubah
           kata sandi</a> </p><p>Anda tidak mengirim permintaan ini?<br/>Jangan khawatir!
           Abaikan saja.</p>"
       unlock_instructions:
         subject: "Buka petunjuk 🔓"
-        template_html: "<p>Halo 👋,</p><p>Kami mengunci akun Anda karena<br>banyaknya
+        template_html: "<p>Kami mengunci akun Anda karena<br>banyaknya
           percobaan masuk yang gagal.</p><p>Klik tautan di bawah ini untuk membukanya:</p><p
           style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color:
           #0a45a4;\">Buka kunci akun saya</a></p>"
@@ -778,12 +778,17 @@ id:
     start_fast_longer_html: Mulai <span class="d-none d-sm-inline">secara gratis</span>
       dalam 5 menit
     terms_and_conditions: Syarat & Ketentuan
-  mail: "<p>Halo 👋,</p><p>Keren! Tautan referral Anda <br>mulai diminati!</p><p>Kami
+  mail: "<p>Keren! Tautan referral Anda <br>mulai diminati!</p><p>Kami
     mentransfer komisi sebesar</p><p style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color:
     #0a45a4;\">%{amount} BTC</b></p><p>ke dompet Bitcoin Anda.</p><p>Terima kasih
     sudah mengembangkan <br/>tim badger!</p>"
   mailer:
-    signature_html: "Tim Deltabadger 🧑‍🚀"
+    greeting: Halo kapten
+    signature_html: Tim Deltabadger
+    signature_badgers: Tim badak tak terkalahkan siap melayani Anda.
+    email_or_telegram: Pertanyaan? Balas email ini atau bergabung dengan komunitas kami di
+    follow_us_twitter: Jangan lupa untuk mengikuti kami di
+    all_rights_reserved: Semua hak hyperbitcoinized.
   meta:
     desc: Mulailah secara gratis strategi yang terbukti efektif untuk Binance, Coinbase,
       Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.
