@@ -596,31 +596,20 @@ pl:
       unconfirmed: Przed kontynuacją musisz potwierdzić swój adres e-mail.
     mailer:
       confirmation_instructions:
-        subject: "Witamy w Deltabadger"
-        template_html: '<p>Jeszcze jeden klik i możesz zacząć
-          automatyczne<br>uśrednianie kosztu złotówkowego Bitcoina:</p><p style="margin:
-          1em 0 1.2em;"> <a href="%{confirmation_url}" style="color: #0a45a4;">Potwierdź
-          moje konto</a></p><p>Nie zakładałeś konta?<br>Po prostu zignoruj tę wiadomość.</p>'
+        subject: Potwierdź swój adres e-mail
+        template_html: <p>Twój adres e-mail jest tylko jeden klik od dołączenia do zespołu A niesamowitych! Potwierdź teraz i pozwól, aby dobre czasy miały swobodny bieg w trybie automatycznym.</p><a class="mail-button" href="%{confirmation_url}">Potwierdź ten e-mail</a>
       email_changed:
-        subject: "Nowy adres e-mail"
-        template_html: "<p>Wysyłamy tę wiadomość, aby powiadomić
-          Cię, że adres e-mail powiązany z Twoim kontem w Deltabadger został zmieniony
-          na: </p><p><b>%{email}</b></p>"
+        subject: Adres e-mail potwierdzony
+        template_html: "<p>Gotowe! To jest twój nowy i błyszczący adres Deltabadger:</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "Nowe hasło"
-        template_html: "<p>Twoje hasło zostało zmienione.</p>"
+        subject: Hasło zmienione
+        template_html: "<p>Zrobione!</p><p>Twoje hasło zostało zmienione.</p><p>Twoje tajemnice są bezpieczniejsze niż kiedykolwiek!</p>"
       reset_password_instructions:
-        subject: "Resetowanie hasła"
-        template_html: "<p>Wygląda na to, że chcesz zmienić<br/>swoje
-          hasło. Dobry ruch!</p><p>Wystarczy kliknąć ten link:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{edit_password_url}\">Zmień moje hasło</a></p><p>Nie
-          wysłałeś tego żądania?<br/>Nie ma sprawy! Po prostu zignoruj je.</p>"
+        subject: Odzyskiwanie hasła
+        template_html: <p>Rozpoczęto odzyskiwanie hasła! Trzymaj się, wkrótce wrócisz do gry.</p><a class="mail-button" href="%{edit_password_url}">Zmień swoje hasło</a>
       unlock_instructions:
-        subject: "Instrukcja odblokowania"
-        template_html: '<p>Zablokowaliśmy Twoje konto z powodu<br>dużej
-          ilości nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:
-          </p><p style="margin: 1em 0 1.2em;"> <a href="%{unlock_url}" style="color:
-          #0a45a4;">Odblokuj moje konto</a></p>'
+        subject: Instrukcje odblokowania
+        template_html: <p>Zablokowaliśmy twoje konto z powodu wysokiej liczby nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:</p><a class="mail-button" href="%{unlock_url}">Odblokuj swoje konto</a>
     omniauth_callbacks:
       failure: Nie można uwierzytelnić %{kind} ponieważ „ %{reason} ”.
       success: Pomyślne uwierzytelnienie z konta %{kind}.
@@ -825,11 +814,12 @@ pl:
     BTC</b></p><p>na Twój portfel bitcoinowy.</p><p>Dziękujemy za powiększenie gangu
     borsuka!</p>'
   mailer:
-    greeting: Ahoj kapitanie
+    greeting: Ahoj kapitanie,
+    greeting_name: Ahoj %{name},
     signature_html: Zespół Deltabadger
     signature_badgers: Niezwyciężony zespół borsuków do usług.
     email_or_telegram: Pytania? Odpowiedz na ten email lub dołącz do naszej społeczności na
-    follow_us_twitter: Nie zapomnij śledzić nasz 
+    follow_us_twitter: Nie zapomnij śledzić nasz
     all_rights_reserved: Wszystkie prawa hyperbitcoinizowane.
   meta:
     desc: Wystartuj za darmo najlepiej sprawdzoną strategię DCA, która działa z Binance,

@@ -613,35 +613,20 @@ de:
       unconfirmed: Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.
     mailer:
       confirmation_instructions:
-        subject: "Willkommen bei 🎉"
-        template_html: "<p>Willkommen bei Deltabadger 🎉,</p><p>Automatisiertes
-          Dollar-Cost Averaging<br>zu Bitcoin in nur einem Klick:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Mein
-          Konto bestätigen</a></p><p>Du weißt nicht mehr, ob du dich angemeldet hast?<br>Keine
-          Sorge. Ignoriere es einfach.</p>"
+        subject: Bestätige deine E-Mail-Adresse
+        template_html: <p>Deine E-Mail-Adresse ist nur einen Klick davon entfernt, Teil des A-Teams des Wahnsinns zu werden! Bestätige jetzt und lass die guten Zeiten auf Autopilot rollen.</p><a class="mail-button" href="%{confirmation_url}">Bestätige diese E-Mail</a>
       email_changed:
-        subject: "Neue E-Mail-Adresse 📨"
-        template_html: "<p>Hallo 👋,</p><p>Wir senden diese E-Mail, um dich
-          zu benachrichtigen, dass die E-Mail-Adresse, die mit deinem Konto bei Deltabadger
-          verbunden ist, geändert wurde:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+        subject: E-Mail bestätigt
+        template_html: "<p>Fertig! Dies ist deine brandneue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "Neues Passwort 🔑"
-        template_html: "<p>Geschafft 🎉!</p><p>Dein Passwort 🔑 wurde
-          geändert.</p>"
+        subject: Passwort geändert
+        template_html: "<p>Es ist getan!</p><p>Dein Passwort wurde geändert.</p><p>Deine Geheimnisse sind sicherer denn je!</p>"
       reset_password_instructions:
-        subject: "Passwort zurücksetzen 🔑"
-        template_html: "<p>Hallo 👋,</p><p>Es scheint, als wolltest du <br/>dein
-          Passwort 🔑 ändern. Super!</p><p>Los geht's:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Mein
-          Passwort ändern</a> </p><p>Du hast diese Anfrage nicht gestellt?<br/>Keine
-          Sorge! Ignoriere sie einfach.</p>"
+        subject: Passwortwiederherstellung
+        template_html: <p>Passwortwiederherstellung gestartet! Halt dich fest, wir bringen dich in kürzester Zeit wieder ins Spiel.</p><a class="mail-button" href="%{edit_password_url}">Ändere mein Passwort</a>
       unlock_instructions:
-        subject: "Anweisungen entsperren 🔓"
-        template_html: "<p>Hallo 👋,</p><p>Wir haben dein Konto aufgrund <br>einer
-          hohen Zahl an nicht erfolgreichen Anmeldeversuchen gesperrt.</p><p>Klicke
-          unten auf den Link, um es wieder zu entsperren:</p><p style=\"margin: 1em
-          0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Mein Konto
-          entsperren</a></p>"
+        subject: Entsperranweisungen
+        template_html: <p>Wir haben dein Konto aufgrund einer hohen Anzahl fehlgeschlagener Anmeldeversuche gesperrt.</p><p>Klicke auf den Link unten, um es zu entsperren:</p><a class="mail-button" href="%{unlock_url}">Entsperre mein Konto</a>
     omniauth_callbacks:
       failure: Wir konnten dich aufgrund von "%{reason}" nicht von %{kind} authentifizieren.
       success: Erfolgreich von %{kind} Konto authentifiziert.
@@ -839,7 +824,13 @@ de:
     style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>auf dein Bitcoin Wallet.</p><p>Danke,
     dass du die <br>Badger Gang vergrößerst!</p>"
   mailer:
+    greeting: Hallo Kapitän,
+    greeting_name: Hallo %{name},
     signature_html: Deltabadger Team
+    signature_badgers: Unbesiegbares Dachsenteam zu Ihren Diensten.
+    email_or_telegram: Fragen? Antworten Sie auf diese E-Mail oder treten Sie unserer Gemeinschaft bei
+    follow_us_twitter: Vergessen Sie nicht, uns zu folgen
+    all_rights_reserved: Alle Rechte hyperbitcoinisiert.
   meta:
     desc: Starte jetzt kostenfrei die bewährteste Strategie, die mit Binance, Coinbase,
       Kraken, Kucoin und anderen Börsen funktioniert. Keine KYC.
