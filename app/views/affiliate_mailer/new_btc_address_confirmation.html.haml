@@ -1,3 +1,4 @@
 %h1{class: "mail-header"}= t('.subject')
 
+%p= t('mailer.greeting_name', name: @resource.name)
 = t('.template_html', new_btc_address: @new_btc_address, confirmation_url: confirm_btc_address_affiliate_url(token: @token))

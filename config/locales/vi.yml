@@ -24,7 +24,7 @@ vi:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: "Xác nhận địa chỉ Bitcoin mới 📒"
-      template_html: "<p>Xin chào 👋,</p><p>Có vẻ như bạn muốn thay đổi địa
+      template_html: "<p>Có vẻ như bạn muốn thay đổi địa
         chỉ Bitcoin của bạn thành:</p><p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p><p>Địa
         chỉ này sẽ được dùng để nhận các khoản thanh toán của bạn từ chương trình
         giới thiệu của chúng tôi.</p><p>Bạn có chắc chắn muốn thay đổi không?</p><p
@@ -34,7 +34,7 @@ vi:
         bạn truy cập liên kết trên đây.</p>"
     referrals_payout_notification:
       subject: "Hôm nay là ngày thanh toán! 💸"
-      template_html: "<p>Xin chào 👋,</p><p>Tuyệt lắm! Liên kết giới thiệu
+      template_html: "<p>Tuyệt lắm! Liên kết giới thiệu
         của bạn đã hoạt động!</p><p>Chúng tôi sẽ chuyển khoản hoa hồng</p><p style=\"margin:
         1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b></p><p>vào
         ví Bitcoin của bạn.</p><p>Cảm ơn bạn đã mở rộng<br>nền tảng của chúng ta!</p>"
@@ -141,19 +141,19 @@ vi:
         hiện chuyển khoản đến %{exchange_name} để đảm bảo bot hoạt động liên tục.</p>"
     first_month_ending_soon:
       subject: Thời hạn dùng thử tháng đầu tiên sắp kết thúc!
-      template_html: "<p>Xin chào 👋,</p><p>Bạn đã sử dụng Deltabadger được
+      template_html: "<p>Bạn đã sử dụng Deltabadger được
         gần một tháng!</p><p>Thời hạn dùng thử miễn phí không giới hạn của bạn đã
         sắp hết. Hãy đảm bảo nâng cấp gói để giữ cho tài khoản của bạn tiếp tục hoạt
         động!</p>"
     limit_almost_reached:
       subject: Gần đạt hạn mức giao dịch ⌛
-      template_html: "<p>Xin chào 👋,</p><p>Bạn đã gần đạt <br>hạn mức giao
+      template_html: "<p>Bạn đã gần đạt <br>hạn mức giao
         dịch gói</p> <b style=\"color: #0a45a4;\">Saver</b>. <p>Hãy cập nhật lên gói
         <b style=\"color: #0a45a4;\">Investor</b><br> hoặc <b style=\"color: #0a45a4;\">Hodler</b>
         để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
     limit_reached:
       subject: "Bạn đã đạt hạn mức giao dịch 🥳"
-      template_html: "<p>Xin chào 👋,</p><p>Ồ, tốt lắm! Bạn đã đạt đến hạn
+      template_html: "<p>Ồ, tốt lắm! Bạn đã đạt đến hạn
         mức gói <b style=\"color: #0a45a4;\">Saver</b><br>.</p><p>Có vẻ như bạn đã
         thực hiện trung bình giá<br>được một thời gian.</p><p>Chúng tôi hy vọng bạn
         hài lòng với<br>kết quả thu được.</p><p>Nâng cấp gói của bạn lên <b style=\"color:
@@ -583,7 +583,7 @@ vi:
           lo lắng. Nếu vậy bạn không cần để ý.</p>"
       email_changed:
         subject: "Địa chỉ email mới 📨"
-        template_html: "<p>Xin chào 👋,</p><p>Chúng tôi gửi email này để thông
+        template_html: "<p>Chúng tôi gửi email này để thông
           báo rằng địa chỉ email được liên kết với tài khoản của bạn tại Deltabadger
           đã được thay đổi thành:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
       password_change:
@@ -592,14 +592,14 @@ vi:
           được thay đổi.</p>"
       reset_password_instructions:
         subject: "Đặt lại mật khẩu 🔑"
-        template_html: "<p>Xin chào 👋,</p><p>Có vẻ như bạn muốn thay đổi<br/>mật
+        template_html: "<p>Có vẻ như bạn muốn thay đổi<br/>mật
           khẩu của bạn 🔑. Tốt lắm!</p><p>Hãy bắt đầu nhé:</p><p style=\"margin:
           1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Thay
           đổi mật khẩu của tôi</a> </p><p>Bạn không gửi yêu cầu này?<br/>Đừng lo!
           Nếu vậy bạn không cần để ý.</p>"
       unlock_instructions:
         subject: "Mở khóa hướng dẫn 🔓"
-        template_html: "<p>Xin chào 👋,</p><p>Chúng tôi đã khóa tài khoản
+        template_html: "<p>Chúng tôi đã khóa tài khoản
           của bạn do<br>bạn đã vượt quá số lần đăng nhập không thành công.</p><p>Hãy
           nhấp vào liên kết dưới đây để mở khóa tài khoản:</p><p style=\"margin: 1em
           0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Mở khóa
@@ -782,12 +782,17 @@ vi:
     start_fast_longer_html: Bắt đầu <span class="d-none d-sm-inline">miễn phí</span>
       trong 5 phút
     terms_and_conditions: Điều khoản và Điều kiện
-  mail: "<p>Xin chào 👋,</p><p>Tuyệt quá! Liên hết giới thiệu của bạn<br>bắt
+  mail: "<p>Tuyệt quá! Liên hết giới thiệu của bạn<br>bắt
     đầu được sử dụng!</p><p>Chúng tôi sẽ chuyển hoa hồng là</p><p style=\"margin:
     1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b> </p><p>vào ví
     Bitcoin của bạn.</p><p>Cảm ơn bạn đã mở rộng<br/>nền tảng của chúng ta!</p>"
   mailer:
-    signature_html: "Đội ngũ Deltabadger 🧑‍🚀"
+    greeting: Xin chào thuyền trưởng
+    signature_html: Nhóm Deltabadger
+    signature_badgers: Đội chuột đất bất khả chiến tỉnh dịch vụ cho bạn.
+    email_or_telegram: Câu hỏi? Trả lời email này hoặc tham gia cộng đồng của chúng tôi trên
+    follow_us_twitter: Đừng quên theo dõi chúng tôi trên
+    all_rights_reserved: Tất cả quyền được hyperbitcoin hóa.
   meta:
     desc: Bắt đầu áp dụng miễn phí chiến lược tốt nhất hiệu quả với cả Binance, Coinbase,
       Kraken, Kucoin và các sàn giao dịch khác. Không cần KYC.

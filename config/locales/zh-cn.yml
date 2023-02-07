@@ -19,13 +19,13 @@ zh-cn:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: "确认新的比特币地址 📒"
-      template_html: "<p>您好 👋，</p><p>您似乎想要将您的比特币地址更改为：</p><p><b style=\"color:
+      template_html: "<p>您似乎想要将您的比特币地址更改为：</p><p><b style=\"color:
         #0a45a4;\">%{new_btc_address}</b></p><p>此地址将用于从我们的转介绍程序向您进行的付款。</p><p>确定吗？</p><p
         style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color:
         #0a45a4;\">是的，更改吧！</a></p><p>您没有发送此请求？<br>不用担心，忽略即可。</p><p>只要您不访问上面的链接，该地址就不会更改。</p>"
     referrals_payout_notification:
       subject: "今天发工资！💸"
-      template_html: "<p>您好 👋，</p><p>不错！您的转介绍链接开始起作用了！</p><p>我们会将 </p><p
+      template_html: "<p>不错！您的转介绍链接开始起作用了！</p><p>我们会将 </p><p
         style=\"margin: 1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} 个比特币</b></p><p>的佣金转账到您的比特币钱包。</p><p>感谢您壮大了<br>獾群！</p>"
     registration_reminder:
       subject: "哇！您赚得了 %{amount} 个比特币！💸"
@@ -113,14 +113,14 @@ zh-cn:
       template_html: "<p>看起来您的机器人很快就会用完 %{quote}。</p><p>向 %{exchange_name} 转账以确保机器人持续工作。</p>"
     first_month_ending_soon:
       subject: 首月试用即将结束！
-      template_html: "<p>您好 👋，</p><p>您现在使用 Deltabadger 快一个月了！</p><p>您的免费无限试用即将结束。请确保升级，以便让您更沉重的獾继续奔跑！</p>"
+      template_html: "<p>您现在使用 Deltabadger 快一个月了！</p><p>您的免费无限试用即将结束。请确保升级，以便让您更沉重的獾继续奔跑！</p>"
     limit_almost_reached:
       subject: 几乎已达到限制 ⌛
-      template_html: "<p>您好 👋，</p><p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p><p>请将套餐升级为<b
+      template_html: "<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p><p>请将套餐升级为<b
         style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b>，以确保您的</br>机器人将继续工作。</p>"
     limit_reached:
       subject: "您已达到限制 🥳"
-      template_html: "<p>您好 👋，</p><p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p><p>似乎您已经定投<br>有一段时间了。</p><p>我们希望您对结果<br>感到满意。</p><p>将套餐升级为<b
+      template_html: "<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p><p>似乎您已经定投<br>有一段时间了。</p><p>我们希望您对结果<br>感到满意。</p><p>将套餐升级为<b
         style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b>
         以移除所有限制并<br>让机器人重新工作。</p>"
     notify_about_error:
@@ -465,19 +465,19 @@ zh-cn:
           #0a45a4;\">确认我的账号</a></p><p>您没有注册过？<br>不用担心。直接忽略即可。</p>"
       email_changed:
         subject: "新电子邮件地址 📨"
-        template_html: "<p>您好 👋，</p><p>我们发送此电子邮件以通知您，与您在 Deltabadger 的账号关联的电子邮件地址已更改为：</p><p><b
+        template_html: "<p>我们发送此电子邮件以通知您，与您在 Deltabadger 的账号关联的电子邮件地址已更改为：</p><p><b
           style=\"color: #0a45a4;\">%{email}</b></p>"
       password_change:
         subject: "新密码 🔑"
         template_html: "<p>已完成 🎉！</p><p>您的密码 🔑 已更改。</p>"
       reset_password_instructions:
         subject: "密码已重置 🔑"
-        template_html: "<p>您好 👋，</p><p>您似乎想要更改<br/>密码 🔑。非常明智之举！</p><p>开始吧：</p><p
+        template_html: "<p>您似乎想要更改<br/>密码 🔑。非常明智之举！</p><p>开始吧：</p><p
           style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color:
           #0a45a4;\">更改我的密码</a> </p><p>您没有发送此请求？<br/>不用担心！直接忽略即可。</p>"
       unlock_instructions:
         subject: "解锁说明 🔓"
-        template_html: "<p>您好 👋，</p><p>您的账号由于<br>不成功登录次数太多，已被我们锁定。</p><p>单击下面的链接以解锁：</p><p
+        template_html: "<p>您的账号由于<br>不成功登录次数太多，已被我们锁定。</p><p>单击下面的链接以解锁：</p><p
           style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color:
           #0a45a4;\">解锁我的账号</a></p>"
     omniauth_callbacks:
@@ -650,10 +650,15 @@ zh-cn:
     start_fast: 5 分钟后开始
     start_fast_longer_html: 5 分钟后<span class="d-none d-sm-inline">免费</span>开始
     terms_and_conditions: 条款和条件
-  mail: "<p>您好 👋，</p><p>不错！您的转介绍链接开始起作用了！</p><p>我们会将 </p><p style=\"margin:
+  mail: "<p>不错！您的转介绍链接开始起作用了！</p><p>我们会将 </p><p style=\"margin:
     1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} 个比特币</b></p><p>的佣金转账到您的比特币钱包。</p><p>感谢您壮大了<br>獾群！</p>"
   mailer:
-    signature_html: "Deltabadger 团队 🧑‍🚀"
+    greeting: 哈囉船長
+    signature_html: Deltabadger 團隊
+    signature_badgers: 無敵土撥鼠團隊隨時為您服務
+    email_or_telegram: 問題嗎？回覆這封電子郵件或加入我們的社區
+    follow_us_twitter: 別忘了關注我們
+    all_rights_reserved: 所有權利已超級電子貨幣化。
   meta:
     desc: 免费开始最为久经考验的策略，该策略适用于 Binance、FTX、Coinbase、Kraken、Kucoin 及其他交易所。没有 KYC。
     title: Deltabadger • 自动定期定额投资任何加密货币

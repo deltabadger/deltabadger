@@ -1,4 +1,7 @@
 %h1{class: "mail-header"}= t('.subject')
 
 - email = @resource.try(:unconfirmed_email) || @resource.try(:email)
+
+%p= t('mailer.greeting_name', name: @resource.name)
+
 = t('.template_html', email: email)
