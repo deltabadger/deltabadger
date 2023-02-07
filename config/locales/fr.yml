@@ -27,7 +27,7 @@ fr:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: "Confirmer la nouvelle adresse Bitcoin 📒"
-      template_html: "<p> Bonjour 👋, </p><p> Il semble que tu souhaites changer
+      template_html: "<p> Il semble que tu souhaites changer
         ton adresse Bitcoin en : </p><p> <b style=\"color: #0a45a4;\"> %{new_btc_address}
         </b> </p><p> Cette adresse sera utilisée pour tes paiements dans le cadre
         de notre programme de parrainage. </p><p> Es-tu sûr ? </p><p style=\"margin:
@@ -37,7 +37,7 @@ fr:
         que tu n'auras pas accédé au lien ci-dessus. </p>"
     referrals_payout_notification:
       subject: "C'est un jour de paie ! 💸"
-      template_html: "<p> Bonjour 👋, </p><p> Sympa ! Ton lien de parrainage
+      template_html: "<p> Sympa ! Ton lien de parrainage
         gagne du terrain ! </p><p> Nous transférons une commission de </p><p style=\"margin:
         1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\"> %{amount} BTC </b> </p><p>
         à ton portefeuille Bitcoin. </p><p> Merci d'avoir élargi notre <br> bande
@@ -150,19 +150,19 @@ fr:
         un transfert à %{exchange_name} pour être sûr que le bot fonctionne en continu.</p>"
     first_month_ending_soon:
       subject: Le premier mois d'essai se termine bientôt !
-      template_html: "<p> Bonjour 👋, </p><p> Tu utilises Deltabadger depuis
+      template_html: "<p> Tu utilises Deltabadger depuis
         près d'un mois maintenant ! </p><p> Ton essai gratuit et illimité se termine
         bientôt. Assure-toi de mettre à niveau afin que tout marche bien ! </p>"
     limit_almost_reached:
       subject: Limite presque atteinte ⌛
-      template_html: "<p> Bonjour 👋, </p><p> Tu as presque atteint la limite
+      template_html: "<p> Tu as presque atteint la limite
         de transactions du plan <b style=\"color: #0a45a4;\"> Saver </b> <br> </p><p>
         Passe à un plan supérieur vers <b style=\"color: #0a45a4;\"> Investisseur
         </b> <br> ou <b style=\"color: #0a45a4;\"> Hodler </b> pour t'assurer que
         tes </br> bots continueront de fonctionner. </p>"
     limit_reached:
       subject: "Tu as atteint la limite 🥳"
-      template_html: "<p> Bonjour 👋, </p><p> Oh, bien joué ! La limite <b
+      template_html: "<p> Oh, bien joué ! La limite <b
         style=\"color: #0a45a4;\"> du plan <br> Saver </b> a été atteinte. </p><p>
         On dirait que tu fais <br> des achats périodiques depuis un certain temps
         maintenant. </p><p> Nous espérons que tu sois satisfait <br> des résultats.
@@ -633,37 +633,20 @@ fr:
       unconfirmed: Tu dois confirmer votre adresse e-mail avant de continuer.
     mailer:
       confirmation_instructions:
-        subject: "Bienvenue sur Deltabadger 🎉"
-        template_html: "<p>Bienvenue sur le site de Deltabadger 🎉,</p><p>Le
-          calcul automatique des achats périodiques en<br>Bitcoin n'est qu'à un clic
-          de souris :</p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\"
-          style=\"color: #0a45a4;\">Confirmer mon compte</a></p><p>Tu ne te souviens
-          pas de t'y être inscrit ?<br>Pas de soucis. Il suffit d'ignorer ce message.</p>"
+        subject: Confirmez votre adresse email
+        template_html: <p>Votre adresse email n'est qu'à un clic de distance pour rejoindre l'équipe A de l'incroyable! Confirmez maintenant et laissez les bons moments rouler sur pilote automatique.</p><a class="mail-button" href="%{confirmation_url}">Confirmer cet email</a>
       email_changed:
-        subject: "Nouvelle adresse e-mail 📨"
-        template_html: "<p> Bonjour 👋, </p><p> Nous envoyons cet e-mail pour
-          t'informer que l'adresse e-mail associée à ton compte chez Deltabadger a
-          été remplacée par : </p><p> <b style=\"color: #0a45a4;\"> %{email} </b>
-          </p>"
+        subject: Email confirmé
+        template_html: "<p>C'est fait! Voici votre nouvelle adresse Deltabadger brillante:</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "Nouveau mot de passe 🔑"
-        template_html: "<p> Ça y est 🎉! </p><p> Ton mot de passe 🔑
-          a été modifié. </p>"
+        subject: Mot de passe changé
+        template_html: "<p>C'est fait!</p><p>Votre mot de passe a été changé.</p><p>Vos secrets sont plus sûrs que jamais!</p>"
       reset_password_instructions:
-        subject: "Réinitialisation du mot de passe 🔑"
-        template_html: "<p> Bonjour 👋, </p><p> Il semble que tu souhaites
-          modifier <br/> le mot de passe 🔑. Une manœuvre intelligente ! </p><p>
-          Allons-y : </p><p style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\"
-          style=\"color: #0a45a4;\"> Changer mon mot de passe </a> </p><p> Tu n'as
-          pas envoyé cette demande ? <br/> Pas de soucis ! N'y fais pas attention.
-          </p>"
+        subject: Récupération de mot de passe
+        template_html: <p>Récupération de mot de passe initiée! Accrochez-vous, nous vous aurons de retour dans le jeu en un rien de temps.</p><a class="mail-button" href="%{edit_password_url}">Changer mon mot de passe</a>
       unlock_instructions:
-        subject: "Déverrouiller les instructions 🔓"
-        template_html: "<p> Bonjour 👋, </p><p> Nous avons verrouillé ton
-          compte en raison d'<br> un nombre élevé de tentatives de connexion infructueuses.
-          </p><p> Clique sur le lien ci-dessous pour le déverrouiller : </p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\"> Déverrouiller
-          mon compte </a> </p>"
+        subject: Instructions de déverrouillage
+        template_html: <p>Nous avons verrouillé votre compte en raison d'un grand nombre de tentatives de connexion non réussies.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller:</p><a class="mail-button" href="%{unlock_url}">Déverrouiller mon compte</a>
     omniauth_callbacks:
       failure: Impossible de vous authentifier auprès de %{kind} car "%{reason}".
       success: Authentification réussie avec le compte %{kind}.
@@ -861,12 +844,18 @@ fr:
     start_fast_longer_html: Commencer <span class="d-none d-sm-inline"> gratuitement
       </span> en 5 minutes
     terms_and_conditions: Conditions générales
-  mail: "<p> Bonjour 👋, </p><p> Sympa ! Ton lien de parrainage gagne du terrain
+  mail: "<p> Sympa ! Ton lien de parrainage gagne du terrain
     ! </p><p> Nous transférons une commission de </p><p style=\"margin: 1em 0 1.2em;\">
     ⭐ <b style=\"color: #0a45a4;\"> %{amount} BTC </b> </p><p> à ton portefeuille
     Bitcoin. </p><p> Merci d'avoir élargi notre <br> bande Badger ! </p>"
   mailer:
-    signature_html: "Équipe Deltabadger 🧑‍🚀"
+    greeting: Bonjour capitaine,
+    greeting_name: Bonjour %{name},
+    signature_html: Équipe Deltabadger
+    signature_badgers: Équipe de blaireaux invincible à votre service.
+    email_or_telegram: Des questions? Répondez à cet e-mail ou rejoignez notre communauté sur
+    follow_us_twitter: N'oubliez pas de nous suivre sur
+    all_rights_reserved: Tous les droits hyperbitcoinisés.
   meta:
     desc: Commencez gratuitement à utiliser la stratégie la plus expérimentée qui
       fonctionne sur Binance, Coinbase, Kraken, KuCoin et autres plateformes d'échange.

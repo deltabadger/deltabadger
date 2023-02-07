@@ -1,4 +1,5 @@
 %h1{class: "mail-header"}= t('.subject')
 
+%p= t('mailer.greeting_name', name: @resource.name)
 = t('.template_html', unlock_url: unlock_url(@resource, unlock_token: @token))
 

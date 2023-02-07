@@ -25,20 +25,20 @@ pl:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: Potwierdź swój nowy adres bitcoinowy
-      template_html: <p>Ahoj kapitanie,</p><p>Wygląda na to, że chcesz zmienić swój
+      template_html: <p>Wygląda na to, że chcesz zmienić swój
         adres bitcoinowy na:</p><p><b>%{new_btc_address}</b></p><p>Ten adres będzie
         używany do Twoich wypłat z naszego programu referencyjnego.</p><p>Czy jesteś
         pewien?</p><a class='mail-button' href="%{confirmation_url}" >Tak, zmieniam
         adres do wypłat</a>
     referrals_payout_notification:
       subject: To dzień wypłaty!
-      template_html: '<p>Ahoj kapitanie,</p><p>Nieźle! Twój link referencyjny zyskuje
+      template_html: '<p>Nieźle! Twój link referencyjny zyskuje
         na popularności!</p><p>Przekazujemy prowizję w wysokości</p><p style="margin:
         1em 0 1.2em;"> ⭐ <b>%{amount} BTC</b></p><p>na Twój portfel bitcoinowy.</p><p>Dziękujemy
         za powiększenie gangu borsuka!</p>'
     registration_reminder:
       subject: Wow! Zarobiłeś %{amount} BTC
-      template_html: "<p>Ahoj kapitanie,</p><p> Czeka na Ciebie wypłata z programu
+      template_html: "<p> Czeka na Ciebie wypłata z programu
         referencyjnego! Zakończ rejestrację, aby otrzymać bitcoiny: </p><p> <a class='mail-button'
         href=%{link}> Dokończ rejestrację. </a> </p>"
   affiliates:
@@ -141,30 +141,30 @@ pl:
         przelewu na %{exchange_name}, aby upewnić się, że bot będzie pracować ciągle.</p>"
     first_month_ending_soon:
       subject: Miesiąc próbny wkrótce się kończy!
-      template_html: "<p>Ahoj kapitanie,</p><p>Używasz Deltabadgera już od prawie
+      template_html: "<p>Używasz Deltabadgera już od prawie
         miesiąca!</p><p>Twój darmowy okres próbny wkrótce się kończy. Upewnij się,
         że masz wystarczającą subskrypcję, aby Twoje boty mogły dalej pracować!</p>"
     limit_almost_reached:
       subject: Limit prawie wyczerpany ⌛
-      template_html: "<p>Ahoj kapitanie,</p><p>Prawie osiągnąłeś <br>limit transakcji
+      template_html: "<p>Prawie osiągnąłeś <br>limit transakcji
         w planie <b>Saver</b>.</p><p>Uaktualnij swój plan do <b>Inwestora</b><br>
         lub <b>Hodlera</b></br>, aby upewnić się, że Twoje boty będą nadal działać.</p>"
     limit_reached:
       subject: "Wyczerpałeś darmowy limit 🥳"
-      template_html: "<p>Ahoj kapitanie,</p><p>Dobra robota! Wyczerpałeś <br>limit
+      template_html: "<p>Dobra robota! Wyczerpałeś <br>limit
         planu <b>Saver</b>.</p><p>Wygląda na to, że testowałeś <br>uśrednianie przez
         jakiś czas.</p><p>Mamy nadzieję, że jesteś <br>zadowolony z wyników.</p><p>Uaktualnij
         swój plan do <b>Inwestor</b> <br>lub <b>Hodler</b>, aby usunąć wszystkie limity
         i przywrócić<br> swoje boty do pracy.</p>"
     notify_about_error:
       subject: "Coś poszło nie tak 😵"
-      template_html: "<p>Ahoj kapitanie,</p><p>Coś poszło nie tak podczas<br>przetwarzania
+      template_html: "<p>Coś poszło nie tak podczas<br>przetwarzania
         ostatniej transakcji.</p><p>Wszystkie błędy możesz zobaczyć<br>w logu bota
         po zalogowaniu.</p><p>Błędy: </p><blockquote> <b>%{exchange}:%{base}%{quote}</b>
         <br> <b>%{errors}</b> </blockquote>"
     notify_about_restart:
       subject: "Ups! Kolejna próba… 🧐"
-      template_html: '<p>Ahoj kapitanie,</p><p>Bot nie mógł zrealizować Twojego zamówienia.<br>Wygląda
+      template_html: '<p>Bot nie mógł zrealizować Twojego zamówienia.<br>Wygląda
         to na problem po stronie giełdy.<br>Spróbujemy ponownie za %{delay}.</p><p>Wszystkie
         błędy są widoczne w panelu w logu bota.<br>Możesz je zobaczyć po zalogowaniu.</p><p>Błędy:</p><blockquote>
         <b>%{exchange}:%{base}%{quote}</b> <br> <b style="color: #0a45a4;">%{errors}</b>
@@ -596,31 +596,20 @@ pl:
       unconfirmed: Przed kontynuacją musisz potwierdzić swój adres e-mail.
     mailer:
       confirmation_instructions:
-        subject: "Witamy w Deltabadger 🎉"
-        template_html: '<p>Ahoj kapitanie,</p><p>Jeszcze jeden klik i możesz zacząć
-          automatyczne<br>uśrednianie kosztu złotówkowego Bitcoina:</p><p style="margin:
-          1em 0 1.2em;"> <a href="%{confirmation_url}" style="color: #0a45a4;">Potwierdź
-          moje konto</a></p><p>Nie zakładałeś konta?<br>Po prostu zignoruj tę wiadomość.</p>'
+        subject: Potwierdź swój adres e-mail
+        template_html: <p>Twój adres e-mail jest tylko jeden klik od dołączenia do zespołu A niesamowitych! Potwierdź teraz i pozwól, aby dobre czasy miały swobodny bieg w trybie automatycznym.</p><a class="mail-button" href="%{confirmation_url}">Potwierdź ten e-mail</a>
       email_changed:
-        subject: "Nowy adres e-mail 📨"
-        template_html: "<p>Ahoj kapitanie,</p><p>Wysyłamy tę wiadomość, aby powiadomić
-          Cię, że adres e-mail powiązany z Twoim kontem w Deltabadger został zmieniony
-          na: </p><p><b>%{email}</b></p>"
+        subject: Adres e-mail potwierdzony
+        template_html: "<p>Gotowe! To jest twój nowy i błyszczący adres Deltabadger:</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "Nowe hasło 🔑"
-        template_html: "<p>Ahoj kapitanie,</p><p>Twoje hasło 🔑 zostało zmienione.</p>"
+        subject: Hasło zmienione
+        template_html: "<p>Zrobione!</p><p>Twoje hasło zostało zmienione.</p><p>Twoje tajemnice są bezpieczniejsze niż kiedykolwiek!</p>"
       reset_password_instructions:
-        subject: "Resetowanie hasła 🔑"
-        template_html: "<p>Ahoj kapitanie,</p><p>Wygląda na to, że chcesz zmienić<br/>swoje
-          hasło 🔑. Dobry ruch!</p><p>Wystarczy kliknąć ten link:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{edit_password_url}\">Zmień moje hasło</a></p><p>Nie
-          wysłałeś tego żądania?<br/>Nie ma sprawy! Po prostu zignoruj je.</p>"
+        subject: Odzyskiwanie hasła
+        template_html: <p>Rozpoczęto odzyskiwanie hasła! Trzymaj się, wkrótce wrócisz do gry.</p><a class="mail-button" href="%{edit_password_url}">Zmień swoje hasło</a>
       unlock_instructions:
-        subject: "Instrukcja odblokowania 🔓"
-        template_html: '<p>Ahoj kapitanie,</p><p>Zablokowaliśmy Twoje konto z powodu<br>dużej
-          ilości nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:
-          </p><p style="margin: 1em 0 1.2em;"> <a href="%{unlock_url}" style="color:
-          #0a45a4;">Odblokuj moje konto</a></p>'
+        subject: Instrukcje odblokowania
+        template_html: <p>Zablokowaliśmy twoje konto z powodu wysokiej liczby nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:</p><a class="mail-button" href="%{unlock_url}">Odblokuj swoje konto</a>
     omniauth_callbacks:
       failure: Nie można uwierzytelnić %{kind} ponieważ „ %{reason} ”.
       success: Pomyślne uwierzytelnienie z konta %{kind}.
@@ -820,12 +809,18 @@ pl:
     start_fast_longer_html: Zacznij <span class="d-none d-sm-inline">za darmo</span>
       w 5 minut
     terms_and_conditions: Regulamin
-  mail: '<p>Ahoj kapitanie,</p><p>O ho ho! Twój link referencyjny zyskuje na popularności!</p><p>Przekazujemy
+  mail: '<p>O ho ho! Twój link referencyjny zyskuje na popularności!</p><p>Przekazujemy
     prowizję w wysokości</p><p style="margin: 1em 0 1.2em;"> ⭐ <b style="color: #0a45a4;">%{amount}
     BTC</b></p><p>na Twój portfel bitcoinowy.</p><p>Dziękujemy za powiększenie gangu
     borsuka!</p>'
   mailer:
-    signature_html: "Zespół Deltabadgera 🧑‍🚀"
+    greeting: Ahoj kapitanie,
+    greeting_name: Ahoj %{name},
+    signature_html: Zespół Deltabadger
+    signature_badgers: Niezwyciężony zespół borsuków do usług.
+    email_or_telegram: Pytania? Odpowiedz na ten email lub dołącz do naszej społeczności na
+    follow_us_twitter: Nie zapomnij śledzić nasz
+    all_rights_reserved: Wszystkie prawa hyperbitcoinizowane.
   meta:
     desc: Wystartuj za darmo najlepiej sprawdzoną strategię DCA, która działa z Binance,
       Coinbase, Kraken, Kucoin i innymi giełdami. Bez KYC.
@@ -866,7 +861,7 @@ pl:
         <b>Zapłacone:</b></p><h2>%{total_paid} %{currency}</h2>"
     subscription_granted:
       subject: Plan %{plan_name} został włączony
-      template_html: "<p>Ahoj kapitanie,</p><p>Wow 💙,</p><p>Dziękujemy za
+      template_html: "<p>Wow 💙,</p><p>Dziękujemy za
         zakup subskrypcji</p><p> <b> Planu %{plan_name} </b></p><p>Jesteś super! 🔥</p>"
   subscriptions:
     days_left:
