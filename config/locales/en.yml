@@ -23,18 +23,18 @@ en:
   affiliate_mailer:
     new_btc_address_confirmation:
       subject: Confirm new Bitcoin address
-      template_html: <p>Ahoy captain,</p><p>It looks like you want to change your
+      template_html: <p>It looks like you want to change your
         Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will
         be used for your payouts from our referral program.</p><p>Are you sure?</p><a
         class="mail-button" href="%{confirmation_url}">Yes, let's change it!</a>
     referrals_payout_notification:
       subject: It's a payday!
-      template_html: "<p>Ahoy captain,</p><p>Your referral link is gaining traction!
+      template_html: "<p>Your referral link is gaining traction!
         Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to
         your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>"
     registration_reminder:
       subject: Wow! You earned %{amount} BTC!
-      template_html: <p>Ahoy captain,</p><p>You have a new commission from the referral
+      template_html: <p>You have a new commission from the referral
         program waiting for you! Finish registration to receive your bitcoins:</p><a
         class="email-button" href=%{link}>Complete registration.</a>
   affiliates:
@@ -132,30 +132,30 @@ en:
         a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
     first_month_ending_soon:
       subject: First month trial ending soon!
-      template_html: "<p>Ahoy captain,</p><p>You have been using Deltabadger for almost
+      template_html: "<p>You have been using Deltabadger for almost
         a month now!</p><p>Your free unlimited trial is ending soon. Make sure to
         upgrade in order to keep your heavier badgers running!</p>"
     limit_almost_reached:
       subject: Limit almost reached
-      template_html: "<p>Ahoy captain,</p><p>You've almost reached the <b>Saver</b>
+      template_html: "<p>You've almost reached the <b>Saver</b>
         \ plan transaction limit.</p><p>Upgrade your plan to <b>Investor</b>  or <b>Hodler</b>
         to make sure that your</br>bots will continue to work.</p>"
     limit_reached:
       subject: You've reached the limit
-      template_html: "<p>Ahoy captain,</p><p>Oh, well done! Your <b>Saver</b> plan
+      template_html: "<p>Oh, well done! Your <b>Saver</b> plan
         limit has been reached.</p><p>It looks like you do dollar-cost averaging for
         a while now.</p><p>We hope you're happy about the results.</p><p>Upgrade your
         plan to <b>Investor</b> or <b>Hodler</b> to remove all limits and put your
         bots back to work.</p>"
     notify_about_error:
       subject: Something went wrong
-      template_html: "<p>Ahoy captain,</p><p>Something went wrong while processing
+      template_html: "<p>Something went wrong while processing
         the last transaction.</p><p>You can see the error in the bot log. Sign in
         to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b>
         <b>%{errors}</b></blockquote>"
     notify_about_restart:
       subject: Oops! Next try…
-      template_html: "<p>Ahoy captain,</p><p>The bot couldn't perform your order.
+      template_html: "<p>The bot couldn't perform your order.
         It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error
         are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote>
         <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
@@ -585,11 +585,12 @@ en:
     mailer:
       confirmation_instructions:
         subject: Confirm email address
-        template_html: <p>Ahoy captain,</p><p>Your email address is one click away from joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p><a class="mail-button" href="%{confirmation_url}">Confirm
-          this email</a>
+        template_html: <p>Your email address is one click away from joining
+          the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p>
+          <a class="mail-button" href="%{confirmation_url}">Confirm this email</a>
       email_changed:
         subject: Email confirmed
-        template_html: "<p>Ahoy captain,</p><p>Done! This is your brand new and shiny
+        template_html: "<p>Done! This is your brand new and shiny
           Deltabadger address:</p><p><b>%{email}</b></p>"
       password_change:
         subject: Password changed
@@ -597,12 +598,12 @@ en:
           secrets are safer than ever!</p>"
       reset_password_instructions:
         subject: Password recovery
-        template_html: <p>Ahoy captain,</p><p>Password recovery initiated! Hang tight,
+        template_html: <p>Password recovery initiated! Hang tight,
           we'll have you back in the game in no time.</p><a class="mail-button" href="%{edit_password_url}">Change
           my password</a>
       unlock_instructions:
         subject: Unlock instructions
-        template_html: <p>Ahoy captain,</p><p>We locked your account due to<br>a high
+        template_html: <p>We locked your account due to a high
           number of unsuccessful log in attempts.</p><p>Click the link below to unlock
           it:</p><a class="mail-button" href="%{unlock_url}">Unlock my account</a>
     omniauth_callbacks:
@@ -796,11 +797,17 @@ en:
     start_fast_longer_html: Start <span class="d-none d-sm-inline">for free</span>
       in 5 minutes
     terms_and_conditions: Terms & Conditions
-  mail: '<p>Ahoy captain,</p><p>Sweet! Your referral link is<br>gaining traction!</p><p>We
+  mail: '<p>Sweet! Your referral link is<br>gaining traction!</p><p>We
     transfer a commission of</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b>
     </p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
   mailer:
+    greeting: Ahoy captain,
+    greeting_name: Ahoy %{name},
     signature_html: Deltabadger Team
+    signature_badgers: Invincible team of badgers at your service.
+    email_or_telegram: Questions? Reply to this email, or join our community on
+    follow_us_twitter: Don't forget to follow us on
+    all_rights_reserved: All rights hyperbitcoinized.
   meta:
     desc: Start for free the most-proven strategy that works with Binance, Coinbase,
       Kraken, Kucoin, and other exchanges. No KYC.
