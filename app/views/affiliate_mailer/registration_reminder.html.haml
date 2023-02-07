@@ -1,4 +1,4 @@
 %h1{class: "mail-header"}= t('.subject')
 
-%p= t('mailer.greeting')
+%p= t('mailer.greeting_name', name: @user.name)
 = t('.template_html', link: affiliate_url)
