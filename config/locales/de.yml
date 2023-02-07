@@ -959,7 +959,7 @@ de:
     upgrade: Upgrade
     upgrade_plan: Plan upgraden
   welcome:
-    banner_html: Hallo! <b>Überprüfe deinen Posteingang</b> und finde Tipps und Tricks
+    banner_html: Hallo %{name}! <b>Überprüfe deinen Posteingang</b> und finde Tipps und Tricks
       für die perfekte Bot-Einrichtung, die ich für dich vorbereitet habe. <b>Wenn
       es im Spam-Ordner gelandet ist, verschiebe es in deinen Posteingang</b>, damit
       du in Zukunft unsere Nachrichten sehen kannst. Danke, Jan

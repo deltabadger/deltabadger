@@ -878,7 +878,7 @@ pt:
     upgrade: Atualizar
     upgrade_plan: Atualizar plano
   welcome:
-    banner_html: Ei, usuário! <b>Verifique sua caixa de entrada</b> e encontre dicas
+    banner_html: Ei, usuário %{name}! <b>Verifique sua caixa de entrada</b> e encontre dicas
       e truques para a configuração perfeita do bot que preparei para você. <b>Se
       ele cair na pasta de spam, mova-o para sua caixa de entrada</b>, para que você
       possa ver nossas mensagens no futuro. Obrigado, Jan
