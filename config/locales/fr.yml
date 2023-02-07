@@ -988,7 +988,7 @@ fr:
     upgrade: Mettre à niveau
     upgrade_plan: Mise à niveau du plan
   welcome:
-    banner_html: Salut ! <b>Vérifiez votre boîte de réception</b> et trouvez des astuces
+    banner_html: Salut %{name} ! <b>Vérifiez votre boîte de réception</b> et trouvez des astuces
       et des conseils pour la configuration parfaite du bot que je vous ai préparé.
       <b>Si cela est arrivé dans le dossier de spam, déplacez-le dans votre boîte
       de réception</b> afin que vous puissiez voir nos messages à l'avenir. Merci,
