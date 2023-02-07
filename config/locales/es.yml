@@ -966,7 +966,7 @@ es:
     upgrade: Actualizar
     upgrade_plan: Actualizar plan
   welcome:
-    banner_html: "¡Hola! <b>Verifica tu bandeja de entrada</b> y encuentra consejos
+    banner_html: "¡Hola %{name}! <b>Verifica tu bandeja de entrada</b> y encuentra consejos
       y trucos para la configuración perfecta del bot que te he preparado. <b>Si aterrizó
       en la carpeta de spam, múvalo a tu bandeja de entrada</b>, para que puedas ver
       nuestros mensajes en el futuro. Gracias, Jan"
