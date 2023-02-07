@@ -585,8 +585,8 @@ en:
     mailer:
       confirmation_instructions:
         subject: Confirm email address
-        template_html: <p>Your email address is one click away from
-          joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p>
+        template_html: <p>Your email address is one click away from joining
+          the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p>
           <a class="mail-button" href="%{confirmation_url}">Confirm this email</a>
       email_changed:
         subject: Email confirmed
@@ -603,7 +603,7 @@ en:
           my password</a>
       unlock_instructions:
         subject: Unlock instructions
-        template_html: <p>We locked your account due to<br>a high
+        template_html: <p>We locked your account due to a high
           number of unsuccessful log in attempts.</p><p>Click the link below to unlock
           it:</p><a class="mail-button" href="%{unlock_url}">Unlock my account</a>
     omniauth_callbacks:
@@ -801,7 +801,7 @@ en:
     transfer a commission of</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b>
     </p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
   mailer:
-    greeting: Ahoy %{name},
+    greeting: Ahoy captain,
     greeting_name: Ahoy %{name},
     signature_html: Deltabadger Team
     signature_badgers: Invincible team of badgers at your service.

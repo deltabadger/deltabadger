@@ -573,34 +573,20 @@ id:
       unconfirmed: Anda harus mengonfirmasi alamat email Anda sebelum melanjutkan.
     mailer:
       confirmation_instructions:
-        subject: "Selamat datang di Deltabadger 🎉"
-        template_html: "<p>Selamat Datang di Deltabadger 🎉,</p><p>Dollar-cost
-          averaging otomatis<br>untuk Bitcoin hanya dengan satu klik:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Konfirmasikan
-          akun saya</a></p><p>Anda tidak ingat bahwa mendaftar?<br>Jangan khawatir.
-          Abaikan saja.</p>"
+        subject: Konfirmasi alamat email
+        template_html: <p>Alamat email Anda hanya satu klik jaraknya untuk bergabung dengan tim A kehebatan! Konfirmasi sekarang dan biarkan waktu-waktu baik berjalan otomatis.</p><a class="mail-button" href="%{confirmation_url}">Konfirmasi email ini</a>
       email_changed:
-        subject: "Alamat email baru 📨"
-        template_html: "<p>Kami mengirim email ini untuk memberi
-          tahu Anda bahwa alamat email yang terkait dengan akun Anda di Deltabadger
-          telah diubah menjadi:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+        subject: Email dikonfirmasi
+        template_html: "<p>Selesai! Ini adalah alamat Deltabadger baru dan berkilau Anda:</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "Kata sandi baru 🔑"
-        template_html: "<p>Selesai 🎉!</p><p>Kata sandi Anda 🔑 telah
-          diubah.</p>"
+        subject: Kata sandi berubah
+        template_html: "<p>Sudah selesai!</p><p>Kata sandi Anda telah berubah.</p><p>Rahasia Anda lebih aman dari sebelumnya!</p>"
       reset_password_instructions:
-        subject: "Reset kata sandi 🔑"
-        template_html: "<p>Tampaknya Anda ingin mengubah<br/>kata
-          sandi 🔑. Langkah bagus!</p><p>Mari mulai:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Ubah
-          kata sandi</a> </p><p>Anda tidak mengirim permintaan ini?<br/>Jangan khawatir!
-          Abaikan saja.</p>"
+        subject: Pemulihan kata sandi
+        template_html: <p>Inisiasi pemulihan kata sandi dimulai! Bersabarlah, kami akan membawa Anda kembali dalam permainan dalam waktu singkat.</p><a class="mail-button" href="%{edit_password_url}">Ganti kata sandi saya</a>
       unlock_instructions:
-        subject: "Buka petunjuk 🔓"
-        template_html: "<p>Kami mengunci akun Anda karena<br>banyaknya
-          percobaan masuk yang gagal.</p><p>Klik tautan di bawah ini untuk membukanya:</p><p
-          style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color:
-          #0a45a4;\">Buka kunci akun saya</a></p>"
+        subject: Petunjuk membuka kunci
+        template_html: <p>Kami mengunci akun Anda karena banyaknya upaya masuk yang gagal.</p><p>Klik tautan di bawah untuk membukanya:</p><a class="mail-button" href="%{unlock_url}">Buka kunci akun saya</a>
     omniauth_callbacks:
       failure: Tidak dapat mengautentikasi Anda dari %{kind} karena "%{reason}".
       success: Berhasil diautentikasi dari %{kind} akun.
@@ -783,7 +769,8 @@ id:
     #0a45a4;\">%{amount} BTC</b></p><p>ke dompet Bitcoin Anda.</p><p>Terima kasih
     sudah mengembangkan <br/>tim badger!</p>"
   mailer:
-    greeting: Halo kapten
+    greeting: Halo kapten,
+    greeting_name: Halo %{name},
     signature_html: Tim Deltabadger
     signature_badgers: Tim badak tak terkalahkan siap melayani Anda.
     email_or_telegram: Pertanyaan? Balas email ini atau bergabung dengan komunitas kami di

@@ -617,35 +617,20 @@ es:
         continuar.
     mailer:
       confirmation_instructions:
-        subject: "Bienvenido a Deltabadger 🎉"
-        template_html: "<p>Bienvenido a Deltabadger 🎉:</p><p>El promedio
-          de costes automático en dólares a<br>Bitcoin está a un clic de distancia:</p><p
-          style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color:
-          #0a45a4;\">Confirmar mi cuenta</a></p><p>¿No recuerdas haberte registrado?<br>No
-          te preocupes. Simplemente ignóralo.</p>"
+        subject: Confirmar dirección de correo electrónico
+        template_html: <p>¡Tu dirección de correo electrónico está a un solo clic de unirse al equipo A de la impresionante! Confirma ahora y déjame que los buenos tiempos rodar en piloto automático.</p><a class="mail-button" href="%{confirmation_url}">Confirmar este correo electrónico</a>
       email_changed:
-        subject: "Nueva dirección de correo electrónico 📨"
-        template_html: "<p>Te enviamos este correo para notificarte
-          que la dirección de correo electrónico asociada a tu cuenta en Deltabadger
-          ha sido cambiada por:</p><p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+        subject: Correo electrónico confirmado
+        template_html: "<p>¡Hecho! Esta es tu dirección de Deltabadger nueva y reluciente:</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "Nueva contraseña 🔑"
-        template_html: "<p>¡Ya está hecho 🎉!</p><p>Se ha cambiado 🔑
-          tu contraseña.</p>"
+        subject: Contraseña cambiada
+        template_html: "<p>¡Está hecho!</p><p>Tu contraseña ha sido cambiada.</p><p>¡Tus secretos son más seguros que nunca!</p>"
       reset_password_instructions:
-        subject: "Restablecimiento de contraseña 🔑"
-        template_html: "<p>Parece que quieres cambiar<br/>tu
-          contraseña 🔑. ¡Muy inteligente!</p><p>Allá vamos:</p><p style=\"margin:
-          1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Cambiar
-          mi contraseña</a> </p><p>¿No enviaste esta solicitud?<br/>¡No te preocupes!
-          Simplemente ignórala.</p>"
+        subject: Recuperación de contraseña
+        template_html: <p>¡Se ha iniciado la recuperación de la contraseña! Aguanta, en poco tiempo estarás de vuelta en el juego.</p><a class="mail-button" href="%{edit_password_url}">Cambiar mi contraseña</a>
       unlock_instructions:
-        subject: "Instrucciones de desbloqueo 🔓"
-        template_html: "<p>Hemos bloqueado tu cuenta debido
-          a un<br>alto número de intentos de inicio de sesión infructuosos.</p><p>Haz
-          clic en el siguiente enlace para desbloquearla:</p><p style=\"margin: 1em
-          0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Desbloquear
-          mi cuenta</a></p>"
+        subject: Instrucciones de desbloqueo
+        template_html: <p>Bloqueamos tu cuenta debido a una gran cantidad de intentos de inicio de sesión fallidos.</p><p>Haz clic en el siguiente enlace para desbloquearlo:</p><a class="mail-button" href="%{unlock_url}">Desbloquear mi cuenta</a>
     omniauth_callbacks:
       failure: No se te ha podido autentificar desde %{kind} porque "%{reason}".
       success: Autenticado correctamente desde la cuenta %{kind}.
@@ -850,6 +835,7 @@ es:
     tejones de<br/>!</p>"
   mailer:
     greeting: ¡Hola capitán!
+    greeting_name: ¡Hallo %{name}!
     signature_html: Equipo Deltabadger
     signature_badgers: Equipo de tejones invictos a su servicio.
     email_or_telegram: ¿Preguntas? Responda a este correo electrónico o únase a nuestra comunidad en
