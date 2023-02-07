@@ -459,27 +459,20 @@ zh-cn:
       unconfirmed: 您必须确认您的电子邮件地址，才能继续。
     mailer:
       confirmation_instructions:
-        subject: "欢迎来到 Deltabadger 🎉"
-        template_html: "<p>欢迎来到 Deltabadger 🎉，</p><p>一键即可自动定期定额投资<br>比特币：</p><p
-          style=\"margin: 1em 0 1.2em;\"> <a href=\"%{confirmation_url}\" style=\"color:
-          #0a45a4;\">确认我的账号</a></p><p>您没有注册过？<br>不用担心。直接忽略即可。</p>"
+        subject: 確認電子郵件地址
+        template_html: <p>您的電子郵件地址距離加入“A-團隊”只剩一步之遙！現在確認，讓好時光自動滾動。</p><a class="mail-button" href="%{confirmation_url}">確認此電子郵件</a>
       email_changed:
-        subject: "新电子邮件地址 📨"
-        template_html: "<p>我们发送此电子邮件以通知您，与您在 Deltabadger 的账号关联的电子邮件地址已更改为：</p><p><b
-          style=\"color: #0a45a4;\">%{email}</b></p>"
+        subject: 已確認電子郵件
+        template_html: "<p>完成！這是您嶄新而閃亮的 Deltabadger 地址：</p><p><b>%{email}</b></p>"
       password_change:
-        subject: "新密码 🔑"
-        template_html: "<p>已完成 🎉！</p><p>您的密码 🔑 已更改。</p>"
+        subject: 已更改密碼
+        template_html: "<p>已完成！</p><p>您的密碼已更改。</p><p>您的秘密比以往更安全！</p>"
       reset_password_instructions:
-        subject: "密码已重置 🔑"
-        template_html: "<p>您似乎想要更改<br/>密码 🔑。非常明智之举！</p><p>开始吧：</p><p
-          style=\"margin: 1em 0 1.2em;\"> <a href=\"%{edit_password_url}\" style=\"color:
-          #0a45a4;\">更改我的密码</a> </p><p>您没有发送此请求？<br/>不用担心！直接忽略即可。</p>"
+        subject: 密碼恢復
+        template_html: <p>已啟動密碼恢復！請耐心等待，我們將在不久的將來讓您重新回到遊戲中。</p><a class="mail-button" href="%{edit_password_url}">更改我的密碼</a>
       unlock_instructions:
-        subject: "解锁说明 🔓"
-        template_html: "<p>您的账号由于<br>不成功登录次数太多，已被我们锁定。</p><p>单击下面的链接以解锁：</p><p
-          style=\"margin: 1em 0 1.2em;\"> <a href=\"%{unlock_url}\" style=\"color:
-          #0a45a4;\">解锁我的账号</a></p>"
+        subject: 解鎖說明
+        template_html: <p>由於登錄失敗次數過多，我們已鎖定您的帳戶。</p><p>點擊以下鏈接以解鎖：</p><a class="mail-button" href="%{unlock_url}">解鎖我的帳戶</a>
     omniauth_callbacks:
       failure: 无法从 %{kind} 对您进行身份验证，因为“%{reason}”。
       success: 已成功从 %{kind} 账号进行身份验证。
@@ -653,7 +646,8 @@ zh-cn:
   mail: "<p>不错！您的转介绍链接开始起作用了！</p><p>我们会将 </p><p style=\"margin:
     1em 0 1.2em;\"> ⭐ <b style=\"color: #0a45a4;\">%{amount} 个比特币</b></p><p>的佣金转账到您的比特币钱包。</p><p>感谢您壮大了<br>獾群！</p>"
   mailer:
-    greeting: 哈囉船長
+    greeting: 哈囉船長,
+    greeting_name: 哈囉%{name},
     signature_html: Deltabadger 團隊
     signature_badgers: 無敵土撥鼠團隊隨時為您服務
     email_or_telegram: 問題嗎？回覆這封電子郵件或加入我們的社區
