@@ -6,6 +6,7 @@ class SendgridMailToList < BaseService
   INVESTOR_LIST_NAME = ENV.fetch('SENDGRID_INVESTORS_LIST').freeze
   HODLER_LIST_NAME = ENV.fetch('SENDGRID_HODLERS_LIST').freeze
   LEGENDARY_BADGER_LIST_NAME = ENV.fetch('SENDGRID_LEGENDARY_BADGERS_LIST').freeze
+  KRAKEN_STARTED = ENV.fetch('SENDGRID_KRAKEN_STARTED').freeze
 
   def call(user)
     add_user(user, LIST_NAME)
@@ -14,13 +15,18 @@ class SendgridMailToList < BaseService
     nil
   end
 
-  def change_list(user, current_plan_name, new_plan_name)
+  def change_plan_list(user, current_plan_name, new_plan_name)
     current_list_name = self.class.const_defined?("#{current_plan_name&.upcase || 'UNANNOUNCED'}_LIST_NAME") ? self.class.const_get("#{current_plan_name.upcase}_LIST_NAME") : false
     new_list_name = self.class.const_get "#{new_plan_name.upcase}_LIST_NAME"
 
     delete_user(user.email, current_list_name) if current_list_name && list_ids(current_list_name).present?
 
     add_user(user, new_list_name)
+  end
+
+  def user_to_exchange_list(user, exchange_name)
+    list_name = self.class.const_get "#{exchange_name.upcase}_STARTED"
+    add_user(user, list_name)
   end
 
   private
