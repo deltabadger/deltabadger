@@ -19,7 +19,7 @@ class UpgradeSubscription < BaseService
       email_params: email_params
     )
 
-    SendgridMailToList.new.change_list(user, current_plan_name, new_plan_name)
+    SendgridMailToList.new.change_plan_list(user, current_plan_name, new_plan_name)
 
     # unless payment_id.nil?
     #   payment = Payment.find(payment_id)

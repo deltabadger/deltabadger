@@ -43,6 +43,10 @@ module ExchangeApi
           Result::Failure.new('Could not make Kraken order', **RECOVERABLE)
         end
 
+        def send_user_to_sendgrid(exchange_name, user)
+          SendgridMailToList.new.user_to_exchange_list(user, exchange_name)
+        end
+
         private
 
         def place_order(order_params)
