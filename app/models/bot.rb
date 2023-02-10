@@ -102,6 +102,10 @@ class Bot < ApplicationRecord
     transactions.where(status: [:success, :skipped]).order(created_at: :desc).limit(1).last
   end
 
+  def successful_transaction_count
+    transactions.where(status: [:success, :skipped]).order(created_at: :desc).count
+  end
+
   def any_last_transaction
     transactions.order(created_at: :desc).limit(1).last
   end
