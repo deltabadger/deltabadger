@@ -78,7 +78,7 @@ class MakeTransaction < BaseService
   private
 
   def send_user_to_sendgrid(bot)
-    return if bot.last_successful_transaction
+    return unless bot.successful_transaction_count == 1
     api = get_api(bot)
     api.send_user_to_sendgrid(bot.exchange.name, bot.user)
   end
