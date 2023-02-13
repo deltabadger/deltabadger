@@ -146,6 +146,18 @@
             start: 1
             end: 2
 
+.db-legendary-early-bird-discount
+  display: none
+.db-plan-legendary_badger.db-plan--selected ~ .db-legendary-early-bird-discount
+  display: grid
+
+.db-special-upgrade-discount
+  background: $success
+  color: #fff !important
+  margin-top: 0
+  .db-plans__item__name, .db-plans__item__amount__t
+    color: #fff !important
+
 .db-plan--selected
   box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   color: var(--planSelectedTxt)

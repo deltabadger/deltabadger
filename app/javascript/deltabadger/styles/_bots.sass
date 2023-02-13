@@ -41,13 +41,10 @@ input
         position: relative
       .nav-item
         .nav-link
-          padding: 0.5rem 1rem .8rem
+          padding: 1.3rem 2.4rem 1.7rem
           color:           var(--link)
           background:      var(--paper)
           text-decoration: none !important
-          padding-top:     .8rem
-          padding-left:    2.4rem
-          padding-right:   2.4rem
           margin-right:    .2rem
           position:        relative
           &:not(.active)
@@ -57,7 +54,7 @@ input
               background:  var(--paperBorder)
           &.active
             cursor:              default
-            padding-bottom:      .9rem
+            padding-bottom:      1.8rem
             border-bottom-width: 0
             color:               var(--text)
             border-color:        var(--paperBorder)
@@ -377,12 +374,7 @@ input
 .db-limit-bot-modifier
   margin-top: 4rem
   margin-bottom: -2rem
-.db-alert
-  &--annotation
-    min-height: 4rem
-    display: block
-    &:first-line
-      text-indent: -1em
+
 .db-breadcrumbs
   color: var(--linkInactive)
   em
@@ -392,6 +384,10 @@ input
 .db-add-more-bots
   justify-content: space-between
   height: 4rem
+  .btn-outline-primary:not(:hover)
+    color: var(--primary) !important
+    .material-icons
+      color: var(--primary) !important
   a
     text-decoration: none
   .pagination-lg
