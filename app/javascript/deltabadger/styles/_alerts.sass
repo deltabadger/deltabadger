@@ -14,7 +14,30 @@
     margin-right: -.8rem
   .invisible
     display: none
+
+.db-alert
+  &--annotation
+    min-height: 4rem
+    display: block
+    &:first-line
+      text-indent: -1em
+  &--flex
+    display: flex
+    justify-content: space-between
+    align-items: center
+    .btn
+      position: relative
+      right: -1rem
+  &--discount
+    border: 2px solid var(--success)
+    color: #fff
+    background: var(--success)
+    font-size: 2.2rem
+    &--countdown
+      font-weight: bold
+
 .alert
+  box-shadow: $boxShadowAlert
   padding: 2rem 2.3rem
   margin-bottom: 2rem
   a
@@ -30,6 +53,11 @@
       border-radius: 2rem
       margin-left: .5rem
   .close
+    align-self: baseline
+    margin-left: 1em
+    opacity: 0.8
+    text-shadow: none
+    color: inherit
     font-size: 2rem
   [type="checkbox"]
     flex:       none
