@@ -68,12 +68,3 @@
     .db-plans__item__info
       - if discount_presenter.info?
         = t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name)
-
-.db-plans__item.db-plans__item--discount.db-special-upgrade-discount
-  .db-plans__item__name
-    6d 12h 30m 30s
-  .db-plans__item__amount
-    .db-plans__item__amount__t.db-plans__item__amount__t--discount
-      <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-early-bird-discount'>123</span>
-  .db-plans__item__info
-    Special 30% upgrade discount valid only now.
