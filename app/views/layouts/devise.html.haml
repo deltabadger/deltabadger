@@ -33,18 +33,16 @@
 
     - unless @disable_third_party_scripts
       / Global site tag (gtag.js) - Google Analytics
-      %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=UA-60645901-3"}
+      %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=G-LV5T8LS9XQ"}
 
     :javascript
       // google
 
       window.dataLayer = window.dataLayer || [];
-      if ("#{@disable_third_party_scripts}" !== "true") {
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'UA-60645901-3');
-        fomo.trigger('start')
-      }
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-LV5T8LS9XQ');
 
       // input labels
 
