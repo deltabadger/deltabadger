@@ -3,13 +3,28 @@ class UpgradeController < ApplicationController
   protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
+  STRIPE_PROCESS_STATUSES = %w(requires_confirmation requires_action processing)
   EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def index
     return redirect_to legendary_badger_path if current_plan.name == "legendary_badger"
+    payment_in_process = false
+
+    if session[:payment_intent_id]
+      payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
+
+      if card_payment_in_process(payment_intent)
+        payment_in_process = true
+      elsif card_payment_succeeded(payment_intent)
+        upgrade_subscription(payment_intent, session[:payment_intent_id])
+        return redirect_to upgrade_path
+      end
+    end
+
     render :index, locals: default_locals.merge(
       payment: new_payment,
-      errors: []
+      errors: [],
+      payment_in_process: payment_in_process
     )
   end
 
@@ -54,6 +69,7 @@ class UpgradeController < ApplicationController
       currency: fake_payment.eu? ? 'eur' : 'usd',
       metadata: metadata
     )
+    session[:payment_intent_id] = payment_intent['id']
     render json: {
       clientSecret: payment_intent['client_secret'],
       payment_intent_id: payment_intent['id']
@@ -71,7 +87,6 @@ class UpgradeController < ApplicationController
   end
 
   def confirm_card_payment
-    subscription_params = default_locals.merge(payment_intent_id: params['payment_intent_id'])
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
     card_payment_succeeded = card_payment_succeeded(payment_intent)
     unless card_payment_succeeded
@@ -80,14 +95,7 @@ class UpgradeController < ApplicationController
       }
     end
 
-    payment_metadata = payment_intent['metadata']
-    cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
-    payment_params = payment_metadata.to_hash.merge(subscription_params)
-    payment = Payments::Create.new.card_payment(
-      payment_params,
-      cost_presenter.discount_percent_amount.to_f.positive?
-    )
-    UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
+    upgrade_subscription(payment_intent, params['payment_intent_id'])
 
     render json: {
       payment_status: 'succeeded'
@@ -156,6 +164,22 @@ class UpgradeController < ApplicationController
 
   private
 
+  def upgrade_subscription(payment_intent, payment_intent_id)
+    subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
+    payment_metadata = payment_intent['metadata']
+    cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
+    payment_params = payment_metadata.to_hash.merge(subscription_params)
+    payment = Payments::Create.new.card_payment(
+        payment_params,
+        cost_presenter.discount_percent_amount.to_f.positive?
+    )
+    UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
+    session.delete(:payment_intent_id)
+
+  rescue StandardError => e
+    Raven.capture_exception(e)
+  end
+
   def get_cost_presenter(payment_metadata, subscription_params)
     plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
     if plan == 'hodler'
@@ -185,6 +209,10 @@ class UpgradeController < ApplicationController
 
   def card_payment_succeeded(payment_intent)
     payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
+  end
+
+  def card_payment_in_process(payment_intent)
+    STRIPE_PROCESS_STATUSES.include? payment_intent['status']
   end
 
   def amount_in_cents(amount) # Stripe takes total amount of cents

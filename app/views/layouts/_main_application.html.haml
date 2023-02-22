@@ -175,6 +175,7 @@
           $(".db-form-label-range--earn-percent").text(earnPercent);
         });
         $(".db-form-control-text--visible_name").on('input', function(e){
+          if (!e.target) return;
           if (e.target.value.trim()) {
            $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
           } else {
