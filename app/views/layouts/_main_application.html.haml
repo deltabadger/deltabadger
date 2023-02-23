@@ -45,17 +45,17 @@
     #current_user_subscription{ data: current_user.subscription_name }
     = javascript_pack_tag 'deltabadger2'
 
-    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=UA-60645901-3"}
+    / Global site tag (gtag.js) - Google Analytics
+    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=G-FY76G14DEX"}
 
     :javascript
-
       // google
 
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
 
-      gtag('config', 'UA-60645901-3');
+      gtag('config', 'G-FY76G14DEX');
 
       // payments plan
       $(document).ready(function(){
