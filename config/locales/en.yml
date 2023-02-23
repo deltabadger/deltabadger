@@ -833,6 +833,7 @@ en:
       submit_password: Change password
       title: Settings
       two_factor_section: Second Factor Authentication
+      limit_left: "$%{credits} of free limit left. Your limit resets on %{end_time}."
   social:
     blog: Read our blog
     knowledge_base: Knowledge base
