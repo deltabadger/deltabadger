@@ -11,10 +11,13 @@
     .db-box.mb-3
       - wrong_code = !wrong_code.nil?
       = render partial: 'enable_two_factor_authorization', locals: { user: user, wrong_code: wrong_code }
-    .db-box
+    .db-box.mb-3
       %h4.db-modal__subtitle= t('.api_keys_section')
       %h5.db-modal__subtitle Trading keys
       = render partial: 'remove_api_key', collection: trading_api_keys, as: :api_key
       %br
       %h5.db-modal__subtitle Withdrawal keys
       = render partial: 'remove_api_key', collection: withdrawal_api_keys, as: :api_key
+    - if user.subscription_name == "saver"
+      .db-box
+        = render partial: 'limit_left', locals: { user: user, credits: user.credits.round(2), end_time: user.subscription.end_time }
