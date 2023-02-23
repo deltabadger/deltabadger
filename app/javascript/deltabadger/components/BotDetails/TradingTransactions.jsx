@@ -1,7 +1,7 @@
 import React from 'react'
 import I18n from 'i18n-js'
 import { RawHTML } from '../RawHtml'
-//import { Chart } from './Chart';
+import { Chart } from './Chart';
 import { shouldRename, renameSymbol } from '../../utils/symbols';
 import {toFixedWithoutZeros} from "../helpers";
 
@@ -65,7 +65,7 @@ export const TradingTransactions = ({ bot, active }) => {
       </p>
     }
 
-    {/* <Chart bot={bot} /> */}
+    <Chart bot={bot} />
 
     <table className="table table-borderless table-striped db-table db-table--tx">
       <thead>
