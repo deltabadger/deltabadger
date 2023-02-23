@@ -3,8 +3,8 @@
     %h2= t('.title')
   .col-md-6
     - if user.subscription_name == "saver"
-        .db-box
-          = render partial: 'limit_left', locals: { user: user, credits: user.credits.round(2), end_time: user.subscription.end_time }
+      .db-box.mb-3
+        = render partial: 'limit_left', locals: { user: user, credits: user.credits.round(2), end_time: user.subscription.end_time }
     .db-box.mb-3
       = render partial: 'update_name_form', locals: { user: user }
     .db-box.mb-3
@@ -21,4 +21,3 @@
       %br
       %h5.db-modal__subtitle Withdrawal keys
       = render partial: 'remove_api_key', collection: withdrawal_api_keys, as: :api_key
-    
