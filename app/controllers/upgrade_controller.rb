@@ -23,7 +23,7 @@ class UpgradeController < ApplicationController
 
     render :index, locals: default_locals.merge(
       payment: new_payment,
-      errors: [],
+      errors: session.delete(:errors) || [],
       payment_in_process: payment_in_process
     )
   end
@@ -38,10 +38,8 @@ class UpgradeController < ApplicationController
         Raven.capture_exception(Exception.new(result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
-      render :index, locals: default_locals.merge(
-        payment: result.data || new_payment,
-        errors: result.errors
-      )
+      session[:errors] = result.errors
+      redirect_to action: 'index'
     end
   end
 
@@ -159,7 +157,7 @@ class UpgradeController < ApplicationController
       plan_name: plan
     )
 
-    index
+    redirect_to action: 'index'
   end
 
   private
