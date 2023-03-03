@@ -14,7 +14,7 @@ module Presenters
       def call(bot)
         transactions = bot.transactions.where(status: 'success').order(created_at: :desc)
         skipped_transactions = bot.transactions.where(status: 'skipped').order(created_at: :desc)
-        logs = bot.transactions.first(10)
+        logs = bot.transactions.order(id: :desc).first(10)
 
         {
           id: bot.id,
