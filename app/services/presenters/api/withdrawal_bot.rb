@@ -10,9 +10,9 @@ module Presenters
       end
 
       def call(bot)
-        transactions = bot.transactions.filter { |t| t.status == 'success' }.sort_by(&:created_at).reverse
-        skipped_transactions = bot.transactions.filter { |t| t.status == 'skipped' }.sort_by(&:created_at).reverse
-        logs = bot.transactions.sort_by(&:id).reverse.first(10)
+        transactions = bot.transactions.where(status: 'success').order(created_at: :desc)
+        skipped_transactions = bot.transactions.where(status: 'skipped').order(created_at: :desc)
+        logs = bot.transactions.first(10)
 
         {
           id: bot.id,
