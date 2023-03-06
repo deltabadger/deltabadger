@@ -1,6 +1,14 @@
-.db-country
+= render partial: "upgrade/upgrade_header", locals: { upgrade_presenter: nil, cost_presenter: nil }
 
-  = render partial: "upgrade/upgrade_header", locals: { upgrade_presenter: nil, cost_presenter: nil }
+.db_legendary-badger
+  %img{:src => asset_pack_path("media/images/lb/" + sprintf("%03d", current_user.subscription.sequence_number) + ".svg")}
+  .db_legendary-badger__title
+    - short_list = { 0 => "Lost wallet", 1 => "Hodler", 21 => "Maximalist", 100 => "Gateway", 111 => "Smart intervals", 200 => "Bull market", 222 => "Failure", 300 => "Singularity is loading", 333 => "Money lego", 400 => "Access denied", 444 => "Things got wild", 500 => "Under construction", 555 => "I'm a human", 600 => "Let's Play", 666 => "Impostor", 700 => "Rebalancing", 777 => "Angel", 800 => "", 888 => "Thank you", 900 => "Market signals", 999 => "Hyperbitcoinization" }
+    - if short_list.key?(current_user.subscription.sequence_number)
+      - key = current_user.subscription.sequence_number
+      - value = short_list[key]
+      - result = "#" + "#{sprintf("%03d",key)} · #{value}"
+    - else
+      - result = "#" + sprintf("%03d", current_user.subscription.sequence_number)
 
-Your Legendary Badger is coming soon…
-//= current_user.subscription.sequence_number
+    =result
