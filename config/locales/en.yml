@@ -882,6 +882,7 @@ en:
       will be important in the further growth of the platform. Together we make history.</p><p>Only
       1000 sits on the Legendary Badgers' spaceship. Cement your DCA status, and be
       Legendary.</p>
+    legendary_badger_coming_soon: Your Legendary Badger is coming soon…
     limit_reached_html: "<b>Congrats!</b> You have reached our free transaction limit
       of $1200/year. To continue, upgrade to the unlimited plan."
     maximalist_info: If you buy only Bitcoin, you pay half of the regular price.
@@ -959,3 +960,4 @@ en:
       target="_blank" rel="nofollow">Twitter</a>. Happy averaging!
     default: Hi, welcome to Deltabadger
     saver: Get rid of the limits, and make an upgrade!
+    legendary: You're Legendary! The token is coming soon…
