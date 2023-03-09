@@ -31,24 +31,26 @@
             - lang = params[:lang]
             - unless lang.blank? || lang == 'en'
               = link_to "🇬🇧 English", url_for(lang: 'en'), class: "dropdown-item"
-            - unless lang == 'es'
-              = link_to "🇪🇸 Español", url_for(lang: 'es'), class: "dropdown-item"
-            - unless lang == 'fr'
-              = link_to "🇫🇷 Français", url_for(lang: 'fr'), class: "dropdown-item"
             - unless lang == 'de'
               = link_to "🇩🇪 Deutsch", url_for(lang: 'de'), class: "dropdown-item"
-            - unless lang == 'pl'
-              = link_to "🇵🇱 Polski", url_for(lang: 'pl'), class: "dropdown-item"
+            - unless lang == 'nl'
+              = link_to "🇳🇱 Nederlandse", url_for(lang: 'nl'), class: "dropdown-item"
+            - unless lang == 'fr'
+              = link_to "🇫🇷 Français", url_for(lang: 'fr'), class: "dropdown-item"
+            - unless lang == 'es'
+              = link_to "🇪🇸 Español", url_for(lang: 'es'), class: "dropdown-item"
             - unless lang == 'pt'
               = link_to "🇵🇹 Português", url_for(lang: 'pt'), class: "dropdown-item"
+            - unless lang == 'pl'
+              = link_to "🇵🇱 Polski", url_for(lang: 'pl'), class: "dropdown-item"
             - unless lang == 'ru'
               = link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item"
             - unless lang == 'id'
               = link_to "🇮🇩 Bahasa Indonesia", url_for(lang: 'id'), class: "dropdown-item"
-            - unless lang == 'zh-cn'
-              = link_to "🇨🇳 中文", url_for(lang: 'zh-cn'), class: "dropdown-item"
             - unless lang == 'vi'
               = link_to "🇻🇳 Tiếng Việt", url_for(lang: 'vi'), class: "dropdown-item"
+            - unless lang == 'zh-cn'
+              = link_to "🇨🇳 中文", url_for(lang: 'zh-cn'), class: "dropdown-item"
 
         = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-link my-sm-0 mr-4')
         = link_to new_user_registration_path, class: 'btn btn-success my-sm-0' do
