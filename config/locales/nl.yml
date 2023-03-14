@@ -9,22 +9,22 @@ nl:
     ads:
         bitwarden_text: 'Het is gratis en open-source.'
         bitwarden_title: 'Probeer Bitwarden.'
-        dca_2y_profit_html: 'Als je de afgelopen twee jaar Bitcoin aankocht via dollar-cost averaging<br>, <br>heb je nu <span class="text-success">+%{profit}%</span> winst'
-        dca_profit_html: 'Als je het afgelopen jaar BItcoin aankocht via dollar-cost averaging<br>, <br> dan heb je nu <span class="text-success">+%{profit}%</span>'
+        dca_2y_profit_html: 'Als je de afgelopen twee jaar Bitcoin aankocht via dollar-cost averaging, heb je nu <span class="text-success">+%{profit}%</span> winst'
+        dca_profit_html: 'Als je het afgelopen jaar BItcoin aankocht via dollar-cost averaging, dan heb je nu <span class="text-success">+%{profit}%</span>'
         dca_standard_html: 'Aankopen van Bitcoin door middel van dollar-cost averaging, is de nieuwe standaard voor langetermijnspaarders.'
-        dont_trade_automate_html: '<div>Niet traden.</div> <div>Automatiseren.</div>'
+        dont_trade_automate_html: '<div>Niet traden.</div> <div>Wel automatiseren.</div>'
         features: "automatische DCA op uw exchange account;\n<i>Slimme intervallen</i> en setup in vijf minuten;\nelke maand updates en nieuwe functies;\nondersteuning en Telegram-gemeenschap"
         password_managers_html: 'Wachtwoordmanagers <br>maken beveiliging eenvoudiger.'
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: 'Bevestig nieuw Bitcoin-adres 📒'
-            template_html: "<p>Hallo 👋,</p>\n<p>Het lijkt erop dat u uw Bitcoin-adres wilt veranderen naar:</p>\n<p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p>\n<p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p>\n<p>Weet u het zeker?</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Ja, laten we het veranderen!</a>\n</p>\n<p>Je hebt dit verzoek niet verstuurd?<br>Geen zorgen! Negeer dit bericht.</p>\n<p>Het adres zal niet veranderen totdat je de link hierboven opent.</p>"
+            subject: ''
+            template_html: ''
         referrals_payout_notification:
-            subject: 'Het is betaaldag! 💸'
-            template_html: "<p>Hallo 👋,</p>\n    <p>Top! Uw referral link wint aan populariteit!</p>\n    <p>Wij maken een commissie over van </p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n    </p>\n    <p>naar uw Bitcoin wallet.</p>\n    <p>Dank voor het uitbreiden van de <br>badger gang!</p>"
+            subject: ''
+            template_html: ''
         registration_reminder:
-            subject: 'Wow! Je hebt %{amount} BTC verdiend! 💸'
-            template_html: "<p>Wow!</p>\n<p>Je hebt een nieuwe commissie van het verwijzingsprogramma verdiend! Voltooi de registratie om je bitcoins te ontvangen:</p>\n<p><a href=%{link}>Voltooi de registratie.</a></p>"
+            subject: ''
+            template_html: ''
     affiliates:
         add_link_info: 'U kunt uw naam en link naar uw website toevoegen zodat de doorverwezen persoon weet waar de korting vandaan komt. U kan dit veld ook leeg laten:'
         apply_code:
@@ -90,21 +90,24 @@ nl:
             your_link: 'Uw referral link'
         your_bitcoin_address: 'Uw Bitcoin-adres'
     bot_alerts_mailer:
+        end_of_funds:
+            subject: ''
+            template_html: ''
         first_month_ending_soon:
             subject: 'De eerste maand proefperiode eindigt binnenkort!'
-            template_html: "<p>Hallo 👋,</p>\n<p>U gebruikt Deltabadger nu bijna een maand!</p>\n<p>Uw gratis proefperiode eindigt binnenkort. Zorg ervoor een upgrade om je zwaardere badgers lopende te houden!</p>"
+            template_html: ''
         limit_almost_reached:
-            subject: 'Limiet bijna bereikt ⌛'
-            template_html: "<p>Hallo 👋,</p>\n<p>U hebt bijna de <br>limiet van het transactieplan <b style=\"color: #0a45a4;\">Spaarder</b> bereikt.</p>\n<p>Upgrade uw abonnement naar <b style=\"color: #0a45a4;\">Investor</b><br> of <b style=\"color: #0a45a4;\">Hodler</b> om te verzekeren dat je </br>bots blijven werken.</p>"
+            subject: ''
+            template_html: ''
         limit_reached:
-            subject: 'U hebt de limiet bereikt 🥳'
-            template_html: "<p>Hallo 👋,</p>\n<p>Goed gedaan! Je <b style=\"color: #0a45a4;\">Spaarder</b> plan heeft zijn <br>limiet bereikt.</p>\n<p>Zo te zien doe je al een tijdje aan dollar-cost<br>averaging.</p>\n<p>We hopen dat u tevreden bent over<br>de resultaten.</p>\n<p>Upgrade uw abonnement naar <b style=\"color: #0a45a4;\">Investor</b><br> of <b style=\"color: #0a45a4;\">Hodler</b> om alle beperkingen te verwijderen en<br>uw bots weer aan het werk te zetten.</p>"
+            subject: ''
+            template_html: ''
         notify_about_error:
-            subject: 'Er is iets misgegaan 😵'
-            template_html: "<p>Oeps... 😵</p>\n<p>Er ging iets mis tijdens het <br>verwerken van de laatste transactie.</p>\n<p>U kan de error zien in het <br>bot logboek. Log in om het te controleren.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+            subject: ''
+            template_html: ''
         notify_about_restart:
-            subject: 'Oeps! Volgende poging... 🧐'
-            template_html: "<p>Oeps 🧐,</p>\n<p>De bot kon uw order niet uitvoeren. <br>Het lijkt op een probleem bij de exchange. <br>We proberen het opnieuw in %{delay}.</p>\n<p>Alle errors zijn zichtbaar in het logboek van de bot. <br>Log in om dit te controleren.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+            subject: ''
+            template_html: ''
     bots:
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
@@ -118,7 +121,7 @@ nl:
                 warning_html: 'Dit zal de bot verwijderen met al<br>zijn historische gegevens. Weet je het zeker?'
             dollar_cost_averaging: 'Dollar-Cost Averaging'
             pending:
-                info_html: Processing...
+                info_html: ''
                 text: Pending
             start:
                 changed_missed:
@@ -138,7 +141,7 @@ nl:
                     info_html: 'U hebt nog <b>%{time}</b> over tot de uitvoering van het volgende order. U kunt het overslaan, en het volgende order onmiddellijk uitvoeren, of doorgaan met de oorspronkelijke aftelling.'
                     skip: Overslaan
         buy: Kopen
-        counter: ''
+        counter: '%{countdown}'
         day: Dag
         details:
             info:
@@ -157,7 +160,7 @@ nl:
                 chart:
                     total_invested: 'Totaal geïnvesteerd'
                     value: Waarde
-                csv_download_html: 'Bovenstaande tabel toont enkel de laatste tien transacties. <br>Het volledige rapport is hieronder beschikbaar om te downloaden in CSV-formaat.'
+                csv_download_html: 'Bovenstaande tabel toont enkel de laatste tien transacties. Het volledige rapport is hieronder beschikbaar om te downloaden in CSV-formaat.'
                 current_value: 'Huidige waarde'
                 current_value_sold: 'Huidige waarde van de verkochte %{base}'
                 date: Datum
@@ -186,13 +189,14 @@ nl:
         price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{currency}.'
         sell: Verkopen
         setup:
+            api_not_available: ''
             binance:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'In het gebruikersmenu (rond pictogram in de rechterbovenhoek) gaat u naar <b>API Management</b>.'
                 instructions_3_html: 'Benoem de nieuwe API key door te drukken op <b>Create</b>.'
                 instructions_4_html: 'Bevestig de aanmaak met een unieke code(s).'
                 instructions_5_html: 'Zorg ervoor dat <b>Enable Spot & Margin Trading</b> is aangevinkt.'
-                instructions_6_html: 'Als u de toegang tot de key wil beperken voor Deltabadger alleen, klikt u op <b>Edit restrictions</b>, vinkt u <b>Restrict access to trusted IPs only (Recommended)</b> aan en voegt u in de volgende stap dit IP adres in: <b>3.18.70.231</b>'
+                instructions_6_html: ''
                 instructions_7_html: 'Druk op <b>Save</b> en bevestig zo nodig met een nieuwe unieke code.'
                 instructions_8_html: 'Onthoud dat de Secret Key alleen zichtbaar is tijdens het aanmaken, dus zorg ervoor dat je beide keys kopieert voordat je de pagina verlaat.'
                 instructions_9_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
@@ -202,7 +206,7 @@ nl:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het gebruikersmenu (rechterbovenhoek) naar <b>API Keys</b>.'
                 instructions_3_html: 'Ga naar <b>Create New Key</b>.'
-                instructions_4_1_html: 'Machtigingen instellen voor:'
+                instructions_4_1_html: 'Stel machtigingen in voor:'
                 instructions_4_2_html: '<b>Ontvang orders en statussen.</b>'
                 instructions_4_3_html: '<b>Orders aanmaken en annuleren.</b>'
                 instructions_5_html: 'Kies een <b>Label</b> voor uw API key.'
@@ -213,10 +217,10 @@ nl:
             bitso:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het gebruikersmenu (rechtsboven) naar <b>Profile</b>.'
-                instructions_3_html: 'Kies <b>API</b> (links).'
+                instructions_3_html: 'Kies <b>API</b> (linkerkant).'
                 instructions_4_html: 'Druk op <b>Add new API</b>.'
                 instructions_5_html: 'Vul <b>API Name</b> in en geef uw <b>Transaction PIN</b> in.'
-                instructions_6_1_html: 'Machtigingen instellen voor:'
+                instructions_6_1_html: 'Stel machtigingen in voor:'
                 instructions_6_2_html: '<b>Trades uitvoeren</b>'
                 instructions_6_3_html: '<b>Saldo''s weergeven</b>'
                 instructions_6_4_html: '<b>Accountgegevens weergeven</b>'
@@ -230,7 +234,7 @@ nl:
                 instructions_3_html: 'Ga onder <b>Access Control</b> naar <b>API access</b>.'
                 instructions_4_html: 'Druk op <b>New API Key</b>.'
                 instructions_5_html: 'Als u de toegang tot de key wil beperken voor Deltabadger alleen, zet u <b>IP Address Filter</b> op dit IP adres: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Machtigingen instellen voor:'
+                instructions_6_1_html: 'Stel machtigingen in voor:'
                 instructions_6_2_html: '<b>Orders openen</b>'
                 instructions_6_3_html: '<b>Orders annuleren.</b>'
                 instructions_6_4_html: '<b>Koop limiet/markt orders.</b>'
@@ -245,11 +249,11 @@ nl:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het gebruikersmenu (rechterbovenhoek) naar <b>API</b>.'
                 instructions_3_html: 'Druk op <b>New API Key</b>.'
-                instructions_4_1_html: 'Machtigingen instellen voor:'
+                instructions_4_1_html: 'Stel machtigingen in voor:'
                 instructions_4_2_html: '<b>View</b>'
                 instructions_4_3_html: '<b>Trade</b>'
                 instructions_5_html: 'Druk op <b>Create API Key</b>.'
-                instructions_6_html: 'Kopieer en plak uw nieuwe API keys in bovenstaand formulier.'
+                instructions_6_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 passphrase: Wachtwoordzin
                 private_key: 'Secret Key'
                 public_key: 'API Key'
@@ -258,14 +262,6 @@ nl:
                 back_to_settings: 'Terug naar instellingen'
                 limit_exceeded: 'Om de botlimiet van %{frequency_limit} transacties per uur te halen, wordt uw schema uitgevoerd in orders van %{price} %{currency}.'
                 start_the_bot: 'Wijzig en start'
-            ftx:
-                instructions_1_html: 'Log in op uw %{exchange_link} account.'
-                instructions_2_html: 'Ga naar het menu Instellingen (rechtsboven).'
-                instructions_3_html: 'Scrol omlaag naar het gedeelte <b>API Key</b>.'
-                instructions_4_html: 'Druk op <b>Create API Key </b>.'
-                instructions_5_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
-                private_key: 'Private Key'
-                public_key: 'Public Key'
             gemini:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het gebruikersmenu (rechterbovenhoek) naar <b>Settings</b>.'
@@ -308,24 +304,24 @@ nl:
                 instructions_4_html: 'Als u uw API keys voor de eerste keer aanmaakt, kiest u een <b>Trading Password</b> en slaat u dit op.'
                 instructions_5_html: 'Vul <b> API Name </b> in.'
                 instructions_6_html: '<b>API Passphrase</b> invoeren en opslaan.'
-                instructions_7_1_html: 'Machtigingen instellen voor:'
+                instructions_7_1_html: 'Stel machtigingen in voor:'
                 instructions_7_2_html: '<b>General</b>'
                 instructions_7_3_html: '<b>Trade</b>'
                 instructions_8_html: 'Als u de toegang tot de key wil beperken voor Deltabadger alleen, zet u <b>IP Restriction</b> op yes en voegt u dit IP adres toe: <b>3.18.70.231</b>'
                 instructions_9_html: 'Druk op <b>Next</b> .'
-                passphrase: Passphrase
+                passphrase: Wachtwoordzin
                 private_key: 'API Secret'
                 public_key: 'API Key'
             limit_warning: 'De limietorder bot is een experimentele functie. Niet alle orders zullen worden uitgevoerd. Om goede resultaten te bekomen, moet u het geïnvesteerde bedrag proportioneel verhogen. Op dit moment biedt Deltabadger nog geen hulp bij het inschatten van deze aanpassing, dus uw eigen backtesting is noodzakelijk. Gebruik het alleen als u weet wat u doet.'
             next: Volgende
-            no_wallet_found: ' Geen wallet gevonden. Ga naar %{exchangeName} en voeg een opname wallet toe.'
+            no_wallet_found: 'Geen wallet gevonden. Ga naar %{exchangeName} en voeg een opname wallet toe.'
             probit:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het menu <b>My Page</b> (rechterbovenhoek) naar <b>API Management</b>.'
                 instructions_3_html: 'Geef het API key label in en druk op <b>Create new key</b>.'
                 instructions_4_html: 'Bevestig de aanmaak van de API keys.'
                 instructions_5_html: 'Als u de toegang wilt beperken, zodat enkel Deltabadger de keys kan gebruiken, druk dan op <b>Edit</b> en stel <b>IP Address Restriction</b> in op dit IP adres: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Machtigingen instellen voor:'
+                instructions_6_1_html: 'Stel machtigingen in voor:'
                 instructions_6_2_html: '<b>Read</b>'
                 instructions_6_3_html: '<b>Trading</b>'
                 instructions_7_html: 'Kopieer en plak uw nieuwe Client ID en Client''s Secret Key in het bovenstaande formulier.'
@@ -342,36 +338,17 @@ nl:
             step_schedule: Schema
             validating: Validating
             withdrawal:
-                ftx:
-                    instructions_1_html: 'Log in op uw %{exchange_link} account.'
-                    instructions_2_html: 'Ga naar het Settings menu (rechterbovenhoek).'
-                    instructions_3_html: 'Scrol omlaag naar het gedeelte <b>API Key</b>.'
-                    instructions_4_html: 'Durk op <b>Create API Key</b>.'
-                    instructions_5_html: 'Wijzig de machtigingen en selecteer <b>Withdrawals enabled</b>.'
-                    instructions_6_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 kraken:
                     instructions_1_html: 'Log in op uw %{exchange_link} account.'
                     instructions_2_html: 'Ga in het gebruikersmenu naar <b>Security</b> → <b>API</b>.'
-                    instructions_3_html: 'DRuk op <b>Generate New Key</b>.'
-                    instructions_4_html: 'Machtigingen instellen voor:'
-                    instructions_5_1_html: 'Fondsen:'
+                    instructions_3_html: 'Druk op <b>Generate New Key</b>.'
+                    instructions_4_html: 'Stel machtigingen in voor:'
+                    instructions_5_1_html: 'Funds:'
                     instructions_5_2_html: '<b>Fondsen opvragen</b>'
                     instructions_5_3_html: '<b>Fondsen Opnemen</b>'
                     instructions_6_html: 'Druk op <b>Generate Key</b>.'
                     instructions_7_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
             withdrawal_address:
-                ftx:
-                    instructions_10_html: 'Druk op <b>Schedule for whitelisting</b>.'
-                    instructions_11_html: 'Adressen toevoegen aan whitelist heeft minstens één dag vertraging op FTX. Niet gewhiteliste adressen verschijnen niet op het Deltabadger dashboard.'
-                    instructions_1_html: 'Log in op uw %{exchange_link} account.'
-                    instructions_2_html: 'Ga naar het Settings menu (rechterbovenhoek).'
-                    instructions_3_html: 'Ga naar het tabblad <b>Security</b>.'
-                    instructions_4_html: 'In het gedeelte <b>2FA for Withdrawals</b> schakel 2FA uit voor opnames door op <b>Disable 2FA For Withdrawals</b> te drukken.'
-                    instructions_5_html: 'In het gedeelte <b>Withdrawal Destination Whitelisting</b> schakel whitelisting in door op <b>Restrict Withdrawals To Whitelist</b> te drukken.'
-                    instructions_6_html: 'Op dezelfde pagina klik op de hyperlink <b>Saved Addresses</b>.'
-                    instructions_7_html: 'Op de pagina <b>Manage Saved Addresses</b> druk op <b>Create Saved Address</b>.'
-                    instructions_8_html: 'Geef het opnameadres in en druk op <b>Save Address</b>.'
-                    instructions_9_html: 'In de kolom <b>Whitelist Status</b> druk op Bewerken (potloodpictogram).'
                 kraken:
                     instructions_1_html: 'Log in op uw %{exchange_link} account.'
                     instructions_2_html: 'Ga naar <b>Funding</b> → <b>Withdraw</b>.'
@@ -383,7 +360,7 @@ nl:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het gebruikersmenu (rechterbovenhoek) naar <b>API Settings</b>.'
                 instructions_3_html: 'Druk op <b>Add New Key</b>.'
-                instructions_4_1_html: 'Machtigingen instellen voor:'
+                instructions_4_1_html: 'Stel machtigingen in voor:'
                 instructions_4_2_html: '<b>Geschiedenis</b>'
                 instructions_4_3_html: '<b>Ontvang orders en marktconfiguraties</b>'
                 instructions_4_4_html: '<b>Orders beheren en marktconfiguraties wijzigen</b>'
@@ -391,7 +368,7 @@ nl:
                 instructions_6_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 private_key: 'Private Key'
                 public_key: 'Public Key'
-        smart_intervals_disclaimer: "De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.\n"
+        smart_intervals_disclaimer: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'De minimale ordergrootte is %{minimum}%{currency}.'
         start: Start
@@ -403,13 +380,13 @@ nl:
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
         withdrawal_percentage: '%{percentage}% tot de volgende opname'
     cookie:
-        agree: 'Ik ga akkoord.'
+        agree: 'Ik ga akkoord'
         description: 'We gebruiken cookies om dingen eenvoudiger te maken.'
         read_more: 'Meer informatie'
     days_left:
-        one: '1 dag over'
-        other: '%{count} dagen over'
-    deltabadger: ''
+        one: ''
+        other: ''
+    deltabadger: Deltabadger
     devise:
         confirmations:
             confirmed: 'Uw e-mailadres is bevestigd.'
@@ -430,20 +407,20 @@ nl:
             unconfirmed: 'U moet uw e-mailadres bevestigen om verder te gaan.'
         mailer:
             confirmation_instructions:
-                subject: 'Welkom bij Deltabadger 🎉'
-                template_html: "<p>Welkom bij Deltabadger 🎉,</p>\n<p>Geautomatiseerde dollar-cost averaging<br> aankoop van Bitcoin is slechts één klik verwijderd:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Bevestig mijn account</a>\n</p>\n<p>Heb je je niet aangemeld voor deze service? <br>Geen probleem, u mag dit bericht negeren.</p>"
+                subject: ''
+                template_html: ''
             email_changed:
-                subject: 'Nieuw e-mailadres 📨'
-                template_html: "<p>Hallo 👋,</p>\n<p>Wij sturen u deze e-mail om u te informeren dat het e-mailadres gekoppeld aan uw account bij Deltabadger is gewijzigd in:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+                subject: ''
+                template_html: ''
             password_change:
-                subject: 'Nieuw wachtwoord 🔑'
-                template_html: "<p>Klaar 🎉!</p>\n<p>Uw wachtwoord 🔑 is gewijzigd.</p>"
+                subject: ''
+                template_html: ''
             reset_password_instructions:
-                subject: 'Wachtwoord opnieuw instellen 🔑'
-                template_html: "<p>Hallo 👋,</p>\n<p>Het lijkt erop dat je <br/>je wachtwoord wilt veranderen 🔑. Slimme zet!</p>\n<p>We doen het:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Wijzig mijn wachtwoord</a>\n  </p>\n<p>Heb je dit verzoek niet verstuurd? <br/>Geen zorgen, je mag dit bericht negeren.</p>"
+                subject: ''
+                template_html: ''
             unlock_instructions:
-                subject: 'Instructies om te ontgrendelen 🔓'
-                template_html: "<p>Hallo 👋,</p>\n<p>We hebben uw account vergrendeld vanwege<br>een hoog aantal mislukte inlogpogingen.</p>\n<p>Klik op de onderstaande link om te ontgrendelen:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Ontgrendel mijn account</a>\n</p>"
+                subject: ''
+                template_html: ''
         omniauth_callbacks:
             failure: 'Kan u niet verifiëren van %{kind} omdat "%{reason}".'
             success: 'Succesvol geverifieerd van %{kind} account.'
@@ -460,14 +437,13 @@ nl:
             updated: 'Klaar! Uw wachtwoord is gewijzigd.'
             updated_not_active: 'Klaar! Uw wachtwoord is gewijzigd.'
         registrations:
-            destroyed: 'Doei! We hopen je snel weer te zien…'
             edit:
                 awaiting_confirmation: 'Wacht momenteel op bevestiging voor: %{email}'
             new:
                 email_invalid: 'E-mail ongeldig!'
                 email_suggestion_html: 'E-mail ongeldig! Bedoelde u: <b> %{suggestion} </b>'
                 email_used: 'Deze e-mail is reeds in gebruik.'
-                name_invalid: 'Het hoeft niet de echte te zijn :)'
+                name_invalid: ''
                 submit: 'Start nu'
                 title_html: '<span class="text-success">Gratis</span> account aanmaken'
             signed_up: 'Leuk je te ontmoeten!'
@@ -478,7 +454,6 @@ nl:
             updated: 'Uw account is bijgewerkt.'
             updated_but_not_signed_in: 'Uw account is bijgewerkt, meld u opnieuw aan.'
         sessions:
-            already_signed_out: 'Ik haat afscheid. Tot gauw?'
             new:
                 forgot_password: 'Wachtwoord vergeten?'
                 submit: Aanmelden
@@ -487,11 +462,10 @@ nl:
             signed_out: 'Tot gauw!'
         unlocks:
             send_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
-            send_paranoid_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
             unlocked: 'Uw account is succesvol ontgrendeld. Meld u aan om verder te gaan.'
     errors:
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
-        format: ''
+        format: '%{attribute}%{message}'
         frequency_limit: 'Frequentiegrens overschreden'
         invalid_api_keys: 'Ongeldige tokens'
         limit_reached: 'Limiet gratis abonnement bereikt'
@@ -518,30 +492,30 @@ nl:
             less_than: 'moet kleiner zijn dan %{count}'
             less_than_or_equal_to: 'moet kleiner zijn dan of gelijk zijn aan %{count}'
             model_invalid: 'Validatie mislukt: %{errors}'
-            name_invalid: 'Het hoeft niet de echte te zijn :)'
+            name_invalid: ''
             not_a_number: 'is geen getal'
             not_an_integer: 'moet een geheel getal zijn'
             not_found: 'niet gevonden.'
             not_locked: 'was niet vergrendeld.'
             not_saved:
-                one: '1 error verhindert deze %{resource} om op te slaan:'
-                other: ' %{count} errors verhinderen deze %{resource} om op te slaan:'
+                one: ''
+                other: ''
             odd: 'moet oneven zijn'
             other_than: 'moet verschillend zijn dan %{count}'
             password_not_match: 'Wachtwoorden komen niet overeen'
             present: 'moet leeg zijn'
             too_long:
-                one: 'is te lang (maximum 1 karakter)'
-                other: 'is te lang (maximum %{count} karakters)'
+                one: ''
+                other: ''
             too_short:
-                one: 'is te kort (minimum 1 karakter)'
-                other: 'is te kort (minimum %{count} karakters)'
+                one: ''
+                other: ''
             too_short_password: 'Wachtwoord is te kort'
             too_simple_password: 'Het wachtwoord moet tekens bevatten uit elk van deze categorieën: hoofdletters (A-Z), kleine letters (a-z), cijfers (0-9), speciale tekens (bv. #,?,!).'
             wrong_email: 'Verkeerde email.'
             wrong_length:
-                one: 'is de verkeerde lengte (moet 1 karakter zijn)'
-                other: 'is de verkeerde lengte (moet %{count} karakters zijn)'
+                one: ''
+                other: ''
             wrong_password: 'Verkeerd wachtwoord'
             wrong_two_fa_token: 'Ingegeven code is verkeerd.'
         referral_program_inactive: 'Uw verwijzingsprogramma is inactief'
@@ -568,8 +542,6 @@ nl:
                 first_name: Voornaam
                 last_name: Achternaam
                 other: Anders
-                submit_hodler_order: 'Bestel Hodler plan'
-                submit_investor_order: 'Bestel Investor plan'
             settings:
                 current_status: 'Huidige status:'
                 disable_two_fa: '2FA uitschakelen'
@@ -600,7 +572,7 @@ nl:
         about: 'Over ons'
         about_html: 'Over <span class="d-none d-xl-inline">het project</span>'
         contact: Contact
-        cookies_policy: Cookiebeleid
+        cookies_policy: Cookie-instellingen
         create_account: 'Gratis account aanmaken'
         dashboard: Dashboard
         homepage: 'Link naar de homepagina'
@@ -612,14 +584,18 @@ nl:
         resend_link: 'Link opnieuw verzenden'
         settings: Instellingen
         sign_up: Registreren
-        start_fast: 'Start in 5 minuten'
-        start_fast_longer_html: 'Start <span class="d-none d-sm-inline">gratis</span> in 5 minuten'
         terms_and_conditions: 'Algemene voorwaarden'
-    mail: "<p>Hallo 👋,</p>\n    <p>Top! Uw referral link <br> wint aan populariteit!</p>\n    <p>Wij maken een commissie over van </p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n    </p>\n    <p>naar uw Bitcoin wallet.</p>\n    <p>Dank voor het uitbreiden van de <br/> badger gang!</p>"
+    mail: ''
     mailer:
-        signature_html: 'Deltabadger Team 🧑‍🚀'
+        all_rights_reserved: ''
+        email_or_telegram: ''
+        follow_us_twitter: ''
+        greeting: ''
+        greeting_name: ''
+        signature_badgers: ''
+        signature_html: ''
     meta:
-        desc: 'Start gratis met de meest bewezen strategie die werkt met Binance, FTX, Coinbase, Kraken, Kucoin en andere exchanges. Geen KYC.'
+        desc: ''
         title: 'Deltabadger - Automatiseer Dollar-Cost Averaging voor elke Crypto'
         title_short: 'Deltabadger - Automatische DCA aankoop van Bitcoin en Andere Activa'
         twitter_image_alt: 'Geautomatiseerde dollar-cost averaging voor Bitcoin, Ethereum, Polkadot, Cardano, Solana en andere digitale assets.'
@@ -632,8 +608,10 @@ nl:
             api_keys_section: 'API keys'
             current_password: 'Huidig wachtwoord (ter bevestiging)'
             email_section: Email
-            name_section: Naam
+            name_section: Voornaam
             password_section: Wachtwoord
+            saver_days_left_html: ''
+            saver_reset_date_html: ''
             submit_email: 'Email wijzigen'
             submit_name: 'Naam wijzigen'
             submit_password: 'Wachtwoord wijzigen'
@@ -650,20 +628,18 @@ nl:
             template_html: "<h1>Factuur</h1>\n<p><b>Betaald op:</b></p>\n<p>%{paid_at}</p>\n<p><b>Verkoper:</b></p>\n<p>\n  Deltabadger OÜ\n <br>\n  Pärnu mnt 158/2-88\n <br>\n  11317 Tallinn\n <br>\n  Estland\n <br>\n  Reg.nr.14781461\n</p>\n<p><b>Koper:</b></p>\n<p>\n  %{first_name} %{last_name}\n <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} Plan (%{years}-jaar)</h2>\n<p>\n  <b>Betaald:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
         subscription_granted:
             subject: '%{plan_name} abonnement geactiveerd'
-            template_html: "<p>Wow 💙,</p>\n<p>Bedankt voor het kopen van ons</p>\n<p>\n  <b>\n    %{years}-jaar %{plan_name} plan\n  </b>\n</p>\n<p>Je bent geweldig! 🔥</p>"
+            template_html: ''
     subscriptions:
         days_left:
-            one: '1 dag over'
-            other: '%{count} dagen over'
+            one: ''
+            other: ''
         hodler: Hodler
-        hodler_description_html: 'DCA werkt het best als een langetermijnverbintenis. Vier jaar lang <b class="badge badge-btc">onbeperkte transacties</b> voor <b class="badge badge-all">alle cryptomunten</b> op de exchange, <b class="badge badge-limit">limietorders</b>, <b class="badge badge-limit">automatische opnames</b>, <b class="badge badge-limit">eigen prijsvoorwaarde</b>, <b class="badge badge-limit">eigen tijdvoorwaarde</b> (binnenkort), <b class="badge badge-limit">automatische staking</b> (binnenkort). Dit plan ondersteunt het project, daarom krijgen Hodlers <b class="badge badge-priority">voorrang bij toegang</b> tot alle nieuwe functies.'
+        hodler_description_html: ''
         investor: Investeerder
         investor_description_html: 'Een jaar lang <b class="badge badge-btc">onbeperkte transacties</b>, <b class="badge badge-btc">alle cryptomunten</b>, en <b class="badge badge-btc">automatische opnames</b>.'
         legendary_badger: 'Legendary Badger NFT'
-        legendary_badger_description_html: '<p>Alle functies van het Hodler plan, maar dan <b class="badge badge-btc">levenslang</b>. Omdat het een <b class="badge badge-btc">NFT</b> is, kan je het <b class="badge badge-btc">overdragen</b> tussen accounts, of <b class="badge badge-btc">verkopen</b> op gedecentraliseerde marktplaatsen zoals Opensea. Elk token heeft een uniek <b class="badge badge-btc">procedureel kunstwerk</b>. Onder hen zijn 21 handmatig vervaardigde "easter eggs" verborgen voor gelukkige kopers.</p><p>De tokens worden zeer binnenkort verdeeld.</p>'
+        legendary_badger_description_html: ''
         limit_reached_html: '<b>Gefeliciteerd!</b> Je hebt onze gratis transactielimiet van $1200/jaar bereikt. Om door te gaan, upgrade naar het unlimited plan.'
-        maximalist_info: 'Als u alleen Bitcoin koopt, betaalt u de helft van de normale prijs.'
-        maximalist_title: 'Bitcoin Maximalist korting 50%'
         payment:
             account_holder: Rekeninghouder
             account_number: Rekeningnummer
@@ -675,11 +651,11 @@ nl:
             bitcoin: Bitcoin
             card_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
             compensation_hodler:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Hodler plan.'
+                one: ''
                 other: ''
             compensation_investor:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Investor plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Investor plan.'
+                one: ''
+                other: ''
             discount: '%{discount_percent}% korting'
             early_bird_discount: 'Early Bird korting'
             early_bird_discount_info: 'Bij elke verkoop daalt de korting met $1. Wacht niet!'
@@ -694,12 +670,11 @@ nl:
             routing_number: 'Routing nummer'
             server_error: 'Betalingen server error. Probeer het later opnieuw.'
             vat: BTW
-            wire_cost_hodler_html: 'Stuur alstublieft <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_investor_html: 'Stuur alstublieft <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_legendary_badger_html: 'Verstuur <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> naar volgende bankrekening:'
-            wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{sign}%{price}</b> naar volgende bankrekening:'
+            wire_cost_hodler_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_investor_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_legendary_badger_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_pending_html: ''
             wire_transfer: Bankoverschrijving
-            wire_transfer_description_html: 'Om met een bankoverschrijving te betalen, stuurt u volgende informatie voor de factuur: <b>voornaam</b>, <b>achternaam</b>, <b>fysiek adres</b>, <b>e-mailadres</b> gebruikt bij Deltabadger, en het abonnement dat u wilt kopen: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
             wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per e-mail contact met u op.'
             you_pay: 'U betaalt'
@@ -711,6 +686,7 @@ nl:
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
     welcome:
-        banner_html: "Welkom! U hebt momenteel het <b>gratis plan met een transactielimiet van $1200/jaar</b>, maar dit wordt de eerste maand niet verplicht. Probeer elk schema dat u wilt. U kunt ook upgraden om later te genieten van onbeperkte transacties. Het 4-jarig Hodler-plan geeft bovendien toegang tot nieuwe experimentele functies (bv. alle cryptomunten van de exchange). Alle feedback wordt op prijs gesteld. Word lid van onze\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram groep</a>, en volg ons op <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Veel plezier met averaging!"
+        banner_html: ''
         default: 'Hallo, welkom bij Deltabadger'
+        legendary: ''
         saver: 'Weg met limieten, en doe een upgrade!'
