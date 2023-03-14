@@ -115,7 +115,7 @@ class Bot < ApplicationRecord
   end
 
   def total_amount
-    transactions.sum(:amount)
+    transactions.where(status: :success).sum(:amount)
   end
 
   def use_subaccount
