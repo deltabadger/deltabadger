@@ -15,16 +15,6 @@ fr:
         dont_trade_automate_html: '<div>Ne trade pas.</div> <div>Automatise.</div>'
         features: "auto-DCA sur ton compte d'échange;\n <i> Intervalles intelligents </i> et configuration en cinq minutes;\n mises à jour et nouvelles fonctionnalités chaque mois;\n support et communauté Telegram"
         password_managers_html: 'Les gestionnaires de mots de passe <br> facilitent la sécurité.'
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: ''
-            template_html: ''
-        referrals_payout_notification:
-            subject: ''
-            template_html: ''
-        registration_reminder:
-            subject: ''
-            template_html: ''
     affiliates:
         add_link_info: 'Tu peux ajouter ton nom et un lien vers ton site Web pour informer le membre parrainé d''où provient la réduction. Mais tu peux également laisser ce champ vide :'
         apply_code:
@@ -90,24 +80,8 @@ fr:
             your_link: 'Ton lien de parrainage'
         your_bitcoin_address: 'Votre adresse Bitcoin'
     bot_alerts_mailer:
-        end_of_funds:
-            subject: ''
-            template_html: ''
         first_month_ending_soon:
             subject: 'Le premier mois d''essai se termine bientôt !'
-            template_html: ''
-        limit_almost_reached:
-            subject: ''
-            template_html: ''
-        limit_reached:
-            subject: ''
-            template_html: ''
-        notify_about_error:
-            subject: ''
-            template_html: ''
-        notify_about_restart:
-            subject: ''
-            template_html: ''
     bots:
         above: 'au dessus'
         add_new_bot: 'Ajouter un nouveau bot'
@@ -121,7 +95,6 @@ fr:
                 warning_html: 'Cela supprimera le bot avec toutes <br> ses données historiques. Es-tu sûr ?'
             dollar_cost_averaging: 'Investissement programmé'
             pending:
-                info_html: ''
                 text: 'En attente'
             start:
                 changed_missed:
@@ -189,14 +162,12 @@ fr:
         price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
         sell: Vendre
         setup:
-            api_not_available: ''
             binance:
                 instructions_1_html: 'Connecte-toi à ton compte %{exchange_link}.'
                 instructions_2_html: 'Dans le menu utilisateur (icône ronde dans le coin supérieur droit), accède à <b> Gestion des API</b>.'
                 instructions_3_html: 'Nomme la nouvelle clé API en appuyant sur «Créer».'
                 instructions_4_html: 'Confirme la création avec un (des) code (s) à usage unique.'
                 instructions_5_html: 'Assure-toi que <b> Activer le trading au comptant et sur marge </b> est coché.'
-                instructions_6_html: ''
                 instructions_7_html: 'Appuie sur <b> Enregistrer </b> et confirme avec un autre code à usage unique si nécessaire.'
                 instructions_8_html: 'N''oublie pas que la clé secrète n''est visible que lors de la création, assure-toi donc de copier les deux clés avant de quitter la vue.'
                 instructions_9_html: 'Colle les deux clés dans les entrées ci-dessus.'
@@ -383,9 +354,6 @@ fr:
         agree: 'J''accepte'
         description: 'Nous utilisons des cookies pour simplifier les choses.'
         read_more: 'En savoir plus'
-    days_left:
-        one: ''
-        other: ''
     deltabadger: Deltabadger
     devise:
         confirmations:
@@ -405,22 +373,6 @@ fr:
             timeout: 'La session a expiré. Merci de te reconnecter pour continuer.'
             unauthenticated: 'Tu dois te connecter ou t''inscrire avant de continuer.'
             unconfirmed: 'Tu dois confirmer votre adresse e-mail avant de continuer.'
-        mailer:
-            confirmation_instructions:
-                subject: ''
-                template_html: ''
-            email_changed:
-                subject: ''
-                template_html: ''
-            password_change:
-                subject: ''
-                template_html: ''
-            reset_password_instructions:
-                subject: ''
-                template_html: ''
-            unlock_instructions:
-                subject: ''
-                template_html: ''
         omniauth_callbacks:
             failure: 'Impossible de vous authentifier auprès de %{kind} car "%{reason}".'
             success: 'Authentification réussie avec le compte %{kind}.'
@@ -443,7 +395,6 @@ fr:
                 email_invalid: 'E-mail non valide !'
                 email_suggestion_html: 'E-mail non valide ! Est-ce que tu voulais dire : <b> %{suggestion} </b>'
                 email_used: 'Cet e-mail est déjà pris.'
-                name_invalid: ''
                 submit: 'Commencer maintenant'
                 title_html: 'Créer un compte <span class="text-success"> gratuit </span>'
             signed_up: 'Ravi de te connaître !'
@@ -492,30 +443,17 @@ fr:
             less_than: 'doit être inférieur à %{count}'
             less_than_or_equal_to: 'doit être inférieur ou égal à %{count}'
             model_invalid: 'Échec de la validation : %{errors}'
-            name_invalid: ''
             not_a_number: 'n''est pas un numéro'
             not_an_integer: 'doit être un entier'
             not_found: 'non trouvé.'
             not_locked: 'n''était pas verrouillé.'
-            not_saved:
-                one: ''
-                other: ''
             odd: 'doit être un chiffre impair'
             other_than: 'doit être autre que %{count}'
             password_not_match: 'Les mots de passe ne correspondent pas'
             present: 'doit être vide'
-            too_long:
-                one: ''
-                other: ''
-            too_short:
-                one: ''
-                other: ''
             too_short_password: 'Le mot de passe est trop court'
             too_simple_password: "Le mot de passe doit comporter des caractères de chacune des catégories suivantes\_: caractères majuscules (A-Z), caractères minuscules (a-z), chiffres (0-9), caractères spéciaux (par ex., #, ?,!)."
             wrong_email: 'Adresse e-mail incorrecte'
-            wrong_length:
-                one: ''
-                other: ''
             wrong_password: 'Mot de passe incorrect'
             wrong_two_fa_token: 'Le code fourni est incorrect'
         referral_program_inactive: 'Votre programme de parrainage est inactif'
@@ -585,17 +523,7 @@ fr:
         settings: Paramètres
         sign_up: 'S''inscrire'
         terms_and_conditions: 'Conditions générales'
-    mail: ''
-    mailer:
-        all_rights_reserved: ''
-        email_or_telegram: ''
-        follow_us_twitter: ''
-        greeting: ''
-        greeting_name: ''
-        signature_badgers: ''
-        signature_html: ''
     meta:
-        desc: ''
         title: 'Deltabadger • Automatisez les achats périodiques en n''importe quelle crypto-monnaie'
         title_short: 'Deltabadger • Achats périodiques automatisés en Bitcoin et Autres actifs'
         twitter_image_alt: 'Achats périodiques automatisés en Bitcoin, Ethereum, Polkadot, Cardano, Solana, et autres actifs numériques.'
