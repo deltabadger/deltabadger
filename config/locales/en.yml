@@ -9,22 +9,22 @@ en:
     ads:
         bitwarden_text: '. It''s free and open-source.'
         bitwarden_title: 'Try Bitwarden'
-        dca_2y_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last two years,<br>you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_profit_html: 'If you were dollar-cost averaging<br>into Bitcoin for the last year,<br>you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Dollar-cost averaging into<br>Bitcoin is the new standard<br>for long-term savers.'
+        dca_2y_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last two years, you''re now up <span class="text-success">+%{profit}%</span>'
+        dca_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last year, you''re now up <span class="text-success">+%{profit}%</span>'
+        dca_standard_html: 'Dollar-cost averaging into Bitcoin is the new standard for long-term savers.'
         dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
-        features: "auto-DCA on your exchange account;\n<i>Smart intervals</i> and five-minute setup;\nupdates and new features every month;\nsupport and Telegram community"
-        password_managers_html: 'Password managers<br>make security easier.'
+        features: 'auto-DCA on your exchange account; <i>Smart intervals</i> and five-minute setup; updates and new features every month; support and Telegram community'
+        password_managers_html: 'Password managers make security easier.'
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: 'Confirm new Bitcoin address 📒'
-            template_html: "<p>Hello 👋,</p>\n<p>It looks like you want to change your Bitcoin address to:</p>\n<p><b style=\"color: #0a45a4;\">%{new_btc_address}</b></p>\n<p>This address will be used for your payouts from our referral program.</p>\n<p>Are you sure?</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Yes, let's change it!</a>\n</p>\n<p>You didn't send this request?<br>No worries! Just ignore it.</p>\n<p>The address won't change until you access the link above.</p>"
+            subject: 'Confirm new Bitcoin address'
+            template_html: '<p>It looks like you want to change your Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p><a class="mail-button" href="%{confirmation_url}">Yes, let''s change it!</a>'
         referrals_payout_notification:
-            subject: 'It''s a payday! 💸'
-            template_html: "<p>Hello 👋,</p>\n<p>Sweet! Your referral link is gaining traction!</p>\n<p>We transfer a commission of</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n</p>\n<p>to your Bitcoin wallet.</p>\n<p>Thank you for expanding the<br>badger gang!</p>"
+            subject: 'It''s a payday!'
+            template_html: '<p>Your referral link is gaining traction! Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
         registration_reminder:
-            subject: 'Wow! You earned %{amount} BTC! 💸'
-            template_html: "<p>Wow!</p>\n<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p>\n<p><a href=%{link}>Complete registration.</a></p>"
+            subject: 'Wow! You earned %{amount} BTC!'
+            template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><a class="email-button" href=%{link}>Complete registration.</a>'
     affiliates:
         add_link_info: 'You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:'
         apply_code:
@@ -43,15 +43,15 @@ en:
             congrats_html: 'Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% discount is active.'
             flash_html: 'Hello! enjoy %{discount_percent}% discount from <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: 'The referral link seems invalid or obsolete'
-            referrer_html: "Thanks to the referral link from\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
+            referrer_html: 'Thanks to the referral link from <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: 'Valid for the first purchase on the platform.'
         info_preview: 'This is a preview of what referees will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p>\n  <ol>\n    <li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li>\n    <li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li>\n    <li>It doesn't matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li>\n    <li>Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn't get a discount anymore, but you still get your 20% what equals 0.003BTC.</li>\n    <li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li>\n  </ol>\n  <p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small>\n</div>"
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referee buys a 4-year plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small> </div>'
         new:
             checked: 'I checked everything carefully.'
-            discount_info_html: "You will <b> earn <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>,\nand referee will get <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>% discount</b>."
-            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.<br>'
+            discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.'
             eu_company: 'EU company'
             payout_address: 'Payout address'
             pick_referral_code: 'Pick your referral code'
@@ -90,21 +90,24 @@ en:
             your_link: 'Your referral link'
         your_bitcoin_address: 'Your Bitcoin address'
     bot_alerts_mailer:
+        end_of_funds:
+            subject: 'Your bot is running out of funds soon'
+            template_html: '<p>It looks like your bot is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>'
         first_month_ending_soon:
             subject: 'First month trial ending soon!'
-            template_html: "<p>Hello 👋,</p>\n<p>You have been using Deltabadger for almost a month now!</p>\n<p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>"
+            template_html: '<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>'
         limit_almost_reached:
-            subject: 'Limit almost reached ⌛'
-            template_html: "<p>Hello 👋,</p>\n<p>You've almost reached the <b style=\"color: #0a45a4;\">Saver</b> <br>plan transaction limit.</p>\n<p>Upgrade your plan to <b style=\"color: #0a45a4;\">Investor</b><br> or <b style=\"color: #0a45a4;\">Hodler</b> to make sure that your</br>bots will continue to work.</p>"
+            subject: 'Limit almost reached'
+            template_html: '<p>You''ve almost reached the <b>Saver</b> plan transaction limit.</p><p>Upgrade your plan to <b>Investor</b>  or <b>Hodler</b> to make sure that your</br>bots will continue to work.</p>'
         limit_reached:
-            subject: 'You''ve reached the limit 🥳'
-            template_html: "<p>Hello 👋,</p>\n<p>Oh, well done! Your <b style=\"color: #0a45a4;\">Saver</b> plan<br>limit has been reached.</p>\n<p>It looks like you do dollar-cost<br>averaging for a while now.</p>\n<p>We hope you're happy about<br>the results.</p>\n<p>Upgrade your plan to <b style=\"color: #0a45a4;\">Investor</b><br>or <b style=\"color: #0a45a4;\">Hodler</b> to remove all limits and<br>put your bots back to work.</p>"
+            subject: 'You''ve reached the limit'
+            template_html: '<p>Oh, well done! Your <b>Saver</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Investor</b> or <b>Hodler</b> to remove all limits and put your bots back to work.</p>'
         notify_about_error:
-            subject: 'Something went wrong 😵'
-            template_html: "<p>Oops… 😵</p>\n<p>Something went wrong while<br>processing the last transaction.</p>\n<p>You can see the error in the<br>bot log. Sign in to check it.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+            subject: 'Something went wrong'
+            template_html: '<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
         notify_about_restart:
-            subject: 'Oops! Next try… 🧐'
-            template_html: "<p>Oh snap 🧐,</p>\n<p>The bot couldn't perform your order.<br>It looks like an exchange issue.<br>We'll try again in %{delay}.</p>\n<p>All error are visible in the bot log.<br>Sign in to check it out.</p>\n<p>Errors:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
+            subject: 'Oops! Next try…'
+            template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
         above: above
         add_new_bot: 'Add new bot'
@@ -118,7 +121,7 @@ en:
                 warning_html: 'That will remove the bot with all<br>its historical data. Are you sure?'
             dollar_cost_averaging: 'Dollar-Cost Averaging'
             pending:
-                info_html: Processing...
+                info_html: Processing…
                 text: Pending
             start:
                 changed_missed:
@@ -142,9 +145,9 @@ en:
         day: Day
         details:
             info:
-                exchanges_html: "<p className=\"mt-2\"><b>Exchanges</b></p>\n<p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondaglobal.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zonda\">Zonda</a>, <a href=\"https://bitfinex.com\" target=\"_blank\" rel=\"nofollow\" title=\"Bitfinex\">Bitfinex</a>, <a href=\"https://bitso.com/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitso\">Bitso</a>, <a href=\"https://bitstamp.net/\" target=\"_blank\" rel=\"nofollow\" title=\"Bitstamp\">Bitstamp</a>, <a href=\"https://pro.coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase Pro</a>, <a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a>, <a href=\"https://ftx.us\" target=\"_blank\" rel=\"nofollow\">FTX.US</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>, <a href=\"https://kucoin.com/\" target=\"_blank\" title=\"KuCoin\">KuCoin</a> and <a href=\"https://www.probit.com/\" target=\"_blank\" title=\"ProBit Global\">ProBit Global</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Zonda if you want to make your purchases in PLN.</p>\n<p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p>\n<p>However, don't keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>\n<p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>"
-                new_to_dca_html: "<p className=\"mt-2\"><b>New to dollar-cost averaging?</b></p>\n<p>Those links will help:</p>\n<ul className=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=CdKRjuaUtOc\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://www.dca-cc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
-                smart_intervals_html: "<p className=\"mt-2\"><b>\"Smart intervals\"</b></p>\n<p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they'll be used only if necessary.</p>\n<p className=\"mt-2\"><b>Why?</b></p>\n<p>There are two benefits:</p>\n<p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p>\n<p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p>\n<p className=\"mt-2\"><b>Example:</b></p>\n<p>Let's say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>"
+                exchanges_html: '<p className="mt-2"><b>Exchanges</b></p><p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondaglobal.com" target="_blank" rel="nofollow" title="Zonda">Zonda</a>, <a href="https://bitfinex.com" target="_blank" rel="nofollow" title="Bitfinex">Bitfinex</a>, <a href="https://bitso.com/" target="_blank" rel="nofollow" title="Bitso">Bitso</a>, <a href="https://bitstamp.net/" target="_blank" rel="nofollow" title="Bitstamp">Bitstamp</a>, <a href="https://coinbase.com/" target="_blank" rel="nofollow">Coinbase</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://r.kraken.com/deltabadger" target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>, <a href="https://kucoin.com/" target="_blank" title="KuCoin">KuCoin</a> and <a href="https://www.probit.com/" target="_blank" title="ProBit Global">ProBit Global</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Zonda if you want to make your purchases in PLN.</p><p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p><p>However, don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p><p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>'
+                new_to_dca_html: '<p className="mt-2"><b>New to dollar-cost averaging?</b></p><p>Those links will help:</p><ul className="mb-5"> <li><a href="https://www.youtube.com/watch?v=CdKRjuaUtOc" target="_blank" rel="nofollow">DCA for Beginners (video)</a></li> <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank" rel="nofollow">The power of DCA into Bitcoin</a></li> <li><a href="https://www.dca-cc.com/" target="_blank" rel="nofollow">DCA Simulator</a></li></ul>'
+                smart_intervals_html: '<p className="mt-2"><b>"Smart intervals"</b></p><p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they''ll be used only if necessary.</p><p className="mt-2"><b>Why?</b></p><p>There are two benefits:</p><p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p><p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p><p className="mt-2"><b>Example:</b></p><p>Let''s say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>'
                 title: Info
             log:
                 date: Date
@@ -157,7 +160,7 @@ en:
                 chart:
                     total_invested: 'Total invested'
                     value: Value
-                csv_download_html: 'The table above shows only the last ten transactions.<br>The full report is available to download in CSV format below.'
+                csv_download_html: 'The table above shows only the last ten transactions. The full report is available to download in CSV format below.'
                 current_value: 'Current value'
                 current_value_sold: 'Current value of the %{base} sold'
                 date: Date
@@ -186,13 +189,14 @@ en:
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         sell: Sell
         setup:
+            api_not_available: 'Exchange API is not available'
             binance:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In user menu (round icon in the top right corner) go to <b>API Management</b>.'
                 instructions_3_html: 'Name the new API key by pressing <b>Create</b>.'
                 instructions_4_html: 'Confirm creation with one-time code(s).'
                 instructions_5_html: 'Make sure that <b>Enable Spot & Margin Trading</b> is checked.'
-                instructions_6_html: 'If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>3.18.70.231</b>'
+                instructions_6_html: 'If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>18.132.181.159</b>'
                 instructions_7_html: 'Press <b>Save</b> and confirm with another one-time code if necessary.'
                 instructions_8_html: 'Remember that the Secret Key is visible only during creation, so make sure you copy both keys before leaving the view.'
                 instructions_9_html: 'Copy and paste your new API keys into the form above.'
@@ -258,14 +262,6 @@ en:
                 back_to_settings: 'Back to settings'
                 limit_exceeded: 'To meet the bot limit of %{frequency_limit} transactions per hour, your schedule will be executed in orders of %{price}%{currency} each.'
                 start_the_bot: 'Modify and start'
-            ftx:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'Go to the Settings menu (top right corner).'
-                instructions_3_html: 'Scroll down to the <b>API Key</b> section.'
-                instructions_4_html: 'Press <b>Create API Key</b>.'
-                instructions_5_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Private Key'
-                public_key: 'Public Key'
             gemini:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In the account menu (top right corner) go to <b>Settings</b>.'
@@ -318,7 +314,7 @@ en:
                 public_key: 'API Key'
             limit_warning: 'The limit order bot is an experimental feature. Not all orders will get filled. To achieve good results, you need to increase the invested amount proportionally. At the moment, Deltabadger does not yet offer any help with estimating this adjustment, so your own backtesting is necessary. Use it only if you know what you''re doing.'
             next: Next
-            no_wallet_found: ' No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
+            no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
             probit:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In the <b>My Page</b> menu (top right corner) go to <b>API Management</b>.'
@@ -342,13 +338,6 @@ en:
             step_schedule: Schedule
             validating: Validating
             withdrawal:
-                ftx:
-                    instructions_1_html: 'Log into your %{exchange_link} account.'
-                    instructions_2_html: 'Go to the Settings menu (top right corner).'
-                    instructions_3_html: 'Scroll down to the <b>API Key</b> section.'
-                    instructions_4_html: 'Press <b>Create API Key</b>.'
-                    instructions_5_html: 'Edit permissions and set <b>Withdrawals enabled</b>.'
-                    instructions_6_html: 'Copy and paste your new API keys into the form above.'
                 kraken:
                     instructions_1_html: 'Log into your %{exchange_link} account.'
                     instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
@@ -360,18 +349,6 @@ en:
                     instructions_6_html: 'Press <b>Generate Key</b>.'
                     instructions_7_html: 'Copy and paste your new API keys into the form above.'
             withdrawal_address:
-                ftx:
-                    instructions_10_html: 'Press <b>Schedule for whitelisting</b>.'
-                    instructions_11_html: 'Adding address to whitelist has at least one day delay on FTX. Not whitelisted addresses will not appear on the Deltabadger dashboard.'
-                    instructions_1_html: 'Log in to your %{exchange_link} account.'
-                    instructions_2_html: 'Go to the Settings menu (top right corner).'
-                    instructions_3_html: 'Go to <b>Security</b> tab.'
-                    instructions_4_html: 'In the <b>2FA for Withdrawals</b> section, disable 2FA for withdrawals by pressing <b>Disable 2FA For Withdrawals</b>.'
-                    instructions_5_html: 'In the <b>Withdrawal Destination Whitelisting</b> section, enable whitelisting by pressing <b>Restrict Withdrawals To Whitelist</b>. '
-                    instructions_6_html: 'On the same view, click the <b>Saved Addresses</b> hyperlink.'
-                    instructions_7_html: 'On the <b>Manage Saved Addresses</b> page, press <b>Create Saved Address</b>.'
-                    instructions_8_html: 'Provide withdrawal address and press <b>Save Address</b>.'
-                    instructions_9_html: 'In <b>Whitelist Status</b> column, press edit (pencil icon).'
                 kraken:
                     instructions_1_html: 'Log in to your %{exchange_link} account.'
                     instructions_2_html: 'Go to <b>Funding</b> → <b>Withdraw</b>.'
@@ -430,20 +407,20 @@ en:
             unconfirmed: 'You have to confirm your email address before continuing.'
         mailer:
             confirmation_instructions:
-                subject: 'Welcome to Deltabadger 🎉'
-                template_html: "<p>Welcome to Deltabadger 🎉,</p>\n<p>Automated dollar-cost averaging<br>into Bitcoin is only one click away:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Confirm my account</a>\n</p>\n<p>You don't remember signing up?<br>No worries. Just ignore it.</p>"
+                subject: 'Confirm email address'
+                template_html: '<p>Your email address is one click away from joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p> <a class="mail-button" href="%{confirmation_url}">Confirm this email</a>'
             email_changed:
-                subject: 'New email address 📨'
-                template_html: "<p>Hello 👋,</p>\n<p>We send this email to notify you that the email address associated with your account at Deltabadger has been changed to:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+                subject: 'Email confirmed'
+                template_html: '<p>Done! This is your brand new and shiny Deltabadger address:</p><p><b>%{email}</b></p>'
             password_change:
-                subject: 'New password 🔑'
-                template_html: "<p>It's done 🎉!</p>\n<p>Your password 🔑 has been changed.</p>"
+                subject: 'Password changed'
+                template_html: '<p>It''s done!</p><p>Your password has been changed.</p><p>Your secrets are safer than ever!</p>'
             reset_password_instructions:
-                subject: 'Password reset 🔑'
-                template_html: "<p>Hello 👋,</p>\n<p>It looks like you want to change<br/>your password 🔑. Smart move!</p>\n<p>Let's go:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Change my password</a>\n  </p>\n<p>You didn't send this request?<br/>No worries! Just ignore it.</p>"
+                subject: 'Password recovery'
+                template_html: '<p>Password recovery initiated! Hang tight, we''ll have you back in the game in no time.</p><a class="mail-button" href="%{edit_password_url}">Change my password</a>'
             unlock_instructions:
-                subject: 'Unlock instructions 🔓'
-                template_html: "<p>Hello 👋,</p>\n<p>We locked your account due to<br>a high number of unsuccessful log in attempts.</p>\n<p>Click the link below to unlock it:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Unlock my account</a>\n</p>"
+                subject: 'Unlock instructions'
+                template_html: '<p>We locked your account due to a high number of unsuccessful log in attempts.</p><p>Click the link below to unlock it:</p><a class="mail-button" href="%{unlock_url}">Unlock my account</a>'
         omniauth_callbacks:
             failure: 'Could not authenticate you from %{kind} because "%{reason}".'
             success: 'Successfully authenticated from %{kind} account.'
@@ -460,14 +437,13 @@ en:
             updated: 'Done! Your password has been changed.'
             updated_not_active: 'Done! Your password has been changed.'
         registrations:
-            destroyed: 'Bye! We hope to see you again soon…'
             edit:
                 awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
             new:
                 email_invalid: 'Email invalid!'
                 email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
                 email_used: 'This email is already used.'
-                name_invalid: 'It doesn’t have to be real :)'
+                name_invalid: 'It doesn''t have to be real :)'
                 submit: 'Start now'
                 title_html: 'Create <span class="text-success">free</span> account'
             signed_up: 'Nice to meet you!'
@@ -478,7 +454,6 @@ en:
             updated: 'Your account has been updated successfully.'
             updated_but_not_signed_in: 'Your account has been updated successfully, sign again.'
         sessions:
-            already_signed_out: 'I hate goodbyes. See you soon?'
             new:
                 forgot_password: 'Forgot password?'
                 submit: 'Log in'
@@ -487,7 +462,6 @@ en:
             signed_out: 'See you soon!'
         unlocks:
             send_instructions: 'You will receive an email with instructions in a few minutes.'
-            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
             unlocked: 'Your account has been unlocked successfully. Please sign in to continue.'
     errors:
         bitcoin_address_not_updated: 'Bitcoin address could not be updated'
@@ -518,7 +492,7 @@ en:
             less_than: 'must be less than %{count}'
             less_than_or_equal_to: 'must be less than or equal to %{count}'
             model_invalid: 'Validation failed: %{errors}'
-            name_invalid: 'It doesn’t have to be real :)'
+            name_invalid: 'It doesn''t have to be real :)'
             not_a_number: 'is not a number'
             not_an_integer: 'must be an integer'
             not_found: 'not found.'
@@ -568,8 +542,6 @@ en:
                 first_name: Name
                 last_name: Surname
                 other: Other
-                submit_hodler_order: 'Order Hodler plan'
-                submit_investor_order: 'Order Investor plan'
             settings:
                 current_status: 'Current status:'
                 disable_two_fa: 'Disable 2FA'
@@ -612,19 +584,23 @@ en:
         resend_link: 'Resend link'
         settings: Settings
         sign_up: 'Sign up'
-        start_fast: 'Start in 5 minutes'
-        start_fast_longer_html: 'Start <span class="d-none d-sm-inline">for free</span> in 5 minutes'
         terms_and_conditions: 'Terms & Conditions'
-    mail: "<p>Hello 👋,</p>\n    <p>Sweet! Your referral link is<br>gaining traction!</p>\n    <p>We transfer a commission of</p>\n    <p style=\"margin: 1em 0 1.2em;\">\n      ⭐ <b style=\"color: #0a45a4;\">%{amount} BTC</b>\n    </p>\n    <p>to your Bitcoin wallet.</p>\n    <p>Thank you for expanding the<br/>badger gang!</p>"
+    mail: '<p>Sweet! Your referral link is<br>gaining traction!</p><p>We transfer a commission of</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
     mailer:
-        signature_html: 'Deltabadger Team 🧑‍🚀'
+        all_rights_reserved: 'All rights hyperbitcoinized.'
+        email_or_telegram: 'Questions? Reply to this email, or join our community on'
+        follow_us_twitter: 'Don''t forget to follow us on'
+        greeting: 'Ahoy captain,'
+        greeting_name: 'Ahoy %{name},'
+        signature_badgers: 'Invincible team of badgers at your service.'
+        signature_html: 'Deltabadger Team'
     meta:
-        desc: 'Start for free the most-proven strategy that works with Binance, FTX, Coinbase, Kraken, Kucoin, and other exchanges. No KYC.'
+        desc: 'Start for free the most-proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC.'
         title: 'Deltabadger • Automate Dollar-Cost Averaging into Any Crypto'
         title_short: 'Deltabadger • Auto-DCA into Bitcoin and Other Assets'
         twitter_image_alt: 'Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets.'
     referral:
-        banner_html: '<b>Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!</b>'
+        banner_html: 'Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!'
         copied: Copied!
     settings:
         index:
@@ -634,6 +610,8 @@ en:
             email_section: Email
             name_section: Name
             password_section: Password
+            saver_days_left_html: '<b>$%{credits}</b> of the free  plan transaction limit left.'
+            saver_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             submit_email: 'Update email'
             submit_name: 'Update name'
             submit_password: 'Change password'
@@ -647,23 +625,21 @@ en:
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Payment'
-            template_html: "<h1>Invoice</h1>\n<p><b>Paid at:</b></p>\n<p>%{paid_at}</p>\n<p><b>Seller:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  Reg.No.14781461\n</p>\n<p><b>Buyer:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2>\n<p>\n  <b>Paid:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
+            template_html: '<h1>Invoice</h1><p><b>Paid at:</b></p><p>%{paid_at}</p><p><b>Seller:</b></p><p> Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn <br> Estonia <br> Reg.No.14781461</p><p><b>Buyer:</b></p><p> %{first_name} %{last_name} <br> %{email}</p><h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2><p> <b>Paid:</b></p><h2>%{total_paid} %{currency}</h2>'
         subscription_granted:
             subject: '%{plan_name} plan granted'
-            template_html: "<p>Wow 💙,</p>\n<p>Thanks for buying our</p>\n<p>\n  <b>\n    %{years}-year %{plan_name} plan\n  </b>\n</p>\n<p>You rock! 🔥</p>"
+            template_html: '<p>Wow,</p><p>Thanks for buying our <b>%{plan_name} plan</b></p><p>You rock!</p>'
     subscriptions:
         days_left:
             one: '1 day left'
             other: '%{count} days left'
         hodler: Hodler
-        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b> on the exchange, <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">automatic staking</b>(soon). This plan supports the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
+        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b>, lower fees with <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">webhooks</b>(soon) and <b class="badge badge-limit">portfolio rebalancing</b>(soon). Long-term plans also support the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
         investor: Investor
         investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b>.'
         legendary_badger: 'Legendary Badger NFT'
-        legendary_badger_description_html: '<p>All the features of the Hodler plan, but for <b class="badge badge-btc">lifetime</b>. Because it''s <b class="badge badge-btc">NFT</b>, you can <b class="badge badge-btc">transfer</b> it between accounts, or <b class="badge badge-btc">sell</b> on decentraized marketplaces like Opensea. Each token has a unique <b class="badge badge-btc">procedural artwork</b>. Among them there are hidden 21 manually crafted "easter eggs" for lucky buyers.</p><p>The token will be distributed very soon.</p>'
+        legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p><b>Never pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, the pricing will go up, but you''ll have lifetime access to everything for free.</p><p>Sell your subscription any time on decentralized markets. Yes! Nothing like this exists on the market.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your DCA status, and be Legendary.</p>'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
-        maximalist_info: 'If you buy only Bitcoin, you pay half of the regular price.'
-        maximalist_title: 'Bitcoin Maximalist discount 50%'
         payment:
             account_holder: 'Account holder'
             account_number: 'Account number'
@@ -694,12 +670,11 @@ en:
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'
             vat: VAT
-            wire_cost_hodler_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
-            wire_cost_investor_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> to the following bank account:'
-            wire_cost_legendary_badger_html: 'Please, send <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> to the following bank account:'
-            wire_cost_pending_html: 'If you didn’t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
+            wire_cost_hodler_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_investor_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_legendary_badger_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
             wire_transfer: 'Wire Transfer'
-            wire_transfer_description_html: 'To pay with a wire transfer, send a basic info for the invoice: <b>name</b>, <b>surname</b>, <b>physical address</b>, <b>email</b> used at Deltabadger, and the plan you want buy: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'
             wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
             you_pay: 'You pay'
@@ -711,6 +686,7 @@ en:
         upgrade: Upgrade
         upgrade_plan: 'Upgrade plan'
     welcome:
-        banner_html: "Welcome! You're currently on the <b>free plan with a transaction limit of $1200/year</b>, but it will not be enforced for the first month. Try any schedule you want. You can also upgrade it to enjoy unlimited transactions later on. The 4-year Hodler plan additionally gives access to new experimental features (e.g. all currencies on the exchange). All feedback is appreciated. Join our\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram group</a>, and follow us on <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Happy averaging!"
+        banner_html: 'Hey %{name}! <b>Check your mailbox</b> and find tips and tricks of the perfect bot setup I prepared for you. <b>If it landed in the spam folder, move it to your inbox</b>, so you can see our messages in the future. Thanks, Jan'
         default: 'Hi, welcome to Deltabadger'
+        legendary: 'The NFT will arrive here soon!'
         saver: 'Get rid of the limits, and make an upgrade!'
