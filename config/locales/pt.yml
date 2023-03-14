@@ -15,16 +15,6 @@ pt:
         dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
         features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: ''
-            template_html: ''
-        referrals_payout_notification:
-            subject: ''
-            template_html: ''
-        registration_reminder:
-            subject: ''
-            template_html: ''
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
         apply_code:
@@ -90,38 +80,19 @@ pt:
             your_link: 'A sua ligação de referência'
         your_bitcoin_address: 'O seu endereço Bitcoin'
     bot_alerts_mailer:
-        end_of_funds:
-            subject: ''
-            template_html: ''
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
-            template_html: ''
-        limit_almost_reached:
-            subject: ''
-            template_html: ''
-        limit_reached:
-            subject: ''
-            template_html: ''
-        notify_about_error:
-            subject: ''
-            template_html: ''
-        notify_about_restart:
-            subject: ''
-            template_html: ''
     bots:
         above: acima
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
         buttons:
-            automatic_withdrawal: ''
             delete:
                 cancel: Cancelar
                 ok: 'Remover completamente'
                 text: Eliminar
                 warning_html: 'Isto irá remover o bot<br> com os seus dados históricos. Tem a certeza?'
-            dollar_cost_averaging: ''
             pending:
-                info_html: ''
                 text: Pendente
             start:
                 changed_missed:
@@ -159,7 +130,6 @@ pt:
                 bought: Comprado
                 chart:
                     total_invested: 'Total investido'
-                    value: ''
                 csv_download_html: 'A tabela acima mostra apenas as últimas 10 transações. O relatório completo está disponível para transferência no formato CSV, abaixo.'
                 current_value: 'Valor atual'
                 current_value_sold: 'Valor atual de %{base} vendido'
@@ -177,26 +147,21 @@ pt:
         hour: Hora
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
         month: Mês
         next_buy: 'Próxima compra em %{countdown}'
         next_sell: 'Próxima venda em %{countdown}'
-        next_withdrawal: ''
         price: 'do preço'
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
         price_range_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{currency}.'
         sell: Vender
         setup:
-            api_not_available: ''
             binance:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.'
                 instructions_3_html: 'Atribua um nome à nova chave de API premindo em <b>Criar</b>.'
                 instructions_4_html: 'Confirme a criação com código(s) único(s).'
                 instructions_5_html: 'Certifique-se de que marcou <b>Permitir transações a contado e de margens</b>.'
-                instructions_6_html: ''
                 instructions_7_html: 'Prima em <b>Guardar</b> e confirme com outro código único, se necessário.'
                 instructions_8_html: 'Lembre-se que a sua chave secreta só é visível no momento da criação. Por isso, certifique-se de que copia ambas as chaves antes de sair do ecrã.'
                 instructions_9_html: 'Cole ambas as chaves no formulário acima.'
@@ -275,7 +240,6 @@ pt:
                 instructions_9_html: 'Cole ambas as chaves no formulário acima.'
                 private_key: 'Chave secreta'
                 public_key: 'Chave API'
-            how_to_add_withdrawal_bot: ''
             how_to_get_keys: 'Como obter chaves de API de %{exchange}:'
             kraken:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
@@ -314,7 +278,6 @@ pt:
                 public_key: 'Chave API'
             limit_warning: 'O bot para limitar pedido é uma funcionalidade experimentar. Nem todos os pedidos serão preenchidos. Para obter bons resultados, precisa de aumentar proporcionalmente o montante investido. Atualmente, a Deltabadger ainda não oferece ajuda para estimar este ajuste, pelo que precisará de recorrer às suas verificações anteriores. Utilize-o apenas se souber o que está a fazer.'
             next: Próximo
-            no_wallet_found: ''
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu <b>A minha página</b> (canto superior direito) aceda a <b>Gestão de API</b>.'
@@ -345,17 +308,8 @@ pt:
                     instructions_4_html: 'Defina as permissões para o seguinte:'
                     instructions_5_1_html: 'Fundos:'
                     instructions_5_2_html: '<b>Consulta de fundos</b>'
-                    instructions_5_3_html: ''
                     instructions_6_html: 'Prima em <b>Gerar chave</b>.'
                     instructions_7_html: 'Cole ambas as chaves no formulário acima.'
-            withdrawal_address:
-                kraken:
-                    instructions_1_html: ''
-                    instructions_2_html: ''
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-            withdrawal_html: ''
             zonda:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.'
@@ -376,16 +330,10 @@ pt:
         stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
-        withdraw_interval_html: ''
-        withdraw_threshold_html: ''
-        withdrawal_percentage: ''
     cookie:
         agree: Concordo
         description: 'Utilizamos cookies para simplificar tudo.'
         read_more: 'Sabe mais'
-    days_left:
-        one: ''
-        other: ''
     deltabadger: Deltabadger
     devise:
         confirmations:
@@ -405,22 +353,6 @@ pt:
             timeout: 'A sua sessão expirou. Inicie sessão novamente para continuar.'
             unauthenticated: 'Tem de iniciar sessão ou registar-se antes de continuar.'
             unconfirmed: 'Tem de confirmar o seu endereço de e-mail antes de continuar.'
-        mailer:
-            confirmation_instructions:
-                subject: ''
-                template_html: ''
-            email_changed:
-                subject: ''
-                template_html: ''
-            password_change:
-                subject: ''
-                template_html: ''
-            reset_password_instructions:
-                subject: ''
-                template_html: ''
-            unlock_instructions:
-                subject: ''
-                template_html: ''
         omniauth_callbacks:
             failure: 'Não foi possível autenticá-lo a partir de %{kind} devido a "%{reason}".'
             success: 'Autenticado com sucesso a partir da conta %{kind}.'
@@ -443,7 +375,6 @@ pt:
                 email_invalid: 'E-mail inválido!'
                 email_suggestion_html: 'E-mail inválido! Queria dizer: <b>%{suggestion}</b>?'
                 email_used: 'Este e-mail já está a ser utilizado.'
-                name_invalid: ''
                 submit: 'Começar agora'
                 title_html: 'Crie uma conta <span class="text-success">gratuita</span>'
             signed_up: 'Muito prazer!'
@@ -492,30 +423,16 @@ pt:
             less_than: 'tem de ser menor que %{count}'
             less_than_or_equal_to: 'tem de ser menor ou igual a %{count}'
             model_invalid: 'Falha de validação: %{errors}'
-            name_invalid: ''
             not_a_number: 'não é um número'
             not_an_integer: 'tem de ser um número inteiro'
             not_found: 'não encontrado.'
             not_locked: 'não estava bloqueado'
-            not_saved:
-                one: ''
-                other: ''
             odd: 'tem de ser ímpar'
             other_than: 'tem de ser diferente de %{count}'
             password_not_match: 'As palavras-passe não coincidem'
             present: 'tem de estar em branco'
-            too_long:
-                one: ''
-                other: ''
-            too_short:
-                one: ''
-                other: ''
             too_short_password: 'A palavra-passe é demasiado curta'
-            too_simple_password: ''
             wrong_email: 'Email errado.'
-            wrong_length:
-                one: ''
-                other: ''
             wrong_password: 'Palavra-passe errada'
             wrong_two_fa_token: 'O código fornecido está errado.'
         referral_program_inactive: 'O seu programa de referência está inativo'
@@ -585,17 +502,7 @@ pt:
         settings: Definições
         sign_up: Registar
         terms_and_conditions: 'Termos e Condições'
-    mail: ''
-    mailer:
-        all_rights_reserved: ''
-        email_or_telegram: ''
-        follow_us_twitter: ''
-        greeting: ''
-        greeting_name: ''
-        signature_badgers: ''
-        signature_html: ''
     meta:
-        desc: ''
         title: 'Deltabadger • Automatizar o cálculo da média do custo do dólar para qualquer criptomoeda'
         title_short: 'Deltabadger • Auto-DCA para Bitcoin e outros ativos'
         twitter_image_alt: 'Média automatizada do custo do dólar em Bitcoin, Ethereum, Polkadot, Cardano, Solana e outros ativos digitais.'
@@ -610,8 +517,6 @@ pt:
             email_section: E-mail
             name_section: 'Primeiro nome'
             password_section: Palavra-passe
-            saver_days_left_html: ''
-            saver_reset_date_html: ''
             submit_email: 'Atualizar e-mail'
             submit_name: 'Atualizar nome'
             submit_password: 'Alterar palavra-passe'
@@ -628,17 +533,10 @@ pt:
             template_html: "<h1>Fatura</h1>\n<p><b>Pago em:</b></p>\n<p>%{paid_at}</p>\n<p><b>Vendedor:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estónia\n  <br>\n  Registo n.º 14781461\n</p>\n<p><b>Comprador:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Plano %{plan_name} da Deltabadger (%{years}anos)</h2>\n<p>\n  <b>Pago:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
-            template_html: ''
     subscriptions:
-        days_left:
-            one: ''
-            other: ''
         hodler: Hodler
-        hodler_description_html: ''
         investor: Investor
         investor_description_html: 'Um ano de <b class="badge badge-btc"> transações ilimitadas </b>, <b class="badge badge-btc"> todas as moedas </b> e <b class="badge badge-btc"> saques automáticos </b> (em breve).'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
         limit_reached_html: '<b>Parabéns!</b> Atingiu o nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         payment:
             account_holder: 'Titular da conta'
@@ -649,31 +547,19 @@ pt:
             bank_address: 'Endereço do banco'
             billing_information: 'Informação de faturação'
             bitcoin: Bitcoin
-            card_payment_succeeded: ''
-            compensation_hodler:
-                one: ''
-                other: ''
-            compensation_investor:
-                one: ''
-                other: ''
             discount: '%{discount_percent}% de desconto'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
             paid_with_wire_transfer_other: 'Fiz transferência bancária'
-            pay: ''
             pay_with_bitcoin: 'Pagar com Bitcoin'
             payment_ordered: 'Pagamento solicitado!'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             routing_number: 'Número de encaminhamento'
-            server_error: ''
             vat: IVA
             wire_cost_hodler_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
             wire_cost_investor_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> para a seguinte conta bancária:'
             wire_cost_legendary_badger_html: 'Por favor, envie  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_pending_html: ''
             wire_transfer: 'Transferência bancária'
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a sua conta em breve e entraremos em contacto consigo por e-mail.'
@@ -686,7 +572,5 @@ pt:
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'
     welcome:
-        banner_html: ''
         default: 'Olá, damos-lhe as boas-vindas à Deltabadger'
-        legendary: ''
         saver: 'Livre-se dos limites e atualize!'
