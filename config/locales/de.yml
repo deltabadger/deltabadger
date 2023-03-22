@@ -537,6 +537,8 @@ de:
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
+            saver_days_left_html: '<b>$%{credits}</b> vom Limit des kostenlosen Plans übrig.'
+            saver_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
             submit_password: 'Passwort ändern'
@@ -553,22 +555,34 @@ de:
             template_html: "<h1>Rechnung</h1>\n<p><b>Bezahlt am:</b></p>\n<p>%{paid_at}</p>\n<p><b>Verkäufer:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  Reg-Nr. 14781461\n</p>\n<p><b>Käufer:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} Plan (%{years}-Jahre)</h2>\n<p>\n  <b>Bezahlt:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
         subscription_granted:
             subject: '%{plan_name}-Plan garantiert'
+            template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
     subscriptions:
+        days_left:
+            one: '1 Tag übrig'
+            other: '%{count} Tage übrig'
         hodler: Hodler
+        hodler_description_html: 'DCA funktioniert am besten als langfristige Anlage. Vier Jahre lang <b class="badge badge-btc">unbegrenzte Transaktionen</b> für <b class="badge badge-all">alle Währungen</b>, niedrigere Gebühren mit <b class="badge badge-limit">Limit-Orders</b>, <b class="badge badge-limit">automatische Abhebungen</b>, <b class="badge badge-limit">Preisbedingung</b>, <b class="badge badge-limit">Zeitbedingung</b>(bald), <b class="badge badge-limit">Webhooks</b>(bald) und <b class="badge badge-limit">Portfolio-Rebalancing</b>(bald). Langfristige Pläne unterstützen auch das Projekt, und deshalb erhalten Hodler <b class="badge badge-priority">vorrangigen Zugang</b> zu allen neuen Funktionen.'
         investor: Investor
-        investor_description_html: 'Ein Jahr lang <b class="badge badge-btc">unbegrenzte Transaktionen</b>, <b class="badge badge-btc">alle Währungen</b> und <b class="badge badge-btc">automatische Abhebungen</b> (in Kürze).'
-        legendary_badger: 'Legendäres Badger-NFT'
+        investor_description_html: 'Ein Jahr lang <b class="badge badge-btc">unbegrenzte Transaktionen</b>, <b class="badge badge-btc">alle Währungen</b> und <b class="badge badge-btc">automatische Abhebungen</b>.'
+        legendary_badger: 'Legendary Badger-NFT'
+        legendary_badger_description_html: '<p>Einzigartig. Limitiert. Legendär.</p><p><b>Bezahle nie wieder für die Nutzung des Dienstes.</b></p><p>Nach der Einführung von <b class="badge badge-rebalancing">Portfolio-Rebalancing</b> und <b class="badge badge-webhook">Webhook-basierten Trades</b> werden die Preise steigen, aber du hast lebenslangen kostenlosen Zugang zu allem.</p><p>Verkaufe dein Abonnement jederzeit auf dezentralen Märkten. Ja! So etwas gibt es auf dem Markt nicht.</p><p>Jeder Token ist mit einem prozeduralen Kunstwerk verbunden. Kannst du alle 21 "Ostereier" finden, die in der <a href="https://deltabadger.com/legendary/" class="nobreak">Sammlung</a> versteckt sind?</p><p>Die "Legendary Badgers" sind eine kleine Gemeinschaft für Menschen, die finanzielle Freiheit suchen. In einem privaten Telegram-Kanal wird deine Stimme für das weitere Wachstum der Plattform wichtig sein. Gemeinsam schreiben wir Geschichte.</p><p>Nur 1000 sitzen im Raumschiff der "Legendary Badgers". Zementiere deinen DCA-Status und werde legendär.</p>'
         limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Limit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
         payment:
             account_holder: Kontoinhaber
             account_number: Kontonummer
             account_type: Kontotyp
             active_plan_discount: 'Rabatt für Pläne aktiv'
-            after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei Ihnen! Wenn Sie weitere Unterstützung benötigen, lassen Sie es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
             card_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
+            compensation_hodler:
+                one: 'Entschädigung für 1 ungenutzten Tag des Hodler-Plans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Hodler-Plans.'
+            compensation_investor:
+                one: 'Entschädigung für 1 ungenutzten Tag des Investorenplans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
             early_bird_discount: 'Early Bird-Rabatt'
             early_bird_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
@@ -579,24 +593,27 @@ de:
             pay: Bezahlen
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             payment_ordered: 'Zahlung angefordert!'
-            referral_discount_html: 'Mit dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
+            referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
-            vat: Mwst
-            wire_cost_hodler_html: 'Bitte überweisen Sie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_investor_html: 'Bitte überweisen Sie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_legendary_badger_html: 'Bitte überweisen Sie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            vat: MwSt
+            wire_cost_hodler_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_investor_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_legendary_badger_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
             wire_transfer: Banküberweisung
-            wire_transfer_fill_form: 'Bitte füllen Sie das obige Formular aus, um fortzufahren...'
-            wire_transfer_pending: 'Danke! Wir werden Ihr Konto bald aktivieren und Sie per E-Mail kontaktieren.'
+            wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
+            wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'
             you_pay: 'Du zahlst'
         plan_1_year: 1-Jahr-Plan
         plan_4_year: 4-Jahres-Plan
-        plan_life_time: Lifetime-Plan
+        plan_life_time: 'Lebenslanger Plan'
         prolong_upgrade: 'Stufe deinen Plan hoch'
         saver: Sparer
-        upgrade: Upgrade
-        upgrade_plan: 'Plan upgraden'
+        upgrade: Hochstufung
+        upgrade_plan: 'Plan hochstufen'
     welcome:
+        banner_html: 'Hallo %{name}! <b>Überprüfe deine Mailbox</b> und finde Tipps und Tricks für das perfekte Bot-Setup, das ich für dich vorbereitet habe. <b>Wenn sie im Spam-Ordner gelandet ist, verschiebe sie in deinen Posteingang</b>, damit du unsere Nachrichten in Zukunft sehen kannst. Danke, Jan'
         default: 'Hallo, willkommen bei Deltabadger'
-        saver: 'Werde die Limits los und führe ein Upgrade durch!'
+        legendary: 'Der NFT wird bald hier erscheinen!'
+        saver: 'Befreie dich von den Limits und mach ein Upgrade!'

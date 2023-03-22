@@ -336,6 +336,7 @@ pl:
             step_api_key: 'Klucz API'
             step_exchange: Giełda
             step_schedule: Harmonogram
+            step_type: Typ
             validating: Weryfikacja
             withdrawal:
                 kraken:
