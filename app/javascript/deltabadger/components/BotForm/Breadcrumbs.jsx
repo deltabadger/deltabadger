@@ -8,7 +8,7 @@ const arrow = <span>{" "}&rarr;{" "}</span>
 export const Breadcrumbs = ({ step }) => (
   <div className="db-bot__infotext--setup">
     <span className="db-breadcrumbs">
-      {emphasize('Type', step === 0)}
+      {emphasize(I18n.t('bots.setup.step_type'), step === 0)}
       {arrow}
       {emphasize(I18n.t('bots.setup.step_exchange'), step === 1)}
       {arrow}
