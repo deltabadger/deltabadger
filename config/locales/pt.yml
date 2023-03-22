@@ -562,8 +562,8 @@ pt:
             wire_cost_legendary_badger_html: 'Por favor, envie  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
             wire_transfer: 'Transferência bancária'
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
-            wire_transfer_pending: 'Obrigado! Ativaremos a sua conta em breve e entraremos em contacto consigo por e-mail.'
-            you_pay: 'Pago por si'
+            wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
+            you_pay: 'Tu pagas'
         plan_1_year: 'Plano de 1 ano'
         plan_4_year: 'Plano de 4 anos'
         plan_life_time: 'Para a vida'
@@ -572,5 +572,6 @@ pt:
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'
     welcome:
-        default: 'Olá, damos-lhe as boas-vindas à Deltabadger'
-        saver: 'Livre-se dos limites e atualize!'
+        default: 'Olá, damos-te as boas-vindas ao Deltabadger'
+        legendary: 'O NFT chegará aqui em breve!'
+        saver: 'Livra-te dos limites e faz um upgrade!'

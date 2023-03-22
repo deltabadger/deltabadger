@@ -336,6 +336,7 @@ en:
             step_api_key: 'API Key'
             step_exchange: Exchange
             step_schedule: Schedule
+            step_type: Type
             validating: Validating
             withdrawal:
                 kraken:
