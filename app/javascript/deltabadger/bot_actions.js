@@ -150,3 +150,12 @@ export const editWithdrawalBot = (botParams, continueParams) => dispatch => {
     dispatch(setErrors(data.response.data))
   })
 }
+
+export const editWebhookBot = (botParams, continueParams) => dispatch => {
+  API.updateWebhookBot(botParams).then(({data: bot}) => {
+    dispatch(clearErrors(bot.id))
+    dispatch(startBot(bot.id, continueParams))
+  }).catch((data) => {
+    dispatch(setErrors(data.response.data))
+  })
+}

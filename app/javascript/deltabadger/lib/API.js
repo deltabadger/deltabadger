@@ -104,6 +104,28 @@ const API = {
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
+  createWebhookBot(params) {
+      const url = `${API_URL}/bots`;
+      const botParams = {
+          bot_type: params.botType,
+          exchange_id: params.exchangeId,
+          type: params.type,
+          order_type: params.order_type,
+          price: params.price,
+          percentage: params.percentage,
+          base: params.base,
+          quote: params.quote,
+          interval: params.interval,
+          force_smart_intervals: params.forceSmartIntervals,
+          smart_intervals_value: params.smartIntervalsValue,
+          price_range_enabled: params.priceRangeEnabled,
+          price_range: [params.priceRange.low, params.priceRange.high],
+          use_subaccount: params.useSubaccount,
+          selected_subaccount: params.selectedSubaccount
+      }
+      return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
+  },
+
   updateTradingBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
@@ -130,6 +152,23 @@ const API = {
       interval_enabled: params.intervalEnabled
     }
 
+    return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
+  },
+
+  updateWebhookBot(params) {
+    const url = `${API_URL}/bots/${params.id}`;
+    const botParams= {
+      order_type: params.order_type,
+      price: params.price,
+      percentage: params.percentage,
+      interval: params.interval,
+      force_smart_intervals: params.forceSmartIntervals,
+      smart_intervals_value: params.smartIntervalsValue,
+      price_range_enabled: params.priceRangeEnabled,
+      price_range: [params.priceRange.low, params.priceRange.high],
+      use_subaccount: params.useSubaccount,
+      selected_subaccount: params.selectedSubaccount
+    }
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
   },
 

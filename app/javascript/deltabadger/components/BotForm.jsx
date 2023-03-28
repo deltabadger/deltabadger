@@ -8,6 +8,7 @@ import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
 import { NavigationPanel } from "./BotForm/NavigationPanel";
 import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
+import { ConfigureWebhookBot } from './BotForm/ConfigureWebhookBot';
 import {PickBotType} from "./BotForm/PickBotType";
 
 const STEPS = [
@@ -18,12 +19,14 @@ const STEPS = [
   'validating_api_key',
   'invalid_api_key',
   'configure_trading_bot',
-  'configure_withdrawal_bot'
+  'configure_withdrawal_bot',
+  'configure_webhook_bot'
 ]
 
 const TYPES = [
   'trading',
-  'withdrawal'
+  'withdrawal',
+  'webhook'
 ]
 
 export const BotForm = ({
@@ -49,7 +52,12 @@ export const BotForm = ({
   const [isCreatingBot, setCreatingBot] = useState(false);
 
   const getKeyStatus = (e) => {
-    return type === 'trading' ? e.trading_key_status : e.withdrawal_key_status
+    // console.log("getKeyStatus");
+    // console.log(step);
+    // console.log(e.trading_key_status );
+    // console.log(e.withdrawal_key_status);
+    return type === 'withdrawal' ? e.withdrawal_key_status : e.trading_key_status
+    // return type === 'trading' ? e.trading_key_status : e.withdrawal_key_status
   }
 
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
@@ -67,14 +75,41 @@ export const BotForm = ({
   }
 
   const chooseStep = step => {
-    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
+    // console.log("start chooseStep");
+    // console.log(step);
+    // console.log(STEPS[step]);
+    // console.log(type);
+
+    // if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
+    if ((STEPS[step] == 'add_api_key') && ownedExchangesIds.includes(form.exchangeId)) {
+      // debugger
+      switch (type) {
+        case 'trading':
+          return 6;
+        case 'withdrawal':
+          return 7;
+        case 'webhook':
+          return 8;
+      }
+    }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 5 }
     if ((STEPS[step] == 'add_api_key') && pendingExchangesIds.includes(form.exchangeId)) {
       clearAndSetTimeout()
       return 4
     }
 
-    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
+    // if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
+    if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) {
+      // debugger
+      switch (type) {
+        case 'trading':
+          return 6;
+        case 'withdrawal':
+          return 7;
+        case 'webhook':
+          return 8;
+      }
+    }
     if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 5 }
 
     if ((STEPS[step] == 'closed_form') && open) { return step + 1 }
@@ -120,10 +155,16 @@ export const BotForm = ({
       return
     }
 
-    if (type === 'trading') {
-      exchanges[idx].trading_key_status = 'pending'
-    } else {
+    // if (type === 'trading') {
+    //   exchanges[idx].trading_key_status = 'pending'
+    // } else {
+    //   exchanges[idx].withdrawal_key_status = 'pending'
+    // }
+
+    if (type === 'withdrawal') {
       exchanges[idx].withdrawal_key_status = 'pending'
+    } else {
+      exchanges[idx].trading_key_status = 'pending'
     }
   }
 
@@ -193,6 +234,21 @@ export const BotForm = ({
     }).finally(() => setCreatingBot(false));
   }
 
+  const configureWebhookBotHandler = (botParams) => {
+    debugger
+    const typeParams = getOfferTypeParams(botParams.type)
+    const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
+    setCreatingBot(true);
+    API.createWebhookBot(params).then(response => {
+      callbackAfterCreation(response.data.id)
+      setErrors([])
+      setStep(0)
+      setFormState({})
+    }).catch((data) => {
+      setErrors(data.response.data.errors[0])
+    }).finally(() => setCreatingBot(false));
+  }
+
   const handleCancel = () => {
     setStep(0)
     callbackAfterClosing()
@@ -235,7 +291,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'add_api_key'}
-          type={type}
+          type={type === 'withdrawal' ? 'withdrawal' : 'trading'} // 'trading'
         />
       case 'validating_api_key':
         return <AddApiKey
@@ -244,7 +300,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'validating_api_key'}
-          type={type}
+          type={type === 'withdrawal' ? 'withdrawal' : 'trading'} // 'trading'
         />
       case 'invalid_api_key':
         clearTimeout(apiKeyTimeout)
@@ -254,7 +310,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'invalid_api_key'}
-          type={type}
+          type={type === 'withdrawal' ? 'withdrawal' : 'trading'} // 'trading'
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
@@ -275,6 +331,18 @@ export const BotForm = ({
           getMinimums={getWithdrawalMinimums}
           disable={isCreatingBot}
           errors={errors}
+        />
+      case 'configure_webhook_bot':
+        console.log("case 'configure_webhook_bot':");
+        return <ConfigureWebhookBot
+            showLimitOrders={isHodler || isLegendaryBadger}
+            currentExchange={pickedExchange}
+            handleReset={resetFormToStep(1)}
+            handleSubmit={configureWebhookBotHandler}
+            handleSmartIntervalsInfo={getSmartIntervalsInfo}
+            setShowInfo={setShowSmartIntervalsInfo}
+            disable={isCreatingBot}
+            errors={errors}
         />
     }
   }

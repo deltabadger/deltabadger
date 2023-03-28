@@ -24,6 +24,12 @@ export const PickBotType = ({ handleSubmit }) => {
         >
           {I18n.t('bots.buttons.automatic_withdrawal')}
         </div>
+        <div
+          className="db-bot__types__item db-bot__types__item--wh"
+          onClick={() => handleSubmit('webhook')}
+        >
+          {I18n.t('bots.buttons.webhook')}
+        </div>
       </div>
     </div>
   )

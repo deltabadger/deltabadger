@@ -4,7 +4,8 @@ import { TradingTransactions } from './BotDetails/TradingTransactions';
 import { Logs } from './BotDetails/Logs';
 import { Info } from './BotDetails/Info';
 import { isNotEmpty, isEmpty } from '../utils/array';
-import {WithdrawalTransactions} from "./BotDetails/WithdrawalTransactions";
+import { WithdrawalTransactions } from "./BotDetails/WithdrawalTransactions";
+import { WebhookTransactions } from "./BotDetails/WebhookTransactions";
 
 export const BotDetails = ({ bot }) => {
   const statisticsActive = isNotEmpty(bot.transactions)
@@ -62,6 +63,9 @@ export const BotDetails = ({ bot }) => {
         }
         { bot.bot_type === 'withdrawal' &&
           <WithdrawalTransactions bot={bot} active={statisticsActive}/>
+        }
+        { bot.bot_type === 'webhook' &&
+          <WebhookTransactions bot={bot} active={statisticsActive}/> //TODO stopped at bot.stats error
         }
         <Logs bot={bot} active={logActive}/>
         <Info bot={bot} active={infoActive} />

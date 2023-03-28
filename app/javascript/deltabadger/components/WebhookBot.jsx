@@ -16,7 +16,7 @@ import {
   reloadBot,
   stopBot,
   removeBot,
-  editTradingBot,
+  editWebhookBot,
   openBot,
   clearErrors,
   fetchRestartParams,
@@ -50,6 +50,9 @@ const BotTemplate = ({
   exchanges,
   apiKeyTimeout
 }) => {
+
+  debugger
+
   const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const [type, setType] = useState(settings.order_type);
@@ -193,7 +196,7 @@ const BotTemplate = ({
       forceSmartIntervals,
       smartIntervalsValue,
       price: price.trim(),
-      botType: 'free',
+      botType: 'webhook',
     }
   }
 
@@ -263,6 +266,9 @@ const BotTemplate = ({
     // we have to assume that the key exists to fix unnecessary form rendering
     const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true}
     const keyStatus = exchange.trading_key_status
+
+    // debugger
+
     setApiKeyExists(keyOwned(keyStatus))
 
     if (keyOwned(keyStatus)) {
@@ -323,7 +329,7 @@ const BotTemplate = ({
           handleRemove={() => removeInvalidApiKeys(exchangeId)}
           status={apiKeysState}
           botView={{baseName, quoteName}}
-          type={'trading'}
+          type={'webhook'}
         />
       }
 
@@ -548,10 +554,10 @@ const mapDispatchToProps = ({
   reload: reloadBot,
   handleStop: stopBot,
   handleRemove: removeBot,
-  handleEdit: editTradingBot,
+  handleEdit: editWebhookBot,
   fetchMinimums: getSmartIntervalsInfo,
   handleClick: openBot,
   clearBotErrors: clearErrors,
   fetchRestartParams: fetchRestartParams
 })
-export const TradingBot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
+export const WebhookBot = connect(mapStateToProps, mapDispatchToProps)(BotTemplate)
