@@ -15,8 +15,7 @@ module Api
     end
 
     def create
-      bot_params = params[:bot][:bot_type] == 'free' ? trading_bot_create_params : withdrawal_bot_create_params
-      result = Bots::Create.call(current_user, bot_params)
+      result = Bots::Create.call(current_user, bot_create_params)
 
       if result.success?
         render json: { data: result.data }, status: 201
@@ -26,8 +25,7 @@ module Api
     end
 
     def update
-      bot_params = params[:bot][:order_type].present? ? trading_bot_update_params : withdrawal_bot_update_params
-      result = Bots::Update.call(current_user, bot_params)
+      result = Bots::Update.call(current_user, bot_update_params)
 
       if result.success?
         data = present_bot(result.data)
@@ -127,6 +125,24 @@ module Api
 
     private
 
+    def bot_create_params
+      @bot_create_params ||= case params[:bot][:bot_type]
+                             when 'free' then trading_bot_create_params
+                             when 'withdrawal' then withdrawal_bot_create_params
+                             else webhook_bot_create_params
+                             end
+
+    end
+
+    def bot_update_params
+      @bot_update_params ||= case params[:bot][:bot_type]
+                             when 'free' then trading_bot_update_params
+                             when 'withdrawal' then withdrawal_bot_update_params
+                             else webhook_bot_update_params
+                             end
+
+    end
+
     def present_bot(bot)
       bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
     end
@@ -175,6 +191,29 @@ module Api
         .permit(*WITHDRAWAL_BOT_PARAMS)
     end
 
+    WEBHOOK_BOT_PARAMS = %i[
+      exchange_id
+      type
+      order_type
+      price
+      percentage
+      base
+      quote
+      interval
+      bot_type
+      force_smart_intervals
+      smart_intervals_value
+      price_range_enabled
+      use_subaccount
+      selected_subaccount
+    ].freeze
+
+    def webhook_bot_create_params
+      params
+          .require(:bot)
+          .permit(*WEBHOOK_BOT_PARAMS, price_range: [])
+    end
+
     TRADING_BOT_UPDATE_PARAMS = %i[
       order_type
       price
@@ -206,6 +245,25 @@ module Api
         .require(:bot)
         .permit(*WITHDRAWAL_BOT_UPDATE_PARAMS)
         .merge(id: params[:id])
+    end
+
+    WEBHOOK_BOT_UPDATE_PARAMS = %i[
+      order_type
+      price
+      percentage
+      interval
+      force_smart_intervals
+      smart_intervals_value
+      price_range_enabled
+      use_subaccount
+      selected_subaccount
+    ].freeze
+
+    def webhook_bot_update_params
+      params
+          .require(:bot)
+          .permit(*WEBHOOK_BOT_UPDATE_PARAMS, price_range: [])
+          .merge(id: params[:id])
     end
 
     def bot_continue_params

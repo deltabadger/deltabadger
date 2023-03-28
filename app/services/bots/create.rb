@@ -23,6 +23,11 @@ module Bots
           bot_validator: Bots::Withdrawal::Validators::Create.new,
           format_params: Bots::Withdrawal::FormatParams::Create.new
         ).call(bot_params)
+      when 'webhook'
+        Bots::CreateBot.new(
+          bot_validator: Bots::Webhook::Validators::Create.new,
+          format_params: Bots::Webhook::FormatParams::Create.new
+        ).call(bot_params)
       else
         Result::Failure.new('Invalid bot type')
       end
