@@ -17,6 +17,7 @@ class UserDashboard < Administrate::BaseDashboard
     affiliate: Field::HasOne,
     id: Field::Number,
     email: Field::String,
+    name: Field::String,
     encrypted_password: Field::String,
     reset_password_token: Field::String,
     reset_password_sent_at: Field::DateTime,
@@ -47,8 +48,8 @@ class UserDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     id
     email
+    name
     subscription
-    limit_reached?
     admin
   ].freeze
 
@@ -57,6 +58,7 @@ class UserDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     id
     email
+    name
     api_keys
     exchanges
     bots
@@ -85,6 +87,7 @@ class UserDashboard < Administrate::BaseDashboard
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
     email
+    name
     confirmed_at
     confirmation_sent_at
     unconfirmed_email
