@@ -51,7 +51,7 @@ const BotTemplate = ({
   apiKeyTimeout
 }) => {
 
-  debugger
+  // debugger
 
   const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 

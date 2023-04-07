@@ -235,7 +235,7 @@ export const BotForm = ({
   }
 
   const configureWebhookBotHandler = (botParams) => {
-    debugger
+    // debugger
     const typeParams = getOfferTypeParams(botParams.type)
     const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
     setCreatingBot(true);

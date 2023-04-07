@@ -4,17 +4,17 @@ module Bots
       class Create < BaseService
         BOT_SETTING_PARAMS = %i[
           type
-          order_type
-          price percentage
+          price
           base
           quote
-          interval
-          force_smart_intervals
-          smart_intervals_value
-          price_range_enabled
-          price_range
-          use_subaccount
-          selected_subaccount
+          name
+          trigger_url
+          additional_type_enabled
+          additional_type
+          additional_trigger_url
+          trigger_possibility
+
+          order_type
         ].freeze
 
         def call(params)

@@ -49,7 +49,9 @@ const WebhookStats = ({
 )
 
 export const WebhookTransactions = ({ bot, active }) => {
-  debugger
+  console.log(active)
+  console.log(bot.stats)
+  // debugger
   const { exchangeName } = bot;
   const type = bot.settings.type
   const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
