@@ -144,7 +144,9 @@ module Api
     end
 
     def present_bot(bot)
-      bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
+      return Presenters::Api::TradingBot.call(bot) if bot.trading?
+      return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+      Presenters::Api::WebhookBot.call(bot)
     end
 
     def present_bots(bots)
@@ -194,18 +196,18 @@ module Api
     WEBHOOK_BOT_PARAMS = %i[
       exchange_id
       type
-      order_type
       price
-      percentage
       base
       quote
-      interval
       bot_type
-      force_smart_intervals
-      smart_intervals_value
-      price_range_enabled
-      use_subaccount
-      selected_subaccount
+      name
+      trigger_url
+      additional_type_enabled
+      additional_type
+      additional_trigger_url
+      trigger_possibility
+
+      order_type
     ].freeze
 
     def webhook_bot_create_params
@@ -248,15 +250,20 @@ module Api
     end
 
     WEBHOOK_BOT_UPDATE_PARAMS = %i[
-      order_type
+      exchange_id
+      type
       price
-      percentage
-      interval
-      force_smart_intervals
-      smart_intervals_value
-      price_range_enabled
-      use_subaccount
-      selected_subaccount
+      base
+      quote
+      bot_type
+      name
+      trigger_url
+      additional_type_enabled
+      additional_type
+      additional_trigger_url
+      trigger_possibility
+
+      order_type
     ].freeze
 
     def webhook_bot_update_params
