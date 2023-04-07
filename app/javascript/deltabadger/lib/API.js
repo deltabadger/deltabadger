@@ -106,22 +106,24 @@ const API = {
 
   createWebhookBot(params) {
       const url = `${API_URL}/bots`;
-      const botParams = {
-          bot_type: params.botType,
-          exchange_id: params.exchangeId,
-          type: params.type,
-          order_type: params.order_type,
-          price: params.price,
-          percentage: params.percentage,
-          base: params.base,
-          quote: params.quote,
-          interval: params.interval,
-          force_smart_intervals: params.forceSmartIntervals,
-          smart_intervals_value: params.smartIntervalsValue,
-          price_range_enabled: params.priceRangeEnabled,
-          price_range: [params.priceRange.low, params.priceRange.high],
-          use_subaccount: params.useSubaccount,
-          selected_subaccount: params.selectedSubaccount
+      const botParams = { //TODO Fixed parameters for testing
+        bot_type: "webhook",
+        exchange_id: 4,
+        // type: "sell",
+        type: "buy",
+        price: "20202020",
+        base: "XBT",
+        quote: "EUR",
+        name: "Webhook test bot",
+        trigger_url: "webhook_test_bot",
+        additional_type_enabled: true,
+        additional_type: "sell_all",
+        // additional_type: "buy_all",
+        // additional_type: "sell",
+        additional_trigger_url: "additional_webhook_test_bot",
+        trigger_possibility: "every",
+
+        order_type: "market",
       }
       return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
