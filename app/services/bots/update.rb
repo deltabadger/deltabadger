@@ -38,11 +38,11 @@ module Bots
     end
 
     def get_validator(bot)
-      bot.trading? ? Bots::Free::Validators::Update.new : Bots::Withdrawal::Validators::Update.new
+      bot.withdrawal? ? Bots::Withdrawal::Validators::Update.new : Bots::Free::Validators::Update.new
     end
 
     def get_formatter(bot)
-      bot.trading? ? Bots::Free::FormatParams::Update.new : Bots::Withdrawal::FormatParams::Update.new
+      bot.withdrawal? ? Bots::Withdrawal::FormatParams::Update.new : Bots::Free::FormatParams::Update.new
     end
   end
 end

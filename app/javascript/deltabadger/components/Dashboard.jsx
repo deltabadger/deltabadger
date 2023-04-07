@@ -87,7 +87,7 @@ const DashboardTemplate = ({
         />
       )
     } else {
-      debugger
+      // debugger
       botsToRender.push(
           <WebhookBot
               showLimitOrders={isHodler || isLegendaryBadger}
