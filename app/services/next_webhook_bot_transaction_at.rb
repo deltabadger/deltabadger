@@ -1,4 +1,4 @@
-class NextWebhookBotTransactionAt < BaseService
+class NextWebhookBotTransactionAt < BaseService #TODO need?
   def initialize(
     parse_interval: ParseInterval.new,
     calculate_restart_delay: CalculateRestartDelay.new

@@ -10,7 +10,6 @@ module Api
         all_symbols = exchange.symbols.or([])
         status_of_trading_key = status_of_key(exchange.id, 'trading', exchange_type_pairs)
         status_of_withdrawal_key = status_of_key(exchange.id, 'withdrawal', exchange_type_pairs)
-        # status_of_webhook_key = status_of_key(exchange.id, 'webhook', exchange_type_pairs)
         status_of_webhook_key = status_of_key(exchange.id, 'trading', exchange_type_pairs)
         withdrawal_info_processor = get_withdrawal_info_processor(api_keys, exchange)
         {

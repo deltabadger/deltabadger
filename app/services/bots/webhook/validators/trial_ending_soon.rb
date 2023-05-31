@@ -1,4 +1,4 @@
-module Bots::Webhook::Validators
+module Bots::Webhook::Validators #TODO need?
   class TrialEndingSoon < BaseService
     def call(user)
       return Result::Success.new if user.unlimited? || !user.first_month?

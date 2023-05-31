@@ -1,72 +1,67 @@
 class MakeWebhook < BaseService
+  TRIGGER_TYPES = %w[main_bot additional_bot].freeze
+
   def initialize(
     exchange_trader: ExchangeApi::Traders::Get.new,
-    schedule_transaction: ScheduleTransaction.new,
+    schedule_webhook: ScheduleWebhook.new,
     fetch_order_result: FetchOrderResult.new,
-    unschedule_transactions: UnscheduleTransactions.new,
+    unschedule_webhooks: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
-    check_price_range: CheckPriceRange.new
+    update_formatter: Bots::Webhook::FormatParams::Update.new
   )
     @get_exchange_trader = exchange_trader
-    @schedule_transaction = schedule_transaction
+    @schedule_webhook = schedule_webhook
     @fetch_order_result = fetch_order_result
-    @unschedule_transactions = unschedule_transactions
+    @unschedule_webhooks = unschedule_webhooks
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
-    @check_price_range = check_price_range
+    @update_formatter = update_formatter
   end
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-  def call(bot_id, notify: true, restart: true, continue_params: nil)
+  def call(bot_id, webhook, notify: true, restart: true)
+    # byebug
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
+    called_bot = called_bot(bot.settings, webhook)
+    # byebug
 
-    continue_params = extract_continue_params(continue_params)
+    result = perform_action(get_api(bot), bot, called_bot)
+    # byebug
 
-    continue_schedule = continue_params['continue_schedule']
-    fixing_price = continue_params['price']
-    range_check_result = @check_price_range.call(bot)
-
-    if range_check_result.success? && !range_check_result.data[:valid]
-      continue_schedule = true
-      skip_if_not_in_range(bot, range_check_result.data)
-    end
-
-    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
-
-    if continue_schedule
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
-      result = @order_flow_helper.validate_limit(bot, notify)
-      @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
-      @schedule_transaction.call(bot) if result.success?
-    elsif result&.success?
-      @bots_repository.update(bot.id, status: 'pending')
-      result = @fetch_order_result.call(bot.id, result.data, fixing_price)
-      check_allowable_balance(get_api(bot), bot, fixing_price, notify)
+    if !result&.success?
+      # byebug
+      triggered_types(bot, called_bot) if bot.first_time?
+      settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
+      @bots_repository.update(bot.id, **settings_params.merge(success_status(bot)))
+      result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f)
       send_user_to_sendgrid(bot)
-    elsif restart && (!range_check_result.success? || recoverable?(result))
+    elsif restart && recoverable?(result)
+      # byebug
       result = range_check_result if result.nil?
-      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
+      @transactions_repository.create(failed_transaction_params(result, bot))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
-      @schedule_transaction.call(bot)
+      @schedule_webhook.call(bot, webhook)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
-      @order_flow_helper.stop_bot(bot, notify, result.errors)
+      # byebug
+      @transactions_repository.create(failed_transaction_params(result, bot))
+      @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
     result
   rescue => e
-    @unschedule_transactions.call(bot)
+    @unschedule_webhooks.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
+    # byebug
     Rails.logger.info "======================= RESCUE 1=============================="
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info "====================================================="
@@ -74,6 +69,21 @@ class MakeWebhook < BaseService
     raise
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+
+  def success_status(bot)
+    return {status: 'working'} if bot.every_time? || !bot.already_triggered_types.blank?
+    {status: 'stopped'}
+  end
+
+  def called_bot(settings, webhook)
+    return "additional_bot" if settings["additional_type_enabled"] && settings["additional_trigger_url"] == webhook
+    "main_bot" if settings["trigger_url"] == webhook
+  end
+
+  def triggered_types(bot, called_bot)
+    bot.already_triggered_types |= [called_bot]
+    bot.already_triggered_types = [] if (TRIGGER_TYPES - bot.already_triggered_types).blank?
+  end
 
   private
 
@@ -83,13 +93,11 @@ class MakeWebhook < BaseService
     api.send_user_to_sendgrid(bot.exchange.name, bot.user)
   end
 
-  def check_allowable_balance(api, bot, price = nil, notify = true)
-    price = fixing_transaction?(price) ? price.to_f : bot.price.to_f
+  def check_allowable_balance(api, bot)
     balance = api.currency_balance(bot.quote)
     return unless balance.success?
 
-    amount_needed = calculate_amount_needed(bot.interval, price)
-    @notifications.end_of_funds(bot: bot) if balance.data < amount_needed && notify
+    balance.data
   end
 
   def get_api(bot)
@@ -97,28 +105,47 @@ class MakeWebhook < BaseService
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
-  def perform_action(api, bot, price = nil)
-    settings = {
+  def transaction_settings(bot, type, called_bot)
+    # byebug
+    {
       base: bot.base,
       quote: bot.quote,
-      price: fixing_transaction?(price) ? price.to_f : bot.price.to_f,
-      percentage: (bot.percentage.to_f if bot.limit?),
-      force_smart_intervals: fixing_transaction?(price) ? false : bot.force_smart_intervals,
-      smart_intervals_value: bot.smart_intervals_value.to_f
+      price: calculate_price(bot, type, called_bot)
     }.compact
-    subaccount_settings = {
-      use_subaccount: bot.use_subaccount,
-      selected_subaccount: bot.selected_subaccount
-    }.compact
-    settings = settings.merge(subaccount_settings) if bot.use_subaccount
-    result = if bot.buyer?
+  end
+
+  def perform_action(api, bot, called_bot)
+    # byebug
+    type = bot.settings[called_bot == 'additional_bot'? 'additional_type' : 'type']
+    settings = transaction_settings(bot, type, called_bot)
+    result = if buyer?(type)
+               # byebug
                api.buy(**settings)
              else
-               is_legacy = bot.type == 'sell_old'
-               api.sell(**settings.merge(is_legacy: is_legacy))
+               # byebug
+               api.sell(**settings)
              end
 
     result
+  end
+
+  def calculate_price(bot, type, called_bot)
+    # byebug
+    case type
+    when 'buy', 'sell'
+      # byebug
+      bot.send(called_bot == 'additional_bot'? 'additional_price' : 'price').to_f
+    when 'buy_all', 'sell_all'
+      # byebug
+      allowable_balance(get_api(bot), bot).to_f
+    else
+      # byebug
+      0.0
+    end
+  end
+
+  def allowable_balance(api, bot)
+    @allowable_balance ||= check_allowable_balance(api, bot)
   end
 
   def extract_continue_params(continue_params)
@@ -155,25 +182,17 @@ class MakeWebhook < BaseService
     result.data&.dig(:recoverable) == true
   end
 
-  def failed_transaction_params(result, bot, price = nil)
+  def failed_transaction_params(result, bot)
     {
       bot_id: bot.id,
       status: :failure,
       error_messages: result.errors,
-      bot_interval: bot.interval,
-      bot_price: fixing_transaction?(price) ? price : bot.price,
-      transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
+      bot_price: bot.price,
+      transaction_type: 'REGULAR'
     }
   end
 
-  def calculate_amount_needed(interval, price)
-    case interval
-    when 'hour'
-      price * 24 * 3
-    when 'day'
-      price * 3
-    else
-      price
-    end
+  def buyer?(type)
+    type.in?(%w(buy buy_all))
   end
 end

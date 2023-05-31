@@ -65,7 +65,7 @@ export const BotDetails = ({ bot }) => {
           <WithdrawalTransactions bot={bot} active={statisticsActive}/>
         }
         { bot.bot_type === 'webhook' &&
-          <WebhookTransactions bot={bot} active={statisticsActive}/> //TODO stopped at bot.stats error
+          <WebhookTransactions bot={bot} active={statisticsActive}/>
         }
         <Logs bot={bot} active={logActive}/>
         <Info bot={bot} active={infoActive} />

@@ -38,11 +38,23 @@ module Bots
     end
 
     def get_validator(bot)
-      bot.withdrawal? ? Bots::Withdrawal::Validators::Update.new : Bots::Free::Validators::Update.new
+      if bot.trading?
+        Bots::Free::Validators::Update.new
+      elsif bot.withdrawal?
+        Bots::Withdrawal::Validators::Update.new
+      else
+        Bots::Webhook::Validators::Update.new
+      end
     end
 
     def get_formatter(bot)
-      bot.withdrawal? ? Bots::Withdrawal::FormatParams::Update.new : Bots::Free::FormatParams::Update.new
+      if bot.trading?
+        Bots::Free::FormatParams::Update.new
+      elsif bot.withdrawal?
+        Bots::Withdrawal::FormatParams::Update.new
+      else
+        Bots::Webhook::FormatParams::Update.new
+      end
     end
   end
 end

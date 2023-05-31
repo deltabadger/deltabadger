@@ -2,11 +2,11 @@ module Presenters
   module Api
     class WebhookBot < BaseService
       def initialize(
-        next_bot_transaction_at: NextWebhookBotTransactionAt.new,
+        next_bot_transaction_at: NextWebhookBotTransactionAt.new, #TODO need?
         transactions_repository: TransactionsRepository.new,
         next_result_fetching_at: NextResultFetchingAt.new
       )
-        @next_bot_transaction_at = next_bot_transaction_at
+        @next_bot_transaction_at = next_bot_transaction_at #TODO need?
         @transactions_repository = transactions_repository
         @next_result_fetching_at = next_result_fetching_at
       end
@@ -29,7 +29,7 @@ module Presenters
           stats: present_stats(bot, transactions),
           nowTimestamp: Time.now.to_i,
           nextResultFetchingTimestamp: next_result_fetching_timestamp(bot),
-          nextTransactionTimestamp: next_transaction_timestamp(bot)
+          # nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end
 
@@ -41,7 +41,7 @@ module Presenters
         nil
       end
 
-      def next_transaction_timestamp(bot)
+      def next_transaction_timestamp(bot) #TODO need?
         @next_bot_transaction_at.call(bot).to_i
       rescue StandardError
         nil

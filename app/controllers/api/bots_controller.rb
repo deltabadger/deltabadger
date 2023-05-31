@@ -35,6 +35,15 @@ module Api
       end
     end
 
+    def webhook
+      bot = BotsRepository.new.by_webhook_for_user(params[:webhook])
+      return render json: { errors: "No bot found" }, status: 422 unless bot
+      return render json: { errors: "This webhook has already been called before" }, status: 422 unless bot.possible_to_call_a_webhook?(params[:webhook])
+
+      ScheduleWebhook.call(bot, params[:webhook])
+      render json: { result: "Webhook invoked" }, status: 200
+    end
+
     def start
       result = StartBot.call(params[:id], bot_continue_params)
 
@@ -201,19 +210,17 @@ module Api
       quote
       bot_type
       name
-      trigger_url
       additional_type_enabled
       additional_type
-      additional_trigger_url
+      additional_price
       trigger_possibility
-
       order_type
     ].freeze
 
     def webhook_bot_create_params
       params
           .require(:bot)
-          .permit(*WEBHOOK_BOT_PARAMS, price_range: [])
+          .permit(*WEBHOOK_BOT_PARAMS)
     end
 
     TRADING_BOT_UPDATE_PARAMS = %i[
@@ -250,26 +257,23 @@ module Api
     end
 
     WEBHOOK_BOT_UPDATE_PARAMS = %i[
-      exchange_id
       type
       price
       base
       quote
       bot_type
       name
-      trigger_url
       additional_type_enabled
       additional_type
-      additional_trigger_url
+      additional_price
       trigger_possibility
-
       order_type
     ].freeze
 
     def webhook_bot_update_params
       params
           .require(:bot)
-          .permit(*WEBHOOK_BOT_UPDATE_PARAMS, price_range: [])
+          .permit(*WEBHOOK_BOT_UPDATE_PARAMS, already_triggered_types: [])
           .merge(id: params[:id])
     end
 

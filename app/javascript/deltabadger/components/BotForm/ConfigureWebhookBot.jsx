@@ -33,12 +33,19 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
   const ALL_BASES = sortSymbols(uniqueArray(currentExchange.all_symbols.map(s => s.base)), getSpecialSymbols(currentExchange.name, true))
   const OTHER_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
-  const [type, setType] = useState("market_buy");
+  const [type, setType] = useState("buy");
+  const [additionalType, setAdditionalType] = useState("sell");
   const [price, setPrice] = useState("");
+  const [additionalPrice, setAdditionalPrice] = useState("");
+  const [name, setName] = useState('');
   const [base, setBase] = useState(BASES[0]);
   const [quote, setQuote] = useState(QUOTES[0]);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
+  const [triggerPossibility, setTriggerPossibility] = useState("first_time");
+  const [triggerUrl] = useState();
+  const [additionalTypeEnabled, setAdditionalTypeEnabled] = useState(false);
+  const [additionalTriggerUrl] = useState();
   const [percentage, setPercentage] = useState("0.0");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [useSubaccount,setUseSubaccounts] = useState(false)
@@ -109,7 +116,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
     }
     const _handleSmartIntervalsChange = (evt) => {
       setOpen(false)
-      _handleSubmit(evt, newIntervalsValue)
+      _handleSubmit(evt)
     }
 
     const _handleStarts = async (evt) => {
@@ -135,7 +142,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
         if (frequencyLimitExceeded) {
           setOpen(true);
         } else {
-          _handleSubmit(evt, smartIntervalsValue)
+          _handleSubmit(evt)
         }
       } catch (e) {
         console.error(e)
@@ -201,11 +208,12 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
       type,
       base,
       quote,
-      interval,
-      forceSmartIntervals,
-      smartIntervalsValue,
+      name,
       price: price.trim(),
-      percentage: isLimitOrder() ? percentage.trim() : undefined,
+      triggerPossibility,
+      additionalTypeEnabled,
+      additionalType,
+      additionalPrice: additionalPrice.trim(),
       botType: 'webhook',
     }
 
@@ -226,10 +234,10 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
       if (data.data.minimum === undefined)
         return;
 
-      if (isLimitOrderDefinedInBase(currentExchange.name) && isLimitOrder()) {
-        data.data.minimum = data.data.minimum_limit
-        data.data.side = 'base'
-      }
+      // if (isLimitOrderDefinedInBase(currentExchange.name) && isLimitOrder()) {
+      //   data.data.minimum = data.data.minimum_limit
+      //   data.data.side = 'base'
+      // }
 
       const minimum = data.data.minimum
       const currency = data.data.side === 'base' ? renameCurrency(base, currentExchange.name) : renameCurrency(quote, currentExchange.name)
@@ -256,51 +264,26 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
     }
   }
 
-  const _handleSubmit = (evt, smartIntervalsValue) => {
+  const _handleSubmit = (evt) => {
     evt.preventDefault();
     const botParams = {
       type,
       base,
       quote,
-      interval,
-      forceSmartIntervals,
-      smartIntervalsValue,
+      name,
       price: price.trim(),
-      percentage: isLimitOrder() ? percentage.trim() : undefined,
+      triggerPossibility,
+      additionalTypeEnabled,
+      additionalType,
+      additionalPrice: additionalPrice.trim(),
       botType: 'webhook',
-      priceRangeEnabled,
-      priceRange,
-      useSubaccount,
-      selectedSubaccount
     }
     !disableSubmit && handleSubmit(botParams);
   }
 
-  const isLimitOrder = () => type === 'limit_buy' || type === 'limit_sell'
-
-  const isSellOffer = () => type === 'market_sell' || type === 'limit_sell'
-
-  const setLimitOrderCheckbox = () => {
-    if (isLimitOrder()) {
-      isSellOffer() ? setType('market_sell') : setType('market_buy')
-    } else {
-      isSellOffer() ? setType('limit_sell') : setType('limit_buy')
-    }
-  }
-
-  const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
-
-  const splitTranslation = (s) => {
-    return s.split(/<split>.*?<\/split>/)
-  }
-
-  const getSmartIntervalsDisclaimer = () => {
-    if (minimumOrderParams.showQuote) {
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
-    } else {
-      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
-    }
-  }
+  const isBuyOffer = () => type === 'buy' || type === 'buy_all';
+  const isSellOffer = () => type === 'sell' || type === 'sell_all';
+  const isBuySellType = (type) => type === 'buy' || type === 'sell';
 
   return (
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
@@ -317,23 +300,36 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
 
-          <div className="form-inline db-bot__form__schedule">
+          <div className="form-inline mb-4">
+            <div className="form-group mr-3">{I18n.t('bots.name')}</div>
+            <div className="form-group">
+              <input
+                  type="text"
+                  min="5"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="bot-input bot-input--sizable bot-input--paper-bg"
+              />
+            </div>
+          </div>
+
+          <div className="form-inline mb-4">
             <div className="form-group mr-3">
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
                 className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
               >
-                <option value="market_buy">{I18n.t('bots.buy')}</option>
-                <option value="market_sell">{I18n.t('bots.sell')}</option>
-                <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
-                <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                <option value="buy">{I18n.t('bots.buy')}</option>
+                <option value="buy_all">{I18n.t('bots.buy_all')}</option>
+                <option value="sell">{I18n.t('bots.sell')}</option>
+                <option value="sell_all">{I18n.t('bots.sell_all')}</option>
                 }
               </select>
             </div>
             {isSellOffer()?
                 <>
-                  <div className="form-group mr-3">
+                  {isBuySellType(type) && <div className="form-group mr-3">
                     <input
                         type="tel"
                         min="1"
@@ -342,7 +338,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                         onChange={e => setPrice(e.target.value)}
                         className="bot-input bot-input--sizable bot-input--paper-bg"
                     />
-                  </div>
+                  </div>}
                   <div className="form-group mr-3">
                     <select
                         value={base}
@@ -384,7 +380,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                     </select>
                   </div>
                   <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                  <div className="form-group mr-3">
+                  {isBuySellType(type) && <div className="form-group mr-3">
                     <input
                         type="text"
                         min="1"
@@ -393,7 +389,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                         onChange={e => setPrice(e.target.value)}
                         className="bot-input bot-input--sizable bot-input--paper-bg"
                     />
-                  </div>
+                  </div>}
                 </>
 
             }
@@ -410,134 +406,106 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                 }
               </select>
             </div>
-            <div className="form-group mr-2">/</div>
-            <div className="form-group">
-              <select value={interval}
-                      onChange={e => setInterval(e.target.value)}
-                      className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
+          </div>
+
+          <div className="form-inline mb-4">
+            <div className="form-group mr-3">
+              <select
+                  value={triggerPossibility}
+                  onChange={e => setTriggerPossibility(e.target.value)}
+                  className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
               >
-                <option value="hour">{I18n.t('bots.hour')}</option>
-                <option value="day">{I18n.t('bots.day')}</option>
-                <option value="week">{I18n.t('bots.week')}</option>
-                <option value="month">{I18n.t('bots.month')}</option>
+                <option value="first_time">{I18n.t('bots.first_time')}</option>
+                <option value="every_time">{I18n.t('bots.every_time')}</option>
               </select>
+            </div>
+
+            {triggerUrl && <>
+              <div className="form-group mr-3">
+                {I18n.t('bots.triggered_title')}
+              </div>
+              <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
+                https://example.com/webhooks/{triggerUrl}
+              </div>
+            </>}
+          </div>
+
+          <div className="form-inline mb-4">
+            <div className="form-group mr-3">{I18n.t('bots.additional_title')}</div>
+            <div className="form-group mr-3">
+              <input
+                  type="checkbox"
+                  checked={additionalTypeEnabled}
+                  onChange={() => setAdditionalTypeEnabled(!additionalTypeEnabled)}
+              />
             </div>
           </div>
 
-          {showSubaccounts && <label
-              className="alert alert-primary"
-              disabled={!useSubaccount}
-          >
-            <input
-                type="checkbox"
-                checked={useSubaccount}
-                onChange={() => setUseSubaccounts(!useSubaccount)}
-            />
-            <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.subaccounts_info'))}</RawHTML>
+          <div className="form-inline db-bot__form__schedule">
+            <div className="form-group mr-3">
               <select
-                  value={selectedSubaccount}
-                  onChange={e => setSelectedSubaccount(e.target.value)}
-                  className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                  value={additionalType}
+                  onChange={e => setAdditionalType(e.target.value)}
+                  className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
+                  disabled={!additionalTypeEnabled}
               >
-                {
-                  subaccountsList.map( x => <option key={x} value={x}>{x}</option>)
+                {isBuyOffer()?
+                    <>
+                      <option value="sell">{I18n.t('bots.sell')}</option>
+                      <option value="sell_all">{I18n.t('bots.sell_all')}</option>
+                    </> : <>
+                      <option value="buy">{I18n.t('bots.buy')}</option>
+                      <option value="buy_all">{I18n.t('bots.buy_all')}</option>
+                    </>
                 }
               </select>
-
             </div>
-          </label>}
-
-          <label
-              className="alert alert-primary"
-              disabled={!forceSmartIntervals}
-          >
-            <input
-                type="checkbox"
-                checked={forceSmartIntervals}
-                onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
-            />
-            <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
-              <input
-                  type="text"
-                  size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
-                  className="bot-input bot-input--sizable"
-                  value={smartIntervalsValue}
-                  onChange={e => setSmartIntervalsValue(e.target.value)}
-                  onBlur={validateSmartIntervalsValue}
-                  min={minimumOrderParams.value}
-              />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
-
-              <small className="hide-when-running hide-when-disabled">
-                <div>
-                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+            <div className="form-group mr-3">
+              {isSellOffer()?
+                  <>
+                    <div className="form-group mr-3">{renameSymbol(base)}</div>
+                    <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+                    {isBuySellType(additionalType) && <div className="form-group mr-3">
+                      <input
+                          type="text"
+                          min="1"
+                          size={(additionalPrice.length > 0) ? additionalPrice.length : 3 }
+                          value={additionalPrice}
+                          onChange={e => setAdditionalPrice(e.target.value)}
+                          className="bot-input bot-input--sizable bot-input--paper-bg"
+                          disabled={!additionalTypeEnabled}
+                      />
+                    </div>}
+                    <div className="form-group mr-3">{renameSymbol(quote)}</div>
+                    <div className="form-group mr-3">{I18n.t('bots.'+triggerPossibility)}</div>
+                  </> : <>
+                    {isBuySellType(additionalType) && <div className="form-group mr-3">
+                      <input
+                          type="text"
+                          min="1"
+                          size={(additionalPrice.length > 0) ? additionalPrice.length : 3 }
+                          value={additionalPrice}
+                          onChange={e => setAdditionalPrice(e.target.value)}
+                          className="bot-input bot-input--sizable bot-input--paper-bg"
+                          disabled={!additionalTypeEnabled}
+                      />
+                    </div>}
+                    <div className="form-group mr-3">{renameSymbol(base)}</div>
+                    <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+                    <div className="form-group mr-3">{renameSymbol(quote)}</div>
+                    <div className="form-group mr-3">{I18n.t('bots.'+triggerPossibility)}</div>
+                  </>
+              }
+              {additionalTriggerUrl && <>
+                <div className="form-group mr-3">
+                  {I18n.t('bots.triggered_title')}
                 </div>
-              </small>
+                <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
+                  https://example.com/webhooks/{additionalTriggerUrl}
+                </div>
+              </>}
             </div>
-          </label>
-
-          <label
-            className="alert alert-primary"
-            disabled={!showLimitOrders || !isLimitOrder()}
-          >
-            <input
-              type="checkbox"
-              checked={isLimitOrder()}
-              onChange={setLimitOrderCheckbox}
-              disabled={!showLimitOrders}
-            />
-            <div>
-              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
-                type="text"
-                size={(percentage.length > 0) ? percentage.length : 3 }
-                value={percentage}
-                className="bot-input bot-input--sizable"
-                onChange={e => setPercentage(e.target.value)}
-                onBlur={validatePercentage}
-                disabled={!showLimitOrders || !isLimitOrder()}
-                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
-
-              { isLimitOrder() && <small><LimitOrderNotice /></small> }
-              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
-            </div>
-          </label>
-
-          <label
-            className="alert alert-primary"
-            disabled={!showLimitOrders || !priceRangeEnabled}
-          >
-            <input
-              type="checkbox"
-              checked={priceRangeEnabled}
-              onChange={() => setPriceRangeEnabled(!priceRangeEnabled)}
-              disabled={!showLimitOrders}
-            />
-            <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[0]}</RawHTML>
-              <input
-                type="text"
-                className="bot-input bot-input--sizable"
-                value={priceRange.low}
-                onChange={e => setPriceRange({low: e.target.value, high: priceRange.high})}
-                disabled={!showLimitOrders}
-                size={Math.max(priceRange.low.length, 1)}
-              />
-
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[1]}</RawHTML>
-              <input
-                type="text"
-                className="bot-input bot-input--sizable"
-                value={priceRange.high}
-                onChange={e => setPriceRange({low: priceRange.low, high: e.target.value})}
-                disabled={!showLimitOrders}
-                size={ Math.max(priceRange.high.length, 1) }
-              />
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[2]}</RawHTML>
-              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
-            </div>
-          </label>
+          </div>
 
         </form>
 

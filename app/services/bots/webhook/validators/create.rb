@@ -26,27 +26,28 @@ module Bots::Webhook::Validators
 
       attr_reader :base, :quote, :type, :order_type, :price, :allowed_symbols, :free_plan_symbols,
                   :hodler, :legendary_badger, :exchange_name, :name, :trigger_url, :trigger_possibility,
-                  :additional_type, :additional_type_enabled, :additional_trigger_url
+                  :already_triggered_types, :additional_type, :additional_type_enabled,
+                  :additional_trigger_url, :additional_price
 
-      # INTERVALS = %w[month week day hour].freeze
       BUY_TYPES = %w[buy buy_all].freeze
       SELL_TYPES = %w[sell sell_all].freeze
       TYPES = (BUY_TYPES + SELL_TYPES).freeze
       ORDER_TYPES = %w[market limit].freeze
 
-      # validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, :order_type, presence: true
       validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, :order_type, presence: true
-      validates :additional_type, :additional_trigger_url, presence: true, if: -> { additional_type_enabled }
+      # validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, presence: true
+      validates :additional_type, :additional_trigger_url, :additional_price, presence: true, if: -> { additional_type_enabled }
       validate :allowed_symbol
       validate :plan_allowed_symbol
-      validates :type, :additional_type, inclusion: { in: TYPES }
+      validates :type, inclusion: { in: TYPES }
+      validates :additional_type, inclusion: { in: TYPES }, if: -> { additional_type_enabled }
       validate :allowed_additional_type
 
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
+      validates :additional_price, numericality: { only_float: true, greater_than: 0 }
 
       def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name, exchange_id)
-        @interval = params['interval']
         @base = params['base']
         @quote = params['quote']
         @type = params['type']
@@ -57,7 +58,9 @@ module Bots::Webhook::Validators
         @additional_type_enabled = params['additional_type_enabled']
         @additional_type = params['additional_type']
         @additional_trigger_url = params['additional_trigger_url']
+        @additional_price = params['additional_price']&.to_f
         @trigger_possibility = params['trigger_possibility']
+        @already_triggered_types = params['already_triggered_types']
         @allowed_symbols = allowed_symbols
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
