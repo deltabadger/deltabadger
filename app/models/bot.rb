@@ -10,6 +10,11 @@ class Bot < ApplicationRecord
   enum status: [*STATES]
   enum bot_type: [*TYPES]
 
+  def self.by_webhook webhook
+    queries = [{trigger_url: webhook}.to_json, {additional_trigger_url: webhook}.to_json]
+    without_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
+  end
+
   def base
     settings['base']
   end
@@ -20,6 +25,10 @@ class Bot < ApplicationRecord
 
   def price
     settings['price']
+  end
+
+  def additional_price
+    settings['additional_price']
   end
 
   def percentage
@@ -72,6 +81,52 @@ class Bot < ApplicationRecord
 
   def address
     settings['address']
+  end
+
+  def already_triggered_types
+    settings['already_triggered_types']
+  end
+
+  def already_triggered_types= triggered_type
+    settings['already_triggered_types'] = triggered_type
+  end
+
+  def trigger_possibility
+    settings['trigger_possibility']
+  end
+
+  def additional_trigger_url
+    settings['additional_trigger_url']
+  end
+
+  def trigger_url
+    settings['trigger_url']
+  end
+
+  def called_bot webhook
+    return "additional_bot" if additional_type_enabled? && additional_trigger_url == webhook
+    "main_bot" if trigger_url == webhook
+  end
+
+  def already_triggered? type
+    already_triggered_types.include? type
+  end
+
+  def possible_to_call_a_webhook? webhook
+    return true if every_time?
+    !already_triggered?(called_bot(webhook))
+  end
+
+  def first_time?
+    trigger_possibility == 'first_time'
+  end
+
+  def every_time?
+    trigger_possibility == 'every_time'
+  end
+
+  def additional_type_enabled?
+    settings["additional_type_enabled"]
   end
 
   def trading?

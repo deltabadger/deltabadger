@@ -22,13 +22,13 @@ class StartBot < BaseService
       @bots_repository.update(bot.id, status: 'stopped')
       return validate_limit_result
     end
-    @bots_repository.update(bot.id, status: 'pending') if bot.trading? || bot.webhook?
+    @bots_repository.update(bot.id, status: 'pending') if bot.trading?
     bot.reload
 
-    if bot.withdrawal?
-      @schedule_withdrawal.call(bot, first_transaction: true)
-    else
+    if bot.trading?
       @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
+    elsif bot.withdrawal?
+      @schedule_withdrawal.call(bot, first_transaction: true)
     end
 
     Result::Success.new(bot)

@@ -106,24 +106,19 @@ const API = {
 
   createWebhookBot(params) {
       const url = `${API_URL}/bots`;
-      const botParams = { //TODO Fixed parameters for testing
-        bot_type: "webhook",
-        exchange_id: 4,
-        // type: "sell",
-        type: "buy",
-        price: "20202020",
-        base: "XBT",
-        quote: "EUR",
-        name: "Webhook test bot",
-        trigger_url: "webhook_test_bot",
-        additional_type_enabled: true,
-        additional_type: "sell_all",
-        // additional_type: "buy_all",
-        // additional_type: "sell",
-        additional_trigger_url: "additional_webhook_test_bot",
-        trigger_possibility: "every",
-
-        order_type: "market",
+      const botParams = {
+        bot_type: params.botType,
+        exchange_id: params.exchangeId,
+        type: params.type,
+        price: params.price,
+        base: params.base,
+        quote: params.quote,
+        name: params.name,
+        additional_type_enabled: params.additionalTypeEnabled,
+        additional_type: params.additionalType,
+        additional_price: params.additionalPrice,
+        trigger_possibility: params.triggerPossibility,
+        order_type: 'market',
       }
       return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
@@ -160,16 +155,13 @@ const API = {
   updateWebhookBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
-      order_type: params.order_type,
       price: params.price,
-      percentage: params.percentage,
-      interval: params.interval,
-      force_smart_intervals: params.forceSmartIntervals,
-      smart_intervals_value: params.smartIntervalsValue,
-      price_range_enabled: params.priceRangeEnabled,
-      price_range: [params.priceRange.low, params.priceRange.high],
-      use_subaccount: params.useSubaccount,
-      selected_subaccount: params.selectedSubaccount
+      trigger_possibility: params.triggerPossibility,
+      name: params.name,
+      additional_type_enabled: true,
+      additional_price: params.additionalPrice,
+      already_triggered_types: [],
+      order_type: 'market',
     }
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
   },

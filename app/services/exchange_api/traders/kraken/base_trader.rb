@@ -47,6 +47,21 @@ module ExchangeApi
           SendgridMailToList.new.user_to_exchange_list(user, exchange_name)
         end
 
+        def currency_balance(currency)
+          balances_res = @client.balance
+          return Result::Failure.new(*balances_res["error"]) if balances_res["error"].any?
+
+          platform_currency_res = @client.assets(currency)
+          return Result::Failure.new(*platform_currency_res["error"]) if platform_currency_res["error"].any?
+
+          platform_currency = platform_currency_res["result"].find {|key, val| key == currency || val["altname"] == currency }&.first
+          balance = balances_res["result"].find {|key, _| key == platform_currency}&.second
+
+          Result::Success.new(balance)
+        rescue StandardError => e
+          Result::Failure.new('Could not fetch account info from Kraken')
+        end
+
         private
 
         def place_order(order_params)

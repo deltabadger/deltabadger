@@ -9,7 +9,7 @@ import { removeInvalidApiKeys } from "./helpers";
 import { NavigationPanel } from "./BotForm/NavigationPanel";
 import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
 import { ConfigureWebhookBot } from './BotForm/ConfigureWebhookBot';
-import {PickBotType} from "./BotForm/PickBotType";
+import { PickBotType } from "./BotForm/PickBotType";
 
 const STEPS = [
   'closed_form',
@@ -98,9 +98,7 @@ export const BotForm = ({
       return 4
     }
 
-    // if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) { return type === 'trading' ? 6 : 7 }
     if ((STEPS[step] == 'validating_api_key') && ownedExchangesIds.includes(form.exchangeId)) {
-      // debugger
       switch (type) {
         case 'trading':
           return 6;
@@ -154,12 +152,6 @@ export const BotForm = ({
     if (idx === -1){
       return
     }
-
-    // if (type === 'trading') {
-    //   exchanges[idx].trading_key_status = 'pending'
-    // } else {
-    //   exchanges[idx].withdrawal_key_status = 'pending'
-    // }
 
     if (type === 'withdrawal') {
       exchanges[idx].withdrawal_key_status = 'pending'
@@ -236,8 +228,7 @@ export const BotForm = ({
 
   const configureWebhookBotHandler = (botParams) => {
     // debugger
-    const typeParams = getOfferTypeParams(botParams.type)
-    const params = {...botParams, ...typeParams, exchangeId: form.exchangeId}
+    const params = {...botParams, exchangeId: form.exchangeId}
     setCreatingBot(true);
     API.createWebhookBot(params).then(response => {
       callbackAfterCreation(response.data.id)
@@ -291,7 +282,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'add_api_key'}
-          type={type === 'withdrawal' ? 'withdrawal' : 'trading'} // 'trading'
+          type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
         />
       case 'validating_api_key':
         return <AddApiKey
@@ -300,7 +291,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'validating_api_key'}
-          type={type === 'withdrawal' ? 'withdrawal' : 'trading'} // 'trading'
+          type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
         />
       case 'invalid_api_key':
         clearTimeout(apiKeyTimeout)
@@ -310,7 +301,7 @@ export const BotForm = ({
           handleSubmit={addApiKeyHandler}
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'invalid_api_key'}
-          type={type === 'withdrawal' ? 'withdrawal' : 'trading'} // 'trading'
+          type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
@@ -333,7 +324,6 @@ export const BotForm = ({
           errors={errors}
         />
       case 'configure_webhook_bot':
-        console.log("case 'configure_webhook_bot':");
         return <ConfigureWebhookBot
             showLimitOrders={isHodler || isLegendaryBadger}
             currentExchange={pickedExchange}
