@@ -10,6 +10,18 @@ class BotsRepository < BaseRepository
     user.bots.without_deleted.find(id)
   end
 
+  def by_webhook_for_user(webhook, user = nil)
+    bots = user.present? ? user.bots : model
+    bots.by_webhook(webhook)
+  end
+
+  def webhook_url
+    loop do
+      webhook = Array.new(8) { ('a'..'z').to_a.sample }.join
+      break webhook unless model.by_webhook(webhook).present?
+    end
+  end
+
   def for_user(user, page_number)
     user
       .bots
