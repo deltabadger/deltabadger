@@ -52,7 +52,7 @@ class FetchOrderResult < BaseService
 
     bot.reload
     result
-  rescue StandardError
+  rescue StandardError => e
     Rails.logger.info "=======================   RESCUE 2 =============================="
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info "====================================================="

@@ -234,13 +234,24 @@ export const ExchangeButton = ({ handleClick, exchange, type }) => {
   const withdrawalEnabled = () => {
     return ['kraken', 'ftx', 'ftx.us']
   }
+  const webhookEnabled = () => {
+    return ['kraken']
+  }
 
   const exchangeClass = () => {
     if (type === 'trading') {
       return exchange.name.toLowerCase().replace('.', '-')
     }
 
-    return withdrawalEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable'
+    if (type === 'withdrawal') {
+      return withdrawalEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable'
+    }
+
+    if (type === 'webhook') {
+      return webhookEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable'
+    }
+
+    return 'unavailable'
   }
 
   return (
