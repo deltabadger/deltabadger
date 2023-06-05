@@ -24,7 +24,12 @@ class GenerateTransactionsCsv < BaseService
   end
 
   def call(bot)
-    format_data = bot.trading? ? Presenters::Api::TradingTransaction.new : Presenters::Api::WithdrawalTransaction.new
+    format_data = begin
+      return Presenters::Api::TradingTransaction.new if bot.trading?
+      return Presenters::Api::WithdrawalTransaction.new if bot.withdrawal?
+      Presenters::Api::WebhookTransaction.new
+    end
+
     transactions = @transactions_repository.for_bot_by_status(bot, status: :success)
     formatted_data = transactions.map { |t| format_data.call(t) }
     @generate_csv.call(formatted_data)

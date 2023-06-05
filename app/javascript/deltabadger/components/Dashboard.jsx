@@ -11,7 +11,8 @@ import {
   loadBots
 } from '../bot_actions'
 import API from "../lib/API";
-import {WithdrawalBot} from "./WithdrawalBot";
+import { WithdrawalBot } from "./WithdrawalBot";
+import { WebhookBot } from "./WebhookBot";
 
 let apiKeyTimeout;
 
@@ -71,7 +72,7 @@ const DashboardTemplate = ({
           reloadPage={reloadPage}
         />
       )
-    } else {
+    } else if(b.bot_type === 'withdrawal') {
       botsToRender.push(
         <WithdrawalBot
           showLimitOrders={isHodler || isLegendaryBadger}
@@ -84,6 +85,20 @@ const DashboardTemplate = ({
           apiKeyTimeout={apiKeyTimeout}
           reloadPage={reloadPage}
         />
+      )
+    } else {
+      botsToRender.push(
+          <WebhookBot
+              showLimitOrders={isHodler || isLegendaryBadger}
+              key={`${b.id}-${b.id == currentBot}`}
+              bot={b}
+              open={currentBot && (b.id == currentBot.id)}
+              errors={errors[b.id]}
+              fetchExchanges={() => fetchExchanges('webhook')}
+              exchanges={exchanges}
+              apiKeyTimeout={apiKeyTimeout}
+              reloadPage={reloadPage}
+          />
       )
     }
 
