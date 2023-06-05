@@ -111,7 +111,7 @@ class SettingsController < ApplicationController
   end
 
   def same_exchange_and_type?(bot, api_key)
-    bot_type = bot.trading? ? 'trading' : 'withdrawal'
+    bot_type = bot.withdrawal? ? 'withdrawal' : 'trading'
     bot.exchange_id == api_key.exchange_id && bot_type == api_key.key_type
   end
 

@@ -15,8 +15,7 @@ module Api
     end
 
     def create
-      bot_params = params[:bot][:bot_type] == 'free' ? trading_bot_create_params : withdrawal_bot_create_params
-      result = Bots::Create.call(current_user, bot_params)
+      result = Bots::Create.call(current_user, bot_create_params)
 
       if result.success?
         render json: { data: result.data }, status: 201
@@ -26,8 +25,7 @@ module Api
     end
 
     def update
-      bot_params = params[:bot][:order_type].present? ? trading_bot_update_params : withdrawal_bot_update_params
-      result = Bots::Update.call(current_user, bot_params)
+      result = Bots::Update.call(current_user, bot_update_params)
 
       if result.success?
         data = present_bot(result.data)
@@ -35,6 +33,15 @@ module Api
       else
         render json: { id: params[:id], errors: result.errors }, status: 422
       end
+    end
+
+    def webhook
+      bot = BotsRepository.new.by_webhook_for_user(params[:webhook])
+      return render json: { errors: "No bot found" }, status: 422 unless bot
+      return render json: { errors: "This webhook has already been called before" }, status: 422 unless bot.possible_to_call_a_webhook?(params[:webhook])
+
+      ScheduleWebhook.call(bot, params[:webhook])
+      render json: { result: "Webhook invoked" }, status: 200
     end
 
     def start
@@ -127,8 +134,28 @@ module Api
 
     private
 
+    def bot_create_params
+      @bot_create_params ||= case params[:bot][:bot_type]
+                             when 'free' then trading_bot_create_params
+                             when 'withdrawal' then withdrawal_bot_create_params
+                             else webhook_bot_create_params
+                             end
+
+    end
+
+    def bot_update_params
+      @bot_update_params ||= case params[:bot][:bot_type]
+                             when 'free' then trading_bot_update_params
+                             when 'withdrawal' then withdrawal_bot_update_params
+                             else webhook_bot_update_params
+                             end
+
+    end
+
     def present_bot(bot)
-      bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
+      return Presenters::Api::TradingBot.call(bot) if bot.trading?
+      return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+      Presenters::Api::WebhookBot.call(bot)
     end
 
     def present_bots(bots)
@@ -175,6 +202,27 @@ module Api
         .permit(*WITHDRAWAL_BOT_PARAMS)
     end
 
+    WEBHOOK_BOT_PARAMS = %i[
+      exchange_id
+      type
+      price
+      base
+      quote
+      bot_type
+      name
+      additional_type_enabled
+      additional_type
+      additional_price
+      trigger_possibility
+      order_type
+    ].freeze
+
+    def webhook_bot_create_params
+      params
+          .require(:bot)
+          .permit(*WEBHOOK_BOT_PARAMS)
+    end
+
     TRADING_BOT_UPDATE_PARAMS = %i[
       order_type
       price
@@ -206,6 +254,27 @@ module Api
         .require(:bot)
         .permit(*WITHDRAWAL_BOT_UPDATE_PARAMS)
         .merge(id: params[:id])
+    end
+
+    WEBHOOK_BOT_UPDATE_PARAMS = %i[
+      type
+      price
+      base
+      quote
+      bot_type
+      name
+      additional_type_enabled
+      additional_type
+      additional_price
+      trigger_possibility
+      order_type
+    ].freeze
+
+    def webhook_bot_update_params
+      params
+          .require(:bot)
+          .permit(*WEBHOOK_BOT_UPDATE_PARAMS, already_triggered_types: [])
+          .merge(id: params[:id])
     end
 
     def bot_continue_params
