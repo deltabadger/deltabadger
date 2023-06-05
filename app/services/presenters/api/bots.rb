@@ -12,7 +12,11 @@ module Presenters
 
       def present_bot(bot)
         puts "--- bot.trading? --- #{bot.trading?}"
-        bot.trading? ? Presenters::Api::TradingBot.call(bot) : Presenters::Api::WithdrawalBot.call(bot)
+        puts "--- bot.withdrawal? --- #{bot.withdrawal?}"
+        puts "--- bot.webhook? --- #{bot.webhook?}"
+        return Presenters::Api::TradingBot.call(bot) if bot.trading?
+        return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+        Presenters::Api::WebhookBot.call(bot)
       end
     end
   end

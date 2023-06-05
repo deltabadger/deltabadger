@@ -4,7 +4,7 @@ module ExchangeApi
   module Traders
     module Kraken
       class MarketTrader < ExchangeApi::Traders::Kraken::BaseTrader
-        def buy(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:)
+        def buy(base:, quote:, price:, force_smart_intervals: nil, smart_intervals_value: nil)
           symbol = @market.symbol(base, quote)
           buy_params = get_buy_params(symbol, price, force_smart_intervals, smart_intervals_value)
           return buy_params unless buy_params.success?
@@ -12,7 +12,7 @@ module ExchangeApi
           place_order(buy_params.data)
         end
 
-        def sell(base:, quote:, price:, force_smart_intervals:, smart_intervals_value:, is_legacy:)
+        def sell(base:, quote:, price:, force_smart_intervals: nil, smart_intervals_value: nil, is_legacy: nil)
           symbol = @market.symbol(base, quote)
           sell_params = get_sell_params(symbol, price, force_smart_intervals, smart_intervals_value, is_legacy)
           return sell_params unless sell_params.success?

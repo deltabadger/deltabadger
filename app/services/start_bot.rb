@@ -27,7 +27,7 @@ class StartBot < BaseService
 
     if bot.trading?
       @schedule_transaction.call(bot, first_transaction: true, continue_params: continue_params)
-    else
+    elsif bot.withdrawal?
       @schedule_withdrawal.call(bot, first_transaction: true)
     end
 

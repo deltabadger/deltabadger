@@ -113,6 +113,7 @@ en:
         add_new_bot: 'Add new bot'
         below: below
         buttons:
+            webhook: 'webhook'
             automatic_withdrawal: 'Automatic Withdrawal'
             delete:
                 cancel: Cancel
@@ -188,6 +189,13 @@ en:
         price_range_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         sell: Sell
+        buy_all: Buy all
+        sell_all: Sell all
+        first_time: First time
+        every_time: Every time
+        name: 'Name the bot:'
+        triggered_title: 'this webhook is being triggered:'
+        additional_title: Additional webhook
         setup:
             api_not_available: 'Exchange API is not available'
             binance:

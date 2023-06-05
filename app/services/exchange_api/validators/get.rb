@@ -11,7 +11,7 @@ module ExchangeApi
 
       def call(exchange_id, key_type)
         exchange = @exchanges_repository.find(exchange_id)
-        key_type == 'trading' ? get_trading_key_validator(exchange) : get_withdrawal_key_validator(exchange)
+        key_type == 'withdrawal' ? get_withdrawal_key_validator(exchange) : get_trading_key_validator(exchange)
       end
 
       private
