@@ -7,11 +7,14 @@ export const Info = ({ active }) => (
     <RawHTML className="db-showif db-showif--pick-exchange">
       {I18n.t('bots.details.info.exchanges_html')}
     </RawHTML>
-    <RawHTML className="db-showif db-showif--setup">
+    <RawHTML className="db-showif db-showif--setup db-bot-info--dca">
       {I18n.t('bots.details.info.smart_intervals_html')}
     </RawHTML>
-    <RawHTML>
+    <RawHTML className="db-bot-info--dca">
       {I18n.t('bots.details.info.new_to_dca_html')}
+    </RawHTML>
+    <RawHTML className="db-bot-info--webhook">
+      {I18n.t('bots.details.info.webhook_html')}
     </RawHTML>
   </div>
 )
