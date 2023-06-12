@@ -122,7 +122,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
   }
 
   return (
-    <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
+    <div className="db-bots__item db-bot db-bot--withdrawal db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
         <Breadcrumbs step={3} />
@@ -139,7 +139,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
           <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
+            <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
             <div className="form-group mr-2">
               <select
                 value={currency}
@@ -155,7 +155,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
             </div>
             { existsAddress() &&
               <>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                 <div className="form-group mr-2">
                   <select
                     value={address}
@@ -169,16 +169,16 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     }
                   </select>
                 </div>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
             { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
-              <div className="form-group mr-3">{I18n.t('bots.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
+              <div className="form-group mr-2">{I18n.t('bots.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
             }
             { currentExchange.name.toLowerCase() === 'kraken' &&
               <>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
-                <div className="form-group mr-3">
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
+                <div className="form-group mr-2">
                   <input
                     type="text"
                     size={(address.length > 0) ? address.length : 3 }
@@ -187,7 +187,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     className="bot-input bot-input--sizable bot-input--paper-bg"
                   />
                 </div>
-                <div className="form-group mr-3">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
           </div>
