@@ -318,7 +318,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <form>
 
           <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
@@ -333,7 +333,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
             {isSellOffer()?
                 <>
-                  <div className="form-group mr-3">
+                  <div className="form-group mr-2">
                     <input
                         type="tel"
                         min="1"
@@ -343,7 +343,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                         className="bot-input bot-input--sizable bot-input--paper-bg"
                     />
                   </div>
-                  <div className="form-group mr-3">
+                  <div className="form-group mr-2">
                     <select
                         value={base}
                         onChange={e => setBase(e.target.value)}
@@ -361,11 +361,11 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
-                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
                 </>
                 :
                 <>
-                  <div className="form-group mr-3">
+                  <div className="form-group mr-2">
                     <select
                         value={base}
                         onChange={e => setBase(e.target.value)}
@@ -383,8 +383,8 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
-                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                  <div className="form-group mr-3">
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">
                     <input
                         type="text"
                         min="1"
