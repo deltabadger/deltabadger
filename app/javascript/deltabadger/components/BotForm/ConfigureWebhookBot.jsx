@@ -289,6 +289,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
     <div className="db-bots__item db-bot db-bot--webhook db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
+        <div className="db-bot__header__type db-bot__header__type--webhook">Webhook</div>
         <Breadcrumbs step={3} />
         <StartButton/>
       </div>
