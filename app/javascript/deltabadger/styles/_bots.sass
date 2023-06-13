@@ -126,7 +126,8 @@ input
   border-radius: $box-border-radius
   box-shadow:    $boxShadowBot
   .form-inline
-    justify-content: center
+    justify-content:  center
+    row-gap:          1rem
     :last-child
       margin-right: 0 !important
   .form-control
@@ -214,6 +215,11 @@ input
     &__left
       text-transform: uppercase
       color:          var(--text)
+      display:        flex
+      gap:            .75rem
+      align-items:    center
+      svg
+        width:        3rem
     &--setup
       text-align: left
       position: absolute
