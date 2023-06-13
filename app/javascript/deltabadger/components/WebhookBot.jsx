@@ -459,7 +459,7 @@ const BotTemplate = ({
 
           )}
 
-          {!additionalTypeEnabled && working ? null : (
+          {!additionalTypeEnabled ? null : (
 
             <div className="form-inline">
               <div className="form-group mr-2">

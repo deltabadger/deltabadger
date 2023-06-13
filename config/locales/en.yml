@@ -203,8 +203,8 @@ en:
         first_time: first time
         every_time: every time
         name: 'Name:'
-        triggered_title: 'this webhook is being triggered:'
-        triggered_title_config: 'the webhook is being triggered.'
+        triggered_title: 'this webhook is triggered:'
+        triggered_title_config: 'the webhook is triggered.'
         additional_title: Two-way bot
         setup:
             api_not_available: 'Exchange API is not available'
