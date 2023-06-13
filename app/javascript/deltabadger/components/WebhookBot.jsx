@@ -357,19 +357,21 @@ const BotTemplate = ({
       { apiKeyExists &&
         <div className="db-bot__form">
         <form className="db-bot__form__schedule">
-          <div className="form-inline mb-4">
-            <div className="form-group mr-2">{I18n.t('bots.name')}</div>
-            <div className="form-group">
-              <input
-                  type="text"
-                  min="5"
-                  value={name}
-                  size={(name.length > 0) ? name.length : 1}
-                  onChange={e => setName(e.target.value)}
-                  className="bot-input bot-input--sizable bot-input--paper-bg"
-                  disabled={working}
-              />
+          <div className="form-inline mb-4 pb-5">
+            {working ? <b className="form-group mr-2">{name}</b> : <div className="form-group mr-2">{I18n.t('bots.name')}</div>}
+            {working ? null :
+              <div className="form-group">
+                <input
+                    type="text"
+                    min="5"
+                    value={name}
+                    size={(name.length > 0) ? name.length : 1}
+                    onChange={e => setName(e.target.value)}
+                    className="bot-input bot-input--sizable bot-input--paper-bg"
+                    disabled={working}
+                />
             </div>
+            }
           </div>
 
           <div className="form-inline mb-5">
