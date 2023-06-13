@@ -200,8 +200,8 @@ en:
         sell: Sell
         buy_all: Buy all
         sell_all: Sell all
-        first_time: First time
-        every_time: Every time
+        first_time: first time
+        every_time: every time
         name: 'Name:'
         triggered_title: 'this webhook is being triggered:'
         additional_title: Two-way bot
