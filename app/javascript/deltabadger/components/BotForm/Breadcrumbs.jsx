@@ -1,9 +1,9 @@
 import React from 'react'
 import I18n from 'i18n-js'
 
-const emphasize = (name, isEmphasized) => isEmphasized ? <em>{name}</em> : name
+const emphasize = (name, isEmphasized) => isEmphasized ? <em>{name}</em> : <span className="d-none d-sm-inline">{name}</span>
 
-const arrow = <span>{" "}&rarr;{" "}</span>
+const arrow = <span className="d-none d-sm-inline">{" "}&rarr;{" "}</span>
 
 export const Breadcrumbs = ({ step }) => (
   <div className="db-bot__infotext--setup">
