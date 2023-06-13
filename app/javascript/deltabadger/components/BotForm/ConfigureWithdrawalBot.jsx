@@ -131,13 +131,6 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
           <span className="d-none d-sm-inline">{I18n.t('bots.start')}</span>
           <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
         </div>
-        <div className="db-bot__infotext">
-          <div className="db-bot__infotext__left">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <path stroke="#2948A1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m18 13-6 6-6-6M12 18V6"/>
-            </svg>
-          </div>
-        </div>
     </div>
 
       <Progressbar value={66} />
