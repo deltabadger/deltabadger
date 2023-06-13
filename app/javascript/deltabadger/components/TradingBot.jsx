@@ -296,6 +296,7 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
+          
           {isStarting && <StartingButton/>}
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
@@ -303,7 +304,12 @@ const BotTemplate = ({
           <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}
                        setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/>}
           <div className={`db-bot__infotext text-${colorClass}`}>
+            
             <div className="db-bot__infotext__left">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <path stroke="#2948A1" strokeLinecap="round" strokeWidth="2" d="M3 16h4c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5h4c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5h4"/>
+                <path fill="#2948A1" fillRule="evenodd" d="M19 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" clipRule="evenodd"/>
+              </svg>
               {exchangeName}:{baseName}{quoteName}
             </div>
             {pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload}/>}
