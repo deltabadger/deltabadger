@@ -268,7 +268,12 @@ input
       gap: 1rem
       svg
         width: 3rem
-
+      &:hover
+        svg
+          .fill-1
+            fill: var(--pickExchangeItemSelect)
+          .stroke-1
+            stroke: var(--pickExchangeItemSelect)
 
   &__footer, &__modal
     p
