@@ -289,7 +289,6 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
     <div className="db-bots__item db-bot db-bot--webhook db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
-        <div className="db-bot__header__type db-bot__header__type--webhook">Webhook</div>
         <Breadcrumbs step={3} />
         <StartButton/>
       </div>
@@ -300,7 +299,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
 
-          <div className="form-inline mb-4">
+          <div className="form-inline mb-4 pb-5">
             <div className="form-group mr-2">{I18n.t('bots.name')}</div>
             <div className="form-group">
               <input
@@ -420,14 +419,10 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
               </select>
             </div>
 
-            {triggerUrl && <>
-              <div className="form-group mr-2">
-                {I18n.t('bots.triggered_title')}
-              </div>
-              <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                https://example.com/webhooks/{triggerUrl}
-              </div>
-            </>}
+            <div className="form-group mr-2">
+              {I18n.t('bots.triggered_title_config')}
+            </div>
+
           </div>
 
           <div className="form-inline mb-4">
@@ -441,69 +436,65 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
           </div>
 
-          <div className="form-inline db-bot__form__schedule">
+          <div className="form-inline db-bot__form__schedule db-bot__form__schedule-2">
+
             <div className="form-group mr-2">
               <select
-                  value={additionalType}
-                  onChange={e => setAdditionalType(e.target.value)}
-                  className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
-                  disabled={!additionalTypeEnabled}
+                value={additionalType}
+                onChange={e => setAdditionalType(e.target.value)}
+                className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
+                disabled={!additionalTypeEnabled}
               >
                 {isBuyOffer()?
-                    <>
-                      <option value="sell">{I18n.t('bots.sell')}</option>
-                      <option value="sell_all">{I18n.t('bots.sell_all')}</option>
-                    </> : <>
-                      <option value="buy">{I18n.t('bots.buy')}</option>
-                      <option value="buy_all">{I18n.t('bots.buy_all')}</option>
-                    </>
+                  <>
+                    <option value="sell">{I18n.t('bots.sell')}</option>
+                    <option value="sell_all">{I18n.t('bots.sell_all')}</option>
+                  </> : <>
+                    <option value="buy">{I18n.t('bots.buy')}</option>
+                    <option value="buy_all">{I18n.t('bots.buy_all')}</option>
+                  </>
                 }
               </select>
             </div>
+
+            {isSellOffer()?
+                <>
+                  <div className="form-group mr-2">{renameSymbol(base)}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  {isBuySellType(additionalType) && <div className="form-group mr-2">
+                    <input
+                        type="text"
+                        min="1"
+                        size={(additionalPrice.length > 0) ? additionalPrice.length : 3 }
+                        value={additionalPrice}
+                        onChange={e => setAdditionalPrice(e.target.value)}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                        disabled={!additionalTypeEnabled}
+                    />
+                  </div>}
+                  <div className="form-group mr-2">{renameSymbol(quote)}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
+                </> : <>
+                  {isBuySellType(additionalType) && <div className="form-group mr-2">
+                    <input
+                        type="text"
+                        min="1"
+                        size={(additionalPrice.length > 0) ? additionalPrice.length : 3 }
+                        value={additionalPrice}
+                        onChange={e => setAdditionalPrice(e.target.value)}
+                        className="bot-input bot-input--sizable bot-input--paper-bg"
+                        disabled={!additionalTypeEnabled}
+                    />
+                  </div>}
+                  <div className="form-group mr-2">{renameSymbol(base)}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">{renameSymbol(quote)}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
+                </>
+            }
+
             <div className="form-group mr-2">
-              {isSellOffer()?
-                  <>
-                    <div className="form-group mr-2">{renameSymbol(base)}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
-                    {isBuySellType(additionalType) && <div className="form-group mr-2">
-                      <input
-                          type="text"
-                          min="1"
-                          size={(additionalPrice.length > 0) ? additionalPrice.length : 3 }
-                          value={additionalPrice}
-                          onChange={e => setAdditionalPrice(e.target.value)}
-                          className="bot-input bot-input--sizable bot-input--paper-bg"
-                          disabled={!additionalTypeEnabled}
-                      />
-                    </div>}
-                    <div className="form-group mr-2">{renameSymbol(quote)}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
-                  </> : <>
-                    {isBuySellType(additionalType) && <div className="form-group mr-2">
-                      <input
-                          type="text"
-                          min="1"
-                          size={(additionalPrice.length > 0) ? additionalPrice.length : 3 }
-                          value={additionalPrice}
-                          onChange={e => setAdditionalPrice(e.target.value)}
-                          className="bot-input bot-input--sizable bot-input--paper-bg"
-                          disabled={!additionalTypeEnabled}
-                      />
-                    </div>}
-                    <div className="form-group mr-2">{renameSymbol(base)}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
-                    <div className="form-group mr-2">{renameSymbol(quote)}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
-                  </>
-              }
-              {additionalTriggerUrl && <>
-                <div className="form-group mr-2">
-                  {I18n.t('bots.triggered_title')}
-                </div>
-                <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                  https://example.com/webhooks/{additionalTriggerUrl}
-                </div>
-              </>}
+              {I18n.t('bots.triggered_title_config')}
             </div>
           </div>
 

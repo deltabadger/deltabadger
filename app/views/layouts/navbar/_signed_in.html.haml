@@ -10,7 +10,7 @@
       .ml-auto.db--upgrade__hide
         - if current_user.unlimited?
           - legendary_badger_plan = current_user.subscription_name == 'legendary_badger'
-          %a.btn.btn-link.text-success.db-icon-verified.mr-2.db-has-tooltip{href: legendary_badger_plan ? legendary_badger_path : upgrade_path}
+          %a.btn.btn-link.text-success.db-icon-verified.mr-2.db-has-toolti.d-none.d-md-inline-flex{href: legendary_badger_plan ? legendary_badger_path : upgrade_path}
             = current_user.subscription.display_name
             %i.material-icons.ml-1 verified_user
             .db-tooltip
