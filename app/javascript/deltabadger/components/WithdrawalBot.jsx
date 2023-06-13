@@ -147,6 +147,7 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--withdrawal db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
+          
           { isStarting && <StartingButton/> }
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
@@ -158,6 +159,9 @@ const BotTemplate = ({
           }
           <div className={`db-bot__infotext text-${colorClass}`}>
             <div className="db-bot__infotext__left">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <path stroke="#2948A1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m18 13-6 6-6-6M12 18V6"/>
+              </svg>
               {exchangeName}:{currencyName}
             </div>
             {working && !intervalEnabled && <PercentageProgress bot={bot} callback={reload}/>}
