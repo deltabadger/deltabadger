@@ -202,7 +202,7 @@ en:
         sell_all: Sell all
         first_time: First time
         every_time: Every time
-        name: 'Name the bot:'
+        name: 'Name:'
         triggered_title: 'this webhook is being triggered:'
         additional_title: Two-way bot
         setup:

@@ -356,7 +356,7 @@ const BotTemplate = ({
 
       { apiKeyExists &&
         <div className="db-bot__form">
-        <form>
+        <form className="db-bot__form__schedule">
           <div className="form-inline mb-4">
             <div className="form-group mr-2">{I18n.t('bots.name')}</div>
             <div className="form-group">
@@ -372,7 +372,7 @@ const BotTemplate = ({
             </div>
           </div>
 
-          <div className="form-inline mb-4">
+          <div className="form-inline mb-5">
             <div className="form-group mr-2">
               <select
                 value={type}
@@ -441,85 +441,92 @@ const BotTemplate = ({
             </>}
           </div>
 
-          <div className="form-inline mb-4">
-            <div className="form-group mr-2">{I18n.t('bots.additional_title')}</div>
-            <div className="form-group mr-2">
-              <input
-                  type="checkbox"
-                  checked={additionalTypeEnabled}
-                  onChange={() => setAdditionalTypeEnabled(!additionalTypeEnabled)}
-                  disabled={working}
-              />
-            </div>
-          </div>
+          {working ? null : (
 
-          <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-2">
-              <select
-                  value={additionalType}
-                  onChange={e => setAdditionalType(e.target.value)}
-                  className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
-                  disabled={!additionalTypeEnabled || working}
-              >
-                {isBuyOffer()?
-                    <>
-                      <option value="sell">{I18n.t('bots.sell')}</option>
-                      <option value="sell_all">{I18n.t('bots.sell_all')}</option>
-                    </> : <>
-                      <option value="buy">{I18n.t('bots.buy')}</option>
-                      <option value="buy_all">{I18n.t('bots.buy_all')}</option>
-                    </>
-                }
-              </select>
-            </div>
-            {isSellOffer()?
-                <>
-                  <div className="form-group mr-2">{baseName}</div>
-                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
-                  {isBuySellType(additionalType) && <div className="form-group mr-2">
-                    <input
-                        type="text"
-                        min="1"
-                        size={(additionalPrice && additionalPrice.length > 0) ? additionalPrice.length : 3 }
-                        value={additionalPrice}
-                        onChange={e => setAdditionalPrice(e.target.value)}
-                        className="bot-input bot-input--sizable bot-input--paper-bg"
-                        disabled={!additionalTypeEnabled}
-                    />
-                  </div>}
-                  <div className="form-group mr-2">{quoteName}</div>
-                  <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
-                </> : <>
-                  {isBuySellType(additionalType) && <div className="form-group mr-2">
-                    <input
-                        type="text"
-                        min="1"
-                        size={(additionalPrice && additionalPrice.length > 0) ? additionalPrice.length : 3 }
-                        value={additionalPrice}
-                        onChange={e => setAdditionalPrice(e.target.value)}
-                        className="bot-input bot-input--sizable bot-input--paper-bg"
-                        disabled={!additionalTypeEnabled}
-                    />
-                  </div>}
-                  <div className="form-group mr-2">{baseName}</div>
-                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
-                  <div className="form-group mr-2">{quoteName}</div>
-                  <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
-                </>
-            }
-            {additionalTriggerUrl && <>
+            <div className="form-inline mb-4">
+              <div className="form-group mr-2">{I18n.t('bots.additional_title')}</div>
               <div className="form-group mr-2">
-                {I18n.t('bots.triggered_title')}
+                <input
+                    type="checkbox"
+                    checked={additionalTypeEnabled}
+                    onChange={() => setAdditionalTypeEnabled(!additionalTypeEnabled)}
+                    disabled={working}
+                />
               </div>
-              <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                {additionalWebhookUrl}
-              </div>
-            </>}
-          </div>
+            </div>
 
+          )}
+
+          {!additionalTypeEnabled && working ? null : (
+
+            <div className="form-inline">
+              <div className="form-group mr-2">
+                <select
+                    value={additionalType}
+                    onChange={e => setAdditionalType(e.target.value)}
+                    className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
+                    disabled={!additionalTypeEnabled || working}
+                >
+                  {isBuyOffer()?
+                      <>
+                        <option value="sell">{I18n.t('bots.sell')}</option>
+                        <option value="sell_all">{I18n.t('bots.sell_all')}</option>
+                      </> : <>
+                        <option value="buy">{I18n.t('bots.buy')}</option>
+                        <option value="buy_all">{I18n.t('bots.buy_all')}</option>
+                      </>
+                  }
+                </select>
+              </div>
+              {isSellOffer()?
+                  <>
+                    <div className="form-group mr-2">{baseName}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                    {isBuySellType(additionalType) && <div className="form-group mr-2">
+                      <input
+                          type="text"
+                          min="1"
+                          size={(additionalPrice && additionalPrice.length > 0) ? additionalPrice.length : 3 }
+                          value={additionalPrice}
+                          onChange={e => setAdditionalPrice(e.target.value)}
+                          className="bot-input bot-input--sizable bot-input--paper-bg"
+                          disabled={!additionalTypeEnabled}
+                      />
+                    </div>}
+                    <div className="form-group mr-2">{quoteName}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
+                  </> : <>
+                    {isBuySellType(additionalType) && <div className="form-group mr-2">
+                      <input
+                          type="text"
+                          min="1"
+                          size={(additionalPrice && additionalPrice.length > 0) ? additionalPrice.length : 3 }
+                          value={additionalPrice}
+                          onChange={e => setAdditionalPrice(e.target.value)}
+                          className="bot-input bot-input--sizable bot-input--paper-bg"
+                          disabled={!additionalTypeEnabled}
+                      />
+                    </div>}
+                    <div className="form-group mr-2">{baseName}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                    <div className="form-group mr-2">{quoteName}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
+                  </>
+              }
+              {additionalTriggerUrl && <>
+                <div className="form-group mr-2">
+                  {I18n.t('bots.triggered_title')}
+                </div>
+                <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
+                  {additionalWebhookUrl}
+                </div>
+              </>}
+            </div>
+
+          )}
         </form>
 
-      </div>
+        </div>
 
       }
       <div className="db-bot__footer" hidden={working}>
