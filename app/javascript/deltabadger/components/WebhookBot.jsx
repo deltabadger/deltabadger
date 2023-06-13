@@ -316,7 +316,7 @@ const BotTemplate = ({
   const additionalWebhookUrl = `${window.location.origin}/webhooks/${additionalTriggerUrl}`;
 
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
+    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--webhook db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
           {isStarting && <StartingButton/>}
@@ -354,12 +354,13 @@ const BotTemplate = ({
         <div className="db-bot__form">
         <form>
           <div className="form-inline mb-4">
-            <div className="form-group mr-3">{I18n.t('bots.name')}</div>
+            <div className="form-group mr-2">{I18n.t('bots.name')}</div>
             <div className="form-group">
               <input
                   type="text"
                   min="5"
                   value={name}
+                  size={(name.length > 0) ? name.length : 1}
                   onChange={e => setName(e.target.value)}
                   className="bot-input bot-input--sizable bot-input--paper-bg"
                   disabled={working}
@@ -390,7 +391,7 @@ const BotTemplate = ({
                 {isBuySellType(type) && <div className="form-group mr-2">
                   <input
                       type="text"
-                      size={(price.length > 0) ? price.length : 3}
+                      size={(price.length > 0) ? price.length : 1}
                       value={price}
                       className="bot-input bot-input--sizable bot-input--paper-bg"
                       onChange={e => setPrice(e.target.value)}
@@ -403,7 +404,7 @@ const BotTemplate = ({
                 {isBuySellType(type) && <div className="form-group mr-2">
                   <input
                       type="text"
-                      size={(price.length > 0) ? price.length : 3}
+                      size={(price.length > 0) ? price.length : 1}
                       value={price}
                       className="bot-input bot-input--sizable bot-input--paper-bg"
                       onChange={e => setPrice(e.target.value)}
@@ -413,10 +414,8 @@ const BotTemplate = ({
               </>
             }
             <div className="form-group mr-2"> {quoteName}</div>
-          </div>
-
-          <div className="form-inline mb-4">
-            <div className="form-group mr-3">
+ 
+            <div className="form-group mr-2">
               <select
                   value={triggerPossibility}
                   onChange={e => setTriggerPossibility(e.target.value)}
@@ -429,7 +428,7 @@ const BotTemplate = ({
             </div>
 
             {triggerUrl && <>
-              <div className="form-group mr-3">
+              <div className="form-group mr-2">
                 {I18n.t('bots.triggered_title')}
               </div>
               <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
@@ -439,8 +438,8 @@ const BotTemplate = ({
           </div>
 
           <div className="form-inline mb-4">
-            <div className="form-group mr-3">{I18n.t('bots.additional_title')}</div>
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">{I18n.t('bots.additional_title')}</div>
+            <div className="form-group mr-2">
               <input
                   type="checkbox"
                   checked={additionalTypeEnabled}
@@ -451,7 +450,7 @@ const BotTemplate = ({
           </div>
 
           <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">
               <select
                   value={additionalType}
                   onChange={e => setAdditionalType(e.target.value)}
@@ -471,9 +470,9 @@ const BotTemplate = ({
             </div>
             {isSellOffer()?
                 <>
-                  <div className="form-group mr-3">{baseName}</div>
-                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                  {isBuySellType(additionalType) && <div className="form-group mr-3">
+                  <div className="form-group mr-2">{baseName}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  {isBuySellType(additionalType) && <div className="form-group mr-2">
                     <input
                         type="text"
                         min="1"
@@ -484,10 +483,10 @@ const BotTemplate = ({
                         disabled={!additionalTypeEnabled}
                     />
                   </div>}
-                  <div className="form-group mr-3">{quoteName}</div>
-                  <div className="form-group mr-3">{I18n.t('bots.'+triggerPossibility)}</div>
+                  <div className="form-group mr-2">{quoteName}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
                 </> : <>
-                  {isBuySellType(additionalType) && <div className="form-group mr-3">
+                  {isBuySellType(additionalType) && <div className="form-group mr-2">
                     <input
                         type="text"
                         min="1"
@@ -498,14 +497,14 @@ const BotTemplate = ({
                         disabled={!additionalTypeEnabled}
                     />
                   </div>}
-                  <div className="form-group mr-3">{baseName}</div>
-                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                  <div className="form-group mr-3">{quoteName}</div>
-                  <div className="form-group mr-3">{I18n.t('bots.'+triggerPossibility)}</div>
+                  <div className="form-group mr-2">{baseName}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">{quoteName}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
                 </>
             }
             {additionalTriggerUrl && <>
-              <div className="form-group mr-3">
+              <div className="form-group mr-2">
                 {I18n.t('bots.triggered_title')}
               </div>
               <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">

@@ -144,7 +144,7 @@ const BotTemplate = ({
 
 
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
+    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--withdrawal db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
           { isStarting && <StartingButton/> }

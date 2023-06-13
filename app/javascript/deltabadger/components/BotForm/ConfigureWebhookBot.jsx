@@ -286,7 +286,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
   const isBuySellType = (type) => type === 'buy' || type === 'sell';
 
   return (
-    <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
+    <div className="db-bots__item db-bot db-bot--webhook db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
         <Breadcrumbs step={3} />
@@ -301,7 +301,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
         <form>
 
           <div className="form-inline mb-4">
-            <div className="form-group mr-3">{I18n.t('bots.name')}</div>
+            <div className="form-group mr-2">{I18n.t('bots.name')}</div>
             <div className="form-group">
               <input
                   type="text"
@@ -314,7 +314,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
           </div>
 
           <div className="form-inline mb-4">
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
@@ -329,7 +329,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
             {isSellOffer()?
                 <>
-                  {isBuySellType(type) && <div className="form-group mr-3">
+                  {isBuySellType(type) && <div className="form-group mr-2">
                     <input
                         type="tel"
                         min="1"
@@ -339,7 +339,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                         className="bot-input bot-input--sizable bot-input--paper-bg"
                     />
                   </div>}
-                  <div className="form-group mr-3">
+                  <div className="form-group mr-2">
                     <select
                         value={base}
                         onChange={e => setBase(e.target.value)}
@@ -357,11 +357,11 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
-                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
                 </>
                 :
                 <>
-                  <div className="form-group mr-3">
+                  <div className="form-group mr-2">
                     <select
                         value={base}
                         onChange={e => setBase(e.target.value)}
@@ -379,8 +379,8 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
-                  <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                  {isBuySellType(type) && <div className="form-group mr-3">
+                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  {isBuySellType(type) && <div className="form-group mr-2">
                     <input
                         type="text"
                         min="1"
@@ -409,7 +409,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
           </div>
 
           <div className="form-inline mb-4">
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">
               <select
                   value={triggerPossibility}
                   onChange={e => setTriggerPossibility(e.target.value)}
@@ -421,7 +421,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
 
             {triggerUrl && <>
-              <div className="form-group mr-3">
+              <div className="form-group mr-2">
                 {I18n.t('bots.triggered_title')}
               </div>
               <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
@@ -431,8 +431,8 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
           </div>
 
           <div className="form-inline mb-4">
-            <div className="form-group mr-3">{I18n.t('bots.additional_title')}</div>
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">{I18n.t('bots.additional_title')}</div>
+            <div className="form-group mr-2">
               <input
                   type="checkbox"
                   checked={additionalTypeEnabled}
@@ -442,7 +442,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
           </div>
 
           <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">
               <select
                   value={additionalType}
                   onChange={e => setAdditionalType(e.target.value)}
@@ -460,12 +460,12 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                 }
               </select>
             </div>
-            <div className="form-group mr-3">
+            <div className="form-group mr-2">
               {isSellOffer()?
                   <>
-                    <div className="form-group mr-3">{renameSymbol(base)}</div>
-                    <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                    {isBuySellType(additionalType) && <div className="form-group mr-3">
+                    <div className="form-group mr-2">{renameSymbol(base)}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                    {isBuySellType(additionalType) && <div className="form-group mr-2">
                       <input
                           type="text"
                           min="1"
@@ -476,10 +476,10 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                           disabled={!additionalTypeEnabled}
                       />
                     </div>}
-                    <div className="form-group mr-3">{renameSymbol(quote)}</div>
-                    <div className="form-group mr-3">{I18n.t('bots.'+triggerPossibility)}</div>
+                    <div className="form-group mr-2">{renameSymbol(quote)}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
                   </> : <>
-                    {isBuySellType(additionalType) && <div className="form-group mr-3">
+                    {isBuySellType(additionalType) && <div className="form-group mr-2">
                       <input
                           type="text"
                           min="1"
@@ -490,14 +490,14 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                           disabled={!additionalTypeEnabled}
                       />
                     </div>}
-                    <div className="form-group mr-3">{renameSymbol(base)}</div>
-                    <div className="form-group mr-3">{I18n.t('bots.for')}</div>
-                    <div className="form-group mr-3">{renameSymbol(quote)}</div>
-                    <div className="form-group mr-3">{I18n.t('bots.'+triggerPossibility)}</div>
+                    <div className="form-group mr-2">{renameSymbol(base)}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                    <div className="form-group mr-2">{renameSymbol(quote)}</div>
+                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
                   </>
               }
               {additionalTriggerUrl && <>
-                <div className="form-group mr-3">
+                <div className="form-group mr-2">
                   {I18n.t('bots.triggered_title')}
                 </div>
                 <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
