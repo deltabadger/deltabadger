@@ -206,6 +206,7 @@ en:
         triggered_title: 'this webhook is triggered:'
         triggered_first: 'the first webhook is triggered.'
         triggered_second: 'the second webhook is triggered.'
+        webhook_has_been_copied: 'Webhook has been copied to clipboard.'
         additional_title: Two-way bot
         setup:
             api_not_available: 'Exchange API is not available'
