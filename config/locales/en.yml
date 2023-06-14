@@ -204,7 +204,8 @@ en:
         every_time: every time
         name: 'Name:'
         triggered_title: 'this webhook is triggered:'
-        triggered_title_config: 'the webhook is triggered.'
+        triggered_first: 'the first webhook is triggered.'
+        triggered_second: 'the second webhook is triggered.'
         additional_title: Two-way bot
         setup:
             api_not_available: 'Exchange API is not available'
