@@ -422,7 +422,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
 
             <div className="form-group mr-2">
-              {I18n.t('bots.triggered_title_config')}
+              {I18n.t('bots.triggered_first')}
             </div>
 
           </div>
@@ -498,7 +498,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             }
 
             <div className="form-group mr-2">
-              {I18n.t('bots.triggered_title_config')}
+              {I18n.t('bots.triggered_second')}
             </div>
           </div>
 
