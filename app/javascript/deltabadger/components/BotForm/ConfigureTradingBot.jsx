@@ -306,7 +306,6 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
     <div className="db-bots__item db-bot db-bot--dca db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
-        <div className="db-bot__header__type db-bot__header__type--dca">DCA</div>
         <Breadcrumbs step={3} />
         <StartButton/>
       </div>
