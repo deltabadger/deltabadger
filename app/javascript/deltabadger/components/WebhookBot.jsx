@@ -1,16 +1,17 @@
-import 'lodash'
+import 'lodash';
 import React, {useEffect, useState} from 'react';
-import I18n from 'i18n-js'
+import I18n from 'i18n-js';
 import { connect } from 'react-redux';
-import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton, PendingButton } from './buttons'
+import { startButtonType, StartButton, StartingButton, StopButton, RemoveButton, PendingButton } from './buttons';
 import { Timer, FetchFromExchangeTimer } from './Timer';
 import { ProgressBar } from './ProgressBar';
-import LimitOrderNotice from "./BotForm/LimitOrderNotice";
+import CopyToClipboardText from './CopyToClipboardText';
+import LimitOrderNotice from './BotForm/LimitOrderNotice';
 import { isNotEmpty } from '../utils/array';
-import {shouldRename, renameSymbol, renameCurrency, shouldShowSubaccounts} from "../utils/symbols";
-import { RawHTML } from './RawHtml'
-import { AddApiKey } from "./BotForm/AddApiKey";
-import { removeInvalidApiKeys, splitTranslation } from "./helpers";
+import {shouldRename, renameSymbol, renameCurrency, shouldShowSubaccounts} from '../utils/symbols';
+import { RawHTML } from './RawHtml';
+import { AddApiKey } from './BotForm/AddApiKey';
+import { removeInvalidApiKeys, splitTranslation } from './helpers';
 
 import {
   reloadBot,
@@ -438,7 +439,7 @@ const BotTemplate = ({
                 {I18n.t('bots.triggered_title')}
               </div>
               <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                {webhookUrl}
+                <CopyToClipboardText text={webhookUrl} feedbackText={I18n.t('bots.webhook_has_been_copied')} />
               </div>
             </>}
           </div>
@@ -521,7 +522,7 @@ const BotTemplate = ({
                   {I18n.t('bots.triggered_title')}
                 </div>
                 <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                  {additionalWebhookUrl}
+                  <CopyToClipboardText text={additionalWebhookUrl} feedbackText={I18n.t('bots.webhook_has_been_copied')} />
                 </div>
               </>}
             </div>
