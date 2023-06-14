@@ -378,7 +378,9 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
+
                   <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+
                   {isBuySellType(type) && <div className="form-group mr-2">
                     <input
                         type="text"
@@ -407,7 +409,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
           </div>
 
-          <div className="form-inline mb-4">
+          <div className="form-inline mb-5">
             <div className="form-group mr-2">
               <select
                   value={triggerPossibility}
@@ -426,18 +428,20 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
           </div>
 
           <div className="form-inline mb-4">
-            <div className="form-group mr-2">{I18n.t('bots.additional_title')}</div>
+            <label className="form-group mr-2" for="twoWaysBot">{I18n.t('bots.additional_title')}</label>
             <div className="form-group mr-2">
               <input
                   type="checkbox"
+                  id="twoWaysBot"
                   checked={additionalTypeEnabled}
                   onChange={() => setAdditionalTypeEnabled(!additionalTypeEnabled)}
               />
             </div>
           </div>
 
-          <div className="form-inline db-bot__form__schedule db-bot__form__schedule-2">
+          {!additionalTypeEnabled ? null : (
 
+          <div className="form-inline">
             <div className="form-group mr-2">
               <select
                 value={additionalType}
@@ -498,6 +502,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
           </div>
 
+    )}
         </form>
 
       </div>
