@@ -446,10 +446,11 @@ const BotTemplate = ({
           {working ? null : (
 
             <div className="form-inline mb-4">
-              <div className="form-group mr-2">{I18n.t('bots.additional_title')}</div>
+              <label className="form-group mr-2" for="twoWaysBot">{I18n.t('bots.additional_title')}</label>
               <div className="form-group mr-2">
                 <input
                     type="checkbox"
+                    id="twoWaysBot"
                     checked={additionalTypeEnabled}
                     onChange={() => setAdditionalTypeEnabled(!additionalTypeEnabled)}
                     disabled={working}
