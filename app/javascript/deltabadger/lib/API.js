@@ -158,9 +158,10 @@ const API = {
       price: params.price,
       trigger_possibility: params.triggerPossibility,
       name: params.name,
-      additional_type_enabled: true,
+      additional_type_enabled: params.additionalTypeEnabled,
       additional_price: params.additionalPrice,
       already_triggered_types: [],
+      additional_type: params.additionalType,
       order_type: 'market',
     }
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);

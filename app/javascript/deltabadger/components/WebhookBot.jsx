@@ -56,31 +56,23 @@ const BotTemplate = ({
 
   const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
-  // console.log("settings");
-  // console.log(settings);
-  // console.log("settings");
+  const isBuyOffer = () => settings.type === 'buy' || settings.type === 'buy_all';
+  const isSellOffer = () => settings.type === 'sell' || settings.type === 'sell_all';
+  const isBuySellType = (type) => type === 'buy' || type === 'sell';
 
   const [type, setType] = useState(settings.type);
   const [name, setName] = useState(settings.name);
-  const [additionalType, setAdditionalType] = useState(settings.additional_type);
+  const [additionalType, setAdditionalType] = useState(settings.additional_type || (isBuyOffer() ? 'sell' : 'buy'));
   const [price, setPrice] = useState(settings.price);
   const [additionalPrice, setAdditionalPrice] = useState(settings.additional_price);
-  // const [percentage, setPercentage] = useState(settings.percentage == null ? 0.0 : settings.percentage);
-  // const [interval, setInterval] = useState(settings.interval);
-  // const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
-  // const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? "0" : settings.smart_intervals_value);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
   const [triggerPossibility, setTriggerPossibility] = useState("first_time");
   const [triggerUrl] = useState(settings.trigger_url);
-  // debugger
   const [additionalTriggerUrl] = useState(settings.additional_trigger_url);
-  const [additionalTypeEnabled, setAdditionalTypeEnabled] = useState(false);
-  const [apiKeyExists, setApiKeyExists] = useState(true)
+  const [additionalTypeEnabled, setAdditionalTypeEnabled] = useState(settings.additional_type_enabled || false);
+  const [apiKeyExists, setApiKeyExists] = useState(true);
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
-  // const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount)
-  // const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount)
-  // const [subaccountsList, setSubaccountsList] = useState([''])
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -154,7 +146,7 @@ const BotTemplate = ({
         triggerPossibility,
         additionalTypeEnabled,
         additionalType,
-        additionalPrice: additionalPrice.trim()
+        additionalPrice: additionalPrice?.trim()
     }
 
     const continueParams = {
@@ -172,21 +164,8 @@ const BotTemplate = ({
     </div>
   )
 
-  const isBuyOffer = () => settings.type === 'buy' || settings.type === 'buy_all'
-
-  const isSellOffer = () => settings.type === 'sell' || settings.type === 'sell_all'
-
-  // debugger
-
-  const isBuySellType = (type) => type === 'buy' || type === 'sell'
-
-  console.log('settings');
-  console.log(settings);
-  console.log(settings.type);
-  console.log('settings');
-
-  const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
-  const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote
+  const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base;
+  const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote;
 
   const handleTypeChange = (e) => {
     setType(e.target.value)
@@ -211,7 +190,7 @@ const BotTemplate = ({
         triggerPossibility,
         additionalTypeEnabled,
         additionalType,
-        additionalPrice: additionalPrice.trim()
+        additionalPrice: additionalPrice?.trim()
     }
   }
 
@@ -314,7 +293,7 @@ const BotTemplate = ({
   }
 
   const webhookUrl = `${window.location.origin}/webhooks/${triggerUrl}`;
-  const additionalWebhookUrl = `${window.location.origin}/webhooks/${additionalTriggerUrl}`;
+  const additionalWebhookUrl = `${window.location.origin}/webhooks/${settings.additional_trigger_url}`;
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--webhook db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
@@ -421,7 +400,7 @@ const BotTemplate = ({
               </>
             }
             <div className="form-group mr-2"> {quoteName}</div>
- 
+
             <div className="form-group mr-2">
               <select
                   value={triggerPossibility}
@@ -517,7 +496,7 @@ const BotTemplate = ({
                     <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
                   </>
               }
-              {additionalTriggerUrl && <>
+              {settings.additional_trigger_url && <>
                 <div className="form-group mr-2">
                   {I18n.t('bots.triggered_title')}
                 </div>

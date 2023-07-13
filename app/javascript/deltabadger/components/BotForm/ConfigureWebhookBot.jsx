@@ -213,7 +213,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
       triggerPossibility,
       additionalTypeEnabled,
       additionalType,
-      additionalPrice: additionalPrice.trim(),
+      additionalPrice: additionalPrice?.trim(),
       botType: 'webhook',
     }
 
@@ -275,7 +275,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
       triggerPossibility,
       additionalTypeEnabled,
       additionalType,
-      additionalPrice: additionalPrice.trim(),
+      additionalPrice: additionalPrice?.trim(),
       botType: 'webhook',
     }
     !disableSubmit && handleSubmit(botParams);
