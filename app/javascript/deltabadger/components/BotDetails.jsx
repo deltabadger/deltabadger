@@ -8,15 +8,15 @@ import { WithdrawalTransactions } from "./BotDetails/WithdrawalTransactions";
 import { WebhookTransactions } from "./BotDetails/WebhookTransactions";
 
 export const BotDetails = ({ bot }) => {
-  const statisticsActive = isNotEmpty(bot.transactions)
+  const statisticsActive = isNotEmpty(bot.transactions) || bot.bot_type == "webhook"
   const logActive = isNotEmpty(bot.logs) && !statisticsActive
-  const infoActive = isEmpty(bot.transactions) && isEmpty(bot.logs)
+  const infoActive = isEmpty(bot.transactions) && isEmpty(bot.logs) && bot.bot_type != "webhook"
 
   const tabs = [
     {
       label: I18n.t('bots.details.stats.title'),
       active: statisticsActive,
-      visible: isNotEmpty(bot.transactions),
+      visible: statisticsActive,
       id: 'stats-tab',
       tabpanelId: 'statistics',
     },
