@@ -35,7 +35,6 @@ module Bots::Webhook::Validators
       ORDER_TYPES = %w[market limit].freeze
 
       validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, :order_type, presence: true
-      # validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, presence: true
       validates :additional_type, :additional_trigger_url, :additional_price, presence: true, if: -> { additional_type_enabled }
       validate :allowed_symbol
       validate :plan_allowed_symbol
@@ -45,7 +44,7 @@ module Bots::Webhook::Validators
 
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
-      validates :additional_price, numericality: { only_float: true, greater_than: 0 }
+      validates :additional_price, numericality: { only_float: true, greater_than: 0 }, if: -> { additional_type_enabled }
 
       def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name, exchange_id)
         @base = params['base']

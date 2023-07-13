@@ -3,6 +3,7 @@ module Bots
     module FormatParams
       class Update < BaseService
         BOT_UPDATE_PARAMS = %i[
+          type
           order_type
           price
           name
@@ -16,17 +17,30 @@ module Bots
         ].freeze
 
         def call(bot, params)
-          bot_settings = bot.settings.merge(
-            params.slice(*BOT_UPDATE_PARAMS)
-          )
+          new_bot_settings = bot.settings.merge(bot_settings(params).merge(
+              webhook_urls(
+                  params.fetch(:additional_type_enabled, false),
+                  params.fetch(:additional_trigger_url, nil)
+              )
+          ))
 
           {
-            settings: bot_settings
+            settings: new_bot_settings
           }
         end
 
         def bot_settings(params)
-          params.slice(*BOT_SETTING_PARAMS | (params["additional_type_enabled"] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
+          params.slice(*BOT_UPDATE_PARAMS | (params["additional_type_enabled"] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
+        end
+
+        private
+
+        def webhook_urls(additional_type_enabled, additional_trigger_url)
+          { additional_trigger_url: generate_webhook_url } if additional_type_enabled && !additional_trigger_url
+        end
+
+        def generate_webhook_url
+          BotsRepository.new.webhook_url
         end
       end
     end

@@ -155,6 +155,7 @@ en:
                     configure_signal: Configure desired signal.
                     set_webhook: Switch to the Notifications tab, and provide Webhook URL that you see in your bot panel on the left.
                     experimental: The webhook bot is still very experimental. One improvement that is coming soon is the ability to buy and sell using all funds available on the account. Please, test it and let us know how can we improve it.
+                    working_and_waiting: The bot is working and waiting for a signal.
 
 
                 withdraw_info_html: '<p className="mt-2"><b>Withdraw</b></p><p>Don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>'
