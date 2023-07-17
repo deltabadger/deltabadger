@@ -21,7 +21,7 @@ module Bots
               webhook_urls(
                   params.fetch(:additional_type_enabled, false),
                   params.fetch(:additional_trigger_url, nil)
-              )
+              ) || {}
           ))
 
           {
@@ -30,7 +30,7 @@ module Bots
         end
 
         def bot_settings(params)
-          params.slice(*BOT_UPDATE_PARAMS | (params["additional_type_enabled"] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
+          params.to_h.with_indifferent_access.slice(*BOT_UPDATE_PARAMS | (params["additional_type_enabled"] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
         end
 
         private

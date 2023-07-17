@@ -33,6 +33,7 @@ module Bots::Webhook::Validators
       SELL_TYPES = %w[sell sell_all].freeze
       TYPES = (BUY_TYPES + SELL_TYPES).freeze
       ORDER_TYPES = %w[market limit].freeze
+      TYPES_FOR_PRICE = %w[buy sell].freeze
 
       validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, :order_type, presence: true
       validates :additional_type, :additional_trigger_url, :additional_price, presence: true, if: -> { additional_type_enabled }
@@ -43,8 +44,8 @@ module Bots::Webhook::Validators
       validate :allowed_additional_type
 
       validates :order_type, inclusion: { in: ORDER_TYPES }
-      validates :price, numericality: { only_float: true, greater_than: 0 }
-      validates :additional_price, numericality: { only_float: true, greater_than: 0 }, if: -> { additional_type_enabled }
+      validates :price, numericality: { only_float: true, greater_than: 0 }, if: -> { type_must_contain_price?(type) }
+      validates :additional_price, numericality: { only_float: true, greater_than: 0 }, if: -> { additional_type_enabled && type_must_contain_price?(additional_type) }
 
       def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name, exchange_id)
         @base = params['base']
@@ -97,6 +98,10 @@ module Bots::Webhook::Validators
       def allowed_additional_type
         errors.add(:additional_type, "must be one of #{SELL_TYPES}") if type.in?(BUY_TYPES) && additional_type.in?(BUY_TYPES)
         errors.add(:additional_type, "must be one of #{BUY_TYPES}") if type.in?(SELL_TYPES) && additional_type.in?(SELL_TYPES)
+      end
+
+      def type_must_contain_price?(type)
+        TYPES_FOR_PRICE.include?(type)
       end
     end
   end

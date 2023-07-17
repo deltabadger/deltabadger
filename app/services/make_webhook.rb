@@ -27,24 +27,19 @@ class MakeWebhook < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, webhook, notify: true, restart: true)
-    # byebug
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
     called_bot = called_bot(bot.settings, webhook)
-    # byebug
 
     result = perform_action(get_api(bot), bot, called_bot)
-    # byebug
 
-    if !result&.success?
-      # byebug
+    if result&.success?
       triggered_types(bot, called_bot) if bot.first_time?
       settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
       @bots_repository.update(bot.id, **settings_params.merge(success_status(bot)))
       result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f)
       send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
-      # byebug
       result = range_check_result if result.nil?
       @transactions_repository.create(failed_transaction_params(result, bot))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
@@ -52,7 +47,6 @@ class MakeWebhook < BaseService
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      # byebug
       @transactions_repository.create(failed_transaction_params(result, bot))
       @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
@@ -61,7 +55,6 @@ class MakeWebhook < BaseService
   rescue => e
     @unschedule_webhooks.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
-    # byebug
     Rails.logger.info "======================= RESCUE 1=============================="
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info "====================================================="
@@ -106,7 +99,6 @@ class MakeWebhook < BaseService
   end
 
   def transaction_settings(bot, type, called_bot)
-    # byebug
     {
       base: bot.base,
       quote: bot.quote,
@@ -115,14 +107,11 @@ class MakeWebhook < BaseService
   end
 
   def perform_action(api, bot, called_bot)
-    # byebug
     type = bot.settings[called_bot == 'additional_bot'? 'additional_type' : 'type']
     settings = transaction_settings(bot, type, called_bot)
     result = if buyer?(type)
-               # byebug
                api.buy(**settings)
              else
-               # byebug
                api.sell(**settings)
              end
 
@@ -130,16 +119,12 @@ class MakeWebhook < BaseService
   end
 
   def calculate_price(bot, type, called_bot)
-    # byebug
     case type
     when 'buy', 'sell'
-      # byebug
       bot.send(called_bot == 'additional_bot'? 'additional_price' : 'price').to_f
     when 'buy_all', 'sell_all'
-      # byebug
       allowable_balance(get_api(bot), bot).to_f
     else
-      # byebug
       0.0
     end
   end

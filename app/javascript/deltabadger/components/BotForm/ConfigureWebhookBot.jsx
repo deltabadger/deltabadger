@@ -34,7 +34,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
   const OTHER_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
   const [type, setType] = useState("buy");
-  const [additionalType, setAdditionalType] = useState("sell");
+  const [additionalType, setAdditionalType] = useState();
   const [price, setPrice] = useState("");
   const [additionalPrice, setAdditionalPrice] = useState("");
   const [name, setName] = useState('');
@@ -190,7 +190,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
     };
   }, []);
 
-  const disableSubmit = disable || price.trim() === ''
+  const disableSubmit = disable// || price.trim() === ''
 
   const getMinimumOrderParams = (data) => {
     const minimumOrderParams = {
@@ -285,6 +285,13 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
   const isSellOffer = () => type === 'sell' || type === 'sell_all';
   const isBuySellType = (type) => type === 'buy' || type === 'sell';
 
+  const setBotType = (value) => {
+    setType(value);
+    if(!additionalType){
+      setAdditionalType(isBuyOffer()? 'sell' : 'buy')
+    }
+  };
+
   return (
     <div className="db-bots__item db-bot db-bot--webhook db-bot--setup db-bot--ready db-bot--active">
 
@@ -316,7 +323,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             <div className="form-group mr-2">
               <select
                 value={type}
-                onChange={e => setType(e.target.value)}
+                onChange={e => setBotType(e.target.value)}
                 className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
               >
                 <option value="buy">{I18n.t('bots.buy')}</option>

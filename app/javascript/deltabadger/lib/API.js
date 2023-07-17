@@ -155,6 +155,7 @@ const API = {
   updateWebhookBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
+      type: params.type,
       price: params.price,
       trigger_possibility: params.triggerPossibility,
       name: params.name,
