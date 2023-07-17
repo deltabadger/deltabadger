@@ -67,7 +67,7 @@ const BotTemplate = ({
   const [additionalPrice, setAdditionalPrice] = useState(settings.additional_price);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
-  const [triggerPossibility, setTriggerPossibility] = useState("first_time");
+  const [triggerPossibility, setTriggerPossibility] = useState(settings.trigger_possibility);
   const [triggerUrl] = useState(settings.trigger_url);
   const [additionalTriggerUrl] = useState(settings.additional_trigger_url);
   const [additionalTypeEnabled, setAdditionalTypeEnabled] = useState(settings.additional_type_enabled || false);
@@ -82,7 +82,7 @@ const BotTemplate = ({
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
   const botRunningClass = working ? 'bot--running' : 'bot--stopped'
 
-  const disableSubmit = price.trim() === ''
+  const disableSubmit = isBuySellType(type) && price.trim() === ''
 
   const isLimitSelected = () => type === 'limit'
 
@@ -136,7 +136,7 @@ const BotTemplate = ({
   }
 
   const _handleSubmit = (continueSchedule = false, fixing_price = null) => {
-    if (disableSubmit) return
+    // if (disableSubmit) return
 
     const botParams = {
         id: bot.id,
