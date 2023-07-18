@@ -13,7 +13,7 @@ class GetRestartParams < BaseService
 
   def call(bot_id:)
     bot = @bots_repository.find(bot_id)
-    if was_first_transaction_failed(bot)
+    if was_first_transaction_failed(bot) || bot.webhook?
       return {
         restartType: 'failed'
       }

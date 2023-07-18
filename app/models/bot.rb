@@ -47,6 +47,10 @@ class Bot < ApplicationRecord
     settings['type']
   end
 
+  def additional_type
+    settings['additional_type']
+  end
+
   def order_type
     settings['order_type']
   end
