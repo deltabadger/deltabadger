@@ -36,8 +36,8 @@ class MakeWebhook < BaseService
     if result&.success?
       triggered_types(bot, called_bot) if bot.first_time?
       settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
-      @bots_repository.update(bot.id, **settings_params.merge(success_status(bot)))
-      result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f)
+      @bots_repository.update(bot.id, **settings_params.merge({status: 'pending'}))
+      result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f, called_bot: called_bot)
       send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
       result = range_check_result if result.nil?
@@ -63,11 +63,6 @@ class MakeWebhook < BaseService
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
-  def success_status(bot)
-    return {status: 'working'} if bot.every_time? || !bot.already_triggered_types.blank?
-    {status: 'stopped'}
-  end
-
   def called_bot(settings, webhook)
     return "additional_bot" if settings["additional_type_enabled"] && settings["additional_trigger_url"] == webhook
     "main_bot" if settings["trigger_url"] == webhook
@@ -75,7 +70,7 @@ class MakeWebhook < BaseService
 
   def triggered_types(bot, called_bot)
     bot.already_triggered_types |= [called_bot]
-    bot.already_triggered_types = [] if (TRIGGER_TYPES - bot.already_triggered_types).blank?
+    bot.already_triggered_types = [] if !bot.additional_type_enabled? || (TRIGGER_TYPES - bot.already_triggered_types).blank?
   end
 
   private

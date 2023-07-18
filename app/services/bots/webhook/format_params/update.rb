@@ -20,7 +20,7 @@ module Bots
           new_bot_settings = bot.settings.merge(bot_settings(params).merge(
               webhook_urls(
                   params.fetch(:additional_type_enabled, false),
-                  params.fetch(:additional_trigger_url, nil)
+                  bot.settings.with_indifferent_access.fetch(:additional_trigger_url, nil)
               ) || {}
           ))
 

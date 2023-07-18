@@ -85,7 +85,7 @@ export const WebhookTransactions = ({ bot, active }) => {
               { bot.transactions.map(t => (
                 <tr key={t.id} >
                   <td scope="row">{t.created_at}</td>
-                  <td>{translateBuyOrSell(bot.settings.type).toLowerCase()}</td>
+                  <td>{translateBuyOrSell(t.called_bot_type || bot.settings.type).toLowerCase()}</td>
                   <td>{toFixedWithoutZeros(t.amount) || "N/A"}</td>
                   <td>{toFixedWithoutZeros(t.rate) || "N/A"}</td>
                 </tr>
