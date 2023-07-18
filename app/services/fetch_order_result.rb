@@ -23,17 +23,17 @@ class FetchOrderResult < BaseService
     @order_flow_helper = order_flow_helper
   end
 
-  def call(bot_id, result_params, fixing_price, notify: true, restart: true)
+  def call(bot_id, result_params, fixing_price, notify: true, restart: true, called_bot: nil)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless bot.pending?
 
-    result = perform_action(get_api(bot), result_params, bot, fixing_price)
+    result = perform_action(get_api(bot), result_params, bot, fixing_price, called_bot)
 
     if result.success?
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0, fetch_restarts: 0)
+      bot = @bots_repository.update(bot.id, restarts: 0, fetch_restarts: 0, **success_status(bot))
       result = @order_flow_helper.validate_limit(bot, notify)
       @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
-      @schedule_transaction.call(bot) if result.success?
+      @schedule_transaction.call(bot) if result.success? && !bot.webhook?
     elsif !fetched?(result)
       bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
       @schedule_result_fetching.call(bot, result_params, fixing_price)
@@ -63,12 +63,17 @@ class FetchOrderResult < BaseService
 
   private
 
+  def success_status(bot)
+    return {status: 'working'} if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
+    {status: 'stopped'}
+  end
+
   def get_api(bot)
     api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
-  def perform_action(api, result_params, bot, price)
+  def perform_action(api, result_params, bot, price, called_bot = nil)
     offer_id = get_offer_id(result_params)
     Rails.logger.info "Fetching order id: #{offer_id} for bot: #{bot.id}"
     result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if probit?(bot)
@@ -84,7 +89,7 @@ class FetchOrderResult < BaseService
                api.fetch_order_by_id(offer_id)
              end
 
-    @transactions_repository.create(transaction_params(result, bot, price)) if result.success? || fetched?(result)
+    @transactions_repository.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
 
     if result.success?
       cost = result.data[:rate].to_f * result.data[:amount].to_f
@@ -107,25 +112,31 @@ class FetchOrderResult < BaseService
     result.data&.dig(:recoverable) == true
   end
 
-  def transaction_params(result, bot, price = nil)
+  def transaction_params(result, bot, price = nil, called_bot = nil)
     if result.success?
       result.data.slice(:offer_id, :rate, :amount).merge(
         bot_id: bot.id,
         status: :success,
-        bot_interval: bot.interval,
+        bot_interval: bot.webhook? ? '' : bot.interval,
         bot_price: fixing_transaction?(price) ? price : bot.price,
-        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
+        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
+        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil
       )
     else
       {
         bot_id: bot.id,
         status: :failure,
         error_messages: result.errors,
-        bot_interval: bot.interval,
+        bot_interval: bot.webhook? ? '' : bot.interval,
         bot_price: fixing_transaction?(price) ? price : bot.price,
-        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
+        transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
+        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil
       }
     end
+  end
+
+  def called_bot_type(bot, called_bot)
+    bot.send(called_bot == 'additional_bot'? 'additional_type' : 'type')
   end
 
   def fixing_transaction?(price)
