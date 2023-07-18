@@ -1,6 +1,7 @@
 module Api
   class BotsController < Api::BaseController
-    skip_before_action :authenticate_user!, :only => [:webhook]
+    skip_before_action :authenticate_user!, only: [:webhook]
+    skip_before_action :verify_authenticity_token, only: [:webhook]
     def index
       bots = BotsRepository.new.for_user(current_user, params[:page])
       data = present_bots(bots)
