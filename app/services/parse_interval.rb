@@ -20,6 +20,7 @@ class ParseInterval < BaseService
 
   def calculate_user_interval(last_transaction)
     interval = last_transaction.bot_interval
+    return 0.0 if last_transaction.bot.webhook?
     raise Error, 'Invalid interval' if !INTERVALS.include?(interval)
 
     1.public_send(interval).seconds
