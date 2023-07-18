@@ -287,7 +287,7 @@ pl:
                 instructions_6_1_html: 'Order&Trades:'
                 instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
                 instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
-                instructions_6_4_html: '<b>Modify Orders</b>'
+                instructions_6_4_html: '<b>Create and modify orders</b>'
                 instructions_6_5_html: '<b>Cancel/Close Orders</b>'
                 instructions_7_html: 'Kliknij <b>Generate Key</b>.'
                 instructions_8_html: 'Wklej oba klucze do danych wejściowych powyżej.'
