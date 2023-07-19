@@ -53,6 +53,9 @@ class BotAlertsMailer < ApplicationMailer
     @bot = params[:bot]
     @base = params[:base]
     @quote = params[:quote]
+    @bot_name = params[:bot_name]
+    @type = params[:type]
+    @price = params[:price]
     @exchange_name = @bot.exchange.name
 
     mail(to: @user.email, subject: default_i18n_subject)
