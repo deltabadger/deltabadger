@@ -90,6 +90,9 @@ en:
             your_link: 'Your referral link'
         your_bitcoin_address: 'Your Bitcoin address'
     bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: 'transaction successful'
+            template_html: 'transaction successful'
         end_of_funds:
             subject: 'Your bot is running out of funds soon'
             template_html: '<p>It looks like your bot is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>'

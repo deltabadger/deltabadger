@@ -33,6 +33,7 @@ class FetchOrderResult < BaseService
       bot = @bots_repository.update(bot.id, restarts: 0, fetch_restarts: 0, **success_status(bot))
       result = @order_flow_helper.validate_limit(bot, notify)
       @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
+      @notifications.successful_webhook_bot_transaction(bot: bot) if notify
       @schedule_transaction.call(bot) if result.success? && !bot.webhook?
     elsif !fetched?(result)
       bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)

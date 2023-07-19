@@ -52,8 +52,6 @@ const BotTemplate = ({
   apiKeyTimeout
 }) => {
 
-  // debugger
-
   const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
   const isBuyOffer = () => settings.type === 'buy' || settings.type === 'buy_all';
@@ -292,8 +290,8 @@ const BotTemplate = ({
     })
   }
 
-  const webhookUrl = `${window.location.origin}/webhooks/${triggerUrl}`;
-  const additionalWebhookUrl = `${window.location.origin}/webhooks/${settings.additional_trigger_url}`;
+  const webhookUrl = `${window.location.origin}/h/${triggerUrl}`;
+  const additionalWebhookUrl = `${window.location.origin}/h/${settings.additional_trigger_url}`;
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--webhook db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
@@ -473,7 +471,7 @@ const BotTemplate = ({
                           value={additionalPrice}
                           onChange={e => setAdditionalPrice(e.target.value)}
                           className="bot-input bot-input--sizable bot-input--paper-bg"
-                          disabled={!additionalTypeEnabled}
+                          disabled={working}
                       />
                     </div>}
                     <div className="form-group mr-2">{quoteName}</div>
@@ -487,7 +485,7 @@ const BotTemplate = ({
                           value={additionalPrice}
                           onChange={e => setAdditionalPrice(e.target.value)}
                           className="bot-input bot-input--sizable bot-input--paper-bg"
-                          disabled={!additionalTypeEnabled}
+                          disabled={working}
                       />
                     </div>}
                     <div className="form-group mr-2">{baseName}</div>
