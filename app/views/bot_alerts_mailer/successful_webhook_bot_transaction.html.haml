@@ -1,4 +1,4 @@
 %h1{class: "mail-header"}= t('.subject')
 
 %p= t('mailer.greeting_name', name: @user.name)
-= t('.template_html', exchange: @exchange_name, base: @bot.base, quote: @bot.quote)
+= t('.template_html', base: @base, quote: @quote, bot_name: @bot_name, type: @type, price: @price, exchange_name: @exchange_name)
