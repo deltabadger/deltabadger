@@ -107,6 +107,10 @@ class Bot < ApplicationRecord
     settings['trigger_url']
   end
 
+  def name
+    settings['name']
+  end
+
   def called_bot webhook
     return "additional_bot" if additional_type_enabled? && additional_trigger_url == webhook
     "main_bot" if trigger_url == webhook
