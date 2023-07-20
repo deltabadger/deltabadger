@@ -72,6 +72,18 @@ module Notifications
       ).end_of_funds.deliver_later
     end
 
+    def successful_webhook_bot_transaction(bot:, type:)
+      BotAlertsMailer.with(
+          bot: bot,
+          bot_name: bot.name,
+          type: type,
+          user: bot.user,
+          base: bot.base,
+          quote: bot.quote,
+          price: bot.price
+      ).successful_webhook_bot_transaction.deliver_later
+    end
+
     private
 
     def was_sent_more_than_day_ago?(notification_sent_at)
