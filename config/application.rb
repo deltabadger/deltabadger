@@ -30,7 +30,9 @@ module Deltabadger
     # the framework and any gems in your application.
 
     # Add the Bullet middleware
-    config.middleware.use Bullet::Rack
+    if defined?(Bullet)
+      config.middleware.use Bullet::Rack
+    end
 
     # Don't generate system test files.
     config.generators.system_tests = nil
