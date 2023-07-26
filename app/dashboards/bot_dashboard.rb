@@ -32,10 +32,7 @@ class BotDashboard < Administrate::BaseDashboard
     id
     status
     exchange
-    price
-    interval
     type
-    transactions
     total_amount
   ].freeze
 
