@@ -7,6 +7,7 @@ gem 'active_model_otp'
 gem "administrate"
 gem "attr_encrypted", "~> 3.1.0"
 gem 'bootsnap', '>= 1.4.2', require: false
+gem 'bullet'
 gem 'date', "= 3.3.3"
 gem 'devise'
 gem 'dotenv-rails'
@@ -41,7 +42,6 @@ gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
 gem 'bundler', '>= 2.3.5'
 group :development, :test do
-  gem 'bullet'
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop', '~> 1.48.0'
   gem 'rspec-rails', '~> 5.1'
