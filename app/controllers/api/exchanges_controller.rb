@@ -31,7 +31,7 @@ module Api
     private
 
     def get_exchange_type_pairs(api_keys)
-      api_keys.map { |a| { id: a.exchange.id, type: a.key_type, status: a.status } }
+      api_keys.includes(:exchange).map { |a| { id: a.exchange.id, type: a.key_type, status: a.status } }
     end
 
     def status_of_key(id, type, exchange_type_pairs)

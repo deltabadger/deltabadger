@@ -41,6 +41,7 @@ gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
 gem 'bundler', '>= 2.3.5'
 group :development, :test do
+  gem 'bullet'
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop', '~> 1.48.0'
   gem 'rspec-rails', '~> 5.1'
