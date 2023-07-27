@@ -1,5 +1,6 @@
 module Api
   class BotsController < Api::BaseController
+    include ActionController::Live
     skip_before_action :authenticate_user!, only: [:webhook]
     skip_before_action :verify_authenticity_token, only: [:webhook]
     def index
@@ -134,6 +135,34 @@ module Api
       end
     end
 
+    def webhook_bots_data
+      response.headers['Content-Type'] = 'text/event-stream'
+      response.headers['Last-Modified'] = '0' # hack to bypass ETag caching
+      response.headers['ETag'] = '0' # hack to bypass ETag caching
+      sse = SSE.new(response.stream, retry: 300)
+      last_updated_at = Time.current
+
+      loop do
+        newly_transactions = current_user.newly_webhook_bots_transactions(last_updated_at)
+        if newly_transactions.present?
+          bots = newly_transactions.map(&:bot).uniq
+          bots.each{|bot| sse.write(present_webhook_bot(bot)) }
+          last_updated_at = Time.current
+        end
+
+        sleep 3
+      end
+
+    rescue => e
+      logger.info 'Stream closed'
+      logger.info e
+      response.stream.close
+      sse.close
+    ensure
+      response.stream.close
+      sse.close
+    end
+
     private
 
     def bot_create_params
@@ -157,6 +186,10 @@ module Api
     def present_bot(bot)
       return Presenters::Api::TradingBot.call(bot) if bot.trading?
       return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+      Presenters::Api::WebhookBot.call(bot)
+    end
+
+    def present_webhook_bot(bot)
       Presenters::Api::WebhookBot.call(bot)
     end
 
