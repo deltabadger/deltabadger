@@ -89,7 +89,7 @@ class MakeTransaction < BaseService
     return unless balance.success?
 
     amount_needed = calculate_amount_needed(bot.interval, price)
-    @notifications.end_of_funds(bot: bot) if balance.data < amount_needed && notify
+    @notifications.end_of_funds(bot: bot) if balance.data.to_f < amount_needed && notify
   end
 
   def get_api(bot)
