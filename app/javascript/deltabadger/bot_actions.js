@@ -19,7 +19,7 @@ const tryStartBot = (id) => ({
   payload: id
 })
 
-const botReloaded = (bot) => ({
+export const botReloaded = (bot) => ({
   type: 'BOT_RELOADED',
   payload: bot
 })
