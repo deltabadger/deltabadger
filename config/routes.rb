@@ -53,6 +53,7 @@ Rails.application.routes.draw do
       get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
       get :restart_params
     end
+    get '/webhook_bots_data', to: 'bots#webhook_bots_data'
   end
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
