@@ -8,7 +8,8 @@ import {
   startBot,
   openBot,
   closeAllBots,
-  loadBots
+  loadBots,
+  botReloaded
 } from '../bot_actions'
 import API from "../lib/API";
 import { WithdrawalBot } from "./WithdrawalBot";
@@ -26,7 +27,8 @@ const DashboardTemplate = ({
   startBot,
   openBot,
   closeAllBots,
-  loadBots
+  loadBots,
+  botReloaded
 }) => {
 
   const [exchanges, setExchanges] = useState([]);
@@ -38,6 +40,33 @@ const DashboardTemplate = ({
     const shouldOpenFirstBot = step === 0
     loadBots(shouldOpenFirstBot, page)
   }, [page,])
+
+  useEffect(() => {
+    const webhookBotsCount = bots.filter(bot => bot.bot_type === 'webhook').length || 0;
+
+    if(webhookBotsCount){
+      const eventSource = new EventSource('/api/webhook_bots_data');
+
+      eventSource.onmessage = (event) => {
+        try {
+          let response = $.parseJSON(event.data)
+          botReloaded(response)
+        }catch (error) {
+          console.error('EventSource failed:', error);
+          eventSource.close();
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('EventSource failed:', error);
+        eventSource.close();
+      };
+
+      return () => {
+        eventSource.close();
+      };
+    }
+  }, [bots]);
 
   const fetchExchanges = (type) => {
     API.getExchanges(type).then(data => setExchanges(data.data))
@@ -146,7 +175,8 @@ const mapDispatchToProps = ({
   loadBots: loadBots,
   startBot: startBot,
   openBot: openBot,
-  closeAllBots: closeAllBots
+  closeAllBots: closeAllBots,
+  botReloaded: botReloaded
 })
 
 export const Dashboard = connect(mapStateToProps, mapDispatchToProps)(DashboardTemplate)
