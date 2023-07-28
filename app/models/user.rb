@@ -11,6 +11,7 @@ class User < ApplicationRecord
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots
+  has_many :transactions, through: :bots
   has_many :subscriptions
   has_many :payments
 
@@ -75,6 +76,15 @@ class User < ApplicationRecord
 
     errors.add :name, I18n.t('devise.registrations.new.name_invalid')
     false
+  end
+
+  def webhook_bots_transactions
+    transactions.where(bot_id: bots.webhook.pluck(:id))
+  end
+
+  def newly_webhook_bots_transactions(time)
+    webhook_bots_transactions.where('transactions.created_at > ? ', time)
+
   end
 
   private
