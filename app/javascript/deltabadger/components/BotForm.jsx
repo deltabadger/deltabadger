@@ -263,6 +263,7 @@ export const BotForm = ({
             callbackAfterClosing()
           }}
           handleSubmit={pickBotTypeHandler}
+          showWebhookButton={isHodler || isLegendaryBadger}
           />
       case 'pick_exchange':
         return <PickExchage
