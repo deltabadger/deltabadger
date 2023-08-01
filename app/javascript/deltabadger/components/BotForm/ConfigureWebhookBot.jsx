@@ -34,7 +34,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
   const OTHER_BASES = ALL_BASES.filter(s => !(BASES.includes(s)))
 
   const [type, setType] = useState("buy");
-  const [additionalType, setAdditionalType] = useState();
+  const [additionalType, setAdditionalType] = useState('sell');
   const [price, setPrice] = useState("");
   const [additionalPrice, setAdditionalPrice] = useState("");
   const [name, setName] = useState('');
@@ -509,7 +509,7 @@ export const ConfigureWebhookBot = ({ showLimitOrders, currentExchange, handleRe
             </div>
           </div>
 
-    )}
+          )}
         </form>
 
       </div>
