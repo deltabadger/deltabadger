@@ -3,7 +3,7 @@ import I18n from 'i18n-js'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
-export const PickBotType = ({ handleSubmit }) => {
+export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
@@ -32,8 +32,8 @@ export const PickBotType = ({ handleSubmit }) => {
           {I18n.t('bots.buttons.automatic_withdrawal')}
         </div>
         <div
-          className="db-bot__types__item db-bot__types__item--wh"
-          onClick={() => handleSubmit('webhook')}
+          className={`db-bot__types__item db-bot__types__item--wh ${showWebhookButton ? '' : 'bot__types__item--inactive'}`}
+          onClick={() => showWebhookButton ? handleSubmit('webhook') : null}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <path className="fill-1" fill="var(--pickExchangeItemTxt)" fillRule="evenodd" d="M12 15a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" clipRule="evenodd"/>
