@@ -659,7 +659,7 @@ en:
             one: '1 day left'
             other: '%{count} days left'
         hodler: Hodler
-        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b>, lower fees with <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">webhooks</b>(soon) and <b class="badge badge-limit">portfolio rebalancing</b>(soon). Long-term plans also support the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
+        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b>, lower fees with <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">webhooks</b> and <b class="badge badge-limit">portfolio rebalancing</b>(soon). Long-term plans also support the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
         investor: Investor
         investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b>.'
         legendary_badger: 'Legendary Badger NFT'

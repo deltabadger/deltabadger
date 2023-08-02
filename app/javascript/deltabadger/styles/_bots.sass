@@ -190,7 +190,7 @@ input
     display:        flex
     border-radius:  $btn-border-radius
     flex-direction: row-reverse
-    padding:        $bot-gutter-width*0.5 $bot-gutter-width*0.8333 $bot-gutter-width*0.5 $bot-gutter-width*0.8333
+    padding:        $bot-gutter-width*0.5 $bot-gutter-width*0.8333 $bot-gutter-width*0.5 $bot-gutter-width*0.5
     .btn
       right:        -1rem
       position:      relative
@@ -215,7 +215,7 @@ input
       gap:            .75rem
       align-items:    center
       svg
-        width:        3rem
+        width:        2.4rem
     &--setup
       text-align: left
       position: absolute
@@ -252,7 +252,10 @@ input
         max-width: calc((100% - 1.6rem)*0.5)
       &--unavailable
         display: none
-      &:hover
+      &--inactive
+        opacity: 0.5
+        cursor: default
+      &:hover:not(.db-bot__types__item--inactive)
         background-color: var(--primary)
         color:            var(--pickExchangeItemSelect)
         box-shadow:       $boxShadowHome
@@ -263,8 +266,8 @@ input
       height: 16rem
       gap: 1rem
       svg
-        width: 3rem
-      &:hover
+        width: 2.4rem
+      &:hover:not(.db-bot__types__item--inactive)
         svg
           .fill-1
             fill: var(--pickExchangeItemSelect)
@@ -431,7 +434,4 @@ input
   max-width: 7.8em
 .db-input--dca-amount
   max-width: 4.1em
-.bot__types__item--inactive
-  opacity: 0.5
-  cursor: not-allowed
 
