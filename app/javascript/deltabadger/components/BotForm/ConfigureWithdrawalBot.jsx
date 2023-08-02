@@ -125,7 +125,6 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
     <div className="db-bots__item db-bot db-bot--withdrawal db-bot--setup db-bot--ready db-bot--active">
 
       <div className="db-bot__header">
-        <div className="db-bot__header__type db-bot__header__type--withdrawal">Withdrawal</div>
         <Breadcrumbs step={3} />
         <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
           <span className="d-none d-sm-inline">{I18n.t('bots.start')}</span>

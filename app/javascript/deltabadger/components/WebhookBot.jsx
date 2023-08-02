@@ -306,8 +306,8 @@ const BotTemplate = ({
           <div className={`db-bot__infotext text-${colorClass}`}>
             <div className="db-bot__infotext__left">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <path fill="#2948A1" fillRule="evenodd" d="M12 15a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" clipRule="evenodd"/>
-                <path stroke="#2948A1" strokeLinecap="round" strokeWidth="2" d="M7.8 11.8a6 6 0 0 1 8.4 0M5 9c3.8-4 10.2-4 14 0"/>
+                <path stroke="#2948A1" strokeLinecap="round" strokeWidth="2" d="M7.8 10.8a6 6 0 0 1 8.4 0M5 8c3.8-4 10.2-4 14 0"/>
+                <circle cx="12" cy="15" r="2" stroke="#2948A1" strokeWidth="2"/>
               </svg>
               {exchangeName}:{baseName}{quoteName}
             </div>
