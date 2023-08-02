@@ -17,8 +17,8 @@ export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
           onClick={() => handleSubmit('trading')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeWidth="2" d="M3 16h4c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5h4c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5h4"/>
-            <path className="fill-1" fill="var(--pickExchangeItemTxt)" fillRule="evenodd" d="M19 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" clipRule="evenodd"/>
+            <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeWidth="2" d="M4 16h3.5c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5h3c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5H16"/>
+            <circle className="stroke-1" stroke="var(--pickExchangeItemTxt)" cx="18" cy="8" r="2" strokeWidth="2"/>
           </svg>
           {I18n.t('bots.buttons.dollar_cost_averaging')}
         </div>
@@ -27,18 +27,18 @@ export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
           onClick={() => handleSubmit('withdrawal')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m18 13-6 6-6-6M12 18V6"/>
+            <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m18 11-6 6-6-6M12 16V5"/>
           </svg>
           {I18n.t('bots.buttons.automatic_withdrawal')}
         </div>
         <div
-          className={`db-bot__types__item db-bot__types__item--wh ${showWebhookButton ? '' : 'bot__types__item--inactive'}`}
+          className={`db-bot__types__item db-bot__types__item--wh ${showWebhookButton ? '' : 'db-bot__types__item--inactive'}`}
           onClick={() => showWebhookButton ? handleSubmit('webhook') : null}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <path className="fill-1" fill="var(--pickExchangeItemTxt)" fillRule="evenodd" d="M12 15a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" clipRule="evenodd"/>
-            <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeWidth="2" d="M7.8 11.8a6 6 0 0 1 8.4 0M5 9c3.8-4 10.2-4 14 0"/>
-          </svg>
+                <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeWidth="2" d="M7.8 10.8a6 6 0 0 1 8.4 0M5 8c3.8-4 10.2-4 14 0"/>
+                <circle className="stroke-1" cx="12" cy="15" r="2" stroke="var(--pickExchangeItemTxt)" strokeWidth="2"/>
+              </svg>
           {I18n.t('bots.buttons.webhook')}
         </div>
       </div>
