@@ -98,7 +98,7 @@ class MakeTransaction < BaseService
     bot_logger.info(balance) if bot_for_logging?(bot.id)
     return unless balance.success?
 
-    amount_needed = calculate_amount_needed(bot.interval, price)
+    amount_needed = calculate_amount_needed(bot.interval, price, bot.force_smart_intervals)
     bot_logger.info("amount_needed: #{amount_needed}") if bot_for_logging?(bot.id)
     bot_logger.info("try balance.data.to_f: #{balance.data.to_f}") if bot_for_logging?(bot.id)
     bot_logger.info("balance.data type: #{balance.data.class}") if bot_for_logging?(bot.id)
@@ -180,14 +180,16 @@ class MakeTransaction < BaseService
     }
   end
 
-  def calculate_amount_needed(interval, price)
+  def calculate_amount_needed(interval, price, smart_intervals)
     case interval
     when 'hour'
       price * 24 * 3
     when 'day'
       price * 3
+    when 'week'
+      smart_intervals ? price / 7 * 3 : price # price / 7 * 3 = aprox. 3 days
     else
-      price
+      smart_intervals ? price * 0.1 * 3 : price
     end
   end
 end
