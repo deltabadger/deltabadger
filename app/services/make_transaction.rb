@@ -189,7 +189,7 @@ class MakeTransaction < BaseService
     when 'week'
       smart_intervals ? price / 7 * 3 : price # price / 7 * 3 = aprox. 3 days
     else
-      smart_intervals ? price * 0.1 * 3 : price
+      smart_intervals ? price / 30 * 3 : price # price / 30 * 3 = aprox. 3 days
     end
   end
 end
