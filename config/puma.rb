@@ -9,7 +9,7 @@ threads threads_count, threads_count
 
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 #
-port        ENV.fetch("PORT") { 3000 }
+port ENV.fetch("PORT") { 3000 }
 
 # Specifies the `environment` that Puma will run in.
 #
@@ -37,6 +37,12 @@ end
 on_worker_boot do
   ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
 end
+
+# Increase worker timeout for SSE
+worker_timeout 3600 # 1 hour
+
+# Persistent timeout for long-lived connections (like SSE)
+persistent_timeout 3600 # for 1 hour
 
 # Allow puma to be restarted by `rails restart` command.
 plugin :tmp_restart
