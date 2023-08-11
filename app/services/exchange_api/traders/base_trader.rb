@@ -12,7 +12,7 @@ module ExchangeApi
         raise NotImplementedError
       end
 
-      def currency_balance(currency)
+      def currency_balance(currency, bot_id = nil)
         Result::Failure.new('Could not fetch account info')
       end
 

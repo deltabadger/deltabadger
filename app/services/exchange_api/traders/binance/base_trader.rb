@@ -25,7 +25,7 @@ module ExchangeApi
           Result::Failure.new('Could not fetch order parameters from Binance')
         end
 
-        def currency_balance(currency)
+        def currency_balance(currency, bot_id = nil)
           request = @signed_client.get('account')
 
           response = JSON.parse(request.body)
