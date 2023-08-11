@@ -4,7 +4,7 @@
 # the maximum value specified for Puma. Default is set to 5 threads for minimum
 # and maximum; this matches the default thread size of Active Record.
 #
-threads_count = ENV.fetch("RAILS_MAX_THREADS") { 10 }
+threads_count = ENV.fetch("RAILS_MAX_THREADS") { 5 }
 threads threads_count, threads_count
 
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
@@ -38,11 +38,12 @@ on_worker_boot do
   ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
 end
 
-# Increase worker timeout for SSE
-worker_timeout 3600 # 1 hour
+# Use a more reasonable timeout for general web requests
+worker_timeout 52 # 52 seconds to recognize which timout is in play
 
-# Persistent timeout for long-lived connections (like SSE)
-persistent_timeout 3600 # for 1 hour
+# For Keep-Alive connections, use a shorter timeout.
+# This is typically enough for most web applications and avoids hogging connections.
+persistent_timeout 22 # 22 seconds to recognize which timout is in play
 
 # Allow puma to be restarted by `rails restart` command.
 plugin :tmp_restart
