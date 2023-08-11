@@ -55,7 +55,7 @@ class MakeWebhook < BaseService
   rescue => e
     @unschedule_webhooks.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
-    Rails.logger.info "======================= RESCUE 1=============================="
+    Rails.logger.info "======================= RESCUE 1 MakeWebhook =============================="
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info "====================================================="
 
