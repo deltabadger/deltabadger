@@ -47,27 +47,15 @@ module ExchangeApi
           SendgridMailToList.new.user_to_exchange_list(user, exchange_name)
         end
 
-        def currency_balance(currency, bot_id = nil)
-          bot_logger.info("----- starting for bot ID: #{bot_id} -----") if bot_for_logging?(bot_id)
-          bot_logger.info("incoming currency: #{currency}") if bot_for_logging?(bot_id)
+        def currency_balance(currency)
           balances_res = @client.balance
-          bot_logger.info("balances_res") if bot_for_logging?(bot_id)
-          bot_logger.info(balances_res) if bot_for_logging?(bot_id)
-          bot_logger.info("balances_res[\"error\"] : #{balances_res["error"]}") if bot_for_logging?(bot_id) && balances_res["error"].any?
           return Result::Failure.new(*balances_res["error"]) if balances_res["error"].any?
 
           platform_currency_res = @client.assets(currency)
-          bot_logger.info("platform_currency_res") if bot_for_logging?(bot_id)
-          bot_logger.info(platform_currency_res) if bot_for_logging?(bot_id)
-          bot_logger.info("platform_currency_res[\"error\"] : #{platform_currency_res["error"]}") if bot_for_logging?(bot_id) && platform_currency_res["error"].any?
           return Result::Failure.new(*platform_currency_res["error"]) if platform_currency_res["error"].any?
 
           platform_currency = platform_currency_res["result"].find {|key, val| key == currency || val["altname"] == currency }&.first
           balance = balances_res["result"].find {|key, _| key == platform_currency}&.second
-          bot_logger.info("platform_currency: #{platform_currency}") if bot_for_logging?(bot_id)
-          bot_logger.info("balance: #{balance}") if bot_for_logging?(bot_id)
-          bot_logger.info("balance type: #{balance.class}") if bot_for_logging?(bot_id)
-          bot_logger.info("balance try to_f: #{balance.to_f}") if bot_for_logging?(bot_id)
 
           Result::Success.new(balance)
         rescue StandardError => e
@@ -75,14 +63,6 @@ module ExchangeApi
         end
 
         private
-
-        def bot_logger
-          @bot_logger ||= Logger.new('log/bot_logger.log')
-        end
-
-        def bot_for_logging?(id)
-          @bot_for_logging ||= [15096, 11305].include?(id)
-        end
 
         def place_order(order_params)
           Rails.logger.info "Placing kraken order: #{order_params}"
