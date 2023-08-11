@@ -41,32 +41,34 @@ const DashboardTemplate = ({
     loadBots(shouldOpenFirstBot, page)
   }, [page,])
 
-  useEffect(() => {
-    const webhookBotsCount = bots.filter(bot => bot.bot_type === 'webhook').length || 0;
-
-    if(webhookBotsCount){
-      const eventSource = new EventSource('/api/webhook_bots_data');
-
-      eventSource.onmessage = (event) => {
-        try {
-          let response = $.parseJSON(event.data)
-          botReloaded(response)
-        }catch (error) {
-          console.error('EventSource failed:', error);
-          eventSource.close();
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('EventSource failed:', error);
-        eventSource.close();
-      };
-
-      return () => {
-        eventSource.close();
-      };
-    }
-  }, [bots]);
+  // # SSE turn off !
+  // useEffect(() => {
+  //   const webhookBotsCount = bots.filter(bot => bot.bot_type === 'webhook').length || 0;
+  //
+  //   if(webhookBotsCount){
+  //     const eventSource = new EventSource('/api/webhook_bots_data');
+  //
+  //     eventSource.onmessage = (event) => {
+  //       try {
+  //         let response = $.parseJSON(event.data)
+  //         botReloaded(response)
+  //       }catch (error) {
+  //         console.error('EventSource failed:', error);
+  //         eventSource.close();
+  //       }
+  //     };
+  //
+  //     eventSource.onerror = (error) => {
+  //       console.error('EventSource failed:', error);
+  //       eventSource.close();
+  //     };
+  //
+  //     return () => {
+  //       eventSource.close();
+  //     };
+  //   }
+  // }, [bots]);
+  // # SSE turn off !
 
   const fetchExchanges = (type) => {
     API.getExchanges(type).then(data => setExchanges(data.data))
