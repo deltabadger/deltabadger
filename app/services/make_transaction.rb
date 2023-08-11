@@ -77,14 +77,6 @@ class MakeTransaction < BaseService
 
   private
 
-  def bot_logger
-    @bot_logger ||= Logger.new('log/bot_logger.log')
-  end
-
-  def bot_for_logging?(id)
-    @bot_for_logging ||= [15096, 11305].include?(id)
-  end
-
   def send_user_to_sendgrid(bot)
     return unless bot.successful_transaction_count == 1
     api = get_api(bot)
@@ -93,16 +85,10 @@ class MakeTransaction < BaseService
 
   def check_allowable_balance(api, bot, price = nil, notify = true)
     price = fixing_transaction?(price) ? price.to_f : bot.price.to_f
-    balance = api.currency_balance(bot.quote, bot.id)
-    bot_logger.info("balance") if bot_for_logging?(bot.id)
-    bot_logger.info(balance) if bot_for_logging?(bot.id)
+    balance = api.currency_balance(bot.quote)
     return unless balance.success?
 
     amount_needed = calculate_amount_needed(bot.interval, price, bot.force_smart_intervals)
-    bot_logger.info("amount_needed: #{amount_needed}") if bot_for_logging?(bot.id)
-    bot_logger.info("try balance.data.to_f: #{balance.data.to_f}") if bot_for_logging?(bot.id)
-    bot_logger.info("balance.data type: #{balance.data.class}") if bot_for_logging?(bot.id)
-    bot_logger.info("balance.data.to_f < amount_needed: #{balance.data.to_f < amount_needed}") if bot_for_logging?(bot.id)
     @notifications.end_of_funds(bot: bot) if balance.data.to_f < amount_needed && notify
   end
 
