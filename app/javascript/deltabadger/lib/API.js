@@ -126,6 +126,7 @@ const API = {
   updateTradingBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
+      bot_type: params.botType,
       order_type: params.order_type,
       price: params.price,
       percentage: params.percentage,
