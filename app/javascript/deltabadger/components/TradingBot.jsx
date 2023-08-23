@@ -133,6 +133,7 @@ const BotTemplate = ({
     if (disableSubmit) return
 
     const botParams = {
+      botType: 'free',
       order_type: type,
       interval,
       id: bot.id,
@@ -296,7 +297,7 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
-          
+
           {isStarting && <StartingButton/>}
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
@@ -304,7 +305,7 @@ const BotTemplate = ({
           <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}
                        setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} newSettings={newSettings()}/>}
           <div className={`db-bot__infotext text-${colorClass}`}>
-            
+
             <div className="db-bot__infotext__left">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <path stroke="#2948A1" strokeLinecap="round" strokeWidth="2" d="M4 16h3.5c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5h3c.3 0 .5-.2.5-.5v-3c0-.3.2-.5.5-.5H16"/>
