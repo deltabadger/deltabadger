@@ -1,8 +1,8 @@
-class TransactionsDailyRepository < BaseRepository
+class DailyTransactionAggregateRepository < BaseRepository
   BTC = %w[XXBT XBT BTC].freeze
 
   def for_bot(bot, limit: nil)
-    bot.transactions_daily.limit(limit).order(id: :desc)
+    bot.daily_transaction_aggregates.limit(limit).order(id: :desc)
   end
 
   def today_for_bot(bot)
@@ -10,7 +10,7 @@ class TransactionsDailyRepository < BaseRepository
   end
 
   def for_bot_by_status(bot, limit: nil, status: :success)
-    bot.transactions_daily.where(status: status).limit(limit).order(created_at: :desc)
+    bot.daily_transaction_aggregates.where(status: status).limit(limit).order(created_at: :desc)
   end
 
   def count_by_status_and_exchange(status, exchange)
@@ -27,13 +27,13 @@ class TransactionsDailyRepository < BaseRepository
 
   def total_btc_bought_day_ago
     model.joins(:bot)
-         .where("bots.settings->>'type' = 'buy' AND bots.settings->>'base' IN (?) AND transaction_dailies.created_at < ? ",
+         .where("bots.settings->>'type' = 'buy' AND bots.settings->>'base' IN (?) AND daily_transaction_aggregates.created_at < ? ",
                 BTC, 1.days.ago)
          .sum(:amount).ceil(8)
   end
 
   def model
-    TransactionDaily
+    DailyTransactionAggregate
   end
 
   private

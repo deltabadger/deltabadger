@@ -1,6 +1,6 @@
-class CreateTransactionDailies < ActiveRecord::Migration[5.2]
+class CreateDailyTransactionAggregates < ActiveRecord::Migration[5.2]
   def change
-    create_table :transaction_dailies do |t|
+    create_table :daily_transaction_aggregates do |t|
       t.references :bot, foreign_key: true
       t.string :offer_id
       t.decimal :rate
@@ -16,8 +16,8 @@ class CreateTransactionDailies < ActiveRecord::Migration[5.2]
       t.timestamps
     end
 
-    add_index :transaction_dailies, [:bot_id, :transaction_type, :created_at], name: 'dailies_index_bot_type_created_at'
-    add_index :transaction_dailies, [:bot_id, :created_at]
-    add_index :transaction_dailies, [:bot_id, :status, :created_at]
+    add_index :daily_transaction_aggregates, [:bot_id, :transaction_type, :created_at], name: 'dailies_index_bot_type_created_at'
+    add_index :daily_transaction_aggregates, [:bot_id, :created_at]
+    add_index :daily_transaction_aggregates, [:bot_id, :status, :created_at], name: 'dailies_index_status_created_at'
   end
 end

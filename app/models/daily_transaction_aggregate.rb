@@ -1,4 +1,4 @@
-class TransactionDaily < ApplicationRecord
+class DailyTransactionAggregate < ApplicationRecord
   belongs_to :bot
   enum currency: %i[USD EUR PLN]
   enum status: %i[success failure skipped]

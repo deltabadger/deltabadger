@@ -1,8 +1,8 @@
-desc 'rake task to transfer data from the transactions table to the transactions_daily table'
+desc 'rake task to transfer data from the transactions table to the daily_transaction_aggregates table'
 task migrate_transactions_to_daily: :environment do
   p "! "*5+'Start script to create TransactionsDaily records'+" !"*5
 
-  transactions_daily_repository = TransactionsDailyRepository.new
+  daily_transaction_aggregates_repository = DailyTransactionAggregateRepository.new
 
   transactions_grouped = Transaction.success.group_by { |transaction| [transaction.bot_id, transaction.created_at.to_date] }
 
@@ -11,12 +11,12 @@ task migrate_transactions_to_daily: :environment do
   transactions_grouped.each_with_index do |(_, transactions), index|
     p "Start of creating record ##{index+1}"
 
-    transaction_daily_data = transactions.last.attributes.except('id')
+    daily_transaction_aggregate_data = transactions.last.attributes.except('id')
     daily_rate = transactions.sum(&:rate)/transactions.count
     daily_amount = transactions.sum(&:amount)
-    transaction_daily_data.merge!("rate" => daily_rate, "amount" => daily_amount)
+    daily_transaction_aggregate_data.merge!("rate" => daily_rate, "amount" => daily_amount)
 
-    transactions_daily_repository.create(transaction_daily_data)
+    daily_transaction_aggregates_repository.create(daily_transaction_aggregate_data)
 
     p "Record ##{index+1} was successfully created"
   end

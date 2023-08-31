@@ -88,6 +88,27 @@ ActiveRecord::Schema.define(version: 2023_08_29_110349) do
     t.index ["currency"], name: "index_conversion_rates_on_currency", unique: true
   end
 
+  create_table "daily_transaction_aggregates", force: :cascade do |t|
+    t.bigint "bot_id"
+    t.string "offer_id"
+    t.decimal "rate"
+    t.decimal "amount"
+    t.string "market"
+    t.integer "status"
+    t.integer "currency"
+    t.string "error_messages", default: "[]"
+    t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
+    t.string "bot_interval", default: "", null: false
+    t.string "transaction_type", default: "REGULAR", null: false
+    t.string "called_bot_type"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
+    t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
+    t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
+    t.index ["bot_id"], name: "index_daily_transaction_aggregates_on_bot_id"
+  end
+
   create_table "exchanges", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false
@@ -167,27 +188,6 @@ ActiveRecord::Schema.define(version: 2023_08_29_110349) do
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
-  create_table "transaction_dailies", force: :cascade do |t|
-    t.bigint "bot_id"
-    t.string "offer_id"
-    t.decimal "rate"
-    t.decimal "amount"
-    t.string "market"
-    t.integer "status"
-    t.integer "currency"
-    t.string "error_messages", default: "[]"
-    t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
-    t.string "bot_interval", default: "", null: false
-    t.string "transaction_type", default: "REGULAR", null: false
-    t.string "called_bot_type"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["bot_id", "created_at"], name: "index_transaction_dailies_on_bot_id_and_created_at"
-    t.index ["bot_id", "status", "created_at"], name: "index_transaction_dailies_on_bot_id_and_status_and_created_at"
-    t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
-    t.index ["bot_id"], name: "index_transaction_dailies_on_bot_id"
-  end
-
   create_table "transactions", force: :cascade do |t|
     t.bigint "bot_id"
     t.string "offer_id"
@@ -252,11 +252,11 @@ ActiveRecord::Schema.define(version: 2023_08_29_110349) do
   add_foreign_key "api_keys", "users"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
-  add_foreign_key "transaction_dailies", "bots"
   add_foreign_key "transactions", "bots"
   add_foreign_key "users", "affiliates", column: "referrer_id"
 
