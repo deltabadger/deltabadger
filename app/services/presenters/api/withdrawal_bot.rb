@@ -10,8 +10,9 @@ module Presenters
       end
 
       def call(bot)
-        transactions = bot.transactions.where(status: 'success').order(created_at: :desc)
-        skipped_transactions = bot.transactions.where(status: 'skipped').order(created_at: :desc)
+        transactions = bot.transactions.where(status: 'success').order(created_at: :desc).first(10)
+        transactions_daily = bot.transactions_daily.order(created_at: :desc)
+        skipped_transactions = bot.transactions.where(status: 'skipped').order(created_at: :desc).first(10)
         logs = bot.transactions.order(id: :desc).first(10)
 
         {
@@ -21,10 +22,10 @@ module Presenters
           exchangeName: bot.exchange.name,
           exchangeId: bot.exchange.id,
           status: bot.status,
-          transactions: transactions.first(10).map(&method(:present_transaction)),
-          skippedTransactions: skipped_transactions.first(10).map(&method(:present_transaction)),
+          transactions: transactions.map(&method(:present_transaction)),
+          skippedTransactions: skipped_transactions.map(&method(:present_transaction)),
           logs: logs.map(&method(:present_log)),
-          totalWithdrawn: total_withdrawn(transactions),
+          totalWithdrawn: total_withdrawn(transactions_daily),
           progressPercentage: get_progress_percentage(bot),
           nowTimestamp: Time.now.to_i,
           nextTransactionTimestamp: next_transaction_timestamp(bot)
