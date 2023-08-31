@@ -3,7 +3,7 @@ class Transaction < ApplicationRecord
   enum currency: %i[USD EUR PLN]
   enum status: %i[success failure skipped]
 
-  after_create :set_transaction_daily
+  after_create :set_daily_transaction_aggregate
 
   validates :bot, presence: true
 
@@ -19,16 +19,16 @@ class Transaction < ApplicationRecord
 
   private
 
-  def set_transaction_daily
+  def set_daily_transaction_aggregate
     return unless success?
 
     transactions_repository = TransactionsRepository.new
-    transactions_daily_repository = TransactionsDailyRepository.new
-    transaction_daily = transactions_daily_repository.today_for_bot(bot).first
-    return transactions_daily_repository.create(attributes.except('id')) unless transaction_daily
+    daily_transaction_aggregates_repository = DailyTransactionAggregateRepository.new
+    daily_transaction_aggregate = daily_transaction_aggregates_repository.today_for_bot(bot).first
+    return daily_transaction_aggregates_repository.create(attributes.except('id')) unless daily_transaction_aggregate
 
     bot_transactions = transactions_repository.today_for_bot(bot)
-    transaction_daily_new_data = {rate: bot_transactions.sum(&:rate)/bot_transactions.count, amount: bot_transactions.sum(&:amount)}
-    transactions_daily_repository.update(transaction_daily.id, transaction_daily_new_data)
+    daily_transaction_aggregate_new_data = {rate: bot_transactions.sum(&:rate)/bot_transactions.count, amount: bot_transactions.sum(&:amount)}
+    daily_transaction_aggregates_repository.update(daily_transaction_aggregate.id, daily_transaction_aggregate_new_data)
   end
 end
