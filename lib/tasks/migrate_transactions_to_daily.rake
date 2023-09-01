@@ -26,7 +26,7 @@ def process_daily_transactions(date, daily_transactions, repo)
   daily_amount = daily_transactions.sum(&:amount)
 
   attributes = daily_transactions.last.attributes.except('id')
-  daily_transaction_aggregate_data = attributes.merge("rate" => daily_rate, "amount" => daily_amount, "created_at" => da>
+  daily_transaction_aggregate_data = attributes.merge("rate" => daily_rate, "amount" => daily_amount, "created_at" => date)
 
   repo.create(daily_transaction_aggregate_data)
 end
