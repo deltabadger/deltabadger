@@ -16,7 +16,7 @@ module Charts::PortfolioValueOverTime
             rate * amount as invested,
             rate,
             amount
-          from transactions
+          from daily_transaction_aggregates
           where bot_id = ? and status = 0
         )
 

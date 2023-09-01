@@ -1,0 +1,17 @@
+class DailyTransactionAggregate < ApplicationRecord
+  belongs_to :bot
+  enum currency: %i[USD EUR PLN]
+  enum status: %i[success failure skipped]
+
+  validates :bot, presence: true
+
+  def get_errors
+    JSON.parse(error_messages)
+  end
+
+  def price
+    return 0.0 unless rate.present?
+
+    amount * rate
+  end
+end
