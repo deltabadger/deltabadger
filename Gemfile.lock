@@ -508,6 +508,7 @@ DEPENDENCIES
   listen (>= 3.0.5, < 3.2)
   lol_dba
   nio4r (= 2.5.9)
+  parallel
   pg (>= 0.18, < 2.0)
   puma (~> 5.6)
   rack (= 2.2.6.4)
