@@ -2,6 +2,7 @@ class Bot < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
   has_many :transactions, dependent: :destroy
+  has_many :daily_transaction_aggregates
   scope :without_deleted, -> { where.not(status: 'deleted') }
 
   STATES = %i[created working stopped deleted pending].freeze
