@@ -13,10 +13,6 @@ class DailyTransactionAggregateRepository < BaseRepository
     bot.daily_transaction_aggregates.where(status: status).limit(limit).order(created_at: :desc)
   end
 
-  def exists?(bot_id, date)
-    model.where(bot_id: bot_id, created_at: date.beginning_of_day..date.end_of_day).any?
-  end
-
   def count_by_status_and_exchange(status, exchange)
     model.joins(:bot).where(bots: { exchange_id: exchange.id }).where(status: status).count
   end
