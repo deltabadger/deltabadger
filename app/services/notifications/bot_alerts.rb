@@ -65,10 +65,14 @@ module Notifications
     end
 
     def end_of_funds(bot:)
+      return if bot.last_end_of_funds_notification && bot.last_end_of_funds_notification > 1.day.ago
+
+      bot.update(last_end_of_funds_notification: DateTime.now)
+
       BotAlertsMailer.with(
-          bot: bot,
-          user: bot.user,
-          quote: bot.quote
+        bot: bot,
+        user: bot.user,
+        quote: bot.quote
       ).end_of_funds.deliver_later
     end
 
