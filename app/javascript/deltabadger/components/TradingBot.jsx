@@ -494,9 +494,7 @@ const BotTemplate = ({
               { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }
               { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
             </div>
-
           </label>
-
 
           <label
             className="alert alert-primary"
@@ -519,7 +517,6 @@ const BotTemplate = ({
                 disabled={working || !showLimitOrders}
                 size={Math.max(priceRange.low.length, 1)}
               />
-
               <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[1]}</RawHTML>
               <input
                 type="text"
@@ -533,9 +530,7 @@ const BotTemplate = ({
               { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
             </div>
           </label>
-
         </form>
-
       </div>
 
       }
