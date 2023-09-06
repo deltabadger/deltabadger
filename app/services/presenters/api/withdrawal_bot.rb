@@ -10,10 +10,10 @@ module Presenters
       end
 
       def call(bot)
-        transactions = bot.transactions.where(status: 'success').order(created_at: :desc).first(10)
+        transactions = bot.transactions.where(status: 'success').limit(10).order(created_at: :desc)
         daily_transaction_aggregates = bot.daily_transaction_aggregates.order(created_at: :desc)
-        skipped_transactions = bot.transactions.where(status: 'skipped').order(created_at: :desc).first(10)
-        logs = bot.transactions.order(id: :desc).first(10)
+        skipped_transactions = bot.transactions.where(status: 'skipped').limit(10).order(created_at: :desc)
+        logs = bot.transactions.limit(10).order(id: :desc)
 
         {
           id: bot.id,
