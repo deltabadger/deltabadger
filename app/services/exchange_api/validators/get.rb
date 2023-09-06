@@ -30,6 +30,8 @@ module ExchangeApi
           Kraken::Validator.new
         when 'coinbase pro'
           CoinbasePro::Validator.new
+        when 'coinbase'
+          Coinbase::Validator.new
         when 'gemini'
           Gemini::Validator.new
         when 'ftx'
