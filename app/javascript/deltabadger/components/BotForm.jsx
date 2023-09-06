@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import API from '../lib/API'
 import I18n from 'i18n-js'
-import { PickExchage } from './BotForm/PickExchange';
+import { PickExchange } from './BotForm/PickExchange';
 import { ConfigureTradingBot } from './BotForm/ConfigureTradingBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { Details } from './BotForm/Details';
@@ -266,7 +266,7 @@ export const BotForm = ({
           showWebhookButton={isHodler || isLegendaryBadger}
           />
       case 'pick_exchange':
-        return <PickExchage
+        return <PickExchange
           handleReset={() => {
             setStep(0)
             callbackAfterClosing()
