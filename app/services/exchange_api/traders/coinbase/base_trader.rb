@@ -3,55 +3,61 @@ require 'result'
 # rubocop#disable Style/StringLiterals
 module ExchangeApi
   module Traders
-    module CoinbasePro
+    module Coinbase
       class BaseTrader < ExchangeApi::Traders::BaseTrader
-        include ExchangeApi::Clients::CoinbasePro
+        include ExchangeApi::Clients::Coinbase
 
         def initialize(
           api_key:,
           api_secret:,
-          passphrase:,
-          market: ExchangeApi::Markets::CoinbasePro::Market.new,
-          map_errors: ExchangeApi::MapErrors::CoinbasePro.new
+          market: ExchangeApi::Markets::Coinbase::Market.new,
+          map_errors: ExchangeApi::MapErrors::Coinbase.new
         )
           @api_key = api_key
           @api_secret = api_secret
-          @passphrase = passphrase
           @market = market
           @map_errors = map_errors
         end
 
-        API_URL = 'https://api.pro.coinbase.com'.freeze
+        API_URL = 'https://api.coinbase.com'.freeze
 
         def fetch_order_by_id(order_id)
-          path = "/orders/#{order_id}".freeze
+          path = "/api/v3/brokerage/orders/historical/#{order_id}".freeze
           url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
-          response = JSON.parse(request.body)
+          response = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
 
-          return Result::Failure.new('Waiting for Coinbase Pro response', **NOT_FETCHED) unless order_done?(request, response)
-          return error_to_failure(['Order was canceled']) if canceled?(response)
+          Rails.logger.info "Response status: #{response.status}"
+          Rails.logger.info "Response body: #{response.body}"
 
-          amount = response.fetch('filled_size').to_f
-          return Result::Failure.new('Waiting for Coinbase Pro response', **NOT_FETCHED) unless filled?(amount)
+          if response.status.between?(200, 299)
+            parsed_response = JSON.parse(response.body)
+            amount = parsed_response.dig("order", "filled_size")&.to_f
+            if amount.nil?
+              raise "Waiting for Coinbase response" unless filled?(amount)
+            end
 
-          Result::Success.new(
-            offer_id: order_id,
-            amount: amount,
-            rate: (response.fetch('executed_value').to_f / amount)
-          )
+            Result::Success.new(
+              offer_id: order_id,
+              amount: amount,
+              rate: (parsed_response.dig("order", "filled_value").to_f / amount)
+            )
+          else
+            Raven.capture_exception(StandardError.new("Unexpected response status: #{response.status}"))
+            Result::Failure.new('Could not fetch order parameters from Coinbase')
+          end
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not fetch order parameters from Coinbase Pro')
+          Result::Failure.new('Could not fetch order parameters from Coinbase')
         end
+
 
         private
 
         def place_order(order_params)
-          path = '/orders'.freeze
+          path = '/api/v3/brokerage/orders'.freeze
           url = API_URL + path
           body = order_params.to_json
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
+          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -97,17 +103,17 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-          if success?(request)
-            order_id = response.fetch('id')
-
+          Rails.logger.info "Coinbase parse_request #{response.to_json}"
+          if order_done?(request, response)
+            order_id = response.fetch('order_id')
             Result::Success.new(offer_id: order_id)
           else
-            error_to_failure([response.fetch('message')])
+            error_to_failure([response['error_response']['message']])
           end
         end
 
         def order_done?(request, response)
-          success?(request) && response.fetch('status') == 'done'
+          success?(request) && response['success']
         end
 
         def success?(request)

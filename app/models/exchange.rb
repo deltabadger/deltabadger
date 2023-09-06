@@ -8,6 +8,7 @@ class Exchange < ApplicationRecord
              when 'zonda' then ExchangeApi::Markets::Zonda::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              when 'coinbase pro' then ExchangeApi::Markets::CoinbasePro::Market.new
+             when 'coinbase' then ExchangeApi::Markets::Coinbase::Market.new
              when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
              when 'ftx' then ExchangeApi::Markets::Ftx::Market.new(url_base: FTX_EU_URL_BASE)
              when 'ftx.us' then ExchangeApi::Markets::Ftx::Market.new(url_base: FTX_US_URL_BASE)
