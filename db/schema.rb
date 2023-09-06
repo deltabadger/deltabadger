@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2023_08_29_110349) do
+ActiveRecord::Schema.define(version: 2023_09_06_115159) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -76,6 +76,7 @@ ActiveRecord::Schema.define(version: 2023_08_29_110349) do
     t.datetime "settings_changed_at"
     t.integer "fetch_restarts", default: 0, null: false
     t.decimal "account_balance", default: "0.0"
+    t.datetime "last_end_of_funds_notification"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
@@ -107,6 +108,7 @@ ActiveRecord::Schema.define(version: 2023_08_29_110349) do
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
     t.index ["bot_id"], name: "index_daily_transaction_aggregates_on_bot_id"
+    t.index ["created_at"], name: "index_daily_transaction_aggregates_on_created_at"
   end
 
   create_table "exchanges", force: :cascade do |t|
@@ -207,6 +209,7 @@ ActiveRecord::Schema.define(version: 2023_08_29_110349) do
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
+    t.index ["created_at"], name: "index_transactions_on_created_at"
   end
 
   create_table "users", force: :cascade do |t|
