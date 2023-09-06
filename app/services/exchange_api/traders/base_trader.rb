@@ -23,6 +23,7 @@ module ExchangeApi
       protected
 
       def error_to_failure(error)
+        Rails.logger.error "Coinbase error #{error.to_json}"
         mapped_error = @map_errors.call(error)
         Result::Failure.new(
           *mapped_error.message, data: { recoverable: mapped_error.recoverable }
