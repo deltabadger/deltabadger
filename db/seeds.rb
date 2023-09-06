@@ -13,9 +13,12 @@ Exchange.find_or_create_by!(name: 'Bitfinex')
 Exchange.find_or_create_by!(name: 'Bitstamp')
 Exchange.find_or_create_by!(name: 'ProBit Global')
 
+COINBASE_API_KEY = ENV.fetch('COINBASE_API_KEY').freeze
+COINBASE_API_SECRET = ENV.fetch('COINBASE_API_SECRET').freeze
+
 FeeApiKey.find_or_create_by!(exchange: Exchange.find_or_create_by!(name: 'Coinbase'))
-FeeApiKey.update(key: 'coinbase_key')
-FeeApiKey.update(secret: 'coinbase_secret')
+FeeApiKey.update(key: COINBASE_API_KEY)
+FeeApiKey.update(secret: COINBASE_API_SECRET)
 
 _saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 1200)
 investor = SubscriptionPlan.find_or_create_by!(name: 'investor', cost_eu: 49.99, cost_other: 49.99, unlimited: true, years: 1, credits: 1200)

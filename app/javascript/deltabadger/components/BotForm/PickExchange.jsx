@@ -3,7 +3,7 @@ import { ExchangeButton } from '../buttons'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
-export const PickExchage = ({ handleSubmit, exchanges, type }) => {
+export const PickExchange = ({ handleSubmit, exchanges, type }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
