@@ -13,10 +13,17 @@ module Presenters
         market_symbol = market.symbol(bot.base, bot.quote)
         current_price_result = market.current_price(market_symbol)
         current_price = current_price_result.or(transactions.last.rate)
-        transactions_amount_sum = transactions.sum(&:amount)
-        total_invested = transactions.sum(&:price).ceil(8)
 
-        average_price =  total_invested / transactions_amount_sum
+        transactions_amount_sum = 0
+        total_invested = 0
+
+        transactions.each do |transaction|
+          transactions_amount_sum += transaction.amount
+          total_invested += transaction.price
+        end
+
+        total_invested = total_invested.ceil(8)
+        average_price = total_invested / transactions_amount_sum
         current_value = current_price * transactions_amount_sum
 
         {
@@ -41,14 +48,15 @@ module Presenters
 
       def profit_loss_format(current_value, total_invested)
         profit_loss = current_value - total_invested
-        profit_loss_percentage = (1 - current_value / total_invested) * 100
+        profit_loss_percentage = ((1 - current_value / total_invested) * 100).floor(2)
 
-        positive = !profit_loss.negative? # 0 is not negative also
+        positive = profit_loss >= 0
+        sign = positive ? '+' : '-'
 
         {
           positive: positive,
-          value: "#{positive ? '+' : '-'}#{profit_loss.floor(8).abs}",
-          percentage: "(#{positive ? '+' : '-'}#{profit_loss_percentage.floor(2).abs}%)"
+          value: "#{sign}#{profit_loss.abs.floor(8)}",
+          percentage: "(#{sign}#{profit_loss_percentage.abs}%)"
         }
       end
     end
