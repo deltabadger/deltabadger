@@ -20,7 +20,7 @@ export const exchanges = {
       translation_key: 'kraken',
   },
   'coinbase pro': {
-    name: 'Coinbase Pro (deprecated)',
+    name: 'Coinbase Pro',
     url: 'https://pro.coinbase.com/',
     translation_key: 'coinbase_pro',
   },
