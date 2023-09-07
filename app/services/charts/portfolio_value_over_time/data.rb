@@ -23,7 +23,7 @@ module Charts::PortfolioValueOverTime
             created_at,
             sum(invested) over (order by created_at asc rows between unbounded preceding and current row) as total_invested,
             sum(amount) over (order by created_at asc rows between unbounded preceding and current row) as total_accumulated,
-            first_value(rate) over (order by created_at asc rows between unbounded preceding and current row) as rate
+            rate
           from data
         )
 
