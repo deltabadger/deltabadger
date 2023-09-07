@@ -292,6 +292,8 @@ GEM
     net-smtp (0.3.3)
       net-protocol
     nio4r (2.5.9)
+    nokogiri (1.15.4-arm64-darwin)
+      racc (~> 1.4)
     nokogiri (1.15.4-x86_64-darwin)
       racc (~> 1.4)
     nokogiri (1.15.4-x86_64-linux)
@@ -353,7 +355,8 @@ GEM
     rb-inotify (0.10.1)
       ffi (~> 1.0)
     recaptcha (5.15.0)
-    redis (4.8.1)
+    redis-client (0.17.0)
+      connection_pool
     regexp_parser (2.8.1)
     responders (3.1.0)
       actionpack (>= 5.2)
@@ -425,10 +428,11 @@ GEM
     sentry-raven (3.1.2)
       faraday (>= 1.0)
     shellany (0.0.1)
-    sidekiq (6.5.9)
-      connection_pool (>= 2.2.5, < 3)
-      rack (~> 2.0)
-      redis (>= 4.5.0, < 5)
+    sidekiq (7.1.2)
+      concurrent-ruby (< 2)
+      connection_pool (>= 2.3.0)
+      rack (>= 2.2.4)
+      redis-client (>= 0.14.0)
     sidekiq-prometheus-exporter (0.2.0)
       rack (>= 1.6.0)
       sidekiq (>= 4.1.0)
@@ -488,6 +492,7 @@ GEM
     zeitwerk (2.6.11)
 
 PLATFORMS
+  arm64-darwin-23
   x86_64-darwin-21
   x86_64-linux
 
@@ -541,7 +546,7 @@ DEPENDENCIES
   securerandom
   selenium-webdriver
   sentry-raven
-  sidekiq (~> 6.5)
+  sidekiq (~> 7.1)
   sidekiq-limit_fetch!
   sidekiq-prometheus-exporter (~> 0.1)
   spring
