@@ -14,6 +14,7 @@ module Charts::PortfolioValueOverTime
           select
             created_at,
             rate * amount as invested,
+            rate,
             amount
           from daily_transaction_aggregates
           where bot_id = ? and status = 0
@@ -26,7 +27,7 @@ module Charts::PortfolioValueOverTime
             rate
           from data
         )
-
+        
         select
           created_at,
           total_invested,
@@ -35,6 +36,7 @@ module Charts::PortfolioValueOverTime
         from windowed_data
       SQL
     end
+
 
 
     def present_data
