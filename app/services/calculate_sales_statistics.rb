@@ -3,13 +3,29 @@ class CalculateSalesStatistics < BaseService
     @paid_payments = Payment.where(status: 'paid').includes(:user)
     @vat_rates = VatRate.pluck(:country, :vat).to_h
 
-    total_sum = sum_of_paid_payments
-    sum_of_first_month = sum_of_nth_month(0)
-    sum_of_second_month = sum_of_nth_month(1)
-    sum_of_third_month = sum_of_nth_month(2)
-    rest = total_sum - (sum_of_first_month + sum_of_second_month + sum_of_third_month)
+    total_sum = 0
+    sum_of_first_month = 0
+    sum_of_second_month = 0
+    sum_of_third_month = 0
+
+    @paid_payments.each do |payment|
+      next unless payment.total.present?
+
+      usd_value = usd_netto_value(payment)
+      total_sum += usd_value
+
+      user_created_at = payment.user.created_at
+      payment_month = payment.paid_at.month
+      payment_year = payment.paid_at.year
+
+      sum_of_first_month += usd_value if user_created_at.month == payment_month && user_created_at.year == payment_year
+      sum_of_second_month += usd_value if user_created_at.month + 1 == payment_month && user_created_at.year == payment_year
+      sum_of_third_month += usd_value if user_created_at.month + 2 == payment_month && user_created_at.year == payment_year
+    end
 
     total_sum = total_sum.nonzero? || 1
+    rest = total_sum - (sum_of_first_month + sum_of_second_month + sum_of_third_month)
+
     {
       first: get_percentage(sum_of_first_month / total_sum),
       second: get_percentage(sum_of_second_month / total_sum),
