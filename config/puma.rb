@@ -21,7 +21,7 @@ environment ENV.fetch("RAILS_ENV") { "development" }
 # Workers do not work on JRuby or Windows (both of which do not support
 # processes).
 #
-workers ENV.fetch("WEB_CONCURRENCY") { 2 }
+workers ENV.fetch("WEB_CONCURRENCY") { 8 }
 
 # Use the `preload_app!` method when specifying a `workers` number.
 # This directive tells Puma to first boot the application and load code
@@ -39,11 +39,13 @@ on_worker_boot do
 end
 
 # Use a more reasonable timeout for general web requests
-worker_timeout 52 # 52 seconds to recognize which timout is in play
+worker_timeout 60 # 52 seconds to recognize which timout is in play
 
 # For Keep-Alive connections, use a shorter timeout.
 # This is typically enough for most web applications and avoids hogging connections.
-persistent_timeout 22 # 22 seconds to recognize which timout is in play
+persistent_timeout 59 # 22 seconds to recognize which timout is in play
 
 # Allow puma to be restarted by `rails restart` command.
 plugin :tmp_restart
+
+ENV['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
