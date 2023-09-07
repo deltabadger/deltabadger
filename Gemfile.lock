@@ -355,6 +355,8 @@ GEM
     rb-inotify (0.10.1)
       ffi (~> 1.0)
     recaptcha (5.15.0)
+    redis (5.0.7)
+      redis-client (>= 0.9.0)
     redis-client (0.17.0)
       connection_pool
     regexp_parser (2.8.1)
@@ -428,11 +430,10 @@ GEM
     sentry-raven (3.1.2)
       faraday (>= 1.0)
     shellany (0.0.1)
-    sidekiq (7.1.2)
-      concurrent-ruby (< 2)
-      connection_pool (>= 2.3.0)
-      rack (>= 2.2.4)
-      redis-client (>= 0.14.0)
+    sidekiq (6.5.0)
+      connection_pool (>= 2.2.2)
+      rack (~> 2.0)
+      redis (>= 4.2.0)
     sidekiq-prometheus-exporter (0.2.0)
       rack (>= 1.6.0)
       sidekiq (>= 4.1.0)
@@ -546,7 +547,7 @@ DEPENDENCIES
   securerandom
   selenium-webdriver
   sentry-raven
-  sidekiq (~> 7.1)
+  sidekiq (~> 6.5)
   sidekiq-limit_fetch!
   sidekiq-prometheus-exporter (~> 0.1)
   spring
