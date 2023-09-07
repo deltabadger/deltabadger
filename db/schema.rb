@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2023_09_06_115159) do
+ActiveRecord::Schema.define(version: 2023_09_07_145250) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -104,6 +104,9 @@ ActiveRecord::Schema.define(version: 2023_09_06_115159) do
     t.string "called_bot_type"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "total_amount", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "total_value", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "total_invested", precision: 20, scale: 10, default: "0.0", null: false
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
