@@ -5,8 +5,8 @@ module Presenters
         @get_exchange_market = get_markets
       end
 
-      def call(bot:, transactions:)
-        return {} if transactions.empty?
+      def call(bot:, daily_transaction_aggregates:)
+        return {} if daily_transaction_aggregates.empty?
 
         market = @get_exchange_market.call(bot.exchange_id)
 
@@ -20,7 +20,7 @@ module Presenters
         current_value = current_price * transactions_amount_sum
 
         {
-          bought: bought_format(transactions_amount_sum),
+          bought: bought_format(total_amount),
           totalInvested: price_format(total_invested),
           averagePrice: price_format(average_price),
           currentValue: price_format(current_value),
