@@ -5,7 +5,7 @@ failed_bot_ids = []
 desc 'rake task to calculate historical total_amount, total_invested, and total_value for all bots'
 task calculate_historical_total_values: :environment do
 
-  unique_bot_ids = DailyTransactionAggregateRepository.select(:bot_id).distinct.pluck(:bot_id)
+  unique_bot_ids = DailyTransactionAggregateRepository.success.select(:bot_id).distinct.pluck(:bot_id)
 
   def optimal_thread_count
     16
