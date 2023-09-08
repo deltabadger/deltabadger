@@ -23,7 +23,6 @@ task calculate_historical_total_values: :environment do
             total_value: ((last_aggregate&.total_amount || 0) + current_aggregate.amount) * current_aggregate.rate
           )
         end
-        puts "Bot #{bot_id} – Success"
       rescue => e
         Rails.logger.error("Failed for bot_id #{bot_id}: #{e}. Backtrace: #{e.backtrace.join("\n")}")
         puts "Bot #{bot_id} - Entry failed: #{e}. Backtrace: #{e.backtrace.join("\n")}"
