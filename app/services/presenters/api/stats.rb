@@ -5,24 +5,29 @@ module Presenters
         @get_exchange_market = get_markets
       end
 
-      def call(bot:, daily_transaction_aggregates:)
-        return {} if daily_transaction_aggregates.empty?
+      def call(bot:, transactions:)
+        return {} if transactions.empty?
 
         market = @get_exchange_market.call(bot.exchange_id)
 
         market_symbol = market.symbol(bot.base, bot.quote)
         current_price_result = market.current_price(market_symbol)
-        last_aggregate = daily_transaction_aggregates.last
-        current_price = current_price_result.or(last_aggregate.rate)
+        current_price = current_price_result.or(transactions.last.rate)
 
-        total_amount = last_aggregate.total_amount
-        total_invested = last_aggregate.total_invested
+        transactions_amount_sum = 0
+        total_invested = 0
 
-        average_price = total_invested / total_amount
-        current_value = last_aggregate.total_value
+        transactions.each do |transaction|
+          transactions_amount_sum += transaction.amount
+          total_invested += transaction.price
+        end
+
+        total_invested = total_invested.ceil(8)
+        average_price = total_invested / transactions_amount_sum
+        current_value = current_price * transactions_amount_sum
 
         {
-          bought: bought_format(total_amount),
+          bought: bought_format(transactions_amount_sum),
           totalInvested: price_format(total_invested),
           averagePrice: price_format(average_price),
           currentValue: price_format(current_value),
