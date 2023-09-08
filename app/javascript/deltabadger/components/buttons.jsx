@@ -13,7 +13,7 @@ export const startButtonType = {
     FAILED: "failed"
 }
 let timeout;
-const NOT_RELEVANT_BOTS = ["FTX", "FTX.US", "Coinbase Pro"];
+const NOT_RELEVANT_BOTS = ["FTX", "FTX.US"];
 
 export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo, exchangeName, newSettings}) => {
   const [isOpen, setOpen] = useState(false)
