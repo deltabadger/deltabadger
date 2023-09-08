@@ -20,7 +20,7 @@ const apiKeyNames = exchangeName => {
 const isPassphraseRequired = exchangeName => {
   return ['Coinbase Pro', 'KuCoin'].includes(exchangeName)
 }
-const NOT_RELEVANT_BOTS = ["FTX", "FTX.US", "Coinbase Pro"];
+const NOT_RELEVANT_BOTS = ["FTX", "FTX.US"];
 
 export const AddApiKey = ({
   pickedExchangeName,
