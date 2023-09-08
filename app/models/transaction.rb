@@ -27,7 +27,7 @@ class Transaction < ApplicationRecord
 
     # get today's and last aggregates
     daily_transaction_aggregate = daily_transaction_aggregates_repository.today_for_bot(bot).first
-    last_aggregate = daily_transaction_aggregate || daily_transaction_aggregates_repository.where(bot: bot).last
+    last_aggregate = daily_transaction_aggregate || daily_transaction_aggregates_repository.model.where(bot: bot).last
 
     # get today's transactions
     bot_transactions = transactions_repository.today_for_bot(bot)
