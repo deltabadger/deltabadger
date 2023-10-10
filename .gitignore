@@ -36,7 +36,6 @@ yarn-debug.log*
 .yarn-integrity
 
 # Ignore IDEs and devtools configs
-.tool-versions
 .idea
 
 # Ignore vendor/bundle
