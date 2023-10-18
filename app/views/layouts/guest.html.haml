@@ -1,7 +1,7 @@
 !!!
 %html.db--guest.db--loggedout{:lang => I18n.locale, :class => "#{yield(:html_class)}", :prefix => "og: http://ogp.me/ns#"}
   %head
-    <script type="text/javascript" src="https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js"></script>
+    -# <script type="text/javascript" src="https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js"></script>
 
     %meta{:charset => "UTF-8"}
     %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
@@ -24,12 +24,9 @@
     .db--guest--bg-bottom
     = render 'layouts/navbar'
 
-
     = yield
 
     = render 'layouts/footer/guest'
-
-    //= render partial: 'layouts/drift'
 
     = javascript_pack_tag 'guest2'
 
@@ -68,7 +65,7 @@
 
       });
 
-      fomo.trigger('start')
+      // fomo.trigger('start')
 
       // input labels
 

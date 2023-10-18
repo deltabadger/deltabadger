@@ -246,9 +246,9 @@
   });
 
   if("#{current_user.subscription_name}" === "saver") {
-    fomo.trigger('start')
+    // fomo.trigger('start')
   } else {
-    fomo.trigger('stop')
+    // fomo.trigger('stop')
   }
   const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
   function subscription_info() {
