@@ -4,7 +4,6 @@ import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { TradingBot } from './TradingBot'
 import { isEmpty } from '../utils/array'
-import { debounce } from 'lodash'
 import {
   startBot,
   openBot,
@@ -71,9 +70,9 @@ const DashboardTemplate = ({
   // }, [bots]);
   // # SSE turn off !
 
-  const fetchExchanges = debounce((type) => {
+  const fetchExchanges = (type) => {
     API.getExchanges(type).then(data => setExchanges(data.data))
-  }, 300); // 300ms delay
+  }
 
   useEffect( () => {
     fetchExchanges('trading')
@@ -182,6 +181,4 @@ const mapDispatchToProps = ({
   botReloaded: botReloaded
 })
 
-const DashboardTemplateMemo = React.memo(DashboardTemplate);
-
-export const Dashboard = connect(mapStateToProps, mapDispatchToProps)(DashboardTemplateMemo);
+export const Dashboard = connect(mapStateToProps, mapDispatchToProps)(DashboardTemplate)
