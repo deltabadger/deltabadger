@@ -28,12 +28,6 @@ module ExchangeApi
         end
       end
 
-      def base_client(url_base)
-        Faraday.new(attributes(url_base)) do |conn|
-          conn.adapter Faraday.default_adapter
-        end
-      end
-
       def caching_client(url_base, expire_time = ENV['DEFAULT_MARKET_CACHING_TIME'])
         Faraday.new(attributes(url_base)) do |builder|
           builder.use :manual_cache,
