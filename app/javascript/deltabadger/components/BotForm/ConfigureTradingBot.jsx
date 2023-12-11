@@ -327,7 +327,6 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 <option value="market_sell">{I18n.t('bots.sell')}</option>
                 <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
                 <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
-                }
               </select>
             </div>
             {isSellOffer()?
