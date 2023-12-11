@@ -24,7 +24,7 @@ bin/webpack-dev-server
 ```
 run the server:
 ```bash
-bundle exec rails s
+rails s
 ```
 run redis server (for bots, metrics and fees service):
 ```bash
