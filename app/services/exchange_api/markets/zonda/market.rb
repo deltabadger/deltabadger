@@ -6,7 +6,7 @@ module ExchangeApi
       class Market < BaseMarket
         include ExchangeApi::Clients::Zonda
 
-        API_URL = 'https://api.zonda.exchange'.freeze
+        API_URL = 'https://api.zondacrypto.exchange'.freeze
 
         def initialize
           @base_client = base_client(API_URL)
@@ -95,7 +95,7 @@ module ExchangeApi
         end
 
         def current_bid_ask_price(symbol)
-          url = "https://api.zonda.exchange/rest/trading/ticker/#{symbol}"
+          url = "https://api.zondacrypto.exchange/rest/trading/ticker/#{symbol}"
           response = JSON.parse(@base_client.get(url).body)
 
           return Result::Failure.new('Could not fetch current price from Zonda', **RECOVERABLE) unless response['status'] == 'Ok'
