@@ -29,7 +29,7 @@ module ExchangeApi
         private
 
         def place_order(symbol, params)
-          url = "https://api.zonda.exchange/rest/trading/offer/#{symbol}"
+          url = "https://api.zondacrypto.exchange/rest/trading/offer/#{symbol}"
           body = params.to_json
           response = JSON.parse(Faraday.post(url, body, headers(@api_key, @api_secret, body)).body)
           parse_response(response)
