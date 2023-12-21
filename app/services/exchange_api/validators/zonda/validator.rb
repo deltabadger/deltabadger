@@ -4,7 +4,7 @@ module ExchangeApi
       class Validator < BaseValidator
         include ExchangeApi::Clients::Zonda
 
-        URL = 'https://api.zonda.exchange/rest/trading/history/transactions'.freeze
+        URL = 'https://api.zondacrypto.exchange/rest/trading/history/transactions'.freeze
 
         def validate_credentials(api_key:, api_secret:)
           request = Faraday.get(URL, {}, headers(api_key, api_secret, ''))
