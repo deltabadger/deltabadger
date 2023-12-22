@@ -1,0 +1,4 @@
+postgres:  bin/postgres-dev
+redis:     redis-server
+webpacker: bin/webpack-dev-server
+sidekiq:   bundle exec sidekiq 
