@@ -13,8 +13,9 @@
 
   %title
     = t('meta.title')
-  %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}/
-  %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
+  %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
+  %link{:href => asset_pack_path("media/images/favicon.ico"), rel: "icon", sizes: "any"}
+  %link{:href => asset_pack_path("media/images/icon.svg"), rel: "icon", type: "image/svg+xml"}
   = stylesheet_pack_tag 'deltabadger2'
   - if user_signed_in?
     %script{:defer => "defer", :src => "https://static.bonjoro.com/js/v1/bonjoro.js"}
