@@ -11,8 +11,11 @@
 
     %title= t('meta.title')
 
-    %link{:href => asset_pack_path("media/images/favicon.png"), :rel => "shortcut icon", :type => "image/png"}
-    %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}/
+    %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
+    
+    %link{:href => asset_pack_path("media/images/favicon.ico"), rel: "icon", sizes: "any"}
+    %link{:href => asset_pack_path("media/images/icon.svg"), rel: "icon", type: "image/svg+xml"}
+    
     = stylesheet_pack_tag 'guest2'
 
     = render 'layouts/content_meta_tags'
