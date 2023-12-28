@@ -1,3 +1,12 @@
+.db-legendary-logo-wrapper {
+  height: 4.9rem;
+  display: flex;
+  align-items: flex-end;
+  svg {
+    overflow: visible;
+  }
+}
+  
 .db--guest {
   .db-logo-svg-shape {
     fill: $textColorInverted;
@@ -62,9 +71,9 @@
   .btn-outline-primary {
     border-color: var(--navbarLink);
   }
-  path {
-    fill:  var(--navbarLink);
-  }
+  // path {
+  //   fill:  var(--navbarLink);
+  // }
   .db-hi-welcome {
     path {
       fill: transparent !important;
@@ -99,7 +108,7 @@
     margin-left: 0;
     svg {
       width: 6.4rem;
-      height: 4.9rem;
+      height: auto;
     }
     .db-hi-welcome {
       svg {
