@@ -49,3 +49,18 @@ You can run test automatically using guard gem:
 ```bash
 bundle exec guard -c
 ```
+
+# MacOS 
+
+If you encounter the following error (while loading the list of exchanges):
+
+```bash
+bjc[86427]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
+objc[86427]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+```
+
+Set this variable globally:
+
+```bash
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY = YES
+```
