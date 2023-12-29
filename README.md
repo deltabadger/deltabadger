@@ -24,7 +24,6 @@ bin/webpack-dev-server
 ```
 run the server:
 ```bash
-export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES  // for MacOS only
 rails s
 ```
 run redis server (for bots, metrics and fees service):
@@ -62,5 +61,5 @@ objc[86427]: +[__NSCFConstantString initialize] may have been in progress in ano
 Set this variable globally:
 
 ```bash
-export OBJC_DISABLE_INITIALIZE_FORK_SAFETY = YES
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 ```
