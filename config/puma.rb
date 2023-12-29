@@ -47,5 +47,3 @@ persistent_timeout 59 # 22 seconds to recognize which timout is in play
 
 # Allow puma to be restarted by `rails restart` command.
 plugin :tmp_restart
-
-ENV['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
