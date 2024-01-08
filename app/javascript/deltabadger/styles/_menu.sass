@@ -1,6 +1,10 @@
 .d
   &_content-below-menu
     padding-top: 4rem
+    @media only screen and (max-width: 1359px)
+      padding-top: 16rem
+    @media only screen and (max-width: 549px)
+      padding-top: 12rem
   &_menu
     position: fixed
     top: 4rem
@@ -10,24 +14,65 @@
     display: flex
     flex-direction: column
     justify-content: space-between
+    min-height: 60rem
+    @media only screen and (max-width: 1359px)
+      position: absolute
+      width: calc(100% - 6rem)
+      bottom: auto
+      flex-direction: row
+      gap: 1rem
+    @media only screen and (max-width: 549px)
+      left: 2rem
+      top: 2rem
+      width: calc(100% - 4rem)
     &__section
       display: flex
       flex-direction: column
       gap: 1rem
+      @media only screen and (max-width: 1359px)
+        flex-direction: row
+        gap: 1rem
+      &--main-menu
+        @media only screen and (min-width: 1360px)
+          position: fixed
+          top: 14rem
+      &--logo
+        @media only screen and (max-width: 549px)
+          display: none
     &__logo
+      width: 7.5rem
       height: 6.125rem
       display: flex
       align-items: flex-end
       margin-bottom: 4rem
+      @media only screen and (max-width: 1359px)
+        margin-right: 3rem
     &__icon
       height: 7.5rem
+      width: 7.5rem
       display: flex
       justify-content: center
       align-items: center
+      svg + svg
+        display: none
       &--last
         align-self: flex-end
+    &__button
+      width: 7.5rem
+      height: 7.5rem
+      line-height: 6.5rem
+      color: var(--menulink)
+      text-decoration: none !important
   &_fill
-    &--menulink
-      fill: var(--text)
+    &--icon
+      fill: var(--menulink)
+    &--icon-active
+      fill: var(--menulink-active)
     &--success
       fill: var(--success)
+  &_view
+    &--dashboard .d_menu__icon--dashboard, &--referral-program .d_menu__icon--referral-program, &--settings .d_menu__icon--settings, &--upgrade .d_menu__icon--upgrade
+      svg
+        display: none
+        &+svg
+          display: block
