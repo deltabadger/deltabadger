@@ -31,11 +31,11 @@
     #cookie_consent
 
     = render 'layouts/navbar'
-    .db-content-body
-      = render 'layouts/welcome_message'
+    .db-content-body.d_content-below-menu
+      //= render 'layouts/welcome_message'
       = render 'layouts/referral_message'
       = render 'layouts/limit_reached'
-      .container.d_content-below-menu
+      .container
         = yield
     .container
       = render 'layouts/footer'
