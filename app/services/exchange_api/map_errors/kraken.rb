@@ -10,7 +10,8 @@ module ExchangeApi::MapErrors
         'EGeneral:Temporary lockout' => Error.new('Funds are not exceeding minimums', true),
         'EOrder:Insufficient funds' => Error.new('Insufficient funds', false),
         'EOrder:Orders limit exceeded' => Error.new('Action limit was exceeded', true),
-        'EService:Market in cancel_only mode' => Error.new('Funds are not exceeding minimums', true),
+        'EService:Market in cancel_only mode' => Error.new('Market in cancel_only mode', true),
+        'EService:Market in post_only mode' => Error.new('Market in post_only mode', true),
         'EService:Unavailable' => Error.new('The exchange is currently unavailable', true),
         'Out of funds' => Error.new('Insufficient funds', false)
       }
