@@ -5,6 +5,12 @@
       padding-top: 16rem
     @media only screen and (max-width: 549px)
       padding-top: 12rem
+    &.db-page
+      padding-top: 15rem
+      @media only screen and (max-width: 1359px)
+        padding-top: 20rem
+      @media only screen and (max-width: 549px)
+        padding-top: 16rem
   &_menu
     position: fixed
     top: 4rem
@@ -25,6 +31,7 @@
       left: 2rem
       top: 2rem
       width: calc(100% - 4rem)
+      gap: 0
     &__section
       display: flex
       flex-direction: column
@@ -32,6 +39,8 @@
       @media only screen and (max-width: 1359px)
         flex-direction: row
         gap: 1rem
+      @media only screen and (max-width: 549px)
+        gap: 0
       &--main-menu
         @media only screen and (min-width: 1360px)
           position: fixed
