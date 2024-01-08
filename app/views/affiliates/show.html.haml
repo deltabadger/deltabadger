@@ -1,3 +1,4 @@
+- content_for :body_class, "d_view--referral-program"
 - unless affiliate_active
   .alert.alert-secondary.db-alert--flex
     %span= t('.deactivated.notice')
@@ -5,7 +6,7 @@
     %a.btn.btn-outline-secondary{href: "mailto:contact@deltabadger.com"}
       %span= t('.deactivated.contact')
 
-.row.pt-5
+.row
   .col-sm-12.col-lg-6
     %h2.mb-5= t('.title')
     .db-referral-stats
