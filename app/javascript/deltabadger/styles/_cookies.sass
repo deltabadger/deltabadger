@@ -1,8 +1,13 @@
 // Cookie
 
 #cookie_consent
-  background: var(--cookies)
+  background: var(--primary)
   box-shadow: $boxShadowAlert
+  position: fixed
+  bottom: 0
+  left: 0
+  right: 0
+  z-index: 1000
 
 .CookieConsent
   display: flex !important
@@ -10,13 +15,9 @@
   justify-content: flex-end !important
   background: none !important
   margin: 0 auto !important
-  padding-right: 3rem !important
-  padding-left: 3rem !important
+  padding-right: 2rem !important
+  padding-left: 1.5rem !important
   @include make-container()
-  @include media-breakpoint-only(lg)
-    max-width: 96rem !important
-  @include media-breakpoint-up(xl)
-    max-width: 114rem !important
   position: relative !important
   a
     color: var(--white) !important
