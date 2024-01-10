@@ -4,9 +4,6 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 ruby '3.0.2'
 
 gem 'securerandom'
-gem 'faye'
-gem 'thin'
-gem 'eventmachine'
 gem 'active_model_otp'
 gem "administrate"
 gem "attr_encrypted", "~> 3.1.0"
