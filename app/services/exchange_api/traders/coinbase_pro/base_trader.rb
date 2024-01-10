@@ -55,7 +55,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Coinbase order', **RECOVERABLE)
+          Result::Failure.new('Could not make Coinbase Pro order', **RECOVERABLE)
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
