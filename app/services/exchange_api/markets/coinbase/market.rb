@@ -5,7 +5,6 @@ module ExchangeApi
     module Coinbase
       class Market < BaseMarket
         include ExchangeApi::Clients::Coinbase
-        include ExchangeApi::WebSockets::Coinbase
 
         API_URL = 'https://api.coinbase.com'.freeze
 
@@ -25,14 +24,14 @@ module ExchangeApi
           request = authenticated_request('/api/v3/brokerage/products')
           response = JSON.parse(request.body)
 
-          market_symbols = response["products"].map do |symbol_info|
+          market_symbols = response['products'].map do |symbol_info|
             base = symbol_info['base_currency_id']
             quote = symbol_info['quote_currency_id']
             MarketSymbol.new(base, quote)
           end
           Result::Success.new(market_symbols)
         rescue StandardError => e
-          Result::Failure.new("Couldn't fetch Coinbase symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Coinbase symbols. Error #{e}", **RECOVERABLE)
         end
 
         def minimum_order_price(symbol)
@@ -95,34 +94,32 @@ module ExchangeApi
 
         def current_fee
           response = @caching_client.get('/api/v3/brokerage/transaction_summary')
-          result = JSON.parse(response.body)["fee_tier"].maker_fee_rate.to_f * 100
-          result
+          JSON.parse(response.body)['fee_tier'].maker_fee_rate.to_f * 100
         end
 
         def fetch_symbol(symbol)
           request = authenticated_request("/api/v3/brokerage/products/#{symbol}")
           response = JSON.parse(request.body)
           Result::Success.new(response)
-      rescue StandardError
+        rescue StandardError
           Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
-          websocket_instance = ExchangeApi::WebSockets::Coinbase::WebSocket.instance
+          request = authenticated_request('/api/v3/brokerage/best_bid_ask')
+          response = JSON.parse(request.body)
+          bid_price = nil
+          ask_price = nil
+          response['pricebooks'].each do |pricebook|
+            next unless pricebook['product_id'] == symbol
 
-          # Connect to WebSocket only if not already connected
-          unless websocket_instance.websocket && websocket_instance.websocket.ready_state == Faye::WebSocket::API::OPEN
-            websocket_instance.connect_to_ws(fee_api_keys.key, fee_api_keys.secret, symbol)
+            bid_price = pricebook['bids'][0]['price'].to_f
+            ask_price = pricebook['asks'][0]['price'].to_f
+            break
           end
-
-          bid_price = websocket_instance.get_bid_price_by_symbol(symbol)
-          ask_price = websocket_instance.get_ask_price_by_symbol(symbol)
-          bid_price ||= ask_price
-
           Result::Success.new(BidAskPrice.new(bid_price, ask_price))
         rescue StandardError => e
-          websocket_instance.close_ws
-          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase. Error: #{e}", **RECOVERABLE)
         end
 
         private
