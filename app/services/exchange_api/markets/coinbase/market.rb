@@ -21,9 +21,10 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          request = authenticated_request('/api/v3/brokerage/products')
-          response = JSON.parse(request.body)
-
+          response = Rails.cache.fetch('coinbase_symbols', expires_in: 5.minutes) do
+            request = authenticated_request('/api/v3/brokerage/products')
+            JSON.parse(request.body)
+          end
           market_symbols = response['products'].map do |symbol_info|
             base = symbol_info['base_currency_id']
             quote = symbol_info['quote_currency_id']
@@ -98,16 +99,20 @@ module ExchangeApi
         end
 
         def fetch_symbol(symbol)
-          request = authenticated_request("/api/v3/brokerage/products/#{symbol}")
-          response = JSON.parse(request.body)
+          response = Rails.cache.fetch("coinbase_symbol_#{symbol}", expires_in: 5.minutes) do
+            request = authenticated_request("/api/v3/brokerage/products/#{symbol}")
+            JSON.parse(request.body)
+          end
           Result::Success.new(response)
         rescue StandardError
           Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", **RECOVERABLE)
         end
 
         def current_bid_ask_price(symbol)
-          request = authenticated_request('/api/v3/brokerage/best_bid_ask')
-          response = JSON.parse(request.body)
+          response = Rails.cache.fetch("coinbase_bid_ask_price_#{symbol}", expires_in: 1.seconds) do
+            request = authenticated_request('/api/v3/brokerage/best_bid_ask')
+            JSON.parse(request.body)
+          end
           bid_price = nil
           ask_price = nil
           response['pricebooks'].each do |pricebook|
