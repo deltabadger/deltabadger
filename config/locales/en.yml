@@ -627,6 +627,7 @@ en:
         settings: Settings
         sign_up: 'Sign up'
         terms_and_conditions: 'Terms & Conditions'
+        legendary_badger: 'Legendary Badger'
     mail: '<p>Sweet! Your referral link is<br>gaining traction!</p><p>We transfer a commission of</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
     mailer:
         all_rights_reserved: 'All rights hyperbitcoinized.'
