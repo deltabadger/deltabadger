@@ -28,8 +28,6 @@
     .container
       = render 'layouts/footer'
 
-    //= render partial: 'layouts/drift' if !Rails.env.development?
-
     #current_user_subscription{ data: current_user.subscription_name }
     = javascript_pack_tag 'deltabadger2'
 
