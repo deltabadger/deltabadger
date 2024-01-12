@@ -28,7 +28,6 @@ module ExchangeApi
         end
       end
 
-      # FIXME: This is overwrites the default method in BaseFaraday. Seems to fix some issues with the EU proxy
       def base_client(url_base)
         Faraday.new(attributes(url_base)) do |conn|
           conn.adapter Faraday.default_adapter
