@@ -5,7 +5,7 @@ module ExchangeApi
         include ExchangeApi::Clients::Ftx
 
         def initialize(url_base:)
-          @url = url_base + '/api/account'
+          @url = "#{url_base}/api/account"
         end
 
         def validate_credentials(api_key:, api_secret:)

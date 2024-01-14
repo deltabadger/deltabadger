@@ -119,7 +119,7 @@ module ExchangeApi
         end
 
         def filled?(amount)
-          amount != 0.0
+          amount < 0.0 || amount > 0.0
         end
       end
     end

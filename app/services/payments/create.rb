@@ -104,7 +104,7 @@ module Payments
         order_id: payment.id,
         name: "#{payment.first_name} #{payment.last_name}",
         country: payment.country,
-        item_description: SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize + ' Plan Upgrade',
+        item_description: "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade",
         birth_date: payment.birth_date
       )
     end

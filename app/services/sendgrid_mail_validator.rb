@@ -67,6 +67,6 @@ class SendgridMailValidator < BaseService
     suggestion = result.fetch('suggestion', nil)
     return suggestion if suggestion.nil?
 
-    local.to_s + '@' + suggestion
+    "#{local.to_s}@#{suggestion}"
   end
 end

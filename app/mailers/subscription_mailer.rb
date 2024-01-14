@@ -22,7 +22,7 @@ class SubscriptionMailer < ApplicationMailer
     mail(
       to: @user.email,
       from: 'jan@deltabadger.com',
-      subject: @subscription_plan.display_name + ' plan granted!'
+      subject: "#{@subscription_plan.display_name} plan granted!"
     ) do |format|
       format.html { render layout: 'plain_mail' }
     end

@@ -30,7 +30,7 @@ module Bots
 
         def bot_settings(params)
           params[:already_triggered_types] = []
-          params.slice(*BOT_SETTING_PARAMS | (params["additional_type_enabled"] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
+          params.slice(*BOT_SETTING_PARAMS | (params['additional_type_enabled'] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
         end
 
         private
@@ -38,13 +38,13 @@ module Bots
         def webhook_urls(additional_type_enabled)
           result = {trigger_url: generate_webhook_url}
           return result.merge(additional_trigger_url: generate_webhook_url) if additional_type_enabled
+
           result
         end
 
         def generate_webhook_url
           BotsRepository.new.webhook_url
         end
-
       end
     end
   end

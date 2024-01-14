@@ -1,4 +1,5 @@
 class CalculateSalesStatistics < BaseService
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call
     @paid_payments = Payment.where(status: 'paid').includes(:user)
     @vat_rates = VatRate.pluck(:country, :vat).to_h
@@ -33,6 +34,7 @@ class CalculateSalesStatistics < BaseService
       later: get_percentage(rest / total_sum)
     }
   end
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 

@@ -4,6 +4,7 @@ class MetricsRepository < BaseRepository
   EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def initialize
+    super
     @redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
   end
 

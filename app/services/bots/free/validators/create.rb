@@ -74,7 +74,7 @@ module Bots::Free::Validators
         @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
         @legendary_badger = user.subscription_name == 'legendary_badger'
-        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor' || user.subscription_name == 'legendary_badger'
+        @paid_plan = %w[hodler investor legendary_badger].include?(user.subscription_name)
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
         @use_subaccount = params['use_subaccount']
         @selected_subaccount = params['selected_subaccount']
@@ -147,15 +147,15 @@ module Bots::Free::Validators
       end
 
       def validate_use_subaccount
-        if @use_subaccount
-          errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange') unless subaccounts_allowed_exchange
-        end
+        return unless @use_subaccount && !subaccounts_allowed_exchange
+
+        errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange')
       end
 
       def validate_subaccount_name
         return unless @use_subaccount
 
-        if @selected_subaccount.nil? || @selected_subaccount.length.zero?
+        if @selected_subaccount.nil? || @selected_subaccount.empty?
           errors.add(:selected_subaccount, 'No subaccount name supplied')
           return
         end

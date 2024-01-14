@@ -16,7 +16,7 @@ module ExchangeApi
           super
           @base_client = base_client(API_URL)
           @caching_client = caching_client(API_URL)
-          @exchange_id ||= Exchange.find_by(:name => 'Coinbase').id
+          @exchange_id ||= Exchange.find_by(name: 'Coinbase').id
           @fee_api_keys ||= FeeApiKey.find_by(exchange_id: exchange_id)
         end
 

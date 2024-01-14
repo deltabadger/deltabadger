@@ -16,6 +16,6 @@ class SubscriptionPlan < ApplicationRecord
   end
 
   def display_name
-    I18n.t('subscriptions.' + name)
+    I18n.t("subscriptions.#{name}")
   end
 end

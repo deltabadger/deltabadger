@@ -24,5 +24,5 @@ class ScheduleWebhook < BaseService
     bot.exchange.name.downcase
   end
 
-  attr_reader :bots_repository, :make_webhook_worker#, :parse_interval, :next_bot_webhook_at
+  attr_reader :bots_repository, :make_webhook_worker # , :parse_interval, :next_bot_webhook_at
 end

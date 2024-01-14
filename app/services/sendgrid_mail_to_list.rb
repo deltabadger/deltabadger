@@ -33,10 +33,10 @@ class SendgridMailToList < BaseService
 
   def delete_user(email, list_name)
     user_id = get_user_from_list(email, list_name).pluck('id').join(',')
-    response = Faraday.delete(CONTACTS_URL, {ids: user_id}, headers)
+    response = Faraday.delete(CONTACTS_URL, { ids: user_id }, headers)
     body = JSON.parse(response.body)
 
-    raise StandardError, body["errors"] unless response.status == 202
+    raise StandardError, body['errors'] unless response.status == 202
 
     body
   rescue StandardError => e
@@ -61,7 +61,7 @@ class SendgridMailToList < BaseService
   end
 
   def get_list(list_name)
-    response = Faraday.get("#{LISTS_URL}/#{get_list_id_by_name(list_name)}", {contact_sample: true}, headers)
+    response = Faraday.get("#{LISTS_URL}/#{get_list_id_by_name(list_name)}", { contact_sample: true }, headers)
 
     return [] unless response.status == 200
 
@@ -71,21 +71,21 @@ class SendgridMailToList < BaseService
   end
 
   def get_user_from_list(email, list_name)
-    get_list(list_name).select {|contact| contact['email'] == email }
+    get_list(list_name).select { |contact| contact['email'] == email }
   end
 
   def list_ids(list_name = LIST_NAME)
     response = JSON.parse(Faraday.get(LISTS_URL, {}, headers).body)
     result = response.fetch('result', nil)
 
-    result.select{ |list| list["name"] == list_name }.pluck('id') if result.present?
+    result.select { |list| list['name'] == list_name }.pluck('id') if result.present?
   end
 
   def create_list_id(name = LIST_NAME)
     response = Faraday.post(LISTS_URL, new_list_request_body(name).to_json, headers)
     body = JSON.parse(response.body)
 
-    raise StandardError, body["errors"] unless response.status == 201
+    raise StandardError, body['errors'] unless response.status == 201
 
     body.fetch('id')
   end
@@ -95,7 +95,7 @@ class SendgridMailToList < BaseService
     response = Faraday.put(CONTACTS_URL, add_email_request_body(user.email, user_first_name_only, email_list_ids).to_json, headers)
     body = JSON.parse(response.body)
 
-    raise StandardError, body["errors"] unless response.status == 202
+    raise StandardError, body['errors'] unless response.status == 202
 
     body
   rescue StandardError => e
@@ -105,27 +105,26 @@ class SendgridMailToList < BaseService
 
   def headers
     {
-        'Authorization' => "Bearer #{API_KEY}",
-        'Content-Type' => 'application/json'
+      'Authorization' => "Bearer #{API_KEY}",
+      'Content-Type' => 'application/json'
     }
   end
 
   def new_list_request_body(name)
     {
-        'name' => name
+      'name' => name
     }
   end
 
   def add_email_request_body(email, name, email_list_ids)
     {
-        'list_ids' => email_list_ids,
-        'contacts' => [
-            {
-                'email' => email,
-                'first_name' => name
-            }
-        ]
+      'list_ids' => email_list_ids,
+      'contacts' => [
+        {
+          'email' => email,
+          'first_name' => name
+        }
+      ]
     }
   end
-
 end
