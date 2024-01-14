@@ -1,4 +1,5 @@
 module Api
+  # rubocop:disable Metrics/ClassLength
   class BotsController < Api::BaseController
     include ActionController::Live
     skip_before_action :authenticate_user!, only: [:webhook]
@@ -40,11 +41,13 @@ module Api
 
     def webhook
       bot = BotsRepository.new.by_webhook_for_user(params[:webhook])
-      return render json: { errors: "No bot found" }, status: 422 unless bot
-      return render json: { errors: "This webhook has already been called before" }, status: 422 unless bot.possible_to_call_a_webhook?(params[:webhook])
+      return render json: { errors: 'No bot found' }, status: 422 unless bot
+      unless bot.possible_to_call_a_webhook?(params[:webhook])
+        return render json: { errors: 'This webhook has already been called before' }, status: 422
+      end
 
       ScheduleWebhook.call(bot, params[:webhook])
-      render json: { result: "Webhook invoked" }, status: 200
+      render json: { result: 'Webhook invoked' }, status: 200
     end
 
     def start
@@ -137,8 +140,8 @@ module Api
 
     def webhook_bots_data
       response.headers['Content-Type'] = 'text/event-stream'
-      response.headers['Last-Modified'] = '0' # hack to bypass ETag caching
-      response.headers['ETag'] = '0' # hack to bypass ETag caching
+      response.headers['Last-Modified'] = '0' # HACK: to bypass ETag caching
+      response.headers['ETag'] = '0' # HACK: to bypass ETag caching
       sse = SSE.new(response.stream, retry: 300)
       last_updated_at = Time.current
 
@@ -152,8 +155,7 @@ module Api
 
         sleep 3
       end
-
-    rescue => e
+    rescue StandardError => e
       logger.info 'Stream closed'
       logger.info e
       response.stream.close
@@ -171,7 +173,6 @@ module Api
                              when 'withdrawal' then withdrawal_bot_create_params
                              else webhook_bot_create_params
                              end
-
     end
 
     def bot_update_params
@@ -180,12 +181,12 @@ module Api
                              when 'withdrawal' then withdrawal_bot_update_params
                              else webhook_bot_update_params
                              end
-
     end
 
     def present_bot(bot)
       return Presenters::Api::TradingBot.call(bot) if bot.trading?
       return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+
       Presenters::Api::WebhookBot.call(bot)
     end
 
@@ -254,8 +255,8 @@ module Api
 
     def webhook_bot_create_params
       params
-          .require(:bot)
-          .permit(*WEBHOOK_BOT_PARAMS)
+        .require(:bot)
+        .permit(*WEBHOOK_BOT_PARAMS)
     end
 
     TRADING_BOT_UPDATE_PARAMS = %i[
@@ -307,9 +308,9 @@ module Api
 
     def webhook_bot_update_params
       params
-          .require(:bot)
-          .permit(*WEBHOOK_BOT_UPDATE_PARAMS, already_triggered_types: [])
-          .merge(id: params[:id])
+        .require(:bot)
+        .permit(*WEBHOOK_BOT_UPDATE_PARAMS, already_triggered_types: [])
+        .merge(id: params[:id])
     end
 
     def bot_continue_params
@@ -318,4 +319,5 @@ module Api
         .permit(:continue_schedule, :price)
     end
   end
+  # rubocop:enable Metrics/ClassLength
 end

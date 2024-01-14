@@ -42,7 +42,8 @@ module ExchangeApi
                   limit_price: limit_rate.data.to_f.to_s
                 }
               },
-              side: 'BUY')
+              side: 'BUY'
+            )
         end
 
         def get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value, price_in_quote)
@@ -65,7 +66,8 @@ module ExchangeApi
                   limit_price: limit_rate.data.to_f.to_s
                 }
               },
-              side: 'SELL')
+              side: 'SELL'
+            )
         end
 
         def rate_percentage(symbol, rate, percentage)

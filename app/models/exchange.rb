@@ -1,6 +1,8 @@
 class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
+
+  # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
     market = case name.downcase
              when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
@@ -21,9 +23,10 @@ class Exchange < ApplicationRecord
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
-    cache_key = name.downcase + '_all_symbols'
+    cache_key = "#{name.downcase}_all_symbols"
     market.all_symbols(cache_key)
   end
+  # rubocop:enable Metrics/CyclomaticComplexity
 
   def free_plan_symbols
     all_symbols = symbols

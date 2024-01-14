@@ -29,10 +29,10 @@ module ExchangeApi
           request = @signed_client.get('account')
 
           response = JSON.parse(request.body)
-          balance = response["balances"].find{|balance| balance["asset"] == currency}.try(:[], "free").to_f
+          balance = response['balances'].find{ |b| b['asset'] == currency }.try(:[], 'free').to_f
           Result::Success.new(balance)
         rescue StandardError => e
-          Result::Failure.new('Could not fetch account info from Binance')
+          Result::Failure.new("Could not fetch account info from Binance. Error: #{e}")
         end
 
         private
@@ -45,7 +45,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
           parse_response(response)
         rescue StandardError => e
-          Result::Failure.new('Could not make Binance order', **RECOVERABLE)
+          Result::Failure.new("Could not make Binance order. Error: #{e}", **RECOVERABLE)
         end
 
         def common_order_params(symbol)
@@ -120,14 +120,14 @@ module ExchangeApi
           base_decimals = @market.base_decimals(symbol)
           return base_decimals unless base_decimals.success?
 
-          Result::Success.new("%.#{base_decimals.data}f" % amount)
+          Result::Success.new(format("%.#{base_decimals.data}f", amount))
         end
 
         def parse_quote(symbol, amount)
           quote_decimals = @market.quote_decimals(symbol)
           return quote_decimals unless quote_decimals.success?
 
-          Result::Success.new("%.#{quote_decimals.data}f" % amount)
+          Result::Success.new(format("%.#{quote_decimals.data}f", amount))
         end
       end
     end

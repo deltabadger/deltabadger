@@ -31,15 +31,15 @@ module ExchangeApi
 
           if response.status.between?(200, 299)
             parsed_response = JSON.parse(response.body)
-            amount = parsed_response.dig("order", "filled_size")&.to_f
-            if amount.nil?
-              raise "Waiting for Coinbase response" unless filled?(amount)
+            amount = parsed_response.dig('order', 'filled_size')&.to_f
+            if amount.nil? && !filled?(amount)
+              raise 'Waiting for Coinbase response'
             end
 
             Result::Success.new(
               offer_id: order_id,
               amount: amount,
-              rate: (parsed_response.dig("order", "filled_value").to_f / amount)
+              rate: (parsed_response.dig('order', 'filled_value').to_f / amount)
             )
           else
             Raven.capture_exception(StandardError.new("Unexpected response status: #{response.status}"))
@@ -49,7 +49,6 @@ module ExchangeApi
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Coinbase')
         end
-
 
         private
 
@@ -125,7 +124,7 @@ module ExchangeApi
         end
 
         def filled?(amount)
-          amount != 0.0
+          amount < 0.0 || amount > 0.0
         end
       end
     end
