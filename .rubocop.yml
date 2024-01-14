@@ -47,3 +47,7 @@ Metrics/MethodLength:
 
 Metrics/LineLength:
   Max: 130
+
+Lint/MissingSuper:
+  Exclude:
+    - 'app/services/**/*'

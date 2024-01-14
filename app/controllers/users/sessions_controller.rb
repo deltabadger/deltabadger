@@ -1,6 +1,7 @@
 class Users::SessionsController < Devise::SessionsController
   prepend_before_action :check_captcha, only: [:create]
 
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def create
     params[:user][:password] = trim_long_password(params[:user][:password])
     self.resource = warden.authenticate!(auth_options)
@@ -24,6 +25,7 @@ class Users::SessionsController < Devise::SessionsController
       end
     end
   end
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 

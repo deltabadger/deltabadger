@@ -16,42 +16,29 @@ module ExchangeApi
 
       private
 
+      # rubocop:disable Metrics/CyclomaticComplexity
       def get_trading_key_validator(exchange)
         return Fake::Validator.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
-        when 'binance'
-          Binance::Validator.new(url_base: EU_URL_BASE)
-        when 'binance.us'
-          Binance::Validator.new(url_base: US_URL_BASE)
-        when 'zonda'
-          Zonda::Validator.new
-        when 'kraken'
-          Kraken::Validator.new
-        when 'coinbase pro'
-          CoinbasePro::Validator.new
-        when 'coinbase'
-          Coinbase::Validator.new
-        when 'gemini'
-          Gemini::Validator.new
-        when 'ftx'
-          Ftx::Validator.new(url_base: FTX_EU_URL_BASE)
-        when 'ftx.us'
-          Ftx::Validator.new(url_base: FTX_US_URL_BASE)
-        when 'bitso'
-          Bitso::Validator.new
-        when 'kucoin'
-          Kucoin::Validator.new
-        when 'bitfinex'
-          Bitfinex::Validator.new
-        when 'bitstamp'
-          Bitstamp::Validator.new
-        when 'probit global'
-          Probit::Validator.new
-        when 'probit'
-          Probit::Validator.new
+        when 'binance' then Binance::Validator.new(url_base: EU_URL_BASE)
+        when 'binance.us' then Binance::Validator.new(url_base: US_URL_BASE)
+        when 'zonda' then Zonda::Validator.new
+        when 'kraken' then Kraken::Validator.new
+        when 'coinbase pro' then CoinbasePro::Validator.new
+        when 'coinbase' then Coinbase::Validator.new
+        when 'gemini' then Gemini::Validator.new
+        when 'ftx' then Ftx::Validator.new(url_base: FTX_EU_URL_BASE)
+        when 'ftx.us' then Ftx::Validator.new(url_base: FTX_US_URL_BASE)
+        when 'bitso' then Bitso::Validator.new
+        when 'kucoin' then Kucoin::Validator.new
+        when 'bitfinex' then Bitfinex::Validator.new
+        when 'bitstamp' then Bitstamp::Validator.new
+        when 'probit global' then Probit::Validator.new
+        when 'probit' then Probit::Validator.new
         end
       end
+      # rubocop:enable Metrics/CyclomaticComplexity
 
       def get_withdrawal_key_validator(exchange)
         return Fake::WithdrawalValidator.new if DISABLE_EXCHANGES_API
