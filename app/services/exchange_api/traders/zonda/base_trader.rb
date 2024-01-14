@@ -37,6 +37,7 @@ module ExchangeApi
           Result::Failure.new('Could not make Zonda order', **RECOVERABLE)
         end
 
+        # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
           min_price = price_in_quote ? @market.minimum_order_price(symbol) : @market.minimum_order_price(symbol, !price_in_quote)
           return min_price unless min_price.success?
@@ -63,6 +64,7 @@ module ExchangeApi
           result = result.ceil(rate_decimals.data)
           Result::Success.new(result)
         end
+        # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
         def transaction_volume(symbol, price, limit_rate, price_in_quote)
           rate_decimals = @market.base_decimals(symbol)
