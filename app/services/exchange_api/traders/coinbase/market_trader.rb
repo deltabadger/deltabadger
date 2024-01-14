@@ -31,14 +31,14 @@ module ExchangeApi
           return price_above_minimums unless price_above_minimums.success?
 
           Result::Success.new(
-              product_id: symbol,
-              client_order_id: SecureRandom.uuid,
-              order_configuration: {
-                market_market_ioc: {
-                  quote_size: price_above_minimums.data.to_f.to_s
-                }
-              },
-              side: 'BUY'
+            product_id: symbol,
+            client_order_id: SecureRandom.uuid,
+            order_configuration: {
+              market_market_ioc: {
+                quote_size: price_above_minimums.data.to_f.to_s
+              }
+            },
+            side: 'BUY'
           )
         end
 

@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize(
     exchange_trader: ExchangeApi::Traders::Get.new,
@@ -64,12 +65,12 @@ class MakeTransaction < BaseService
     end
 
     result
-  rescue => e
+  rescue StandardError => e
     @unschedule_transactions.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
-    Rails.logger.info "======================= RESCUE 1 MakeTransaction =============================="
+    Rails.logger.info '======================= RESCUE 1 MakeTransaction =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
-    Rails.logger.info "====================================================="
+    Rails.logger.info '====================================================='
 
     raise
   end
@@ -79,6 +80,7 @@ class MakeTransaction < BaseService
 
   def send_user_to_sendgrid(bot)
     return unless bot.successful_transaction_count == 1
+
     api = get_api(bot)
     api.send_user_to_sendgrid(bot.exchange.name, bot.user)
   end
@@ -111,14 +113,12 @@ class MakeTransaction < BaseService
       selected_subaccount: bot.selected_subaccount
     }.compact
     settings = settings.merge(subaccount_settings) if bot.use_subaccount
-    result = if bot.buyer?
-               api.buy(**settings)
-             else
-               is_legacy = bot.type == 'sell_old'
-               api.sell(**settings.merge(is_legacy: is_legacy))
-             end
-
-    result
+    if bot.buyer?
+      api.buy(**settings)
+    else
+      is_legacy = bot.type == 'sell_old'
+      api.sell(**settings.merge(is_legacy: is_legacy))
+    end
   end
 
   def extract_continue_params(continue_params)
@@ -179,3 +179,4 @@ class MakeTransaction < BaseService
     end
   end
 end
+# rubocop:enable Metrics/ClassLength

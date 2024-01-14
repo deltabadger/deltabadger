@@ -23,6 +23,7 @@ class FetchOrderResult < BaseService
     @order_flow_helper = order_flow_helper
   end
 
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, result_params, fixing_price, notify: true, restart: true, called_bot: nil)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless bot.pending?
@@ -45,28 +46,30 @@ class FetchOrderResult < BaseService
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      Rails.logger.info "======================= Fetch error result result.errors =============================="
+      Rails.logger.info '======================= Fetch error result result.errors =============================='
       Rails.logger.info "================= #{result.errors.inspect} ======================="
-      Rails.logger.info "====================================================="
+      Rails.logger.info '====================================================='
       @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
     bot.reload
     result
   rescue StandardError => e
-    Rails.logger.info "=======================   RESCUE 2 =============================="
+    Rails.logger.info '=======================   RESCUE 2 =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
-    Rails.logger.info "====================================================="
+    Rails.logger.info '====================================================='
     @unschedule_transactions.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
     raise
   end
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 
   def success_status(bot)
     return {status: 'working'} if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
-    {status: 'stopped'}
+
+    { status: 'stopped' }
   end
 
   def get_api(bot)
@@ -74,6 +77,7 @@ class FetchOrderResult < BaseService
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def perform_action(api, result_params, bot, price, called_bot = nil)
     offer_id = get_offer_id(result_params)
     Rails.logger.info "Fetching order id: #{offer_id} for bot: #{bot.id}"
@@ -100,6 +104,7 @@ class FetchOrderResult < BaseService
 
     result
   end
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   def probit?(bot)
     bot.exchange.name == 'Probit' || bot.exchange.name == 'Probit Global' || bot.exchange.name == 'ProBit Global'
@@ -113,6 +118,7 @@ class FetchOrderResult < BaseService
     result.data&.dig(:recoverable) == true
   end
 
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def transaction_params(result, bot, price = nil, called_bot = nil)
     if result.success?
       result.data.slice(:offer_id, :rate, :amount).merge(
@@ -135,6 +141,7 @@ class FetchOrderResult < BaseService
       }
     end
   end
+  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   def called_bot_type(bot, called_bot)
     bot.send(called_bot == 'additional_bot'? 'additional_type' : 'type')
