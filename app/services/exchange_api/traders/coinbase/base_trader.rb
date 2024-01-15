@@ -21,6 +21,7 @@ module ExchangeApi
 
         API_URL = 'https://api.coinbase.com'.freeze
 
+        # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         def fetch_order_by_id(order_id)
           path = "/api/v3/brokerage/orders/historical/#{order_id}".freeze
           url = API_URL + path
@@ -31,13 +32,18 @@ module ExchangeApi
 
           if response.status.between?(200, 299)
             parsed_response = JSON.parse(response.body)
-            raise 'Waiting for Coinbase response' if amount.nil? || !filled?(parsed_response)
-
             amount = parsed_response.dig('order', 'filled_size')&.to_f
+            rate = parsed_response.dig('order', 'average_filled_price')&.to_f
+
+            if amount.nil? || rate.nil? || (market_order?(parsed_response) && !filled?(parsed_response))
+              Rails.logger.info 'Waiting for Coinbase response'
+              sleep 0.5
+              return fetch_order_by_id(order_id)
+            end
             Result::Success.new(
               offer_id: order_id,
               amount: amount,
-              rate: (parsed_response.dig('order', 'filled_value').to_f / amount)
+              rate: rate
             )
           else
             Raven.capture_exception(StandardError.new("Unexpected response status: #{response.status}"))
@@ -47,6 +53,7 @@ module ExchangeApi
           Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Coinbase')
         end
+        # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
         private
 
@@ -117,8 +124,12 @@ module ExchangeApi
           request.status == 200 && request.reason_phrase == 'OK'
         end
 
-        def filled?(parsed_response)
+        def market_order?(parsed_response)
           parsed_response.dig('order', 'completion_percentage') == '100'
+        end
+
+        def filled?(parsed_response)
+          parsed_response.dig('order', 'order_type') == 'MARKET'
         end
       end
     end
