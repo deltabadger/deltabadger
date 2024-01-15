@@ -7,7 +7,7 @@ module ExchangeApi::MapErrors
     end
 
     def error_regex_mapping(message)
-      insufficient_funds_regex = /(Invalid order: not enough exchange balance).*/.freeze
+      insufficient_funds_regex = /(Invalid order: not enough exchange balance).*/
       return message.match(insufficient_funds_regex).captures[0] if insufficient_funds_regex.match?(message)
 
       message

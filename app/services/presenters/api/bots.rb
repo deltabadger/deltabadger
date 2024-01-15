@@ -16,6 +16,7 @@ module Presenters
         puts "--- bot.webhook? --- #{bot.webhook?}"
         return Presenters::Api::TradingBot.call(bot) if bot.trading?
         return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+
         Presenters::Api::WebhookBot.call(bot)
       end
     end

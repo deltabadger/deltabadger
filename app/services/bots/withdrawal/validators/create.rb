@@ -34,7 +34,7 @@ module Bots::Withdrawal::Validators
         @interval_enabled = params['interval_enabled']
         @hodler = user.subscription_name == 'hodler'
         @legendary_badger = user.subscription_name == 'legendary_badger'
-        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor' || user.subscription_name == 'legendary_badger'
+        @paid_plan = %w[hodler investor legendary_badger].include?(user.subscription_name)
         @minimums = GetWithdrawalMinimums.call({ exchange_id: bot.exchange_id }, user)
         @withdrawal_info_processor = get_withdrawal_info_processor(user.api_keys, bot.exchange_id)
         @exchange_id = bot.exchange_id
@@ -57,10 +57,10 @@ module Bots::Withdrawal::Validators
       def threshold_above_minimum
         return if !@threshold_enabled || !@minimums.success?
 
-        minimum_check_params = {minimum: @minimums.data[:minimum].to_f, currency: @currency, threshold: @threshold.to_f}
+        minimum_check_params = { minimum: @minimums.data[:minimum].to_f, currency: @currency, threshold: @threshold.to_f }
         return if CheckWithdrawalMinimums.call(@exchange_id, minimum_check_params)
 
-        errors.add(:threshold, " is to small.")
+        errors.add(:threshold, ' is to small.')
       end
 
       def validate_whitelist
@@ -69,7 +69,7 @@ module Bots::Withdrawal::Validators
 
         return if available_wallets.data.map { |w| w[:address] }.include?(@address)
 
-        errors.add(:address, " is not whitelisted.")
+        errors.add(:address, ' is not whitelisted.')
       end
 
       def get_withdrawal_info_processor(api_keys, exchange_id)

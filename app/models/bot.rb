@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 class Bot < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
@@ -11,8 +12,8 @@ class Bot < ApplicationRecord
   enum status: [*STATES]
   enum bot_type: [*TYPES]
 
-  def self.by_webhook webhook
-    queries = [{trigger_url: webhook}.to_json, {additional_trigger_url: webhook}.to_json]
+  def self.by_webhook(webhook)
+    queries = [{ trigger_url: webhook }.to_json, { additional_trigger_url: webhook }.to_json]
     without_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
   end
 
@@ -92,7 +93,7 @@ class Bot < ApplicationRecord
     settings['already_triggered_types']
   end
 
-  def already_triggered_types= triggered_type
+  def already_triggered_types=(triggered_type)
     settings['already_triggered_types'] = triggered_type
   end
 
@@ -112,17 +113,19 @@ class Bot < ApplicationRecord
     settings['name']
   end
 
-  def called_bot webhook
-    return "additional_bot" if additional_type_enabled? && additional_trigger_url == webhook
-    "main_bot" if trigger_url == webhook
+  def called_bot(webhook)
+    return 'additional_bot' if additional_type_enabled? && additional_trigger_url == webhook
+
+    'main_bot' if trigger_url == webhook
   end
 
-  def already_triggered? type
+  def already_triggered?(type)
     already_triggered_types.include? type
   end
 
-  def possible_to_call_a_webhook? webhook
+  def possible_to_call_a_webhook?(webhook)
     return true if every_time?
+
     !already_triggered?(called_bot(webhook))
   end
 
@@ -135,7 +138,7 @@ class Bot < ApplicationRecord
   end
 
   def additional_type_enabled?
-    settings["additional_type_enabled"]
+    settings['additional_type_enabled']
   end
 
   def trading?
@@ -171,11 +174,11 @@ class Bot < ApplicationRecord
   end
 
   def last_successful_transaction
-    transactions.where(status: [:success, :skipped]).order(created_at: :desc).limit(1).last
+    transactions.where(status: %i[success skipped]).order(created_at: :desc).limit(1).last
   end
 
   def successful_transaction_count
-    transactions.where(status: [:success, :skipped]).order(created_at: :desc).count
+    transactions.where(status: %i[success skipped]).order(created_at: :desc).count
   end
 
   def any_last_transaction
@@ -191,14 +194,15 @@ class Bot < ApplicationRecord
   end
 
   def use_subaccount
-    settings.fetch('use_subaccount',false)
+    settings.fetch('use_subaccount', false)
   end
 
   def selected_subaccount
-    settings.fetch('selected_subaccount','')
+    settings.fetch('selected_subaccount', '')
   end
 
   def destroy
     update_attribute(:status, 'deleted')
   end
 end
+# rubocop:enable Metrics/ClassLength

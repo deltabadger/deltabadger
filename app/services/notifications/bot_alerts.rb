@@ -78,13 +78,13 @@ module Notifications
 
     def successful_webhook_bot_transaction(bot:, type:)
       BotAlertsMailer.with(
-          bot: bot,
-          bot_name: bot.name,
-          type: type,
-          user: bot.user,
-          base: bot.base,
-          quote: bot.quote,
-          price: bot.price
+        bot: bot,
+        bot_name: bot.name,
+        type: type,
+        user: bot.user,
+        base: bot.base,
+        quote: bot.quote,
+        price: bot.price
       ).successful_webhook_bot_transaction.deliver_later
     end
 
