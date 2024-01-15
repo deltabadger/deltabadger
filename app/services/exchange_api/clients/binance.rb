@@ -28,7 +28,6 @@ module ExchangeApi
         end
       end
 
-      # FIXME: This is overwrites the default method in BaseFaraday. Seems to fix some issues with the EU proxy
       def base_client(url_base)
         Faraday.new(attributes(url_base)) do |conn|
           conn.adapter Faraday.default_adapter
@@ -47,7 +46,9 @@ module ExchangeApi
         return url_base if ENV.fetch('EU_PROXY_IP', nil).blank?
 
         attributes = { url: url_base }
-        attributes.merge!({ proxy: ENV.fetch('EU_PROXY_IP') }) if url_base.in? [BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE]
+        if url_base.in?([BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE])
+          attributes.merge!({ proxy: ENV.fetch('EU_PROXY_IP') })
+        end
 
         attributes
       end

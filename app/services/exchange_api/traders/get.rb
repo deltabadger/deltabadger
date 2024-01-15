@@ -1,5 +1,6 @@
 module ExchangeApi
   module Traders
+    # rubocop:disable Metrics/ClassLength
     class Get < BaseService
       include ExchangeApi::BinanceEnum
       include ExchangeApi::FtxEnum
@@ -9,43 +10,30 @@ module ExchangeApi
         @exchanges_repository = exchanges_repository
       end
 
+      # rubocop:disable Metrics/CyclomaticComplexity
       def call(api_key, order_type)
         exchange = @exchanges_repository.find(api_key.exchange_id)
         return fake_client(order_type, exchange.name) if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase
-        when 'binance'
-          binance_client(api_key, order_type, EU_URL_BASE)
-        when 'binance.us'
-          binance_client(api_key, order_type, US_URL_BASE)
-        when 'zonda'
-          zonda_client(api_key, order_type)
-        when 'kraken'
-          kraken_client(api_key, order_type)
-        when 'coinbase pro'
-          coinbase_pro_client(api_key, order_type)
-        when 'coinbase'
-          coinbase_client(api_key, order_type)
-        when 'gemini'
-          gemini_client(api_key, order_type)
-        when 'ftx'
-          ftx_client(api_key, order_type, FTX_EU_URL_BASE)
-        when 'ftx.us'
-          ftx_client(api_key, order_type, FTX_US_URL_BASE)
-        when 'bitso'
-          bitso_client(api_key, order_type)
-        when 'kucoin'
-          kucoin_client(api_key, order_type)
-        when 'bitfinex'
-          bitfinex_client(api_key, order_type)
-        when 'bitstamp'
-          bitstamp_client(api_key, order_type)
-        when 'probit global'
-          probit_client(api_key, order_type)
-        when 'probit'
-          probit_client(api_key, order_type)
+        when 'binance' then binance_client(api_key, order_type, EU_URL_BASE)
+        when 'binance.us' then binance_client(api_key, order_type, US_URL_BASE)
+        when 'zonda' then zonda_client(api_key, order_type)
+        when 'kraken' then kraken_client(api_key, order_type)
+        when 'coinbase pro' then coinbase_pro_client(api_key, order_type)
+        when 'coinbase' then coinbase_client(api_key, order_type)
+        when 'gemini' then gemini_client(api_key, order_type)
+        when 'ftx' then ftx_client(api_key, order_type, FTX_EU_URL_BASE)
+        when 'ftx.us' then ftx_client(api_key, order_type, FTX_US_URL_BASE)
+        when 'bitso' then bitso_client(api_key, order_type)
+        when 'kucoin' then kucoin_client(api_key, order_type)
+        when 'bitfinex' then bitfinex_client(api_key, order_type)
+        when 'bitstamp' then bitstamp_client(api_key, order_type)
+        when 'probit global' then probit_client(api_key, order_type)
+        when 'probit' then probit_client(api_key, order_type)
         end
       end
+      # rubocop:enable Metrics/CyclomaticComplexity
 
       private
 
@@ -215,5 +203,6 @@ module ExchangeApi
         !market_trader?(order_type)
       end
     end
+    # rubocop:enable Metrics/ClassLength
   end
 end
