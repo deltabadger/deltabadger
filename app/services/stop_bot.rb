@@ -3,7 +3,6 @@ class StopBot < BaseService
     bots_repository: BotsRepository.new,
     unschedule_transactions: UnscheduleTransactions.new
   )
-
     @bots_repository = bots_repository
     @unschedule_transactions = unschedule_transactions
   end

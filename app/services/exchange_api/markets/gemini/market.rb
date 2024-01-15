@@ -18,7 +18,7 @@ module ExchangeApi
           market_symbols = response.map do |symbol_info|
             base = get_base(symbol_info)
             quote = get_quote(symbol_info)
-            raise StandardError.new if base.nil? || quote.nil?
+            raise StandardError if base.nil? || quote.nil?
 
             MarketSymbol.new(base, quote)
           end

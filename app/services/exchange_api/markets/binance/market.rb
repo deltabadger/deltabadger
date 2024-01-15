@@ -2,6 +2,7 @@ require 'result'
 module ExchangeApi
   module Markets
     module Binance
+      # rubocop:disable Metrics/ClassLength
       class Market < BaseMarket
         include ExchangeApi::Clients::Binance
 
@@ -90,9 +91,8 @@ module ExchangeApi
           end
 
           Result::Success.new(market_symbols)
-
         rescue StandardError => e
-          Result::Failure.new('Binance exchange info is unavailable', **RECOVERABLE)
+          Result::Failure.new("Binance exchange info is unavailable. Error: #{e}", **RECOVERABLE)
         end
 
         def current_fee
@@ -127,7 +127,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError => e
-          Result::Failure.new('Could not fetch current price from Binance', **RECOVERABLE)
+          Result::Failure.new("Could not fetch current price from Binance. Error: #{e}", **RECOVERABLE)
         end
 
         def find_symbol_in_exchange_info(symbol, exchange_info)
@@ -217,6 +217,7 @@ module ExchangeApi
           Result::Success.new(found_symbol.data)
         end
       end
+      # rubocop:enable Metrics/ClassLength
     end
   end
 end
