@@ -20,8 +20,7 @@ class Transaction < ApplicationRecord
   private
 
   def set_daily_transaction_aggregate
-    # FIXME: This is a temporary solution. We should always get the proper rate and amount from the exchange.
-    return unless success? || rate.blank? || amount.blank?
+    return unless success?
 
     transactions_repository = TransactionsRepository.new
     daily_transaction_aggregates_repository = DailyTransactionAggregateRepository.new
