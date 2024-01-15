@@ -1,5 +1,6 @@
 module ExchangeApi::MapErrors
   class Probit < ExchangeApi::MapErrors::Base
+    # https://docs-en.probit.com/docs/http-errors
     def errors_mapping
       {
         'NOT_ENOUGH_BALANCE' => Error.new('Insufficient funds', false),

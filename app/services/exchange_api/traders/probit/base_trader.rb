@@ -50,9 +50,7 @@ module ExchangeApi
         def parse_request(request)
           response = JSON.parse(request.body)
           unless request.status == 200 && request.reason_phrase == 'OK'
-            if response['details']['scope'] == 'not allowed scope'
-              return error_to_failure([response['details']['scope']])
-            end
+            return error_to_failure([response['details']['scope']]) if response['details']['scope'] == 'not allowed scope'
 
             return error_to_failure([response['errorCode']])
           end
@@ -76,6 +74,7 @@ module ExchangeApi
           Result::Success.new([min_price.data, price].max.ceil(quote_decimals.data).to_d)
         end
 
+        # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         def transaction_quantity(price, symbol, force_smart_intervals, smart_intervals_value, price_in_base = false)
           min_price = @market.minimum_order_quantity(symbol)
           return min_price unless min_price.success?
@@ -101,6 +100,7 @@ module ExchangeApi
 
           Result::Success.new([min_price.data, price].max.ceil(base_decimals.data).to_d)
         end
+        # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
       end
     end
   end

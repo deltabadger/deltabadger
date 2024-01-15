@@ -6,13 +6,8 @@ class ProfitableBotsRepository
 
   def profitable_bots_data
     bot_totals = ActiveRecord::Base.connection.execute('select * from bots_total_amounts')
-    filtered_bots_map = bot_totals.to_a.map do |bot|
-      profitable_or_nil(bot)
-    end.compact
-    bots_in_periods = [
-      filtered_bots_map.filter { |x| x[1] <= Time.now - 12.month },
-      filtered_bots_map.filter { |x| x[1] > Time.now - 12.month }
-    ]
+    filtered_bots_map = bot_totals.to_a.map { |bot| profitable_or_nil(bot) }.compact
+    bots_in_periods = split_bots_by_period(filtered_bots_map)
     total_amount_of_bots = bots_in_periods.map(&:length)
     total_amount_of_bots_in_profit = bots_in_periods.map { |bot| bot.count { |b| b[0] } }
     bots_in_periods.each_index.map do |index|
@@ -35,12 +30,19 @@ class ProfitableBotsRepository
     [current_value.to_f > bot['total_cost'].to_f, bot['created_at']]
   end
 
+  def split_bots_by_period(filtered_bots_map)
+    [
+      filtered_bots_map.filter { |x| x[1] <= Time.now - 12.month },
+      filtered_bots_map.filter { |x| x[1] > Time.now - 12.month }
+    ]
+  end
+
   def current_price(exchange_id, base, quote)
     @prices_dictionary[symbol_key(base, quote)] ||= begin
-                                             market = @markets_dictionary[exchange_id] ||= ExchangeApi::Markets::Get.new.call(exchange_id)
-                                             symbol = market.symbol(base, quote)
-                                             market.current_price(symbol)
-                                           end
+      market = @markets_dictionary[exchange_id] ||= ExchangeApi::Markets::Get.new.call(exchange_id)
+      symbol = market.symbol(base, quote)
+      market.current_price(symbol)
+    end
   end
 
   def symbol_key(base, quote)

@@ -1,11 +1,12 @@
 class User < ApplicationRecord
+  attr_accessor :otp_code_token
+
   after_create :active_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
   has_one_time_password
   enum otp_module: { disabled: 0, enabled: 1 }, _prefix: true
-  attr_accessor :otp_code_token
   has_one :affiliate
   belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
@@ -84,7 +85,6 @@ class User < ApplicationRecord
 
   def newly_webhook_bots_transactions(time)
     webhook_bots_transactions.where('transactions.created_at > ? ', time)
-
   end
 
   private

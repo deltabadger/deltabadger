@@ -3,8 +3,5 @@ class LegendaryBadgerController < ApplicationController
 
   layout 'legendary_badger'
 
-  def show
-
-  end
-
+  def show; end
 end

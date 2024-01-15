@@ -30,7 +30,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
           return error_to_failure([response['error']]) unless response['error'].nil?
 
-          return Result::Failure.new("FTX withdrawal failed", **RECOVERABLE) if cancelled?(response)
+          return Result::Failure.new('FTX withdrawal failed', **RECOVERABLE) if cancelled?(response)
 
           result = parse_withdrawal(response)
           Result::Success.new(result)

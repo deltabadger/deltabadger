@@ -15,14 +15,14 @@ module ExchangeApi
 
       def headers(api_key, api_secret)
         access_token = get_token(api_key, api_secret)[:access_token]
-        authorization = 'Bearer ' + access_token
+        authorization = "Bearer #{access_token}"
         basic_headers.merge('Authorization': authorization)
       end
 
       private
 
       def token_headers(api_key, api_secret)
-        auth_header = 'Basic ' + Base64.strict_encode64("#{api_key}:#{api_secret}")
+        auth_header = "Basic #{Base64.strict_encode64("#{api_key}:#{api_secret}")}"
         { 'Authorization': auth_header }.merge(basic_headers)
       end
 

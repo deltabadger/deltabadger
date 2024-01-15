@@ -18,11 +18,11 @@ module Bots
 
         def call(bot, params)
           new_bot_settings = bot.settings.merge(bot_settings(params).merge(
-              webhook_urls(
-                  params.fetch(:additional_type_enabled, false),
-                  bot.settings.with_indifferent_access.fetch(:additional_trigger_url, nil)
-              ) || {}
-          ))
+                                                  webhook_urls(
+                                                    params.fetch(:additional_type_enabled, false),
+                                                    bot.settings.with_indifferent_access.fetch(:additional_trigger_url, nil)
+                                                  ) || {}
+                                                ))
 
           {
             settings: new_bot_settings
@@ -30,7 +30,9 @@ module Bots
         end
 
         def bot_settings(params)
-          params.to_h.with_indifferent_access.slice(*BOT_UPDATE_PARAMS | (params["additional_type_enabled"] ? ADDITIONAL_BOT_SETTING_PARAMS : []))
+          allowed_params = BOT_UPDATE_PARAMS.dup
+          allowed_params.concat(ADDITIONAL_BOT_SETTING_PARAMS) if params['additional_type_enabled']
+          params.to_h.with_indifferent_access.slice(*allowed_params)
         end
 
         private

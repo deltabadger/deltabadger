@@ -1,13 +1,15 @@
+# rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
   protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
-  STRIPE_PROCESS_STATUSES = %w(requires_confirmation requires_action processing)
+  STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
   EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def index
-    return redirect_to legendary_badger_path if current_plan.name == "legendary_badger"
+    return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
+
     payment_in_process = false
 
     if session[:payment_intent_id]
@@ -98,7 +100,6 @@ class UpgradeController < ApplicationController
     render json: {
       payment_status: 'succeeded'
     }
-
   rescue StandardError => e
     Raven.capture_exception(e)
     render json: {
@@ -106,6 +107,7 @@ class UpgradeController < ApplicationController
     }
   end
 
+  # rubocop:disable Metrics/MethodLength
   def wire_transfer
     wire_params = wire_transfer_params.merge(default_locals)
     plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
@@ -159,6 +161,7 @@ class UpgradeController < ApplicationController
 
     redirect_to action: 'index'
   end
+  # rubocop:enable Metrics/MethodLength
 
   private
 
@@ -168,12 +171,11 @@ class UpgradeController < ApplicationController
     cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
     payment_params = payment_metadata.to_hash.merge(subscription_params)
     payment = Payments::Create.new.card_payment(
-        payment_params,
-        cost_presenter.discount_percent_amount.to_f.positive?
+      payment_params,
+      cost_presenter.discount_percent_amount.to_f.positive?
     )
     UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
     session.delete(:payment_intent_id)
-
   rescue StandardError => e
     Raven.capture_exception(e)
   end
@@ -213,18 +215,17 @@ class UpgradeController < ApplicationController
     STRIPE_PROCESS_STATUSES.include? payment_intent['status']
   end
 
-  def amount_in_cents(amount) # Stripe takes total amount of cents
+  # Stripe takes total amount of cents
+  def amount_in_cents(amount)
     (amount * 100).round
   end
 
   def new_payment
-    subscription_plan_id = if current_plan.id == hodler_plan.id
-      legendary_badger_plan.id
-    elsif current_plan.id == investor_plan.id
-      hodler_plan.id
-    else
-      investor_plan.id
-    end
+    subscription_plan_id = case current_plan.id
+                           when hodler_plan.id then legendary_badger_plan.id
+                           when investor_plan.id then hodler_plan.id
+                           else investor_plan.id
+                           end
 
     Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
   end
@@ -257,17 +258,16 @@ class UpgradeController < ApplicationController
 
     cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,
-       plans.map do |plan_name, plan|
-         [plan_name,
-          build_presenter.call(
-            eu: country.eu?,
-            vat: country.vat,
-            subscription_plan: plan,
-            current_plan: current_plan,
-            days_left: current_user.plan_days_left,
-            discount_percent: discount
-          )]
-       end.to_h]
+       plans.transform_values do |plan|
+         build_presenter.call(
+           eu: country.eu?,
+           vat: country.vat,
+           subscription_plan: plan,
+           current_plan: current_plan,
+           days_left: current_user.plan_days_left,
+           discount_percent: discount
+         )
+       end]
     end.to_h
 
     { cost_presenters: cost_presenters }
@@ -296,7 +296,7 @@ class UpgradeController < ApplicationController
   end
 
   def purchased_early_birds_percent
-    @purchased_early_birds_percent ||= purchased_early_birds_count*100/initial_early_birds_count
+    @purchased_early_birds_percent ||= purchased_early_birds_count * 100 / initial_early_birds_count
   end
 
   def allowable_early_birds_count
@@ -327,3 +327,4 @@ class UpgradeController < ApplicationController
     @legendary_badger_plan ||= subscription_plan_repository.legendary_badger
   end
 end
+# rubocop:enable Metrics/ClassLength

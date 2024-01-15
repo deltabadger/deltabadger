@@ -99,7 +99,9 @@ module ExchangeApi
           url = url_base[0...-1] + path
           headers = get_headers(url, api_keys.key, api_keys.secret, '', path, 'GET', false, nil)
           response = Faraday.get(url, nil, headers).body
-          return Result::Failure.new(["Couldn't fetch subaccounts from FTX", **RECOVERABLE]) unless JSON.parse(response)['success']
+          unless JSON.parse(response)['success']
+            return Result::Failure.new(["Couldn't fetch subaccounts from FTX", **RECOVERABLE])
+          end
 
           Result::Success.new(JSON.parse(response)['result'].map { |x| x['nickname'] })
         rescue StandardError

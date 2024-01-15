@@ -45,7 +45,9 @@ module Bots::Webhook::Validators
 
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }, if: -> { type_must_contain_price?(type) }
-      validates :additional_price, numericality: { only_float: true, greater_than: 0 }, if: -> { additional_type_enabled && type_must_contain_price?(additional_type) }
+      validates :additional_price,
+                numericality: { only_float: true, greater_than: 0 },
+                if: -> { additional_type_enabled && type_must_contain_price?(additional_type) }
 
       def initialize(params, user, allowed_symbols, free_plan_symbols, exchange_name, exchange_id)
         @base = params['base']
@@ -66,7 +68,7 @@ module Bots::Webhook::Validators
         @exchange_name = exchange_name
         @hodler = user.subscription_name == 'hodler'
         @legendary_badger = user.subscription_name == 'legendary_badger'
-        @paid_plan = user.subscription_name == 'hodler' || user.subscription_name == 'investor' || user.subscription_name == 'legendary_badger'
+        @paid_plan = %w[hodler investor legendary_badger].include?(user.subscription_name)
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
 
         @exchange_id = exchange_id

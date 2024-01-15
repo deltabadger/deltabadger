@@ -24,10 +24,9 @@ class GenerateTransactionsCsv < BaseService
   end
 
   def call(bot)
-    format_data = case
-                  when bot.trading?
+    format_data = if bot.trading?
                     Presenters::Api::TradingTransaction.new
-                  when bot.withdrawal?
+                  elsif bot.withdrawal?
                     Presenters::Api::WithdrawalTransaction.new
                   else
                     Presenters::Api::WebhookTransaction.new

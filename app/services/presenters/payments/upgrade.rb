@@ -58,8 +58,8 @@ module Presenters
 
       def available_plans_for_investor
         available_plans = %w[investor hodler legendary_badger]
-        available_plans.delete("investor") unless @current_user.subscription.end_time <= Time.current + 1.years
-        available_plans.delete("legendary_badger") unless legendary_badger_plan_available?
+        available_plans.delete('investor') unless @current_user.subscription.end_time <= Time.current + 1.years
+        available_plans.delete('legendary_badger') unless legendary_badger_plan_available?
 
         available_plans
       end

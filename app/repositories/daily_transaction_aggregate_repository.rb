@@ -6,7 +6,7 @@ class DailyTransactionAggregateRepository < BaseRepository
   end
 
   def today_for_bot(bot)
-    for_bot(bot).where("created_at >= ?", Date.today.beginning_of_day)
+    for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day)
   end
 
   def for_bot_by_status(bot, limit: nil, status: :success)

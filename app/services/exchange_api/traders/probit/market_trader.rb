@@ -23,7 +23,7 @@ module ExchangeApi
           response_data = response.data['data'][0]
           return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
 
-          rate = response_data['filled_cost'].to_f / response_data['filled_quantity'].to_f
+          rate = response_data['filled_cost'].to_f / response_data['filled_quantity'].to_f # rubocop:disable Style/FloatDivision
           Result::Success.new(
             offer_id: order_id,
             amount: response_data['filled_quantity'].to_s,

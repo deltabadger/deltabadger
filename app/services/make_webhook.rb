@@ -29,6 +29,7 @@ class MakeWebhook < BaseService
   def call(bot_id, webhook, notify: true, restart: true)
     bot = @bots_repository.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
+
     called_bot = called_bot(bot.settings, webhook)
 
     result = perform_action(get_api(bot), bot, called_bot)
@@ -55,9 +56,9 @@ class MakeWebhook < BaseService
   rescue => e
     @unschedule_webhooks.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
-    Rails.logger.info "======================= RESCUE 1 MakeWebhook =============================="
+    Rails.logger.info '======================= RESCUE 1 MakeWebhook =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
-    Rails.logger.info "====================================================="
+    Rails.logger.info '====================================================='
 
     raise
   end
@@ -65,7 +66,8 @@ class MakeWebhook < BaseService
 
   def called_bot(settings, webhook)
     return "additional_bot" if settings["additional_type_enabled"] && settings["additional_trigger_url"] == webhook
-    "main_bot" if settings["trigger_url"] == webhook
+
+    'main_bot' if settings['trigger_url'] == webhook
   end
 
   def triggered_types(bot, called_bot)
@@ -77,6 +79,7 @@ class MakeWebhook < BaseService
 
   def send_user_to_sendgrid(bot)
     return unless bot.successful_transaction_count == 1
+
     api = get_api(bot)
     api.send_user_to_sendgrid(bot.exchange.name, bot.user)
   end
@@ -104,13 +107,11 @@ class MakeWebhook < BaseService
   def perform_action(api, bot, called_bot)
     type = bot.settings[called_bot == 'additional_bot'? 'additional_type' : 'type']
     settings = transaction_settings(bot, type, called_bot)
-    result = if buyer?(type)
-               api.buy(**settings)
-             else
-               api.sell(**settings)
-             end
-
-    result
+    if buyer?(type)
+      api.buy(**settings)
+    else
+      api.sell(**settings)
+    end
   end
 
   def calculate_price(bot, type, called_bot)
@@ -173,6 +174,6 @@ class MakeWebhook < BaseService
   end
 
   def buyer?(type)
-    type.in?(%w(buy buy_all))
+    type.in?(%w[buy buy_all])
   end
 end
