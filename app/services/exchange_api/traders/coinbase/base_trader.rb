@@ -31,11 +31,9 @@ module ExchangeApi
 
           if response.status.between?(200, 299)
             parsed_response = JSON.parse(response.body)
-            amount = parsed_response.dig('order', 'filled_size')&.to_f
-            if amount.nil? && !filled?(amount)
-              raise 'Waiting for Coinbase response'
-            end
+            raise 'Waiting for Coinbase response' if amount.nil? || !filled?(parsed_response)
 
+            amount = parsed_response.dig('order', 'filled_size')&.to_f
             Result::Success.new(
               offer_id: order_id,
               amount: amount,
@@ -119,12 +117,8 @@ module ExchangeApi
           request.status == 200 && request.reason_phrase == 'OK'
         end
 
-        def canceled?(response)
-          response.fetch('done_reason', nil) == 'canceled'
-        end
-
-        def filled?(amount)
-          amount < 0.0 || amount > 0.0
+        def filled?(parsed_response)
+          parsed_response.dig('order', 'completion_percentage') == '100'
         end
       end
     end
