@@ -125,11 +125,11 @@ module ExchangeApi
         end
 
         def market_order?(parsed_response)
-          parsed_response.dig('order', 'completion_percentage') == '100'
+          parsed_response.dig('order', 'order_type') == 'MARKET'
         end
 
         def filled?(parsed_response)
-          parsed_response.dig('order', 'order_type') == 'MARKET'
+          parsed_response.dig('order', 'completion_percentage') == '100'
         end
       end
     end
