@@ -42,7 +42,7 @@
           = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
         .db-form__row.db-form__row--input
-          = f.text_field :name, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
+          = f.text_field :name, autocomplete: "off", value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);'
 
           .db-form__info.db-form__info--invalid
             -if @name_invalid
