@@ -115,21 +115,26 @@ module ExchangeApi
         end
 
         def get_quote(symbol)
-          return symbol[-3...].upcase unless symbol[-4...] == 'gusd'
+          known_four_char_quotes = %w[gusd usdt]
+          known_three_char_quotes = %w[usd eur gbp sgd dai btc eth ltc bch fil]
 
-          symbol_details = fetch_symbol(symbol)
-          return nil unless symbol_details.success?
+          if known_four_char_quotes.include?(symbol[-4..])
+            symbol[-4..].upcase
+          elsif known_three_char_quotes.include?(symbol[-3..])
+            symbol[-3..].upcase
+          else
+            symbol_details = fetch_symbol(symbol)
+            return nil unless symbol_details.success?
 
-          symbol_details.data['quote_currency']
+            symbol_details.data['quote_currency']
+          end
         end
 
         def get_base(symbol)
-          return symbol[0...-3].upcase unless symbol[-4...] == 'gusd'
+          quote = get_quote(symbol)
+          return nil if quote.nil?
 
-          symbol_details = fetch_symbol(symbol)
-          return nil unless symbol_details.success?
-
-          symbol_details.data['base_currency']
+          symbol[0...-quote.length].upcase
         end
       end
     end
