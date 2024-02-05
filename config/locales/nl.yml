@@ -650,7 +650,7 @@ nl:
             bank_address: 'Bank adres'
             billing_information: Factuurgegevens
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
+            stripe_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
             compensation_hodler:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Hodler plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Hodler plan.'
