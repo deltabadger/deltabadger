@@ -667,7 +667,7 @@ zh-cn:
             bank_address: 银行地址
             billing_information: 账单信息
             bitcoin: 比特币
-            card_payment_succeeded: ''
+            stripe_payment_succeeded: ''
             compensation_hodler:
                 other: ''
             compensation_investor:

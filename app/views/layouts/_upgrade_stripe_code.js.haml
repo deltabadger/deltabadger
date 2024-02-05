@@ -23,9 +23,9 @@
     } else {
       $(".db-plan-active-discount").removeClass("db-plans__item--hide");
     }
-    document.getElementById("payment_plan_investor_card").checked = true;
-    document.getElementById("payment_plan_hodler_card").checked = false;
-    document.getElementById("payment_plan_legendary_badger_card").checked = false;
+    document.getElementById("payment_plan_investor_stripe").checked = true;
+    document.getElementById("payment_plan_hodler_stripe").checked = false;
+    document.getElementById("payment_plan_legendary_badger_stripe").checked = false;
     document.getElementById("payment_plan_investor_wire").checked = true;
     document.getElementById("payment_plan_hodler_wire").checked = false;
     document.getElementById("payment_plan_legendary_badger_wire").checked = false;
@@ -46,9 +46,9 @@
     } else {
       $(".db-plan-active-discount").removeClass("db-plans__item--hide");
     }
-    document.getElementById("payment_plan_investor_card").checked = false;
-    document.getElementById("payment_plan_hodler_card").checked = true;
-    document.getElementById("payment_plan_legendary_badger_card").checked = false;
+    document.getElementById("payment_plan_investor_stripe").checked = false;
+    document.getElementById("payment_plan_hodler_stripe").checked = true;
+    document.getElementById("payment_plan_legendary_badger_stripe").checked = false;
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = true;
     document.getElementById("payment_plan_legendary_badger_wire").checked = false;
@@ -69,9 +69,9 @@
     } else {
       $(".db-plan-active-discount").removeClass("db-plans__item--hide");
     }
-    document.getElementById("payment_plan_investor_card").checked = false;
-    document.getElementById("payment_plan_hodler_card").checked = false;
-    document.getElementById("payment_plan_legendary_badger_card").checked = true;
+    document.getElementById("payment_plan_investor_stripe").checked = false;
+    document.getElementById("payment_plan_hodler_stripe").checked = false;
+    document.getElementById("payment_plan_legendary_badger_stripe").checked = true;
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = false;
     document.getElementById("payment_plan_legendary_badger_wire").checked = true;
@@ -165,7 +165,7 @@
 
     $("#payment_country").val(select.value);
     $("#payment_country_wire").val(select.value);
-    $("#payment_country_card").val(select.value);
+    $("#payment_country_stripe").val(select.value);
   }
 
   $("#payment_country").change(function(event) {
@@ -181,12 +181,12 @@
 
   setPrices(document.getElementById("payment_country_wire"));
 
-  $("#payment_country_card").change(function(event) {
+  $("#payment_country_stripe").change(function(event) {
     setPrices(event.target);
     showPreview(event.target);
   });
 
-  setPrices(document.getElementById("payment_country_card"));
+  setPrices(document.getElementById("payment_country_stripe"));
 
   $("#payment_first_name_wire").change(function(event) {
     document.getElementById("payment_first_name").value = event.target.value;
@@ -216,7 +216,7 @@
     showPreview(event.target);
   });
 
-  if (!$(".payment_in_process").length) showPreview(document.getElementById("payment_country_card").value);
+  if (!$(".payment_in_process").length) showPreview(document.getElementById("payment_country_stripe").value);
   });
 
   // referral program registration
@@ -253,10 +253,10 @@
   const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
   function subscription_info() {
               //Getting the droplist element and its value
-    const country_element = document.getElementById("payment_country_card");
+    const country_element = document.getElementById("payment_country_stripe");
     const country_name = country_element.options[country_element.selectedIndex].value;
               //Accessing the plan's id
-    const subscription_plan_id = document.querySelector('#payCard > [id^=payment_plan_]:checked').value;
+    const subscription_plan_id = document.querySelector('#payStripe > [id^=payment_plan_]:checked').value;
     return {subscription_plan_id: subscription_plan_id,
       country: country_name}
   }

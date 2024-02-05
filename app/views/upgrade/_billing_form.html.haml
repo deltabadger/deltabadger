@@ -1,32 +1,32 @@
 - pending_wire_transfer = !current_user.pending_wire_transfer.nil?
 - settings_repository = SettingFlagsRepository.new
-- show_card_payment = settings_repository.show_card_payment
+- show_stripe_payment = settings_repository.show_stripe_payment
 - show_wire_payment = settings_repository.show_wire_payment
 - show_bitcoin_payment = settings_repository.show_bitcoin_payment
 .modal-dialog.m-0(style="max-width: 100%"){:class => ('db-wire-transfer-in-progress' if pending_wire_transfer)}
   .modal-content
     .modal-body
       %ul#payTab.nav.nav-tabs{:role => "tablist"}
-        %li.nav-item{:class => [('disabled' if pending_wire_transfer),('hidden' unless show_card_payment)]}
-          %a#log-tab.nav-link.show{"aria-controls" => "payCard", "aria-selected" => show_card_payment ? true : false, "data-toggle" => "tab", :href => "#payCard", :role => "tab", :class => (pending_wire_transfer ? 'disabled' : ('active' if show_card_payment))}
+        %li.nav-item{:class => [('disabled' if pending_wire_transfer),('hidden' unless show_stripe_payment)]}
+          %a#log-tab.nav-link.show{"aria-controls" => "payStripe", "aria-selected" => show_stripe_payment ? true : false, "data-toggle" => "tab", :href => "#payStripe", :role => "tab", :class => (pending_wire_transfer ? 'disabled' : ('active' if show_stripe_payment))}
             %img.db-card-providers__item.db-card-providers__item--stripe{:src => asset_pack_path("media/images/stripe.svg")}
         %li.nav-item{:class => [('disabled' if pending_wire_transfer),('hidden' unless show_bitcoin_payment)]}
-          %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => !show_card_payment && show_bitcoin_payment ? true : false , "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab" , :class =>  (pending_wire_transfer ? 'disabled' : ('active' if !show_card_payment && show_bitcoin_payment))}
+          %a#stats-tab.nav-link{"aria-controls" => "payBitcoin", "aria-selected" => !show_stripe_payment && show_bitcoin_payment ? true : false , "data-toggle" => "tab", :href => "#payBitcoin", :role => "tab" , :class =>  (pending_wire_transfer ? 'disabled' : ('active' if !show_stripe_payment && show_bitcoin_payment))}
             .db-card-providers
               %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin-lightning.svg")}
         %li.nav-item{:class => [('disabled' if pending_wire_transfer),('hidden' unless show_wire_payment)]}
-          %a#log-tab.nav-link{"aria-controls" => "payWire", "aria-selected" => !show_card_payment && !show_bitcoin_payment ? true : false, "data-toggle" => "tab", :href => "#payWire", :role => "tab", :class => [('active disabled' if pending_wire_transfer),('active' if !show_card_payment && !show_bitcoin_payment)]}= t('subscriptions.payment.wire_transfer')
+          %a#log-tab.nav-link{"aria-controls" => "payWire", "aria-selected" => !show_stripe_payment && !show_bitcoin_payment ? true : false, "data-toggle" => "tab", :href => "#payWire", :role => "tab", :class => [('active disabled' if pending_wire_transfer),('active' if !show_stripe_payment && !show_bitcoin_payment)]}= t('subscriptions.payment.wire_transfer')
       #payTabContent.tab-content
-        #payCard.tab-pane.show{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => (pending_wire_transfer ? 'disabled' : ( 'active' if show_card_payment))}
+        #payStripe.tab-pane.show{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => (pending_wire_transfer ? 'disabled' : ( 'active' if show_stripe_payment))}
           - if 'investor'.in?(upgrade_presenter.available_plans)
             - investor_selected = upgrade_presenter.selected_plan_name == 'investor'
-            %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor_card', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected}
+            %input.db-plan-radio{type: 'radio', id: 'payment_plan_investor_stripe', name: 'payment[subscription_plan_id]', value: upgrade_presenter.investor_plan.id, checked: investor_selected}
           - if 'hodler'.in?(upgrade_presenter.available_plans)
             - hodler_selected = upgrade_presenter.selected_plan_name == 'hodler'
-            %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_card', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
+            %input.db-plan-radio{type: 'radio', id: 'payment_plan_hodler_stripe', name: 'payment[subscription_plan_id]', value: upgrade_presenter.hodler_plan.id, checked: hodler_selected}
           - if 'legendary_badger'.in?(upgrade_presenter.available_plans)
             - legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger'
-            %input.db-plan-radio{type: 'radio', id: 'payment_plan_legendary_badger_card', name: 'payment[subscription_plan_id]', value: upgrade_presenter.legendary_badger_plan.id, checked: legendary_badger_selected}
+            %input.db-plan-radio{type: 'radio', id: 'payment_plan_legendary_badger_stripe', name: 'payment[subscription_plan_id]', value: upgrade_presenter.legendary_badger_plan.id, checked: legendary_badger_selected}
           %script{:src => 'https://js.stripe.com/v3/'}
           - unless payment_in_process
             .db-form__row
@@ -49,11 +49,11 @@
                 %span#button-text= t('subscriptions.payment.pay')
               %p#card-error.card-error{:role => "alert"}
               %p.result-message.hidden
-                = t('subscriptions.payment.card_payment_succeeded')
+                = t('subscriptions.payment.stripe_payment_succeeded')
           - else
             %p.result-message
               = t('subscriptions.payment.wire_transfer_pending')
-        #payBitcoin.tab-pane{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => (pending_wire_transfer ? 'disabled' : ( 'active' if !show_card_payment && show_bitcoin_payment))}
+        #payBitcoin.tab-pane{"aria-labelledby" => "stats-tab", :role => "tabpanel", :class => (pending_wire_transfer ? 'disabled' : ( 'active' if !show_stripe_payment && show_bitcoin_payment))}
           %h4.mb-4= t('subscriptions.payment.billing_information')
           = form_for payment, url: upgrade_pay_path do |f|
             - if 'investor'.in?(upgrade_presenter.available_plans)
@@ -101,7 +101,7 @@
                 %span.mr-0= t('subscriptions.payment.pay_with_bitcoin')
                 %svg.ml-1{class: 'db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward', xmlns: 'http://www.w3.org/2000/svg', width: '24', viewBox: '0 0 24 24'}
                   %path{d: 'M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z'}
-        #payWire.tab-pane{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => ('active' if pending_wire_transfer || (!show_card_payment && !show_bitcoin_payment))}
+        #payWire.tab-pane{"aria-labelledby" => "log-tab", :role => "tabpanel", :class => ('active' if pending_wire_transfer || (!show_stripe_payment && !show_bitcoin_payment))}
           %h4.mb-4= t('subscriptions.payment.billing_information')
           %form#new_payment.new_payment{"accept-charset" => "UTF-8", :action => "/en/upgrade/wire_transfer", :method => "post"}
             - if 'investor'.in?(upgrade_presenter.available_plans)

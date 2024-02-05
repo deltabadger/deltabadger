@@ -1,7 +1,7 @@
 # rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
+  protect_from_forgery except: %i[payment_callback wire_transfer create_stripe_intent update_stripe_intent confirm_stripe_payment]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
   STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
@@ -15,9 +15,9 @@ class UpgradeController < ApplicationController
     if session[:payment_intent_id]
       payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
 
-      if card_payment_in_process(payment_intent)
+      if stripe_payment_in_process(payment_intent)
         payment_in_process = true
-      elsif card_payment_succeeded(payment_intent)
+      elsif stripe_payment_succeeded(payment_intent)
         upgrade_subscription(payment_intent, session[:payment_intent_id])
         return redirect_to upgrade_path
       end
@@ -59,13 +59,13 @@ class UpgradeController < ApplicationController
   end
 
   # Create a intention of paying
-  def create_card_intent
+  def create_stripe_intent
     # We create a fake payment to calculate the costs of the transactions
     fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    stripe_price = Payments::Create.new.get_stripe_price(fake_payment, current_user)
     metadata = get_payment_metadata(current_user, params)
     payment_intent = Stripe::PaymentIntent.create(
-      amount: amount_in_cents(card_price[:total_price]),
+      amount: amount_in_cents(stripe_price[:total_price]),
       currency: fake_payment.eu? ? 'eur' : 'usd',
       metadata: metadata
     )
@@ -76,20 +76,20 @@ class UpgradeController < ApplicationController
     }
   end
 
-  def update_card_intent
+  def update_stripe_intent
     fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
+    stripe_price = Payments::Create.new.get_stripe_price(fake_payment, current_user)
     metadata = get_update_metadata(params)
     Stripe::PaymentIntent.update(params['payment_intent_id'],
-                                 amount: amount_in_cents(card_price[:total_price]),
+                                 amount: amount_in_cents(stripe_price[:total_price]),
                                  currency: fake_payment.eu? ? 'eur' : 'usd',
                                  metadata: metadata)
   end
 
-  def confirm_card_payment
+  def confirm_stripe_payment
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    card_payment_succeeded = card_payment_succeeded(payment_intent)
-    unless card_payment_succeeded
+    stripe_payment_succeeded = stripe_payment_succeeded(payment_intent)
+    unless stripe_payment_succeeded
       return render json: {
         payment_status: 'failed'
       }
@@ -170,7 +170,7 @@ class UpgradeController < ApplicationController
     payment_metadata = payment_intent['metadata']
     cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
     payment_params = payment_metadata.to_hash.merge(subscription_params)
-    payment = Payments::Create.new.card_payment(
+    payment = Payments::Create.new.stripe_payment(
       payment_params,
       cost_presenter.discount_percent_amount.to_f.positive?
     )
@@ -207,11 +207,11 @@ class UpgradeController < ApplicationController
     }
   end
 
-  def card_payment_succeeded(payment_intent)
+  def stripe_payment_succeeded(payment_intent)
     payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
   end
 
-  def card_payment_in_process(payment_intent)
+  def stripe_payment_in_process(payment_intent)
     STRIPE_PROCESS_STATUSES.include? payment_intent['status']
   end
 

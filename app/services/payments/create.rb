@@ -65,8 +65,8 @@ module Payments
       )
     end
 
-    def card_payment(params, discounted)
-      cost_calculator = get_card_cost_calculator(params)
+    def stripe_payment(params, discounted)
+      cost_calculator = get_stripe_cost_calculator(params)
       total = cost_calculator.total_price
       currency = params[:country] == 'Other' ? 0 : 1
       @payments_repository.create(
@@ -79,12 +79,12 @@ module Payments
         total: total,
         currency: currency,
         commission: cost_calculator.commission,
-        payment_type: 'card',
+        payment_type: 'stripe',
         paid_at: Time.now.strftime('%d/%m/%Y')
       )
     end
 
-    def get_card_price(payment, current_user)
+    def get_stripe_price(payment, current_user)
       cost_calculator = get_cost_calculator(payment, current_user)
       { total_price: cost_calculator.total_price }
     end
@@ -138,7 +138,7 @@ module Payments
       params['cost_presenters'][params['country']][SubscriptionPlan.find(params['subscription_plan_id']).name].cost_calculator
     end
 
-    def get_card_cost_calculator(params)
+    def get_stripe_cost_calculator(params)
       params[:cost_presenters][params[:country]][SubscriptionPlan.find(params[:subscription_plan_id]).name.to_sym].cost_calculator
     end
   end

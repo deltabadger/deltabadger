@@ -1,5 +1,5 @@
 class SettingFlagsRepository < BaseRepository
-  SHOW_CARD_PAYMENT = 'show_card_payment'.freeze
+  SHOW_STRIPE_PAYMENT = 'show_stripe_payment'.freeze
   SHOW_WIRE_PAYMENT = 'show_wire_payment'.freeze
   SHOW_BITCOIN_PAYMENT = 'show_bitcoin_payment'.freeze
 
@@ -7,8 +7,8 @@ class SettingFlagsRepository < BaseRepository
     SettingFlag
   end
 
-  def show_card_payment
-    setting = model.find_by(name: SHOW_CARD_PAYMENT)
+  def show_stripe_payment
+    setting = model.find_by(name: SHOW_STRIPE_PAYMENT)
     return true if setting.nil?
 
     setting.value
