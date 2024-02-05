@@ -9,6 +9,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # on pages throughout the dashboard.
   WIRE_TYPE = 'wire'.freeze
   STRIPE_TYPE = 'stripe'.freeze
+  ZEN_TYPE = 'zen'.freeze
   ATTRIBUTE_TYPES = {
     id: Field::Number,
     user: Field::BelongsTo.with_options(
@@ -113,7 +114,8 @@ class PaymentDashboard < Administrate::BaseDashboard
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
     wire: ->(resources) { resources.where(payment_type: WIRE_TYPE) },
-    stripe: ->(resources) { resources.where(payment_type: STRIPE_TYPE) }
+    stripe: ->(resources) { resources.where(payment_type: STRIPE_TYPE) },
+    zen: ->(resources) { resources.where(payment_type: ZEN_TYPE) }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 
