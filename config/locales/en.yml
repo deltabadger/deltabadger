@@ -692,7 +692,7 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
+            stripe_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
             compensation_hodler:
                 one: 'Compensation for 1 unused day of the Hodler plan.'
                 other: 'Compensation for %{count} unused days of the Hodler plan.'
