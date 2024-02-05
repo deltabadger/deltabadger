@@ -662,7 +662,7 @@ pl:
             bank_address: 'Adres banku'
             billing_information: 'Informacje rozliczeniowe'
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Płatność się powiodła, powinieneś zostać przekierowany w ciągu kilku sekund.'
+            stripe_payment_succeeded: 'Płatność się powiodła, powinieneś zostać przekierowany w ciągu kilku sekund.'
             compensation_hodler:
                 one: 'Wyrównanie za 1 niewykorzystany dzień planu Hodler.'
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Hodler.'
