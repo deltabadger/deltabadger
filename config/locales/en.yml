@@ -286,7 +286,7 @@ en:
                 instructions_2_html: 'Select <b>Settings</b> from your avatar dropdown.'
                 instructions_3_html: 'Select the <b>API</b> tab. If you cannot find it, go directly from <a href="https://www.coinbase.com/settings/api">here</a>.'
                 instructions_4_html: 'Click <b>New API Key</b> and authenticate.'
-                instructions_5_1_html: 'Choose the accounts ("wallets") and permissions ("scopes"). Example: I want to buy BTC with EUR:'
+                instructions_5_1_html: 'Choose the accounts ("wallets") and permissions. Example: I want to buy BTC with EUR:'
                 instructions_5_2_html: 'Select <b>BTC</b> and <b>EUR</b> wallets.'
                 instructions_5_3_html: '<b>wallet:accounts:read</b>, to list Account info (required for security reasons).'
                 instructions_5_4_html: '<b>wallet:orders:read</b>, to list buy/sell orders.'
