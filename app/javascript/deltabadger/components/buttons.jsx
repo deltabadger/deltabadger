@@ -231,35 +231,34 @@ export const RemoveButton = ({onClick, disabled}) => {
 }
 
 export const ExchangeButton = ({ handleClick, exchange, type }) => {
-  const withdrawalEnabled = () => {
-    return ['kraken', 'ftx', 'ftx.us']
-  }
-  const webhookEnabled = () => {
-    return ['kraken']
-  }
+  const withdrawalEnabled = () => ['kraken', 'ftx', 'ftx.us'];
+  const webhookEnabled = () => ['kraken'];
 
   const exchangeClass = () => {
     if (type === 'trading') {
-      return exchange.name.toLowerCase().replace('.', '-')
+      return exchange.name.toLowerCase().replace('.', '-');
     }
 
     if (type === 'withdrawal') {
-      return withdrawalEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable'
+      return withdrawalEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable';
     }
 
     if (type === 'webhook') {
-      return webhookEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable'
+      return webhookEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable';
     }
 
-    return 'unavailable'
-  }
+    return 'unavailable';
+  };
 
   return (
     <div
-      className={`col-sm-6 col-md-4 db-bot__exchanges__item db-bot__exchanges__item--${exchangeClass()}`}
+      className={`db-bot__exchanges__item db-bot__exchanges__item--${exchangeClass()}`}
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
-      { exchange.name }
+      <div>{exchange.name}</div>
+      <div>{exchange.taker_fee}</div>
+      <div>{exchange.withdrawal_fee}</div>
     </div>
   );
-}
+};
+
