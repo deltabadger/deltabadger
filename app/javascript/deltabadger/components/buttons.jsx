@@ -257,7 +257,7 @@ export const ExchangeButton = ({ handleClick, exchange, type }) => {
     >
       <div>{exchange.name}</div>
       <div>{exchange.taker_fee}%</div>
-      <div>{exchange.withdrawal_fee}BTC</div>
+      <div>{exchange.withdrawal_fee}</div>
     </div>
   );
 };
