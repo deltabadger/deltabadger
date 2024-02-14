@@ -1,14 +1,14 @@
-module Payments
+module PaymentsManager
   class Create < BaseService
     CURRENCY_EU = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
     CURRENCY_OTHER = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
     PAYMENT_SEQUENCE_ID = "'payments_id_seq'".freeze
 
     def initialize(
-      client: Payments::Client.new,
+      client: PaymentsManager::Client.new,
       payments_repository: PaymentsRepository.new,
-      payment_validator: Payments::Validators::Create.new,
-      cost_calculator_class: Payments::CostCalculator
+      payment_validator: PaymentsManager::Validators::Create.new,
+      cost_calculator_class: PaymentsManager::CostCalculator
     )
       @client = client
       @payments_repository = payments_repository
@@ -123,7 +123,7 @@ module Payments
 
       vat = VatRate.find_by!(country: payment.country).vat
 
-      Payments::CostCalculatorFactory.call(
+      PaymentsManager::CostCalculatorFactory.call(
         eu: payment.eu?,
         vat: vat,
         subscription_plan: subscription_plan,

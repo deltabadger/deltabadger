@@ -1,4 +1,4 @@
-module Payments::Validators
+module PaymentsManager::Validators
   class Create
     def call(payment)
       return Result::Success.new if payment.valid?

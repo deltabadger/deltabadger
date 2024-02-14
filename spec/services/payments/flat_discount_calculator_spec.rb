@@ -1,4 +1,4 @@
-RSpec.describe Payments::FlatDiscountCalculator do
+RSpec.describe PaymentsManager::FlatDiscountCalculator do
   let(:calculator) do
     described_class.new
   end

@@ -1,4 +1,4 @@
-module Payments
+module PaymentsManager
   class CostCalculatorFactory < BaseService
 
     EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze

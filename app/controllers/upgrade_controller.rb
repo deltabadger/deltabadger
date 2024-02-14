@@ -31,7 +31,7 @@ class UpgradeController < ApplicationController
   end
 
   def pay
-    result = Payments::Create.call(payment_params)
+    result = PaymentsManager::Create.call(payment_params)
 
     if result.success?
       redirect_to result.data[:payment_url]
@@ -53,7 +53,7 @@ class UpgradeController < ApplicationController
   end
 
   def payment_callback
-    Payments::Update.call(params['data'] || params)
+    PaymentsManager::Update.call(params['data'] || params)
 
     render json: {}
   end
@@ -62,7 +62,7 @@ class UpgradeController < ApplicationController
   def create_stripe_intent
     # We create a fake payment to calculate the costs of the transactions
     fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    stripe_price = Payments::Create.new.get_stripe_price(fake_payment, current_user)
+    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
     metadata = get_payment_metadata(current_user, params)
     payment_intent = Stripe::PaymentIntent.create(
       amount: amount_in_cents(stripe_price[:total_price]),
@@ -78,7 +78,7 @@ class UpgradeController < ApplicationController
 
   def update_stripe_intent
     fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    stripe_price = Payments::Create.new.get_stripe_price(fake_payment, current_user)
+    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
     metadata = get_update_metadata(params)
     Stripe::PaymentIntent.update(params['payment_intent_id'],
                                  amount: amount_in_cents(stripe_price[:total_price]),
@@ -125,7 +125,7 @@ class UpgradeController < ApplicationController
       amount: cost_presenter.total_price
     }
 
-    payment = Payments::Create.new.wire_transfer(
+    payment = PaymentsManager::Create.new.wire_transfer(
       wire_params,
       cost_presenter.discount_percent_amount.to_f.positive?
     )
@@ -170,7 +170,7 @@ class UpgradeController < ApplicationController
     payment_metadata = payment_intent['metadata']
     cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
     payment_params = payment_metadata.to_hash.merge(subscription_params)
-    payment = Payments::Create.new.stripe_payment(
+    payment = PaymentsManager::Create.new.stripe_payment(
       payment_params,
       cost_presenter.discount_percent_amount.to_f.positive?
     )
@@ -181,10 +181,10 @@ class UpgradeController < ApplicationController
   end
 
   def get_cost_presenter(payment_metadata, subscription_params)
-    plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
-    if plan == 'hodler'
+    case subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
+    when 'hodler'
       subscription_params[:cost_presenters][payment_metadata['country']][:hodler]
-    elsif plan == 'legendary_badger'
+    when 'legendary_badger'
       subscription_params[:cost_presenters][payment_metadata['country']][:legendary_badger]
     else
       subscription_params[:cost_presenters][payment_metadata['country']][:investor]
@@ -249,7 +249,7 @@ class UpgradeController < ApplicationController
   def cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan)
     discount = referrer&.discount_percent || 0
 
-    factory = Payments::CostCalculatorFactory.new
+    factory = PaymentsManager::CostCalculatorFactory.new
     presenter = Presenters::Payments::Cost
 
     build_presenter = ->(args) { presenter.new(factory.call(**args)) }

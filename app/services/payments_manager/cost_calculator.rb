@@ -1,4 +1,4 @@
-module Payments
+module PaymentsManager
   class CostCalculator
     attr_reader :base_price, :vat, :flat_discount, :discount_percent, :commission_percent, :early_bird_discount
 

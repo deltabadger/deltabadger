@@ -1,4 +1,4 @@
-module Payments
+module PaymentsManager
   class Client < BaseService
     include Rails.application.routes.url_helpers
 

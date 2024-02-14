@@ -1,4 +1,4 @@
-module Payments
+module PaymentsManager
   class Update < BaseService
     PAID_STATUSES = %i[paid confirmed complete].freeze
     CANCELLED_STATUSES = %i[expired invalid].freeze
