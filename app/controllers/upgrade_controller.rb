@@ -1,7 +1,13 @@
 # rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
-  before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer create_stripe_intent update_stripe_intent confirm_stripe_payment]
+  before_action :authenticate_user!, except: [:btcpay_payment_callback]
+  protect_from_forgery except: %i[
+    btcpay_payment_callback
+    wire_transfer_payment
+    create_stripe_intent
+    update_stripe_intent
+    confirm_stripe_payment
+  ]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
   STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
@@ -30,8 +36,8 @@ class UpgradeController < ApplicationController
     )
   end
 
-  def pay
-    result = PaymentsManager::Create.call(payment_params)
+  def zen_payment
+    result = PaymentsManager::ZenManager::PaymentCreator.call(payment_params)
 
     if result.success?
       redirect_to result.data[:payment_url]
@@ -45,70 +51,52 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def payment_success
+  def zen_payment_success
+    puts "success params: #{params}"
     current_user.update!(welcome_banner_showed: true)
     flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
 
     redirect_to dashboard_path
   end
 
-  def payment_callback
-    PaymentsManager::Update.call(params['data'] || params)
+  def zen_payment_failure
+    puts "failure params: #{params}"
+    current_user.update!(welcome_banner_showed: true)
+    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
+
+    redirect_to dashboard_path
+  end
+
+  def btcpay_payment
+    result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params)
+
+    if result.success?
+      redirect_to result.data[:payment_url]
+    else
+      unless result.errors.include?('user error')
+        Raven.capture_exception(Exception.new(result.errors[0]))
+        flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      end
+      session[:errors] = result.errors
+      redirect_to action: 'index'
+    end
+  end
+
+  def btcpay_payment_success
+    current_user.update!(welcome_banner_showed: true)
+    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
+
+    redirect_to dashboard_path
+  end
+
+  def btcpay_payment_callback
+    PaymentsManager::BtcpayManager::SubscriptionUpdater.call(params['data'] || params)
 
     render json: {}
   end
 
-  # Create a intention of paying
-  def create_stripe_intent
-    # We create a fake payment to calculate the costs of the transactions
-    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
-    metadata = get_payment_metadata(current_user, params)
-    payment_intent = Stripe::PaymentIntent.create(
-      amount: amount_in_cents(stripe_price[:total_price]),
-      currency: fake_payment.eu? ? 'eur' : 'usd',
-      metadata: metadata
-    )
-    session[:payment_intent_id] = payment_intent['id']
-    render json: {
-      clientSecret: payment_intent['client_secret'],
-      payment_intent_id: payment_intent['id']
-    }
-  end
-
-  def update_stripe_intent
-    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
-    metadata = get_update_metadata(params)
-    Stripe::PaymentIntent.update(params['payment_intent_id'],
-                                 amount: amount_in_cents(stripe_price[:total_price]),
-                                 currency: fake_payment.eu? ? 'eur' : 'usd',
-                                 metadata: metadata)
-  end
-
-  def confirm_stripe_payment
-    payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    stripe_payment_succeeded = stripe_payment_succeeded(payment_intent)
-    unless stripe_payment_succeeded
-      return render json: {
-        payment_status: 'failed'
-      }
-    end
-
-    upgrade_subscription(payment_intent, params['payment_intent_id'])
-
-    render json: {
-      payment_status: 'succeeded'
-    }
-  rescue StandardError => e
-    Raven.capture_exception(e)
-    render json: {
-      payment_status: 'failed'
-    }
-  end
-
   # rubocop:disable Metrics/MethodLength
-  def wire_transfer
+  def wire_transfer_payment
     wire_params = wire_transfer_params.merge(default_locals)
     plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
     cost_presenter = if plan == 'hodler'
@@ -162,6 +150,55 @@ class UpgradeController < ApplicationController
     redirect_to action: 'index'
   end
   # rubocop:enable Metrics/MethodLength
+
+  # Create a intention of paying
+  def create_stripe_intent
+    # We create a fake payment to calculate the costs of the transactions
+    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
+    metadata = get_payment_metadata(current_user, params)
+    payment_intent = Stripe::PaymentIntent.create(
+      amount: amount_in_cents(stripe_price[:total_price]),
+      currency: fake_payment.eu? ? 'eur' : 'usd',
+      metadata: metadata
+    )
+    session[:payment_intent_id] = payment_intent['id']
+    render json: {
+      clientSecret: payment_intent['client_secret'],
+      payment_intent_id: payment_intent['id']
+    }
+  end
+
+  def update_stripe_intent
+    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
+    metadata = get_update_metadata(params)
+    Stripe::PaymentIntent.update(params['payment_intent_id'],
+                                 amount: amount_in_cents(stripe_price[:total_price]),
+                                 currency: fake_payment.eu? ? 'eur' : 'usd',
+                                 metadata: metadata)
+  end
+
+  def confirm_stripe_payment
+    payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
+    stripe_payment_succeeded = stripe_payment_succeeded(payment_intent)
+    unless stripe_payment_succeeded
+      return render json: {
+        payment_status: 'failed'
+      }
+    end
+
+    upgrade_subscription(payment_intent, params['payment_intent_id'])
+
+    render json: {
+      payment_status: 'succeeded'
+    }
+  rescue StandardError => e
+    Raven.capture_exception(e)
+    render json: {
+      payment_status: 'failed'
+    }
+  end
 
   private
 

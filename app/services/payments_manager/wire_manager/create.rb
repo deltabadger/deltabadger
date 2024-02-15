@@ -7,11 +7,41 @@ module PaymentsManager
     def initialize(
       client: PaymentsManager::BtcpayManager::BtcpayClient.new,
       payments_repository: PaymentsRepository.new,
+      payment_validator: PaymentsManager::Validators::Create.new,
       cost_calculator_class: PaymentsManager::CostCalculator
     )
       @client = client
       @payments_repository = payments_repository
+      @payment_validator = payment_validator
       @cost_calculator_class = cost_calculator_class
+    end
+
+    def call(params)
+      order_id = get_sequenced_id
+      payment = Payment.new(params.merge(id: order_id))
+      user = params.fetch(:user)
+      validation_result = @payment_validator.call(payment)
+
+      return validation_result if validation_result.failure?
+
+      cost_calculator = get_cost_calculator(payment, user)
+
+      payment_result = create_payment(payment, user, cost_calculator)
+      if payment_result.success?
+        crypto_total = payment_result.data[:crypto_total]
+        @payments_repository.create(
+          payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
+            .merge(
+              id: order_id,
+              currency: currency(payment),
+              discounted: cost_calculator.discount_percent.positive?,
+              commission: cost_calculator.commission,
+              crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
+            )
+            .merge(params)
+        )
+      end
+      payment_result
     end
 
     # create payment when wire transfer
