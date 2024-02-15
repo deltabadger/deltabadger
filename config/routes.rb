@@ -82,7 +82,7 @@ Rails.application.routes.draw do
       post :zen_payment, as: 'card_payment'
       get :zen_payment_success, as: 'card_payment_success'
       get :zen_payment_failure, as: 'card_payment_failure'
-      post :zen_payment_ipn, as: 'card_payment_callback'
+      # post :zen_payment_ipn, as: 'card_payment_callback'
     end
 
     namespace :settings do
