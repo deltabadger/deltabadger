@@ -75,10 +75,14 @@ Rails.application.routes.draw do
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
     namespace :upgrade do
       get '/', action: :index
-      post :pay
-      get :payment_success
-      post :payment_callback
-      post :wire_transfer
+      post :btcpay_payment, as: 'bitcoin_payment'
+      get :btcpay_payment_success, as: 'bitcoin_payment_success'
+      post :btcpay_payment_callback, as: 'bitcoin_payment_callback'
+      post :wire_transfer_payment
+      post :zen_payment, as: 'card_payment'
+      get :zen_payment_success, as: 'card_payment_success'
+      get :zen_payment_failure, as: 'card_payment_failure'
+      post :zen_payment_ipn, as: 'card_payment_callback'
     end
 
     namespace :settings do
