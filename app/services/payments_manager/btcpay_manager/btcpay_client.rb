@@ -64,8 +64,8 @@ module PaymentsManager
                    phone: birth_date,
                    country: country },
           itemDesc: item_description,
-          redirectUrl: upgrade_bitcoin_payment_success_url(host: HOST, lang: I18n.locale),
-          notificationUrl: upgrade_bitcoin_payment_callback_url(host: HOST, lang: I18n.locale),
+          redirectUrl: upgrade_btcpay_payment_success_url(host: HOST, lang: I18n.locale),
+          notificationUrl: upgrade_btcpay_payment_callback_url(host: HOST, lang: I18n.locale),
           extendedNotifications: true,
           token: API_KEY
         }.to_json
