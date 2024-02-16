@@ -118,18 +118,18 @@ Rails.application.routes.draw do
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
-  get '/terms_and_conditions', to: redirect("/#{I18n.default_locale}/terms-and-conditions")
-  get '/privacy_policy', to: redirect("/#{I18n.default_locale}/privacy-policy")
-  get '/cookies_policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
-  get '/referral_program', to: redirect("/#{I18n.default_locale}/referral-program")
+  get '/terms-and-conditions', to: redirect("/#{I18n.default_locale}/terms-and-conditions")
+  get '/privacy-policy', to: redirect("/#{I18n.default_locale}/privacy-policy")
+  get '/cookies-policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
+  get '/referral-program', to: redirect("/#{I18n.default_locale}/referral-program")
   get '/', to: redirect("/#{I18n.default_locale}")
   get '*path', to: redirect("/#{I18n.default_locale}")
-  get '/legendary_badger', to: redirect("/#{I18n.default_locale}/legendary-badger")
+  get '/legendary-badger', to: redirect("/#{I18n.default_locale}/legendary-badger")
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
   get '/metrics', to: 'metrics#index', as: :bot_btc_metrics
-  get '/health_check', to: 'health_check#index', as: :health_check
+  get '/health-check', to: 'health_check#index', as: :health_check
 
   get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
