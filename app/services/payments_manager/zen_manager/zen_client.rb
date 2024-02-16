@@ -62,10 +62,10 @@ module PaymentsManager
           billingAddress: {
             countryState: params.fetch(:country)
           },
-          urlSuccess: upgrade_card_payment_success_url(host: HOST, lang: I18n.locale),
-          urlFailure: upgrade_card_payment_failure_url(host: HOST, lang: I18n.locale)
-          # urlRedirect: upgrade_card_payment_success_url(host: HOST, lang: I18n.locale),
-          # customIpnUrl: upgrade_card_payment_callback_url(host: HOST, lang: I18n.locale)
+          urlSuccess: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
+          urlFailure: upgrade_zen_payment_failure_url(host: HOST, lang: I18n.locale)
+          # urlRedirect: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
+          # customIpnUrl: upgrade_zen_payment_callback_url(host: HOST, lang: I18n.locale)
         }
         request_body[:signature] = get_zen_signature(request_body)
         request_body.to_json

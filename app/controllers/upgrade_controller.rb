@@ -1,11 +1,11 @@
 # rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
-  before_action :authenticate_user!, except: [:btcpay_payment_callback]
+  before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
   protect_from_forgery except: %i[
     btcpay_payment_callback
     wire_transfer_payment
-    create_stripe_intent
-    update_stripe_intent
+    create_stripe_payment_intent
+    update_stripe_payment_intent
     confirm_stripe_payment
   ]
 
@@ -24,7 +24,9 @@ class UpgradeController < ApplicationController
       if stripe_payment_in_process(payment_intent)
         payment_in_process = true
       elsif stripe_payment_succeeded(payment_intent)
-        upgrade_subscription(payment_intent, session[:payment_intent_id])
+        subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
+        PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent, payment_intent_id)
+        session.delete(:payment_intent_id)
         return redirect_to upgrade_path
       end
     end
@@ -67,6 +69,13 @@ class UpgradeController < ApplicationController
     redirect_to dashboard_path
   end
 
+  def zen_payment_ipn
+    # PaymentsManager::ZenManager::SubscriptionUpdater.call(params['data'] || params)
+    puts "zen ipn params: #{params}"
+
+    render json: {}
+  end
+
   def btcpay_payment
     result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params)
 
@@ -99,12 +108,10 @@ class UpgradeController < ApplicationController
   def wire_transfer_payment
     wire_params = wire_transfer_params.merge(default_locals)
     plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
-    cost_presenter = if plan == 'hodler'
-                       wire_params[:cost_presenters][wire_params[:country]][:hodler]
-                     elsif plan == 'legendary_badger'
-                       wire_params[:cost_presenters][wire_params[:country]][:legendary_badger]
-                     else
-                       wire_params[:cost_presenters][wire_params[:country]][:investor]
+    cost_presenter = case plan
+                     when 'hodler' then wire_params[:cost_presenters][wire_params[:country]][:hodler]
+                     when 'legendary_badger' then wire_params[:cost_presenters][wire_params[:country]][:legendary_badger]
+                     else wire_params[:cost_presenters][wire_params[:country]][:investor]
                      end
 
     email_params = {
@@ -113,7 +120,7 @@ class UpgradeController < ApplicationController
       amount: cost_presenter.total_price
     }
 
-    payment = PaymentsManager::Create.new.wire_transfer(
+    payment = PaymentsManager::WireManager::PaymentCreator.call(
       wire_params,
       cost_presenter.discount_percent_amount.to_f.positive?
     )
@@ -151,17 +158,8 @@ class UpgradeController < ApplicationController
   end
   # rubocop:enable Metrics/MethodLength
 
-  # Create a intention of paying
-  def create_stripe_intent
-    # We create a fake payment to calculate the costs of the transactions
-    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
-    metadata = get_payment_metadata(current_user, params)
-    payment_intent = Stripe::PaymentIntent.create(
-      amount: amount_in_cents(stripe_price[:total_price]),
-      currency: fake_payment.eu? ? 'eur' : 'usd',
-      metadata: metadata
-    )
+  def create_stripe_payment_intent
+    payment_intent = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
     session[:payment_intent_id] = payment_intent['id']
     render json: {
       clientSecret: payment_intent['client_secret'],
@@ -169,26 +167,21 @@ class UpgradeController < ApplicationController
     }
   end
 
-  def update_stripe_intent
-    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    stripe_price = PaymentsManager::Create.new.get_stripe_price(fake_payment, current_user)
-    metadata = get_update_metadata(params)
-    Stripe::PaymentIntent.update(params['payment_intent_id'],
-                                 amount: amount_in_cents(stripe_price[:total_price]),
-                                 currency: fake_payment.eu? ? 'eur' : 'usd',
-                                 metadata: metadata)
+  def update_stripe_payment_intent
+    PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, current_user)
   end
 
   def confirm_stripe_payment
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    stripe_payment_succeeded = stripe_payment_succeeded(payment_intent)
-    unless stripe_payment_succeeded
+    unless stripe_payment_succeeded(payment_intent)
       return render json: {
         payment_status: 'failed'
       }
     end
 
-    upgrade_subscription(payment_intent, params['payment_intent_id'])
+    subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
+    PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent, payment_intent_id)
+    session.delete(:payment_intent_id)
 
     render json: {
       payment_status: 'succeeded'
@@ -201,48 +194,6 @@ class UpgradeController < ApplicationController
   end
 
   private
-
-  def upgrade_subscription(payment_intent, payment_intent_id)
-    subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
-    payment_metadata = payment_intent['metadata']
-    cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
-    payment_params = payment_metadata.to_hash.merge(subscription_params)
-    payment = PaymentsManager::Create.new.stripe_payment(
-      payment_params,
-      cost_presenter.discount_percent_amount.to_f.positive?
-    )
-    UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
-    session.delete(:payment_intent_id)
-  rescue StandardError => e
-    Raven.capture_exception(e)
-  end
-
-  def get_cost_presenter(payment_metadata, subscription_params)
-    case subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
-    when 'hodler'
-      subscription_params[:cost_presenters][payment_metadata['country']][:hodler]
-    when 'legendary_badger'
-      subscription_params[:cost_presenters][payment_metadata['country']][:legendary_badger]
-    else
-      subscription_params[:cost_presenters][payment_metadata['country']][:investor]
-    end
-  end
-
-  def get_payment_metadata(current_user, params)
-    {
-      user_id: current_user['id'],
-      email: current_user['email'],
-      subscription_plan_id: params['subscription_plan_id'],
-      country: params['country']
-    }
-  end
-
-  def get_update_metadata(params)
-    {
-      country: params['country'],
-      subscription_plan_id: params['subscription_plan_id']
-    }
-  end
 
   def stripe_payment_succeeded(payment_intent)
     payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
