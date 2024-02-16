@@ -85,7 +85,7 @@
 
         <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
           <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
-          <%= form_with model: Payment, url: upgrade_card_payment_path do |f| %>
+          <%= form_with model: Payment, url: upgrade_zen_payment_path do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
@@ -132,7 +132,7 @@
 
         <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
           <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
-          <%= form_for payment, url: upgrade_bitcoin_payment_path do |f| %>
+          <%= form_for payment, url: upgrade_btcpay_payment_path do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>

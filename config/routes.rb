@@ -5,6 +5,10 @@ Rails.application.routes.draw do
   require 'sidekiq/prometheus/exporter'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
+  authenticate :user, lambda { |u| u.admin? } do
+    mount Sidekiq::Web => '/sidekiq'
+  end
+
   namespace :admin do
     resources :users, except: [:destroy]
     resources :affiliates, except: [:destroy] do
@@ -56,33 +60,37 @@ Rails.application.routes.draw do
     get '/webhook_bots_data', to: 'bots#webhook_bots_data'
   end
 
-  get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
-  get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
-  get '/metrics' => 'metrics#index', as: :bot_btc_metrics
-  get '/health_check' => 'health_check#index', as: :health_check
-
-  authenticate :user, lambda { |u| u.admin? } do
-    mount Sidekiq::Web => '/sidekiq'
-  end
-
-  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
-  post '/ref/accept', to: 'ref_codes#accept'
-
-  post '/create-payment-intent', to: 'upgrade#create_stripe_intent'
-  post '/update-payment-intent', to: 'upgrade#update_stripe_intent'
-  post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
-
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
+    root to: 'home#index'
+
+    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations' }, skip: [:registrations]
+
+    as :user do
+      scope :users do
+        get '/cancel', to: 'users/registrations#cancel', as: 'cancel_user_registration'
+        get '/sign_up', to: 'users/registrations#new', as: 'new_user_registration'
+        post '/', to: 'users/registrations#create', as: 'user_registration'
+      end
+    end
+
+    resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
+      get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
+      patch :update_visible_info
+      patch :update_btc_address
+      patch :new, to: 'affiliates#new'
+      patch :create, to: 'affiliates#create'
+    end
+
     namespace :upgrade do
       get '/', action: :index
-      post :btcpay_payment, as: 'bitcoin_payment'
-      get :btcpay_payment_success, as: 'bitcoin_payment_success'
-      post :btcpay_payment_callback, as: 'bitcoin_payment_callback'
+      post :btcpay_payment
+      get :btcpay_payment_success
+      post :btcpay_payment_callback
       post :wire_transfer_payment
-      post :zen_payment, as: 'card_payment'
-      get :zen_payment_success, as: 'card_payment_success'
-      get :zen_payment_failure, as: 'card_payment_failure'
-      # post :zen_payment_ipn, as: 'card_payment_callback'
+      post :zen_payment
+      get :zen_payment_success
+      get :zen_payment_failure
+      # post :zen_payment_ipn
     end
 
     namespace :settings do
@@ -96,27 +104,6 @@ Rails.application.routes.draw do
       post :disable_two_fa
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
-
-    resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
-      get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
-      patch :update_visible_info
-      patch :update_btc_address
-      patch :new, to: 'affiliates#new'
-      patch :create, to: 'affiliates#create'
-    end
-
-
-    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations' }, skip: [:registrations]
-
-    as :user do
-      scope :users do
-        get '/cancel', to: 'users/registrations#cancel', as: 'cancel_user_registration'
-        get '/sign_up', to: 'users/registrations#new', as: 'new_user_registration'
-        post '/', to: 'users/registrations#create', as: 'user_registration'
-      end
-    end
-
-    root to: 'home#index'
 
     get '/dashboard', to: 'home#dashboard', as: :dashboard
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
@@ -138,6 +125,18 @@ Rails.application.routes.draw do
   get '/' => redirect("/#{I18n.default_locale}")
   get '*path' => redirect("/#{I18n.default_locale}")
   get '/legendary_badger' => redirect("/#{I18n.default_locale}/legendary-badger")
+
+  get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
+  get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
+  get '/metrics' => 'metrics#index', as: :bot_btc_metrics
+  get '/health_check' => 'health_check#index', as: :health_check
+
+  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
+  post '/ref/accept', to: 'ref_codes#accept'
+
+  post '/create-payment-intent', to: 'upgrade#create_stripe_intent'
+  post '/update-payment-intent', to: 'upgrade#update_stripe_intent'
+  post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
 
   telegram_webhook TelegramWebhooksController
 end
