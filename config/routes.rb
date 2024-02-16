@@ -134,8 +134,8 @@ Rails.application.routes.draw do
   get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
 
-  post '/create-payment-intent', to: 'upgrade#create_stripe_intent'
-  post '/update-payment-intent', to: 'upgrade#update_stripe_intent'
+  post '/create-payment-intent', to: 'upgrade#create_stripe_payment_intent'
+  post '/update-payment-intent', to: 'upgrade#update_stripe_payment_intent'
   post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
 
   telegram_webhook TelegramWebhooksController
