@@ -1,5 +1,5 @@
 module PaymentsManager
-  module BtcpayManager
+  module ZenManager
     class SubscriptionUpdater < ApplicationService
       PAID_STATUSES = %i[paid confirmed complete].freeze
       CANCELLED_STATUSES = %i[expired invalid].freeze
