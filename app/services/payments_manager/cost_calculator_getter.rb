@@ -1,6 +1,5 @@
 module PaymentsManager
   class CostCalculatorGetter < ApplicationService
-
     def initialize(payment:, user:)
       @payment = payment
       @user = user
