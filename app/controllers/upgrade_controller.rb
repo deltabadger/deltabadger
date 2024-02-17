@@ -55,18 +55,15 @@ class UpgradeController < ApplicationController
 
   def zen_payment_success
     puts "success params: #{params}"
-    current_user.update!(welcome_banner_showed: true)
-    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
+    PaymentsManager::ZenManager::SubscriptionUpdater.call(params)
 
     redirect_to dashboard_path
   end
 
   def zen_payment_failure
     puts "failure params: #{params}"
-    current_user.update!(welcome_banner_showed: true)
-    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
 
-    redirect_to dashboard_path
+    redirect_to action: 'index'
   end
 
   def zen_payment_ipn
