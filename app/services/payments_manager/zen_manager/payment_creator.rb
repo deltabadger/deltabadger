@@ -32,8 +32,7 @@ module PaymentsManager
               total: total,
               currency: get_currency(payment),
               discounted: cost_calculator.discount_percent.positive?,
-              commission: cost_calculator.commission,
-              paid_at: Time.now.strftime('%d/%m/%Y')
+              commission: cost_calculator.commission
             )
           )
         end
