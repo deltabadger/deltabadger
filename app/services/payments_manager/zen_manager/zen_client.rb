@@ -31,6 +31,7 @@ module PaymentsManager
         return Result::Failure.new(response.body) unless response.success?
 
         response = JSON.parse(response.body)
+        puts "response: #{response.inspect}"
 
         if response['error']
           Result::Failure.new(response['error'])
@@ -62,6 +63,8 @@ module PaymentsManager
           billingAddress: {
             countryState: params.fetch(:country)
           },
+          specifiedPaymentMethod: 'PME_CARD',
+          # specifiedPaymentChannel: 'PCL_CARD',
           urlSuccess: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
           urlFailure: upgrade_zen_payment_failure_url(host: HOST, lang: I18n.locale)
           # urlRedirect: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
