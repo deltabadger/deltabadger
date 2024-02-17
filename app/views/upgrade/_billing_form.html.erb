@@ -8,6 +8,7 @@
 <% active_zen_tab = !show_stripe_payment && show_zen_payment %>
 <% active_bitcoin_tab = !show_stripe_payment && !show_zen_payment && show_bitcoin_payment %>
 <% active_wire_tab = !show_stripe_payment && !show_zen_payment && !show_bitcoin_payment %>
+<%= @params.inspect %>
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
     <div class="modal-body">
