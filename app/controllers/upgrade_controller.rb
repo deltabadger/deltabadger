@@ -56,7 +56,6 @@ class UpgradeController < ApplicationController
 
   def zen_payment_success
     Rails.logger.info "zen success params: #{params}"
-    # show in user console
     PaymentsManager::ZenManager::SubscriptionUpdater.call(params)
     # flash[:notice] = I18n.t('subscriptions.payment.upgraded')
 
@@ -65,7 +64,6 @@ class UpgradeController < ApplicationController
 
   def zen_payment_failure
     Rails.logger.info "zen failure params: #{params}"
-    # show in user console
     # flash[:notice] = I18n.t('subscriptions.payment.payment_failed')
 
     redirect_to action: 'index'
@@ -78,11 +76,11 @@ class UpgradeController < ApplicationController
 
   def zen_payment_ipn
     Rails.logger.info "zen ipn params: #{params}"
-    # PaymentsManager::ZenManager::SubscriptionUpdater.call(params['data'] || params)
-    PaymentsManager::ZenManager::SubscriptionUpdater.call(params)
-    # show in user console
+    # if params.fetch(:status) == 'completed'
+    #   PaymentsManager::ZenManager::SubscriptionUpdater.call(params)
+    # end
 
-    render json: {}
+    render json: { "status": 'ok' }
   end
 
   def btcpay_payment

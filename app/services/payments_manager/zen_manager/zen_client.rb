@@ -115,10 +115,10 @@ module PaymentsManager
       def get_ipn_hash(params)
         # get value merchantTransactionId from params
         query_string = [
-          params.fetch(:merchantTransactionId),
-          params.fetch(:currency),
-          params.fetch(:amount),
-          params.fetch(:transactionStatus),
+          params[:merchantTransactionId],
+          params[:currency],
+          params[:amount],
+          params[:transactionStatus],
           ZEN_IPN_SECRET
         ].join
         Digest::SHA256.hexdigest(query_string).upcase
