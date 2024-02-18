@@ -12,7 +12,7 @@ module PaymentsManager
           @params[:merchantTransactionId],
           @params[:currency],
           @params[:amount],
-          @params[:transactionStatus],
+          @params[:status],
           ZEN_IPN_SECRET
         ].join
         Digest::SHA256.hexdigest(query_string).upcase
