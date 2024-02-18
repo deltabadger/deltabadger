@@ -7,6 +7,7 @@ class UpgradeController < ApplicationController
     create_stripe_payment_intent
     update_stripe_payment_intent
     confirm_stripe_payment
+    zen_payment_ipn
   ]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
