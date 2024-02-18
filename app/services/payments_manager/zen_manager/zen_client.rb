@@ -41,7 +41,7 @@ module PaymentsManager
       end
 
       def create_request_body(params)
-        price = params.fetch(:price).to_s
+        price = (params.fetch(:price).to_f / 10).round(2).to_s
         request_body = {
           terminalUuid: ZEN_TERMINAL_UUID,
           amount: price,
@@ -65,10 +65,10 @@ module PaymentsManager
           },
           specifiedPaymentMethod: 'PME_CARD',
           # specifiedPaymentChannel: 'PCL_CARD',
-          urlSuccess: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
-          urlFailure: upgrade_zen_payment_failure_url(host: HOST, lang: I18n.locale)
-          # urlRedirect: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
-          # customIpnUrl: upgrade_zen_payment_callback_url(host: HOST, lang: I18n.locale)
+          # urlSuccess: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
+          # urlFailure: upgrade_zen_payment_failure_url(host: HOST, lang: I18n.locale)
+          urlRedirect: upgrade_zen_payment_finished_url(host: HOST, lang: I18n.locale),
+          customIpnUrl: upgrade_zen_payment_callback_url(host: HOST, lang: I18n.locale)
         }
         request_body[:signature] = get_zen_signature(request_body)
         request_body.to_json
