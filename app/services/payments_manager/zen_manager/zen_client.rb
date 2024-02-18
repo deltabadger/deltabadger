@@ -18,18 +18,6 @@ module PaymentsManager
         Result::Failure.new(e.message)
       end
 
-      def get_ipn_hash(params)
-        # get value merchantTransactionId from params
-        query_string = [
-          params[:merchantTransactionId],
-          params[:currency],
-          params[:amount],
-          params[:transactionStatus],
-          ZEN_IPN_SECRET
-        ].join
-        Digest::SHA256.hexdigest(query_string).upcase
-      end
-
       private
 
       def try_create_payment(params)
