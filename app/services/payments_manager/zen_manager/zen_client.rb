@@ -7,7 +7,6 @@ module PaymentsManager
       URL                 = ENV.fetch('ZEN_CHECKOUT_URL').freeze
       ZEN_TERMINAL_UUID   = ENV.fetch('ZEN_TERMINAL_UUID').freeze
       ZEN_PAYWALL_SECRET  = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
-      ZEN_IPN_SECRET      = ENV.fetch('ZEN_IPN_SECRET').freeze
 
       def create_payment(params)
         try_create_payment(params)
