@@ -90,7 +90,8 @@ Rails.application.routes.draw do
       post :zen_payment
       get :zen_payment_success
       get :zen_payment_failure
-      # post :zen_payment_ipn
+      get :zen_payment_finished
+      post :zen_payment_ipn
     end
 
     namespace :settings do
