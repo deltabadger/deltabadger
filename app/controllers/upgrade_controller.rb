@@ -1,14 +1,14 @@
 # rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
-  protect_from_forgery except: %i[
-    btcpay_payment_callback
-    wire_transfer_payment
-    create_stripe_payment_intent
-    update_stripe_payment_intent
-    confirm_stripe_payment
-    zen_payment_ipn
-  ]
+  before_action :verify_zen_ipn!, only: %i[zen_payment_ipn]
+  # protect_from_forgery except: %i[
+  #   wire_transfer_payment
+  #   create_stripe_payment_intent
+  #   update_stripe_payment_intent
+  #   confirm_stripe_payment
+  # ]
+  skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_callback zen_payment_ipn]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
   STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
@@ -205,6 +205,14 @@ class UpgradeController < ApplicationController
   end
 
   private
+
+  def verify_zen_ipn
+    client = PaymentsManager::ZenManager::ZenClient.new
+    Rails.logger.info "verify_zen_ipn params: #{params}"
+    Rails.logger.info "#{client.get_ipn_hash(params)} --> verify_zen_ipn local check"
+    Rails.logger.info "#{params.fetch(:hash)} --> verify_zen_ipn params hash"
+    raise 'Zen IPN verification failed' unless client.get_ipn_hash(params) == params.fetch(:hash)
+  end
 
   def stripe_payment_succeeded(payment_intent)
     payment_intent['status'] == STRIPE_SUCCEEDED_STATUS

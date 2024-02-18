@@ -7,6 +7,7 @@ module PaymentsManager
       URL                 = ENV.fetch('ZEN_CHECKOUT_URL').freeze
       ZEN_TERMINAL_UUID   = ENV.fetch('ZEN_TERMINAL_UUID').freeze
       ZEN_PAYWALL_SECRET  = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
+      ZEN_IPN_SECRET      = ENV.fetch('ZEN_IPN_SECRET').freeze
 
       def create_payment(params)
         try_create_payment(params)
@@ -109,6 +110,18 @@ module PaymentsManager
         {
           payment_url: data.fetch('redirectUrl')
         }
+      end
+
+      def get_ipn_hash(params)
+        # get value merchantTransactionId from params
+        query_string = [
+          params.fetch(:merchantTransactionId),
+          params.fetch(:currency),
+          params.fetch(:amount),
+          params.fetch(:transactionStatus),
+          ZEN_IPN_SECRET
+        ].join
+        Digest::SHA256.hexdigest(query_string).upcase
       end
     end
   end
