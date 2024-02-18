@@ -54,31 +54,12 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def zen_payment_success
-    Rails.logger.info "zen success params: #{params}"
-    PaymentsManager::ZenManager::SubscriptionUpdater.call(params)
-    # flash[:notice] = I18n.t('subscriptions.payment.upgraded')
-
-    redirect_to dashboard_path
-  end
-
-  def zen_payment_failure
-    Rails.logger.info "zen failure params: #{params}"
-    # flash[:notice] = I18n.t('subscriptions.payment.payment_failed')
-
-    redirect_to action: 'index'
-  end
-
   def zen_payment_finished
-    Rails.logger.info "zen finished params: #{params}"
     redirect_to dashboard_path
   end
 
   def zen_payment_ipn
-    Rails.logger.info "zen ipn params: #{params}"
-    # if params.fetch(:status) == 'completed'
-    #   PaymentsManager::ZenManager::SubscriptionUpdater.call(params)
-    # end
+    PaymentsManager::ZenManager::SubscriptionUpdater.call(params) if params[:status] == 'ACCEPTED'
 
     render json: { "status": 'ok' }
   end
@@ -205,11 +186,7 @@ class UpgradeController < ApplicationController
   private
 
   def verify_zen_ipn!
-    # TODO: DOUBLECHECK QUE passa si funciona i que passa si no funciona
     expected_hash = PaymentsManager::ZenManager::IpnHashGetter.call(params)
-    Rails.logger.info "verify_zen_ipn params: #{params}"
-    Rails.logger.info "#{expected_hash} --> verify_zen_ipn local check"
-    Rails.logger.info "#{params.fetch(:hash)} --> verify_zen_ipn params hash"
     raise 'Zen IPN verification failed' unless expected_hash == params.fetch(:hash)
   end
 

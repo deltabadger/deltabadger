@@ -14,7 +14,8 @@ module PaymentsManager
       end
 
       def call
-        payment = @payments_repository.find_by(payment_id: @params[:id])
+        payment = @payments_repository.find_by(payment_id: @params[:merchantTransactionId])
+        Rails.logger.info "Payment found: #{payment.inspect}"
 
         update_params = {
           status: :paid,

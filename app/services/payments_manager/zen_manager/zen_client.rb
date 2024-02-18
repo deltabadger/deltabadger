@@ -65,8 +65,6 @@ module PaymentsManager
           },
           specifiedPaymentMethod: 'PME_CARD',
           # specifiedPaymentChannel: 'PCL_CARD',
-          # urlSuccess: upgrade_zen_payment_success_url(host: HOST, lang: I18n.locale),
-          # urlFailure: upgrade_zen_payment_failure_url(host: HOST, lang: I18n.locale)
           urlRedirect: upgrade_zen_payment_finished_url(host: HOST, lang: I18n.locale),
           customIpnUrl: upgrade_zen_payment_ipn_url(host: HOST, lang: I18n.locale)
         }
