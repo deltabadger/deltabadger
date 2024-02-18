@@ -88,8 +88,6 @@ Rails.application.routes.draw do
       post :btcpay_payment_callback
       post :wire_transfer_payment
       post :zen_payment
-      get :zen_payment_success
-      get :zen_payment_failure
       get :zen_payment_finished
       post :zen_payment_ipn
     end
