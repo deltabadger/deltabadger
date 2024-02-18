@@ -206,7 +206,7 @@ class UpgradeController < ApplicationController
 
   private
 
-  def verify_zen_ipn
+  def verify_zen_ipn!
     client = PaymentsManager::ZenManager::ZenClient.new
     Rails.logger.info "verify_zen_ipn params: #{params}"
     Rails.logger.info "#{client.get_ipn_hash(params)} --> verify_zen_ipn local check"
