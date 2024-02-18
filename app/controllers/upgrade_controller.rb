@@ -205,11 +205,12 @@ class UpgradeController < ApplicationController
   private
 
   def verify_zen_ipn!
-    client = PaymentsManager::ZenManager::ZenClient.new
+    # TODO: DOUBLECHECK QUE passa si funciona i que passa si no funciona
+    expected_hash = PaymentsManager::ZenManager::IpnHashGetter.call(params)
     Rails.logger.info "verify_zen_ipn params: #{params}"
-    Rails.logger.info "#{client.get_ipn_hash(params)} --> verify_zen_ipn local check"
+    Rails.logger.info "#{expected_hash} --> verify_zen_ipn local check"
     Rails.logger.info "#{params.fetch(:hash)} --> verify_zen_ipn params hash"
-    raise 'Zen IPN verification failed' unless client.get_ipn_hash(params) == params.fetch(:hash)
+    raise 'Zen IPN verification failed' unless expected_hash == params.fetch(:hash)
   end
 
   def stripe_payment_succeeded(payment_intent)
