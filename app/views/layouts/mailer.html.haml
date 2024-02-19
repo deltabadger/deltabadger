@@ -55,6 +55,10 @@
       .mail-button:link {
         color: #fff !important;
       }
+      .text-success {
+        color: #00b186;
+        font-weight: bold;
+      }
       @media only screen and (min-width: 600px) {
         h1 {
           font-size: 28px;
@@ -64,18 +68,18 @@
   %body
     %div{ style: "margin: 0 auto; max-width: 600px" }
 
-      %img{alt: "Deltabadger", src: "https://deltabadger.com/logo148alert.png", style: "margin: 40px 0; width: 96px; height: auto; display: block;"}
+      %img{alt: "Deltabadger", src: "https://deltabadger.com/logo_c_128x96.png", style: "margin: 40px 0; width: 64px; height: auto; display: block;"}
 
       = yield
 
       -# %p= t('mailer.signature_html')
-      -# - if @dca_profit.success?
-      -#   %p
-      -#   %p= t('ads.dca_2y_profit_html', profit: @dca_profit.data.to_i)
+      - if @dca_profit.success?
+        %p{style: "margin-top: 24px;"}
+          💡
+          =t('ads.dca_profit_html', profit: @dca_profit.data.to_i)
 
       %p{style: "color:#9d9d9d;  margin: 24px 0;"} &mdash;
       %p{style: "color:#9d9d9d;  margin: 24px 0;"}= t('mailer.signature_badgers')
-      -# %img{alt: "Deltabadger", src: "https://deltabadger.com/logo_plus_legendary50.png", style: "margin-bottom: 24px"}
 
       %p{style: "color:#9d9d9d; margin: 24px 0;"}
         = t('mailer.email_or_telegram')
@@ -86,5 +90,5 @@
         %a{href: "https://twitter.com/deltabadger", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
           Twitter →
 
-      %p{style: "color:#9d9d9d;  margin: 24px 0;"}
-        &copy; 2023 Deltabadger. #{t('mailer.all_rights_reserved')}
+      -# %p{style: "color:#9d9d9d;  margin: 24px 0;"}
+      -#   &copy; 2023 Deltabadger. #{t('mailer.all_rights_reserved')}
