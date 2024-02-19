@@ -115,6 +115,9 @@ module ExchangeApi
         end
 
         def get_quote(symbol)
+          # HACK: first handle exceptions
+          return 'USD' if symbol == 'paxgusd'
+
           known_four_char_quotes = %w[gusd usdt]
           known_three_char_quotes = %w[usd eur gbp sgd dai btc eth ltc bch fil]
 
