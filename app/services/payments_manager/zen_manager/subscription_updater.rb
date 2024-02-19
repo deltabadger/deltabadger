@@ -19,7 +19,7 @@ module PaymentsManager
 
         update_params = {
           status: :paid,
-          paid_at: Time.now.strftime('%d/%m/%Y')
+          paid_at: Time.current
         }
 
         payment = @payments_repository.update(payment.id, update_params)
