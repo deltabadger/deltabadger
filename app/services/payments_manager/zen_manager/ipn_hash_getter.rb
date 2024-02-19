@@ -8,14 +8,24 @@ module PaymentsManager
       end
 
       def call
-        query_string = [
-          @params[:merchantTransactionId],
-          @params[:currency],
-          @params[:amount],
-          @params[:status],
+        string_to_hash = build_string_to_hash
+        generate_hash(string_to_hash).upcase
+      end
+
+      private
+
+      def build_string_to_hash
+        [
+          @params.fetch(:merchantTransactionId),
+          @params.fetch(:currency),
+          @params.fetch(:amount),
+          @params.fetch(:status),
           ZEN_IPN_SECRET
         ].join
-        Digest::SHA256.hexdigest(query_string).upcase
+      end
+
+      def generate_hash(string)
+        Digest::SHA256.hexdigest(string)
       end
     end
   end
