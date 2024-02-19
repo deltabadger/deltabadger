@@ -2,10 +2,10 @@ module Payments
   class Client < BaseService
     include Rails.application.routes.url_helpers
 
-    HOST                  = ENV.fetch('PAYMENTS_CALLBACK_HOST')
-    URL                   = ENV.fetch('PAYMENTS_URL')
-    PUBLIC_API_KEY        = ENV.fetch('PAYMENTS_API_KEY')
-    AUTHORIZATION_HEADER  = ENV.fetch('PAYMENTS_AUTHORIZATION_HEADER')
+    HOST                  = ENV.fetch('MAIN_PAGE_URL')
+    URL                   = ENV.fetch('BTCPAY_SERVER_URL')
+    PUBLIC_API_KEY        = ENV.fetch('BTCPAY_API_KEY')
+    AUTHORIZATION_HEADER  = ENV.fetch('BTCPAY_AUTHORIZATION_HEADER')
 
     def initialize(
       api_key: PUBLIC_API_KEY,
