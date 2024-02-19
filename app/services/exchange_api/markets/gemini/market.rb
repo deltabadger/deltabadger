@@ -18,7 +18,6 @@ module ExchangeApi
           market_symbols = response.map do |symbol|
             base = get_base(symbol)
             quote = get_quote(symbol)
-            puts "symbol: #{symbol}, base: #{base}, quote: #{quote}"
             raise StandardError if base.nil? || quote.nil?
 
             MarketSymbol.new(base, quote)
@@ -136,7 +135,6 @@ module ExchangeApi
           symbol_details = fetch_symbol(symbol)
           return nil unless symbol_details.success?
 
-          puts "Gemini fetch_quote: #{symbol_details.data['quote_currency']}"
           symbol_details.data['quote_currency']
         end
 
@@ -155,7 +153,6 @@ module ExchangeApi
           symbol_details = fetch_symbol(symbol)
           return nil unless symbol_details.success?
 
-          puts "Gemini fetch_base: #{symbol_details.data['base_currency']}"
           symbol_details.data['base_currency']
         end
       end
