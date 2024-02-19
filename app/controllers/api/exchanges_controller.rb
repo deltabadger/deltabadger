@@ -15,6 +15,8 @@ module Api
         {
           id: exchange.id,
           name: exchange.name,
+          taker_fee: exchange.taker_fee || "?",
+          withdrawal_fee: exchange.withdrawal_fee || "?",
           symbols: symbols,
           all_symbols: all_symbols,
           trading_key_status: status_of_trading_key,
