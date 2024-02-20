@@ -16,7 +16,7 @@ class AffiliatesRepository < BaseRepository
     return nil if code.nil?
 
     affiliate = find_active_by_code(code)
-    Presenters::RefCodes::Show.new(affiliate)
+    RefCodesPresenter.new(affiliate)
   end
 
   def active?(id:)

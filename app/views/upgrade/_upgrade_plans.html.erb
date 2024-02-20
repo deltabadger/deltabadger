@@ -74,7 +74,7 @@
 <% end %>
 
 <% if upgrade_presenter.referrer_discount? %>
-  <% discount_presenter = Presenters::RefCodes::Show.new(upgrade_presenter.referrer) %>
+  <% discount_presenter = RefCodesPresenter.new(upgrade_presenter.referrer) %>
   <div class="db-plans__item db-plans__item--discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent) %></div>
     <div class="db-plans__item__amount">
