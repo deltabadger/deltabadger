@@ -1,0 +1,41 @@
+<div class="db-plans__item__name">
+  <%= t('subscriptions.legendary_badger') %>
+  <div class="db-years">
+    <% if days_left %>
+      <div class="text-success"><%= t('subscriptions.plan_life_time') %></div>
+    <% else %>
+      <%= t('subscriptions.plan_life_time') %>
+    <% end %>
+  </div>
+</div>
+<div class="db-plans__item__amount">
+  <% unless days_left %>
+    <% if cost_presenter.base_price != cost_presenter.flat_discounted_price %>
+      <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='legendary_badger-base-price'><%= cost_presenter.base_price %></span>
+      </div>
+      <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='legendary_badger-discounted-price'><%= cost_presenter.flat_discounted_price %></span>
+      </div>
+    <% else %>
+      <div class="db-plans__item__amount__t">
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='legendary_badger-base-price'><%= cost_presenter.base_price %></span>
+      </div>
+    <% end %>
+  <% end %>
+</div>
+<div class="db-plans__item__info">
+  <%= t('subscriptions.legendary_badger_description_html') %>
+  <%# <a href="https://deltabadger.com/legendary" _target="blank">
+  <%#   <%= t('cookie.read_more') %>
+  <%# </a> %>
+  <div class="db-plans__item__legendary-badgers-left">
+    <%= @allowable_early_birds_count %>
+    of
+    <%= @initial_early_birds_count %>
+    left.
+    <div class="progress">
+      <div class="progress-bar" role="progressbar" style="width: <%= @purchased_early_birds_percent %>" aria-valuenow="<%= @purchased_early_birds_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+  </div>
+</div>

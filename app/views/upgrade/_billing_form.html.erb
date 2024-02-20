@@ -8,14 +8,13 @@
 <% active_zen_tab = !show_stripe_payment && show_zen_payment %>
 <% active_bitcoin_tab = !show_stripe_payment && !show_zen_payment && show_bitcoin_payment %>
 <% active_wire_tab = !show_stripe_payment && !show_zen_payment && !show_bitcoin_payment %>
-<%= @params.inspect %>
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
     <div class="modal-body">
       <ul id="payTab" class="nav nav-tabs" role="tablist">
         <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_stripe_payment %>">
           <a href="#payStripe" id="log-tab" class="nav-link show <%= pending_wire_transfer ? 'disabled' : ('active' if active_stripe_tab) %>" aria-controls="payStripe" <%= "aria-selected" if active_stripe_tab %> data-toggle="tab" role = "tab">
-            <img src="<%= asset_pack_path("media/images/stripe.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--stripe">
+            <%= image_tag(asset_pack_path('media/images/stripe.svg'), alt: '', class: 'db-card-providers__item db-card-providers__item--stripe') %>
           </a>
         </li>
         <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_zen_payment %>">
