@@ -1,7 +1,7 @@
 module PaymentsManager
   module ZenManager
     class IpnHashGetter < ApplicationService
-      ZEN_IPN_SECRET      = ENV.fetch('ZEN_IPN_SECRET').freeze
+      ZEN_IPN_SECRET = ENV.fetch('ZEN_IPN_SECRET').freeze
 
       def initialize(params)
         @params = params
