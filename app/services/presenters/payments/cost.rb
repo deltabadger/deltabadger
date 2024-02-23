@@ -27,14 +27,6 @@ module Presenters
         (100 * cost_calculator.vat).to_i.to_s
       end
 
-      def base_price_with_vat
-        format_price(cost_calculator.base_price_with_vat)
-      end
-
-      def discounted_price
-        format_price(cost_calculator.discounted_price)
-      end
-
       def flat_discounted_price
         format_price(cost_calculator.flat_discounted_price -
                        cost_calculator.discount_percent_amount)
