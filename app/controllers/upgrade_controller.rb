@@ -238,7 +238,7 @@ class UpgradeController < ApplicationController
     commission_percent = referrer&.commission_percent || 0
 
     cost_calculator_factory = PaymentsManager::CostCalculatorFactory.new
-    cost_presenter = Presenters::Payments::Cost
+    cost_presenter = CostPresenter
 
     build_presenter = ->(args) { cost_presenter.new(cost_calculator_factory.call(**args)) }
 
