@@ -1,31 +1,41 @@
 module PaymentsManager
   module ZenManager
-    class PaymentCreator < ApplicationService
+    class PaymentCreator < BaseService
       CURRENCY_EU         = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
       CURRENCY_OTHER      = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
 
-      def initialize(params)
-        @params = params
-        @client = PaymentsManager::ZenManager::ZenClient.new
+      def initialize
         @payments_repository = PaymentsRepository.new
         @cost_calculator_class = PaymentsManager::CostCalculator
       end
 
-      def call
+      def call(params)
         order_id = PaymentsManager::NextPaymentIdGetter.call
-        payment = Payment.new(@params.merge(id: order_id, payment_type: 'zen'))
-        user = @params.fetch(:user)
+        payment = Payment.new(params.merge(id: order_id, payment_type: 'zen'))
+        user = params.fetch(:user)
         validation_result = validate_payment(payment)
+
+        puts "payment: #{payment.inspect}"
 
         return validation_result if validation_result.failure?
 
         cost_calculator = PaymentsManager::CostCalculatorGetter.call(payment: payment, user: user)
         total = cost_calculator.total_price
 
-        payment_result = create_payment(payment, user, total)
-        if payment_result.success?
+        payment_url = PaymentsManager::ZenManager::PaymentUrlGenerator.call(
+          price: total.to_s,
+          currency: get_currency(payment),
+          email: user.email,
+          order_id: payment.id,
+          first_name: payment.first_name,
+          last_name: payment.last_name,
+          country: payment.country,
+          item_description: "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade" # TODO: move to ItemDescriptionCreator?
+        )
+
+        if payment_url.present?
           @payments_repository.create(
-            @params.merge(
+            params.merge(
               id: order_id,
               status: :unpaid,
               payment_type: 'zen',
@@ -36,31 +46,17 @@ module PaymentsManager
             )
           )
         end
-        payment_result
+        payment_url
       end
 
       private
 
       def validate_payment(payment)
-        return Result::Success.new if payment.valid?
-
-        Result.new(
-          data: payment,
-          errors: payment.errors.full_messages.push('user error')
-        )
-      end
-
-      def create_payment(payment, user, total)
-        @client.create_payment(
-          price: total.to_s,
-          currency: get_currency(payment),
-          email: user.email,
-          order_id: payment.id,
-          first_name: payment.first_name,
-          last_name: payment.last_name,
-          country: payment.country,
-          item_description: "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade"
-        )
+        if payment.valid?
+          Result::Success.new
+        else
+          Result::Failure.new(payment.errors.full_messages.push('User error'), data: payment)
+        end
       end
 
       def get_currency(payment)

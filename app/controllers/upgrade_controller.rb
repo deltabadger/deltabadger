@@ -1,14 +1,17 @@
 # rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
-  before_action :verify_zen_ipn!, only: %i[zen_payment_ipn]
+  before_action :verify_zen_ipn, only: %i[zen_payment_ipn]
   # protect_from_forgery except: %i[
   #   wire_transfer_payment
-  #   create_stripe_payment_intent
-  #   update_stripe_payment_intent
-  #   confirm_stripe_payment
   # ]
-  skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_callback zen_payment_ipn]
+  skip_before_action :verify_authenticity_token, only: %i[
+    btcpay_payment_callback
+    zen_payment_ipn
+    create_stripe_payment_intent
+    update_stripe_payment_intent
+    confirm_stripe_payment
+  ]
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
   STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
@@ -26,7 +29,7 @@ class UpgradeController < ApplicationController
         payment_in_process = true
       elsif stripe_payment_succeeded(payment_intent)
         subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
-        PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent, payment_intent_id)
+        PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
         session.delete(:payment_intent_id)
         return redirect_to upgrade_path
       end
@@ -42,8 +45,8 @@ class UpgradeController < ApplicationController
   def zen_payment
     result = PaymentsManager::ZenManager::PaymentCreator.call(payment_params)
 
-    if result.success?
-      redirect_to result.data[:payment_url]
+    if result.present?
+      redirect_to result
     else
       unless result.errors.include?('user error')
         Raven.capture_exception(Exception.new(result.errors[0]))
@@ -65,8 +68,7 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment
-    Rails.logger.info "btcpay params: #{payment_params}"
-    result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params)
+    result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true))
 
     if result.success?
       redirect_to result.data[:payment_url]
@@ -88,7 +90,6 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment_callback
-    Rails.logger.info "btcpay callback params: #{params}"
     PaymentsManager::BtcpayManager::SubscriptionUpdater.call(params['data'] || params)
 
     render json: {}
@@ -96,7 +97,7 @@ class UpgradeController < ApplicationController
 
   # rubocop:disable Metrics/MethodLength
   def wire_transfer_payment
-    wire_params = wire_transfer_params.merge(default_locals)
+    wire_params = payment_params.merge(default_locals)
     plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
     cost_presenter = case plan
                      when 'hodler' then wire_params[:cost_presenters][wire_params[:country]][:hodler]
@@ -170,7 +171,7 @@ class UpgradeController < ApplicationController
     end
 
     subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
-    PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent, payment_intent_id)
+    PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
     session.delete(:payment_intent_id)
 
     render json: {
@@ -185,9 +186,11 @@ class UpgradeController < ApplicationController
 
   private
 
-  def verify_zen_ipn!
-    expected_hash = PaymentsManager::ZenManager::IpnHashGetter.call(params)
-    raise 'Zen IPN verification failed' unless expected_hash == params.fetch(:hash)
+  def verify_zen_ipn
+    return if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
+
+    render json: { error: 'Unauthorized' }, status: :unauthorized
+    # This halts the callback chain and returns a JSON response with a 401 Unauthorized status
   end
 
   def stripe_payment_succeeded(payment_intent)
@@ -226,16 +229,18 @@ class UpgradeController < ApplicationController
       purchased_early_birds_count: purchased_early_birds_count,
       purchased_early_birds_percent: purchased_early_birds_percent,
       allowable_early_birds_count: allowable_early_birds_count
-    }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan))
+    }.merge(cost_presenters_hash(current_plan, investor_plan, hodler_plan, legendary_badger_plan))
   end
 
-  def cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan)
-    discount = referrer&.discount_percent || 0
+  def cost_presenters_hash(current_plan, investor_plan, hodler_plan, legendary_badger_plan)
+    referrer = current_user.eligible_referrer
+    discount_percent = referrer&.discount_percent || 0
+    commission_percent = referrer&.commission_percent || 0
 
-    factory = PaymentsManager::CostCalculatorFactory.new
-    presenter = Presenters::Payments::Cost
+    cost_calculator_factory = PaymentsManager::CostCalculatorFactory.new
+    cost_presenter = Presenters::Payments::Cost
 
-    build_presenter = ->(args) { presenter.new(factory.call(**args)) }
+    build_presenter = ->(args) { cost_presenter.new(cost_calculator_factory.call(**args)) }
 
     plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
@@ -243,30 +248,27 @@ class UpgradeController < ApplicationController
       [country.country,
        plans.transform_values do |plan|
          build_presenter.call(
-           eu: country.eu?,
+           from_eu: country.eu?,
            vat: country.vat,
            subscription_plan: plan,
            current_plan: current_plan,
            days_left: current_user.plan_days_left,
-           discount_percent: discount
-         )
+           discount_percent: discount_percent,
+           commission_percent: commission_percent
+        )
        end]
     end.to_h
 
     { cost_presenters: cost_presenters }
   end
 
-  def payment_params
-    params
-      .require(:payment)
-      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :country)
-      .merge(user: current_user)
-  end
+  def payment_params(include_birth_date: false)
+    permitted_params = %i[subscription_plan_id first_name last_name country]
+    permitted_params << :birth_date if include_birth_date
 
-  def wire_transfer_params
     params
       .require(:payment)
-      .permit(:subscription_plan_id, :first_name, :last_name, :country)
+      .permit(*permitted_params)
       .merge(user: current_user)
   end
 

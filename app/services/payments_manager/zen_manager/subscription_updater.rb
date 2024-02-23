@@ -1,11 +1,10 @@
 module PaymentsManager
   module ZenManager
-    class SubscriptionUpdater < ApplicationService
+    class SubscriptionUpdater < BaseService
       # PAID_STATUSES = %i[paid confirmed complete].freeze
       # CANCELLED_STATUSES = %i[expired invalid].freeze
 
-      def initialize(params)
-        @params = params
+      def initialize
         @payments_repository = PaymentsRepository.new
         @notifications = Notifications::Subscription.new
         @fomo_notifications = Notifications::FomoEvents.new
@@ -13,8 +12,8 @@ module PaymentsManager
         @grant_commission = Affiliates::GrantCommission.new
       end
 
-      def call
-        payment = @payments_repository.find(@params[:merchantTransactionId])
+      def call(params)
+        payment = @payments_repository.find(params[:merchantTransactionId])
         Rails.logger.info "Payment found: #{payment.inspect}"
 
         update_params = {

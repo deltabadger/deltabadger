@@ -1,6 +1,6 @@
 module PaymentsManager
   module BtcpayManager
-    class BtcpayClient < ApplicationService
+    class BtcpayClient < BaseService
       include Rails.application.routes.url_helpers
 
       HOST                  = ENV.fetch('MAIN_PAGE_URL').freeze

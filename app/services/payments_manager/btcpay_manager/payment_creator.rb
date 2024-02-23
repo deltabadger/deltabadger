@@ -1,20 +1,19 @@
 module PaymentsManager
   module BtcpayManager
-    class PaymentCreator < ApplicationService
+    class PaymentCreator < BaseService
       CURRENCY_EU         = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
       CURRENCY_OTHER      = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
 
-      def initialize(params)
-        @params = params
+      def initialize
         @client = PaymentsManager::BtcpayManager::BtcpayClient.new
         @payments_repository = PaymentsRepository.new
         @cost_calculator_class = PaymentsManager::CostCalculator
       end
 
-      def call
+      def call(params)
         order_id = PaymentsManager::NextPaymentIdGetter.call
-        payment = Payment.new(@params.merge(id: order_id, payment_type: 'bitcoin'))
-        user = @params.fetch(:user)
+        payment = Payment.new(params.merge(id: order_id, payment_type: 'bitcoin'))
+        user = params.fetch(:user)
         validation_result = validate_payment(payment)
 
         return validation_result if validation_result.failure?
@@ -34,7 +33,7 @@ module PaymentsManager
                 commission: cost_calculator.commission,
                 crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
               )
-              .merge(@params)
+              .merge(params)
           )
         end
         payment_result

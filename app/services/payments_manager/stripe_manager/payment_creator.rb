@@ -1,25 +1,23 @@
 module PaymentsManager
   module StripeManager
-    class PaymentCreator < ApplicationService
+    class PaymentCreator < BaseService
 
-      def initialize(params, discounted)
-        @params = params
-        @discounted = discounted
+      def initialize
         @payments_repository = PaymentsRepository.new
       end
 
-      def call
-        cost_calculator = get_stripe_cost_calculator(@params)
+      def call(params, discounted)
+        cost_calculator = get_stripe_cost_calculator(params)
         total = cost_calculator.total_price
         # TODO: change to currency(payment)
-        currency = @params['country'] == 'Other' ? 0 : 1 # 0 is for USD and 1 is for EUR. All people outside Europe get their prices in USD
+        currency = params['country'] == 'Other' ? 0 : 1 # 0 is for USD and 1 is for EUR. All people outside Europe get their prices in USD
         @payments_repository.create(
           status: :paid,
-          user: User.find(@params[:user_id]),
-          country: @params[:country],
-          subscription_plan_id: @params[:subscription_plan_id],
+          user: User.find(params[:user_id]),
+          country: params[:country],
+          subscription_plan_id: params[:subscription_plan_id],
           birth_date: Time.now.strftime('%d/%m/%Y'),
-          discounted: @discounted,
+          discounted: discounted,
           total: total,
           currency: currency,
           commission: cost_calculator.commission,

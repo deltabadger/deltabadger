@@ -1,11 +1,10 @@
 module PaymentsManager
   module BtcpayManager
-    class SubscriptionUpdater < ApplicationService
+    class SubscriptionUpdater < BaseService
       PAID_STATUSES = %i[paid confirmed complete].freeze
       CANCELLED_STATUSES = %i[expired invalid].freeze
 
-      def initialize(params)
-        @params = params
+      def initialize
         @payments_repository = PaymentsRepository.new
         @notifications = Notifications::Subscription.new
         @fomo_notifications = Notifications::FomoEvents.new
@@ -13,23 +12,23 @@ module PaymentsManager
         @grant_commission = Affiliates::GrantCommission.new
       end
 
-      def call
-        payment = @payments_repository.find_by(payment_id: @params['id'])
+      def call(params)
+        payment = @payments_repository.find_by(payment_id: params['id'])
 
-        external_status = @params['status'].to_sym
+        external_status = params['status'].to_sym
         status = internal_status(external_status)
         just_paid = just_paid?(payment, status)
 
         update_params = {
           external_statuses: new_external_statuses(payment, external_status),
-          crypto_paid: @params['btcPaid']
+          crypto_paid: params['btcPaid']
         }
 
         update_params.merge!(status: status) unless payment.paid?
         if just_paid
-          update_params.merge!(paid_at: paid_at(@params),
-                               commission: recalculate_commission(@params, payment),
-                               crypto_commission: recalculate_crypto_commission(@params, payment))
+          update_params.merge!(paid_at: paid_at(params),
+                               commission: recalculate_commission(params, payment),
+                               crypto_commission: recalculate_crypto_commission(params, payment))
         end
 
         payment = @payments_repository.update(payment.id, update_params)
