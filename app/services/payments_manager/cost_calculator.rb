@@ -11,20 +11,12 @@ module PaymentsManager
       @early_bird_discount = to_bigdecimal(early_bird_discount)
     end
 
-    def base_price_with_vat
-      @base_price_with_vat ||= round_down(base_price * vat_multiplier)
-    end
-
     def flat_discounted_price
       @flat_discounted_price = base_price - flat_discount - early_bird_discount
     end
 
     def discount_percent_amount
       @discount_percent_amount = flat_discounted_price - discounted_price
-    end
-
-    def discounted_price
-      @discounted_price = round_down(flat_discounted_price * discount_multiplier)
     end
 
     def total_vat
@@ -47,6 +39,10 @@ module PaymentsManager
     end
 
     private
+
+    def discounted_price
+      round_down(flat_discounted_price * discount_multiplier)
+    end
 
     def vat_multiplier
       1 + vat
