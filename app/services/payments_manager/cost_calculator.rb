@@ -1,5 +1,5 @@
 module PaymentsManager
-  class CostCalculator
+  class CostCalculator < BaseService
     def call(
       base_price:,
       vat:,
@@ -40,7 +40,7 @@ module PaymentsManager
     end
 
     def flat_discounted_price
-      @flat_discounted_price ||= @base_price - flat_discount - @early_bird_discount
+      @flat_discounted_price ||= @base_price - @flat_discount - @early_bird_discount
     end
 
     def discount_percent_amount
@@ -56,7 +56,7 @@ module PaymentsManager
     end
 
     def commission
-      ((@base_price - flat_discount - @early_bird_discount) * @commission_percent).round(2)
+      ((@base_price - @flat_discount - @early_bird_discount) * @commission_percent).round(2)
     end
 
     def discounted_price

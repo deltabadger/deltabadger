@@ -237,10 +237,7 @@ class UpgradeController < ApplicationController
     discount_percent = referrer&.discount_percent || 0
     commission_percent = referrer&.commission_percent || 0
 
-    cost_calculator_factory = PaymentsManager::CostCalculatorFactory.new
-    cost_presenter = CostPresenter
-
-    build_presenter = ->(args) { cost_presenter.new(cost_calculator_factory.call(**args)) }
+    build_presenter = ->(args) { CostPresenter.new(PaymentsManager::CostCalculatorFactory.call(**args).data) }
 
     plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
@@ -255,7 +252,7 @@ class UpgradeController < ApplicationController
            days_left: current_user.plan_days_left,
            discount_percent: discount_percent,
            commission_percent: commission_percent
-        )
+         )
        end]
     end.to_h
 
