@@ -2,10 +2,6 @@ module PaymentsManager
   class CostCalculatorFactory < BaseService
     EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
-    def initialize
-      @cost_calculator = CostCalculator
-    end
-
     def call(
       from_eu:,
       vat:,
@@ -26,8 +22,7 @@ module PaymentsManager
                           (current_plan_base_price * ratio).round(2)
                         end
                       end
-
-      @cost_calculator.new(
+      PaymentsManager::CostCalculator.call(
         base_price: base_price,
         vat: vat,
         flat_discount: flat_discount,

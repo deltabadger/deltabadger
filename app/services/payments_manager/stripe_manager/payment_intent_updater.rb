@@ -4,11 +4,12 @@ module PaymentsManager
       def call(params, user)
         # We create a fake payment to calculate the costs of the transactions
         fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-        cost_calculator = PaymentsManager::CostCalculatorGetter.call(payment: fake_payment, user: user)
-        stripe_price = { total_price: cost_calculator.total_price }
+        cost_data_result = PaymentsManager::CostCalculatorGetter.call(payment: fake_payment, user: user)
+        return cost_data_result if cost_data_result.failure?
+
         metadata = get_update_metadata(params)
         Stripe::PaymentIntent.update(params['payment_intent_id'],
-                                     amount: amount_in_cents(stripe_price[:total_price]),
+                                     amount: amount_in_cents(cost_data_result.data[:total_price]),
                                      currency: fake_payment.eu? ? 'eur' : 'usd',
                                      metadata: metadata)
       end
@@ -22,6 +23,7 @@ module PaymentsManager
         }
       end
 
+      # FIXME: use generic amount_in_cents method (helper?)
       def amount_in_cents(amount)
         (amount * 100).round
       end

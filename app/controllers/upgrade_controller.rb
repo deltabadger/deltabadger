@@ -43,12 +43,12 @@ class UpgradeController < ApplicationController
   end
 
   def zen_payment
-    result = PaymentsManager::ZenManager::PaymentCreator.call(payment_params)
+    payment_result = PaymentsManager::ZenManager::PaymentCreator.call(payment_params)
 
-    if result.present?
-      redirect_to result
+    if payment_result.success?
+      redirect_to payment_result.data[:payment_url]
     else
-      unless result.errors.include?('user error')
+      unless payment_result.errors.include?('User error')
         Raven.capture_exception(Exception.new(result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end

@@ -7,7 +7,6 @@ module PaymentsManager
       def initialize
         @client = PaymentsManager::BtcpayManager::BtcpayClient.new
         @payments_repository = PaymentsRepository.new
-        @cost_calculator_class = PaymentsManager::CostCalculator
       end
 
       def call(params)
@@ -15,12 +14,12 @@ module PaymentsManager
         payment = Payment.new(params.merge(id: order_id, payment_type: 'bitcoin'))
         user = params.fetch(:user)
         validation_result = validate_payment(payment)
-
         return validation_result if validation_result.failure?
 
-        cost_calculator = PaymentsManager::CostCalculatorGetter.call(payment: payment, user: user)
+        cost_data_result = PaymentsManager::CostCalculatorGetter.call(payment: payment, user: user)
+        return cost_data_result if cost_data_result.failure?
 
-        payment_result = create_payment(payment, user, cost_calculator)
+        payment_result = create_payment(payment, user, cost_data_result.data)
         if payment_result.success?
           crypto_total = payment_result.data[:crypto_total]
           puts "payment_result.data: #{payment_result.data.inspect}"
@@ -29,9 +28,9 @@ module PaymentsManager
               .merge(
                 id: order_id,
                 currency: get_currency(payment),
-                discounted: cost_calculator.discount_percent.positive?,
-                commission: cost_calculator.commission,
-                crypto_commission: cost_calculator.crypto_commission(crypto_total_price: crypto_total)
+                discounted: cost_data_result.data[:discount_percent].positive?,
+                commission: cost_data_result.data[:commission],
+                crypto_commission: get_crypto_commission(crypto_total, cost_data)
               )
               .merge(params)
           )
@@ -50,9 +49,9 @@ module PaymentsManager
         )
       end
 
-      def create_payment(payment, user, cost_calculator)
+      def create_payment(payment, user, cost_data)
         @client.create_payment(
-          price: cost_calculator.total_price.to_s,
+          price: cost_data[:total_price].to_s,
           currency: get_currency(payment),
           email: user.email,
           order_id: payment.id,
@@ -65,6 +64,18 @@ module PaymentsManager
 
       def get_currency(payment)
         payment.eu? ? CURRENCY_EU : CURRENCY_OTHER
+      end
+
+      def get_crypto_commission(crypto_total, cost_data)
+        crypto_total_price = to_bigdecimal(crypto_total, precision: 8)
+        crypto_without_vat = crypto_total_price / (1 + cost_data[:vat])
+        crypto_base_price = crypto_without_vat / (1 - cost_data[:discount_percent])
+        (crypto_base_price * cost_data[:commission_percent]).round(8, BigDecimal::ROUND_DOWN)
+      end
+
+      # FIXME: use generic to_bigdecimal method (helper?)
+      def to_bigdecimal(num, precision: 2)
+        BigDecimal(format("%0.0#{precision}f", num))
       end
     end
   end

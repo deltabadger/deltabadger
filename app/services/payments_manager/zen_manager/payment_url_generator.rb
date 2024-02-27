@@ -13,11 +13,9 @@ module PaymentsManager
       def call(params)
         hash = build_request_body(params)
         response = @client.checkout(hash)
-        if response.success?
-          Result::Success.new(format_checkout_output(response.data))
-        else
-          response
-        end
+        return response if response.failure?
+
+        Result::Success.new(format_checkout_output(response.data))
       end
 
       private
