@@ -235,7 +235,7 @@ class UpgradeController < ApplicationController
   def cost_presenters_hash(investor_plan, hodler_plan, legendary_badger_plan)
     plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
-    build_presenter = ->(args) { CostPresenter.new(PaymentsManager::CostCalculatorFactory.call(**args).data) }
+    build_presenter = ->(args) { CostPresenter.new(PaymentsManager::CostDataCalculator.call(**args).data) }
 
     cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,

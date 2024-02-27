@@ -4,7 +4,7 @@ module PaymentsManager
       def call(params, user)
         # We create a fake payment to calculate the costs of the transactions
         fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-        cost_data_result = PaymentsManager::CostCalculatorFactory.call(
+        cost_data_result = PaymentsManager::CostDataCalculator.call(
           from_eu: fake_payment.eu?,
           vat: VatRate.find_by!(country: fake_payment.country).vat,
           subscription_plan: fake_payment.subscription_plan,

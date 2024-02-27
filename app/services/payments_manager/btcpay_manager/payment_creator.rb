@@ -16,7 +16,7 @@ module PaymentsManager
         validation_result = validate_payment(payment)
         return validation_result if validation_result.failure?
 
-        cost_data_result = PaymentsManager::CostCalculatorFactory.call(
+        cost_data_result = PaymentsManager::CostDataCalculator.call(
           from_eu: payment.eu?,
           vat: VatRate.find_by!(country: payment.country).vat,
           subscription_plan: payment.subscription_plan,
