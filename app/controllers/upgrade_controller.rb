@@ -229,17 +229,13 @@ class UpgradeController < ApplicationController
       purchased_early_birds_count: purchased_early_birds_count,
       purchased_early_birds_percent: purchased_early_birds_percent,
       allowable_early_birds_count: allowable_early_birds_count
-    }.merge(cost_presenters_hash(current_plan, investor_plan, hodler_plan, legendary_badger_plan))
+    }.merge(cost_presenters_hash(investor_plan, hodler_plan, legendary_badger_plan))
   end
 
-  def cost_presenters_hash(current_plan, investor_plan, hodler_plan, legendary_badger_plan)
-    referrer = current_user.eligible_referrer
-    discount_percent = referrer&.discount_percent || 0
-    commission_percent = referrer&.commission_percent || 0
+  def cost_presenters_hash(investor_plan, hodler_plan, legendary_badger_plan)
+    plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
     build_presenter = ->(args) { CostPresenter.new(PaymentsManager::CostCalculatorFactory.call(**args).data) }
-
-    plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
     cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,
@@ -248,10 +244,7 @@ class UpgradeController < ApplicationController
            from_eu: country.eu?,
            vat: country.vat,
            subscription_plan: plan,
-           current_plan: current_plan,
-           days_left: current_user.plan_days_left,
-           discount_percent: discount_percent,
-           commission_percent: commission_percent
+           user: current_user
          )
        end]
     end.to_h

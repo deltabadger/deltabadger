@@ -6,32 +6,21 @@ module PaymentsManager
       from_eu:,
       vat:,
       subscription_plan:,
-      current_plan:,
-      days_left: 0,
-      discount_percent: 0,
-      commission_percent: 0
+      user:
     )
-      current_plan_base_price = from_eu ? current_plan.cost_eu : current_plan.cost_other
-
-      flat_discount = if subscription_plan.name == current_plan.name
-                        0
-                      else
-                        ratio = [2, days_left.to_f / (current_plan.years * 365)].min
-                        (current_plan_base_price * ratio).round(2)
-                      end
-
-      @base_price = to_bigdecimal(from_eu ? subscription_plan.cost_eu : subscription_plan.cost_other)
+      referrer = user.eligible_referrer
+      @from_eu = from_eu
+      @base_price = to_bigdecimal(get_base_price(subscription_plan))
       @vat = to_bigdecimal(vat)
-      @flat_discount = to_bigdecimal(flat_discount)
-      @discount_percent = to_bigdecimal(discount_percent)
-      @commission_percent = to_bigdecimal(commission_percent)
+      @flat_discount = to_bigdecimal(flat_discount_amount(subscription_plan, user))
+      @discount_percent = to_bigdecimal(referrer&.discount_percent || 0)
+      @commission_percent = to_bigdecimal(referrer&.commission_percent || 0)
       @early_bird_discount = to_bigdecimal(early_bird_discount(subscription_plan))
       begin
         Result::Success.new(calculate_cost_data)
       rescue StandardError => e
         Result::Failure.new(e.message)
       end
-
     end
 
     private
@@ -50,6 +39,21 @@ module PaymentsManager
         total_price: total_price,
         commission: commission
       }
+    end
+
+    def get_base_price(plan)
+      @from_eu ? plan.cost_eu : plan.cost_other
+    end
+
+    def flat_discount_amount(subscription_plan, user)
+      days_left = user.plan_days_left
+      current_plan = user.subscription.subscription_plan
+      current_plan_base_price = get_base_price(current_plan)
+
+      return 0 if subscription_plan.name == current_plan.name
+
+      ratio = [2, days_left.to_f / (current_plan.years * 365)].min
+      (current_plan_base_price * ratio).round(2)
     end
 
     def flat_discounted_price
@@ -79,10 +83,6 @@ module PaymentsManager
     # FIXME: use generic to_bigdecimal method (helper?)
     def to_bigdecimal(num, precision: 2)
       BigDecimal(format("%0.0#{precision}f", num))
-    end
-
-    def round_down(num)
-      num.round(2)
     end
 
     def early_bird_discount(subscription_plan)
