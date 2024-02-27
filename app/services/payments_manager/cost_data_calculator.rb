@@ -1,6 +1,6 @@
 module PaymentsManager
   class CostDataCalculator < BaseService
-    EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
+    EARLY_BIRD_DISCOUNT_INITIAL_VALUE = ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE', 0).to_i.freeze
 
     def call(
       from_eu:,
@@ -46,14 +46,12 @@ module PaymentsManager
     end
 
     def flat_discount_amount(subscription_plan, user)
-      days_left = user.plan_days_left
       current_plan = user.subscription.subscription_plan
-      current_plan_base_price = get_base_price(current_plan)
-
       return 0 if subscription_plan.name == current_plan.name
 
-      ratio = [2, days_left.to_f / (current_plan.years * 365)].min
-      (current_plan_base_price * ratio).round(2)
+      plan_years_left = user.plan_days_left.to_f / 365
+      discount_multiplier = [2, plan_years_left / current_plan.years].min
+      (get_base_price(current_plan) * discount_multiplier).round(2)
     end
 
     def flat_discounted_price
