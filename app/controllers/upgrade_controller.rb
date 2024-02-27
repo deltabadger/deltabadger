@@ -15,19 +15,19 @@ class UpgradeController < ApplicationController
 
   STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
   STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
-  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
+  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE', 0).to_i.freeze
 
   def index
     return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
 
-    payment_in_process = false
+    stripe_payment_in_process = false
 
     if session[:payment_intent_id]
       payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
 
-      if stripe_payment_in_process(payment_intent)
-        payment_in_process = true
-      elsif stripe_payment_succeeded(payment_intent)
+      if stripe_payment_in_process?(payment_intent)
+        stripe_payment_in_process = true
+      elsif stripe_payment_succeeded?(payment_intent)
         subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
         PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
         session.delete(:payment_intent_id)
@@ -38,7 +38,7 @@ class UpgradeController < ApplicationController
     render :index, locals: default_locals.merge(
       payment: new_payment,
       errors: session.delete(:errors) || [],
-      payment_in_process: payment_in_process
+      stripe_payment_in_process: stripe_payment_in_process
     )
   end
 
@@ -73,7 +73,7 @@ class UpgradeController < ApplicationController
     if result.success?
       redirect_to result.data[:payment_url]
     else
-      unless result.errors.include?('user error')
+      unless result.errors.include?('User error')
         Raven.capture_exception(Exception.new(result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
@@ -164,7 +164,7 @@ class UpgradeController < ApplicationController
 
   def confirm_stripe_payment
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    unless stripe_payment_succeeded(payment_intent)
+    unless stripe_payment_succeeded?(payment_intent)
       return render json: {
         payment_status: 'failed'
       }
@@ -193,11 +193,11 @@ class UpgradeController < ApplicationController
     # This halts the callback chain and returns a JSON response with a 401 Unauthorized status
   end
 
-  def stripe_payment_succeeded(payment_intent)
+  def stripe_payment_succeeded?(payment_intent)
     payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
   end
 
-  def stripe_payment_in_process(payment_intent)
+  def stripe_payment_in_process?(payment_intent)
     STRIPE_PROCESS_STATUSES.include? payment_intent['status']
   end
 

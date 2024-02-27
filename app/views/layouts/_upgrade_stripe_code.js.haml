@@ -29,7 +29,7 @@
     document.getElementById("payment_plan_investor_wire").checked = true;
     document.getElementById("payment_plan_hodler_wire").checked = false;
     document.getElementById("payment_plan_legendary_badger_wire").checked = false;
-    if (!$(".payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length) set_payment_intent();
   })
   $(".db-plan-hodler").click(function(){
     $("#payment_plan_hodler").click()
@@ -52,7 +52,7 @@
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = true;
     document.getElementById("payment_plan_legendary_badger_wire").checked = false;
-    if (!$(".payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length) set_payment_intent();
   })
   $(".db-plan-legendary_badger").click(function(){
     $("#payment_plan_legendary_badger").click()
@@ -75,7 +75,7 @@
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = false;
     document.getElementById("payment_plan_legendary_badger_wire").checked = true;
-    if (!$(".payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length) set_payment_intent();
   })
   })
 
@@ -91,7 +91,7 @@
   $(document).ready(function(){
   function showPreview(newValue) {
     if (!newValue) return;
-    if (!$(".payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length) set_payment_intent();
     if ((newValue !== "" &&
         document.getElementById("payment_first_name_wire").value !== "" &&
         document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
@@ -216,7 +216,7 @@
     showPreview(event.target);
   });
 
-  if (!$(".payment_in_process").length) showPreview(document.getElementById("payment_country_stripe").value);
+  if (!$(".stripe_payment_in_process").length) showPreview(document.getElementById("payment_country_stripe").value);
   });
 
   // referral program registration
