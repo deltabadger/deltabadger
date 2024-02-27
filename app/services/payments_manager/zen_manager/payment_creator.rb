@@ -19,7 +19,12 @@ module PaymentsManager
 
         return validation_result if validation_result.failure?
 
-        cost_data_result = PaymentsManager::CostCalculatorGetter.call(payment: payment, user: user)
+        cost_data_result = PaymentsManager::CostCalculatorFactory.call(
+          from_eu: payment.eu?,
+          vat: VatRate.find_by!(country: payment.country).vat,
+          subscription_plan: payment.subscription_plan,
+          user: user
+        )
         return cost_data_result if cost_data_result.failure?
 
         total = cost_data_result.data[:total_price]
