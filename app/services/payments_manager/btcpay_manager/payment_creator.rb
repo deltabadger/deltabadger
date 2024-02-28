@@ -50,7 +50,7 @@ module PaymentsManager
 
         Result.new(
           data: payment,
-          errors: payment.errors.full_messages.push('user error')
+          errors: payment.errors.full_messages.push('User error')
         )
       end
 

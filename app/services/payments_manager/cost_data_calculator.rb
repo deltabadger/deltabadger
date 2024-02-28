@@ -6,9 +6,11 @@ module PaymentsManager
       from_eu:,
       vat:,
       subscription_plan:,
-      user:
+      user:,
+      referrer: user.eligible_referrer,
+      purchased_early_birds_count: SubscriptionsRepository.new.all_current_count('legendary_badger')
     )
-      referrer = user.eligible_referrer
+      @purchased_early_birds_count = purchased_early_birds_count
       @from_eu = from_eu
       @base_price = to_bigdecimal(get_base_price(subscription_plan))
       @vat = to_bigdecimal(vat)
@@ -84,19 +86,17 @@ module PaymentsManager
     end
 
     def early_bird_discount(subscription_plan)
-      subscription_plan.name == 'legendary_badger' && !allowable_early_birds_count.negative? ? allowable_early_birds_count : 0
+      return 0 unless subscription_plan.name == 'legendary_badger' && allowable_early_birds_count.positive?
+
+      allowable_early_birds_count
     end
 
     def initial_early_birds_count
       @initial_early_birds_count ||= EARLY_BIRD_DISCOUNT_INITIAL_VALUE
     end
 
-    def purchased_early_birds_count
-      @purchased_early_birds_count ||= SubscriptionsRepository.new.all_current_count('legendary_badger')
-    end
-
     def allowable_early_birds_count
-      @allowable_early_birds_count ||= initial_early_birds_count - purchased_early_birds_count
+      @allowable_early_birds_count ||= initial_early_birds_count - @purchased_early_birds_count
     end
   end
 end

@@ -13,21 +13,19 @@ class UpgradeController < ApplicationController
     confirm_stripe_payment
   ]
 
-  STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
-  STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
+  STRIPE_SUCCEEDED_STATUS = %w[succeeded].freeze
+  STRIPE_IN_PROCESS_STATUS = %w[requires_confirmation requires_action processing].freeze
   EARLY_BIRD_DISCOUNT_INITIAL_VALUE = ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE', 0).to_i.freeze
 
   def index
     return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
 
-    stripe_payment_in_process = false
+    @stripe_payment_in_process = false
 
+    # FIXME: is it really needed to check this when loading the page?
     if session[:payment_intent_id]
       payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
-
-      if stripe_payment_in_process?(payment_intent)
-        stripe_payment_in_process = true
-      elsif stripe_payment_succeeded?(payment_intent)
+      if !stripe_payment_in_process?(payment_intent) && stripe_payment_succeeded?(payment_intent)
         subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
         PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
         session.delete(:payment_intent_id)
@@ -37,8 +35,7 @@ class UpgradeController < ApplicationController
 
     render :index, locals: default_locals.merge(
       payment: new_payment,
-      errors: session.delete(:errors) || [],
-      stripe_payment_in_process: stripe_payment_in_process
+      errors: session.delete(:errors) || []
     )
   end
 
@@ -68,16 +65,16 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment
-    result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true))
+    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true))
 
-    if result.success?
-      redirect_to result.data[:payment_url]
+    if payment_result.success?
+      redirect_to payment_result.data[:payment_url]
     else
-      unless result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(result.errors[0]))
+      unless payment_result.errors.include?('User error')
+        Raven.capture_exception(Exception.new(payment_result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
-      session[:errors] = result.errors
+      session[:errors] = payment_result.errors
       redirect_to action: 'index'
     end
   end
@@ -98,11 +95,11 @@ class UpgradeController < ApplicationController
   # rubocop:disable Metrics/MethodLength
   def wire_transfer_payment
     wire_params = payment_params.merge(default_locals)
-    plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
+    plan = subscription_plan_repository.find(payment_params[:subscription_plan_id]).name
     cost_presenter = case plan
-                     when 'hodler' then wire_params[:cost_presenters][wire_params[:country]][:hodler]
-                     when 'legendary_badger' then wire_params[:cost_presenters][wire_params[:country]][:legendary_badger]
-                     else wire_params[:cost_presenters][wire_params[:country]][:investor]
+                     when 'hodler' then wire_params[:cost_presenters][payment_params[:country]][:hodler]
+                     when 'legendary_badger' then wire_params[:cost_presenters][payment_params[:country]][:legendary_badger]
+                     else wire_params[:cost_presenters][payment_params[:country]][:investor]
                      end
 
     email_params = {
@@ -164,11 +161,7 @@ class UpgradeController < ApplicationController
 
   def confirm_stripe_payment
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    unless stripe_payment_succeeded?(payment_intent)
-      return render json: {
-        payment_status: 'failed'
-      }
-    end
+    raise 'Payment failed' unless stripe_payment_succeeded?(payment_intent)
 
     subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
     PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
@@ -178,7 +171,7 @@ class UpgradeController < ApplicationController
       payment_status: 'succeeded'
     }
   rescue StandardError => e
-    Raven.capture_exception(e)
+    Raven.capture_exception(e) unless e.message == 'Payment failed'
     render json: {
       payment_status: 'failed'
     }
@@ -186,39 +179,7 @@ class UpgradeController < ApplicationController
 
   private
 
-  def verify_zen_ipn
-    return if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
-
-    render json: { error: 'Unauthorized' }, status: :unauthorized
-    # This halts the callback chain and returns a JSON response with a 401 Unauthorized status
-  end
-
-  def stripe_payment_succeeded?(payment_intent)
-    payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
-  end
-
-  def stripe_payment_in_process?(payment_intent)
-    STRIPE_PROCESS_STATUSES.include? payment_intent['status']
-  end
-
-  # Stripe takes total amount of cents
-  def amount_in_cents(amount)
-    (amount * 100).round
-  end
-
-  def new_payment
-    subscription_plan_id = case current_plan.id
-                           when hodler_plan.id then legendary_badger_plan.id
-                           when investor_plan.id then hodler_plan.id
-                           else investor_plan.id
-                           end
-
-    Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
-  end
-
   def default_locals
-    referrer = current_user.eligible_referrer
-
     {
       referrer: referrer,
       current_plan: current_plan,
@@ -244,7 +205,9 @@ class UpgradeController < ApplicationController
            from_eu: country.eu?,
            vat: country.vat,
            subscription_plan: plan,
-           user: current_user
+           user: current_user,
+           referrer: referrer,
+           purchased_early_birds_count: purchased_early_birds_count
          )
        end]
     end.to_h
@@ -260,6 +223,37 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(*permitted_params)
       .merge(user: current_user)
+  end
+
+  def verify_zen_ipn
+    return if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
+
+    # This halts the callback chain and returns a JSON response with a 401 Unauthorized status
+    render json: { error: 'Unauthorized' }, status: :unauthorized
+  end
+
+  def stripe_payment_succeeded?(payment_intent)
+    payment_intent['status'].in? STRIPE_SUCCEEDED_STATUS
+  end
+
+  def stripe_payment_in_process?(payment_intent)
+    @stripe_payment_in_process = payment_intent['status'].in? STRIPE_IN_PROCESS_STATUS
+  end
+
+  def new_payment
+    subscription_plan_id = case current_plan.id
+                           when hodler_plan.id then legendary_badger_plan.id
+                           when investor_plan.id then hodler_plan.id
+                           else investor_plan.id
+                           end
+
+    Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
+  end
+
+  def referrer
+    return @referrer if defined?(@referrer)
+
+    @referrer = current_user.eligible_referrer
   end
 
   def initial_early_birds_count
