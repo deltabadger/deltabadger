@@ -8,7 +8,7 @@ module PaymentsManager
       subscription_plan:,
       user:,
       referrer: user.eligible_referrer,
-      purchased_early_birds_count: SubscriptionsRepository.new.all_current_count('legendary_badger')
+      purchased_early_birds_count: SubscriptionsRepository.new.number_of_active_subscriptions('legendary_badger')
     )
       @purchased_early_birds_count = purchased_early_birds_count
       @from_eu = from_eu

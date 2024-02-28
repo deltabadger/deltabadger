@@ -3,7 +3,7 @@ class SubscriptionsRepository < BaseRepository
     Subscription
   end
 
-  def all_current_count(name)
+  def number_of_active_subscriptions(name)
     model
       .joins(:subscription_plan)
       .merge(SubscriptionPlan
