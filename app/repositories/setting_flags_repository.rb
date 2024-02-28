@@ -10,7 +10,7 @@ class SettingFlagsRepository < BaseRepository
 
   def show_zen_payment
     setting = find_by_name!(SHOW_ZEN_PAYMENT)
-    return true if setting.nil?
+    return false if setting.nil?
 
     setting.value
   end
@@ -43,6 +43,6 @@ class SettingFlagsRepository < BaseRepository
   end
 
   def find_by_name!(name)
-    flags_cache.fetch(name)
+    flags_cache[name.to_s]
   end
 end
