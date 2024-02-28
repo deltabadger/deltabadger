@@ -190,29 +190,27 @@ class UpgradeController < ApplicationController
       purchased_early_birds_count: purchased_early_birds_count,
       purchased_early_birds_percent: purchased_early_birds_percent,
       allowable_early_birds_count: allowable_early_birds_count
-    }.merge(cost_presenters_hash(investor_plan, hodler_plan, legendary_badger_plan))
+    }.merge(cost_datas_hash(investor_plan, hodler_plan, legendary_badger_plan))
   end
 
-  def cost_presenters_hash(investor_plan, hodler_plan, legendary_badger_plan)
+  def cost_datas_hash(investor_plan, hodler_plan, legendary_badger_plan)
     plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
 
-    build_presenter = ->(args) { CostPresenter.new(PaymentsManager::CostDataCalculator.call(**args).data) }
-
-    cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
+    cost_datas = VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,
        plans.transform_values do |plan|
-         build_presenter.call(
+         PaymentsManager::CostDataCalculator.call(
            from_eu: country.eu?,
            vat: country.vat,
            subscription_plan: plan,
            user: current_user,
            referrer: referrer,
            purchased_early_birds_count: purchased_early_birds_count
-         )
+         ).data
        end]
     end.to_h
 
-    { cost_presenters: cost_presenters }
+    { cost_datas: cost_datas }
   end
 
   def payment_params(include_birth_date: false)

@@ -1,4 +1,5 @@
 <% upgrade_presenter = UpgradePresenter.new(payment, current_plan, investor_plan, hodler_plan, legendary_badger_plan, referrer, current_user) %>
+<% cost_presenters = cost_datas.transform_values { |c| c.transform_values { |cost_data| CostPresenter.new(cost_data) } } %>
 <% selected_cost_presenter = cost_presenters[payment.country] %>
 <div class="db-country db-checkout--<%= upgrade_presenter.selected_payment_type %>">
   <%= render partial: 'layouts/navbar/signed_in', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter } %>

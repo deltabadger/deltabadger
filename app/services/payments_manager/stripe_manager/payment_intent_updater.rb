@@ -3,7 +3,7 @@ module PaymentsManager
     class PaymentIntentUpdater < BaseService
       def call(params, user)
         # We create a fake payment to calculate the costs of the transactions
-        fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
+        fake_payment = Payment.new(country: params[:country], subscription_plan_id: params[:subscription_plan_id])
         cost_data_result = PaymentsManager::CostDataCalculator.call(
           from_eu: fake_payment.eu?,
           vat: VatRate.find_by!(country: fake_payment.country).vat,
@@ -13,7 +13,7 @@ module PaymentsManager
         return cost_data_result if cost_data_result.failure?
 
         metadata = get_update_metadata(params)
-        Stripe::PaymentIntent.update(params['payment_intent_id'],
+        Stripe::PaymentIntent.update(params[:payment_intent_id],
                                      amount: amount_in_cents(cost_data_result.data[:total_price]),
                                      currency: fake_payment.eu? ? 'eur' : 'usd',
                                      metadata: metadata)
@@ -23,8 +23,8 @@ module PaymentsManager
 
       def get_update_metadata(params)
         {
-          country: params['country'],
-          subscription_plan_id: params['subscription_plan_id']
+          country: params[:country],
+          subscription_plan_id: params[:subscription_plan_id]
         }
       end
 
