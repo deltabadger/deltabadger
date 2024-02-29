@@ -96,19 +96,30 @@ class UpgradeController < ApplicationController
     render json: {}
   end
 
+  # rubocop:disable Metrics/method_length
   def wire_transfer_payment
-    cost_data = get_cost_data(payment_params[:country], payment_params[:subscription_plan_id])
+    order_id = PaymentsManager::NextPaymentIdGetter.call.data
+    payment = Payment.new(params.merge(id: order_id, payment_type: 'wire'))
+    user = params.fetch(:user)
+    validation_result = validate_payment(payment)
+    return validation_result if validation_result.failure?
+
+    cost_data_result = PaymentsManager::CostDataCalculator.call(
+      payment: payment,
+      user: user
+    )
+    return cost_data_result if cost_data_result.failure?
 
     email_params = {
       name: payment_params[:first_name],
       type: payment_params[:country],
-      amount: format('%0.02f', cost_data[:total_price])
+      amount: format('%0.02f', cost_data_result.data[:total_price])
     }
 
     payment = PaymentsManager::WireManager::PaymentCreator.call(
       payment_params,
       current_user,
-      cost_data[:discount_percent_amount].to_f.positive?
+      cost_data_result.data[:discount_percent_amount].to_f.positive?
     )
 
     UpgradeSubscriptionWorker.perform_at(
@@ -126,7 +137,7 @@ class UpgradeController < ApplicationController
       first_name: payment_params[:first_name],
       last_name: payment_params[:last_name],
       country: payment_params[:country],
-      amount: format('%0.02f', cost_data[:total_price])
+      amount: format('%0.02f', cost_data_result.data[:total_price])
     )
 
     current_user.update(
@@ -137,11 +148,12 @@ class UpgradeController < ApplicationController
     Notifications::FomoEvents.new.plan_bought(
       first_name: payment_params[:first_name],
       ip_address: request.remote_ip,
-      plan_name: cost_data[:subscription_plan_name]
+      plan_name: cost_data_result.data[:subscription_plan_name]
     )
 
     redirect_to action: 'index'
   end
+  # rubocop:enable Metrics/method_length
 
   def create_stripe_payment_intent
     cost_data = get_cost_data(params[:country], params[:subscription_plan_id])
