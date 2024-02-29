@@ -35,7 +35,7 @@ module PaymentsManager
                 currency: get_currency(payment),
                 discounted: cost_data_result.data[:discount_percent].positive?,
                 commission: cost_data_result.data[:commission],
-                crypto_commission: get_crypto_commission(crypto_total, cost_data)
+                crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
               )
               .merge(params)
           )
