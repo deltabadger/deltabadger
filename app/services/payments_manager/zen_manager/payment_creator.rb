@@ -39,6 +39,7 @@ module PaymentsManager
           @payments_repository.create(
             params.merge(
               id: order_id,
+              payment_id: payment_url_result.data[:payment_url].split('/').last,
               status: :unpaid,
               payment_type: 'zen',
               total: total,
