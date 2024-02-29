@@ -3,21 +3,22 @@ module PaymentsManager
     EARLY_BIRD_DISCOUNT_INITIAL_VALUE = ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE', 0).to_i.freeze
 
     def call(
-      from_eu:,
-      vat:,
-      subscription_plan:,
       user:,
+      country: nil,
+      payment: nil,
+      subscription_plan: nil,
       referrer: user.eligible_referrer,
       purchased_early_birds_count: SubscriptionsRepository.new.number_of_active_subscriptions('legendary_badger')
     )
+      validation_result = validate_params(country, subscription_plan, payment)
+      return validation_result if validation_result.failure?
+
       @purchased_early_birds_count = purchased_early_birds_count
-      @from_eu = from_eu
-      @base_price = to_bigdecimal(get_base_price(subscription_plan))
-      @vat = to_bigdecimal(vat)
-      @flat_discount = to_bigdecimal(flat_discount_amount(subscription_plan, user))
+      @base_price = to_bigdecimal(get_base_price(@subscription_plan))
+      @flat_discount = to_bigdecimal(flat_discount_amount(user))
       @discount_percent = to_bigdecimal(referrer&.discount_percent || 0)
       @commission_percent = to_bigdecimal(referrer&.commission_percent || 0)
-      @early_bird_discount = to_bigdecimal(early_bird_discount(subscription_plan))
+      @early_bird_discount = to_bigdecimal(early_bird_discount)
       begin
         Result::Success.new(calculate_cost_data)
       rescue StandardError => e
@@ -26,6 +27,21 @@ module PaymentsManager
     end
 
     private
+
+    def validate_params(country, subscription_plan, payment)
+      if country.present? && subscription_plan.present?
+        @from_eu = country.eu?
+        @vat = to_bigdecimal(country.vat)
+        @subscription_plan = subscription_plan
+      elsif payment.present?
+        @from_eu = payment.eu?
+        @vat = to_bigdecimal(VatRate.find_by!(country: payment.country).vat)
+        @subscription_plan = payment.subscription_plan
+      else
+        Result::Failure.new('Either user & country & subscription_plan or user & payment must be provided')
+      end
+      Result::Success.new
+    end
 
     def calculate_cost_data
       {
@@ -39,7 +55,8 @@ module PaymentsManager
         discount_percent_amount: discount_percent_amount,
         total_vat: total_vat,
         total_price: total_price,
-        commission: commission
+        commission: commission,
+        subscription_plan_name: @subscription_plan.name
       }
     end
 
@@ -47,9 +64,9 @@ module PaymentsManager
       @from_eu ? plan.cost_eu : plan.cost_other
     end
 
-    def flat_discount_amount(subscription_plan, user)
+    def flat_discount_amount(user)
       current_plan = user.subscription.subscription_plan
-      return 0 if subscription_plan.name == current_plan.name
+      return 0 if @subscription_plan.name == current_plan.name
 
       plan_years_left = user.plan_days_left.to_f / 365
       discount_multiplier = [2, plan_years_left / current_plan.years].min
@@ -85,8 +102,8 @@ module PaymentsManager
       BigDecimal(format("%0.0#{precision}f", num))
     end
 
-    def early_bird_discount(subscription_plan)
-      return 0 unless subscription_plan.name == 'legendary_badger' && allowable_early_birds_count.positive?
+    def early_bird_discount
+      return 0 unless @subscription_plan.name == 'legendary_badger' && allowable_early_birds_count.positive?
 
       allowable_early_birds_count
     end

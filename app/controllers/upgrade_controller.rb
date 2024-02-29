@@ -2,16 +2,14 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
   before_action :verify_zen_ipn, only: %i[zen_payment_ipn]
-  # protect_from_forgery except: %i[
-  #   wire_transfer_payment
-  # ]
   skip_before_action :verify_authenticity_token, only: %i[
     btcpay_payment_callback
     zen_payment_ipn
     create_stripe_payment_intent
     update_stripe_payment_intent
     confirm_stripe_payment
-  ]
+    wire_transfer_payment
+  ] # TODO: for wire_transfer_payment, remove from list after fixing the CSRF issue --> use form_with + button_to
 
   STRIPE_SUCCEEDED_STATUS = %w[succeeded].freeze
   STRIPE_IN_PROCESS_STATUS = %w[requires_confirmation requires_action processing].freeze
@@ -26,17 +24,22 @@ class UpgradeController < ApplicationController
     if session[:payment_intent_id]
       payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
       if !stripe_payment_in_process?(payment_intent) && stripe_payment_succeeded?(payment_intent)
-        subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
-        PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
+        cost_data = get_cost_data(payment_intent['metadata']['country'], payment_intent['metadata']['subscription_plan_id'])
+        PaymentsManager::StripeManager::SubscriptionUpdater.call(payment_intent, current_user, cost_data)
         session.delete(:payment_intent_id)
         return redirect_to upgrade_path
       end
     end
 
-    render :index, locals: default_locals.merge(
-      payment: new_payment,
-      errors: session.delete(:errors) || []
-    )
+    @cost_datas = cost_datas_hash
+    @current_plan = current_plan
+    @investor_plan = investor_plan
+    @hodler_plan = hodler_plan
+    @legendary_badger_plan = legendary_badger_plan
+    @referrer = referrer
+    @current_user = current_user
+    @payment = new_payment_default
+    @errors = session.delete(:errors) || []
   end
 
   def zen_payment
@@ -65,7 +68,8 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment
-    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true))
+    cost_data = get_cost_data(payment_params[:country], payment_params[:subscription_plan_id])
+    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true), cost_data)
 
     if payment_result.success?
       redirect_to payment_result.data[:payment_url]
@@ -92,62 +96,56 @@ class UpgradeController < ApplicationController
     render json: {}
   end
 
-  # rubocop:disable Metrics/MethodLength
   def wire_transfer_payment
-    wire_params = payment_params.merge(default_locals)
-    plan = subscription_plan_repository.find(payment_params[:subscription_plan_id]).name
-    cost_presenter = case plan
-                     when 'hodler' then wire_params[:cost_presenters][payment_params[:country]][:hodler]
-                     when 'legendary_badger' then wire_params[:cost_presenters][payment_params[:country]][:legendary_badger]
-                     else wire_params[:cost_presenters][payment_params[:country]][:investor]
-                     end
+    cost_data = get_cost_data(payment_params[:country], payment_params[:subscription_plan_id])
 
     email_params = {
-      name: wire_params[:first_name],
-      type: wire_params[:country],
-      amount: cost_presenter.total_price
+      name: payment_params[:first_name],
+      type: payment_params[:country],
+      amount: format('%0.02f', cost_data[:total_price])
     }
 
     payment = PaymentsManager::WireManager::PaymentCreator.call(
-      wire_params,
-      cost_presenter.discount_percent_amount.to_f.positive?
+      payment_params,
+      current_user,
+      cost_data[:discount_percent_amount].to_f.positive?
     )
 
     UpgradeSubscriptionWorker.perform_at(
       15.minutes.since(Time.now),
-      wire_params[:user].id,
-      wire_params[:subscription_plan_id],
+      current_user.id,
+      payment_params[:subscription_plan_id],
       email_params,
       payment.id
     )
 
     notifications = Notifications::Subscription.new
     notifications.wire_transfer_summary(
-      email: wire_params[:user].email,
-      subscription_plan: SubscriptionPlan.find(wire_params[:subscription_plan_id]).name,
-      first_name: wire_params[:first_name],
-      last_name: wire_params[:last_name],
-      country: wire_params[:country],
-      amount: cost_presenter.total_price
+      email: current_user.email,
+      subscription_plan: SubscriptionPlan.find(payment_params[:subscription_plan_id]).name,
+      first_name: payment_params[:first_name],
+      last_name: payment_params[:last_name],
+      country: payment_params[:country],
+      amount: format('%0.02f', cost_data[:total_price])
     )
 
-    wire_params[:user].update(
-      pending_wire_transfer: wire_params[:country],
-      pending_plan_id: wire_params[:subscription_plan_id]
+    current_user.update(
+      pending_wire_transfer: payment_params[:country],
+      pending_plan_id: payment_params[:subscription_plan_id]
     )
 
     Notifications::FomoEvents.new.plan_bought(
-      first_name: wire_params[:first_name],
+      first_name: payment_params[:first_name],
       ip_address: request.remote_ip,
-      plan_name: plan
+      plan_name: cost_data[:subscription_plan_name]
     )
 
     redirect_to action: 'index'
   end
-  # rubocop:enable Metrics/MethodLength
 
   def create_stripe_payment_intent
-    payment_intent = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
+    cost_data = get_cost_data(params[:country], params[:subscription_plan_id])
+    payment_intent = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user, cost_data)
     session[:payment_intent_id] = payment_intent['id']
     render json: {
       clientSecret: payment_intent['client_secret'],
@@ -156,15 +154,16 @@ class UpgradeController < ApplicationController
   end
 
   def update_stripe_payment_intent
-    PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, current_user)
+    cost_data = get_cost_data(params[:country], params[:subscription_plan_id])
+    PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, cost_data)
   end
 
   def confirm_stripe_payment
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
     raise 'Payment failed' unless stripe_payment_succeeded?(payment_intent)
 
-    subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
-    PaymentsManager::StripeManager::SubscriptionUpdater.call(subscription_params, payment_intent)
+    cost_data = get_cost_data(payment_intent['metadata']['country'], payment_intent['metadata']['subscription_plan_id'])
+    PaymentsManager::StripeManager::SubscriptionUpdater.call(payment_intent, current_user, cost_data)
     session.delete(:payment_intent_id)
 
     render json: {
@@ -179,38 +178,27 @@ class UpgradeController < ApplicationController
 
   private
 
-  def default_locals
-    {
-      referrer: referrer,
-      current_plan: current_plan,
-      investor_plan: investor_plan,
-      hodler_plan: hodler_plan,
-      legendary_badger_plan: legendary_badger_plan,
-      initial_early_birds_count: initial_early_birds_count,
-      purchased_early_birds_count: purchased_early_birds_count,
-      purchased_early_birds_percent: purchased_early_birds_percent,
-      allowable_early_birds_count: allowable_early_birds_count
-    }.merge(cost_datas_hash(investor_plan, hodler_plan, legendary_badger_plan))
-  end
-
-  def cost_datas_hash(investor_plan, hodler_plan, legendary_badger_plan)
+  def cost_datas_hash
     plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
+    # TODO: automatically build the hash from the plans
 
-    cost_datas = VatRatesRepository.new.all_in_display_order.map do |country|
+    @cost_datas_hash ||= VatRatesRepository.new.all_in_display_order.map do |country|
       [country.country,
        plans.transform_values do |plan|
          PaymentsManager::CostDataCalculator.call(
-           from_eu: country.eu?,
-           vat: country.vat,
-           subscription_plan: plan,
            user: current_user,
+           country: country,
+           subscription_plan: plan,
            referrer: referrer,
            purchased_early_birds_count: purchased_early_birds_count
          ).data
        end]
     end.to_h
+  end
 
-    { cost_datas: cost_datas }
+  def get_cost_data(country, subscription_plan_id)
+    plan_name = subscription_plan_repository.find(subscription_plan_id).name
+    cost_datas_hash[country][plan_name.to_sym]
   end
 
   def payment_params(include_birth_date: false)
@@ -220,7 +208,7 @@ class UpgradeController < ApplicationController
     params
       .require(:payment)
       .permit(*permitted_params)
-      .merge(user: current_user)
+      .merge(user: current_user) # TODO: ugly, refactor
   end
 
   def verify_zen_ipn
@@ -238,7 +226,7 @@ class UpgradeController < ApplicationController
     @stripe_payment_in_process = payment_intent['status'].in? STRIPE_IN_PROCESS_STATUS
   end
 
-  def new_payment
+  def new_payment_default
     subscription_plan_id = case current_plan.id
                            when hodler_plan.id then legendary_badger_plan.id
                            when investor_plan.id then hodler_plan.id

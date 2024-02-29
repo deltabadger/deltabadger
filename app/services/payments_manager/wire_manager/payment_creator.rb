@@ -5,14 +5,14 @@ module PaymentsManager
         @payments_repository = PaymentsRepository.new
       end
 
-      def call(params, discounted)
+      def call(params, user, discounted)
         cost_data = get_cost_data(params)
         # TODO: change to currency(payment)
-        currency = params['country'] == 'Other' ? 0 : 1 # 0 is for USD and 1 is for EUR. All people outside Europe get their prices in USD
+        currency = params[:country] == 'Other' ? 0 : 1 # 0 is for USD and 1 is for EUR. All people outside Europe get their prices in USD
         @payments_repository.create(
           id: PaymentsManager::NextPaymentIdGetter.call,
           status: :pending,
-          user: params[:user],
+          user: user,
           first_name: params[:first_name],
           last_name: params[:last_name],
           country: params[:country],
@@ -28,7 +28,7 @@ module PaymentsManager
       private
 
       def get_cost_data(params)
-        params['cost_presenters'][params['country']][SubscriptionPlan.find(params['subscription_plan_id']).name].cost_data
+        params[:cost_datas][params[:country]][SubscriptionPlan.find(params[:subscription_plan_id]).name.to_sym]
       end
     end
   end

@@ -10,19 +10,13 @@ module PaymentsManager
 
       def call(params)
         order_id = PaymentsManager::NextPaymentIdGetter.call.data
-        puts "order_id: #{order_id}"
         payment = Payment.new(params.merge(id: order_id, payment_type: 'zen'))
         user = params.fetch(:user)
         validation_result = validate_payment(payment)
-
-        puts "payment: #{payment.inspect}"
-
         return validation_result if validation_result.failure?
 
         cost_data_result = PaymentsManager::CostDataCalculator.call(
-          from_eu: payment.eu?,
-          vat: VatRate.find_by!(country: payment.country).vat,
-          subscription_plan: payment.subscription_plan,
+          payment: payment,
           user: user
         )
         return cost_data_result if cost_data_result.failure?

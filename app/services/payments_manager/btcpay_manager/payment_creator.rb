@@ -9,33 +9,24 @@ module PaymentsManager
         @payments_repository = PaymentsRepository.new
       end
 
-      def call(params)
+      def call(params, cost_data)
         order_id = PaymentsManager::NextPaymentIdGetter.call
         payment = Payment.new(params.merge(id: order_id, payment_type: 'bitcoin'))
         user = params.fetch(:user)
         validation_result = validate_payment(payment)
         return validation_result if validation_result.failure?
 
-        cost_data_result = PaymentsManager::CostDataCalculator.call(
-          from_eu: payment.eu?,
-          vat: VatRate.find_by!(country: payment.country).vat,
-          subscription_plan: payment.subscription_plan,
-          user: user
-        )
-        return cost_data_result if cost_data_result.failure?
-
-        payment_result = create_payment(payment, user, cost_data_result.data)
+        payment_result = create_payment(payment, user, cost_data)
         if payment_result.success?
           crypto_total = payment_result.data[:crypto_total]
-          puts "payment_result.data: #{payment_result.data.inspect}"
           @payments_repository.create(
             payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
               .merge(
                 id: order_id,
                 currency: get_currency(payment),
-                discounted: cost_data_result.data[:discount_percent].positive?,
-                commission: cost_data_result.data[:commission],
-                crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
+                discounted: cost_data[:discount_percent].positive?,
+                commission: cost_data[:commission],
+                crypto_commission: get_crypto_commission(crypto_total, cost_data)
               )
               .merge(params)
           )
