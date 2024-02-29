@@ -85,7 +85,7 @@
 
         <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
           <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
-          <%= form_with model: Payment, url: upgrade_zen_payment_path do |f| %>
+          <%= form_with model: payment, url: upgrade_zen_payment_path, local: true do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
@@ -120,12 +120,12 @@
               <%= f.label :country, class: 'db-form__label' %>
             </div>
             <div class="db-form__row db-form__row--final-button">
-              <button class="btn btn-success btn-lg w-100 px-1" type="submit">
+              <%= button_to upgrade_zen_payment_path, method: :post, class: "btn btn-success btn-lg w-100 px-1" do %>
                 <span class="mr-0"><%= t('subscriptions.payment.pay_with_card') %></span>
                 <svg class="ml-1 db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward" xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24">
                   <path d="M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"></path>
                 </svg>
-              </button>
+              <% end %>
             </div>
           <% end %>
         </div>
