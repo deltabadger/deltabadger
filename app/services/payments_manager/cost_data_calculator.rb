@@ -75,6 +75,7 @@ module PaymentsManager
 
     def flat_discounted_price
       # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
+      # TODO: allow prices of 0 and let the controller upgrade the plan without payment in this case
       @flat_discounted_price ||= [1, @base_price - @flat_discount - early_bird_discount].max
     end
 
