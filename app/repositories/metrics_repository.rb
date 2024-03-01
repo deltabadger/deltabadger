@@ -34,8 +34,8 @@ class MetricsRepository < BaseRepository
     metrics_response = @redis_client.get(METRICS_KEY)
     bots_in_profit_response = @redis_client.get(BOTS_IN_PROFIT_KEY)
     data = {}
-    data.merge(JSON.parse(metrics_response)) if metrics_response.present?
-    data.merge(JSON.parse(bots_in_profit_response)) if bots_in_profit_response.present?
+    data.merge!(JSON.parse(metrics_response)) if metrics_response.present?
+    data.merge!(JSON.parse(bots_in_profit_response)) if bots_in_profit_response.present?
   end
 
   private
