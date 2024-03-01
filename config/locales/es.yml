@@ -650,7 +650,7 @@ es:
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Pago completado con éxito, se te debería redirigir en unos segundos.'
+            stripe_payment_succeeded: 'Pago completado con éxito, se te debería redirigir en unos segundos.'
             compensation_hodler:
                 one: 'Compensación por un día sin usar del plan Hodler'
                 other: 'Compensación por %{cuenta} de días sin usar en el Hodler plan.'

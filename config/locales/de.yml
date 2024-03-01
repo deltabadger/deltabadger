@@ -576,7 +576,7 @@ de:
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
+            stripe_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
             compensation_hodler:
                 one: 'Entschädigung für 1 ungenutzten Tag des Hodler-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Hodler-Plans.'
