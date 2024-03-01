@@ -74,7 +74,7 @@ module PaymentsManager
     end
 
     def flat_discounted_price
-      @flat_discounted_price ||= @base_price - @flat_discount - @early_bird_discount
+      @flat_discounted_price ||= [0, @base_price - @flat_discount - early_bird_discount].max
     end
 
     def discount_percent_amount
@@ -90,16 +90,11 @@ module PaymentsManager
     end
 
     def commission
-      ((@base_price - @flat_discount - @early_bird_discount) * @commission_percent).round(2)
+      (flat_discounted_price * @commission_percent).round(2)
     end
 
     def discounted_price
       (flat_discounted_price * (1 - @discount_percent)).round(2)
-    end
-
-    # FIXME: use generic to_bigdecimal method (helper?)
-    def to_bigdecimal(num, precision: 2)
-      BigDecimal(format("%0.0#{precision}f", num))
     end
 
     def early_bird_discount
@@ -114,6 +109,11 @@ module PaymentsManager
 
     def allowable_early_birds_count
       @allowable_early_birds_count ||= initial_early_birds_count - @purchased_early_birds_count
+    end
+
+    # FIXME: use generic to_bigdecimal method (helper?)
+    def to_bigdecimal(num, precision: 2)
+      BigDecimal(format("%0.0#{precision}f", num))
     end
   end
 end
