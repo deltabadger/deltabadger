@@ -19,13 +19,16 @@
         </li>
         <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_zen_payment %>">
           <a href="#payZen" id="log-tab" class="nav-link show <%= pending_wire_transfer ? 'disabled' : ('active' if active_zen_tab) %>" aria-controls="payZen" <%= "aria-selected" if active_zen_tab %> data-toggle="tab" role = "tab">
-            <%= t('subscriptions.payment.card') %>
+          <div class="db-card-providers">
+            <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
+            <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
+          </div>
           </a>
         </li>
         <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_bitcoin_payment %>">
           <a href="#payBitcoin" id="log-tab" class="nav-link <%= pending_wire_transfer ? 'disabled' : ('active' if active_bitcoin_tab) %>" aria-controls="payBitcoin" <%= "aria-selected" if active_bitcoin_tab %> data-toggle="tab" role = "tab">
             <div class="db-card-providers">
-              <img src="<%= asset_pack_path("media/images/bitcoin-lightning.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
+              <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
             </div>
           </a>
         </li>
@@ -38,7 +41,6 @@
       <div id="payTabContent" class="tab-content">
 
         <div id="payStripe" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_stripe_tab) %>" aria-labelledby="log-tab" role="tabpanel">
-          <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
           <% if 'investor'.in?(upgrade_presenter.available_plans) %>
             <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
             <input type="radio" class="db-plan-radio" id="payment_plan_investor_stripe" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
@@ -84,7 +86,6 @@
         </div>
 
         <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
-          <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
           <%= form_with model: payment, url: upgrade_zen_payment_path, local: true do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
@@ -121,17 +122,13 @@
             </div>
             <div class="db-form__row db-form__row--final-button">
               <%= button_to upgrade_zen_payment_path, method: :post, class: "btn btn-success btn-lg w-100 px-1" do %>
-                <span class="mr-0"><%= t('subscriptions.payment.pay_with_card') %></span>
-                <svg class="ml-1 db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward" xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24">
-                  <path d="M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"></path>
-                </svg>
+                <span class="mr-0"><%= t('subscriptions.payment.pay') %></span>
               <% end %>
             </div>
           <% end %>
         </div>
 
         <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
-          <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
           <%= form_for payment, url: upgrade_btcpay_payment_path do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
@@ -174,16 +171,12 @@
             <div class="db-form__row db-form__row--final-button">
               <button class="btn btn-success btn-lg w-100 px-1" type="submit">
                 <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
-                <svg class="ml-1 db-bot__svg-icon db-svg-icon db-svg-icon--arrow-forward" xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24">
-                  <path d="M5 13h11.2l-5 4.9a1 1 0 000 1.4c.5.4 1.1.4 1.5 0l6.6-6.6c.4-.4.4-1 0-1.4l-6.6-6.6a1 1 0 10-1.4 1.4l4.9 4.9H5c-.6 0-1 .5-1 1s.5 1 1 1z"></path>
-                </svg>
               </button>
             </div>
           <% end %>
         </div>
 
         <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
-          <h4 class="mb-4"><%= t('subscriptions.payment.billing_information') %></h4>
           <form id="new_payment" class="new_payment" accept-charset="UTF-8" action="/en/upgrade/wire_transfer_payment" method="post">
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
