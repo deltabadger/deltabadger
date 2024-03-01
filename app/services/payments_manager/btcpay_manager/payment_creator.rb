@@ -9,14 +9,20 @@ module PaymentsManager
         @payments_repository = PaymentsRepository.new
       end
 
-      def call(params, cost_data)
+      def call(params)
         order_id = PaymentsManager::NextPaymentIdGetter.call
         payment = Payment.new(params.merge(id: order_id, payment_type: 'bitcoin'))
         user = params.fetch(:user)
         validation_result = validate_payment(payment)
         return validation_result if validation_result.failure?
 
-        payment_result = create_payment(payment, user, cost_data)
+        cost_data_result = PaymentsManager::CostDataCalculator.call(
+          payment: payment,
+          user: user
+        )
+        return cost_data_result if cost_data_result.failure?
+
+        payment_result = create_payment(payment, user, cost_data_result.data)
         if payment_result.success?
           crypto_total = payment_result.data[:crypto_total]
           @payments_repository.create(
@@ -24,9 +30,9 @@ module PaymentsManager
               .merge(
                 id: order_id,
                 currency: get_currency(payment),
-                discounted: cost_data[:discount_percent].positive?,
-                commission: cost_data[:commission],
-                crypto_commission: get_crypto_commission(crypto_total, cost_data)
+                discounted: cost_data_result.data[:discount_percent].positive?,
+                commission: cost_data_result.data[:commission],
+                crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
               )
               .merge(params)
           )

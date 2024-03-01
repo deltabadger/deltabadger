@@ -68,8 +68,7 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment
-    cost_data = get_cost_data(payment_params[:country], payment_params[:subscription_plan_id])
-    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true), cost_data)
+    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true))
 
     if payment_result.success?
       redirect_to payment_result.data[:payment_url]
