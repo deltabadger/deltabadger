@@ -40,9 +40,13 @@ class UpgradeController < ApplicationController
     @current_user = current_user
     @payment = new_payment_default
     @errors = session.delete(:errors) || []
+    @allowable_early_birds_count = allowable_early_birds_count
+    @initial_early_birds_count = initial_early_birds_count
+    @purchased_early_birds_percent = purchased_early_birds_percent
   end
 
   def zen_payment
+    payment_params = get_payment_params(include_first_name: false, include_last_name: false)
     payment_result = PaymentsManager::ZenManager::PaymentCreator.call(payment_params)
 
     if payment_result.success?
@@ -68,7 +72,8 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment
-    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params(include_birth_date: true))
+    payment_params = get_payment_params(include_birth_date: true)
+    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params)
 
     if payment_result.success?
       redirect_to payment_result.data[:payment_url]
@@ -97,29 +102,24 @@ class UpgradeController < ApplicationController
 
   # rubocop:disable Metrics/method_length
   def wire_transfer_payment
-    order_id = PaymentsManager::NextPaymentIdGetter.call.data
-    payment = Payment.new(params.merge(id: order_id, payment_type: 'wire'))
-    user = params.fetch(:user)
-    validation_result = validate_payment(payment)
-    return validation_result if validation_result.failure?
+    payment_params = get_payment_params
+    payment_result = PaymentsManager::NextPaymentCreator.call(payment_params, 'wire')
+    return payment_result if payment_result.failure?
 
-    cost_data_result = PaymentsManager::CostDataCalculator.call(
-      payment: payment,
-      user: user
-    )
+    cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: current_user)
     return cost_data_result if cost_data_result.failure?
-
-    email_params = {
-      name: payment_params[:first_name],
-      type: payment_params[:country],
-      amount: format('%0.02f', cost_data_result.data[:total_price])
-    }
 
     payment = PaymentsManager::WireManager::PaymentCreator.call(
       payment_params,
       current_user,
       cost_data_result.data[:discount_percent_amount].to_f.positive?
     )
+
+    email_params = {
+      name: payment_params[:first_name],
+      type: payment_params[:country],
+      amount: format('%0.02f', cost_data_result.data[:total_price])
+    }
 
     UpgradeSubscriptionWorker.perform_at(
       15.minutes.since(Time.now),
@@ -173,7 +173,10 @@ class UpgradeController < ApplicationController
     payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
     raise 'Payment failed' unless stripe_payment_succeeded?(payment_intent)
 
-    cost_data = get_cost_data(payment_intent['metadata']['country'], payment_intent['metadata']['subscription_plan_id'])
+    cost_data = get_cost_data(
+      payment_intent['metadata']['country'],
+      payment_intent['metadata']['subscription_plan_id']
+    )
     PaymentsManager::StripeManager::SubscriptionUpdater.call(payment_intent, current_user, cost_data)
     session.delete(:payment_intent_id)
 
@@ -212,8 +215,10 @@ class UpgradeController < ApplicationController
     cost_datas_hash[country][plan_name.to_sym]
   end
 
-  def payment_params(include_birth_date: false)
-    permitted_params = %i[subscription_plan_id first_name last_name country]
+  def get_payment_params(include_first_name: true, include_last_name: true, include_birth_date: false)
+    permitted_params = %i[subscription_plan_id country]
+    permitted_params << :first_name if include_first_name
+    permitted_params << :last_name if include_last_name
     permitted_params << :birth_date if include_birth_date
 
     params
