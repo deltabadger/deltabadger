@@ -586,7 +586,6 @@ en:
                 first_name: Name
                 last_name: Surname
                 other: Other
-                on_card: 'on Card'
             settings:
                 current_status: 'Current status:'
                 disable_two_fa: 'Disable 2FA'
