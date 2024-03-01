@@ -8,6 +8,7 @@
 <% active_zen_tab = !show_stripe_payment && show_zen_payment %>
 <% active_bitcoin_tab = !show_stripe_payment && !show_zen_payment && show_bitcoin_payment %>
 <% active_wire_tab = !show_stripe_payment && !show_zen_payment && !show_bitcoin_payment %>
+<% keys = %w[investor hodler legendary_badger] %>
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
     <div class="modal-body">
@@ -113,6 +114,9 @@
             <div class="db-form__row db-form__row--final-button">
               <%= button_to upgrade_zen_payment_path, method: :post, class: "btn btn-success btn-lg w-100 px-1" do %>
                 <span class="mr-0"><%= t('subscriptions.payment.pay') %></span>
+                <% keys.each do |key| %>
+                  <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter, method: 'total_price', key: key } %>
+                <% end %>
               <% end %>
             </div>
           <% end %>
