@@ -10,46 +10,33 @@ module PaymentsManager
       end
 
       def call(params)
-        order_id = PaymentsManager::NextPaymentIdGetter.call
-        payment = Payment.new(params.merge(id: order_id, payment_type: 'bitcoin'))
-        user = params.fetch(:user)
-        validation_result = validate_payment(payment)
-        return validation_result if validation_result.failure?
+        payment_result = PaymentsManager::NextPaymentCreator.call(params, 'bitcoin')
+        return payment_result if payment_result.failure?
 
-        cost_data_result = PaymentsManager::CostDataCalculator.call(
-          payment: payment,
-          user: user
-        )
+        user = params.fetch(:user)
+
+        cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: user)
         return cost_data_result if cost_data_result.failure?
 
         payment_result = create_payment(payment, user, cost_data_result.data)
-        if payment_result.success?
-          crypto_total = payment_result.data[:crypto_total]
-          @payments_repository.create(
-            payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
-              .merge(
-                id: order_id,
-                currency: get_currency(payment),
-                discounted: cost_data_result.data[:discount_percent].positive?,
-                commission: cost_data_result.data[:commission],
-                crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
-              )
-              .merge(params)
-          )
-        end
+        return payment_result if payment_result.failure?
+
+        crypto_total = payment_result.data[:crypto_total]
+        @payments_repository.create(
+          payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
+            .merge(
+              id: order_id,
+              currency: get_currency(payment),
+              discounted: cost_data_result.data[:discount_percent].positive?,
+              commission: cost_data_result.data[:commission],
+              crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
+            )
+            .merge(params)
+        )
         payment_result
       end
 
       private
-
-      def validate_payment(payment)
-        return Result::Success.new if payment.valid?
-
-        Result.new(
-          data: payment,
-          errors: payment.errors.full_messages.push('User error')
-        )
-      end
 
       def create_payment(payment, user, cost_data)
         @client.create_payment(
