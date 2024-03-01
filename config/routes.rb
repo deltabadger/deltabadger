@@ -122,7 +122,6 @@ Rails.application.routes.draw do
   get '/cookies-policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
   get '/referral-program', to: redirect("/#{I18n.default_locale}/referral-program")
   get '/', to: redirect("/#{I18n.default_locale}")
-  get '*path', to: redirect("/#{I18n.default_locale}")
   get '/legendary-badger', to: redirect("/#{I18n.default_locale}/legendary-badger")
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
@@ -136,6 +135,8 @@ Rails.application.routes.draw do
   post '/create-payment-intent', to: 'upgrade#create_stripe_payment_intent'
   post '/update-payment-intent', to: 'upgrade#update_stripe_payment_intent'
   post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
+
+  get '*path', to: redirect("/#{I18n.default_locale}")
 
   telegram_webhook TelegramWebhooksController
 end
