@@ -112,8 +112,8 @@
               <%= f.label :country, class: 'db-form__label' %>
             </div>
             <div class="db-form__row db-form__row--final-button">
-              <%= button_to upgrade_zen_payment_path, method: :post, class: "btn btn-success btn-lg w-100 px-1" do %>
-                <span class="mr-0"><%= t('subscriptions.payment.pay') %></span>
+              <%= button_to upgrade_zen_payment_path, method: :post, class: "btn btn-success btn-lg w-100" do %>
+                <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
                 <% keys.each do |key| %>
                   <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter, method: 'total_price', key: key } %>
                 <% end %>
