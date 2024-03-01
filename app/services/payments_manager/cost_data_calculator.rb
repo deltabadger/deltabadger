@@ -74,7 +74,8 @@ module PaymentsManager
     end
 
     def flat_discounted_price
-      @flat_discounted_price ||= [0, @base_price - @flat_discount - early_bird_discount].max
+      # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
+      @flat_discounted_price ||= [1, @base_price - @flat_discount - early_bird_discount].max
     end
 
     def discount_percent_amount
