@@ -102,12 +102,12 @@
             <div class="db-form__row">
               <%= f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", onchange: 'this.setAttribute("value", this.value);' %>
               <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :first_name, class: 'db-form__label' %>
+              <%= f.label :first_name, t('helpers.label.payment.first_name') + ' ' + t('helpers.label.payment.on_card'), class: 'db-form__label' %>
             </div>
             <div class="db-form__row">
               <%= f.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", onchange: 'this.setAttribute("value", this.value);' %>
               <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :last_name, class: 'db-form__label' %>
+              <%= f.label :last_name, t('helpers.label.payment.last_name') + ' ' + t('helpers.label.payment.on_card'), class: 'db-form__label' %>
             </div>
             <div class="db-form__row">
               <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
