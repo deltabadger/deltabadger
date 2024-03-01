@@ -212,7 +212,7 @@
             <% if pending_wire_transfer %>
               <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
               <div class="db-form__row">
-                <% name = @subscription_plan_repository.find(current_user.pending_plan_id).name %>
+                <% name = subscription_plan_repository.find(current_user.pending_plan_id).name %>
                 <% if name == 'hodler' %>
                   <% price = cost_presenters[current_user.pending_wire_transfer][:hodler].total_price %>
                 <% elsif name == 'legendary_badger' %>
