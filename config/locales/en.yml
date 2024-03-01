@@ -686,6 +686,7 @@ en:
         legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p><b>Never pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, the pricing will go up, but you''ll have lifetime access to everything for free.</p><p>Sell your subscription any time on decentralized markets. Yes! Nothing like this exists on the market.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your DCA status, and be Legendary.</p>'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         payment:
+            card: 'Card'
             account_holder: 'Account holder'
             account_number: 'Account number'
             account_type: 'Account type'
@@ -694,7 +695,7 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
+            stripe_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
             compensation_hodler:
                 one: 'Compensation for 1 unused day of the Hodler plan.'
                 other: 'Compensation for %{count} unused days of the Hodler plan.'
@@ -710,6 +711,7 @@ en:
             paid_with_wire_transfer_other: 'I made wire transfer'
             pay: Pay
             pay_with_bitcoin: 'Pay with Bitcoin'
+            pay_with_card: 'Pay with Card'
             payment_ordered: 'Payment ordered!'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             routing_number: 'Routing number'

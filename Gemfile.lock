@@ -172,6 +172,9 @@ GEM
       faraday-net_http (>= 2.0, < 3.1)
       ruby2_keywords (>= 0.0.4)
     faraday-net_http (3.0.2)
+    faraday-net_http_persistent (2.1.0)
+      faraday (~> 2.5)
+      net-http-persistent (~> 4.0)
     ffi (1.16.3)
     ffi-compiler (1.0.1)
       ffi (>= 1.0.0)
@@ -259,6 +262,8 @@ GEM
     minitest (5.20.0)
     msgpack (1.7.2)
     nenv (0.3.0)
+    net-http-persistent (4.0.2)
+      connection_pool (~> 2.2)
     net-imap (0.3.7)
       date
       net-protocol
@@ -491,6 +496,7 @@ DEPENDENCIES
   faker
   faraday
   faraday-manual-cache!
+  faraday-net_http_persistent (~> 2.1)
   fomo (~> 0.1.0)
   guard-rspec
   guard-rubocop

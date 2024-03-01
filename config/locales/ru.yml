@@ -685,7 +685,7 @@ ru:
             bank_address: 'Адрес банка'
             billing_information: 'Информация об оплате'
             bitcoin: Биткоин
-            card_payment_succeeded: ''
+            stripe_payment_succeeded: ''
             compensation_hodler:
                 one: ''
                 few: ''
