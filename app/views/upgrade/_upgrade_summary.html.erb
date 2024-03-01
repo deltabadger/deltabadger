@@ -1,3 +1,4 @@
+<% keys = %w[investor hodler legendary_badger] %>
 <div class="db-checkout-summary modal-content">
   <div class="db-checkout-summary__item db-checkout-summary__item--vat">
     <div class="db-checkout-summary__item__info">
@@ -5,40 +6,16 @@
       <span class='vat-percent'><%= cost_presenter[:hodler].vat_integer %></span>%
     </div>
     <div class="db-checkout-summary__item__quote">
-      <% if 'investor'.in?(upgrade_presenter.available_plans) %>
-        <span class='db-show--investor'>
-          <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='investor-total-vat'><%= cost_presenter[:investor].total_vat %></span>
-        </span>
-      <% end %>
-      <% if 'hodler'.in?(upgrade_presenter.available_plans) %>
-        <span class='db-show--hodler'>
-          <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-total-vat'><%= cost_presenter[:hodler].total_vat %></span>
-        </span>
-      <% end %>
-      <% if 'legendary_badger'.in?(upgrade_presenter.available_plans) %>
-        <span class='db-show--legendary_badger'>
-          <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='legendary_badger-total-vat'><%= cost_presenter[:legendary_badger].total_vat %></span>
-        </span>
+      <% keys.each do |key| %>
+        <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter, method: 'total_vat', key: key } %>
       <% end %>
     </div>
   </div>
   <div class="db-checkout-summary__item db-checkout-summary__item--sum">
     <div class="db-checkout-summary__item__info"><%= t('subscriptions.payment.you_pay') %></div>
     <div class="db-checkout-summary__item__quote">
-      <% if 'investor'.in?(upgrade_presenter.available_plans) %>
-        <span class='db-show--investor'>
-          <%= render partial: 'upgrade_summary_plan', locals: { plan: 'investor', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] } %>
-        </span>
-      <% end %>
-      <% if 'hodler'.in?(upgrade_presenter.available_plans) %>
-        <span class='db-show--hodler'>
-          <%= render partial: 'upgrade_summary_plan', locals: { plan: 'hodler', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] } %>
-        </span>
-      <% end %>
-      <% if 'legendary_badger'.in?(upgrade_presenter.available_plans) %>
-        <span class='db-show--legendary_badger'>
-          <%= render partial: 'upgrade_summary_plan', locals: { plan: 'legendary_badger', upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:legendary_badger] } %>
-        </span>
+      <% keys.each do |key| %>
+        <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter, method: 'total_price', key: key } %>
       <% end %>
     </div>
   </div>

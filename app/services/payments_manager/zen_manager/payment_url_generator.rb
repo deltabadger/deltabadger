@@ -28,8 +28,8 @@ module PaymentsManager
           currency: params.fetch(:currency),
           merchantTransactionId: params.fetch(:order_id).to_s,
           customer: {
-            firstName: params.fetch(:first_name),
-            lastName: params.fetch(:last_name),
+            # firstName: params.fetch(:first_name),
+            # lastName: params.fetch(:last_name),
             email: params.fetch(:email)
           },
           items: [
