@@ -25,7 +25,7 @@ module Admin
 
     # get paid fiat payments without the granted commission
     def get_referred_fiat_payments
-      fiat_payments_list = Payment.where(status: 'paid', payment_type: %w[card wire]).where.not(external_statuses: 'Commission granted')
+      fiat_payments_list = Payment.where(status: 'paid', payment_type: %w[stripe zen wire]).where.not(external_statuses: 'Commission granted')
       fiat_payments_with_referrers = fiat_payments_list.to_a.filter { |payment| !User.find(payment['user_id'])['referrer_id'].nil? }
       Result::Success.new(fiat_payments_with_referrers)
     rescue StandardError

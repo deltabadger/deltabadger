@@ -5,7 +5,7 @@
         .modal-body
           %h2.db-modal-title= t('affiliates.apply_code.title')
           = form_with local: true, url: ref_accept_path  do |f|
-            - refcode_presenter = Presenters::RefCodes::Show.new(@affiliate)
+            - refcode_presenter = RefCodesPresenter.new(@affiliate)
             = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
 
             = f.hidden_field :code, value: refcode_presenter.code

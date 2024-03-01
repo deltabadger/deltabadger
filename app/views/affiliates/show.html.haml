@@ -53,7 +53,7 @@
 
     .db-box.mb-3
       %h4.db-modal__subtitle  #{t('.update_info')}
-      - presenter = Presenters::RefCodes::Show.new(affiliate)
+      - presenter = RefCodesPresenter.new(affiliate)
       %p= t('affiliates.info_preview')
       = render partial: 'ref_codes/show', locals: { affiliate: affiliate }
       %p.mb-4 #{t('affiliates.add_link_info')}

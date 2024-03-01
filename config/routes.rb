@@ -5,6 +5,10 @@ Rails.application.routes.draw do
   require 'sidekiq/prometheus/exporter'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
+  authenticate :user, lambda { |u| u.admin? } do
+    mount Sidekiq::Web => '/sidekiq'
+  end
+
   namespace :admin do
     resources :users, except: [:destroy]
     resources :affiliates, except: [:destroy] do
@@ -56,29 +60,36 @@ Rails.application.routes.draw do
     get '/webhook_bots_data', to: 'bots#webhook_bots_data'
   end
 
-  get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
-  get '/sitemap' => 'sitemap#index', :defaults => { :format => 'xml' }
-  get '/metrics' => 'metrics#index', as: :bot_btc_metrics
-  get '/health_check' => 'health_check#index', as: :health_check
-
-  authenticate :user, lambda { |u| u.admin? } do
-    mount Sidekiq::Web => '/sidekiq'
-  end
-
-  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
-  post '/ref/accept', to: 'ref_codes#accept'
-
-  post '/create-payment-intent', to: 'upgrade#create_card_intent'
-  post '/update-payment-intent', to: 'upgrade#update_card_intent'
-  post '/confirm-card-payment', to: 'upgrade#confirm_card_payment'
-
   scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
+    root to: 'home#index'
+
+    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations' }, skip: [:registrations]
+
+    as :user do
+      scope :users do
+        get '/cancel', to: 'users/registrations#cancel', as: 'cancel_user_registration'
+        get '/sign_up', to: 'users/registrations#new', as: 'new_user_registration'
+        post '/', to: 'users/registrations#create', as: 'user_registration'
+      end
+    end
+
+    resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
+      get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
+      patch :update_visible_info
+      patch :update_btc_address
+      patch :new, to: 'affiliates#new'
+      patch :create, to: 'affiliates#create'
+    end
+
     namespace :upgrade do
       get '/', action: :index
-      post :pay
-      get :payment_success
-      post :payment_callback
-      post :wire_transfer
+      post :btcpay_payment
+      get :btcpay_payment_success
+      post :btcpay_payment_callback
+      post :wire_transfer_payment
+      post :zen_payment
+      get :zen_payment_finished
+      post :zen_payment_ipn
     end
 
     namespace :settings do
@@ -93,27 +104,6 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
-      get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
-      patch :update_visible_info
-      patch :update_btc_address
-      patch :new, to: 'affiliates#new'
-      patch :create, to: 'affiliates#create'
-    end
-
-
-    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations' }, skip: [:registrations]
-
-    as :user do
-      scope :users do
-        get '/cancel', to: 'users/registrations#cancel', as: 'cancel_user_registration'
-        get '/sign_up', to: 'users/registrations#new', as: 'new_user_registration'
-        post '/', to: 'users/registrations#create', as: 'user_registration'
-      end
-    end
-
-    root to: 'home#index'
-
     get '/dashboard', to: 'home#dashboard', as: :dashboard
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
@@ -126,14 +116,26 @@ Rails.application.routes.draw do
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
   end
 
-  get '/cryptocurrency-dollar-cost-averaging' => redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
-  get '/terms_and_conditions' => redirect("/#{I18n.default_locale}/terms-and-conditions")
-  get '/privacy_policy' => redirect("/#{I18n.default_locale}/privacy-policy")
-  get '/cookies_policy' => redirect("/#{I18n.default_locale}/cookies-policy")
-  get '/referral_program' => redirect("/#{I18n.default_locale}/referral-program")
-  get '/' => redirect("/#{I18n.default_locale}")
-  get '*path' => redirect("/#{I18n.default_locale}")
-  get '/legendary_badger' => redirect("/#{I18n.default_locale}/legendary-badger")
+  get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
+  get '/terms-and-conditions', to: redirect("/#{I18n.default_locale}/terms-and-conditions")
+  get '/privacy-policy', to: redirect("/#{I18n.default_locale}/privacy-policy")
+  get '/cookies-policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
+  get '/referral-program', to: redirect("/#{I18n.default_locale}/referral-program")
+  get '/', to: redirect("/#{I18n.default_locale}")
+  get '*path', to: redirect("/#{I18n.default_locale}")
+  get '/legendary-badger', to: redirect("/#{I18n.default_locale}/legendary-badger")
+
+  get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
+  get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
+  get '/metrics', to: 'metrics#index', as: :bot_btc_metrics
+  get '/health-check', to: 'health_check#index', as: :health_check
+
+  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
+  post '/ref/accept', to: 'ref_codes#accept'
+
+  post '/create-payment-intent', to: 'upgrade#create_stripe_payment_intent'
+  post '/update-payment-intent', to: 'upgrade#update_stripe_payment_intent'
+  post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
 
   telegram_webhook TelegramWebhooksController
 end

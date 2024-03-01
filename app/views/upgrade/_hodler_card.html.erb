@@ -1,0 +1,27 @@
+<div class="db-plans__item__name">
+  <%= t('subscriptions.hodler') %>
+  <div class="db-years">
+    <% if days_left %>
+      <div class="text-success"><%= t('subscriptions.days_left', count: current_user.plan_days_left) %></div>
+    <% else %>
+      <%= t('subscriptions.plan_4_year') %>
+    <% end %>
+  </div>
+</div>
+<div class="db-plans__item__amount">
+  <% unless days_left %>
+    <% if cost_presenter.base_price != cost_presenter.flat_discounted_price %>
+      <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'><%= cost_presenter.base_price %></span>
+      </div>
+      <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-discounted-price'><%= cost_presenter.flat_discounted_price %></span>
+      </div>
+    <% else %>
+      <div class="db-plans__item__amount__t">
+        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='hodler-base-price'><%= cost_presenter.base_price %></span>
+      </div>
+    <% end %>
+  <% end %>
+</div>
+<div class="db-plans__item__info"><%= t('subscriptions.hodler_description_html') %></div>

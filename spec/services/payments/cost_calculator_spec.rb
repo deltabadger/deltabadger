@@ -1,4 +1,4 @@
-RSpec.describe Payments::CostCalculator do
+RSpec.describe PaymentsManager::CostCalculator do
   let(:calculator) do
     described_class.new(
       base_price: base_price,
