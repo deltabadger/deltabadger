@@ -13,7 +13,6 @@ class UpgradeController < ApplicationController
 
   STRIPE_SUCCEEDED_STATUS = %w[succeeded].freeze
   STRIPE_IN_PROCESS_STATUS = %w[requires_confirmation requires_action processing].freeze
-  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE', 0).to_i.freeze
 
   def index
     return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
@@ -40,9 +39,9 @@ class UpgradeController < ApplicationController
     @current_user = current_user
     @payment = new_payment_default
     @errors = session.delete(:errors) || []
-    @allowable_early_birds_count = allowable_early_birds_count
-    @initial_early_birds_count = initial_early_birds_count
-    @purchased_early_birds_percent = purchased_early_birds_percent
+    @for_sale_legendary_badger_count = legendary_badger_stats[:for_sale_legendary_badger_count]
+    @legendary_badger_total_supply = legendary_badger_stats[:legendary_badger_total_supply]
+    @sold_legendary_badger_percent = legendary_badger_stats[:sold_legendary_badger_percent]
   end
 
   def zen_payment
@@ -204,10 +203,14 @@ class UpgradeController < ApplicationController
            country: country,
            subscription_plan: plan,
            referrer: referrer,
-           purchased_early_birds_count: purchased_early_birds_count
+           legendary_badger_discount: legendary_badger_stats[:legendary_badger_discount]
          ).data
        end]
     end.to_h
+  end
+
+  def legendary_badger_stats
+    @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
   end
 
   def get_cost_data(country, subscription_plan_id)
@@ -256,22 +259,6 @@ class UpgradeController < ApplicationController
     return @referrer if defined?(@referrer)
 
     @referrer = current_user.eligible_referrer
-  end
-
-  def initial_early_birds_count
-    @initial_early_birds_count ||= EARLY_BIRD_DISCOUNT_INITIAL_VALUE
-  end
-
-  def purchased_early_birds_count
-    @purchased_early_birds_count ||= SubscriptionsRepository.new.number_of_active_subscriptions('legendary_badger')
-  end
-
-  def purchased_early_birds_percent
-    @purchased_early_birds_percent ||= purchased_early_birds_count * 100 / initial_early_birds_count
-  end
-
-  def allowable_early_birds_count
-    @allowable_early_birds_count ||= initial_early_birds_count - purchased_early_birds_count
   end
 
   def subscription_plan_repository

@@ -673,8 +673,8 @@ id:
             compensation_investor:
                 other: 'Kompensasi atas %{{count}} hari yang tidak digunakan dari paket Investor.'
             discount: 'Diskon %{discount_percent}%'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
+            legendary_badger_discount: ''
+            legendary_badger_discount_info: ''
             eu_bank_country: Belgia
             invalid_vat_number: 'Nomor VAT UE tidak valid'
             paid_with_wire_transfer: 'Saya melakukan transfer SEPA'

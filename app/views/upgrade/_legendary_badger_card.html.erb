@@ -30,12 +30,12 @@
   <%#   <%= t('cookie.read_more') %>
   <%# </a> %>
   <div class="db-plans__item__legendary-badgers-left">
-    <%= allowable_early_birds_count %>
+    <%= for_sale_legendary_badger_count %>
     of
-    <%= initial_early_birds_count %>
+    <%= legendary_badger_total_supply %>
     left.
     <div class="progress">
-      <div class="progress-bar" role="progressbar" style="width: <%= purchased_early_birds_percent %>%" aria-valuenow="<%= purchased_early_birds_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="progress-bar" role="progressbar" style="width: <%= sold_legendary_badger_percent %>%" aria-valuenow="<%= sold_legendary_badger_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
   </div>
 </div>

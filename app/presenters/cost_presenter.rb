@@ -38,10 +38,6 @@ class CostPresenter
     format_price(cost_data[:total_price])
   end
 
-  def early_bird_discount
-    format_price(cost_data[:early_bird_discount])
-  end
-
   private
 
   def format_price(price)

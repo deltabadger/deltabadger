@@ -673,8 +673,8 @@ zh-cn:
             compensation_investor:
                 other: '对投资者套餐中未使用的 %{{count}} 天的补偿。'
             discount: '%{discount_percent}% 的折扣'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
+            legendary_badger_discount: ''
+            legendary_badger_discount_info: ''
             eu_bank_country: 比利时
             invalid_vat_number: '无效的 EU VAT 编号'
             paid_with_wire_transfer: '我进行了 SEPA 汇款'

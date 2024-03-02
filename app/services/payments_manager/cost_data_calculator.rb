@@ -1,24 +1,21 @@
 module PaymentsManager
   class CostDataCalculator < BaseService
-    EARLY_BIRD_DISCOUNT_INITIAL_VALUE = ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE', 0).to_i.freeze
-
     def call(
       user:,
       country: nil,
       payment: nil,
       subscription_plan: nil,
       referrer: user.eligible_referrer,
-      purchased_early_birds_count: SubscriptionsRepository.new.number_of_active_subscriptions('legendary_badger')
+      legendary_badger_discount: nil
     )
       validation_result = validate_params(country, subscription_plan, payment)
       return validation_result if validation_result.failure?
 
-      @purchased_early_birds_count = purchased_early_birds_count
+      @legendary_badger_discount = legendary_badger_discount
       @base_price = to_bigdecimal(get_base_price(@subscription_plan))
       @flat_discount = to_bigdecimal(flat_discount_amount(user))
       @discount_percent = to_bigdecimal(referrer&.discount_percent || 0)
       @commission_percent = to_bigdecimal(referrer&.commission_percent || 0)
-      @early_bird_discount = to_bigdecimal(early_bird_discount)
       begin
         Result::Success.new(calculate_cost_data)
       rescue StandardError => e
@@ -50,7 +47,6 @@ module PaymentsManager
         flat_discount: @flat_discount,
         discount_percent: @discount_percent,
         commission_percent: @commission_percent,
-        early_bird_discount: @early_bird_discount,
         flat_discounted_price: flat_discounted_price,
         discount_percent_amount: discount_percent_amount,
         total_vat: total_vat,
@@ -76,7 +72,7 @@ module PaymentsManager
     def flat_discounted_price
       # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
       # TODO: allow prices of 0 and let the controller upgrade the plan without payment in this case
-      @flat_discounted_price ||= [1, @base_price - @flat_discount - early_bird_discount].max
+      @flat_discounted_price ||= [1, @base_price - @flat_discount - legendary_badger_discount].max
     end
 
     def discount_percent_amount
@@ -99,18 +95,14 @@ module PaymentsManager
       (flat_discounted_price * (1 - @discount_percent)).round(2)
     end
 
-    def early_bird_discount
-      return 0 unless @subscription_plan.name == 'legendary_badger' && allowable_early_birds_count.positive?
+    def legendary_badger_discount
+      return 0 unless @subscription_plan.name == 'legendary_badger'
 
-      allowable_early_birds_count
+      @legendary_badger_discount ||= legendary_badger_stats[:legendary_badger_discount]
     end
 
-    def initial_early_birds_count
-      @initial_early_birds_count ||= EARLY_BIRD_DISCOUNT_INITIAL_VALUE
-    end
-
-    def allowable_early_birds_count
-      @allowable_early_birds_count ||= initial_early_birds_count - @purchased_early_birds_count
+    def legendary_badger_stats
+      @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
     end
 
     # FIXME: use generic to_bigdecimal method (helper?)

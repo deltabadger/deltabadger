@@ -673,8 +673,8 @@ vi:
             compensation_investor:
                 other: 'Khoản tiền bù đắp cho %{{count}} ngày không sử dụng trong gói Investor.'
             discount: 'Chiết khấu %{discount_percent}%'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
+            legendary_badger_discount: ''
+            legendary_badger_discount_info: ''
             eu_bank_country: Bỉ
             invalid_vat_number: 'Mã số thuế GTGT châu Âu không hợp lệ'
             paid_with_wire_transfer: 'Tôi đã chuyển khoản SEPA'

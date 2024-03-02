@@ -697,8 +697,8 @@ ru:
                 many: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
                 other: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
             discount: '%{discount_percent}% скидка'
-            early_bird_discount: ''
-            early_bird_discount_info: ''
+            legendary_badger_discount: ''
+            legendary_badger_discount_info: ''
             eu_bank_country: Бельгия
             invalid_vat_number: 'Недействительный номер НДС в ЕС'
             paid_with_wire_transfer: 'Я сделал перевод SEPA'
