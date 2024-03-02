@@ -658,8 +658,8 @@ es:
                 one: 'Compensación de un día sin usar en el plan de inversión'
                 other: 'Compensación por %{cuenta} de días sin usar en el Hodler plan.'
             discount: '%{discount_percent} % de descuento'
-            early_bird_discount: 'Descuento por venta anticipada'
-            early_bird_discount_info: 'Con cada venta el descuento disminuye 1 $. ¡No esperes!'
+            legendary_badger_discount: 'Descuento por venta anticipada'
+            legendary_badger_discount_info: 'Con cada venta el descuento disminuye 1 $. ¡No esperes!'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
