@@ -30,18 +30,15 @@ class UpgradeController < ApplicationController
       end
     end
 
-    @cost_datas = cost_datas_hash
-    @current_plan = current_plan
-    @investor_plan = investor_plan
-    @hodler_plan = hodler_plan
-    @legendary_badger_plan = legendary_badger_plan
-    @referrer = referrer
-    @current_user = current_user
+    cost_datas_hash
+    current_plan
+    investor_plan
+    hodler_plan
+    legendary_badger_plan
+    referrer
+    legendary_badger_stats
     @payment = new_payment_default
     @errors = session.delete(:errors) || []
-    @for_sale_legendary_badger_count = legendary_badger_stats[:for_sale_legendary_badger_count]
-    @legendary_badger_total_supply = legendary_badger_stats[:legendary_badger_total_supply]
-    @sold_legendary_badger_percent = legendary_badger_stats[:sold_legendary_badger_percent]
   end
 
   def zen_payment

@@ -1,15 +1,37 @@
 <% upgrade_presenter = UpgradePresenter.new(@payment, @current_plan, @investor_plan, @hodler_plan, @legendary_badger_plan, @referrer, @current_user) %>
-<% cost_presenters = @cost_datas.transform_values { |country| country.transform_values { |cost_data| CostPresenter.new(cost_data) } } %>
+<% cost_presenters = @cost_datas_hash.transform_values { |country| country.transform_values { |cost_data| CostPresenter.new(cost_data) } } %>
 <% selected_cost_presenter = cost_presenters[@payment.country] %>
 <div class="db-country db-checkout--<%= upgrade_presenter.selected_payment_type %>">
-  <%= render partial: 'layouts/navbar/signed_in', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter } %>
-  <div class="row db-checkout db-checkout--<%= upgrade_presenter.selected_plan_name %> <%= 'stripe_payment_in_process' if @stripe_payment_in_process %>">
+  <%= render partial: "layouts/navbar/signed_in", locals: {
+               upgrade_presenter: upgrade_presenter,
+               cost_presenter: selected_cost_presenter,
+             } %>
+  <div class="row db-checkout db-checkout--<%= upgrade_presenter.selected_plan_name %> <%= "stripe_payment_in_process" if @stripe_payment_in_process %>">
     <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
-      <%= render partial: 'current_plan', locals: { upgrade_presenter: upgrade_presenter, allowable_early_birds_count: @allowable_early_birds_count, initial_early_birds_count: @initial_early_birds_count, purchased_early_birds_percent: @purchased_early_birds_percent } %>
-      <%= render partial: 'upgrade_plans', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter, allowable_early_birds_count: @allowable_early_birds_count, initial_early_birds_count: @initial_early_birds_count, purchased_early_birds_percent: @purchased_early_birds_percent } %>
+      <%= render partial: "current_plan", locals: {
+                   upgrade_presenter: upgrade_presenter,
+                   legendary_badger_stats: @legendary_badger_stats,
+                 } %>
+      <%= render partial: "upgrade_plans", locals: {
+                   upgrade_presenter: upgrade_presenter,
+                   cost_presenter: selected_cost_presenter,
+                   legendary_badger_stats: @legendary_badger_stats,
+                 } %>
     </div>
     <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
-      <%= render partial: 'upgrade_summary', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: selected_cost_presenter } %>
-      <%= render partial: 'billing_form', locals: { payment: @payment, errors: @errors, upgrade_presenter: upgrade_presenter, cost_presenters: cost_presenters, stripe_payment_in_process: @stripe_payment_in_process, subscription_plan_repository: @subscription_plan_repository, selected_cost_presenter: selected_cost_presenter } %>
+      <%= render partial: "upgrade_summary", locals: {
+                   upgrade_presenter: upgrade_presenter,
+                   cost_presenter: selected_cost_presenter,
+                 } %>
+      <%= render partial: "billing_form", locals: {
+                   payment: @payment,
+                   errors: @errors,
+                   upgrade_presenter: upgrade_presenter,
+                   cost_presenters: cost_presenters,
+                   stripe_payment_in_process: @stripe_payment_in_process,
+                   subscription_plan_repository: @subscription_plan_repository,
+                   selected_cost_presenter: selected_cost_presenter,
+                 } %>
     </div>
+  </div>
 </div>
