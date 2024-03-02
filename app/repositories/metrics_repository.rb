@@ -1,7 +1,6 @@
 class MetricsRepository < BaseRepository
   METRICS_KEY = 'metrics'.freeze
   BOTS_IN_PROFIT_KEY = 'bots_in_profit'.freeze
-  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
 
   def initialize
     super
@@ -10,10 +9,11 @@ class MetricsRepository < BaseRepository
 
   def update_metrics
     telegram_metrics = FetchTelegramMetrics.new.call
+    legendary_badger_stats = PaymentsManager::LegendaryBadgerStatsCalculator.call.data
     metrics = {
       liveBots: BotsRepository.new.count_with_status('working'),
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      availableLegendaryBadgers: EARLY_BIRD_DISCOUNT_INITIAL_VALUE - SubscriptionsRepository.new.number_of_active_subscriptions('legendary_badger'),
+      availableLegendaryBadgers: legendary_badger_stats[:for_sale_legendary_badger_count],
       takenLegendaryBadgerNumbers: SubscriptionsRepository.new.model.used_sequence_numbers
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)

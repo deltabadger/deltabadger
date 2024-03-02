@@ -584,8 +584,8 @@ de:
                 one: 'Entschädigung für 1 ungenutzten Tag des Investorenplans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
-            early_bird_discount: 'Early Bird-Rabatt'
-            early_bird_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
+            legendary_badger_discount: 'Early Bird-Rabatt'
+            legendary_badger_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'

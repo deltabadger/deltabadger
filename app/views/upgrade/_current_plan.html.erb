@@ -10,7 +10,7 @@
     </div>
   <% else %>
     <div class="db-plans__item db-plans__item--legendary_badger db-plans__item--current">
-      <%= render partial: 'legendary_badger_card', locals: { days_left: days_left, allowable_early_birds_count: allowable_early_birds_count, initial_early_birds_count: initial_early_birds_count, purchased_early_birds_percent: purchased_early_birds_percent } %>
+      <%= render partial: 'legendary_badger_card', locals: { days_left: days_left, for_sale_legendary_badger_count: for_sale_legendary_badger_count, legendary_badger_total_supply: legendary_badger_total_supply, sold_legendary_badger_percent: sold_legendary_badger_percent } %>
     </div>
   <% end %>
 <% end %>
