@@ -19,20 +19,23 @@
 <% if 'legendary_badger'.in?(upgrade_presenter.available_plans) %>
   <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
   <div class="db-plans__item db-plans__item--legendary_badger db-plan-legendary_badger db-plan--<%= legendary_badger_selected ? 'selected' : 'other' %>">
-    <%= render partial: 'legendary_badger_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:legendary_badger], allowable_early_birds_count: allowable_early_birds_count, initial_early_birds_count: initial_early_birds_count, purchased_early_birds_percent: purchased_early_birds_percent } %>
+    <%= render partial: 'legendary_badger_card', locals: { 
+      days_left: nil, upgrade_presenter: upgrade_presenter,
+      cost_presenter: cost_presenter[:legendary_badger],
+      legendary_badger_stats: legendary_badger_stats } %>
     <%= render partial: 'layouts/svg_bubbleart_01' %>
   </div>
 
-  <div class="db-plans__item db-plans__item--discount db-legendary-early-bird-discount">
+  <div class="db-plans__item db-plans__item--discount db-legendary-legendary-badger-discount">
     <div class="db-plans__item__name">
-      <%= t('subscriptions.payment.early_bird_discount') %>
+      <%= t('subscriptions.payment.legendary_badger_discount') %>
     </div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-early-bird-discount'><%= allowable_early_birds_count %></span>
+        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-legendary-badger-discount'><%= legendary_badger_stats[:for_sale_legendary_badger_count] %></span>
       </div>
     </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.early_bird_discount_info') %></div>
+    <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_badger_discount_info') %></div>
   </div>
 <% end %>
 
