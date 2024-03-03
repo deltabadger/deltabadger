@@ -4,8 +4,11 @@ module PaymentsManager
       ZEN_IPN_SECRET = ENV.fetch('ZEN_IPN_SECRET').freeze
 
       def call(params)
+        Rails.logger.info "Verifying IPN hash: #{params}"
         string_to_hash = build_string_to_hash(params)
         expected_hash = Digest::SHA256.hexdigest(string_to_hash).upcase
+        Rails.logger.info "Expected hash: #{expected_hash}"
+        Rails.logger.info "Received hash: #{params[:hash]}"
         if expected_hash == params.fetch(:hash)
           Result::Success.new
         else
