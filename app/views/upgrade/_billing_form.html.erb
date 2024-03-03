@@ -90,18 +90,18 @@
           <%= form_with model: payment, url: upgrade_zen_payment_path, local: true do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
             <% end %>
             <% if 'hodler'.in?(upgrade_presenter.available_plans) %>
               <% hodler_selected = upgrade_presenter.selected_plan_name == 'hodler' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_hodler" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.hodler_plan.id %>" <%= "checked" if hodler_selected %>>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_hodler_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.hodler_plan.id %>" <%= "checked" if hodler_selected %>>
             <% end %>
             <% if 'legendary_badger'.in?(upgrade_presenter.available_plans) %>
               <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_badger" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_badger_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
             <% end %>
             <div class="db-form__row">
-              <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
+              <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
                 <% cost_presenters.each do |country, presenter| %>
                   <% selected = country == payment.country %>
                   <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
@@ -123,7 +123,7 @@
         </div>
 
         <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
-          <%= form_for payment, url: upgrade_btcpay_payment_path do |f| %>
+          <%= form_with model: payment, url: upgrade_btcpay_payment_path, local: true do |f| %>
             <% if 'investor'.in?(upgrade_presenter.available_plans) %>
               <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
@@ -163,9 +163,9 @@
               <%= f.label :country, class: 'db-form__label' %>
             </div>
             <div class="db-form__row db-form__row--final-button">
-              <button class="btn btn-success btn-lg w-100 px-1" type="submit">
+              <%= button_to upgrade_btcpay_payment_path, method: :post, class: "btn btn-success btn-lg w-100 px-1" do %>
                 <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
-              </button>
+              <% end %>
             </div>
           <% end %>
         </div>
