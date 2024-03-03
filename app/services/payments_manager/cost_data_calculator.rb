@@ -84,7 +84,8 @@ module PaymentsManager
     end
 
     def total_price
-      @total_price ||= (discounted_price * (1 + @vat)).round(2)
+      0.5
+      # @total_price ||= (discounted_price * (1 + @vat)).round(2)
     end
 
     def commission
