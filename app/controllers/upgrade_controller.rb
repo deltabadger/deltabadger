@@ -1,7 +1,6 @@
 # rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
-  before_action :verify_zen_ipn, only: %i[zen_payment_ipn]
   skip_before_action :verify_authenticity_token, only: %i[
     btcpay_payment_callback
     zen_payment_ipn
@@ -62,9 +61,12 @@ class UpgradeController < ApplicationController
   end
 
   def zen_payment_ipn
-    PaymentsManager::ZenManager::SubscriptionUpdater.call(params) if params[:status] == 'ACCEPTED'
-
-    render json: { "status": 'ok' }
+    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).failure?
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+    else
+      PaymentsManager::ZenManager::SubscriptionUpdater.call(params) if params[:status] == 'ACCEPTED'
+      render json: { "status": 'ok' }
+    end
   end
 
   def btcpay_payment
@@ -225,13 +227,6 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(*permitted_params)
       .merge(user: current_user) # TODO: ugly, refactor
-  end
-
-  def verify_zen_ipn
-    return if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
-
-    # This halts the callback chain and returns a JSON response with a 401 Unauthorized status
-    render json: { error: 'Unauthorized' }, status: :unauthorized
   end
 
   def stripe_payment_succeeded?(payment_intent)
