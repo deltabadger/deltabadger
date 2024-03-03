@@ -28,6 +28,8 @@ module PaymentsManager
     end
 
     def sold_legendary_badger_percent
+      return 0 if legendary_badger_total_supply.zero?
+
       @sold_legendary_badger_percent ||= sold_legendary_badger_count * 100 / legendary_badger_total_supply
     end
 
