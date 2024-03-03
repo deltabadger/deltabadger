@@ -21,7 +21,11 @@ module PaymentsManager
           paid_at: Time.current
         }
 
+        Rails.logger.info "Updating payment with params: #{update_params.inspect}"
+        Rails.logger.info "Payment: #{payment.inspect}"
         payment = @payments_repository.update(payment.id, update_params)
+        Rails.logger.info "Payment updated: #{payment.inspect}"
+        Rails.logger.info "Payment from DB: #{@payments_repository.find(params[:merchantTransactionId]).inspect}"
 
         @notifications.invoice(payment: payment)
         @subscribe_plan.call(
