@@ -14,6 +14,7 @@ module PaymentsManager
 
       def call(params)
         payment = @payments_repository.find_by(payment_id: params['id'])
+        Rails.logger.info "Payment found: #{payment.inspect}"
 
         external_status = params['status'].to_sym
         status = internal_status(external_status)
@@ -31,7 +32,11 @@ module PaymentsManager
                                crypto_commission: recalculate_crypto_commission(params, payment))
         end
 
+        Rails.logger.info "Updating payment with params: #{update_params.inspect}"
+        Rails.logger.info "Payment: #{payment.inspect}"
         payment = @payments_repository.update(payment.id, update_params)
+        Rails.logger.info "Payment updated: #{payment.inspect}"
+        Rails.logger.info "Payment from DB: #{@payments_repository.find(params['id']).inspect}"
 
         return unless just_paid
 
