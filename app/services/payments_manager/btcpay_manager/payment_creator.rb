@@ -18,22 +18,22 @@ module PaymentsManager
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: user)
         return cost_data_result if cost_data_result.failure?
 
-        payment_result = create_payment(payment, user, cost_data_result.data)
-        return payment_result if payment_result.failure?
+        btcpay_payment_result = create_payment(payment_result.data, user, cost_data_result.data)
+        return btcpay_payment_result if btcpay_payment_result.failure?
 
-        crypto_total = payment_result.data[:crypto_total]
+        crypto_total = btcpay_payment_result.data[:crypto_total]
         @payments_repository.create(
-          payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
+          btcpay_payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
             .merge(
-              id: order_id,
-              currency: get_currency(payment),
+              id: payment_result.data[:id],
+              currency: get_currency(payment_result.data),
               discounted: cost_data_result.data[:discount_percent].positive?,
               commission: cost_data_result.data[:commission],
               crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
             )
             .merge(params)
         )
-        payment_result
+        btcpay_payment_result
       end
 
       private
