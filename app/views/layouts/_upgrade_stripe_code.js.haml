@@ -29,6 +29,9 @@
     document.getElementById("payment_plan_investor_wire").checked = true;
     document.getElementById("payment_plan_hodler_wire").checked = false;
     document.getElementById("payment_plan_legendary_badger_wire").checked = false;
+    document.getElementById("payment_plan_investor_zen").checked = true;
+    document.getElementById("payment_plan_hodler_zen").checked = false;
+    document.getElementById("payment_plan_legendary_badger_zen").checked = false;
     if (!$(".stripe_payment_in_process").length) set_payment_intent();
   })
   $(".db-plan-hodler").click(function(){
@@ -52,6 +55,9 @@
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = true;
     document.getElementById("payment_plan_legendary_badger_wire").checked = false;
+    document.getElementById("payment_plan_investor_zen").checked = false;
+    document.getElementById("payment_plan_hodler_zen").checked = true;
+    document.getElementById("payment_plan_legendary_badger_zen").checked = false;
     if (!$(".stripe_payment_in_process").length) set_payment_intent();
   })
   $(".db-plan-legendary_badger").click(function(){
@@ -75,6 +81,9 @@
     document.getElementById("payment_plan_investor_wire").checked = false;
     document.getElementById("payment_plan_hodler_wire").checked = false;
     document.getElementById("payment_plan_legendary_badger_wire").checked = true;
+    document.getElementById("payment_plan_investor_zen").checked = false;
+    document.getElementById("payment_plan_hodler_zen").checked = false;
+    document.getElementById("payment_plan_legendary_badger_zen").checked = true;
     if (!$(".stripe_payment_in_process").length) set_payment_intent();
   })
   })
@@ -166,6 +175,7 @@
     $("#payment_country").val(select.value);
     $("#payment_country_wire").val(select.value);
     $("#payment_country_stripe").val(select.value);
+    $("#payment_country_zen").val(select.value);
   }
 
   $("#payment_country").change(function(event) {
@@ -187,6 +197,13 @@
   });
 
   setPrices(document.getElementById("payment_country_stripe"));
+
+  $("#payment_country_zen").change(function(event) {
+    setPrices(event.target);
+    showPreview(event.target);
+  });
+
+  setPrices(document.getElementById("payment_country_zen"));
 
   $("#payment_first_name_wire").change(function(event) {
     document.getElementById("payment_first_name").value = event.target.value;
