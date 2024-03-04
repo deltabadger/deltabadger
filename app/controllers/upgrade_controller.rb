@@ -105,6 +105,7 @@ class UpgradeController < ApplicationController
     payment_intent_result = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
 
     if payment_intent_result.success?
+      puts "payment_intent_result.data['id']: #{payment_intent_result.data['id']}"
       session[:payment_intent_id] = payment_intent_result.data['id']
       render json: {
         clientSecret: payment_intent_result.data['client_secret'],
@@ -112,21 +113,24 @@ class UpgradeController < ApplicationController
       }
     else
       Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      session[:errors] = result.errors
+      session[:errors] = payment_intent_result.errors
       render json: { error: 'Internal Server Error' }, status: :internal_server_error
     end
   end
 
   def update_stripe_payment_intent
-    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentUpdater.call(params)
-    return unless payment_intent_result.failure?
-
-    Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-    session[:errors] = result.errors
+    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, current_user)
+    if payment_intent_result.success?
+      render json: { "status": 'ok' }
+    else
+      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+      session[:errors] = payment_intent_result.errors
+      render json: { error: 'Internal Server Error' }, status: :internal_server_error
+    end
   end
 
   def confirm_stripe_payment
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params)
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
 
     if payment_finalizer_result.success?
       session.delete(:payment_intent_id)
@@ -144,7 +148,7 @@ class UpgradeController < ApplicationController
     return unless session[:payment_intent_id]
 
     params = { 'payment_intent_id': session[:payment_intent_id] }
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params)
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
 
     if payment_finalizer_result.success?
       session.delete(:payment_intent_id)

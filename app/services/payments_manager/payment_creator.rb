@@ -4,15 +4,16 @@ module PaymentsManager
     CURRENCY_OTHER      = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
     PAYMENT_SEQUENCE_ID = "'payments_id_seq'".freeze
 
-    def call(payment_params, payment_type)
+    def call(payment_params, payment_type, dry_run: false)
       payment = Payment.new(payment_params.merge(id: get_next_payment_id, payment_type: payment_type))
       validation_result = validate_payment(payment)
       return validation_result if validation_result.failure?
 
-      if payment.update(
-        status: :unpaid,
-        currency: get_currency(payment)
-      )
+      payment.status = :unpaid
+      payment.currency = get_currency(payment)
+      return Result::Success.new(payment) if dry_run
+
+      if payment.save
         Result::Success.new(payment)
       else
         Result::Failure.new

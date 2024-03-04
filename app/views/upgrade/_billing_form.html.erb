@@ -54,7 +54,9 @@
             <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
             <input type="radio" class="db-plan-radio" id="payment_plan_legendary_badger_stripe" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
           <% end %>
-          <script src="https://js.stripe.com/v3/"></script>
+          <% if show_stripe_payment %>
+            <script src="https://js.stripe.com/v3/"></script>
+          <% end %>
           <% unless stripe_payment_in_process %>
             <div class="db-form__row">
               <select id="payment_country_stripe" class="db-form__input db-form__input--select" autocomplete="country-name" name="payment[country]" onchange='this.setAttribute("value", this.value);' onfocus='this.setAttribute("value", this.value);' value="Other" <%= "disabled" if pending_wire_transfer %>>
