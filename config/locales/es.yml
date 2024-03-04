@@ -653,10 +653,10 @@ es:
             stripe_payment_succeeded: 'Pago completado con éxito, se te debería redirigir en unos segundos.'
             compensation_hodler:
                 one: 'Compensación por un día sin usar del plan Hodler'
-                other: 'Compensación por %{count} de días sin usar en el plan Hodler.'
+                other: 'Compensación por %{count} días sin usar del plan Hodler.'
             compensation_investor:
-                one: 'Compensación de un día sin usar en el plan Investor'
-                other: 'Compensación por %{count} de días sin usar en el plan Investor.'
+                one: 'Compensación de un día sin usar del plan Investor'
+                other: 'Compensación por %{count} días sin usar del plan Investor.'
             discount: '%{discount_percent} % de descuento'
             legendary_badger_discount: 'Descuento por venta anticipada'
             legendary_badger_discount_info: 'Con cada venta el descuento disminuye 1 $. ¡No esperes!'
