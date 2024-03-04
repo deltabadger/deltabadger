@@ -2,7 +2,7 @@ module PaymentsManager
   module ZenManager
     class PaymentInitiator < BaseService
       def call(params, user)
-        payment_result = PaymentsManager::NextPaymentCreator.call(params, 'zen')
+        payment_result = PaymentsManager::PaymentCreator.call(params, 'zen')
         return payment_result if payment_result.failure?
 
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: user)

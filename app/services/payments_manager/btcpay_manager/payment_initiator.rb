@@ -6,7 +6,7 @@ module PaymentsManager
       end
 
       def call(params, user)
-        payment_result = PaymentsManager::NextPaymentCreator.call(params, 'bitcoin')
+        payment_result = PaymentsManager::PaymentCreator.call(params, 'bitcoin')
         return payment_result if payment_result.failure?
 
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: user)
