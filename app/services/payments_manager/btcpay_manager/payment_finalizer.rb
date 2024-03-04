@@ -1,11 +1,10 @@
 module PaymentsManager
   module BtcpayManager
-    class SubscriptionUpdater < BaseService
+    class PaymentFinalizer < BaseService
       PAID_STATUSES = %i[paid confirmed complete].freeze
       CANCELLED_STATUSES = %i[expired invalid].freeze
 
       def initialize
-        @payments_repository = PaymentsRepository.new
         @notifications = Notifications::Subscription.new
         @fomo_notifications = Notifications::FomoEvents.new
         @subscribe_plan = SubscribePlan.new
@@ -13,7 +12,7 @@ module PaymentsManager
       end
 
       def call(params)
-        payment = @payments_repository.find_by(payment_id: params['id'])
+        payment = Payment.find_by(payment_id: params['id'])
         Rails.logger.info "Payment found: #{payment.inspect}"
 
         external_status = params['status'].to_sym
@@ -34,11 +33,12 @@ module PaymentsManager
 
         Rails.logger.info "Updating payment with params: #{update_params.inspect}"
         Rails.logger.info "Payment: #{payment.inspect}"
-        payment = @payments_repository.update(payment.id, update_params)
-        Rails.logger.info "Payment updated: #{payment.inspect}"
-        Rails.logger.info "Payment from DB: #{@payments_repository.find(params['id']).inspect}"
+        return Result::Failure.new unless payment.update(update_params)
 
-        return unless just_paid
+        Rails.logger.info "Payment updated: #{payment.inspect}"
+        Rails.logger.info "Payment from DB: #{Payment.find(params['id']).inspect}"
+
+        return Result::Failure.new unless just_paid
 
         @notifications.invoice(payment: payment)
         @subscribe_plan.call(
@@ -54,6 +54,8 @@ module PaymentsManager
           country: payment.country,
           plan_name: payment.subscription_plan.name
         )
+
+        Result::Success.new
       end
 
       private
@@ -85,17 +87,20 @@ module PaymentsManager
       end
 
       def recalculate_crypto_commission(params, payment)
-        # TODO: use better match to zero
-        return 0.0 if payment.crypto_total.to_f <= 0.0
+        return 0 if to_bigdecimal(payment.crypto_total, precision: 8).zero?
 
         params['btcPaid'].to_f / payment.crypto_total * payment.crypto_commission
       end
 
       def recalculate_commission(params, payment)
-        # TODO: use better match to zero
-        return 0.0 if payment.crypto_total.to_f <= 0.0
+        return 0 if to_bigdecimal(payment.crypto_total, precision: 8).zero?
 
         (params['btcPaid'].to_f / payment.crypto_total * payment.commission.to_f).round(2)
+      end
+
+      # FIXME: use generic to_bigdecimal method (helper?)
+      def to_bigdecimal(num, precision: 2)
+        BigDecimal(format("%0.0#{precision}f", num))
       end
     end
   end

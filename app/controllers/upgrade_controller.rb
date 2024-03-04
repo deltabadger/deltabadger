@@ -42,12 +42,12 @@ class UpgradeController < ApplicationController
 
   def zen_payment
     payment_params = get_payment_params(include_first_name: false, include_last_name: false)
-    payment_result = PaymentsManager::ZenManager::PaymentCreator.call(payment_params)
+    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(payment_params, current_user)
 
-    if payment_result.success?
-      redirect_to payment_result.data[:payment_url]
+    if initiator_result.success?
+      redirect_to initiator_result.data[:payment_url]
     else
-      unless payment_result.errors.include?('User error')
+      unless initiator_result.errors.include?('User error')
         Raven.capture_exception(Exception.new(result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
@@ -71,16 +71,16 @@ class UpgradeController < ApplicationController
 
   def btcpay_payment
     payment_params = get_payment_params(include_birth_date: true)
-    payment_result = PaymentsManager::BtcpayManager::PaymentCreator.call(payment_params)
+    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(payment_params, current_user)
 
-    if payment_result.success?
-      redirect_to payment_result.data[:payment_url]
+    if initiator_result.success?
+      redirect_to initiator_result.data[:payment_url]
     else
-      unless payment_result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(payment_result.errors[0]))
+      unless initiator_result.errors.include?('User error')
+        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
-      session[:errors] = payment_result.errors
+      session[:errors] = initiator_result.errors
       redirect_to action: 'index'
     end
   end
@@ -93,64 +93,27 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment_callback
-    PaymentsManager::BtcpayManager::SubscriptionUpdater.call(params['data'] || params)
+    PaymentsManager::BtcpayManager::PaymentFinalizer.call(params['data'])
 
     render json: {}
   end
 
-  # rubocop:disable Metrics/method_length
   def wire_transfer_payment
     payment_params = get_payment_params
-    payment_result = PaymentsManager::NextPaymentCreator.call(payment_params, 'wire')
-    return payment_result if payment_result.failure?
+    initiator_result = PaymentsManager::PaymentInitiator.call(payment_params, 'wire')
 
-    cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: current_user)
-    return cost_data_result if cost_data_result.failure?
-
-    payment = PaymentsManager::WireManager::PaymentCreator.call(
-      payment_params,
-      current_user,
-      cost_data_result.data[:discount_percent_amount].to_f.positive?
-    )
-
-    email_params = {
-      name: payment_params[:first_name],
-      type: payment_params[:country],
-      amount: format('%0.02f', cost_data_result.data[:total_price])
-    }
-
-    UpgradeSubscriptionWorker.perform_at(
-      15.minutes.since(Time.now),
-      current_user.id,
-      payment_params[:subscription_plan_id],
-      email_params,
-      payment.id
-    )
-
-    notifications = Notifications::Subscription.new
-    notifications.wire_transfer_summary(
-      email: current_user.email,
-      subscription_plan: SubscriptionPlan.find(payment_params[:subscription_plan_id]).name,
-      first_name: payment_params[:first_name],
-      last_name: payment_params[:last_name],
-      country: payment_params[:country],
-      amount: format('%0.02f', cost_data_result.data[:total_price])
-    )
-
-    current_user.update(
-      pending_wire_transfer: payment_params[:country],
-      pending_plan_id: payment_params[:subscription_plan_id]
-    )
-
-    Notifications::FomoEvents.new.plan_bought(
-      first_name: payment_params[:first_name],
-      ip_address: request.remote_ip,
-      plan_name: cost_data_result.data[:subscription_plan_name]
-    )
+    if initiator_result.success?
+      PaymentsManager::PaymentFinalizer.call(payment, current_user)
+    else
+      unless initiator_result.errors.include?('User error')
+        Raven.capture_exception(Exception.new(result.errors[0]))
+        flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      end
+      session[:errors] = result.errors
+    end
 
     redirect_to action: 'index'
   end
-  # rubocop:enable Metrics/method_length
 
   def create_stripe_payment_intent
     cost_data = get_cost_data(params[:country], params[:subscription_plan_id])
@@ -226,7 +189,7 @@ class UpgradeController < ApplicationController
     params
       .require(:payment)
       .permit(*permitted_params)
-      .merge(user: current_user) # TODO: ugly, refactor
+      .merge(user: current_user) # TODO: ugly, refactor --> needed to create payment just from params
   end
 
   def stripe_payment_succeeded?(payment_intent)

@@ -1,47 +1,46 @@
 module PaymentsManager
   module BtcpayManager
-    class PaymentCreator < BaseService
-      CURRENCY_EU         = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
-      CURRENCY_OTHER      = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
-
+    class PaymentInitiator < BaseService
       def initialize
         @client = PaymentsManager::BtcpayManager::BtcpayClient.new
-        @payments_repository = PaymentsRepository.new
       end
 
-      def call(params)
+      def call(params, user)
         payment_result = PaymentsManager::NextPaymentCreator.call(params, 'bitcoin')
         return payment_result if payment_result.failure?
-
-        user = params.fetch(:user)
 
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: user)
         return cost_data_result if cost_data_result.failure?
 
-        btcpay_payment_result = create_payment(payment_result.data, user, cost_data_result.data)
+        return Result::Failure.new unless payment_result.data.update(
+          total: cost_data_result.data[:total_price],
+          discounted: cost_data_result.data[:discount_percent].positive?,
+          commission: cost_data_result.data[:commission]
+        )
+
+        btcpay_payment_result = create_payment(payment_result.data, user)
         return btcpay_payment_result if btcpay_payment_result.failure?
 
         crypto_total = btcpay_payment_result.data[:crypto_total]
-        @payments_repository.create(
-          btcpay_payment_result.data.slice(:payment_id, :status, :external_statuses, :total, :crypto_total)
-            .merge(
-              id: payment_result.data[:id],
-              currency: get_currency(payment_result.data),
-              discounted: cost_data_result.data[:discount_percent].positive?,
-              commission: cost_data_result.data[:commission],
-              crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
-            )
-            .merge(params)
+        if payment_result.data.update(
+          payment_id: btcpay_payment_result.data[:payment_id],
+          status: btcpay_payment_result.data[:status],
+          external_statuses: btcpay_payment_result.data[:external_statuses],
+          crypto_total: crypto_total,
+          crypto_commission: get_crypto_commission(crypto_total, cost_data_result.data)
         )
-        btcpay_payment_result
+          btcpay_payment_result
+        else
+          Result::Failure.new
+        end
       end
 
       private
 
-      def create_payment(payment, user, cost_data)
+      def create_payment(payment, user)
         @client.create_payment(
-          price: cost_data[:total_price].to_s,
-          currency: get_currency(payment),
+          price: payment.total.to_s,
+          currency: payment.currency,
           email: user.email,
           order_id: payment.id,
           name: "#{payment.first_name} #{payment.last_name}",
@@ -49,10 +48,6 @@ module PaymentsManager
           item_description: "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade",
           birth_date: payment.birth_date
         )
-      end
-
-      def get_currency(payment)
-        payment.eu? ? CURRENCY_EU : CURRENCY_OTHER
       end
 
       def get_crypto_commission(crypto_total, cost_data)
