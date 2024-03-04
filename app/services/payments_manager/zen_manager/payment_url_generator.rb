@@ -10,8 +10,8 @@ module PaymentsManager
         @client = ZenClient.new
       end
 
-      def call(params)
-        hash = build_request_body(params)
+      def call(payment, user)
+        hash = build_request_body(payment, user)
         response = @client.checkout(hash)
         return response if response.failure?
 
@@ -20,28 +20,28 @@ module PaymentsManager
 
       private
 
-      def build_request_body(params)
-        price = format_price(params.fetch(:price))
+      def build_request_body(payment, user)
+        price = format('%0.02f', payment.total)
         {
           terminalUuid: ZEN_TERMINAL_UUID,
           amount: price,
-          currency: params.fetch(:currency),
-          merchantTransactionId: params.fetch(:order_id).to_s,
+          currency: payment.currency,
+          merchantTransactionId: payment.id.to_s,
           customer: {
-            # firstName: params.fetch(:first_name),
-            # lastName: params.fetch(:last_name),
-            email: params.fetch(:email)
+            # firstName: user.first_name,
+            # lastName: user.last_name,
+            email: user.email
           },
           items: [
             {
-              name: params.fetch(:item_description),
+              name: get_item_description(payment),
               price: price,
               quantity: 1,
               lineAmountTotal: price
             }
           ],
           billingAddress: {
-            countryState: params.fetch(:country)
+            countryState: payment.country
           },
           # specifiedPaymentMethod: 'PME_CARD',
           # specifiedPaymentChannel: 'PCL_CARD',
@@ -50,14 +50,14 @@ module PaymentsManager
         }
       end
 
-      def format_price(price)
-        format('%0.02f', price)
-      end
-
       def format_checkout_output(output)
         {
           payment_url: output.fetch('redirectUrl')
         }
+      end
+
+      def get_item_description(payment)
+        "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade"
       end
     end
   end
