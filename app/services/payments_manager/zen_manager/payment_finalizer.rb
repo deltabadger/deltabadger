@@ -19,7 +19,9 @@ module PaymentsManager
 
         update_params = {
           status: :paid,
-          paid_at: Time.current
+          paid_at: Time.current,
+          first_name: params[:customer][:firstName],
+          last_name: params[:customer][:lastName]
         }
 
         Rails.logger.info "Updating payment with params: #{update_params.inspect}"
