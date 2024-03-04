@@ -18,7 +18,7 @@ module PaymentsManager
           commission: cost_data_result.data[:commission]
         )
 
-        btcpay_payment_result = create_payment(payment_result.data, user)
+        btcpay_payment_result = create_payment_on_btcpay_server(payment_result.data, user)
         return btcpay_payment_result if btcpay_payment_result.failure?
 
         crypto_total = btcpay_payment_result.data[:crypto_total]
@@ -37,7 +37,7 @@ module PaymentsManager
 
       private
 
-      def create_payment(payment, user)
+      def create_payment_on_btcpay_server(payment, user)
         @client.create_payment(
           price: payment.total.to_s,
           currency: payment.currency,
@@ -45,7 +45,7 @@ module PaymentsManager
           order_id: payment.id,
           name: "#{payment.first_name} #{payment.last_name}",
           country: payment.country,
-          item_description: "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade",
+          item_description: get_item_description(payment),
           birth_date: payment.birth_date
         )
       end
@@ -60,6 +60,10 @@ module PaymentsManager
       # FIXME: use generic to_bigdecimal method (helper?)
       def to_bigdecimal(num, precision: 2)
         BigDecimal(format("%0.0#{precision}f", num))
+      end
+
+      def get_item_description(payment)
+        "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade"
       end
     end
   end
