@@ -12,6 +12,7 @@ module PaymentsManager
       end
 
       def call(params)
+        params = params['data']
         payment = Payment.find_by(payment_id: params['id'])
         Rails.logger.info "Payment found: #{payment.inspect}"
 
@@ -56,6 +57,8 @@ module PaymentsManager
         )
 
         Result::Success.new
+      rescue StandardError => e
+        Result::Failure.new(e.message)
       end
 
       private
