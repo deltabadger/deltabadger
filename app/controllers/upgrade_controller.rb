@@ -10,25 +10,10 @@ class UpgradeController < ApplicationController
     wire_transfer_payment
   ] # TODO: for wire_transfer_payment, remove from list after fixing the CSRF issue --> use form_with + button_to
 
-  STRIPE_SUCCEEDED_STATUS = %w[succeeded].freeze
-  STRIPE_IN_PROCESS_STATUS = %w[requires_confirmation requires_action processing].freeze
-
   def index
     return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
 
-    @stripe_payment_in_process = false
-
-    # FIXME: is it really needed to check this when loading the page?
-    if session[:payment_intent_id]
-      payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
-      if !stripe_payment_in_process?(payment_intent) && stripe_payment_succeeded?(payment_intent)
-        cost_data = get_cost_data(payment_intent['metadata']['country'], payment_intent['metadata']['subscription_plan_id'])
-        PaymentsManager::StripeManager::SubscriptionUpdater.call(payment_intent, current_user, cost_data)
-        session.delete(:payment_intent_id)
-        return redirect_to upgrade_path
-      end
-    end
-
+    check_stripe_payment_intent
     cost_datas_hash
     current_plan
     investor_plan
@@ -42,16 +27,16 @@ class UpgradeController < ApplicationController
 
   def zen_payment
     payment_params = get_payment_params(include_first_name: false, include_last_name: false)
-    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(payment_params, current_user)
+    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(payment_params)
 
     if initiator_result.success?
       redirect_to initiator_result.data[:payment_url]
     else
       unless initiator_result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(result.errors[0]))
+        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
-      session[:errors] = result.errors
+      session[:errors] = initiator_result.errors
       redirect_to action: 'index'
     end
   end
@@ -71,7 +56,7 @@ class UpgradeController < ApplicationController
 
   def btcpay_payment
     payment_params = get_payment_params(include_birth_date: true)
-    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(payment_params, current_user)
+    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(payment_params)
 
     if initiator_result.success?
       redirect_to initiator_result.data[:payment_url]
@@ -93,65 +78,81 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment_callback
-    PaymentsManager::BtcpayManager::PaymentFinalizer.call(params['data'])
+    payment_finalizer_result = PaymentsManager::BtcpayManager::PaymentFinalizer.call(params)
+    Raven.capture_exception(Exception.new(payment_finalizer_result.errors[0])) if payment_finalizer_result.failure?
 
     render json: {}
   end
 
   def wire_transfer_payment
     payment_params = get_payment_params
-    initiator_result = PaymentsManager::PaymentInitiator.call(payment_params, 'wire')
+    initiator_result = PaymentsManager::PaymentInitiator.call(payment_params)
 
     if initiator_result.success?
       PaymentsManager::PaymentFinalizer.call(payment, current_user)
     else
       unless initiator_result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(result.errors[0]))
+        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
-      session[:errors] = result.errors
+      session[:errors] = initiator_result.errors
     end
 
     redirect_to action: 'index'
   end
 
   def create_stripe_payment_intent
-    cost_data = get_cost_data(params[:country], params[:subscription_plan_id])
-    payment_intent = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user, cost_data)
-    session[:payment_intent_id] = payment_intent['id']
-    render json: {
-      clientSecret: payment_intent['client_secret'],
-      payment_intent_id: payment_intent['id']
-    }
+    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
+
+    if payment_intent_result.success?
+      session[:payment_intent_id] = payment_intent_result.data['id']
+      render json: {
+        clientSecret: payment_intent_result.data['client_secret'],
+        payment_intent_id: payment_intent_result.data['id']
+      }
+    else
+      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+      session[:errors] = result.errors
+      render json: { error: 'Internal Server Error' }, status: :internal_server_error
+    end
   end
 
   def update_stripe_payment_intent
-    cost_data = get_cost_data(params[:country], params[:subscription_plan_id])
-    PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, cost_data)
+    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentUpdater.call(params)
+    return unless payment_intent_result.failure?
+
+    Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+    session[:errors] = result.errors
   end
 
   def confirm_stripe_payment
-    payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    raise 'Payment failed' unless stripe_payment_succeeded?(payment_intent)
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params)
 
-    cost_data = get_cost_data(
-      payment_intent['metadata']['country'],
-      payment_intent['metadata']['subscription_plan_id']
-    )
-    PaymentsManager::StripeManager::SubscriptionUpdater.call(payment_intent, current_user, cost_data)
-    session.delete(:payment_intent_id)
-
-    render json: {
-      payment_status: 'succeeded'
-    }
-  rescue StandardError => e
-    Raven.capture_exception(e) unless e.message == 'Payment failed'
-    render json: {
-      payment_status: 'failed'
-    }
+    if payment_finalizer_result.success?
+      session.delete(:payment_intent_id)
+      render json: { payment_status: 'succeeded' }
+    else
+      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+      render json: { payment_status: 'failed' }
+    end
   end
 
   private
+
+  def check_stripe_payment_intent
+    @stripe_payment_in_process = false
+    return unless session[:payment_intent_id]
+
+    params = { 'payment_intent_id': session[:payment_intent_id] }
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params)
+
+    if payment_finalizer_result.success?
+      session.delete(:payment_intent_id)
+      redirect_to upgrade_path
+    elsif payment_finalizer_result.errors.include?('Payment in process')
+      @stripe_payment_in_process = true
+    end
+  end
 
   def cost_datas_hash
     plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
@@ -175,11 +176,6 @@ class UpgradeController < ApplicationController
     @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
   end
 
-  def get_cost_data(country, subscription_plan_id)
-    plan_name = subscription_plan_repository.find(subscription_plan_id).name
-    cost_datas_hash[country][plan_name.to_sym]
-  end
-
   def get_payment_params(include_first_name: true, include_last_name: true, include_birth_date: false)
     permitted_params = %i[subscription_plan_id country]
     permitted_params << :first_name if include_first_name
@@ -190,14 +186,6 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(*permitted_params)
       .merge(user: current_user) # TODO: ugly, refactor --> needed to create payment just from params
-  end
-
-  def stripe_payment_succeeded?(payment_intent)
-    payment_intent['status'].in? STRIPE_SUCCEEDED_STATUS
-  end
-
-  def stripe_payment_in_process?(payment_intent)
-    @stripe_payment_in_process = payment_intent['status'].in? STRIPE_IN_PROCESS_STATUS
   end
 
   def new_payment_default

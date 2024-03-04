@@ -1,15 +1,17 @@
 module PaymentsManager
   module StripeManager
     class PaymentIntentUpdater < BaseService
-      def call(params, cost_data)
-        # We create a fake payment to calculate the costs of the transactions
-        fake_payment = Payment.new(country: params[:country], subscription_plan_id: params[:subscription_plan_id])
+      def call(params)
+        payment = Payment.find_by(payment_id: params[:payment_intent_id])
 
         metadata = get_update_metadata(params)
-        Stripe::PaymentIntent.update(params[:payment_intent_id],
-                                     amount: amount_in_cents(cost_data[:total_price]),
-                                     currency: fake_payment.eu? ? 'eur' : 'usd',
-                                     metadata: metadata)
+        payment_intent = Stripe::PaymentIntent.update(params[:payment_intent_id],
+                                                      amount: amount_in_cents(payment.total),
+                                                      currency: payment.currency,
+                                                      metadata: metadata)
+        Result::Success.new(payment_intent)
+      rescue StandardError => e
+        Result::Failure.new(e.message)
       end
 
       private
