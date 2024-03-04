@@ -1,5 +1,5 @@
 module PaymentsManager
-  class NextPaymentCreator < BaseService
+  class PaymentCreator < BaseService
     CURRENCY_EU         = ENV.fetch('PAYMENT_CURRENCY__EU').freeze
     CURRENCY_OTHER      = ENV.fetch('PAYMENT_CURRENCY__OTHER').freeze
     PAYMENT_SEQUENCE_ID = "'payments_id_seq'".freeze

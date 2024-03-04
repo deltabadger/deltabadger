@@ -64,7 +64,7 @@ class UpgradeController < ApplicationController
     if PaymentsManager::ZenManager::IpnHashVerifier.call(params).failure?
       render json: { error: 'Unauthorized' }, status: :unauthorized
     else
-      PaymentsManager::ZenManager::SubscriptionUpdater.call(params) if params[:status] == 'ACCEPTED'
+      PaymentsManager::ZenManager::PaymentFinalizer.call(params)
       render json: { "status": 'ok' }
     end
   end
