@@ -7,26 +7,22 @@ module PaymentsManager
           country: params[:country],
           user: user
         }
-        payment_result = PaymentsManager::PaymentCreator.call(payment_params, 'stripe')
+        payment_result = PaymentsManager::PaymentCreator.call(payment_params, 'stripe', dry_run: true)
         return payment_result if payment_result.failure?
 
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: user)
         return cost_data_result if cost_data_result.failure?
 
-        return Result::Failure.new unless payment_result.data.update(
-          total: cost_data_result.data[:total_price],
+        metadata = {
+          user_id: user.id,
+          email: user.email,
+          subscription_plan_id: params[:subscription_plan_id],
+          country: params[:country],
           discounted: cost_data_result.data[:discount_percent].positive?,
           commission: cost_data_result.data[:commission]
-        )
-
-        metadata = {
-          user_id: user[:id],
-          email: user[:email],
-          subscription_plan_id: payment_result.data.subscription_plan_id,
-          country: payment_result.data.country
         }
         payment_intent = Stripe::PaymentIntent.create(
-          amount: amount_in_cents(payment_result.data.total),
+          amount: amount_in_cents(cost_data_result.data[:total_price]),
           currency: payment_result.data.currency,
           metadata: metadata
         )

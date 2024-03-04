@@ -5,6 +5,14 @@
   gtag('js', new Date());
   gtag('config', 'UA-60645901-3');
 
+  const stripe_script_src = 'script[src="https://js.stripe.com/v3/"]';
+  let stripe = null;
+  $(document).ready(function(){
+    if ($(stripe_script_src).length) {
+      stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
+    }
+  });
+
   // payments plan
   $(document).ready(function(){
   $(".db-plan-investor").click(function(){
@@ -32,7 +40,7 @@
     document.getElementById("payment_plan_investor_zen").checked = true;
     document.getElementById("payment_plan_hodler_zen").checked = false;
     document.getElementById("payment_plan_legendary_badger_zen").checked = false;
-    if (!$(".stripe_payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length) set_payment_intent();
   })
   $(".db-plan-hodler").click(function(){
     $("#payment_plan_hodler").click()
@@ -58,7 +66,7 @@
     document.getElementById("payment_plan_investor_zen").checked = false;
     document.getElementById("payment_plan_hodler_zen").checked = true;
     document.getElementById("payment_plan_legendary_badger_zen").checked = false;
-    if (!$(".stripe_payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length) set_payment_intent();
   })
   $(".db-plan-legendary_badger").click(function(){
     $("#payment_plan_legendary_badger").click()
@@ -84,7 +92,7 @@
     document.getElementById("payment_plan_investor_zen").checked = false;
     document.getElementById("payment_plan_hodler_zen").checked = false;
     document.getElementById("payment_plan_legendary_badger_zen").checked = true;
-    if (!$(".stripe_payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length) set_payment_intent();
   })
   })
 
@@ -95,12 +103,12 @@
   //   $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
   // });
 
-  // payments eu/non-eu
+  // payments eu/non-eu 
 
   $(document).ready(function(){
   function showPreview(newValue) {
     if (!newValue) return;
-    if (!$(".stripe_payment_in_process").length) set_payment_intent();
+    if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length) set_payment_intent();
     if ((newValue !== "" &&
         document.getElementById("payment_first_name_wire").value !== "" &&
         document.getElementById("payment_last_name_wire").value !== "") || "#{current_user.pending_wire_transfer}" !== "") {
@@ -233,7 +241,7 @@
     showPreview(event.target);
   });
 
-  if (!$(".stripe_payment_in_process").length) showPreview(document.getElementById("payment_country_stripe").value);
+  if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length) showPreview(document.getElementById("payment_country_stripe").value);
   });
 
   // referral program registration
@@ -267,7 +275,6 @@
   } else {
     // fomo.trigger('stop')
   }
-  const stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}",{locale: "#{I18n.locale}"});
   function subscription_info() {
               //Getting the droplist element and its value
     const country_element = document.getElementById("payment_country_stripe");
