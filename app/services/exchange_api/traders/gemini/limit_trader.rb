@@ -84,14 +84,8 @@ module ExchangeApi
           Result::Failure.new('Could not make Gemini order', **RECOVERABLE)
         end
 
-        def parse_request(request, attempt: 0)
-          begin
-            response = JSON.parse(request.body)
-          rescue JSON::ParserError
-            return Result::Failure.new('Could not parse Gemini response', data: { response: request.body }) if attempt >= 5
-
-            return parse_request(request, attempt: attempt + 1)
-          end
+        def parse_request(request)
+          response = JSON.parse(request.body)
           if was_filled?(request)
             order_id = response.fetch('id')
 
