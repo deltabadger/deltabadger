@@ -1,6 +1,6 @@
 module PaymentsManager
   class LegendaryBadgerStatsCalculator < BaseService
-    LEGENDARY_BADGER_TOTAL_SUPPLY = ENV.fetch('LEGENDARY_BADGER_TOTAL_SUPPLY', 0).to_i.freeze
+    LEGENDARY_BADGER_TOTAL_SUPPLY = 1000
 
     def call
       data = {
