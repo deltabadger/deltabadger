@@ -101,7 +101,7 @@ module ExchangeApi
         end
 
         def closed?(request)
-          !request.fetch('is_live')
+          !request.fetch('is_live', false)
         end
       end
     end
