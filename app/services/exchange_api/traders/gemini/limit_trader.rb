@@ -88,7 +88,7 @@ module ExchangeApi
           begin
             response = JSON.parse(request.body)
           rescue JSON::ParserError
-            return Result::Failure.new('Could not parse Gemini response') if attempt >= 5
+            return Result::Failure.new('Could not parse Gemini response', data: { response: request.body }) if attempt >= 5
 
             return parse_request(request, attempt: attempt + 1)
           end
