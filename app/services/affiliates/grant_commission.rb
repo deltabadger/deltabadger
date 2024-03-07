@@ -2,7 +2,6 @@ module Affiliates
   class GrantCommission
     def call(referee:, payment:)
       payment_commission = payment.commission
-
       return if not_eligible_for_commission?(referee, payment_commission)
 
       User.transaction do
@@ -11,7 +10,7 @@ module Affiliates
         max_profit = referrer.max_profit
         current_profit = referee.current_referrer_profit
         commission_available = max_profit - current_profit
-        return if commission_available.negative?
+        return unless commission_available.positive?
 
         commission_granted = [commission_available, payment_commission].min
         commission_granted_percent = commission_granted / payment_commission

@@ -1,3 +1,5 @@
+require 'utilities/number'
+
 module PaymentsManager
   module BtcpayManager
     class PaymentFinalizer < BaseService
@@ -6,8 +8,6 @@ module PaymentsManager
 
       def initialize
         @notifications = Notifications::Subscription.new
-        @fomo_notifications = Notifications::FomoEvents.new
-        @subscribe_plan = SubscribePlan.new
         @grant_commission = Affiliates::GrantCommission.new
       end
 
@@ -42,21 +42,9 @@ module PaymentsManager
         return Result::Failure.new unless just_paid
 
         @notifications.invoice(payment: payment)
-        @subscribe_plan.call(
-          user: payment.user,
-          subscription_plan: payment.subscription_plan,
-          email_params: nil
-        )
-
         @grant_commission.call(referee: payment.user, payment: payment)
 
-        @fomo_notifications.plan_bought(
-          first_name: payment.first_name,
-          country: payment.country,
-          plan_name: payment.subscription_plan.name
-        )
-
-        Result::Success.new
+        PaymentsManager::SubscriptionUpgrader.call(payment.id)
       rescue StandardError => e
         Result::Failure.new(e.message)
       end
@@ -90,20 +78,15 @@ module PaymentsManager
       end
 
       def recalculate_crypto_commission(params, payment)
-        return 0 if to_bigdecimal(payment.crypto_total, precision: 8).zero?
+        return 0 if Utilities::Number.to_bigdecimal(payment.crypto_total, precision: 8).zero?
 
         params['btcPaid'].to_f / payment.crypto_total * payment.crypto_commission
       end
 
       def recalculate_commission(params, payment)
-        return 0 if to_bigdecimal(payment.crypto_total, precision: 8).zero?
+        return 0 if Utilities::Number.to_bigdecimal(payment.crypto_total, precision: 8).zero?
 
         (params['btcPaid'].to_f / payment.crypto_total * payment.commission.to_f).round(2)
-      end
-
-      # FIXME: use generic to_bigdecimal method (helper?)
-      def to_bigdecimal(num, precision: 2)
-        BigDecimal(format("%0.0#{precision}f", num))
       end
     end
   end

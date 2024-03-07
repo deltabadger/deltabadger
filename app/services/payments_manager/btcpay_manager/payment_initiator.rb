@@ -1,3 +1,5 @@
+require 'utilities/number'
+
 module PaymentsManager
   module BtcpayManager
     class PaymentInitiator < BaseService
@@ -51,15 +53,16 @@ module PaymentsManager
       end
 
       def get_crypto_commission(crypto_total, cost_data)
-        crypto_total_price = to_bigdecimal(crypto_total, precision: 8)
-        crypto_without_vat = crypto_total_price / (1 + cost_data[:vat])
-        crypto_base_price = crypto_without_vat / (1 - cost_data[:discount_percent])
-        (crypto_base_price * cost_data[:commission_percent]).round(8, BigDecimal::ROUND_DOWN)
-      end
+        crypto_total_price = Utilities::Number.to_bigdecimal(crypto_total, precision: 8)
 
-      # FIXME: use generic to_bigdecimal method (helper?)
-      def to_bigdecimal(num, precision: 2)
-        BigDecimal(format("%0.0#{precision}f", num))
+        # legacy calculation
+        # crypto_without_vat = crypto_total_price / (1 + cost_data[:vat])
+        # crypto_base_price = crypto_without_vat / (1 - cost_data[:discount_percent])
+        # (crypto_base_price * cost_data[:commission_percent]).round(8, BigDecimal::ROUND_DOWN)
+
+        # cleaner calculation
+        btc_price = cost_data[:total_price] / crypto_total_price
+        (cost_data[:commission] / btc_price).round(8, BigDecimal::ROUND_DOWN)
       end
 
       def get_item_description(payment)

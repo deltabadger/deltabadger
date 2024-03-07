@@ -28,6 +28,7 @@ module Notifications
     end
 
     def wire_transfer_summary(
+      id:,
       email:,
       subscription_plan:,
       first_name:,
@@ -37,6 +38,7 @@ module Notifications
     )
       SubscriptionMailer
         .with(
+          id: id,
           email: email,
           subscription_plan: subscription_plan,
           first_name: first_name,
