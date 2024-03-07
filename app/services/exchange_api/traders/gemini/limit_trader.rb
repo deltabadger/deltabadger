@@ -93,6 +93,8 @@ module ExchangeApi
           else
             error_to_failure([response.fetch('reason')])
           end
+        rescue JSON::ParserError
+          Result::Failure.new('Could not parse Gemini response', **RECOVERABLE)
         end
 
         def common_order_params(symbol)
