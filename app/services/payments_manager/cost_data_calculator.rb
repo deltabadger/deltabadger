@@ -1,3 +1,5 @@
+require 'utilities/number'
+
 module PaymentsManager
   class CostDataCalculator < BaseService
     def call(
@@ -12,10 +14,10 @@ module PaymentsManager
       return validation_result if validation_result.failure?
 
       @legendary_badger_discount = legendary_badger_discount
-      @base_price = to_bigdecimal(get_base_price(@subscription_plan))
-      @flat_discount = to_bigdecimal(flat_discount_amount(user))
-      @discount_percent = to_bigdecimal(referrer&.discount_percent || 0)
-      @commission_percent = to_bigdecimal(referrer&.commission_percent || 0)
+      @base_price = Utilities::Number.to_bigdecimal(get_base_price(@subscription_plan))
+      @flat_discount = Utilities::Number.to_bigdecimal(flat_discount_amount(user))
+      @discount_percent = Utilities::Number.to_bigdecimal(referrer&.discount_percent || 0)
+      @commission_percent = Utilities::Number.to_bigdecimal(referrer&.commission_percent || 0)
       begin
         Result::Success.new(calculate_cost_data)
       rescue StandardError => e
@@ -28,11 +30,11 @@ module PaymentsManager
     def validate_params(country, subscription_plan, payment)
       if country.present? && subscription_plan.present?
         @from_eu = country.eu?
-        @vat = to_bigdecimal(country.vat)
+        @vat = Utilities::Number.to_bigdecimal(country.vat)
         @subscription_plan = subscription_plan
       elsif payment.present?
         @from_eu = payment.eu?
-        @vat = to_bigdecimal(VatRate.find_by!(country: payment.country).vat)
+        @vat = Utilities::Number.to_bigdecimal(VatRate.find_by!(country: payment.country).vat)
         @subscription_plan = payment.subscription_plan
       else
         Result::Failure.new('Either user & country & subscription_plan or user & payment must be provided')
@@ -103,11 +105,6 @@ module PaymentsManager
 
     def legendary_badger_stats
       @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
-    end
-
-    # FIXME: use generic to_bigdecimal method (helper?)
-    def to_bigdecimal(num, precision: 2)
-      BigDecimal(format("%0.0#{precision}f", num))
     end
   end
 end

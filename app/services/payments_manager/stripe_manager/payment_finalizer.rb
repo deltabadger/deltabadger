@@ -4,6 +4,10 @@ module PaymentsManager
       STRIPE_SUCCEEDED_STATUS = %w[succeeded].freeze
       STRIPE_IN_PROCESS_STATUS = %w[requires_confirmation requires_action processing].freeze
 
+      def initialize
+        @notifications = Notifications::Subscription.new
+      end
+
       def call(params, user)
         @payment_intent = Stripe::PaymentIntent.retrieve(params[:payment_intent_id])
         return Result::Failure.new('Payment in process') if stripe_payment_in_process?
@@ -27,7 +31,9 @@ module PaymentsManager
           paid_at: Time.current
         )
 
-        UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
+        @notifications.invoice(payment: payment_result.data)
+
+        PaymentsManager::SubscriptionUpgrader.call(payment_result.data.id)
       rescue StandardError => e
         Result::Failure.new(e.message)
       end

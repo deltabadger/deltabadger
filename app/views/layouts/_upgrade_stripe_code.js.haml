@@ -122,7 +122,7 @@
         $("#payment_country_wire").val("#{current_user.pending_wire_transfer}");
       }
 
-      if( (document.getElementById("payment_country_wire").value.toLowerCase() === 'other') || "#{current_user.pending_wire_transfer}" === "other"){
+      if (document.getElementById("payment_country_wire").value.toLowerCase() === 'other') {
         $("#wire_form_other").addClass("db-form__row--visible");
         $("#wire_form_other").removeClass("db-form__row--hidden");
         $("#wire_form_eu").removeClass("db-form__row--visible");
@@ -242,6 +242,7 @@
   });
 
   if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length) showPreview(document.getElementById("payment_country_stripe").value);
+  if ("#{current_user.pending_wire_transfer}" !== "") showPreview("#{current_user.pending_wire_transfer}");
   });
 
   // referral program registration

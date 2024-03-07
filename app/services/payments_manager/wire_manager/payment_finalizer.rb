@@ -3,36 +3,40 @@ module PaymentsManager
     class PaymentFinalizer < BaseService
       def initialize
         @notifications = Notifications::Subscription.new
-        @fomo_notifications = Notifications::FomoEvents.new
       end
 
-      def call(payment, user)
-        UpgradeSubscriptionWorker.perform_at(
-          15.minutes.since(Time.current),
-          user.id,
-          payment.subscription_plan_id,
-          email_params,
-          payment.id
+      def call(params)
+        payment_result = PaymentsManager::PaymentCreator.call(params, 'wire')
+        return payment_result if payment_result.failure?
+
+        cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: params[:user])
+        return cost_data_result if cost_data_result.failure?
+
+        return Result::Failure.new unless payment_result.data.update(
+          total: cost_data_result.data[:total_price],
+          discounted: cost_data_result.data[:discount_percent].positive?,
+          commission: cost_data_result.data[:commission]
         )
 
         @notifications.wire_transfer_summary(
-          email: user.email,
-          subscription_plan: SubscriptionPlan.find(payment.subscription_plan_id).name,
-          first_name: payment.first_name,
-          last_name: payment.last_name,
-          country: payment.country,
-          amount: format('%0.02f', payment.total)
+          id: payment_result.data.id,
+          email: params[:user].email,
+          subscription_plan: SubscriptionPlan.find(payment_result.data.subscription_plan_id).name,
+          first_name: payment_result.data.first_name,
+          last_name: payment_result.data.last_name,
+          country: payment_result.data.country,
+          amount: format('%0.02f', payment_result.data.total)
         )
 
-        return Result::Failure.new unless user.update(
-          pending_wire_transfer: payment.country,
-          pending_plan_id: payment.subscription_plan_id
+        return Result::Failure.new unless params[:user].update(
+          pending_wire_transfer: payment_result.data.country,
+          pending_plan_id: payment_result.data.subscription_plan_id
         )
 
-        @fomo_notifications.plan_bought(
-          first_name: payment.first_name,
-          ip_address: request.remote_ip,
-          plan_name: SubscriptionPlan.find(payment.subscription_plan_id).name
+        UpgradeSubscriptionWorker.perform_at(
+          15.minutes.since(Time.current),
+          payment_result.data.id,
+          email_params(payment_result.data)
         )
 
         Result::Success.new

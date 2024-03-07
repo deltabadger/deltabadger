@@ -71,7 +71,6 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment_success
-    current_user.update!(welcome_banner_showed: true)
     flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
 
     redirect_to dashboard_path
@@ -86,11 +85,9 @@ class UpgradeController < ApplicationController
 
   def wire_transfer_payment
     payment_params = get_payment_params
-    initiator_result = PaymentsManager::PaymentInitiator.call(payment_params)
+    initiator_result = PaymentsManager::WireManager::PaymentFinalizer.call(payment_params)
 
-    if initiator_result.success?
-      PaymentsManager::PaymentFinalizer.call(payment, current_user)
-    else
+    if initiator_result.failure?
       unless initiator_result.errors.include?('User error')
         Raven.capture_exception(Exception.new(initiator_result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
@@ -189,7 +186,7 @@ class UpgradeController < ApplicationController
     params
       .require(:payment)
       .permit(*permitted_params)
-      .merge(user: current_user) # TODO: ugly, refactor --> needed to create payment just from params
+      .merge(user: current_user)
   end
 
   def new_payment_default
