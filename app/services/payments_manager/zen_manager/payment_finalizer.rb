@@ -8,7 +8,7 @@ module PaymentsManager
       end
 
       def call(params)
-        return Result::Failure.new unless params[:status].in?(PAID_STATUSES)
+        return Result::Failure.new('Still not paid') unless params[:status].in?(PAID_STATUSES)
 
         payment = Payment.find(params[:merchantTransactionId])
         Rails.logger.info "Payment found: #{payment.inspect}"
@@ -22,7 +22,9 @@ module PaymentsManager
 
         Rails.logger.info "Updating payment with params: #{update_params.inspect}"
         Rails.logger.info "Payment: #{payment.inspect}"
-        return Result::Failure.new unless payment.update(update_params)
+        unless payment.update(update_params)
+          return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
+        end
 
         Rails.logger.info "Payment updated: #{payment.inspect}"
         Rails.logger.info "Payment from DB: #{Payment.find(params[:merchantTransactionId]).inspect}"

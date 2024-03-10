@@ -1,6 +1,6 @@
 module PaymentsManager
   module ZenManager
-    class PaymentUrlGenerator < BaseService
+    class PaymentUrlCreator < BaseService
       include Rails.application.routes.url_helpers
 
       HOST                = ENV.fetch('MAIN_PAGE_URL').freeze
@@ -12,10 +12,10 @@ module PaymentsManager
 
       def call(payment, user)
         hash = build_request_body(payment, user)
-        response = @client.checkout(hash)
-        return response if response.failure?
+        checkout_result = @client.checkout(hash)
+        return checkout_result if checkout_result.failure?
 
-        Result::Success.new(format_checkout_output(response.data))
+        Result::Success.new(format_checkout_output(checkout_result.data))
       end
 
       private

@@ -10,7 +10,7 @@
     </div>
   <% else %>
     <div class="db-plans__item db-plans__item--legendary_badger db-plans__item--current">
-      <%= render partial: 'legendary_badger_card', locals: { days_left: days_left, legendary_badger_stats: legendary_badger_stats } %>
+      <%= render partial: 'legendary_badger_card', locals: { days_left: days_left, legendary_badger_stats: upgrade_presenter.legendary_badger_stats } %>
     </div>
   <% end %>
 <% end %>

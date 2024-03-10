@@ -16,7 +16,7 @@ module PaymentsManager
       if payment.save
         Result::Success.new(payment)
       else
-        Result::Failure.new
+        Result::Failure.new(e.message, data: payment)
       end
     end
 

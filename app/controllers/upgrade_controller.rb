@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
   skip_before_action :verify_authenticity_token, only: %i[
@@ -11,24 +10,16 @@ class UpgradeController < ApplicationController
   ] # TODO: for wire_transfer_payment, remove from list after fixing the CSRF issue --> use form_with + button_to
 
   def index
+    current_plan = current_user.subscription.subscription_plan
     return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
 
-    check_stripe_payment_intent
-    cost_datas_hash
-    current_plan
-    investor_plan
-    hodler_plan
-    legendary_badger_plan
-    referrer
-    legendary_badger_stats
-    @payment = new_payment_default
+    @upgrade_presenter = UpgradePresenter.new(current_user)
+    @stripe_payment_in_process = check_stripe_payment_in_process
     @errors = session.delete(:errors) || []
   end
 
   def zen_payment
-    payment_params = get_payment_params(include_first_name: false, include_last_name: false)
-    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(payment_params)
-
+    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(zen_payment_params)
     if initiator_result.success?
       redirect_to initiator_result.data[:payment_url]
     else
@@ -55,9 +46,7 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment
-    payment_params = get_payment_params(include_birth_date: true)
-    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(payment_params)
-
+    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(btcpay_payment_params)
     if initiator_result.success?
       redirect_to initiator_result.data[:payment_url]
     else
@@ -72,7 +61,6 @@ class UpgradeController < ApplicationController
 
   def btcpay_payment_success
     flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
-
     redirect_to dashboard_path
   end
 
@@ -84,9 +72,7 @@ class UpgradeController < ApplicationController
   end
 
   def wire_transfer_payment
-    payment_params = get_payment_params
-    initiator_result = PaymentsManager::WireManager::PaymentFinalizer.call(payment_params)
-
+    initiator_result = PaymentsManager::WireManager::PaymentFinalizer.call(wire_payment_params)
     if initiator_result.failure?
       unless initiator_result.errors.include?('User error')
         Raven.capture_exception(Exception.new(initiator_result.errors[0]))
@@ -94,13 +80,11 @@ class UpgradeController < ApplicationController
       end
       session[:errors] = initiator_result.errors
     end
-
     redirect_to action: 'index'
   end
 
   def create_stripe_payment_intent
     payment_intent_result = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
-
     if payment_intent_result.success?
       puts "payment_intent_result.data['id']: #{payment_intent_result.data['id']}"
       session[:payment_intent_id] = payment_intent_result.data['id']
@@ -128,7 +112,6 @@ class UpgradeController < ApplicationController
 
   def confirm_stripe_payment
     payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
-
     if payment_finalizer_result.success?
       session.delete(:payment_intent_id)
       render json: { payment_status: 'succeeded' }
@@ -140,93 +123,37 @@ class UpgradeController < ApplicationController
 
   private
 
-  def check_stripe_payment_intent
-    @stripe_payment_in_process = false
-    return unless session[:payment_intent_id]
-
-    params = { 'payment_intent_id': session[:payment_intent_id] }
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
-
-    if payment_finalizer_result.success?
-      session.delete(:payment_intent_id)
-      redirect_to upgrade_path
-    elsif payment_finalizer_result.errors.include?('Payment in process')
-      @stripe_payment_in_process = true
-    end
-  end
-
-  def cost_datas_hash
-    plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
-    # TODO: automatically build the hash from the plans
-
-    @cost_datas_hash ||= VatRatesRepository.new.all_in_display_order.map do |country|
-      [country.country,
-       plans.transform_values do |plan|
-         PaymentsManager::CostDataCalculator.call(
-           user: current_user,
-           country: country,
-           subscription_plan: plan,
-           referrer: referrer,
-           legendary_badger_discount: legendary_badger_stats[:legendary_badger_discount]
-         ).data
-       end]
-    end.to_h
-  end
-
-  def legendary_badger_stats
-    @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
-  end
-
-  def get_payment_params(include_first_name: true, include_last_name: true, include_birth_date: false)
-    permitted_params = %i[subscription_plan_id country]
-    permitted_params << :first_name if include_first_name
-    permitted_params << :last_name if include_last_name
-    permitted_params << :birth_date if include_birth_date
-
+  def zen_payment_params
     params
       .require(:payment)
-      .permit(*permitted_params)
+      .permit(:subscription_plan_id, :country)
       .merge(user: current_user)
   end
 
-  def new_payment_default
-    subscription_plan_id = case current_plan.id
-                           when hodler_plan.id then legendary_badger_plan.id
-                           when investor_plan.id then hodler_plan.id
-                           else investor_plan.id
-                           end
-
-    Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
+  def btcpay_payment_params
+    params
+      .require(:payment)
+      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :country)
+      .merge(user: current_user)
   end
 
-  def referrer
-    return @referrer if defined?(@referrer)
-
-    @referrer = current_user.eligible_referrer
+  def wire_payment_params
+    params
+      .require(:payment)
+      .permit(:subscription_plan_id, :first_name, :last_name, :country)
+      .merge(user: current_user)
   end
 
-  def subscription_plan_repository
-    @subscription_plan_repository ||= SubscriptionPlansRepository.new
-  end
+  def check_stripe_payment_in_process
+    return false unless session[:payment_intent_id]
 
-  def current_plan
-    @current_plan ||= current_user.subscription.subscription_plan
-  end
-
-  def saver_plan
-    @saver_plan ||= subscription_plan_repository.saver
-  end
-
-  def investor_plan
-    @investor_plan ||= subscription_plan_repository.investor
-  end
-
-  def hodler_plan
-    @hodler_plan ||= subscription_plan_repository.hodler
-  end
-
-  def legendary_badger_plan
-    @legendary_badger_plan ||= subscription_plan_repository.legendary_badger
+    params = { payment_intent_id: session[:payment_intent_id] }
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
+    if payment_finalizer_result.success?
+      session.delete(:payment_intent_id)
+      redirect_to upgrade_path
+    else
+      true
+    end
   end
 end
-# rubocop:enable Metrics/ClassLength
