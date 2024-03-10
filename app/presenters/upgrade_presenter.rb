@@ -130,7 +130,7 @@ class UpgradePresenter
 
   def all_cost_datas_hash
     @all_cost_datas_hash ||= begin
-      plans = available_plans_for_current_user
+      plans = available_plans_for_saver
       plans_hash = plans.map { |plan| [plan.to_sym, send("#{plan}_plan")] }.to_h
 
       VatRatesRepository.new.all_in_display_order.map do |country|
