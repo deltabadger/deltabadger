@@ -4,11 +4,11 @@ module PaymentsManager
   class CostDataCalculator < BaseService
     def call(
       user:,
-      country: nil,
       payment: nil,
+      country: nil,
       subscription_plan: nil,
-      referrer: user.eligible_referrer,
-      legendary_badger_discount: nil
+      referrer: user.eligible_referrer, # just to be able to pass in cached values
+      legendary_badger_discount: nil    # just to be able to pass in cached values
     )
       validation_result = validate_params(country, subscription_plan, payment)
       return validation_result if validation_result.failure?

@@ -34,19 +34,19 @@ module PaymentsManager
 
         Rails.logger.info "Updating payment with params: #{update_params.inspect}"
         Rails.logger.info "Payment: #{payment.inspect}"
-        return Result::Failure.new unless payment.update(update_params)
+        unless payment.update(update_params)
+          return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
+        end
 
         Rails.logger.info "Payment updated: #{payment.inspect}"
         Rails.logger.info "Payment from DB: #{Payment.find(params['id']).inspect}"
 
-        return Result::Failure.new unless just_paid
+        return Result::Failure.new('Still not paid') unless just_paid
 
         @notifications.invoice(payment: payment)
         @grant_commission.call(referee: payment.user, payment: payment)
 
         PaymentsManager::SubscriptionUpgrader.call(payment.id)
-      rescue StandardError => e
-        Result::Failure.new(e.message)
       end
 
       private

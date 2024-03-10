@@ -23,19 +23,20 @@ module PaymentsManager
         payment_result = PaymentsManager::PaymentCreator.call(payment_params, 'stripe')
         return payment_result if payment_result.failure?
 
-        return Result::Failure.new unless payment_result.data.update(
+        update_params = {
           total: @payment_intent['amount'].to_i / 100,
           discounted: payment_metadata['discounted'],
           commission: payment_metadata['commission'],
           status: :paid,
           paid_at: Time.current
-        )
+        }
+        unless payment_result.data.update(update_params)
+          return Result::Failure.new(payment_result.errors.full_messages.join(', '), data: update_params)
+        end
 
         @notifications.invoice(payment: payment_result.data)
 
         PaymentsManager::SubscriptionUpgrader.call(payment_result.data.id)
-      rescue StandardError => e
-        Result::Failure.new(e.message)
       end
 
       private

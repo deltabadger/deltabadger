@@ -14,23 +14,21 @@ class ZenClient < ApplicationClient
     end
   end
 
-  # @param args [Hash] A hash of arguments as described in the checkout integration
+  # @param hash [Hash] A hash of arguments as described in the checkout integration
   #   documentation at https://www.zen.com/developer/checkout-integration/
   #   Signature is generated within the method and not required in the input.
   #
   # @returns
   #   #=> {"redirectUrl"=>"https://secure.zen.com/4312a1c3-1a54-4e1f-b37c-0e2242986ce1"}
   def checkout(hash = {})
-    signed_body = hash.merge(signature: get_signature(hash))
-    begin
+    with_rescue do
+      signed_body = hash.merge(signature: get_signature(hash))
       response = self.class.connection.post do |req|
         req.url '/api/checkouts'
         req.body = signed_body
       end
-    rescue Faraday::Error => e
-      return Result::Failure.new(e.response_body)
+      Result::Success.new(response.body)
     end
-    Result::Success.new(response.body)
   end
 
   private

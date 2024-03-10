@@ -1,28 +1,30 @@
+<% cost_presenter = upgrade_presenter.selected_cost_presenter %>
 <% unless upgrade_presenter.current_plan_name.in?(['saver', 'legendary_badger']) %>
   <h4 class="mb-4 mt-5 pb-4"><%= t('subscriptions.prolong_upgrade') %></h4>
 <% end %>
 
-<% if 'investor'.in?(upgrade_presenter.available_plans) %>
+<% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
   <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
   <div class="db-plans__item db-plans__item--investor db-plan-investor db-plan--<%= investor_selected ? 'selected' : 'other' %>">
     <%= render partial: 'investor_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:investor] } %>
   </div>
 <% end %>
 
-<% if 'hodler'.in?(upgrade_presenter.available_plans) %>
+<% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
   <% hodler_selected = upgrade_presenter.selected_plan_name == 'hodler' %>
   <div class="db-plans__item db-plans__item--hodler db-plan-hodler db-plan--<%= hodler_selected ? 'selected' : 'other' %>">
     <%= render partial: 'hodler_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:hodler] } %>
   </div>
 <% end %>
 
-<% if 'legendary_badger'.in?(upgrade_presenter.available_plans) %>
+<% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
   <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
   <div class="db-plans__item db-plans__item--legendary_badger db-plan-legendary_badger db-plan--<%= legendary_badger_selected ? 'selected' : 'other' %>">
     <%= render partial: 'legendary_badger_card', locals: { 
-      days_left: nil, upgrade_presenter: upgrade_presenter,
-      cost_presenter: cost_presenter[:legendary_badger],
-      legendary_badger_stats: legendary_badger_stats } %>
+      days_left: nil,
+      upgrade_presenter: upgrade_presenter,
+      cost_presenter: cost_presenter[:legendary_badger]
+    } %>
     <%= render partial: 'layouts/svg_bubbleart_01' %>
   </div>
 
@@ -32,7 +34,7 @@
     </div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-legendary-badger-discount'><%= legendary_badger_stats[:for_sale_legendary_badger_count] %></span>
+        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-legendary-badger-discount'><%= upgrade_presenter.legendary_badger_stats[:for_sale_legendary_badger_count] %></span>
       </div>
     </div>
     <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_badger_discount_info') %></div>
@@ -82,17 +84,17 @@
     <div class="db-plans__item__name"><%= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent) %></div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <% if 'investor'.in?(upgrade_presenter.available_plans) %>
+        <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
           <div class="db-show--investor">
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='investor-discount-percent-amount'><%= cost_presenter[:investor].discount_percent_amount %></span>
           </div>
         <% end %>
-        <% if 'hodler'.in?(upgrade_presenter.available_plans) %>
+        <% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
           <div class="db-show--hodler">
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='hodler-discount-percent-amount'><%= cost_presenter[:hodler].discount_percent_amount %></span>
           </div>
         <% end %>
-        <% if 'legendary_badger'.in?(upgrade_presenter.available_plans) %>
+        <% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
           <div class="db-show--legendary_badger">
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary_badger-discount-percent-amount'><%= cost_presenter[:legendary_badger].discount_percent_amount %></span>
           </div>

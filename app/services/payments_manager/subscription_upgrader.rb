@@ -20,11 +20,14 @@ module PaymentsManager
 
       SendgridMailToList.new.change_plan_list(payment.user, current_plan_name, new_plan_name)
 
-      return Result::Failure.new unless payment.user.update(
+      update_params = {
         pending_wire_transfer: nil,
         pending_plan_id: nil,
         welcome_banner_showed: true
-      )
+      }
+      unless payment.user.update(update_params)
+        return Result::Failure.new(payment.user.errors.full_messages.join(', '), data: update_params)
+      end
 
       # @fomo_notifications.plan_bought(
       #   first_name: payment.first_name,

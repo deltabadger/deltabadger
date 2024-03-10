@@ -8,22 +8,26 @@ module PaymentsManager
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: params[:user])
         return cost_data_result if cost_data_result.failure?
 
-        return Result::Failure.new unless payment_result.data.update(
+        update_params = {
           total: cost_data_result.data[:total_price],
           discounted: cost_data_result.data[:discount_percent].positive?,
           commission: cost_data_result.data[:commission]
-        )
+        }
+        unless payment_result.data.update(update_params)
+          return Result::Failure.new(payment_result.errors.full_messages.join(', '), data: update_params)
+        end
 
-        payment_url_result = PaymentsManager::ZenManager::PaymentUrlGenerator.call(payment_result.data, params[:user])
+        payment_url_result = PaymentsManager::ZenManager::PaymentUrlCreator.call(payment_result.data, params[:user])
         return payment_url_result if payment_url_result.failure?
 
-        if payment_result.data.update(
+        update_params = {
           payment_id: payment_url_result.data[:payment_url].split('/').last
-        )
-          payment_url_result
-        else
-          Result::Failure.new
+        }
+        unless payment_result.data.update(update_params)
+          return Result::Failure.new(payment_result.errors.full_messages.join(', '), data: update_params)
         end
+
+        payment_url_result
       end
     end
   end

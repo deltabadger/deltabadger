@@ -12,11 +12,14 @@ module PaymentsManager
         cost_data_result = PaymentsManager::CostDataCalculator.call(payment: payment_result.data, user: params[:user])
         return cost_data_result if cost_data_result.failure?
 
-        return Result::Failure.new unless payment_result.data.update(
+        update_params = {
           total: cost_data_result.data[:total_price],
           discounted: cost_data_result.data[:discount_percent].positive?,
           commission: cost_data_result.data[:commission]
-        )
+        }
+        unless payment_result.data.update(update_params)
+          return Result::Failure.new(payment_result.errors.full_messages.join(', '), data: update_params)
+        end
 
         @notifications.wire_transfer_summary(
           id: payment_result.data.id,
@@ -28,10 +31,13 @@ module PaymentsManager
           amount: format('%0.02f', payment_result.data.total)
         )
 
-        return Result::Failure.new unless params[:user].update(
+        update_params = {
           pending_wire_transfer: payment_result.data.country,
           pending_plan_id: payment_result.data.subscription_plan_id
-        )
+        }
+        unless params[:user].update(update_params)
+          return Result::Failure.new(params[:user].errors.full_messages.join(', '), data: update_params)
+        end
 
         UpgradeSubscriptionWorker.perform_at(
           15.minutes.since(Time.current),
