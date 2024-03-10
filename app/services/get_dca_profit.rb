@@ -1,12 +1,17 @@
 class GetDcaProfit < BaseService
-  API_URL = 'https://api.coinpaprika.com/v1/coins/btc-bitcoin/ohlcv/historical'.freeze
   CACHE_KEY = 'dca_profit'.freeze
+
+  def initialize
+    @client = CoinpaprikaClient.new
+  end
 
   def call(start_date = 1.year.ago, end_date = Time.current)
     return Rails.cache.read(CACHE_KEY) if Rails.cache.exist?(CACHE_KEY)
 
-    profit = query_profit_dca(start_date, end_date)
-    Rails.cache.write(CACHE_KEY, profit, expires_in: 1.day) if profit.success?
+    profit_result = query_profit_dca(start_date, end_date)
+    return profit_result if profit_result.failure?
+
+    Rails.cache.write(CACHE_KEY, profit_result, expires_in: 1.day) if profit_result.success?
     profit
   rescue StandardError
     Result::Failure.new
@@ -15,11 +20,10 @@ class GetDcaProfit < BaseService
   private
 
   def query_profit_dca(start_date, end_date)
-    response = Faraday.get(API_URL, start: start_date.to_i, end: end_date.to_i)
-    return Result::Failure.new unless response.status == 200
+    ohlc_result = @client.get_ohlcv('btc-bitcoin', start_date: start_date.to_i, end_date: end_date.to_i)
+    return ohlc_result if ohlc_result.failure?
 
-    response_json = JSON.parse(response.body)
-    price_index = response_json.map { |x| x.fetch('close') }
+    price_index = ohlc_result.data.map { |x| x.fetch('close') }
     Result::Success.new(calculate_profit(price_index))
   end
 
