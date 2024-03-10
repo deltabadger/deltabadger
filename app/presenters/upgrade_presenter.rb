@@ -38,14 +38,14 @@ class UpgradePresenter
     @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
   end
 
-  def referrer_discount?
-    referrer.present?
-  end
-
   def referrer
     return @referrer if defined?(@referrer)
 
     @referrer = @current_user.eligible_referrer
+  end
+
+  def referrer_discount?
+    referrer.present?
   end
 
   def subscription_plan_repository
