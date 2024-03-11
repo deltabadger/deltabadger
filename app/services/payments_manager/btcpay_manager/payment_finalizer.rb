@@ -11,11 +11,9 @@ module PaymentsManager
         @grant_commission = Affiliates::GrantCommission.new
       end
 
-      def call(params)
-        params = params['data']
+      def call(invoice)
+        params = invoice['data']
         payment = Payment.find_by(payment_id: params['id'])
-        Rails.logger.info "Payment found: #{payment.inspect}"
-
         external_status = params['status'].to_sym
         status = internal_status(external_status)
         just_paid = just_paid?(payment, status)
@@ -24,22 +22,15 @@ module PaymentsManager
           external_statuses: new_external_statuses(payment, external_status),
           crypto_paid: params['btcPaid']
         }
-
         update_params.merge!(status: status) unless payment.paid?
         if just_paid
           update_params.merge!(paid_at: paid_at(params),
                                commission: recalculate_commission(params, payment),
                                crypto_commission: recalculate_crypto_commission(params, payment))
         end
-
-        Rails.logger.info "Updating payment with params: #{update_params.inspect}"
-        Rails.logger.info "Payment: #{payment.inspect}"
         unless payment.update(update_params)
           return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
         end
-
-        Rails.logger.info "Payment updated: #{payment.inspect}"
-        Rails.logger.info "Payment from DB: #{Payment.find(params['id']).inspect}"
 
         return Result::Failure.new('Still not paid') unless just_paid
 

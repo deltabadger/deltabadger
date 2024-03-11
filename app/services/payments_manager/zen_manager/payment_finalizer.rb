@@ -19,15 +19,9 @@ module PaymentsManager
           first_name: params[:customer][:firstName],
           last_name: params[:customer][:lastName]
         }
-
-        Rails.logger.info "Updating payment with params: #{update_params.inspect}"
-        Rails.logger.info "Payment: #{payment.inspect}"
         unless payment.update(update_params)
           return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
         end
-
-        Rails.logger.info "Payment updated: #{payment.inspect}"
-        Rails.logger.info "Payment from DB: #{Payment.find(params[:merchantTransactionId]).inspect}"
 
         @notifications.invoice(payment: payment)
 

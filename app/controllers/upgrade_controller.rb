@@ -1,7 +1,7 @@
 class UpgradeController < ApplicationController
-  before_action :authenticate_user!, except: %i[btcpay_payment_callback zen_payment_ipn]
+  before_action :authenticate_user!, except: %i[btcpay_payment_ipn zen_payment_ipn]
   skip_before_action :verify_authenticity_token, only: %i[
-    btcpay_payment_callback
+    btcpay_payment_ipn
     zen_payment_ipn
     create_stripe_payment_intent
     update_stripe_payment_intent
@@ -64,11 +64,14 @@ class UpgradeController < ApplicationController
     redirect_to dashboard_path
   end
 
-  def btcpay_payment_callback
-    payment_finalizer_result = PaymentsManager::BtcpayManager::PaymentFinalizer.call(params)
-    Raven.capture_exception(Exception.new(payment_finalizer_result.errors[0])) if payment_finalizer_result.failure?
-
-    render json: {}
+  def btcpay_payment_ipn
+    validation_result = PaymentsManager::BtcpayManager::IpnHashVerifier.call(params)
+    if validation_result.failure?
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+    else
+      PaymentsManager::BtcpayManager::PaymentFinalizer.call(validation_result.data[:invoice])
+      render json: {}
+    end
   end
 
   def wire_transfer_payment
