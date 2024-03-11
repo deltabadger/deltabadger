@@ -11,7 +11,7 @@ module PaymentsManager
 
       def call(payment, user)
         hash = build_request_body(payment, user)
-        invoice_result = @client.invoice(hash)
+        invoice_result = @client.create_invoice(hash)
         return invoice_result if invoice_result.failure?
         return Result::Failure.new(invoice_result.data['error']) if invoice_result.data['error']
 

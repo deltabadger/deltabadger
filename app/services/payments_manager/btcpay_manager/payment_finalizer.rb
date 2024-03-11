@@ -11,8 +11,8 @@ module PaymentsManager
         @grant_commission = Affiliates::GrantCommission.new
       end
 
-      def call(params)
-        params = params['data']
+      def call(invoice)
+        params = invoice['data']
         payment = Payment.find_by(payment_id: params['id'])
         external_status = params['status'].to_sym
         status = internal_status(external_status)

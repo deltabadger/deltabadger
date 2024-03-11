@@ -65,10 +65,11 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment_ipn
-    if PaymentsManager::BtcpayManager::IpnHashVerifier.call(params).failure?
+    validation_result = PaymentsManager::BtcpayManager::IpnHashVerifier.call(params)
+    if validation_result.failure?
       render json: { error: 'Unauthorized' }, status: :unauthorized
     else
-      PaymentsManager::BtcpayManager::PaymentFinalizer.call(params)
+      PaymentsManager::BtcpayManager::PaymentFinalizer.call(validation_result.data[:invoice])
       render json: {}
     end
   end
