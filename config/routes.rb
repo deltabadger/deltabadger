@@ -85,7 +85,7 @@ Rails.application.routes.draw do
       get '/', action: :index
       post :btcpay_payment
       get :btcpay_payment_success
-      post :btcpay_payment_callback
+      post :btcpay_payment_ipn
       post :wire_transfer_payment
       post :zen_payment
       get :zen_payment_finished
