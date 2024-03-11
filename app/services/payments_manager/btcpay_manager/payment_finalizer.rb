@@ -12,8 +12,18 @@ module PaymentsManager
       end
 
       def call(params)
+        Rails.logger.info "PaymentFinalizer params: #{params.inspect}"
         params = params['data']
+        if params.nil?
+          Rails.logger.error "No data in params: #{params.inspect}"
+          return Result::Failure.new('No data in params', data: params)
+        end
+
         payment = Payment.find_by(payment_id: params['id'])
+        if payment.nil?
+          Rails.logger.error "Payment not found: #{params['id']}"
+          return Result::Failure.new('Payment not found', data: params)
+        end
         Rails.logger.info "Payment found: #{payment.inspect}"
 
         external_status = params['status'].to_sym
