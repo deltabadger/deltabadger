@@ -22,14 +22,12 @@ module PaymentsManager
           external_statuses: new_external_statuses(payment, external_status),
           crypto_paid: params['btcPaid']
         }
-
         update_params.merge!(status: status) unless payment.paid?
         if just_paid
           update_params.merge!(paid_at: paid_at(params),
                                commission: recalculate_commission(params, payment),
                                crypto_commission: recalculate_crypto_commission(params, payment))
         end
-
         unless payment.update(update_params)
           return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
         end
