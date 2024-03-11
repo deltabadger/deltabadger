@@ -1,4 +1,4 @@
-class GetDcaProfit < BaseService
+class DcaProfitGetter < BaseService
   CACHE_KEY = 'dca_profit'.freeze
 
   def initialize
