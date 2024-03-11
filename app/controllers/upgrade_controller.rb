@@ -69,7 +69,7 @@ class UpgradeController < ApplicationController
       render json: { error: 'Unauthorized' }, status: :unauthorized
     else
       PaymentsManager::BtcpayManager::PaymentFinalizer.call(params)
-      render json: {}, status: :ok
+      render json: {}
     end
   end
 
