@@ -49,7 +49,7 @@ module PaymentsManager
         end
 
         Rails.logger.info "Payment updated: #{payment.inspect}"
-        Rails.logger.info "Payment from DB: #{Payment.find(params['id']).inspect}"
+        Rails.logger.info "Payment from DB: #{Payment.find_by(payment_id: params['id']).inspect}"
 
         return Result::Failure.new('Still not paid') unless just_paid
 
