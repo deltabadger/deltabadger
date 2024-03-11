@@ -65,10 +65,12 @@ class UpgradeController < ApplicationController
   end
 
   def btcpay_payment_ipn
-    payment_finalizer_result = PaymentsManager::BtcpayManager::PaymentFinalizer.call(params)
-    Raven.capture_exception(Exception.new(payment_finalizer_result.errors[0])) if payment_finalizer_result.failure?
-
-    render json: {}
+    if PaymentsManager::BtcpayManager::IpnHashVerifier.call(params).failure?
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+    else
+      PaymentsManager::BtcpayManager::PaymentFinalizer.call(params)
+      render json: {}, status: :ok
+    end
   end
 
   def wire_transfer_payment
