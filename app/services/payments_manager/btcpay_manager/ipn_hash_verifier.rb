@@ -6,14 +6,25 @@ module PaymentsManager
       end
 
       def call(params)
-        data = params.fetch('data')
-        payment_id = data.fetch('id')
+        ipn_data = params.fetch('data')
+        payment_id = ipn_data.fetch('id')
         invoice_result = @client.get_invoice(payment_id)
         return Result::Failure.new('Invalid hash', data: params) if invoice_result.failure?
+        return Result::Failure.new('IPN params don\'t match server invoice') if params_not_match?(ipn_data, invoice_result.data)
 
         Result::Success.new(invoice: invoice_result.data)
       rescue KeyError
         Result::Failure.new('Missing required params')
+      end
+
+      private
+
+      def params_not_match?(ipn_data, invoice)
+        invoice_data = invoice.fetch('data')
+
+        ipn_data['id'] != invoice_data['id'] ||
+          ipn_data['status'] != invoice_data['status'] ||
+          ipn_data['btcPaid'] != invoice_data['btcPaid']
       end
     end
   end
