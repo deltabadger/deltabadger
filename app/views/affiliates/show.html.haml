@@ -31,7 +31,7 @@
     .db-box.mb-3
       %h4.db-modal__subtitle #{t('.link_title')}
       .db-form__row.db-form__row--input.mb-0
-        %input.db-form__input{ :id => 'referralLink', :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: affiliate.code,lang: nil), :readonly=>"readonly" }
+        %input.db-form__input{ :id => 'referralLink', :type=>"text", :value=>ENV['HOME_PAGE_URL']+ref_code_path(code: affiliate.code,lang: nil), :readonly=>"readonly" }
         %label.db-form__label= t('.your_link')
         .db-unmask{:onclick => "copyText()", :title => "Copy to clipboard"}
           = render "layouts/svg_copy_to_clipboard"

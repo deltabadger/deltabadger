@@ -3,7 +3,7 @@ module PaymentsManager
     class InvoiceCreator < BaseService
       include Rails.application.routes.url_helpers
 
-      HOST = ENV.fetch('MAIN_PAGE_URL').freeze
+      HOST = ENV.fetch('APP_ROOT_URL').freeze
 
       def initialize
         @client = BtcpayClient.new

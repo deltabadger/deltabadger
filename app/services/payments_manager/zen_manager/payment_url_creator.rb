@@ -3,7 +3,7 @@ module PaymentsManager
     class PaymentUrlCreator < BaseService
       include Rails.application.routes.url_helpers
 
-      HOST                = ENV.fetch('MAIN_PAGE_URL').freeze
+      HOST                = ENV.fetch('APP_ROOT_URL').freeze
       ZEN_TERMINAL_UUID   = ENV.fetch('ZEN_TERMINAL_UUID').freeze
 
       def initialize
