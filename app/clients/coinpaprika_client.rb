@@ -1,5 +1,5 @@
 class CoinpaprikaClient < ApplicationClient
-  URL = 'https://api.coinpaprika.com'.freeze
+  URL = 'https://api.coinpaprika.com/v1'.freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
@@ -18,7 +18,7 @@ class CoinpaprikaClient < ApplicationClient
   def tickers(quotes: ['USD'])
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url 'v1/tickers'
+        req.url 'tickers'
         req.params['quotes'] = quotes.join(',')
       end
       Result::Success.new(response.body)
@@ -31,7 +31,7 @@ class CoinpaprikaClient < ApplicationClient
   def get_ticker(coin_id, quotes: ['USD'])
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url "v1/tickers/#{coin_id.downcase}"
+        req.url "tickers/#{coin_id.downcase}"
         req.params['quotes'] = quotes.join(',')
       end
       Result::Success.new(response.body)
@@ -50,7 +50,7 @@ class CoinpaprikaClient < ApplicationClient
     puts "get_ohlcv: #{start_date} - #{end_date}"
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url "v1/coins/#{coin_id}/ohlcv/historical"
+        req.url "coins/#{coin_id}/ohlcv/historical"
         req.params['start'] = start_date.to_s if start_date
         req.params['end'] = end_date.to_s if end_date
       end
