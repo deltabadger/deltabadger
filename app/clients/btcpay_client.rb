@@ -5,6 +5,12 @@ class BtcpayClient < ApplicationClient
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
+      config.headers = {
+        'x-accept-version' => '2.0.0',
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+        'Authorization' => AUTHORIZATION_HEADER
+      }
       config.request :json
       config.response :json
       config.response :raise_error
@@ -105,12 +111,6 @@ class BtcpayClient < ApplicationClient
     with_rescue do
       response = self.class.connection.post do |req|
         req.url '/invoices'
-        req.headers = {
-          'x-accept-version' => '2.0.0',
-          'Accept' => 'application/json',
-          'Content-Type' => 'application/json',
-          'Authorization' => AUTHORIZATION_HEADER
-        }
         req.body = hash.merge(token: API_KEY)
       end
       Result::Success.new(response.body)
