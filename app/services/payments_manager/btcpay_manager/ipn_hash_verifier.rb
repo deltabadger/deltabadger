@@ -11,7 +11,7 @@ module PaymentsManager
         invoice_result = @client.get_invoice(payment_id)
         return Result::Failure.new('Invalid hash', data: params) if invoice_result.failure?
 
-        invoice_data = invoice.fetch('data')
+        invoice_data = invoice_result.fetch('data')
         return Result::Failure.new('IPN params don\'t match server invoice') if params_not_match?(ipn_data, invoice_data)
 
         Result::Success.new(invoice: invoice_result.data)
