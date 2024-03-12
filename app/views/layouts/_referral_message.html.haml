@@ -1,5 +1,5 @@
 - if @show_referral_banner
-  - ref_link = ENV['MAIN_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil)
+  - ref_link = ENV['HOME_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil)
   .container
     .alert.alert-success.db-alert--welcome.db-alert--flex
       %span

@@ -6,7 +6,7 @@
         = t('.share_html')
         %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
       .db-form__row.db-form__row--input.mb-0
-        %input.db-form__input{ :id=> "referralLink", :type=>"text", :value=>ENV['MAIN_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil), :readonly=>"readonly" }
+        %input.db-form__input{ :id=> "referralLink", :type=>"text", :value=>ENV['HOME_PAGE_URL']+ref_code_path(code: current_user.affiliate.code,lang: nil), :readonly=>"readonly" }
         %label.db-form__label
           = t('affiliates.show.your_link')
         .db-unmask{:onclick => "copyText()", :title => "Copy to clipboard"}
