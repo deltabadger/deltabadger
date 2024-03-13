@@ -3,44 +3,28 @@ require 'utilities/number'
 module PaymentsManager
   class CostDataCalculator < BaseService
     def call(
-      user:,
-      payment: nil,
-      country: nil,
-      subscription_plan: nil,
-      referrer: user.eligible_referrer, # just to be able to pass in cached values
-      legendary_badger_discount: nil    # just to be able to pass in cached values
+      payment:,
+      user: payment.user,                                   # just to be able to pass in cached values
+      vat_rate: VatRate.find_by!(country: payment.country), # just to be able to pass in cached values
+      subscription_plan: payment.subscription_plan,         # just to be able to pass in cached values
+      referrer: user.eligible_referrer,                     # just to be able to pass in cached values
+      legendary_badger_discount: nil                        # just to be able to pass in cached values
     )
-      validation_result = validate_params(country, subscription_plan, payment)
-      return validation_result if validation_result.failure?
-
-      @legendary_badger_discount = legendary_badger_discount
+      @subscription_plan = subscription_plan
+      @from_eu = payment.eu?
       @base_price = Utilities::Number.to_bigdecimal(get_base_price(@subscription_plan))
       @flat_discount = Utilities::Number.to_bigdecimal(flat_discount_amount(user))
       @discount_percent = Utilities::Number.to_bigdecimal(referrer&.discount_percent || 0)
       @commission_percent = Utilities::Number.to_bigdecimal(referrer&.commission_percent || 0)
-      begin
-        Result::Success.new(calculate_cost_data)
-      rescue StandardError => e
-        Result::Failure.new(e.message)
-      end
+      @vat = Utilities::Number.to_bigdecimal(vat_rate.vat)
+      @legendary_badger_discount = legendary_badger_discount
+      Result::Success.new(calculate_cost_data)
+    rescue StandardError => e
+      puts e.message
+      Result::Failure.new(e.message)
     end
 
     private
-
-    def validate_params(country, subscription_plan, payment)
-      if country.present? && subscription_plan.present?
-        @from_eu = country.eu?
-        @vat = Utilities::Number.to_bigdecimal(country.vat)
-        @subscription_plan = subscription_plan
-      elsif payment.present?
-        @from_eu = payment.eu?
-        @vat = Utilities::Number.to_bigdecimal(VatRate.find_by!(country: payment.country).vat)
-        @subscription_plan = payment.subscription_plan
-      else
-        Result::Failure.new('Either user & country & subscription_plan or user & payment must be provided')
-      end
-      Result::Success.new
-    end
 
     def calculate_cost_data
       {
