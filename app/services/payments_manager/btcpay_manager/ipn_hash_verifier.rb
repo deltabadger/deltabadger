@@ -22,6 +22,9 @@ module PaymentsManager
       private
 
       def params_not_match?(ipn_data, invoice_data)
+        Rails.logger.info("IPN data: #{ipn_data['id']}, Invoice data: #{invoice_data['id']}, #{ipn_data['id'] != invoice_data['id']}")
+        Rails.logger.info("IPN data: #{ipn_data['status']}, Invoice data: #{invoice_data['status']}, #{ipn_data['status'] != invoice_data['status']}")
+        Rails.logger.info("IPN data: #{ipn_data['btcPaid']}, Invoice data: #{invoice_data['btcPaid']}, #{ipn_data['btcPaid'] != invoice_data['btcPaid']}")
         ipn_data['id'] != invoice_data['id'] ||
           ipn_data['status'] != invoice_data['status'] ||
           ipn_data['btcPaid'] != invoice_data['btcPaid']
