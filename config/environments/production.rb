@@ -96,5 +96,5 @@ Rails.application.configure do
     user_name: ENV['MAILER_SMTP_USERNAME'],
     password: ENV['MAILER_SMTP_PASSWORD']
   }
-  routes.default_url_options = {host: ENV['TELEGRAM_BOT_HOST_URL'], protocol: 'https'}
+  routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
 end
