@@ -133,13 +133,13 @@ class UpgradePresenter
       plans = available_plans_for_saver
       plans_hash = plans.map { |plan| [plan.to_sym, send("#{plan}_plan")] }.to_h
 
-      VatRatesRepository.new.all_in_display_order.map do |country|
-        [country.country,
+      VatRatesRepository.new.all_in_display_order.map do |vat_rate|
+        [vat_rate.country,
          plans_hash.transform_values do |plan|
            PaymentsManager::CostDataCalculator.call(
+             payment: Payment.new(subscription_plan: plan, country: vat_rate.country, user: @current_user),
              user: @current_user,
-             country: country,
-             subscription_plan: plan,
+             vat_rate: vat_rate,
              referrer: referrer,
              legendary_badger_discount: legendary_badger_stats[:legendary_badger_discount]
            ).data
