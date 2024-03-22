@@ -53,7 +53,14 @@ $formUnit: 2rem
     transition: none
     font-weight: 600
   &-lg
-    min-width: 24rem
+    font-size: 2.5rem
+    min-width: 30rem
+    margin-top: 1rem
+    margin-bottom: 1rem
+    line-height: 5rem
+    border-radius: 10rem
+    padding-right: 3rem
+    padding-left: 4rem
   .db-svg-icon
     margin: 0 -.6rem
     width: 2.4rem
@@ -94,13 +101,13 @@ $formUnit: 2rem
     &--input
       &--has-http-select
         input
-          padding-left: 5em !important
+          padding-left: 4.65em !important
           &:focus,&:active
-            padding-left: calc(5em - .1rem) !important
+            padding-left: calc(4.65em - .1rem) !important
         select
           position: absolute
-          top: 1.4rem
-          left: 1.4rem
+          top: 2rem
+          left: 2.2rem
           border: none
           appearance: none
           opacity: 0.5
@@ -110,15 +117,15 @@ $formUnit: 2rem
 
       &--referralcode
         input
-          padding-left: 11em !important
+          padding-left: 11.85em !important
         input:focus
-          padding-left: calc(11em - .1rem) !important
+          padding-left: calc(11.85em - .1rem) !important
         .db-referral-prefix
           color: var(--secondary)
           pointer-events: none
           position: absolute
-          top: 1.4rem
-          left: 1.4rem
+          top: 2rem
+          left: 2.3rem
     &--final-button
       margin-bottom: 0
       padding-top: .8rem
@@ -135,28 +142,29 @@ $formUnit: 2rem
     &--visible
       display: block
   &__label
+    font-size:      2rem
     border-radius:  .4rem
     background:     var(--paper)
     color:          #678
     position:       absolute
-    top:            1.3rem
-    padding-left:   .4rem
-    padding-right:  .4rem
-    left:           1.2rem
+    top:            2rem
+    padding-left:   .5rem
+    padding-right:  .5rem
+    left:           2.2rem
     transition:     all 100ms ease-out
     pointer-events: none
   &__input
+    font-size: 2rem
     color: var(--text)
     background: none
     padding-bottom: .2rem
-    padding-left: 1.4rem
-    padding-right: 1.4rem
+    padding-left: 2.4rem
+    padding-right: 2.4rem
     border: .1rem solid #678
-    border-radius: .4rem
+    border-radius: 1rem
     width: 100%
-    height: 2*$formUnit
     position: relative
-    height: 5rem
+    height: 7rem
     &--select
       appearance: none
     &--has-icon
@@ -166,8 +174,6 @@ $formUnit: 2rem
       border-color: var(--link)
       border-width: .2rem
       outline: none
-      padding-left: 1.3rem
-      padding-right: 1.3rem
       &~.db-form__label
         color: var(--link)
         font-weight: bold
@@ -175,8 +181,8 @@ $formUnit: 2rem
     &--select,&:focus,&:not([value=""]),&:not(.db-form__input--empty)
       opacity: 1
       &~.db-form__label
-        top: -.9rem
-        font-size: 1.4rem
+        top: -1.2rem
+        font-size: 1.75rem
     &.is-invalid, &:invalid:not(:focus)
       border-color: var(--danger)
       border-width: .2rem
@@ -190,8 +196,8 @@ $formUnit: 2rem
         display: block
   &__info
     padding-left: .4rem
-    font-size: 1.4rem
-    margin-top: .4rem
+    font-size: 1.75rem
+    margin-top: .75rem
     margin-bottom: -.4rem
     &--invalid
       font-weight: bold

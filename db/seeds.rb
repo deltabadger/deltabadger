@@ -13,6 +13,11 @@ Exchange.find_or_create_by!(name: 'Bitfinex')
 Exchange.find_or_create_by!(name: 'Bitstamp')
 Exchange.find_or_create_by!(name: 'ProBit Global')
 
+SettingFlag.find_or_create_by!(name: 'show_bitcoin_payment', value: true)
+SettingFlag.find_or_create_by!(name: 'show_wire_payment', value: true)
+SettingFlag.find_or_create_by!(name: 'show_stripe_payment', value: true)
+SettingFlag.find_or_create_by!(name: 'show_zen_payment', value: true)
+
 COINBASE_API_KEY = ENV.fetch('COINBASE_API_KEY').freeze
 COINBASE_API_SECRET = ENV.fetch('COINBASE_API_SECRET').freeze
 

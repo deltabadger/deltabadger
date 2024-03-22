@@ -149,7 +149,7 @@ en:
         day: Day
         details:
             info:
-                exchanges_html: '<p className="mt-2"><b>Exchanges</b></p><p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondaglobal.com" target="_blank" rel="nofollow" title="Zondacrypto">Zondacrypto</a>, <a href="https://bitfinex.com" target="_blank" rel="nofollow" title="Bitfinex">Bitfinex</a>, <a href="https://bitso.com/" target="_blank" rel="nofollow" title="Bitso">Bitso</a>, <a href="https://bitstamp.net/" target="_blank" rel="nofollow" title="Bitstamp">Bitstamp</a>, <a href=\"https://www.coinbase.com/advanced-trade\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://r.kraken.com/deltabadger" target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>, <a href="https://kucoin.com/" target="_blank" title="KuCoin">KuCoin</a> and <a href="https://www.probit.com/" target="_blank" title="ProBit Global">ProBit Global</a>. We recommend Kraken as a reputable exchange that has never been hacked. Use Zonda if you want to make your purchases in PLN.</p><p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p><p>However, don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p><p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>'
+                exchanges_html: '<p className="mt-2"><b>Exchanges</b></p><p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondacrypto.com" target="_blank" rel="nofollow" title="Zondacrypto">Zondacrypto</a>, <a href="https://bitfinex.com" target="_blank" rel="nofollow" title="Bitfinex">Bitfinex</a>, <a href="https://bitso.com/" target="_blank" rel="nofollow" title="Bitso">Bitso</a>, <a href="https://bitstamp.net/" target="_blank" rel="nofollow" title="Bitstamp">Bitstamp</a>, <a href=\"https://www.coinbase.com/advanced-trade\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://r.kraken.com/deltabadger" target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>, <a href="https://kucoin.com/" target="_blank" title="KuCoin">KuCoin</a> and <a href="https://www.probit.com/" target="_blank" title="ProBit Global">ProBit Global</a>. We recommend Kraken as a reputable exchange that has never been hacked.</p><p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p><p>However, don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p><p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>'
                 new_to_dca_html: '<p className="mt-2"><b>New to dollar-cost averaging?</b></p><p>Those links will help:</p><ul className="mb-5"> <li><a href="https://www.youtube.com/watch?v=CdKRjuaUtOc" target="_blank" rel="nofollow">DCA for Beginners (video)</a></li> <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank" rel="nofollow">The power of DCA into Bitcoin</a></li> <li><a href="https://www.dca-cc.com/" target="_blank" rel="nofollow">DCA Simulator</a></li></ul>'
                 smart_intervals_html: '<p className="mt-2"><b>"Smart intervals"</b></p><p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they''ll be used only if necessary.</p><p className="mt-2"><b>Why?</b></p><p>There are two benefits:</p><p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p><p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p><p className="mt-2"><b>Example:</b></p><p>Let''s say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>'
                 webhook:
@@ -211,6 +211,8 @@ en:
         triggered_first: 'the first webhook is triggered.'
         triggered_second: 'the second webhook is triggered.'
         webhook_has_been_copied: 'Webhook has been copied to clipboard.'
+        trading_fee: 'Trading Fee'
+        withdrawal_fee: 'Withdrawal Fee (BTC)'
         additional_title: Two-way bot
         setup:
             api_not_available: 'Exchange API is not available'
@@ -684,6 +686,7 @@ en:
         legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p><b>Never pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, the pricing will go up, but you''ll have lifetime access to everything for free.</p><p>Sell your subscription any time on decentralized markets. Yes! Nothing like this exists on the market.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your DCA status, and be Legendary.</p>'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         payment:
+            card: 'Card'
             account_holder: 'Account holder'
             account_number: 'Account number'
             account_type: 'Account type'
@@ -692,7 +695,7 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             bitcoin: Bitcoin
-            card_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
+            stripe_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
             compensation_hodler:
                 one: 'Compensation for 1 unused day of the Hodler plan.'
                 other: 'Compensation for %{count} unused days of the Hodler plan.'
@@ -700,14 +703,15 @@ en:
                 one: 'Compensation for 1 unused day of the Investor plan.'
                 other: 'Compensation for %{count} unused days of the Investor plan.'
             discount: '%{discount_percent}% discount'
-            early_bird_discount: 'Early Bird discount'
-            early_bird_discount_info: 'With every sale the discount decreases $1. Don''t wait!'
+            legendary_badger_discount: 'Early Bird discount'
+            legendary_badger_discount_info: 'With every sale the discount decreases $1. Don''t wait!'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I made SEPA transfer'
             paid_with_wire_transfer_other: 'I made wire transfer'
             pay: Pay
             pay_with_bitcoin: 'Pay with Bitcoin'
+            pay_with_card: 'Pay with Card'
             payment_ordered: 'Payment ordered!'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             routing_number: 'Routing number'
