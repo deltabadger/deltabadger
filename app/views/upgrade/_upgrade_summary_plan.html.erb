@@ -1,0 +1,5 @@
+<% if key.in?(upgrade_presenter.available_plans_for_current_user) %>
+  <span class='db-show--<%= key %>'>
+    <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='<%= key %>-<%= method.gsub("_", "-") %>'><%= cost_presenter[key.to_sym].send(method) %></span>
+  </span>
+<% end %>

@@ -146,9 +146,9 @@
             start: 1
             end: 2
 
-.db-legendary-early-bird-discount
+.db-legendary-legendary-badger-discount
   display: none
-.db-plan-legendary_badger.db-plan--selected ~ .db-legendary-early-bird-discount
+.db-plan-legendary_badger.db-plan--selected ~ .db-legendary-legendary-badger-discount
   display: grid
 
 .db-special-upgrade-discount
@@ -184,6 +184,11 @@
 
 .db-checkout
   min-height: calc(100vh - 22.3rem)
+  .btn-lg
+    margin-top: 0
+    margin-bottom: 0
+    *:not(:last-child)
+      margin-right: 0.125rem
   @include media-breakpoint-down(sm)
     display: block
 
@@ -279,19 +284,19 @@
       border-color: transparent
 
 #payTabContent
-  padding-top: 2.8rem
+  padding-top: 3.2rem
 
 .db-card-providers
   display: flex
   align-items: center
   justify-content: center
   height: 4rem
-  gap: .4rem
+  gap: 0rem
   &__item
     height: 2.4rem
     width: auto
     &--visa
-      height: 2rem
+      height: 5.5rem
       @media (prefers-color-scheme: dark)
         filter: brightness(10)
     &--mastercard

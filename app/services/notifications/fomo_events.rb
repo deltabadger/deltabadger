@@ -2,7 +2,7 @@ require 'fomo'
 
 module Notifications
   class FomoEvents
-    AUTHORIZATION_TOKEN = ENV.fetch('FOMO_AUTH_TOKEN')
+    AUTHORIZATION_TOKEN = ENV.fetch('FOMO_AUTH_TOKEN').freeze
     INVESTOR_TEMPLATE_ID = 149_849
     HODLER_TEMPLATE_ID = 149_922
     LEGENDARY_BADGER_TEMPLATE_ID = 171_637
@@ -11,15 +11,13 @@ module Notifications
       @client = Fomo.new(AUTHORIZATION_TOKEN)
     end
 
-    def plan_bought(first_name:, country: nil, ip_address: nil, plan_name:)
+    def plan_bought(first_name:, plan_name:, country: nil, ip_address: nil)
       event = FomoEvent.new
-      event.event_type_id = if plan_name == 'hodler'
-        HODLER_TEMPLATE_ID
-      elsif plan_name == 'investor'
-        INVESTOR_TEMPLATE_ID
-      else
-        LEGENDARY_BADGER_TEMPLATE_ID
-      end
+      event.event_type_id = case plan_name
+                            when 'hodler' then HODLER_TEMPLATE_ID
+                            when 'investor' then INVESTOR_TEMPLATE_ID
+                            else LEGENDARY_BADGER_TEMPLATE_ID
+                            end
       event.first_name = first_name
       event.ip_address = ip_address unless ip_address.nil?
       event.country = country unless country.nil?

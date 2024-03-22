@@ -12,7 +12,7 @@ module ExchangeApi
         end
 
         PRICE_FILTER = 'PRICE_FILTER'.freeze
-        MIN_NOTIONAL = 'MIN_NOTIONAL'.freeze
+        MIN_NOTIONAL = 'NOTIONAL'.freeze
         LOT_SIZE = 'LOT_SIZE'.freeze
 
         def minimum_order_price(symbol)

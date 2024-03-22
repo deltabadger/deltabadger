@@ -1,0 +1,23 @@
+<div class="db-country db-checkout--<%= @upgrade_presenter.selected_payment_type %>">
+  <%= render partial: "layouts/navbar/signed_in" %>
+  <div class="row db-checkout db-checkout--<%= @upgrade_presenter.selected_plan_name %> <%= "stripe_payment_in_process" if @stripe_payment_in_process %>">
+    <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
+      <%= render partial: "current_plan", locals: {
+                   upgrade_presenter: @upgrade_presenter,
+                 } %>
+      <%= render partial: "upgrade_plans", locals: {
+                   upgrade_presenter: @upgrade_presenter,
+                 } %>
+    </div>
+    <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
+      <%= render partial: "upgrade_summary", locals: {
+                   upgrade_presenter: @upgrade_presenter,
+                 } %>
+      <%= render partial: "billing_form", locals: {
+                   upgrade_presenter: @upgrade_presenter,
+                   stripe_payment_in_process: @stripe_payment_in_process,
+                   errors: @errors,
+                 } %>
+    </div>
+  </div>
+</div>

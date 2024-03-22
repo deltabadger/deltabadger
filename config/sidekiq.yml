@@ -11,9 +11,6 @@
   - [bitso, 1]
   - [bitstamp, 1]
   - [coinbase, 1]
-  - [coinbase pro, 1]
-  - [ftx, 1]
-  - [ftx.us, 1]
   - [gemini, 1]
   - [kraken, 1]
   - [kucoin, 1]
@@ -28,9 +25,6 @@
   bitso: 1
   bitstamp: 1
   coinbase: 1
-  coinbase pro: 1
-  ftx: 1
-  ftx.us: 1
   gemini: 1
   kraken: 1
   kucoin: 1

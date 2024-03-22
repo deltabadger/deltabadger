@@ -1,330 +1,162 @@
-# rubocop:disable Metrics/ClassLength
 class UpgradeController < ApplicationController
-  before_action :authenticate_user!, except: [:payment_callback]
-  protect_from_forgery except: %i[payment_callback wire_transfer create_card_intent update_card_intent confirm_card_payment]
-
-  STRIPE_SUCCEEDED_STATUS = 'succeeded'.freeze
-  STRIPE_PROCESS_STATUSES = %w[requires_confirmation requires_action processing].freeze
-  EARLY_BIRD_DISCOUNT_INITIAL_VALUE = (ENV.fetch('EARLY_BIRD_DISCOUNT_INITIAL_VALUE').to_i || 0).freeze
+  before_action :authenticate_user!, except: %i[btcpay_payment_ipn zen_payment_ipn]
+  skip_before_action :verify_authenticity_token, only: %i[
+    btcpay_payment_ipn
+    zen_payment_ipn
+    create_stripe_payment_intent
+    update_stripe_payment_intent
+    confirm_stripe_payment
+    wire_transfer_payment
+  ] # TODO: for wire_transfer_payment, remove from list after fixing the CSRF issue --> use form_with + button_to
 
   def index
+    current_plan = current_user.subscription.subscription_plan
     return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
 
-    payment_in_process = false
-
-    if session[:payment_intent_id]
-      payment_intent = Stripe::PaymentIntent.retrieve(session[:payment_intent_id])
-
-      if card_payment_in_process(payment_intent)
-        payment_in_process = true
-      elsif card_payment_succeeded(payment_intent)
-        upgrade_subscription(payment_intent, session[:payment_intent_id])
-        return redirect_to upgrade_path
-      end
-    end
-
-    render :index, locals: default_locals.merge(
-      payment: new_payment,
-      errors: session.delete(:errors) || [],
-      payment_in_process: payment_in_process
-    )
+    @upgrade_presenter = UpgradePresenter.new(current_user)
+    @stripe_payment_in_process = check_stripe_payment_in_process
+    @errors = session.delete(:errors) || []
   end
 
-  def pay
-    result = Payments::Create.call(payment_params)
-
-    if result.success?
-      redirect_to result.data[:payment_url]
+  def zen_payment
+    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(zen_payment_params)
+    if initiator_result.success?
+      redirect_to initiator_result.data[:payment_url]
     else
-      unless result.errors.include?('user error')
-        Raven.capture_exception(Exception.new(result.errors[0]))
+      unless initiator_result.errors.include?('User error')
+        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
         flash[:alert] = I18n.t('subscriptions.payment.server_error')
       end
-      session[:errors] = result.errors
+      session[:errors] = initiator_result.errors
       redirect_to action: 'index'
     end
   end
 
-  def payment_success
-    current_user.update!(welcome_banner_showed: true)
-    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
-
+  def zen_payment_finished
     redirect_to dashboard_path
   end
 
-  def payment_callback
-    Payments::Update.call(params['data'] || params)
-
-    render json: {}
-  end
-
-  # Create a intention of paying
-  def create_card_intent
-    # We create a fake payment to calculate the costs of the transactions
-    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
-    metadata = get_payment_metadata(current_user, params)
-    payment_intent = Stripe::PaymentIntent.create(
-      amount: amount_in_cents(card_price[:total_price]),
-      currency: fake_payment.eu? ? 'eur' : 'usd',
-      metadata: metadata
-    )
-    session[:payment_intent_id] = payment_intent['id']
-    render json: {
-      clientSecret: payment_intent['client_secret'],
-      payment_intent_id: payment_intent['id']
-    }
-  end
-
-  def update_card_intent
-    fake_payment = Payment.new(country: params['country'], subscription_plan_id: params['subscription_plan_id'])
-    card_price = Payments::Create.new.get_card_price(fake_payment, current_user)
-    metadata = get_update_metadata(params)
-    Stripe::PaymentIntent.update(params['payment_intent_id'],
-                                 amount: amount_in_cents(card_price[:total_price]),
-                                 currency: fake_payment.eu? ? 'eur' : 'usd',
-                                 metadata: metadata)
-  end
-
-  def confirm_card_payment
-    payment_intent = Stripe::PaymentIntent.retrieve(params['payment_intent_id'])
-    card_payment_succeeded = card_payment_succeeded(payment_intent)
-    unless card_payment_succeeded
-      return render json: {
-        payment_status: 'failed'
-      }
+  def zen_payment_ipn
+    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).failure?
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+    else
+      PaymentsManager::ZenManager::PaymentFinalizer.call(params)
+      render json: { "status": 'ok' }
     end
-
-    upgrade_subscription(payment_intent, params['payment_intent_id'])
-
-    render json: {
-      payment_status: 'succeeded'
-    }
-  rescue StandardError => e
-    Raven.capture_exception(e)
-    render json: {
-      payment_status: 'failed'
-    }
   end
 
-  # rubocop:disable Metrics/MethodLength
-  def wire_transfer
-    wire_params = wire_transfer_params.merge(default_locals)
-    plan = subscription_plan_repository.find(wire_params[:subscription_plan_id]).name
-    cost_presenter = if plan == 'hodler'
-                       wire_params[:cost_presenters][wire_params[:country]][:hodler]
-                     elsif plan == 'legendary_badger'
-                       wire_params[:cost_presenters][wire_params[:country]][:legendary_badger]
-                     else
-                       wire_params[:cost_presenters][wire_params[:country]][:investor]
-                     end
+  def btcpay_payment
+    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(btcpay_payment_params)
+    if initiator_result.success?
+      redirect_to initiator_result.data[:payment_url]
+    else
+      unless initiator_result.errors.include?('User error')
+        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
+        flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      end
+      session[:errors] = initiator_result.errors
+      redirect_to action: 'index'
+    end
+  end
 
-    email_params = {
-      name: wire_params[:first_name],
-      type: wire_params[:country],
-      amount: cost_presenter.total_price
-    }
+  def btcpay_payment_success
+    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
+    redirect_to dashboard_path
+  end
 
-    payment = Payments::Create.new.wire_transfer(
-      wire_params,
-      cost_presenter.discount_percent_amount.to_f.positive?
-    )
+  def btcpay_payment_ipn
+    validation_result = PaymentsManager::BtcpayManager::IpnHashVerifier.call(params)
+    if validation_result.failure?
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+    else
+      PaymentsManager::BtcpayManager::PaymentFinalizer.call(validation_result.data[:invoice])
+      render json: {}
+    end
+  end
 
-    UpgradeSubscriptionWorker.perform_at(
-      15.minutes.since(Time.now),
-      wire_params[:user].id,
-      wire_params[:subscription_plan_id],
-      email_params,
-      payment.id
-    )
-
-    notifications = Notifications::Subscription.new
-    notifications.wire_transfer_summary(
-      email: wire_params[:user].email,
-      subscription_plan: SubscriptionPlan.find(wire_params[:subscription_plan_id]).name,
-      first_name: wire_params[:first_name],
-      last_name: wire_params[:last_name],
-      country: wire_params[:country],
-      amount: cost_presenter.total_price
-    )
-
-    wire_params[:user].update(
-      pending_wire_transfer: wire_params[:country],
-      pending_plan_id: wire_params[:subscription_plan_id]
-    )
-
-    Notifications::FomoEvents.new.plan_bought(
-      first_name: wire_params[:first_name],
-      ip_address: request.remote_ip,
-      plan_name: plan
-    )
-
+  def wire_transfer_payment
+    initiator_result = PaymentsManager::WireManager::PaymentFinalizer.call(wire_payment_params)
+    if initiator_result.failure?
+      unless initiator_result.errors.include?('User error')
+        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
+        flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      end
+      session[:errors] = initiator_result.errors
+    end
     redirect_to action: 'index'
   end
-  # rubocop:enable Metrics/MethodLength
+
+  def create_stripe_payment_intent
+    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
+    if payment_intent_result.success?
+      puts "payment_intent_result.data['id']: #{payment_intent_result.data['id']}"
+      session[:payment_intent_id] = payment_intent_result.data['id']
+      render json: {
+        clientSecret: payment_intent_result.data['client_secret'],
+        payment_intent_id: payment_intent_result.data['id']
+      }
+    else
+      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+      session[:errors] = payment_intent_result.errors
+      render json: { error: 'Internal Server Error' }, status: :internal_server_error
+    end
+  end
+
+  def update_stripe_payment_intent
+    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, current_user)
+    if payment_intent_result.success?
+      render json: { "status": 'ok' }
+    else
+      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+      session[:errors] = payment_intent_result.errors
+      render json: { error: 'Internal Server Error' }, status: :internal_server_error
+    end
+  end
+
+  def confirm_stripe_payment
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
+    if payment_finalizer_result.success?
+      session.delete(:payment_intent_id)
+      render json: { payment_status: 'succeeded' }
+    else
+      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
+      render json: { payment_status: 'failed' }
+    end
+  end
 
   private
 
-  def upgrade_subscription(payment_intent, payment_intent_id)
-    subscription_params = default_locals.merge(payment_intent_id: payment_intent_id)
-    payment_metadata = payment_intent['metadata']
-    cost_presenter = get_cost_presenter(payment_metadata, subscription_params)
-    payment_params = payment_metadata.to_hash.merge(subscription_params)
-    payment = Payments::Create.new.card_payment(
-      payment_params,
-      cost_presenter.discount_percent_amount.to_f.positive?
-    )
-    UpgradeSubscription.call(payment_metadata['user_id'], payment_metadata['subscription_plan_id'], nil, payment.id)
-    session.delete(:payment_intent_id)
-  rescue StandardError => e
-    Raven.capture_exception(e)
+  def zen_payment_params
+    params
+      .require(:payment)
+      .permit(:subscription_plan_id, :country)
+      .merge(user: current_user)
   end
 
-  def get_cost_presenter(payment_metadata, subscription_params)
-    plan = subscription_plan_repository.find(payment_metadata['subscription_plan_id']).name
-    if plan == 'hodler'
-      subscription_params[:cost_presenters][payment_metadata['country']][:hodler]
-    elsif plan == 'legendary_badger'
-      subscription_params[:cost_presenters][payment_metadata['country']][:legendary_badger]
-    else
-      subscription_params[:cost_presenters][payment_metadata['country']][:investor]
-    end
-  end
-
-  def get_payment_metadata(current_user, params)
-    {
-      user_id: current_user['id'],
-      email: current_user['email'],
-      subscription_plan_id: params['subscription_plan_id'],
-      country: params['country']
-    }
-  end
-
-  def get_update_metadata(params)
-    {
-      country: params['country'],
-      subscription_plan_id: params['subscription_plan_id']
-    }
-  end
-
-  def card_payment_succeeded(payment_intent)
-    payment_intent['status'] == STRIPE_SUCCEEDED_STATUS
-  end
-
-  def card_payment_in_process(payment_intent)
-    STRIPE_PROCESS_STATUSES.include? payment_intent['status']
-  end
-
-  # Stripe takes total amount of cents
-  def amount_in_cents(amount)
-    (amount * 100).round
-  end
-
-  def new_payment
-    subscription_plan_id = case current_plan.id
-                           when hodler_plan.id then legendary_badger_plan.id
-                           when investor_plan.id then hodler_plan.id
-                           else investor_plan.id
-                           end
-
-    Payment.new(subscription_plan_id: subscription_plan_id, country: VatRate::NOT_EU)
-  end
-
-  def default_locals
-    referrer = current_user.eligible_referrer
-
-    {
-      referrer: referrer,
-      current_plan: current_plan,
-      investor_plan: investor_plan,
-      hodler_plan: hodler_plan,
-      legendary_badger_plan: legendary_badger_plan,
-      initial_early_birds_count: initial_early_birds_count,
-      purchased_early_birds_count: purchased_early_birds_count,
-      purchased_early_birds_percent: purchased_early_birds_percent,
-      allowable_early_birds_count: allowable_early_birds_count
-    }.merge(cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan))
-  end
-
-  def cost_calculators(referrer, current_plan, investor_plan, hodler_plan, legendary_badger_plan)
-    discount = referrer&.discount_percent || 0
-
-    factory = Payments::CostCalculatorFactory.new
-    presenter = Presenters::Payments::Cost
-
-    build_presenter = ->(args) { presenter.new(factory.call(**args)) }
-
-    plans = { investor: investor_plan, hodler: hodler_plan, legendary_badger: legendary_badger_plan }
-
-    cost_presenters = VatRatesRepository.new.all_in_display_order.map do |country|
-      [country.country,
-       plans.transform_values do |plan|
-         build_presenter.call(
-           eu: country.eu?,
-           vat: country.vat,
-           subscription_plan: plan,
-           current_plan: current_plan,
-           days_left: current_user.plan_days_left,
-           discount_percent: discount
-         )
-       end]
-    end.to_h
-
-    { cost_presenters: cost_presenters }
-  end
-
-  def payment_params
+  def btcpay_payment_params
     params
       .require(:payment)
       .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :country)
       .merge(user: current_user)
   end
 
-  def wire_transfer_params
+  def wire_payment_params
     params
       .require(:payment)
       .permit(:subscription_plan_id, :first_name, :last_name, :country)
       .merge(user: current_user)
   end
 
-  def initial_early_birds_count
-    @initial_early_birds_count ||= EARLY_BIRD_DISCOUNT_INITIAL_VALUE
-  end
+  def check_stripe_payment_in_process
+    return false unless session[:payment_intent_id]
 
-  def purchased_early_birds_count
-    @purchased_early_birds_count ||= SubscriptionsRepository.new.all_current_count('legendary_badger')
-  end
-
-  def purchased_early_birds_percent
-    @purchased_early_birds_percent ||= purchased_early_birds_count * 100 / initial_early_birds_count
-  end
-
-  def allowable_early_birds_count
-    @allowable_early_birds_count ||= initial_early_birds_count - purchased_early_birds_count
-  end
-
-  def subscription_plan_repository
-    @subscription_plan_repository ||= SubscriptionPlansRepository.new
-  end
-
-  def current_plan
-    @current_plan ||= current_user.subscription.subscription_plan
-  end
-
-  def saver_plan
-    @saver_plan ||= subscription_plan_repository.saver
-  end
-
-  def investor_plan
-    @investor_plan ||= subscription_plan_repository.investor
-  end
-
-  def hodler_plan
-    @hodler_plan ||= subscription_plan_repository.hodler
-  end
-
-  def legendary_badger_plan
-    @legendary_badger_plan ||= subscription_plan_repository.legendary_badger
+    params = { payment_intent_id: session[:payment_intent_id] }
+    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
+    if payment_finalizer_result.success?
+      session.delete(:payment_intent_id)
+      redirect_to upgrade_path
+    else
+      true
+    end
   end
 end
-# rubocop:enable Metrics/ClassLength

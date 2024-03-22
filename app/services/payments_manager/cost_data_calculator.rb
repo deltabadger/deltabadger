@@ -1,0 +1,94 @@
+require 'utilities/number'
+
+module PaymentsManager
+  class CostDataCalculator < BaseService
+    def call(
+      payment:,
+      user: payment.user,                                   # just to be able to pass in cached values
+      vat_rate: VatRate.find_by!(country: payment.country), # just to be able to pass in cached values
+      subscription_plan: payment.subscription_plan,         # just to be able to pass in cached values
+      referrer: user.eligible_referrer,                     # just to be able to pass in cached values
+      legendary_badger_discount: nil                        # just to be able to pass in cached values
+    )
+      @subscription_plan = subscription_plan
+      @from_eu = payment.eu?
+      @base_price = Utilities::Number.to_bigdecimal(get_base_price(@subscription_plan))
+      @flat_discount = Utilities::Number.to_bigdecimal(flat_discount_amount(user))
+      @discount_percent = Utilities::Number.to_bigdecimal(referrer&.discount_percent || 0)
+      @commission_percent = Utilities::Number.to_bigdecimal(referrer&.commission_percent || 0)
+      @vat = Utilities::Number.to_bigdecimal(vat_rate.vat)
+      @legendary_badger_discount = legendary_badger_discount
+      Result::Success.new(calculate_cost_data)
+    rescue StandardError => e
+      puts e.message
+      Result::Failure.new(e.message)
+    end
+
+    private
+
+    def calculate_cost_data
+      {
+        base_price: @base_price,
+        vat: @vat,
+        flat_discount: @flat_discount,
+        discount_percent: @discount_percent,
+        commission_percent: @commission_percent,
+        flat_discounted_price: flat_discounted_price,
+        discount_percent_amount: discount_percent_amount,
+        total_vat: total_vat,
+        total_price: total_price,
+        commission: commission,
+        subscription_plan_name: @subscription_plan.name
+      }
+    end
+
+    def get_base_price(plan)
+      @from_eu ? plan.cost_eu : plan.cost_other
+    end
+
+    def flat_discount_amount(user)
+      current_plan = user.subscription.subscription_plan
+      return 0 if @subscription_plan.name == current_plan.name
+
+      plan_years_left = user.plan_days_left.to_f / 365
+      discount_multiplier = [2, plan_years_left / current_plan.years].min
+      (get_base_price(current_plan) * discount_multiplier).round(2)
+    end
+
+    def flat_discounted_price
+      # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
+      # TODO: allow prices of 0 and let the controller upgrade the plan without payment in this case
+      @flat_discounted_price ||= [1, @base_price - @flat_discount - legendary_badger_discount].max
+    end
+
+    def discount_percent_amount
+      (flat_discounted_price * @discount_percent).round(2)
+    end
+
+    def total_vat
+      total_price - discounted_price
+    end
+
+    def total_price
+      @total_price ||= (discounted_price * (1 + @vat)).round(2)
+    end
+
+    def commission
+      (flat_discounted_price * @commission_percent).round(2)
+    end
+
+    def discounted_price
+      (flat_discounted_price * (1 - @discount_percent)).round(2)
+    end
+
+    def legendary_badger_discount
+      return 0 unless @subscription_plan.name == 'legendary_badger'
+
+      @legendary_badger_discount ||= legendary_badger_stats[:legendary_badger_discount]
+    end
+
+    def legendary_badger_stats
+      @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
+    end
+  end
+end

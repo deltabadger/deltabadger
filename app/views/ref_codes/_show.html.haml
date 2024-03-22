@@ -1,4 +1,4 @@
-- code_presenter = Presenters::RefCodes::Show.new(affiliate)
+- code_presenter = RefCodesPresenter.new(affiliate)
 %table.table.db-table--checkout
   %tbody.table-borderless
     - if code_presenter.valid?

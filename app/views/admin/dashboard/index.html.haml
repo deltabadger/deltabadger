@@ -18,11 +18,13 @@
 %p
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_card_payment, :onChange => "change('show_card_payment', checked)"} Card Payments (Stripe)
+    %input{:type => 'checkbox', :checked => settings_repository.show_stripe_payment, :onChange => "change('show_stripe_payment', checked)"} Card Payments (Stripe)
+%div
+  %label
+    %input{:type => 'checkbox', :checked => settings_repository.show_zen_payment, :onChange => "change('show_zen_payment', checked)"} Card Payments (Zen)
 %div
   %label
     %input{:type => 'checkbox', :checked => settings_repository.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
-
 %div
   %label
     %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers

@@ -11,7 +11,7 @@ export const exchanges = {
   },
   'zonda': {
       name: 'Zonda',
-      url: 'https://auth.zonda.exchange/ref/Hhb7ZrAv2GrA',
+      url: 'https://zondacrypto.com/',
       translation_key: 'zonda',
   },
   'kraken': {

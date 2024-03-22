@@ -1,0 +1,286 @@
+<% cost_presenters = upgrade_presenter.all_cost_presenters %>
+<% pending_wire_transfer = !current_user.pending_wire_transfer.nil? %>
+<% settings_repository = SettingFlagsRepository.new %>
+<% show_stripe_payment = settings_repository.show_stripe_payment %>
+<% show_zen_payment = settings_repository.show_zen_payment %>
+<% show_bitcoin_payment = settings_repository.show_bitcoin_payment %>
+<% show_wire_payment = settings_repository.show_wire_payment %>
+<% active_stripe_tab = !!show_stripe_payment %>
+<% active_zen_tab = !show_stripe_payment && show_zen_payment %>
+<% active_bitcoin_tab = !show_stripe_payment && !show_zen_payment && show_bitcoin_payment %>
+<% active_wire_tab = !show_stripe_payment && !show_zen_payment && !show_bitcoin_payment %>
+<% keys = %w[investor hodler legendary_badger] %>
+<div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
+  <div class="modal-content">
+    <div class="modal-body">
+      <ul id="payTab" class="nav nav-tabs" role="tablist">
+        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_stripe_payment %>">
+          <a href="#payStripe" id="log-tab" class="nav-link show <%= pending_wire_transfer ? 'disabled' : ('active' if active_stripe_tab) %>" aria-controls="payStripe" <%= "aria-selected" if active_stripe_tab %> data-toggle="tab" role = "tab">
+            <%= image_tag(asset_pack_path('media/images/stripe.svg'), alt: '', class: 'db-card-providers__item db-card-providers__item--stripe') %>
+          </a>
+        </li>
+        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_zen_payment %>">
+          <a href="#payZen" id="log-tab" class="nav-link show <%= pending_wire_transfer ? 'disabled' : ('active' if active_zen_tab) %>" aria-controls="payZen" <%= "aria-selected" if active_zen_tab %> data-toggle="tab" role = "tab">
+          <div class="db-card-providers">
+            <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
+            <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
+          </div>
+          </a>
+        </li>
+        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_bitcoin_payment %>">
+          <a href="#payBitcoin" id="log-tab" class="nav-link <%= pending_wire_transfer ? 'disabled' : ('active' if active_bitcoin_tab) %>" aria-controls="payBitcoin" <%= "aria-selected" if active_bitcoin_tab %> data-toggle="tab" role = "tab">
+            <div class="db-card-providers">
+              <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
+            </div>
+          </a>
+        </li>
+        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_wire_payment %>">
+          <a href="#payWire" id="log-tab" class="nav-link <%= 'active disabled' if pending_wire_transfer %> <%= 'active' if active_wire_tab %>" aria-controls="payWire" <%= "aria-selected" if active_wire_tab %> data-toggle="tab" role = "tab">
+            <%= t('subscriptions.payment.wire_transfer') %>
+          </a>
+        </li>
+      </ul>
+      <div id="payTabContent" class="tab-content">
+
+        <div id="payStripe" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_stripe_tab) %>" aria-labelledby="log-tab" role="tabpanel">
+          <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
+            <input type="radio" class="db-plan-radio" id="payment_plan_investor_stripe" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
+          <% end %>
+          <% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% hodler_selected = upgrade_presenter.selected_plan_name == 'hodler' %>
+            <input type="radio" class="db-plan-radio" id="payment_plan_hodler_stripe" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.hodler_plan.id %>" <%= "checked" if hodler_selected %>>
+          <% end %>
+          <% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
+            <input type="radio" class="db-plan-radio" id="payment_plan_legendary_badger_stripe" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
+          <% end %>
+          <% if show_stripe_payment %>
+            <script src="https://js.stripe.com/v3/"></script>
+          <% end %>
+          <% unless stripe_payment_in_process %>
+            <div class="db-form__row">
+              <select id="payment_country_stripe" class="db-form__input db-form__input--select" autocomplete="country-name" name="payment[country]" onchange='this.setAttribute("value", this.value);' onfocus='this.setAttribute("value", this.value);' value="Other" <%= "disabled" if pending_wire_transfer %>>
+                <% cost_presenters.each do |country, presenter| %>
+                  <% selected = country == upgrade_presenter.payment.country %>
+                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
+                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price } %>
+                <% end %>
+              </select>
+              <label class="db-form__label" for="payment_country"><%= t('helpers.label.payment.country') %></label>
+            </div>
+            <form id="payment-form">
+              <div class="db-form__row">
+                <div id="card-number" class="db-form__input"></div>
+              </div>
+              <div class="db-form__row db-card-details">
+                <div id="card-exp" class="db-form__input"></div>
+                <div id="card-cvc" class="db-form__input"></div>
+              </div>
+              <button class="submit card-submit">
+                <div id="spinner" class="spinner hidden"></div>
+                <span id="button-text"><%= t('subscriptions.payment.pay') %></span>
+              </button>
+              <p id="card-error" class="card-error" role="alert"></p>
+              <p class="result-message hidden"><%= t('subscriptions.payment.stripe_payment_succeeded') %></p>
+            </form>
+          <% else %>
+            <p class="result-message"><%= t('subscriptions.payment.wire_transfer_pending') %></p>
+          <% end %>
+        </div>
+
+        <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
+          <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |f| %>
+            <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
+            <% end %>
+            <% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% hodler_selected = upgrade_presenter.selected_plan_name == 'hodler' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_hodler_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.hodler_plan.id %>" <%= "checked" if hodler_selected %>>
+            <% end %>
+            <% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_badger_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
+            <% end %>
+            <div class="db-form__row">
+              <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
+                <% cost_presenters.each do |country, presenter| %>
+                  <% selected = country == upgrade_presenter.payment.country %>
+                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
+                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price } %>
+                <% end %>
+              <% end %>
+              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
+              <%= f.label :country, class: 'db-form__label' %>
+            </div>
+            <div class="db-form__row db-form__row--final-button">
+              <%= button_to upgrade_zen_payment_path, method: :post, class: "btn btn-success btn-lg w-100" do %>
+                <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
+                <% keys.each do |key| %>
+                  <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: upgrade_presenter.selected_cost_presenter, method: 'total_price', key: key } %>
+                <% end %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
+          <%= form_with model: Payment, url: upgrade_btcpay_payment_path, local: true do |f| %>
+            <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_investor" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
+            <% end %>
+            <% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% hodler_selected = upgrade_presenter.selected_plan_name == 'hodler' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_hodler" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.hodler_plan.id %>" <%= "checked" if hodler_selected %>>
+            <% end %>
+            <% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_badger" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
+            <% end %>
+            <div class="db-form__row">
+              <%= f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", onchange: 'this.setAttribute("value", this.value);' %>
+              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
+              <%= f.label :first_name, class: 'db-form__label' %>
+            </div>
+            <div class="db-form__row">
+              <%= f.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", onchange: 'this.setAttribute("value", this.value);' %>
+              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank') %></div>
+              <%= f.label :last_name, class: 'db-form__label' %>
+            </div>
+            <div class="db-form__row">
+              <%= f.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date', onchange: 'this.setAttribute("value", this.value);' %>
+              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.birth_date') + ' ' + t('errors.messages.blank') %></div>
+              <%= f.label :birth_date, class: 'db-form__label' %>
+            </div>
+            <div class="db-form__row">
+              <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
+                <% cost_presenters.each do |country, presenter| %>
+                  <% selected = country == upgrade_presenter.payment.country %>
+                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
+                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price } %>
+                <% end %>
+              <% end %>
+              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
+              <%= f.label :country, class: 'db-form__label' %>
+            </div>
+            <div class="db-form__row db-form__row--final-button">
+              <%= button_to upgrade_btcpay_payment_path, method: :post, class: "btn btn-success btn-lg w-100 px-1" do %>
+                <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
+          <form id="new_payment" class="new_payment" accept-charset="UTF-8" action="/en/upgrade/wire_transfer_payment" method="post">
+            <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% investor_selected = upgrade_presenter.selected_plan_name == 'investor' %>
+              <input type="radio" class="db-plan-radio" id="payment_plan_investor_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.investor_plan.id %>" <%= "checked" if investor_selected %>>
+            <% end %>
+            <% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% hodler_selected = upgrade_presenter.selected_plan_name == 'hodler' %>
+              <input type="radio" class="db-plan-radio" id="payment_plan_hodler_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.hodler_plan.id %>" <%= "checked" if hodler_selected %>>
+            <% end %>
+            <% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
+              <% legendary_badger_selected = upgrade_presenter.selected_plan_name == 'legendary_badger' %>
+              <input type="radio" class="db-plan-radio" id="payment_plan_legendary_badger_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_badger_plan.id %>" <%= "checked" if legendary_badger_selected %>>
+            <% end %>
+            <div class="db-form__row">
+              <input id="payment_first_name_wire" class="db-form__input" type="text" name="payment[first_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="given-name" <%= "disabled" if pending_wire_transfer %>>
+              <label class="db-form__label" for="payment_first_name"><%= t('helpers.label.payment.first_name') %></label>
+            </div>
+            <div class="db-form__row">
+              <input id="payment_last_name_wire" class="db-form__input" type="text" name="payment[last_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="family-name"<%= "disabled" if pending_wire_transfer %>>
+              <label class="db-form__label" for="payment_last_name"><%= t('helpers.label.payment.last_name') %></label>
+            </div>
+            <div class="db-form__row">
+              <select id="payment_country_wire" class="db-form__input db-form__input--select" autocomplete="country-name" name="payment[country]" onchange="this.setAttribute('value', this.value);" onfocus="this.setAttribute('value', this.value);" value="" <%= "disabled" if pending_wire_transfer %>>
+                <% cost_presenters.each do |country, presenter| %>
+                  <% selected = country == upgrade_presenter.payment.country %>
+                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
+                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:investor].base_price, hbp: presenter[:hodler].base_price, lbbp: presenter[:legendary_badger].base_price, ifd: presenter[:investor].flat_discount, hfd: presenter[:hodler].flat_discount, lbfd: presenter[:legendary_badger].flat_discount, idp:presenter[:investor].flat_discounted_price, hdp:presenter[:hodler].flat_discounted_price, lbdp:presenter[:legendary_badger].flat_discounted_price, idpa: presenter[:investor].discount_percent_amount, hdpa: presenter[:hodler].discount_percent_amount, lbdpa: presenter[:legendary_badger].discount_percent_amount, vp: presenter[:investor].vat_integer, itv: presenter[:investor].total_vat, htv: presenter[:hodler].total_vat, lbtv: presenter[:legendary_badger].total_vat, itp: presenter[:investor].total_price, htp: presenter[:hodler].total_price , lbtp: presenter[:legendary_badger].total_price } %>
+                <% end %>
+              </select>
+              <label class="db-form__label" for="payment_country"><%= t('helpers.label.payment.country') %></label>
+            </div>
+            <div id="please_fill_wire_form" class="db-form__row--visible"><%= t('subscriptions.payment.wire_transfer_fill_form') %></div>
+            <% if pending_wire_transfer %>
+              <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
+              <div class="db-form__row">
+                <% name = upgrade_presenter.subscription_plan_repository.find(current_user.pending_plan_id).name %>
+                <% if name == 'hodler' %>
+                  <% price = cost_presenters[current_user.pending_wire_transfer][:hodler].total_price %>
+                <% elsif name == 'legendary_badger' %>
+                  <% price = cost_presenters[current_user.pending_wire_transfer][:legendary_badger].total_price %>
+                <% else %>
+                  <% price = cost_presenters[current_user.pending_wire_transfer][:investor].total_price %>
+                <% end %>
+                <%= t('subscriptions.payment.wire_cost_pending_html', sign: current_user.pending_wire_transfer.downcase == 'other' ? '$' : '€', price: price) %>
+              </div>
+            <% else %>
+              <div id="wire_costs" class="db-form__row--hidden">
+                <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
+                  <span class="db-show--investor"><%= t('subscriptions.payment.wire_cost_investor_html', price: cost_presenters[upgrade_presenter.payment.country][:investor].total_price) %></span>
+                <% end %>
+                <% if 'hodler'.in?(upgrade_presenter.available_plans_for_current_user) %>
+                  <span class="db-show--hodler"><%= t('subscriptions.payment.wire_cost_hodler_html', price: cost_presenters[upgrade_presenter.payment.country][:hodler].total_price) %></span>
+                <% end %>
+                <% if 'legendary_badger'.in?(upgrade_presenter.available_plans_for_current_user) %>
+                  <span class="db-show--hodler"><%= t('subscriptions.payment.wire_cost_legendary_badger_html', price: cost_presenters[upgrade_presenter.payment.country][:legendary_badger].total_price) %></span>
+                <% end %>
+              </div>
+            <% end %>
+            <div id="wire_form_eu" class="db-form__row--hidden">
+              <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+              <p>Deltabadger OU</p>
+              <h5>BIC</h5>
+              <p>TRWIBEB1XXX</p>
+              <h5><%= "IBAN (" + t('subscriptions.payment.eu_bank_country') + ")" %></h5>
+              <p>BE83 9670 6500 4615</p>
+              <h5><%= t('subscriptions.payment.bank_address') %></h5>
+              <p>
+                Avenue Louise 54, Room S52<br>
+                Brussels<br>
+                1050<br>
+                Belgium
+              </p>
+              <% unless pending_wire_transfer %>
+                <div class="db-form__row db-form__row--final-button">
+                  <button class="btn btn-success btn-lg w-100 px-1" type="submit">
+                    <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer') %></span>
+                  </button>
+                </div>
+              <% end %>
+            </div>
+            <div id="wire_form_other" class="db-form__row--hidden">
+              <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+              <p>Deltabadger OU</p>
+              <h5>Routing number</h5>
+              <p>084009519</p>
+              <h5>Account number</h5>
+              <p>9600 0000 0051 1836</p>
+              <h5>Account type</h5>
+              <p>Checking</p>
+              <h5><%= t('subscriptions.payment.bank_address') %></h5>
+              <p>
+                TransferWise<br>
+                19 W 24th Street<br>
+                New York NY 10010<br>
+                United States
+              </p>
+              <% unless pending_wire_transfer %>
+                <div class="db-form__row db-form__row--final-button">
+                  <button class="btn btn-success btn-lg w-100 px-1" type="submit">
+                    <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer_other') %></span>
+                  </button>
+                </div>
+              <% end %>
+            </div>
+          </form>  
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
