@@ -15,9 +15,9 @@ module ExchangeApi
         def fetch_all_symbols
           request = @caching_client.get('/v1/symbols')
           response = JSON.parse(request.body)
-          market_symbols = response.map do |symbol_info|
-            base = get_base(symbol_info)
-            quote = get_quote(symbol_info)
+          market_symbols = response.map do |symbol|
+            base = get_base(symbol)
+            quote = get_quote(symbol)
             raise StandardError if base.nil? || quote.nil?
 
             MarketSymbol.new(base, quote)
@@ -115,6 +115,12 @@ module ExchangeApi
         end
 
         def get_quote(symbol)
+          guess_quote(symbol) || fetch_quote(symbol)
+        end
+
+        def guess_quote(symbol)
+          return 'USD' if symbol == 'paxgusd'
+
           known_four_char_quotes = %w[gusd usdt]
           known_three_char_quotes = %w[usd eur gbp sgd dai btc eth ltc bch fil]
 
@@ -122,19 +128,32 @@ module ExchangeApi
             symbol[-4..].upcase
           elsif known_three_char_quotes.include?(symbol[-3..])
             symbol[-3..].upcase
-          else
-            symbol_details = fetch_symbol(symbol)
-            return nil unless symbol_details.success?
-
-            symbol_details.data['quote_currency']
           end
         end
 
+        def fetch_quote(symbol)
+          symbol_details = fetch_symbol(symbol)
+          return nil unless symbol_details.success?
+
+          symbol_details.data['quote_currency']
+        end
+
         def get_base(symbol)
-          quote = get_quote(symbol)
+          guess_base(symbol) || fetch_base(symbol)
+        end
+
+        def guess_base(symbol)
+          quote = guess_quote(symbol)
           return nil if quote.nil?
 
           symbol[0...-quote.length].upcase
+        end
+
+        def fetch_base(symbol)
+          symbol_details = fetch_symbol(symbol)
+          return nil unless symbol_details.success?
+
+          symbol_details.data['base_currency']
         end
       end
     end
