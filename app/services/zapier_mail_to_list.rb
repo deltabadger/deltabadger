@@ -23,9 +23,11 @@ class ZapierMailToList < BaseService
   end
 
   def add_email_request_body(email, name)
-    {
-      email: email,
-      name: name.split.first.capitalize
+    body = {
+      email: email
     }
+    body[:name] = name.split.first.capitalize if name.present?
+
+    body
   end
 end
