@@ -5,6 +5,8 @@ class ParseInterval < BaseService
 
   def call(bot)
     last_transaction = set_last_transaction(bot)
+    raise Error, "Unable to find last transaction for bot #{bot.id}" if last_transaction.nil?
+
     user_interval = calculate_user_interval(last_transaction)
 
     user_price = last_transaction.bot_price.to_f
