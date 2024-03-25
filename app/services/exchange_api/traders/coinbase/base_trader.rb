@@ -114,6 +114,8 @@ module ExchangeApi
           else
             error_to_failure([response['message']])
           end
+        rescue JSON::ParserError
+          Result::Failure.new('Could not parse Coinbase response', **RECOVERABLE)
         end
 
         def order_done?(request, response)
