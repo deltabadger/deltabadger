@@ -41,6 +41,9 @@ module ExchangeApi
             amount: amount,
             rate: rate
           )
+        rescue KeyError => e
+          Raven.capture_exception(e)
+          Result::Failure.new("Could not fetch Gemini order by id: #{order_id}", **RECOVERABLE)
         end
 
         private
@@ -88,12 +91,12 @@ module ExchangeApi
 
             Result::Success.new(offer_id: order_id)
           else
-            error_to_failure([response.fetch('reason')])
+            error_to_failure([response.fetch('reason', 'Unknown error')])
           end
         end
 
         def was_not_filled?(response)
-          response.fetch('reason', '') == 'FillOrKillWouldNotFill'
+          response.fetch('reason', nil) == 'FillOrKillWouldNotFill'
         end
 
         def was_filled?(request)
