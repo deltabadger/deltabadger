@@ -211,8 +211,10 @@ en:
         triggered_first: 'the first webhook is triggered.'
         triggered_second: 'the second webhook is triggered.'
         webhook_has_been_copied: 'Webhook has been copied to clipboard.'
-        trading_fee: 'Trading Fee'
-        withdrawal_fee: 'Withdrawal Fee (BTC)'
+        fees: 'Fees'
+        maker_fee: 'Maker'
+        taker_fee: 'Taker'
+        withdrawal_fee: 'Withdrawal (₿)'
         additional_title: Two-way bot
         setup:
             api_not_available: 'Exchange API is not available'
