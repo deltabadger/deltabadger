@@ -258,8 +258,12 @@ input
         height:               3.8rem !important
         color:                var(--pickExchangeItemTxt) !important
         box-shadow:           none !important
-        div:first-child
-          font-weight:        bold !important
+        div
+          text-overflow:      ellipsis
+          white-space:        nowrap
+          overflow:           hidden
+          &:first-child
+            font-weight:      bold !important
       &:hover:not(.db-bot__types__item--inactive)
         background-color:     var(--primary)
         color:                var(--pickExchangeItemSelect)
