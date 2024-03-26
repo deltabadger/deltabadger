@@ -15,8 +15,9 @@ export const PickExchange = ({ handleSubmit, exchanges, type }) => {
       <Progressbar value={0} />
       <div className="db-bot__exchanges">
         <div className="db-bot__exchanges__item db-bot__exchanges__item--header">
-          <div></div>
-          <div>{I18n.t('bots.trading_fee')}</div>
+          <div>{I18n.t('bots.fees')}</div>
+          <div>{I18n.t('bots.maker_fee')}</div>
+          <div>{I18n.t('bots.taker_fee')}</div>
           <div>{I18n.t('bots.withdrawal_fee')}</div>
         </div>
         {
