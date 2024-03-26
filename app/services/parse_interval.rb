@@ -4,8 +4,8 @@ class ParseInterval < BaseService
   INTERVALS = %w[month week day hour].freeze
 
   def call(bot)
-    last_transaction = set_last_transaction(bot)
-    raise Error, "Unable to find last transaction for bot #{bot.id}" if last_transaction.nil?
+    last_transaction = bot.last_successful_transaction
+    return 0.0 if last_transaction.nil?
 
     user_interval = calculate_user_interval(last_transaction)
 
@@ -26,11 +26,5 @@ class ParseInterval < BaseService
     raise Error, 'Invalid interval' if !INTERVALS.include?(interval)
 
     1.public_send(interval).seconds
-  end
-
-  def set_last_transaction(bot)
-    return bot.last_successful_transaction if bot.last_transaction.status == 'failure'
-
-    bot.last_transaction
   end
 end
