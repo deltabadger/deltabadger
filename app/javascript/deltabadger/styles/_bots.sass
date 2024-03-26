@@ -259,7 +259,11 @@ input
         color:                var(--pickExchangeItemTxt) !important
         box-shadow:           none !important
         div
-          font-weight:        bold !important
+          text-overflow:      ellipsis
+          white-space:        nowrap
+          overflow:           hidden
+          &:first-child
+            font-weight:      bold !important
       &:hover:not(.db-bot__types__item--inactive)
         background-color:     var(--primary)
         color:                var(--pickExchangeItemSelect)
@@ -267,7 +271,7 @@ input
   &__exchanges
     &__item
       display:                grid
-      grid-template-columns:  33% 33% 33%
+      grid-template-columns:  30% 20% 20% 30%
   &__types
     &__item
       display:                flex
