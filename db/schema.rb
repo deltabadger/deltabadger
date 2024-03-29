@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_03_26_084728) do
+ActiveRecord::Schema.define(version: 2024_03_29_172827) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -78,6 +78,7 @@ ActiveRecord::Schema.define(version: 2024_03_26_084728) do
     t.decimal "account_balance", default: "0.0"
     t.datetime "last_end_of_funds_notification"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
+    t.index ["user_id", "bot_type"], name: "index_bots_on_user_id_and_bot_type"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
@@ -192,6 +193,7 @@ ActiveRecord::Schema.define(version: 2024_03_26_084728) do
     t.boolean "limit_almost_reached_sent", default: false
     t.datetime "first_month_ending_sent_at"
     t.integer "sequence_number"
+    t.string "eth_address"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
@@ -246,6 +248,7 @@ ActiveRecord::Schema.define(version: 2024_03_26_084728) do
     t.string "name"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["referrer_id"], name: "index_users_on_referrer_id"
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
