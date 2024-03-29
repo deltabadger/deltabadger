@@ -2,16 +2,38 @@
 <%= render partial: "layouts/navbar/signed_in", locals: { upgrade_presenter: nil, cost_presenter: nil } %>
 
 <div class="db_legendary-badger">
-  <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", current_user.subscription.sequence_number) + ".svg") %>">
+  <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", @subscription.sequence_number) + ".svg") %>">
   <div class="db_legendary-badger__title">
     <% short_list = { 0 => "Lost wallet", 1 => "Hodler", 21 => "Maximalist", 100 => "Gateway", 111 => "Smart intervals", 200 => "Bull market", 222 => "Failure", 300 => "Singularity is loading", 333 => "Money lego", 400 => "Access denied", 444 => "Things got wild", 500 => "Under construction", 555 => "I'm a human", 600 => "Let's Play", 666 => "Impostor", 700 => "Rebalancing", 777 => "Angel", 800 => "", 888 => "Thank you", 900 => "Market signals", 999 => "Hyperbitcoinization" } %>
-    <% if short_list.key?(current_user.subscription.sequence_number) %>
-      <% key = current_user.subscription.sequence_number %>
+    <% if short_list.key?(@subscription.sequence_number) %>
+      <% key = @subscription.sequence_number %>
       <% value = short_list[key] %>
       <% result = "#" + "#{sprintf("%03d",key)} · #{value}" %>
     <% else %>
-      <% result = "#" + sprintf("%03d", current_user.subscription.sequence_number) %>
+      <% result = "#" + sprintf("%03d", @subscription.sequence_number) %>
     <% end %>
     <%= result %>
   </div>
+
+  <% if @subscription.eth_address.present? %>
+    <div class="db_legendary-badger__eth-address">
+      <div class="db_legendary-badger__eth-address__label">Legendary Badger NFT will be sent to:</div>
+      <div class="db_legendary-badger__eth-address__value"><%= @subscription.eth_address %></div>
+    </div>
+  <% end %>
+  
+  <% flash.each do |type, message| %>
+    <div class="flash <%= type %>"><%= message %></div>
+  <% end %>
+
+  <%= form_with model: Subscription, url: legendary_badger_path, method: :patch, local: true do |f| %>
+    <div class="db_legendary-badger__eth-address">
+      <%= f.label :eth_address, "Submit the Ethereum address where you want the Legendary Badger NFT to be sent:" %>
+      <%= f.text_field :eth_address, class: "form-control" %>
+    </div>
+    <div class="db_legendary-badger__submit">
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    </div>
+  <% end %>
+
 </div>
