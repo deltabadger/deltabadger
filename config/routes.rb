@@ -104,11 +104,15 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
+    resource :legendary_badger, only: [:show, :update], path: '/legendary-badger', controller: :legendary_badger do
+      get '/', action: :show
+      patch '/', action: :update
+    end
+
     get '/dashboard', to: 'home#dashboard', as: :dashboard
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
     get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy
-    get '/legendary-badger', to: 'legendary_badger#show', as: :legendary_badger
     get '/contact', to: 'home#contact', as: :contact
     get '/about', to: 'home#about', as: :about
     get '/referral-program', to: 'home#referral_program', as: :referral_program
