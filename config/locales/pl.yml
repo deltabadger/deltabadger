@@ -180,9 +180,9 @@ pl:
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum}%{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: Miesiąc
-        next_buy: 'Następny zakup za %{countdown}'
-        next_sell: 'Następna sprzedaż za %{countdown}'
-        next_withdrawal: 'Następna wypłata za %{countdown}'
+        next_buy: 'Kolejna za %{countdown}'
+        next_sell: 'Kolejna za %{countdown}'
+        next_withdrawal: 'Kolejna za %{countdown}'
         price: 'aktualnej ceny'
         price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{currency}.'
         price_range_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{currency}.'

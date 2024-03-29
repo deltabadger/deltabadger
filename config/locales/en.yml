@@ -194,9 +194,9 @@ en:
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum}USD.'
         month: Month
-        next_buy: 'Next buy in %{countdown}'
-        next_sell: 'Next sell in %{countdown}'
-        next_withdrawal: 'Next withdrawal in %{countdown}'
+        next_buy: 'Next in %{countdown}'
+        next_sell: 'Next in %{countdown}'
+        next_withdrawal: 'Next in %{countdown}'
         price: 'the price'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         price_range_html: 'Buy only in the  price range from <split>$100</split> to <split>$1000</split> %{currency}.'
