@@ -27,10 +27,12 @@
   <% end %>
 
   <%= form_with model: Subscription, url: legendary_badger_path, method: :patch, local: true do |f| %>
-    <div class="db_legendary-badger__eth-address">
-      <%= f.label :eth_address, "Submit the Ethereum address where you want the Legendary Badger NFT to be sent:" %>
-      <%= f.text_field :eth_address, class: "form-control" %>
+    
+    <div class="db_legendary-badger__eth-address db-form__row db-form__row--input db-form__row--input--empty">
+      <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", onchange: 'this.setAttribute("value", this.value);' %>
+      <%= f.label :eth_address, "Ethereum Address:", class: "db-form__label", for: "eth_address" %>
     </div>
+
     <div class="db_legendary-badger__submit">
       <%= f.submit "Save", class: "btn btn-primary" %>
     </div>
