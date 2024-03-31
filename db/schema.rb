@@ -78,7 +78,6 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.decimal "account_balance", default: "0.0"
     t.datetime "last_end_of_funds_notification"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
-    t.index ["user_id", "bot_type"], name: "index_bots_on_user_id_and_bot_type"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
@@ -248,7 +247,6 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.string "name"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
-    t.index ["referrer_id"], name: "index_users_on_referrer_id"
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
