@@ -10,9 +10,9 @@ class LegendaryBadgerController < ApplicationController
 
   def update
     if current_user.subscription.update(legendary_badger_params)
-      redirect_to legendary_badger_path, notice: 'Address was successfully added.'
+      redirect_to legendary_badger_path, notice: ''
     else
-      flash.now[:alert] = "#{current_user.subscription.eth_address} is an invalid Ethereum address. Please check your input."
+      flash.now[:alert] = I18n.t('legendary_badger.invalid_address', eth_address: current_user.subscription.eth_address)
       @subscription = current_user.subscription.reload
       render :show
     end
