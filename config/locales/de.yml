@@ -612,6 +612,11 @@ de:
         saver: Sparer
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'
+    legendary_badger:
+        will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
+        invalid_address: '%{eth_address} ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
+        ethereum_address: Ethereum-Adresse
+        confirm: Bestätigen
     welcome:
         banner_html: 'Hallo %{name}! <b>Überprüfe deine Mailbox</b> und finde Tipps und Tricks für das perfekte Bot-Setup, das ich für dich vorbereitet habe. <b>Wenn sie im Spam-Ordner gelandet ist, verschiebe sie in deinen Posteingang</b>, damit du unsere Nachrichten in Zukunft sehen kannst. Danke, Jan'
         default: 'Hallo, willkommen bei Deltabadger'
