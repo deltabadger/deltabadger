@@ -686,6 +686,11 @@ nl:
         saver: Spaarder
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
+    legendary_badger:
+        will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
+        invalid_address: '%{eth_address} est une adresse Ethereum invalide. Veuillez réessayer.'
+        ethereum_address: 'Adresse Ethereum'
+        confirm: 'Confirmer'
     welcome:
         banner_html: 'Hallo %{name}! <b>Controleer je mailbox</b> en vind tips voor de perfecte bot setup die ik voor jou heb voorbereid. <b>Als de mail in je spam-folder is beland, verplaats hem dan naar je inbox</b>, zodat je onze berichten in de toekomst niet mist. Bedankt, Jan'
         default: 'Hallo, welkom bij Deltabadger'
