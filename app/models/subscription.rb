@@ -25,7 +25,8 @@ class Subscription < ApplicationRecord
     end
     errors.add :sequence_number, :used, message: '%<value>s is already used' if sequence_number_already_used?
   end
-  validate :eth_address_is_valid, if: -> { eth_address.present? }
+
+  validate :eth_address_is_valid, if: -> { !eth_address.nil? }
 
   private
 
