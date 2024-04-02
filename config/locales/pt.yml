@@ -573,9 +573,11 @@ pt:
         upgrade_plan: 'Atualizar plano'
     legendary_badger:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
-        invalid_address: '%{eth_address} é um endereço Ethereum inválido. Por favor, tente novamente.'
+        invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
+        update_success: '"%{eth_address}" foi submetido com sucesso. O NFT será enviado para este endereço.'
         ethereum_address: 'Endereço Ethereum'
         confirm: Confirmar
+        update: Atualizar
     welcome:
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
