@@ -37,7 +37,7 @@
     </div>
 
     <div class="db_legendary-badger__submit">
-      <%= f.submit I18n.t('legendary_badger.confirm'), class: "btn btn-lg btn-primary" %>
+      <%= f.submit I18n.t((@subscription.eth_address.present? ? 'legendary_badger.update' : 'legendary_badger.confirm')), class: "btn btn-lg btn-primary" %>
     </div>
   <% end %>
 
