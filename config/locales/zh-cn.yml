@@ -704,8 +704,10 @@ zh-cn:
         upgrade_plan: 升级套餐
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT将发送至：'
-        invalid_address: '%{eth_address}是一个无效的以太坊地址。请重试。'
+        invalid_address: '"%{eth_address}"是一个无效的以太坊地址。请重试。'
+        update_success: '"%{eth_address}" 已成功提交。NFT 将发送到此地址。'
         confirm: '确认'
+        update: '更新'
     welcome:
         banner_html: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
         default: '嗨，欢迎来到 Deltabadger'

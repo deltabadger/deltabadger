@@ -10,7 +10,7 @@ class LegendaryBadgerController < ApplicationController
 
   def update
     if current_user.subscription.update(legendary_badger_params)
-      redirect_to legendary_badger_path, notice: ''
+      redirect_to legendary_badger_path, notice: I18n.t('legendary_badger.update_success', eth_address: current_user.subscription.eth_address)
     else
       flash.now[:alert] = I18n.t('legendary_badger.invalid_address', eth_address: current_user.subscription.eth_address)
       @subscription = current_user.subscription.reload

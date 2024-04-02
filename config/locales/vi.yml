@@ -704,8 +704,10 @@ vi:
         upgrade_plan: 'Nâng cấp gói'
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger sẽ được gửi đến:'
-        invalid_address: '%{eth_address} là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
+        invalid_address: '"%{eth_address}" là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
+        update_success: '"%{eth_address}" đã được gửi thành công. NFT sẽ được gửi đến địa chỉ này.'
         confirm: 'Xác nhận'
+        update: 'Cập nhật'
     welcome:
         banner_html: "Chào mừng bạn! Bạn hiện đang sử dụng <b>gói miễn phí với hạn mức giao dịch là $1200/năm</b>, tuy nhiên gói này sẽ không có hiệu lực trong tháng đầu tiên. Hãy thử bất kỳ thời gian nào bạn muốn. Bạn cũng có thể nâng cấp gói để tận hưởng các giao dịch không giới hạn sau này. Ngoài ra, gói Hodler 4 năm còn cung cấp quyền truy cập vào các tính năng thử nghiệm mới (ví dụ: giao dịch bằng tất cả các đồng tiền). Chúng tôi hoan nghênh tất cả các ý kiến phản hồi. Tham gia\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">nhóm Telegram</a> của chúng tôi, hoặc theo dõi chúng tôi trên <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Chúc bạn trung bình giá thành công!"
         default: 'Xin chào, chào mừng bạn đến với Deltabadger'

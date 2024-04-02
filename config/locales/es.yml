@@ -688,9 +688,11 @@ es:
         upgrade_plan: 'Actualizar plan'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT será enviado a:'
-        invalid_address: '%{eth_address} es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
+        invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
+        update_success: '"%{eth_address}" ha sido enviado con éxito. El NFT será enviado a esta dirección.'
         ethereum_address: 'Dirección de Ethereum'
         confirm: Confirmar
+        update: Actualizar
     welcome:
         banner_html: 'Hola %{name}<b>Revisa tu buzón</b> y encuentra los consejos y trucos de la configuración perfecta del bot que he preparado para ti. <b>Si ha caído en la carpeta de spam, muévelo a tu bandeja de entrada</b>, para que puedas ver nuestros mensajes en el futuro. Gracias, Jan.'
         default: 'Hola, bienvenido a Deltabadger'
