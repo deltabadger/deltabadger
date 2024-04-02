@@ -736,7 +736,8 @@ en:
         upgrade_plan: 'Upgrade plan'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
-        invalid_address: '%{eth_address} is an invalid Ethereum address. Please try again.'
+        invalid_address: '"%{eth_address}" is an invalid Ethereum address. Please try again.'
+        update_success: '"%{eth_address}" has been successfully submitted. The NFT will be sent to this address.'
         ethereum_address: 'Ethereum address'
         confirm: Confirm
         update: Update
