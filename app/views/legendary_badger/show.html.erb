@@ -18,31 +18,27 @@
   </div>
 
   <% if @subscription.eth_address.present? %>
-    
     <div class="db_legendary-badger__eth-address">
       <div class="db_legendary-badger__eth-address__label"><%= I18n.t('legendary_badger.will_be_sent') %></div>
       <div class="db_legendary-badger__eth-address__value"><%= @subscription.eth_address %></div>
     </div>
+  <% end %>
 
-  <% else %>
+  <%= form_with model: Subscription, url: legendary_badger_path, method: :patch, local: true do |f| %>
+    
+    <div class="db_legendary-badger__eth-form db-form__row db-form__row--input db-form__row--input--empty">
+      <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", placeholder: "0x123456789...", onchange: 'this.setAttribute("value", this.value);' %>
 
-    <%= form_with model: Subscription, url: legendary_badger_path, method: :patch, local: true do |f| %>
-      
-      <div class="db_legendary-badger__eth-form db-form__row db-form__row--input db-form__row--input--empty">
-        <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", placeholder: "0x123456789...", onchange: 'this.setAttribute("value", this.value);' %>
+      <% flash.each do |type, message| %>
+        <div class="db-form__info db-form__info--<%= type %>"><%= message %></div>
+      <% end %>
 
-        <% flash.each do |type, message| %>
-          <div class="db-form__info db-form__info--<%= type %>"><%= message %></div>
-        <% end %>
+      <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label", for: "eth_address" %>
+    </div>
 
-        <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label", for: "eth_address" %>
-      </div>
-
-      <div class="db_legendary-badger__submit">
-        <%= f.submit I18n.t('legendary_badger.confirm'), class: "btn btn-lg btn-primary" %>
-      </div>
-    <% end %>
-
+    <div class="db_legendary-badger__submit">
+      <%= f.submit I18n.t('legendary_badger.confirm'), class: "btn btn-lg btn-primary" %>
+    </div>
   <% end %>
 
 </div>
