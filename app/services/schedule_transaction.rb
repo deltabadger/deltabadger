@@ -38,7 +38,8 @@ class ScheduleTransaction < BaseService
 
   def decrease_delay(bot)
     interval = parse_interval.call(bot).to_i
-    new_delay = [bot.delay - bot.current_delay, 0].max
+    new_delay = [bot.delay - bot.current_delay, 0].max # FIXME: find why sometimes new_delay is bigger than interval
+    Rails.logger.info("Bot: #{bot.id}, Delay: #{bot.delay}, Current delay: #{bot.current_delay}, New delay: #{new_delay}")
     new_current_delay = [new_delay, interval].min
     bots_repository.update(bot.id, delay: new_delay, current_delay: new_current_delay)
   end
