@@ -256,6 +256,7 @@ export const ExchangeButton = ({ handleClick, exchange, type }) => {
       onClick={() => handleClick(exchange.id, exchange.name)}
     >
       <div>{exchange.name}</div>
+      <div>{exchange.maker_fee}%</div>
       <div>{exchange.taker_fee}%</div>
       <div>{exchange.withdrawal_fee}</div>
     </div>
