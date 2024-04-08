@@ -47,7 +47,7 @@ module ExchangeApi
             )
           else
             Raven.capture_exception(StandardError.new("Unexpected response status: #{response.status}"))
-            Result::Failure.new('Could not fetch order parameters from Coinbase')
+            Result::Failure.new("Could not fetch order parameters from Coinbase. Unexpected response status: #{response.status}")
           end
         rescue StandardError => e
           Raven.capture_exception(e)
