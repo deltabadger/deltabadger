@@ -26,6 +26,8 @@ class Subscription < ApplicationRecord
     errors.add :sequence_number, :used, message: '%<value>s is already used' if sequence_number_already_used?
   end
 
+  validate :eth_address_is_valid, if: -> { !eth_address.nil? }
+
   private
 
   def sequence_number_already_used?
@@ -49,5 +51,11 @@ class Subscription < ApplicationRecord
   def next_sequence_number
     allowable_sequence_numbers = [*0..999] - self.class.used_sequence_numbers
     allowable_sequence_numbers.sample
+  end
+
+  def eth_address_is_valid
+    return if eth_address =~ /^0x[a-fA-F0-9]{40}$/
+
+    errors.add(:eth_address, 'is not a valid Ethereum address')
   end
 end

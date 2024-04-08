@@ -81,8 +81,8 @@ class SendgridMailToList < BaseService
     result.select { |list| list['name'] == list_name }.pluck('id') if result.present?
   end
 
-  def create_list_id(name = LIST_NAME)
-    response = Faraday.post(LISTS_URL, new_list_request_body(name).to_json, headers)
+  def create_list_id(list_name = LIST_NAME)
+    response = Faraday.post(LISTS_URL, new_list_request_body(list_name).to_json, headers)
     body = JSON.parse(response.body)
 
     raise StandardError, body['errors'] unless response.status == 201
@@ -91,8 +91,7 @@ class SendgridMailToList < BaseService
   end
 
   def add_email_to_list(user, email_list_ids = list_ids)
-    user_first_name_only = user.name.split.first.capitalize
-    response = Faraday.put(CONTACTS_URL, add_email_request_body(user.email, user_first_name_only, email_list_ids).to_json, headers)
+    response = Faraday.put(CONTACTS_URL, add_email_request_body(user.email, user.name, email_list_ids).to_json, headers)
     body = JSON.parse(response.body)
 
     raise StandardError, body['errors'] unless response.status == 202
@@ -110,21 +109,23 @@ class SendgridMailToList < BaseService
     }
   end
 
-  def new_list_request_body(name)
+  def new_list_request_body(list_name)
     {
-      'name' => name
+      name: list_name
     }
   end
 
   def add_email_request_body(email, name, email_list_ids)
-    {
-      'list_ids' => email_list_ids,
-      'contacts' => [
+    body = {
+      list_ids: email_list_ids,
+      contacts: [
         {
-          'email' => email,
-          'first_name' => name
+          email: email
         }
       ]
     }
+    body[:contacts][0][:first_name] = name.split.first.capitalize if name.present?
+
+    body
   end
 end

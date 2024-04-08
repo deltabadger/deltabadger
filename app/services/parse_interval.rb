@@ -4,7 +4,11 @@ class ParseInterval < BaseService
   INTERVALS = %w[month week day hour].freeze
 
   def call(bot)
+    return 0.0 if bot.webhook?
+
     last_transaction = set_last_transaction(bot)
+    return 0.0 if last_transaction.nil?
+
     user_interval = calculate_user_interval(last_transaction)
 
     user_price = last_transaction.bot_price.to_f
@@ -20,7 +24,6 @@ class ParseInterval < BaseService
 
   def calculate_user_interval(last_transaction)
     interval = last_transaction.bot_interval
-    return 0.0 if last_transaction.bot.webhook?
     raise Error, 'Invalid interval' if !INTERVALS.include?(interval)
 
     1.public_send(interval).seconds

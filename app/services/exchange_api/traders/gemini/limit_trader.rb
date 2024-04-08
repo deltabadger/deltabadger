@@ -91,7 +91,7 @@ module ExchangeApi
 
             Result::Success.new(offer_id: order_id)
           else
-            error_to_failure([response.fetch('reason')])
+            error_to_failure([response.fetch('reason', 'Unknown error')])
           end
         rescue JSON::ParserError
           Result::Failure.new('Could not parse Gemini response', **RECOVERABLE)
