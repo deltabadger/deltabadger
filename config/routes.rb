@@ -2,6 +2,7 @@ require 'sidekiq/web'
 require 'telegram/bot'
 
 Rails.application.routes.draw do
+  get 'portfolio_analyzer/index'
   require 'sidekiq/prometheus/exporter'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
