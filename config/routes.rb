@@ -2,7 +2,6 @@ require 'sidekiq/web'
 require 'telegram/bot'
 
 Rails.application.routes.draw do
-  get 'portfolio_analyzer/index'
   require 'sidekiq/prometheus/exporter'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
@@ -119,6 +118,7 @@ Rails.application.routes.draw do
     get '/referral-program', to: 'home#referral_program', as: :referral_program
     get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
+    get '/portfolio-analyzer', to: 'portfolio_analyzer#index', as: :portfolio_analyzer
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
