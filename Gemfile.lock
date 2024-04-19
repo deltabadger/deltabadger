@@ -132,6 +132,7 @@ GEM
     capybara-selenium (0.0.6)
       capybara
       selenium-webdriver
+    chartkick (5.0.6)
     chromedriver-helper (2.1.1)
       archive-zip (~> 0.10)
       nokogiri (~> 1.8)
@@ -487,6 +488,7 @@ DEPENDENCIES
   byebug
   capybara
   capybara-selenium
+  chartkick (~> 5.0)
   chromedriver-helper
   date (= 3.3.3)
   devise
