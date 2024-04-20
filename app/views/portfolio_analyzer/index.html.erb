@@ -1,2 +1,5 @@
 <h1>PortfolioAnalyzer#index</h1>
 <p>Find me in app/views/portfolio_analyzer/index.html.haml</p>
+
+<%= render partial: 'chart.js' %>
+<canvas id="myChart" width="200px" height="100px" data-labels="<%= @data_labels %>" data-series="<%= @data_series %>" ></canvas>
