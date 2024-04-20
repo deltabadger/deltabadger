@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import I18n from 'i18n-js'
 import moment from 'moment';
-import { Line } from 'react-chartjs-2';
+import 'chart.js/auto';
+import { Chart as ReactChart } from 'react-chartjs-2';
 import API from '../../lib/API';
 import { Spinner } from '../Spinner';
 import { isEmpty } from '../../utils/array'
@@ -82,31 +83,36 @@ export const Chart = ({bot}) => {
 
   const chartOptions = {
     scales: {
-      xAxes: [{
+      x: {
         ticks: {
           fontFamily: 'Montserrat',
           fontColor: '#789'
         }
-      }],
-      yAxes: [{
+      },
+      y: {
         ticks: {
           fontFamily: 'Montserrat',
           fontColor: '#789'
         }
-      }]
+      }
     },
-    legend: {
-      labels: {
-        padding: 44,
-        fontFamily: 'Montserrat',
-        fontColor: '#789'
+    plugins: {
+      legend: {
+        labels: {
+          padding: 44,
+          fontFamily: 'Montserrat',
+          fontColor: '#789',
+          usePointStyle: true,
+          boxWidth: 7,
+          boxHeight: 7,
+        }
       }
     }
   }
 
   return (
     <div className="db-chart-container">
-      <Line data={chartData} options={chartOptions} />
+      <ReactChart type='line' data={chartData} options={chartOptions} />
     </div>
   )
 }
