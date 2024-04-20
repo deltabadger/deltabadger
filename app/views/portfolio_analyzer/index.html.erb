@@ -3,3 +3,20 @@
 
 <%= render partial: 'chart.js' %>
 <canvas id="myChart" width="200px" height="100px" data-labels="<%= @data_labels %>" data-series="<%= @data_series %>" ></canvas>
+
+<p>Expected Return: <%= @metrics['expectedReturn'] %></p>
+<p>Alpha: <%= @metrics['alpha'] %></p>
+<p>Beta: <%= @metrics['beta'] %></p>
+<p>Sharpe Ratio: <%= @metrics['sharpeRatio'] %></p>
+<p>Sortino Ratio: <%= @metrics['sortinoRatio'] %></p>
+<p>Treynor Ratio: <%= @metrics['treynorRatio'] %></p>
+<p>Omega Ratio: <%= @metrics['omegaRatio'] %></p>
+<p>Calmar Ratio: <%= @metrics['calmarRatio'] %></p>
+<p>Information Ratio: <%= @metrics['informationRatio'] %></p>
+<p>Ulcer Index: <%= @metrics['ulcerIndex'] %></p>
+<p>Max Drawdown: <%= @metrics['maxDrawdown'] %></p>
+<p>CAGR: <%= @metrics['cagr'] %></p>
+<p>Value At Risk: <%= @metrics['valueAtRisk'] %></p>
+<p>Conditional Value At Risk: <%= @metrics['conditionalValueAtRisk'] %></p>
+<p>R Squared: <%= @metrics['rSquared'] %></p>
+<p>Volatility: <%= @metrics['volatility'] %></p>

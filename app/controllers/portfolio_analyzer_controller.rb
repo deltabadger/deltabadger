@@ -7,8 +7,7 @@ class PortfolioAnalyzerController < ApplicationController
     # puts allocations_result.data
 
     metrics_result = client.metrics('BTC/USDT,ETH/USDT', '0.6819, 0.3181', '^GSPC', '2021-01-01', 'fixed')
-    @metrics = metrics_result.data
-    # puts metrics_result.data
+    @metrics = metrics_result.data['metrics']
 
     @data_labels = metrics_result.data['timeSeries']['labels']
     @data_series = metrics_result.data['timeSeries']['series']
