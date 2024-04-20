@@ -17,6 +17,8 @@
     "axios": "^1.5.0",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "chart.js": "^4.0.0",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "date-fns": "^3.6.0",
     "debounce": "^1.2.1",
     "dotenv": "^16.0.3",
     "i18n-js": "~3.8.0",

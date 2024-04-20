@@ -1,5 +1,29 @@
 const { environment } = require('@rails/webpacker')
-const erb = require('./loaders/erb')
 
-environment.loaders.prepend('erb', erb)
+environment.config.merge({
+  module: {
+    rules: [
+      {
+        test: /\.mjs$/,
+        include: /node_modules/,
+        type: "javascript/auto",
+        use: [{
+          loader: 'babel-loader',
+        }]
+      },
+      {
+        test: /\.erb$/,
+        enforce: 'pre',
+        exclude: /node_modules/,
+        use: [{
+          loader: 'rails-erb-loader',
+          options: {
+            runner: (/^win/.test(process.platform) ? 'ruby ' : '') + 'bin/rails runner'
+          }
+        }]
+      }
+    ],
+  },
+});
+
 module.exports = environment
