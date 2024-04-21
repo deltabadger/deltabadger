@@ -22,7 +22,7 @@ module ExchangeApi
         API_URL = 'https://api.coinbase.com'.freeze
 
         # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-        def fetch_order_by_id(order_id)
+        def fetch_order_by_id(order_id, retry_attempts = 0)
           path = "/api/v3/brokerage/orders/historical/#{order_id}".freeze
           url = API_URL + path
           response = Faraday.get(url, nil, headers(@api_key, @api_secret, '', path, 'GET'))
@@ -45,6 +45,10 @@ module ExchangeApi
               amount: amount,
               rate: rate
             )
+          elsif response.status == 404 && retry_attempts < 10
+            Rails.logger.info 'Coinbase order not found (yet). Retrying...'
+            sleep 0.5
+            fetch_order_by_id(order_id, retry_attempts + 1)
           else
             Raven.capture_exception(StandardError.new("Unexpected response status: #{response.status}"))
             Result::Failure.new("Could not fetch order parameters from Coinbase. Unexpected response status: #{response.status}")
