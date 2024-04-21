@@ -1,7 +1,7 @@
 <script>
   // document.addEventListener('turbolinks:load', () => {
   document.addEventListener("DOMContentLoaded", () => {
-    var ctx = document.getElementById("myChart").getContext("2d");
+    var ctx = document.getElementById("performanceChart").getContext("2d");
     var series = JSON.parse(ctx.canvas.dataset.series);
     var labels = JSON.parse(ctx.canvas.dataset.labels).map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
@@ -14,7 +14,7 @@
         return { x: 5, y: 100 };
     };
 
-    var myChart = new Chart(ctx, {
+    var performanceChart = new Chart(ctx, {
       type: "line",
       plugins: [
         {
