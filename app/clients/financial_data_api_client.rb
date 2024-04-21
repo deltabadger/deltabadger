@@ -6,14 +6,14 @@ class FinancialDataApiClient < ApplicationClient
       config.request :json
       config.response :json
       config.response :raise_error
-      config.response :logger, Rails.logger, headers: false, bodies: true, log_level: :debug
+      config.response :logger, Rails.logger, headers: false, bodies: false, log_level: :debug
       config.adapter :net_http_persistent do |http|
         http.idle_timeout = 100
       end
     end
   end
 
-  def metrics(symbols, allocations, benchmark, start, strategy)
+  def metrics(symbols, allocations, benchmark, start, strategy, start_balance = 1)
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'metrics'
@@ -22,7 +22,8 @@ class FinancialDataApiClient < ApplicationClient
           allocations: allocations,
           benchmark: benchmark,
           start: start,
-          strategy: strategy
+          strategy: strategy,
+          'start-balance': start_balance
         }
       end
       Result::Success.new(response.body)
