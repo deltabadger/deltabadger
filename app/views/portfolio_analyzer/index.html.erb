@@ -1,5 +1,21 @@
 <main class="columns main">
     <div class="column gap-6">
+
+        <div class="slider " data-type="labels" data-labels="Conservative,Careful,Balanced,Growth,Aggressive">
+        
+            <div class="label">
+                Risk profile:
+                <span class="label__value">Balanced</span>
+            </div>
+            <div class="slider__track-clickable">
+                <div class="slider__track" style="">
+                    <div class="slider__progress" style="width: 50%; ">
+                        <div class="slider__thumb" style=""></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div style="display: flex; justify-content: space-between; ">
             <div class="toggle-group smart-allocation---toggle state--off">
                 <div class="toggle"></div>
@@ -56,13 +72,28 @@
                     
             </div>
 
-            <div class="basket__add-asset mt-4">
+            <div class="basket__add-asset mt-4 dropdown-wrapper state--off">
                 <svg class="basket__add-asset__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
                     <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
                     <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
+
+                <div class="dropdown dropdown--ticker">
+                    <input class="dropdown__search" type="text" placeholder="Search…">
+                    <svg class="dropdown__search--icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke-width="2"></circle><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"></path></svg>
+                    <div class="dropdown__item"><b>AAPL</b><span>Apple Inc.</span></div>
+                    <div class="dropdown__item"><b>GOOGL</b><span>Alphabet Inc.</span></div>
+                    <div class="dropdown__item"><b>AMZN</b><span>Amazon.com Inc.</span></div>
+                    <div class="dropdown__item"><b>MSFT</b><span>Microsoft Corporation</span></div>
+                    <div class="dropdown__item"><b>FB</b><span>Meta Platforms Inc.</span></div>
+                    <div class="dropdown__item"><b>BRK.A</b><span>Berkshire Hathaway Inc.</span></div>
+                    <div class="dropdown__item"><b>V</b><span>Visa Inc.</span></div>
+                    <div class="dropdown__item"><b>JPM</b><span>JPMorgan Chase &amp; Co.</span></div>
+                    <div class="dropdown__item"><b>WMT</b><span>Walmart Inc.</span></div>
+                    <div class="dropdown__item"><b>PG</b><span>Procter &amp; Gamble Co.</span></div>
+                </div>
             </div>
 
         </div>
@@ -72,110 +103,112 @@
             <%= render partial: 'chart.js' %>
             <canvas id="performanceChart" width="200px" height="100px" data-labels="<%= @data_labels %>" data-series="<%= @data_series %>" ></canvas>
         </div>
-        <div class="widget data-grid">
-            <div class="data-grid__item">
-                <div class="label">Exp. Return</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['expectedReturn'] %>%
+        <div style="container-type: inline-size">
+            <div class="widget data-grid">
+                <div class="data-grid__item">
+                    <div class="label">Exp. Return</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['expectedReturn'] %>%
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Volatility</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['volatility'] %>%
+                <div class="data-grid__item">
+                    <div class="label">Volatility</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['volatility'] %>%
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Diversification</div>
-                <div class="data-grid__item__value">90%</div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Alpha</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['alpha'] %>
+                <div class="data-grid__item">
+                    <div class="label">Diversification</div>
+                    <div class="data-grid__item__value">90%</div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Beta</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['beta'] %>
+                <div class="data-grid__item">
+                    <div class="label">Alpha</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['alpha'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Sharpe Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['sharpeRatio'] %>
+                <div class="data-grid__item">
+                    <div class="label">Beta</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['beta'] %>
+                    </div>
                 </div>
-            </div> 
-            <div class="data-grid__item">
-                <div class="label">Sortino Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['sortinoRatio'] %>
+                <div class="data-grid__item">
+                    <div class="label">Sharpe Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['sharpeRatio'] %>
+                    </div>
+                </div> 
+                <div class="data-grid__item">
+                    <div class="label">Sortino Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['sortinoRatio'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Treynor Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['treynorRatio'] %>
+                <div class="data-grid__item">
+                    <div class="label">Treynor Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['treynorRatio'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">R²</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['rSquared'] %>
+                <div class="data-grid__item">
+                    <div class="label">R²</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['rSquared'] %>
+                    </div>
+                </div> 
+                <div class="data-grid__item">
+                    <div class="label">VaR</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['valueAtRisk'] %>%
+                    </div>
                 </div>
-            </div> 
-            <div class="data-grid__item">
-                <div class="label">VaR</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['valueAtRisk'] %>%
+                <div class="data-grid__item">
+                    <div class="label">CVaR</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['conditionalValueAtRisk'] %>%
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">CVaR</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['conditionalValueAtRisk'] %>%
+                <div class="data-grid__item">
+                    <div class="label">Omega Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['omegaRatio'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Omega Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['omegaRatio'] %>
+                <div class="data-grid__item">
+                    <div class="label">Calmar Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['calmarRatio'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Calmar Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['calmarRatio'] %>
+                <div class="data-grid__item">
+                    <div class="label">Ulcer Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['ulcerIndex'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Ulcer Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['ulcerIndex'] %>
+                <div class="data-grid__item">
+                    <div class="label">Max. Drawdown</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['maxDrawdown'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Max. Drawdown</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['maxDrawdown'] %>
+                <div class="data-grid__item">
+                    <div class="label">GAGR</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['cagr'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">GAGR</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['cagr'] %>
+                <div class="data-grid__item">
+                    <div class="label">Info. Ratio</div>
+                    <div class="data-grid__item__value">
+                        <%= @metrics['informationRatio'] %>
+                    </div>
                 </div>
-            </div>
-            <div class="data-grid__item">
-                <div class="label">Info. Ratio</div>
-                <div class="data-grid__item__value">
-                    <%= @metrics['informationRatio'] %>
+                <div class="data-grid__item data-grid__item--empty">
+                    <div class="label"></div>
+                    <div class="data-grid__item__value"></div>
                 </div>
-            </div>
-            <div class="data-grid__item data-grid__item--empty">
-                <div class="label"></div>
-                <div class="data-grid__item__value"></div>
             </div>
         </div>
     </div>
