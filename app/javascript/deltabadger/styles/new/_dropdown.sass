@@ -1,0 +1,68 @@
+.dropdown-wrapper
+    position: relative
+    cursor: pointer
+    &::before
+        content: ''
+        position: fixed
+        top: 0
+        left: 0
+        right: 0
+        bottom: 0
+        z-index: 999999
+        pointer-events: none
+        transition: 1s ease all
+    &.state--on
+        &::before
+            background: rgba(0, 0, 0, 0.05)
+            pointer-events: auto
+        .dropdown
+            display: block
+.dropdown
+    display: none
+    z-index: 1000000
+    position: absolute
+    background: $dropdown-bg
+    border-radius: 0.5rem
+    box-shadow: 0px 0px 0px 1px #D9E0E7 inset, 0px 4px 8px 0px rgba(6, 26, 79, 0.10)
+    font-size: 2rem
+    font-weight: 500
+    padding-bottom: 1rem
+    top: 4.5rem
+    &--ticker
+        width: 40rem
+    &__search
+        font-size: 2rem
+        width: calc(100% - 6rem)
+        display: block
+        padding: 0 0 0 6rem
+        line-height: 6rem
+        border: none
+        background: none
+        &:focus
+            outline: none
+        &::placeholder
+            color: $gray-200
+        &--icon
+            position: absolute
+            top: 0
+            left: 0
+            width: 6rem
+            line-height: 6rem
+            padding: 1.5rem
+            color: $gray-200
+            path, circle
+                stroke: $gray-200
+    &__item
+        color: $text !important
+        display: grid
+        cursor: pointer
+        grid-template-columns: 10rem 1fr
+        line-height: 4rem
+        padding-left: 1.5rem
+        text-align: left
+        &:hover
+            background: $gray-100
+        span
+            color: transparentize($text,.35 )
+
+        

@@ -1,0 +1,40 @@
+.widget
+    background: $widget-bg
+    padding: 3rem
+    border-radius: 0rem
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    &.data-grid
+        padding: 0
+.data-grid
+    background: $gray-150
+    display: grid
+    grid-template-columns: repeat(4, 1fr)
+    gap: 2px
+    @container (max-width: 767px)
+        grid-template-columns:  repeat(3, 1fr)
+    @container (max-width: 511px)
+        grid-template-columns:  repeat(2, 1fr)
+    &__item
+        display: flex
+        flex-direction: column
+        align-items: center
+        justify-content: center
+        height: 14rem
+        background-color: $widget-bg
+        &:not(.data-grid__item--empty):hover
+            background-color: $gray-150
+            cursor: pointer
+        &--chart
+            display: flex
+            flex-direction: column
+            align-items: center
+            .data-grid__item__value
+                color: $success
+        &__value
+            font-size: 4rem
+            line-height: 5rem
+            font-weight: 500
+            color: $primary
+
