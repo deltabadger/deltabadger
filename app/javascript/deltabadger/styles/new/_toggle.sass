@@ -1,0 +1,40 @@
+.toggle,.toggle::after,.toggle-label
+    transition: 0.1s ease all
+.toggle
+    border-radius: 1.5rem
+    height: 3rem
+    width: 5rem
+    background: $gray-300
+    position: relative
+    cursor: pointer
+    &::after
+        border-radius: 50%
+        content: ''
+        height: 2.5rem
+        width: 2.5rem
+        position: absolute
+        top: 0.25rem
+        left: 0.25rem
+        background-color: #fff
+    &.state--on                    
+        background: $success
+        &::after
+            left: 2.25rem
+.toggle-group
+    cursor: pointer
+    display: flex
+    gap: 1rem
+    align-items: center
+.toggle-label
+    font-weight: bold
+    color: transparentize($text, 0.5)
+    &__value
+        font-weight: bold
+        color: $primary
+.state--on
+    .toggle        
+        background: $success
+        &::after
+            left: 2.25rem
+    .toggle-label
+        color: $success

@@ -1,0 +1,29 @@
+.slider
+    &--locked
+        pointer-events: none
+        .slider__thumb
+            display: none
+    &__track-clickable
+        padding-top: 1rem
+        padding-bottom: 1rem
+    &__track
+        background-color: transparentize($primary, 0.8)
+        border-radius: 0.25rem
+        height: 0.5rem
+        width: 100%
+        border-left: 1rem solid $primary
+        border-right: 1rem solid transparent
+    &__progress
+        align-items: center
+        background-color: $primary
+        position: relative
+        height: 100%
+    &__thumb
+        background-color: $primary
+        border-radius: 1rem
+        height: 2rem
+        position: absolute
+        top: -0.75rem
+        right: -1rem
+        width: 2rem
+                

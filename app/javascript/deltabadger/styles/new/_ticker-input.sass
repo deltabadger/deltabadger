@@ -1,0 +1,49 @@
+.ticker-input
+    background:         $gray-100
+    border-radius:      2rem
+    color:              $gray-300
+    display:            flex
+    font-size:          2.5rem
+    font-weight:        700
+    justify-content:    space-between
+    line-height:        4rem
+    .numeric-input
+        background:     none
+        padding:        0
+        &:focus
+            outline: none
+        &[disabled]
+            color:     $gray-300
+    &--percentage
+        min-width:      20rem
+        .numeric-input
+            width: 5rem   
+    &--autoscale
+        .numeric-input
+            min-width: 2rem
+            padding-left: 1rem
+            width: 100%
+    &--reverse
+        flex-direction: row-reverse
+        .numeric-input
+            padding-right:  2rem
+            padding-left:   0
+            text-align: right
+
+.numeric-input
+    color: $text
+    font-size:  2.5rem
+    font-weight: 700
+    line-height: 4rem
+    background: $gray-100
+    border-radius: 2rem
+    border: none
+    padding: 0 2rem
+    text-align: right
+    &:focus
+        outline: none
+
+.smart-allocation---on
+    .numeric-input
+        color: $gray-300 !important
+        //pointer-events: none
