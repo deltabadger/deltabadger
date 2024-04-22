@@ -49,5 +49,11 @@ module Deltabadger
       config.dsn = ENV['SENTRY_DSN']
       config.environments = %w[ production ]
     end
+
+    config.action_view.form_with_generates_remote_forms = false
+    # remove Turbo from Asset Pipeline precompilation
+    config.after_initialize do
+      config.assets.precompile -= Turbo::Engine::PRECOMPILE_ASSETS
+    end
   end
 end
