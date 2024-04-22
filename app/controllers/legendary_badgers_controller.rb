@@ -1,4 +1,4 @@
-class LegendaryBadgerController < ApplicationController
+class LegendaryBadgersController < ApplicationController
   before_action :authenticate_user!
 
   layout 'legendary_badger'
