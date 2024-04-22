@@ -4,6 +4,18 @@ environment.config.merge({
   module: {
     rules: [
       {
+        test: /\.js$/,
+        include: /node_modules/,
+        use: [{
+          loader: 'babel-loader',
+          options: {
+            plugins: [
+              '@babel/plugin-transform-optional-chaining',
+            ],
+          },
+        }]
+      },
+      {
         test: /\.mjs$/,
         include: /node_modules/,
         type: "javascript/auto",

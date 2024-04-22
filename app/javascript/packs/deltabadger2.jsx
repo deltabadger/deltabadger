@@ -1,4 +1,4 @@
-import Rails from 'rails-ujs';
+import "@hotwired/turbo-rails"
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import I18n from 'i18n-js/index.js.erb';
@@ -25,28 +25,25 @@ Sentry.init({
 
 require.context('../images', true)
 
-Rails.start();
-
 const store = configureStore(reducer)
 
-I18n.locale = document.body.dataset.locale || I18n.defaultLocale
+I18n.locale = document.head.dataset.locale || I18n.defaultLocale
 
-if (document.getElementById('dashboard')) {
-  const node = document.getElementById('current_user_subscription')
-  const data = node.getAttribute('data')
-  const isHodler = data === 'hodler'
-  const isLegendaryBadger = data === 'legendary_badger'
-
-  document.addEventListener('DOMContentLoaded', () => {
-    createRoot(
-      document.getElementById('dashboard')
-    ).render(
+document.addEventListener('turbo:load', () => {
+  const dashboardDiv = document.getElementById('dashboard');
+  if (dashboardDiv) {
+    const node = document.getElementById('current_user_subscription');
+    const data = node ? node.getAttribute('data') : null;
+    const isHodler = data === 'hodler';
+    const isLegendaryBadger = data === 'legendary_badger';
+    const root = createRoot(dashboardDiv);
+    root.render(
       <Provider store={store}>
         <Dashboard isHodler={isHodler} isLegendaryBadger={isLegendaryBadger} />
       </Provider>
-    )
-  })
-}
+    );
+  }
+})
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {
@@ -58,31 +55,31 @@ if (document.getElementById('cookie_consent')) {
   })
 }
 
-if (document.getElementById('hide_welcome_banner_button')) {
-  document.addEventListener('DOMContentLoaded', () => {
-    document
-      .getElementById('hide_welcome_banner_button')
-      .addEventListener("click", () => {
-        Rails.ajax({
-          url: "/settings/hide_welcome_banner",
-          type: "patch"
-        });
-      });
-  })
-}
+// if (document.getElementById('hide_welcome_banner_button')) {
+//   document.addEventListener('DOMContentLoaded', () => {
+//     document
+//       .getElementById('hide_welcome_banner_button')
+//       .addEventListener("click", () => {
+//         Rails.ajax({
+//           url: "/settings/hide_welcome_banner",
+//           type: "patch"
+//         });
+//       });
+//   })
+// }
 
-if (document.getElementById('hide_referral_banner_button')) {
-  document.addEventListener('DOMContentLoaded', () => {
-    document
-      .getElementById('hide_referral_banner_button')
-      .addEventListener("click", () => {
-        Rails.ajax({
-          url: "/settings/hide_referral_banner",
-          type: "patch"
-        });
-      });
-  })
-}
+// if (document.getElementById('hide_referral_banner_button')) {
+//   document.addEventListener('DOMContentLoaded', () => {
+//     document
+//       .getElementById('hide_referral_banner_button')
+//       .addEventListener("click", () => {
+//         Rails.ajax({
+//           url: "/settings/hide_referral_banner",
+//           type: "patch"
+//         });
+//       });
+//   })
+// }
 
 if (document.getElementById('referral_banner_link')) {
   document.addEventListener('DOMContentLoaded', () => {
