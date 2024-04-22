@@ -1,5 +1,5 @@
 class FinancialDataApiClient < ApplicationClient
-  URL = ENV.fetch('FINANCIAL_API_URL').freeze
+  URL = ENV.fetch('FINANCIAL_DATA_API_URL').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
