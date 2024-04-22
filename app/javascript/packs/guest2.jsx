@@ -1,4 +1,4 @@
-import Rails from 'rails-ujs';
+import "@hotwired/turbo-rails"
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import I18n from 'i18n-js/index.js.erb'
@@ -8,9 +8,7 @@ import { NewsletterForm } from '../deltabadger/components/NewsletterForm';
 
 require.context('../images', true)
 
-Rails.start();
-
-I18n.locale = document.body.dataset.locale || I18n.defaultLocale
+I18n.locale = document.head.dataset.locale || I18n.defaultLocale
 
 if (document.getElementById('cookie_consent')) {
   document.addEventListener('DOMContentLoaded', () => {

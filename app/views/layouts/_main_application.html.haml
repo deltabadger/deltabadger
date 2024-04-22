@@ -11,12 +11,16 @@
   %script{:crossorigin => "anonymous", :integrity => "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", :src => "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"}
   %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
 
+  / Global site tag (gtag.js) - Google Analytics
+  %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=G-FY76G14DEX"}
+
   %title
     = t('meta.title')
   %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
   %link{:href => asset_pack_path("media/images/favicon.ico"), rel: "icon", sizes: "any"}
   %link{:href => asset_pack_path("media/images/icon.svg"), rel: "icon", type: "image/svg+xml"}
   = stylesheet_pack_tag 'deltabadger2'
+  = javascript_pack_tag 'deltabadger2'
   - if user_signed_in?
     %script{:defer => "defer", :src => "https://static.bonjoro.com/js/v1/bonjoro.js"}
 
@@ -26,166 +30,161 @@
       bonjoro('create', "#{bonjoro_app_id}");
       bonjoro('identify', "#{current_user.email}", { userHash: "#{escape_javascript bonjoro_user_hash(current_user.email)}" });
 
+  :javascript
+    // google
 
-  %body{data: {locale: I18n.locale}, class: yield(:body_class)}
-    #cookie_consent
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
 
-    = render 'layouts/navbar'
-    .db-content-body.d_content-below-menu
-      //= render 'layouts/welcome_message'
-      = render 'layouts/referral_message'
-      = render 'layouts/limit_reached'
-      .container
-        = yield
-    .container
-      = render 'layouts/footer'
+    gtag('config', 'G-FY76G14DEX');
 
-    #current_user_subscription{ data: current_user.subscription_name }
-    = javascript_pack_tag 'deltabadger2'
-
-    / Global site tag (gtag.js) - Google Analytics
-    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=G-FY76G14DEX"}
-
-    :javascript
-      // google
-
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-FY76G14DEX');
-
-      // payments plan
-      $(document).ready(function(){
-        $(".db-plan-investor").click(function(){
-          $("#payment_plan_investor").click()
-          $(".db-plan-investor").addClass("db-plan--selected")
-          $(".db-plan-investor").removeClass("db-plan--other")
-          $(".db-plan-hodler").addClass("db-plan--other")
-          $(".db-plan-hodler").removeClass("db-plan--selected")
-          $(".db-plan-legendary_badger").addClass("db-plan--other")
-          $(".db-plan-legendary_badger").removeClass("db-plan--selected")
-          $(".db-checkout").addClass("db-checkout--investor");
-          $(".db-checkout").removeClass("db-checkout--hodler db-checkout--legendary_badger");
-        })
-        $(".db-plan-hodler").click(function(){
-          $("#payment_plan_hodler").click()
-          $(".db-plan-hodler").addClass("db-plan--selected")
-          $(".db-plan-hodler").removeClass("db-plan--other")
-          $(".db-plan-investor").addClass("db-plan--other")
-          $(".db-plan-investor").removeClass("db-plan--selected")
-          $(".db-plan-legendary_badger").addClass("db-plan--other")
-          $(".db-plan-legendary_badger").removeClass("db-plan--selected")
-          $(".db-checkout").addClass("db-checkout--hodler");
-          $(".db-checkout").removeClass("db-checkout--investor db-checkout--legendary_badger");
-        })
-        $(".db-plan-legendary_badger").click(function(){
-          $("#payment_plan_legendary_badger").click()
-          $(".db-plan-hodler").addClass("db-plan--other")
-          $(".db-plan-hodler").removeClass("db-plan--selected")
-          $(".db-plan-investor").addClass("db-plan--other")
-          $(".db-plan-investor").removeClass("db-plan--selected")
-          $(".db-plan-legendary_badger").addClass("db-plan--selected")
-          $(".db-plan-legendary_badger").removeClass("db-plan--other")
-          $(".db-checkout").addClass("db-checkout--legendary_badger");
-          $(".db-checkout").removeClass("db-checkout--investor db-checkout--hodler");
-        })
+    // payments plan
+    $(document).ready(function(){
+      $(".db-plan-investor").click(function(){
+        $("#payment_plan_investor").click()
+        $(".db-plan-investor").addClass("db-plan--selected")
+        $(".db-plan-investor").removeClass("db-plan--other")
+        $(".db-plan-hodler").addClass("db-plan--other")
+        $(".db-plan-hodler").removeClass("db-plan--selected")
+        $(".db-plan-legendary_badger").addClass("db-plan--other")
+        $(".db-plan-legendary_badger").removeClass("db-plan--selected")
+        $(".db-checkout").addClass("db-checkout--investor");
+        $(".db-checkout").removeClass("db-checkout--hodler db-checkout--legendary_badger");
       })
+      $(".db-plan-hodler").click(function(){
+        $("#payment_plan_hodler").click()
+        $(".db-plan-hodler").addClass("db-plan--selected")
+        $(".db-plan-hodler").removeClass("db-plan--other")
+        $(".db-plan-investor").addClass("db-plan--other")
+        $(".db-plan-investor").removeClass("db-plan--selected")
+        $(".db-plan-legendary_badger").addClass("db-plan--other")
+        $(".db-plan-legendary_badger").removeClass("db-plan--selected")
+        $(".db-checkout").addClass("db-checkout--hodler");
+        $(".db-checkout").removeClass("db-checkout--investor db-checkout--legendary_badger");
+      })
+      $(".db-plan-legendary_badger").click(function(){
+        $("#payment_plan_legendary_badger").click()
+        $(".db-plan-hodler").addClass("db-plan--other")
+        $(".db-plan-hodler").removeClass("db-plan--selected")
+        $(".db-plan-investor").addClass("db-plan--other")
+        $(".db-plan-investor").removeClass("db-plan--selected")
+        $(".db-plan-legendary_badger").addClass("db-plan--selected")
+        $(".db-plan-legendary_badger").removeClass("db-plan--other")
+        $(".db-checkout").addClass("db-checkout--legendary_badger");
+        $(".db-checkout").removeClass("db-checkout--investor db-checkout--hodler");
+      })
+    })
 
-      // input labels
+    // input labels
 
-      window.addEventListener('load', function() {
-        document.querySelectorAll('input').forEach(function(input) {
-          input.classList.toggle('db-form__input--empty', input.value === '');
-          input.addEventListener('input', function() {
-            this.classList.toggle('db-form__input--empty', this.value === '');
-          });
+    window.addEventListener('load', function() {
+      document.querySelectorAll('input').forEach(function(input) {
+        input.classList.toggle('db-form__input--empty', input.value === '');
+        input.addEventListener('input', function() {
+          this.classList.toggle('db-form__input--empty', this.value === '');
         });
       });
+    });
 
-      // scaling font-variation-settings: 'wght' var(--text-wght)
+    // scaling font-variation-settings: 'wght' var(--text-wght)
 
-      // $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
-      // window.addEventListener('resize', function(event){
-      //   $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
-      // });
+    // $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
+    // window.addEventListener('resize', function(event){
+    //   $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
+    // });
 
-      // payments eu/non-eu
+    // payments eu/non-eu
 
-      $(document).ready(function(){
-        function setPrices(select) {
-          if (!select) return;
+    $(document).ready(function(){
+      function setPrices(select) {
+        if (!select) return;
 
-          if (select.value.toLowerCase() === 'other') {
-            $(".db-checkout").addClass("db-checkout--other");
-            $(".db-checkout").removeClass("db-checkout--eu");
-          } else {
-            $(".db-checkout").addClass("db-checkout--eu");
-            $(".db-checkout").removeClass("db-checkout--other");
-          }
-          var dataset = select.options[select.selectedIndex].dataset;
-
-          $(".vat-percent").text(dataset.vp);
-
-          $(".investor-total-price").text(dataset.itp);
-          $(".investor-base-price").text(dataset.ibp);
-          $(".investor-discounted-price").text(dataset.idp);
-          $(".investor-flat-discount").text(dataset.ifd);
-          $(".investor-discount-percent-amount").text(dataset.idpa);
-          $(".investor-total-vat").text(dataset.itv);
-
-          $(".hodler-total-price").text(dataset.htp);
-          $(".hodler-base-price").text(dataset.hbp);
-          $(".hodler-discounted-price").text(dataset.hdp);
-          $(".hodler-flat-discount").text(dataset.hfd);
-          $(".hodler-discount-percent-amount").text(dataset.hdpa);
-          $(".hodler-total-vat").text(dataset.htv);
-
-          $(".legendary_badger-total-price").text(dataset.lbtp);
-          $(".legendary_badger-base-price").text(dataset.lbbp);
-          $(".legendary_badger-discounted-price").text(dataset.lbdp);
-          $(".legendary_badger-flat-discount").text(dataset.lbfd);
-          $(".legendary_badger-discount-percent-amount").text(dataset.lbdpa);
-          $(".legendary_badger-total-vat").text(dataset.lbtv);
+        if (select.value.toLowerCase() === 'other') {
+          $(".db-checkout").addClass("db-checkout--other");
+          $(".db-checkout").removeClass("db-checkout--eu");
+        } else {
+          $(".db-checkout").addClass("db-checkout--eu");
+          $(".db-checkout").removeClass("db-checkout--other");
         }
+        var dataset = select.options[select.selectedIndex].dataset;
 
-        $("#payment_country").change(function(event) {
-          setPrices(event.target);
-        });
+        $(".vat-percent").text(dataset.vp);
 
-        setPrices(document.getElementById("payment_country"));
-      });
+        $(".investor-total-price").text(dataset.itp);
+        $(".investor-base-price").text(dataset.ibp);
+        $(".investor-discounted-price").text(dataset.idp);
+        $(".investor-flat-discount").text(dataset.ifd);
+        $(".investor-discount-percent-amount").text(dataset.idpa);
+        $(".investor-total-vat").text(dataset.itv);
 
-      // referral program registration
+        $(".hodler-total-price").text(dataset.htp);
+        $(".hodler-base-price").text(dataset.hbp);
+        $(".hodler-discounted-price").text(dataset.hdp);
+        $(".hodler-flat-discount").text(dataset.hfd);
+        $(".hodler-discount-percent-amount").text(dataset.hdpa);
+        $(".hodler-total-vat").text(dataset.htv);
 
-      $(document).ready(function(){
-
-        $(".radio--eu-company").click(function(){
-          $(".db-form-group--eu-company").addClass("db-form-group--eu-company__visible");
-        });
-        $(".radio--private").click(function(){
-          $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
-        });
-        $(".db-form-control-range--discount-ratio").on('input', function(e){
-          var discountPercent = Math.round(e.target.value * 100);
-          var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
-          $(".db-form-label-range--discount-percent").text(discountPercent);
-          $(".db-form-label-range--earn-percent").text(earnPercent);
-        });
-        $(".db-form-control-text--visible_name").on('input', function(e){
-          if (!e.target) return;
-          if (e.target.value.trim()) {
-           $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
-          } else {
-           $(".db-form-preview--visible_text").removeClass("db-form-preview--visible_text__visible");
-          }
-          $(".db-form-preview--visible_name").text(e.target.value);
-        });
-
-      });
-
-      if("#{current_user.subscription_name}" === "saver") {
-        // fomo.trigger('start')
-      } else {
-        // fomo.trigger('stop')
+        $(".legendary_badger-total-price").text(dataset.lbtp);
+        $(".legendary_badger-base-price").text(dataset.lbbp);
+        $(".legendary_badger-discounted-price").text(dataset.lbdp);
+        $(".legendary_badger-flat-discount").text(dataset.lbfd);
+        $(".legendary_badger-discount-percent-amount").text(dataset.lbdpa);
+        $(".legendary_badger-total-vat").text(dataset.lbtv);
       }
+
+      $("#payment_country").change(function(event) {
+        setPrices(event.target);
+      });
+
+      setPrices(document.getElementById("payment_country"));
+    });
+
+    // referral program registration
+
+    $(document).ready(function(){
+
+      $(".radio--eu-company").click(function(){
+        $(".db-form-group--eu-company").addClass("db-form-group--eu-company__visible");
+      });
+      $(".radio--private").click(function(){
+        $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
+      });
+      $(".db-form-control-range--discount-ratio").on('input', function(e){
+        var discountPercent = Math.round(e.target.value * 100);
+        var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
+        $(".db-form-label-range--discount-percent").text(discountPercent);
+        $(".db-form-label-range--earn-percent").text(earnPercent);
+      });
+      $(".db-form-control-text--visible_name").on('input', function(e){
+        if (!e.target) return;
+        if (e.target.value.trim()) {
+          $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
+        } else {
+          $(".db-form-preview--visible_text").removeClass("db-form-preview--visible_text__visible");
+        }
+        $(".db-form-preview--visible_name").text(e.target.value);
+      });
+
+    });
+
+    if("#{current_user.subscription_name}" === "saver") {
+      // fomo.trigger('start')
+    } else {
+      // fomo.trigger('stop')
+    }
+
+%body{data: {locale: I18n.locale}, class: yield(:body_class)}
+  #cookie_consent
+
+  = render 'layouts/navbar'
+  .db-content-body.d_content-below-menu
+    //= render 'layouts/welcome_message'
+    = render 'layouts/referral_message'
+    = render 'layouts/limit_reached'
+    .container
+      = yield
+  .container
+    = render 'layouts/footer'
+
+  #current_user_subscription{ data: current_user.subscription_name }
