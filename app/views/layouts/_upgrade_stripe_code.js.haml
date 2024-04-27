@@ -9,7 +9,7 @@
 
   const stripe_script_src = 'script[src="https://js.stripe.com/v3/"]';
   let stripe = null;
-  $(document).ready(function () {
+  document.addEventListener('turbo:load', () => {
     if ($(stripe_script_src).length) {
       stripe = Stripe("#{ENV.fetch('STRIPE_PUBLISHABLE_KEY')}", {
         locale: "#{I18n.locale}",
@@ -18,7 +18,7 @@
   });
 
   // payments plan
-  $(document).ready(function () {
+  document.addEventListener('turbo:load', () => {
     $(".db-plan-investor").click(function () {
       $("#payment_plan_investor").click();
       $(".db-plan-investor").addClass("db-plan--selected");
@@ -132,7 +132,7 @@
 
   // payments eu/non-eu
 
-  $(document).ready(function () {
+  document.addEventListener('turbo:load', () => {
     function showPreview(newValue) {
       if (!newValue) return;
       if (!$(".stripe_payment_in_process").length && $(stripe_script_src).length)
@@ -289,7 +289,7 @@
 
   // referral program registration
 
-  $(document).ready(function () {
+  document.addEventListener('turbo:load', () => {
     $(".radio--eu-company").click(function () {
       $(".db-form-group--eu-company").addClass(
         "db-form-group--eu-company__visible"
