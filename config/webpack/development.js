@@ -10,6 +10,7 @@ environment.config.merge({
     contentBase: [
       "app/views",
       "app/assets",
+      "app/javascript",
       "public",
     ],
   },
