@@ -10,5 +10,5 @@ application.register("form-submission", FormSubmissionController)
 import PortfolioAnalyzerChartController from "./portfolio_analyzer_chart_controller"
 application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartController)
 
-import ToggleController from "./toggle_controller"
-application.register("toggle", ToggleController)
+// import ToggleController from "./toggle_controller"
+// application.register("toggle", ToggleController)
