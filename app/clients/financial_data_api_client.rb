@@ -30,6 +30,19 @@ class FinancialDataApiClient < ApplicationClient
     end
   end
 
+  def symbols(source, timeframe)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url 'symbols'
+        req.params = {
+          source: source,
+          timeframe: timeframe,
+        }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   def smart_allocations(symbols, start, strategy)
     with_rescue do
       response = self.class.connection.get do |req|
