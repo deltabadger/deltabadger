@@ -1,8 +1,19 @@
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    var ctx = document.getElementById("performanceChart").getContext("2d");
-    var series = JSON.parse(ctx.canvas.dataset.series);
-    var labels = JSON.parse(ctx.canvas.dataset.labels).map(date => new Date(date).getTime());
+import { Controller } from "@hotwired/stimulus";
+import { Chart, Tooltip } from "chart.js/auto";
+import "chartjs-adapter-date-fns";
+window.Chart = Chart;
+window.Tooltip = Tooltip;
+
+export default class extends Controller {
+  static targets = ["analyzerChart"];
+
+  canvasContext() {
+    return this.analyzerChartTarget.getContext("2d");
+  }
+
+  connect() {
+    var series = JSON.parse(this.canvasContext().canvas.dataset.series);
+    var labels = JSON.parse(this.canvasContext().canvas.dataset.labels).map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
     var max_points_to_draw = 300;
@@ -13,7 +24,7 @@
         return { x: 5, y: 100 };
     };
 
-    var performanceChart = new Chart(ctx, {
+    new Chart(this.canvasContext(), {
       type: "line",
       plugins: [
         {
@@ -173,8 +184,8 @@
               zeroLineWidth: 1,
             },
             border: {
-                display: false,
-            }
+              display: false,
+            },
           },
         },
         plugins: {
@@ -206,7 +217,7 @@
             bodySpacing: 5,
             backgroundColor: "transparent",
             // multiKeyBackground: "#2a2a2a",
-            position: 'topLeft',
+            position: "topLeft",
             callbacks: {
               label: function (context) {
                 let label = "";
@@ -234,5 +245,5 @@
         },
       },
     });
-  });
-</script>
+  }
+}

@@ -1,0 +1,2 @@
+<%= turbo_stream.update "asset_#{@asset.downcase}", partial: "asset", locals: { asset: @asset, allocation: @allocation } %>
+<%= turbo_stream.update "buttons", partial: "buttons", locals: { selected_assets: @selected_assets } %>

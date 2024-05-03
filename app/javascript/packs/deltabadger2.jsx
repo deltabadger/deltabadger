@@ -11,10 +11,6 @@ import { CookieBanner } from "../deltabadger/components/CookieBanner";
 import { Provider } from "react-redux";
 import { configureStore } from "../deltabadger/Store";
 import { reducer } from "../deltabadger/reducer";
-import { Chart, Tooltip } from "chart.js/auto";
-import "chartjs-adapter-date-fns";
-window.Chart = Chart;
-window.Tooltip = Tooltip;
 
 Sentry.init({
   dsn: process.env.REACT_SENTRY_DSN,

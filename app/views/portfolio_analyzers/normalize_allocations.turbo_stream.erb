@@ -1,0 +1,6 @@
+<%= turbo_stream.update "selected_assets" do %>
+  <% @selected_assets.each do |asset, allocation| %>
+    <%= render "asset", asset: asset, allocation: allocation %>
+  <% end %>
+<% end %>
+<%= turbo_stream.update "buttons", partial: "buttons", locals: { selected_assets: @selected_assets } %>

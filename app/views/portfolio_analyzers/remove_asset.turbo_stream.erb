@@ -1,0 +1,4 @@
+<%= turbo_stream.remove "asset_#{@asset.downcase}" %>
+<%= turbo_stream.update "asset_selector", partial: "asset_selector", locals: { query_assets: @query_assets } %>
+<%= turbo_stream.update "empty_portfolio", partial: "empty_portfolio", locals: { selected_assets: @selected_assets } %>
+<%= turbo_stream.update "buttons", partial: "buttons", locals: { selected_assets: @selected_assets } %>

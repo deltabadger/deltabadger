@@ -1,0 +1,9 @@
+<%= turbo_frame_tag "buttons" do %>
+  <% unless selected_assets.empty? %>
+    <% if selected_assets.values.sum == 1 %>
+      <%= button_to "Simulate", simulate_portfolio_analyzer_path, method: :post %>
+    <% else %>
+      <%= button_to "Normalize Allocations", normalize_allocations_portfolio_analyzer_path, method: :post %>
+    <% end %>
+  <% end %>
+<% end %>

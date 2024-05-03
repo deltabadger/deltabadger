@@ -1,0 +1,8 @@
+<%= turbo_frame_tag "asset_selector" do %>
+  <% query_assets.each do |asset| %>
+    <%= asset %>
+    <%= button_to "Add",
+                  add_asset_portfolio_analyzer_path(asset: asset),
+                  method: :post %>
+  <% end %>
+<% end %>
