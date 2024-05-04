@@ -10,4 +10,9 @@
 
   <%= button_to "Normalize Allocations", normalize_allocations_portfolio_analyzer_path, method: :post, disabled: allocations_are_normalized || selected_assets.empty? %>
   <%= button_to "Simulate", simulate_portfolio_analyzer_path, method: :post, disabled: !allocations_are_normalized || selected_assets.empty? %>
+
+  <% if selected_assets.empty? %>
+    <%# better be a flash message? %>
+    <p>Your Portfolio is empty. Add some assets to get started.</p>
+  <% end %>
 <% end %>

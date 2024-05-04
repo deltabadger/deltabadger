@@ -7,7 +7,6 @@
 <%# </div> %>
 
 <%= render "buttons", selected_assets: @selected_assets, smart_allocations_enabled: @smart_allocations_enabled %>
-<%= render "empty_portfolio", selected_assets: @selected_assets %>
 <%= turbo_frame_tag "selected_assets" do %>
   <% @selected_assets.each do |asset, allocation| %>
     <%= render "asset", asset: asset, allocation: allocation %>
