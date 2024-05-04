@@ -80,6 +80,11 @@ class PortfolioAnalyzersController < ApplicationController
     else
       session[:selected_assets].transform_values! { |v| (v.to_f / total_allocation).round(4) }
     end
+
+    # Adjust the last value to ensure the sum is exactly 1
+    correction = (1.0 - session[:selected_assets].values.sum).round(4)
+    session[:selected_assets][session[:selected_assets].keys.last] += correction
+
     @selected_assets = session[:selected_assets]
 
     respond_to do |format|
@@ -99,7 +104,7 @@ class PortfolioAnalyzersController < ApplicationController
 
   def smart_allocations
     session[:smart_allocations_enabled] = params[:smart_allocations_enabled] == '1'
-    get_smart_allocations
+    get_smart_allocations if session[:smart_allocations_enabled]
     @selected_assets = session[:selected_assets]
     @smart_allocations_enabled = session[:smart_allocations_enabled]
 
