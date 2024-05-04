@@ -13,5 +13,5 @@ application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartControlle
 import ToggleController from "./toggle_controller"
 application.register("toggle", ToggleController)
 
-import TurboStreamsAnimationsController from "./turbo_streams_animations_controller"
-application.register("turbo-streams-animations", TurboStreamsAnimationsController)
+import TurboStreamAnimationController from "./turbo_stream_animation_controller"
+application.register("turbo-stream-animation", TurboStreamAnimationController)

@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 
-// Connects to data-controller="turbo-streams-animations"
+// Connects to data-controller="turbo-stream-animation"
 export default class extends Controller {
   connect() {
     document.addEventListener(
