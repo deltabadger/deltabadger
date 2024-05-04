@@ -5,12 +5,18 @@ class PortfolioAnalyzersController < ApplicationController
     simulate_current_session
     session[:query] = params[:query]
     @query_assets = get_query_assets(session[:query])
+    @smart_allocations_enabled = session[:smart_allocations_enabled] || false
 
     if turbo_frame_request?
       render partial: 'asset_selector', locals: { query_assets: @query_assets }
     else
       render :show
     end
+
+    # respond_to do |format|
+    #   format.turbo_frame { render partial: 'asset_selector', locals: { query_assets: @query_assets } }
+    #   format.html { render :show }
+    # end
   end
 
   def add_asset
@@ -20,6 +26,7 @@ class PortfolioAnalyzersController < ApplicationController
       session[:selected_assets][@asset] = @allocation
       @available_assets -= [@asset]
       @query_assets = get_query_assets(session[:query])
+      @smart_allocations_enabled = false
     else
       flash[:alert] = 'Invalid asset'
       return redirect_to portfolio_analyzer_path
@@ -27,7 +34,7 @@ class PortfolioAnalyzersController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to portfolio_analyzer_path, notice: "#{@asset} was successfully added." }
+      format.html { redirect_to portfolio_analyzer_path }
     end
   end
 
@@ -37,6 +44,7 @@ class PortfolioAnalyzersController < ApplicationController
       session[:selected_assets].delete(@asset)
       @available_assets += [@asset]
       @query_assets = get_query_assets(session[:query])
+      @smart_allocations_enabled = false
     else
       flash[:alert] = 'Invalid asset'
       return redirect_to portfolio_analyzer_path
@@ -44,7 +52,7 @@ class PortfolioAnalyzersController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to portfolio_analyzer_path, notice: "#{@asset} was successfully removed." }
+      format.html { redirect_to portfolio_analyzer_path }
     end
   end
 
@@ -58,6 +66,11 @@ class PortfolioAnalyzersController < ApplicationController
       redirect_to portfolio_analyzer_path
     end
     @selected_assets = session[:selected_assets]
+
+    respond_to do |format|
+      format.turbo_stream
+      format.html { redirect_to portfolio_analyzer_path }
+    end
   end
 
   def normalize_allocations
@@ -68,11 +81,10 @@ class PortfolioAnalyzersController < ApplicationController
       session[:selected_assets].transform_values! { |v| (v.to_f / total_allocation).round(4) }
     end
     @selected_assets = session[:selected_assets]
-    puts session[:selected_assets].values.sum
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to portfolio_analyzer_path, notice: 'Allocations were successfully normalized.' }
+      format.html { redirect_to portfolio_analyzer_path }
     end
   end
 
@@ -81,11 +93,25 @@ class PortfolioAnalyzersController < ApplicationController
 
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to portfolio_analyzer_path, notice: 'Allocations were successfully normalized.' }
+      format.html { redirect_to portfolio_analyzer_path }
+    end
+  end
+
+  def smart_allocations
+    session[:smart_allocations_enabled] = params[:smart_allocations_enabled] == '1'
+    get_smart_allocations
+    @selected_assets = session[:selected_assets]
+    @smart_allocations_enabled = session[:smart_allocations_enabled]
+
+    respond_to do |format|
+      format.turbo_stream { render :normalize_allocations }
+      format.html { redirect_to portfolio_analyzer_path }
     end
   end
 
   private
+
+  def set_defaults; end
 
   def set_assets
     session[:selected_assets] ||= {}
@@ -128,6 +154,26 @@ class PortfolioAnalyzersController < ApplicationController
     @available_assets.filter { |a| a.include?(query.upcase) }
   end
 
+  def get_smart_allocations
+    assets = session[:selected_assets].keys.join('_')
+    start_date = '2021-01-01'
+    portfolio_type = 'fixed'
+    cache_key = "smart_allocations_#{portfolio_type}_#{assets}_#{start_date}"
+    allocations = Rails.cache.fetch(cache_key, expires_in: seconds_to_midnight_utc.seconds) do
+      client = FinancialDataApiClient.new
+      puts 'Fetching smart allocations'
+      symbols = session[:selected_assets].keys.map { |s| "#{s}/USDT" }.join(',')
+      allocations_result = client.smart_allocations(symbols, start_date, portfolio_type)
+      puts 'wtf0'
+      return if allocations_result.failure?
+
+      puts 'wtf1'
+      allocations_result.data
+    end
+
+    session[:selected_assets].transform_values!.with_index { |_, i| allocations[2][i] }
+  end
+
   def simulate_current_session
     @metrics = {}
     @data_labels = []
@@ -136,7 +182,6 @@ class PortfolioAnalyzersController < ApplicationController
 
     assets = session[:selected_assets].keys.join('_')
     allocations = session[:selected_assets].values.join('_')
-    symbols = session[:selected_assets].keys.map { |s| "#{s}/USDT" }.join(',')
     start_date = '2021-01-01'
     portfolio_type = 'fixed'
     benchmark = '^GSPC'
@@ -144,6 +189,7 @@ class PortfolioAnalyzersController < ApplicationController
     metrics = Rails.cache.fetch(cache_key, expires_in: seconds_to_midnight_utc.seconds) do
       client = FinancialDataApiClient.new
       puts 'Fetching simulation'
+      symbols = session[:selected_assets].keys.map { |s| "#{s}/USDT" }.join(',')
       metrics_result = client.metrics(symbols, allocations.gsub('_', ','), benchmark, start_date, portfolio_type)
       return if metrics_result.failure?
 

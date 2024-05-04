@@ -1,9 +1,13 @@
 <%= turbo_frame_tag "buttons" do %>
-  <% unless selected_assets.empty? %>
-    <% if selected_assets.values.sum == 1 %>
-      <%= button_to "Simulate", simulate_portfolio_analyzer_path, method: :post %>
-    <% else %>
-      <%= button_to "Normalize Allocations", normalize_allocations_portfolio_analyzer_path, method: :post %>
-    <% end %>
+  <% allocations_are_normalized = selected_assets.values.sum == 1 %>
+
+  <%= form_with url: smart_allocations_portfolio_analyzer_path, method: :post, html: { onchange: "requestSubmit();" } do |form| %>
+    <div class="custom-control custom-switch">
+      <%= form.check_box :smart_allocations_enabled, class: "custom-control-input", id: "smartAllocationsToggle", checked: smart_allocations_enabled, disabled: selected_assets.empty? %>
+      <%= label_tag :smart_allocations_enabled, "Smart Allocations", class: "custom-control-label", for: "smartAllocationsToggle" %>
+    </div>
   <% end %>
+
+  <%= button_to "Normalize Allocations", normalize_allocations_portfolio_analyzer_path, method: :post, disabled: allocations_are_normalized || selected_assets.empty? %>
+  <%= button_to "Simulate", simulate_portfolio_analyzer_path, method: :post, disabled: !allocations_are_normalized || selected_assets.empty? %>
 <% end %>

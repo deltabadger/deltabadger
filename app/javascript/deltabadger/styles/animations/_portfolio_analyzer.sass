@@ -1,0 +1,67 @@
+.animate-assets-in
+  animation: fade-in 0.25s ease-out
+
+.animate-assets-out
+  animation: fade-out 0.25s ease-out
+
+// .animate-assets-in
+//   overflow: hidden
+//   animation: fade-in 0.25s ease-out, slide-in 0.25s ease-out
+
+// .animate-assets-out
+//   overflow: hidden
+//   animation: fade-out 0.25s ease-out, slide-out 0.25s ease-out
+
+@keyframes fade-in
+  from
+    opacity: 0
+
+  to
+    opacity: 1
+
+@keyframes fade-out
+  from
+    opacity: 1
+
+  to
+    opacity: 0
+
+@keyframes slide-in
+  from
+    transform: translateX(-4rem)
+
+  to
+    transform: translateX(0)
+
+@keyframes slide-out
+  from
+    transform: translateX(0)
+
+  to
+    transform: translateX(-4rem)
+
+
+
+.animate-asset-in
+  overflow: hidden
+  animation: slide-down 0.5s ease-out
+
+.animate-asset-out
+  overflow: hidden
+  animation: slide-up 0.5s ease-out
+
+/* "max-height: auto" unfortunately does not work here, so we set
+ * to a fixed height that is greater than the expected height.
+@keyframes slide-down
+  from
+    max-height: 0
+
+  to
+    max-height: 50rem
+
+@keyframes slide-up
+  from
+    max-height: 50rem
+
+  to
+    max-height: 0    

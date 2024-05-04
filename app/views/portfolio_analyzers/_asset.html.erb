@@ -1,4 +1,8 @@
 <%= turbo_frame_tag "asset_#{asset.downcase}" do %>
+  <%= tag.div data: {
+        stream_append_class: "animate-asset-in",
+        stream_remove_class: "animate-asset-out"
+  } do %>
     <%= asset %>
 
     <%= form_with url: update_allocation_portfolio_analyzer_path(asset: asset), method: :post, html: { onchange: "requestSubmit();" } do |form| %>
@@ -9,4 +13,5 @@
     <%= button_to "Delete",
                   remove_asset_portfolio_analyzer_path(asset: asset),
                   method: :delete %>
+  <% end %>
 <% end %>
