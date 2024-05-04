@@ -133,6 +133,7 @@ Rails.application.routes.draw do
         delete :remove_asset
         post :normalize_allocations
         post :simulate
+        post :smart_allocations
       end
     end
 
