@@ -17,7 +17,6 @@ export default class extends Controller {
   }
 
   handleStreamEvent(event) {
-
     // Animations for turbo streams:
     // This code adds classes to elements that are about to be removed or added to the page
     // based on their "data-stream-[action]-class" attributes. Allowed actions (tested):
