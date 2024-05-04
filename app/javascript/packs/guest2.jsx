@@ -12,7 +12,7 @@ require.context("../images", true);
 I18n.locale = document.head.dataset.locale || I18n.defaultLocale;
 
 if (document.getElementById("cookie_consent")) {
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("turbo:load", () => {
     createRoot(document.getElementById("cookie_consent")).render(
       <CookieBanner />
     );
@@ -20,7 +20,7 @@ if (document.getElementById("cookie_consent")) {
 }
 
 if (document.getElementById("newsletter")) {
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("turbo:load", () => {
     createRoot(document.getElementById("newsletter")).render(
       <NewsletterForm />
     );

@@ -41,7 +41,7 @@ document.addEventListener("turbo:load", () => {
 });
 
 if (document.getElementById("cookie_consent")) {
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("turbo:load", () => {
     createRoot(document.getElementById("cookie_consent")).render(
       <CookieBanner />
     );
@@ -75,7 +75,7 @@ if (document.getElementById("cookie_consent")) {
 // }
 
 if (document.getElementById("referral_banner_link")) {
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("turbo:load", () => {
     document
       .getElementById("referral_banner_link")
       .addEventListener("click", (evt) => {
