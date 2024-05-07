@@ -1,4 +1,3 @@
-postgres:  bin/postgres-dev
-redis:     redis-server
 webpacker: bin/webpack-dev-server
-sidekiq:   bundle exec sidekiq 
+sidekiq:   bundle exec sidekiq
+server:    rails s
