@@ -702,6 +702,13 @@ id:
         saver: Penabung
         upgrade: 'Tingkatkan Paket'
         upgrade_plan: 'Tingkatkan paket'
+    legendary_badger:
+        will_be_sent: 'NFT Badger Legendaris akan dikirim ke:'
+        invalid_address: '"%{eth_address}" adalah alamat Ethereum yang tidak valid. Silakan coba lagi.'
+        update_success: '"%{eth_address}" telah berhasil dikirimkan. NFT akan dikirim ke alamat ini.'
+        ethereum_address: 'Alamat Ethereum'
+        confirm: Konfirmasi
+        update: Perbarui
     welcome:
         banner_html: "Selamat datang! Anda saat ini menikmati <b>paket gratis dengan limit transaksi sebesar $1200/tahun</b>, tetapi tidak akan diberlakukan untuk bulan pertama. Cobalah jadwal mana saja yang Anda inginkan. Anda juga bisa meningkatkan paket agar nanti menikmati transaksi tanpa batas. Selain itu, paket Hodler 4 tahun memberi akses ke fitur eksperimental baru (misalnya semua mata uang untuk pertukaran). Kami mengapresiasi semua masukan. Bergabunglah dengan\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grup Telegram</a> dan ikuti kami di <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Selamat ber-averaging!"
         default: 'Hai, selamat datang di Deltabadger'

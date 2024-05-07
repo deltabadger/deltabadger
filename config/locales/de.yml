@@ -153,9 +153,9 @@ de:
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat
-        next_buy: 'Nächster Kauf in %{countdown}'
-        next_sell: 'Nächster Verkauf in %{countdown}'
-        next_withdrawal: 'Nächste Auszahlung in %{countdown}'
+        next_buy: 'Nächster in %{countdown}'
+        next_sell: 'Nächster in %{countdown}'
+        next_withdrawal: 'Nächste in %{countdown}'
         price: 'dem Preis'
         price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
         price_range_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
@@ -612,6 +612,13 @@ de:
         saver: Sparer
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'
+    legendary_badger:
+        will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
+        invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
+        update_success: '"%{eth_address}" wurde erfolgreich eingereicht. Das NFT wird an diese Adresse gesendet.'
+        ethereum_address: Ethereum-Adresse
+        confirm: Bestätigen
+        update: Aktualisieren
     welcome:
         banner_html: 'Hallo %{name}! <b>Überprüfe deine Mailbox</b> und finde Tipps und Tricks für das perfekte Bot-Setup, das ich für dich vorbereitet habe. <b>Wenn sie im Spam-Ordner gelandet ist, verschiebe sie in deinen Posteingang</b>, damit du unsere Nachrichten in Zukunft sehen kannst. Danke, Jan'
         default: 'Hallo, willkommen bei Deltabadger'
