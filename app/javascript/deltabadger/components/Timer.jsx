@@ -44,15 +44,8 @@ export const Timer = ({ bot, callback }) => {
   const translation_key = settings.type === 'buy' ? 'bots.next_buy' : 'bots.next_sell';
 
   const infotext = useMemo(() => {
-    switch (bot.bot_type) {
-      case 'free':
-        return I18n.t(translation_key, { countdown });
-      case 'withdrawal':
-        return I18n.t('bots.next_withdrawal', { countdown });
-      case 'webhook':
-        return I18n.t(translation_key, { countdown });
-    }
-  }, [countdown, bot.bot_type]);
+    return countdown;
+  }, [countdown]);
 
   return (
     <div className="db-bot__infotext__right">
