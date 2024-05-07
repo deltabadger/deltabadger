@@ -200,10 +200,14 @@ $formUnit: 2rem
     margin-top: .75rem
     margin-bottom: -.4rem
     &--invalid
-      font-weight: bold
-      @include textAdjust(2)
       display: none
+    &--invalid, &--alert, &--notice
+      @include textAdjust(2)
+      font-weight: bold
+    &--invalid, &--alert
       color: var(--danger)
+    &--notice
+      color: var(--success)
     &--right
       float: right
       padding-right: .4rem
