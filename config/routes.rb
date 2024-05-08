@@ -118,25 +118,15 @@ Rails.application.routes.draw do
     get '/referral-program', to: 'home#referral_program', as: :referral_program
     get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
-    # get '/portfolio-analyzer', to: 'portfolio_analyzer#index', as: :portfolio_analyzer
-    # post '/portfolio-analyzer/add_item', to: 'portfolio_analyzer#add_item', as: 'add_item'
 
-    # resource :portfolio_analyzer, only: [:show, :create, :destroy], path: 'portfolio-analyzer'
-    # # resource :portfolio_analyzer, only: [:index, :create, :destroy], path: 'portfolio-analyzer' do
-    # #   post :add_item, action: :create
-    # #   delete :remove_item, action: :destroy
-    # # end
-    resource :portfolio_analyzer, only: [:show], path: 'portfolio-analyzer' do
-      collection do
-        post :add_asset
-        post :update_allocation
-        delete :remove_asset
-        post :normalize_allocations
-        post :simulate
-        post :smart_allocations
-      end
+    resources :portfolios, only: [:show] do
+      resources :assets, only: [:create, :destroy, :update]
+      post :toggle_smart_allocations
+      post :normalize_allocations
+      post :simulate
     end
-
+  
+    get '/portfolio-analyzer', to: 'portfolios#show' # in the future, use only portfolios which can be automated etc.
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
