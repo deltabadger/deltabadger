@@ -1,0 +1,17 @@
+<h1>Analyze your portfolio</h1>
+
+<%= render "buttons", portfolio: @portfolio %>
+
+<%= render "empty", portfolio: @portfolio %>
+<%= turbo_frame_tag "portfolio-assets" do %>
+  <% @portfolio.assets.order(:id).each do |asset| %>
+    <%= render 'assets/asset', asset: asset %>
+  <% end %>
+<% end %>
+
+<%= form_with url: portfolio_analyzer_path, method: :get, data: { controller: "form-submission", turbo_frame: "asset-picker" } do |form| %>
+  <%= form.text_field :query, data: { action: "input->form-submission#submit" } %>
+<% end %>
+<%= render "asset_picker", query_assets: @query_assets %>
+
+<%= render "backtest_results", portfolio: @portfolio, labels: @data_labels, series: @data_series %>

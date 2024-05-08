@@ -1,3 +1,0 @@
-<%= turbo_stream.update "asset_selector", partial: "asset_selector", locals: { query_assets: @query_assets } %>
-<%= turbo_stream.update "buttons", partial: "buttons", locals: { selected_assets: @selected_assets, smart_allocations_enabled: @smart_allocations_enabled } %>
-<%= turbo_stream.remove "asset_#{@asset.downcase}" %>

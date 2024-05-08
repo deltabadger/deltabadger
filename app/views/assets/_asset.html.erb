@@ -1,0 +1,17 @@
+<%= turbo_frame_tag asset do %>
+  <%= tag.div data: {
+        # stream_append_class: "animate-asset-in",
+        # stream_remove_class: "animate-asset-out"
+  } do %>
+    <%= asset.ticker %>
+
+    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
+      <%# <%= form.hidden_field :ticker, value: asset.ticker %>
+      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.0001, value: asset.allocation %>
+    <% end %>
+
+    <%= button_to "Delete",
+                   portfolio_asset_path(asset.portfolio_id, asset),
+                   method: :delete %>
+  <% end %>
+<% end %>

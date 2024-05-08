@@ -1,0 +1,11 @@
+<%= turbo_frame_tag "buttons" do %>
+  <%= form_with url: portfolio_toggle_smart_allocations_path(portfolio), method: :post, html: { onchange: "requestSubmit();" } do |form| %>
+    <div class="custom-control custom-switch">
+      <%= form.check_box :smart_allocations_enabled, class: "custom-control-input", id: "smartAllocationsToggle", checked: portfolio.smart_allocation_on?, disabled: portfolio.assets.empty? %>
+      <%= label_tag :smart_allocations_enabled, "Smart Allocations", class: "custom-control-label", for: "smartAllocationsToggle" %>
+    </div>
+  <% end %>
+
+  <%= button_to "Normalize Allocations", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
+  <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %>
+<% end %>

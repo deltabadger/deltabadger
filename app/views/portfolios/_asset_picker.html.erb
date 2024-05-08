@@ -1,0 +1,11 @@
+<%= turbo_frame_tag "asset-picker" do %>
+  <% query_assets.each do |asset| %>
+    <%= turbo_frame_tag "add_#{asset.ticker}" do %>
+      <%= asset.ticker %>
+      <%= button_to "Add",
+                    portfolio_assets_path(asset.portfolio),
+                    method: :post,
+                    params: { asset: { ticker: asset.ticker, portfolio_id: asset.portfolio_id } } %>
+    <% end %>
+  <% end %>
+<% end %>

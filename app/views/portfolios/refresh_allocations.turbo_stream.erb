@@ -1,0 +1,6 @@
+<%= turbo_stream.update "buttons", partial: "buttons", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.update "portfolio-assets" do %>
+  <% @portfolio.assets.order(:id).each do |asset| %>
+    <%= render 'assets/asset', asset: asset %>
+  <% end %>
+<% end %>
