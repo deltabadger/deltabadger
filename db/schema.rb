@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_03_29_172827) do
+ActiveRecord::Schema.define(version: 2024_05_05_113832) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -60,6 +60,15 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
+  end
+
+  create_table "assets", force: :cascade do |t|
+    t.bigint "portfolio_id", null: false
+    t.string "ticker"
+    t.float "allocation", default: 0.0, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -157,6 +166,18 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.integer "payment_type", default: 0, null: false
     t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
+  end
+
+  create_table "portfolios", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.integer "strategy", default: 0, null: false
+    t.boolean "smart_allocation_on", default: false, null: false
+    t.integer "risk_level", default: 2, null: false
+    t.integer "benchmark", default: 0, null: false
+    t.string "backtest_start_date"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
   create_table "setting_flags", force: :cascade do |t|
@@ -260,11 +281,13 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
   add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "assets", "portfolios"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plans"
+  add_foreign_key "portfolios", "users"
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
