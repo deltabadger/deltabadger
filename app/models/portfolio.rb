@@ -23,7 +23,6 @@ class Portfolio < ApplicationRecord
   end
 
   def normalized_allocations?
-    puts "normalized_allocations? #{total_allocation} #{total_allocation == 1}"
     total_allocation == 1
   end
 
