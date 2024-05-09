@@ -7,6 +7,9 @@ import { application } from "./application"
 import FormSubmissionController from "./form_submission_controller"
 application.register("form-submission", FormSubmissionController)
 
+import ModalsController from "./modals_controller"
+application.register("modals", ModalsController)
+
 import PortfolioAnalyzerChartController from "./portfolio_analyzer_chart_controller"
 application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartController)
 
