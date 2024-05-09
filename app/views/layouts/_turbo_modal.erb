@@ -1,0 +1,10 @@
+<%= turbo_frame_tag "modal" do %>
+  <dialog data-controller="modals" data-action="click->modals#clickOutside" class="turbo-modal">
+    <div>
+      <%= button_to "Cancel", nil, data: { action: "modals#close" } %>
+
+      <%= yield %>
+
+    </div>
+  </dialog>
+<% end %>
