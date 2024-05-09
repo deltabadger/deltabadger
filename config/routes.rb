@@ -120,7 +120,7 @@ Rails.application.routes.draw do
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
     resources :portfolios, only: [:show] do
-      resources :assets, only: [:create, :destroy, :update]
+      resources :assets, only: [:new, :create, :destroy, :update]
       post :toggle_smart_allocations
       post :normalize_allocations
       post :simulate

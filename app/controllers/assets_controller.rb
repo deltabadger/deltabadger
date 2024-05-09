@@ -1,6 +1,13 @@
 class AssetsController < ApplicationController
   before_action :set_asset, only: %i[destroy update]
 
+  def new
+    session[:query] = params[:query]
+    @portfolio = Portfolio.find(params[:portfolio_id])
+    query_assets_result = PortfolioAnalyzerManager::QueryAssetsGetter.call(session[:query], @portfolio)
+    @query_assets = query_assets_result.failure? ? [] : query_assets_result.data
+  end
+
   def create
     # add condition asset ticker must be valid
     @portfolio = Portfolio.find(asset_params[:portfolio_id])

@@ -9,9 +9,7 @@
   <% end %>
 <% end %>
 
-<%= form_with url: portfolio_analyzer_path, method: :get, data: { controller: "form-submission", turbo_frame: "asset-picker" } do |form| %>
-  <%= form.text_field :query, data: { action: "input->form-submission#submit" } %>
-<% end %>
-<%= render "asset_picker", query_assets: @query_assets %>
+<%= turbo_frame_tag "modal" %>
+<%= link_to "Add asset", new_portfolio_asset_path(@portfolio), data: { turbo_frame: "modal" } %>
 
 <%= render "backtest_results", portfolio: @portfolio, labels: @data_labels, series: @data_series %>

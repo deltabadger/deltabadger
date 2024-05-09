@@ -14,10 +14,6 @@ class PortfoliosController < ApplicationController
 
   def show
     simulate_portfolio
-
-    session[:query] = params[:query]
-    query_assets_result = PortfolioAnalyzerManager::QueryAssetsGetter.call(session[:query], @portfolio)
-    @query_assets = query_assets_result.failure? ? [] : query_assets_result.data
   end
 
   def toggle_smart_allocations
