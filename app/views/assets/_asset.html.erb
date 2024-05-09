@@ -5,8 +5,7 @@
   } do %>
     <%= asset.ticker %>
 
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
-      <%# <%= form.hidden_field :ticker, value: asset.ticker %>
+    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons' } do |form| %>
       <%= form.range_field :allocation, in: 0.0..1.0, step: 0.0001, value: asset.allocation %>
     <% end %>
 

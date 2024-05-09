@@ -32,12 +32,8 @@ class AssetsController < ApplicationController
 
   def update
     if @asset.update(allocation: params[:allocation])
-      respond_to do |format|
-        format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully updated.'}
-      end
+      render partial: 'portfolios/buttons', locals: { portfolio: @asset.portfolio }
     else
-      puts 'oshit'
       redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.'
     end
   end
