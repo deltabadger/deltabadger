@@ -26,11 +26,15 @@ export default class extends Controller {
   }
 
   close() {
-    this.element.close()
-    // clean up modal content
     const frame = document.getElementById('modal')
-    frame.removeAttribute("src")
-    frame.innerHTML = ""
+    const elementToRemove = frame.firstElementChild
+    const exitAnimationClass = elementToRemove.dataset['hwAnimateOut'];
+    if (exitAnimationClass) {
+      elementToRemove.classList.add(exitAnimationClass)
+      elementToRemove.addEventListener("animationend", this.closeAndCleanUp.bind(this))
+    } else {
+      this.closeAndCleanUp()
+    }
   }
 
   enableBodyScroll() {
@@ -41,5 +45,13 @@ export default class extends Controller {
     if (event.target === this.element) {
       this.close()
     }
+  }
+
+  closeAndCleanUp() {
+    this.element.close()
+    // clean up modal content
+    const frame = document.getElementById('modal')
+    frame.removeAttribute("src")
+    frame.innerHTML = ""
   }
 }

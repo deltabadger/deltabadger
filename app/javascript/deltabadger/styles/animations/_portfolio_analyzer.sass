@@ -1,16 +1,19 @@
-.animate-assets-in
+.smooth
+  transition: all 0.25s ease-out
+  
+.animate-modal-in
   animation: fade-in 0.25s ease-out
 
-.animate-assets-out
+.animate-modal-out
   animation: fade-out 0.25s ease-out
 
-// .animate-assets-in
-//   overflow: hidden
-//   animation: fade-in 0.25s ease-out, slide-in 0.25s ease-out
+.animate-assets-in
+  overflow: hidden
+  animation: fade-in 0.25s ease-in-out, slide-in 0.25s ease-in-out
 
-// .animate-assets-out
-//   overflow: hidden
-//   animation: fade-out 0.25s ease-out, slide-out 0.25s ease-out
+.animate-assets-out
+  overflow: hidden
+  animation: fade-out 0.25s ease-in-out, slide-out 0.25s ease-in-out
 
 @keyframes fade-in
   from
@@ -44,11 +47,11 @@
 
 .animate-asset-in
   overflow: hidden
-  animation: slide-down 0.5s ease-out
+  animation: slide-down 0.25s ease-in-out
 
 .animate-asset-out
   overflow: hidden
-  animation: slide-up 0.5s ease-out
+  animation: slide-up 0.25s ease-in-out
 
 /* "max-height: auto" unfortunately does not work here, so we set
  * to a fixed height that is greater than the expected height.
