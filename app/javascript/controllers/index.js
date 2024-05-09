@@ -7,6 +7,9 @@ import { application } from "./application"
 import FormSubmissionController from "./form_submission_controller"
 application.register("form-submission", FormSubmissionController)
 
+import HotwireAnimationsController from "./hotwire_animations_controller"
+application.register("hotwire-animations", HotwireAnimationsController)
+
 import ModalsController from "./modals_controller"
 application.register("modals", ModalsController)
 
@@ -15,6 +18,3 @@ application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartControlle
 
 import ToggleController from "./toggle_controller"
 application.register("toggle", ToggleController)
-
-import TurboStreamAnimationController from "./turbo_stream_animation_controller"
-application.register("turbo-stream-animation", TurboStreamAnimationController)
