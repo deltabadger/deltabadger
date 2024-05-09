@@ -4,9 +4,11 @@
 
 <%= render "empty", portfolio: @portfolio %>
 <%= turbo_frame_tag "portfolio-assets" do %>
-  <% @portfolio.assets.order(:id).each do |asset| %>
-    <%= render 'assets/asset', asset: asset %>
-  <% end %>
+  <div class="smooth">
+    <% @portfolio.assets.order(:id).each do |asset| %>
+      <%= render 'assets/asset', asset: asset %>
+    <% end %>
+  </div>
 <% end %>
 
 <%= turbo_frame_tag "modal" %>

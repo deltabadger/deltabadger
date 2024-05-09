@@ -1,7 +1,7 @@
 <%= turbo_frame_tag asset do %>
   <%= tag.div data: {
-        # stream_append_class: "animate-asset-in",
-        # stream_remove_class: "animate-asset-out"
+        hw_animate_in_append: "animate-asset-in",
+        hw_animate_out_remove: "animate-asset-out"
   } do %>
     <%= asset.ticker %>
 
