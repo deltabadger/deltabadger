@@ -1,7 +1,7 @@
 <%= render 'layouts/turbo_modal' do %>
   <h1>Add a new asset</h1>
   <%= form_with url: new_portfolio_asset_path(@portfolio), method: :get, data: { controller: "form-submission", turbo_frame: "asset-picker" } do |form| %>
-    <%= form.text_field :query, data: { action: "input->form-submission#submit" } %>
+    <%= form.text_field :query, autofocus: true, data: { action: "input->form-submission#submit" } %>
   <% end %>
   <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modals#submitEnd" } do %>
     <% @query_assets.each do |asset| %>
