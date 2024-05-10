@@ -13,4 +13,15 @@ $page-bg: #FFF
 $widget-bg: #F2F5FA
 
 $dropdown-bg: #FFF
-    
+
+@media (prefers-color-scheme: light)
+  .db-darkmode-only
+    display: none
+  \:root
+    --background-new: #fff
+
+@media (prefers-color-scheme: dark)
+  .db-lightmode-only
+    display: none
+  \:root
+    --background-new: #061A4F
