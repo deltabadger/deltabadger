@@ -6,14 +6,15 @@ window.Tooltip = Tooltip;
 
 export default class extends Controller {
   static targets = ["analyzerChart"];
+  static values = { series: Array, labels: Array };
 
   canvasContext() {
     return this.analyzerChartTarget.getContext("2d");
   }
 
   connect() {
-    var series = JSON.parse(this.canvasContext().canvas.dataset.series);
-    var labels = JSON.parse(this.canvasContext().canvas.dataset.labels).map(date => new Date(date).getTime());
+    var series = this.seriesValue;
+    var labels = this.labelsValue.map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
     var max_points_to_draw = 300;

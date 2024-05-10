@@ -1,7 +1,11 @@
 <%= turbo_frame_tag "backtest-results" do %>
   <% if portfolio.normalized_allocations? %>
-    <div data-controller="portfolio-analyzer-chart">
-      <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="100" data-labels="<%= labels %>" data-series="<%= series %>"></canvas>
-    </div>
+    <%= tag.div data: { 
+      controller: "portfolio-analyzer-chart",
+      portfolio_analyzer_chart_labels_value: labels,
+      portfolio_analyzer_chart_series_value: series 
+    } do %>
+      <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="100"></canvas>
+    <% end %>
   <% end %>
 <% end %>
