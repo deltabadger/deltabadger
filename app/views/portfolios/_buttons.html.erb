@@ -16,6 +16,7 @@
     allocations_risk_levels_value: Portfolio.humanized_risk_levels,
     allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
   } do |form| %>
+    <span>Risk Profile:</span>
     <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, step: 1, value: Portfolio.risk_levels[portfolio.risk_level], data: { action: "input->allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? %>
     <%= form.label :risk_level, portfolio.risk_level.humanize, data: { allocations_target: "riskLevel" } %>
   <% end %>
