@@ -9,6 +9,20 @@ class PortfoliosController < ApplicationController
     simulate_portfolio
   end
 
+  def update_benchmark
+    return if @portfolio.benchmark == params[:benchmark]
+
+    if Portfolio.benchmarks.include?(params[:benchmark]) && @portfolio.update(benchmark: params[:benchmark])
+      simulate_portfolio
+      respond_to do |format|
+        format.html { redirect_to portfolio_analyzer_path }
+        format.turbo_stream { render 'refresh_backtest_results' }
+      end
+    else
+      redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.'
+    end
+  end
+
   def toggle_smart_allocation
     smart_allocation_on = params[:smart_allocation_enabled] == '1'
     return if @portfolio.smart_allocation_on? == smart_allocation_on
