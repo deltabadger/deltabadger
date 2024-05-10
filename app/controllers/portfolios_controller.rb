@@ -17,7 +17,7 @@ class PortfoliosController < ApplicationController
   end
 
   def toggle_smart_allocation
-    smart_allocation_on = params[:smart_allocations_enabled] == '1'
+    smart_allocation_on = params[:smart_allocation_enabled] == '1'
     return if @portfolio.smart_allocation_on? == smart_allocation_on
 
     if @portfolio.update(smart_allocation_on: smart_allocation_on)

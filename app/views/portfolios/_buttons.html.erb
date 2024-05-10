@@ -1,8 +1,8 @@
 <%= turbo_frame_tag "buttons" do %>
   <%= form_with url: portfolio_toggle_smart_allocation_path(portfolio), method: :post, html: { onchange: "requestSubmit();" } do |form| %>
     <div class="custom-control custom-switch">
-      <%= form.check_box :smart_allocations_enabled, class: "custom-control-input", id: "smartAllocationToggle", checked: portfolio.smart_allocation_on?, disabled: portfolio.assets.empty? %>
-      <%= label_tag :smart_allocations_enabled, "Smart Allocation", class: "custom-control-label", for: "smartAllocationToggle" %>
+      <%= form.check_box :smart_allocation_enabled, class: "custom-control-input", id: "smartAllocationToggle", checked: portfolio.smart_allocation_on?, disabled: portfolio.assets.empty? %>
+      <%= label_tag :smart_allocation_enabled, "Smart Allocation", class: "custom-control-label", for: "smartAllocationToggle" %>
     </div>
   <% end %>
 
