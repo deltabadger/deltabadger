@@ -2,7 +2,7 @@ class Portfolio < ApplicationRecord
   belongs_to :user
   has_many :assets, dependent: :destroy
 
-  validates :strategy, :benchmark, presence: true
+  validates :strategy, :benchmark, :risk_level, presence: true
 
   enum strategy: %i[fixed]
   enum benchmark: %i[^GSPC ^DJI ^IXIC ^RUT]
