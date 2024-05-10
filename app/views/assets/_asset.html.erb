@@ -5,8 +5,9 @@
   } do %>
     <%= asset.ticker %>
 
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons' } do |form| %>
-      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.0001, value: asset.allocation %>
+    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations" } do |form| %>
+      <%= form.text_field :allocation_display, value: "#{(asset.allocation * 100).round(2)}%", data: { allocations_target: "allocationDisplay", action: "change->allocations#update" } %>
+      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.0001, value: asset.allocation, data: { allocations_target: "allocation", action: "input->allocations#update" } %>
     <% end %>
 
     <%= button_to "Delete",
