@@ -6,6 +6,13 @@
     </div>
   <% end %>
 
-  <%= button_to "Normalize Allocations", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
-  <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %>
+  <%# <%= button_to "Normalize Allocations", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %> %>
+  <%# <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %> %>
+
+  <% unless portfolio.normalized_allocations? || portfolio.assets.empty? %>
+    <%= button_to "Normalize Allocations", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
+  <% end %>
+  <% unless !portfolio.normalized_allocations? || portfolio.assets.empty? %>
+    <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %>
+  <% end %>
 <% end %>
