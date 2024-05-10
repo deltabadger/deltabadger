@@ -123,6 +123,7 @@ Rails.application.routes.draw do
       resources :assets, only: [:new, :create, :destroy, :update]
       patch :toggle_smart_allocation
       patch :update_risk_level
+      patch :update_benchmark
       post :normalize_allocations
       post :simulate
     end
