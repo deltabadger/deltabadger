@@ -2,7 +2,7 @@ require 'utilities/time'
 
 class PortfoliosController < ApplicationController
   # before_action :initialize_session, only: [:show]
-  before_action :set_portfolio, only: %i[show toggle_smart_allocations normalize_allocations simulate]
+  before_action :set_portfolio, only: %i[show toggle_smart_allocation normalize_allocations simulate]
 
   KNOWN_BENCHMARKS = {
     '^GSPC': 'S&P 500 Index',
@@ -16,7 +16,7 @@ class PortfoliosController < ApplicationController
     simulate_portfolio
   end
 
-  def toggle_smart_allocations
+  def toggle_smart_allocation
     smart_allocation_on = params[:smart_allocations_enabled] == '1'
     return if @portfolio.smart_allocation_on? == smart_allocation_on
 

@@ -2,6 +2,7 @@
 
 <main class="columns main">
     <div class="column gap-6">
+        <%= render "buttons", portfolio: @portfolio %>
         <%= render "empty", portfolio: @portfolio %>
         <%= turbo_frame_tag "portfolio-assets" do %>
           <div class="smooth">
@@ -16,7 +17,6 @@
         
         <%= render "backtest_results", portfolio: @portfolio, labels: @data_labels, series: @data_series %>
         
-        <%= render "buttons", portfolio: @portfolio %>
 
         <div style="display: flex; justify-content: space-between; ">
             <div class="toggle-group smart-allocation---toggle state--off">
