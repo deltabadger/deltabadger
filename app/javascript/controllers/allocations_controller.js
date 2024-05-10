@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus";
 export default class extends Controller {
   static targets = ["allocation", "allocationDisplay"];
 
-  update(event) {
+  updateAssetValue(event) {
     const isRangeInput = event.target.type === "range";
     // const formattedInput = parseFloat(event.target.value.replace(',','.').replace('%', '').trim())
     const formattedInput = parseFloat(event.target.value.replace(',','.').trim())

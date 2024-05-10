@@ -5,49 +5,15 @@
                 hw_animate_out_remove: "animate-asset-out"
   } do %>
 
-
-    <%# before it was a combination of hardcoded input + form %>
-    <div class="ticker-input ticker-input--percentage">
-        <input type="text" class="numeric-input iu-numeric iu-char-limit" data-char-limit="2" value="50" data-bind-slider="disabled"> 
-        <span>%</span> 
-        <div class="ticker" style="background: #F7931A"><%= asset.ticker %></div>
-    </div>
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons' } do |form| %>
-    <%= form.range_field :allocation, in: 0.0..1.0, step: 0.0001, value: asset.allocation %>
-    <% end %>
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "slider", data: { type: "numeric", numeric_value: (asset.allocation * 100), range_start: 0, range_end: 100, turbo_frame: 'buttons' }, onchange: "requestSubmit();" }, local: true do |form| %>
-      <%= form.hidden_field :allocation, id: "allocation", value: asset.allocation %>
-      <div class="slider__track-clickable">
-          <div class="slider__track" style="border-left-color: #F7931A;">
-              <div class="slider__progress" style="width: <%= asset.allocation * 100 %>%; background-color: #F7931A;">
-                  <div class="slider__thumb" style="background-color: #F7931A;" tabindex="0"></div>
-              </div>
-          </div>
-      </div>
-    <% end %>
-    <input type="text" class="numeric-input iu-numeric total-value---off total-value-input--asset" placeholder="0">
-
-    <%# now it can be wrapped in a unique form that dynamically updates %>
     <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations" } do |form| %>
       <div class="ticker-input ticker-input--percentage">
-        <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#update" }, class: "numeric-input iu-numeric iu-char-limit" %>
+        <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#updateAssetValue" }, class: "numeric-input iu-numeric iu-char-limit" %>
         <span>%</span> 
         <div class="ticker" style="background: #F7931A"><%= asset.ticker %></div>
       </div>
-      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, data: { allocations_target: "allocation", action: "input->allocations#update" } %>
+      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, data: { allocations_target: "allocation", action: "input->allocations#updateAssetValue" } %>
     <% end %>
 
-    
-    <%# form_with block for just a button: not good %>
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :delete, local: true do %>
-      <button type="submit" class="basket__add-asset__icon icon-20" style="background: none; border: none; padding: 0;">
-        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
-        </svg>
-      </button>
-    <% end %>
-
-    <%# button_to block for the button: nicer %>
     <%= button_to portfolio_asset_path(asset.portfolio_id, asset), method: :delete, class: "basket__add-asset__icon icon-20", style: "background: none; border: none; padding: 0;" do %>
       <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
