@@ -1,17 +1,199 @@
-<h1>Analyze your portfolio</h1>
 
-<%= render "buttons", portfolio: @portfolio %>
 
-<%= render "empty", portfolio: @portfolio %>
-<%= turbo_frame_tag "portfolio-assets" do %>
-  <div class="smooth">
-    <% @portfolio.assets.order(:id).each do |asset| %>
-      <%= render 'assets/asset', asset: asset %>
-    <% end %>
-  </div>
-<% end %>
+<main class="columns main">
+    <div class="column gap-6">
+        <%= render "empty", portfolio: @portfolio %>
+        <%= turbo_frame_tag "portfolio-assets" do %>
+          <div class="smooth">
+            <% @portfolio.assets.order(:id).each do |asset| %>
+              <%= render 'assets/asset', asset: asset %>
+            <% end %>
+          </div>
+        <% end %>
+        
+        <%= turbo_frame_tag "modal" %>
+        <%= link_to "Add asset", new_portfolio_asset_path(@portfolio), data: { turbo_frame: "modal" } %>
+        
+        <%= render "backtest_results", portfolio: @portfolio, labels: @data_labels, series: @data_series %>
+        
+        <%= render "buttons", portfolio: @portfolio %>
 
-<%= turbo_frame_tag "modal" %>
-<%= link_to "Add asset", new_portfolio_asset_path(@portfolio), data: { turbo_frame: "modal" } %>
+        <div style="display: flex; justify-content: space-between; ">
+            <div class="toggle-group smart-allocation---toggle state--off">
+                <div class="toggle"></div>
+                <div class="toggle-label">Smart allocation</div>
+            </div>    
 
-<%= render "backtest_results", portfolio: @portfolio, labels: @data_labels, series: @data_series %>
+            <div class="total-value">
+                <div class="label total-value---on total-value---toggle">Add total value</div>
+                <div class="label total-value---off">Total value</div>
+                <div class="ticker-input ticker-input--reverse ticker-input--autoscale total-value---off">
+                    <input type="text" class="numeric-input iu-numeric iu-autowidth total-value-input--total" size="1" placeholder="0"> 
+                    <div class="ticker" style="background: var(--primary)">BTC</div>
+                </div>
+
+                <svg class="icon-20 total-value---off total-value---toggle" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"/>
+                </svg>
+                
+                <svg class="icon-20 total-value---on  total-value---toggle" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
+                    <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
+                    <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                
+            </div>
+        </div>
+
+        <div class="basket">
+
+            <div class="basket__asset smart-allocation---off">
+
+                <div class="ticker-input ticker-input--percentage">
+                    <input type="text" class="numeric-input iu-numeric iu-char-limit" data-char-limit="2" value="50" data-bind-slider="disabled"> 
+                    <span>%</span> 
+                    <div class="ticker" style="background: #F7931A">BTC</div>
+                </div>
+
+                <div class="slider " data-type="numeric" data-numeric-value="35" data-range-start="1" data-range-end="99">
+                    <div class="slider__track-clickable">
+                        <div class="slider__track" style="border-left-color: #F7931A;">
+                            <div class="slider__progress" style="width: 35%; background-color: #F7931A;">
+                                <div class="slider__thumb" style="background-color: #F7931A;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="text" class="numeric-input iu-numeric total-value---off total-value-input--asset" placeholder="0">
+            
+                <svg class="basket__add-asset__icon icon-20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
+                </svg>
+                    
+            </div>
+
+            <div class="basket__add-asset mt-4">
+                <svg class="basket__add-asset__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
+                    <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
+                    <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+
+        </div>
+    </div>
+    <div class="column gap-1"> 
+        <div class="widget">
+
+        </div>
+        <div class="widget data-grid">
+            <div class="data-grid__item">
+                <div class="label">Exp. Return</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Volatility</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Diversification</div>
+                <div class="data-grid__item__value">90%</div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Alpha</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Beta</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Sharpe Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div> 
+            <div class="data-grid__item">
+                <div class="label">Sortino Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Treynor Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">R²</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div> 
+            <div class="data-grid__item">
+                <div class="label">VaR</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">CVaR</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Omega Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Calmar Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Ulcer Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Max. Drawdown</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">GAGR</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item">
+                <div class="label">Info. Ratio</div>
+                <div class="data-grid__item__value">
+
+                </div>
+            </div>
+            <div class="data-grid__item data-grid__item--empty">
+                <div class="label"></div>
+                <div class="data-grid__item__value"></div>
+            </div>
+        </div>
+    </div>
+</main>
