@@ -6,7 +6,8 @@ export default class extends Controller {
 
   update(event) {
     const isRangeInput = event.target.type === "range";
-    const formattedInput = parseFloat(event.target.value.replace(',','.').replace('%', '').trim())
+    // const formattedInput = parseFloat(event.target.value.replace(',','.').replace('%', '').trim())
+    const formattedInput = parseFloat(event.target.value.replace(',','.').trim())
     let newValue = 0;
     if (!isNaN(formattedInput)) {
       newValue = Math.min(1, Math.max(0, isRangeInput ? formattedInput : formattedInput / 100));
@@ -17,7 +18,8 @@ export default class extends Controller {
       }
     });
     this.allocationDisplayTargets.forEach((display) => {
-      display.value = String((newValue * 100).toFixed(2)) + " %";
+      // display.value = String((newValue * 100).toFixed(2)) + " %";
+      display.value = (newValue * 100).toFixed(2);
     });
   }
 }
