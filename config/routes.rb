@@ -121,7 +121,8 @@ Rails.application.routes.draw do
 
     resources :portfolios, only: [:show] do
       resources :assets, only: [:new, :create, :destroy, :update]
-      post :toggle_smart_allocation
+      patch :toggle_smart_allocation
+      patch :update_risk_level
       post :normalize_allocations
       post :simulate
     end

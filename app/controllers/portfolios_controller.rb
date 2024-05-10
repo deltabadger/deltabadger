@@ -2,17 +2,10 @@ require 'utilities/time'
 
 class PortfoliosController < ApplicationController
   # before_action :initialize_session, only: [:show]
-  before_action :set_portfolio, only: %i[show toggle_smart_allocation normalize_allocations simulate]
-
-  KNOWN_BENCHMARKS = {
-    '^GSPC': 'S&P 500 Index',
-    '^DJI': 'Dow Jones Industrial Average',
-    '^IXIC': 'Nasdaq Composite Index',
-    '^RUT': 'Russell 2000 Index'
-  }.freeze
-  KNOWN_STRATEGIES = ['fixed'].freeze
+  before_action :set_portfolio
 
   def show
+    @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?
     simulate_portfolio
   end
 
@@ -21,7 +14,27 @@ class PortfoliosController < ApplicationController
     return if @portfolio.smart_allocation_on? == smart_allocation_on
 
     if @portfolio.update(smart_allocation_on: smart_allocation_on)
-      @portfolio.set_smart_allocations! if smart_allocation_on
+      if @portfolio.smart_allocation_on?
+        @portfolio.set_smart_allocations!
+        @smart_allocations = @portfolio.get_smart_allocations
+      end
+      respond_to do |format|
+        format.turbo_stream { render 'refresh_allocations' }
+        format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
+      end
+    else
+      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.'
+    end
+  end
+
+  def update_risk_level
+    new_risk_level = Portfolio.risk_levels.key(params[:risk_level].to_i)
+    previous_risk_level = @portfolio.risk_level
+    return if new_risk_level == previous_risk_level
+
+    if Portfolio.risk_levels.include?(new_risk_level) && @portfolio.update(risk_level: new_risk_level)
+      @portfolio.set_smart_allocations!
+      @smart_allocations = @portfolio.get_smart_allocations
       respond_to do |format|
         format.turbo_stream { render 'refresh_allocations' }
         format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }

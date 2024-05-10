@@ -5,13 +5,13 @@
                 hw_animate_out_remove: "animate-asset-out"
   } do %>
 
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations" } do |form| %>
+    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations", allocations_asset_ticker_value: asset.ticker } do |form| %>
       <div class="ticker-input ticker-input--percentage">
-        <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#updateAssetValue" }, class: "numeric-input iu-numeric iu-char-limit" %>
-        <span>%</span> 
+        <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#updateAssetAllocation" }, class: "numeric-input iu-numeric iu-char-limit" %>
+        <span>%</span>
         <div class="ticker" style="background: #F7931A"><%= asset.ticker %></div>
       </div>
-      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, data: { allocations_target: "allocation", action: "input->allocations#updateAssetValue" } %>
+      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, data: { allocations_target: "allocation", action: "input->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
     <% end %>
 
     <%= button_to portfolio_asset_path(asset.portfolio_id, asset), method: :delete, class: "basket__add-asset__icon icon-20", style: "background: none; border: none; padding: 0;" do %>

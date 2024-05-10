@@ -6,6 +6,7 @@ class Portfolio < ApplicationRecord
 
   enum strategy: %i[fixed]
   enum benchmark: %i[^GSPC ^DJI ^IXIC ^RUT]
+  enum risk_level: %i[conservative moderate_conservative balanced moderate_aggressive aggressive]
 
   BENCHMARK_NAMES = {
     '^GSPC': 'S&P 500 Index',
@@ -13,6 +14,10 @@ class Portfolio < ApplicationRecord
     '^IXIC': 'Nasdaq Composite Index',
     '^RUT': 'Russell 2000 Index'
   }.freeze
+
+  def self.humanized_risk_levels
+    risk_levels.keys.map { |key| key.to_s.humanize }
+  end
 
   def benchmark_name
     BENCHMARK_NAMES[benchmark.to_sym]
@@ -40,22 +45,41 @@ class Portfolio < ApplicationRecord
   end
 
   def set_smart_allocations!
-    new_allocations = get_smart_allocations
+    all_smart_allocations = get_smart_allocations
+    new_allocations = all_smart_allocations[Portfolio.risk_levels[risk_level].to_s]
     batch_update_allocations!(new_allocations)
   end
 
   def allocations_are_smart?
-    assets_str = assets.map(&:ticker).sort.join('_')
-    start_date = backtest_start_date || '2021-01-01'
-    cache_key = "smart_allocations_#{strategy}_#{assets_str}_#{start_date}"
-    return false unless Rails.cache.exist?(cache_key)
+    return false unless Rails.cache.exist?(smart_allocations_cache_key)
 
-    smart_allocations = get_smart_allocations
+    all_smart_allocations = get_smart_allocations
     current_allocations = Hash[assets.map { |a| [a.ticker, a.allocation] }]
-    smart_allocations == current_allocations
+    all_smart_allocations[Portfolio.risk_levels[risk_level].to_s] == current_allocations
+  end
+
+  def get_smart_allocations
+    # move to service
+    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
+    allocations = Rails.cache.fetch(smart_allocations_cache_key, expires_in: expires_in) do
+      client = FinancialDataApiClient.new
+      symbols = assets.map { |a| "#{a.ticker}/USDT" }.join(',')
+      allocations_result = client.smart_allocations(symbols, start_date, strategy)
+      return if allocations_result.failure?
+
+      allocations_result.data
+    end
+
+    allocations.transform_values { |r| r.transform_keys { |s| s.gsub('/USDT', '') } }
   end
 
   private
+
+  def smart_allocations_cache_key
+    assets_str = assets.map(&:ticker).sort.join('_')
+    start_date = backtest_start_date || '2021-01-01'
+    "smart_allocations_#{strategy}_#{assets_str}_#{start_date}"
+  end
 
   def batch_update_allocations!(new_allocations)
     raise ActiveRecord::RecordInvalid, 'Invalid number of allocations' if assets.size != new_allocations.size
@@ -82,24 +106,5 @@ class Portfolio < ApplicationRecord
       end
     end
     normalized_allocations
-  end
-
-  def get_smart_allocations
-    # move to service
-    sorted_assets = assets.map(&:ticker).sort
-    assets_str = sorted_assets.join('_')
-    start_date = backtest_start_date || '2021-01-01'
-    cache_key = "smart_allocations_#{strategy}_#{assets_str}_#{start_date}"
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
-    allocations = Rails.cache.fetch(cache_key, expires_in: expires_in) do
-      client = FinancialDataApiClient.new
-      symbols = assets.map { |a| "#{a.ticker}/USDT" }.join(',')
-      allocations_result = client.smart_allocations(symbols, start_date, strategy)
-      return if allocations_result.failure?
-
-      allocations_result.data
-    end
-
-    allocations[risk_level.to_s].transform_keys { |k| k.gsub('/USDT', '') }
   end
 end
