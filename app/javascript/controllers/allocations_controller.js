@@ -19,7 +19,7 @@ export default class extends Controller {
     });
     this.allocationDisplayTargets.forEach((display) => {
       // display.value = String((newValue * 100).toFixed(2)) + " %";
-      display.value = (newValue * 100).toFixed(2);
+      display.value = (newValue * 100).toFixed(0);
     });
   }
 }
