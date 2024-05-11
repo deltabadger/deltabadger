@@ -38,7 +38,7 @@ class AssetsController < ApplicationController
   end
 
   def update
-    if @asset.update(allocation: params[:allocation])
+    if @asset.update(allocation: asset_params[:allocation])
       render partial: 'portfolios/buttons', locals: { portfolio: @asset.portfolio }
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.'

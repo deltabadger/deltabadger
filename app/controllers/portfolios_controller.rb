@@ -10,10 +10,12 @@ class PortfoliosController < ApplicationController
   end
 
   def update_benchmark
-    return if @portfolio.benchmark == params[:benchmark]
+    new_benchmark = portfolio_params[:benchmark]
+    return if @portfolio.benchmark == new_benchmark
 
-    if Portfolio.benchmarks.include?(params[:benchmark]) && @portfolio.update(benchmark: params[:benchmark])
+    if Portfolio.benchmarks.include?(new_benchmark) && @portfolio.update(benchmark: new_benchmark)
       simulate_portfolio
+      # render :show
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
         format.turbo_stream { render 'refresh_backtest_results' }
@@ -24,10 +26,9 @@ class PortfoliosController < ApplicationController
   end
 
   def toggle_smart_allocation
-    smart_allocation_on = params[:smart_allocation_enabled] == '1'
-    return if @portfolio.smart_allocation_on? == smart_allocation_on
+    return if @portfolio.smart_allocation_on? == portfolio_params[:smart_allocation_on]
 
-    if @portfolio.update(smart_allocation_on: smart_allocation_on)
+    if @portfolio.update(smart_allocation_on: portfolio_params[:smart_allocation_on])
       if @portfolio.smart_allocation_on?
         @portfolio.set_smart_allocations!
         @smart_allocations = @portfolio.get_smart_allocations
@@ -42,9 +43,8 @@ class PortfoliosController < ApplicationController
   end
 
   def update_risk_level
-    new_risk_level = Portfolio.risk_levels.key(params[:risk_level].to_i)
-    previous_risk_level = @portfolio.risk_level
-    return if new_risk_level == previous_risk_level
+    new_risk_level = Portfolio.risk_levels.key(portfolio_params[:risk_level].to_i)
+    return if @portfolio.risk_level == new_risk_level
 
     if Portfolio.risk_levels.include?(new_risk_level) && @portfolio.update(risk_level: new_risk_level)
       @portfolio.set_smart_allocations!
@@ -72,6 +72,10 @@ class PortfoliosController < ApplicationController
   end
 
   private
+
+  def portfolio_params
+    params.require(:portfolio).permit(:benchmark, :strategy, :backtest_start_date, :risk_level, :smart_allocation_on)
+  end
 
   def set_portfolio
     @portfolio = current_user.portfolios.first

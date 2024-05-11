@@ -13,12 +13,10 @@
     <%= turbo_frame_tag "modal" %>
     <%= link_to "Add asset", new_portfolio_asset_path(@portfolio), data: { turbo_frame: "modal" } %>
 
-    <%= form_with url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results" } do |form| %>
-      <%= select_tag :benchmark,
-              options_for_select(
-                Portfolio.benchmarks.map { |k, v| [Portfolio::BENCHMARK_NAMES[k.to_sym], k] },
-                selected: @portfolio.benchmark
-              ) %>
+    <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results" } do |form| %>
+      <%= form.select :benchmark,
+                      Portfolio.benchmarks.map { |k, v| [Portfolio::BENCHMARK_NAMES[k.to_sym], k] },
+                      selected: @portfolio.benchmark %>
     <% end %>
 
     

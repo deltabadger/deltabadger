@@ -14,7 +14,6 @@ export default class extends Controller {
   }
 
   updateAssetAllocation(event) {
-    console.log(this.assetTickerValue);
     const isRangeInput = event.target.type === "range";
     const formattedInput = parseFloat(event.target.value.replace(',','.').trim())
     let newValue = 0;

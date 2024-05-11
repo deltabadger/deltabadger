@@ -4,7 +4,7 @@
                 hw_animate_in_append: "animate-asset-in",
                 hw_animate_out_remove: "animate-asset-out"
   } do %>
-    <%= form_with url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations", allocations_asset_ticker_value: asset.ticker } do |form| %>
+    <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations", allocations_asset_ticker_value: asset.ticker } do |form| %>
       <div class="ticker-input ticker-input--percentage">
         <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#updateAssetAllocation" }, class: "numeric-input iu-numeric iu-char-limit" %>
         <span>%</span>
