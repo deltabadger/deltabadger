@@ -64,7 +64,7 @@ class Portfolio < ApplicationRecord
     allocations = Rails.cache.fetch(smart_allocations_cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new
       symbols = assets.map { |a| "#{a.ticker}/USDT" }.join(',')
-      allocations_result = client.smart_allocations(symbols, start_date, strategy)
+      allocations_result = client.smart_allocations(symbols, backtest_start_date, strategy)
       return if allocations_result.failure?
 
       allocations_result.data
