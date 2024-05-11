@@ -1,3 +1,7 @@
+<% @portfolio.reload %>
+<% @portfolio.assets.each do |asset| %>
+  <%= turbo_stream.replace asset, partial: "asset", locals: { asset: asset } %>
+<% end %>
 <%= turbo_stream.remove @asset %>
 <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
 <%= turbo_stream.update "buttons", partial: "portfolios/buttons", locals: { portfolio: @asset.portfolio } %>

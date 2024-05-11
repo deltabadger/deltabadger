@@ -1,6 +1,6 @@
 class AssetsController < ApplicationController
   before_action :set_asset, only: %i[destroy update]
-  before_action :set_portfolio, only: %i[new create]
+  before_action :set_portfolio, only: %i[new create destroy]
 
   def new
     session[:query] = params[:query]
@@ -12,11 +12,9 @@ class AssetsController < ApplicationController
     # add condition asset ticker must be valid
     @asset = @portfolio.assets.new(asset_params)
     if !asset_in_portfolio? && @asset.save
-      query_assets_result = PortfolioAnalyzerManager::QueryAssetsGetter.call(session[:query], @portfolio)
-      @query_assets = query_assets_result.failure? ? [] : query_assets_result.data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.'}
+        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid asset'
@@ -25,11 +23,9 @@ class AssetsController < ApplicationController
 
   def destroy
     if @asset.destroy
-      query_assets_result = PortfolioAnalyzerManager::QueryAssetsGetter.call(session[:query], @asset.portfolio)
-      @query_assets = query_assets_result.failure? ? [] : query_assets_result.data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully removed.'}
+        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully removed.' }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid asset'

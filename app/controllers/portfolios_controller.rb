@@ -15,7 +15,6 @@ class PortfoliosController < ApplicationController
 
     if Portfolio.benchmarks.include?(new_benchmark) && @portfolio.update(benchmark: new_benchmark)
       simulate_portfolio
-      # render :show
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
         format.turbo_stream { render 'refresh_backtest_results' }
@@ -29,7 +28,7 @@ class PortfoliosController < ApplicationController
     return if @portfolio.smart_allocation_on? == portfolio_params[:smart_allocation_on]
 
     if @portfolio.update(smart_allocation_on: portfolio_params[:smart_allocation_on])
-      if @portfolio.smart_allocation_on?
+      if portfolio_params[:smart_allocation_on]
         @portfolio.set_smart_allocations!
         @smart_allocations = @portfolio.get_smart_allocations
       end
