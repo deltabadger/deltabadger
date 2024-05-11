@@ -1,16 +1,15 @@
 class AssetsController < ApplicationController
   before_action :set_asset, only: %i[destroy update]
+  before_action :set_portfolio, only: %i[new create]
 
   def new
     session[:query] = params[:query]
-    @portfolio = Portfolio.find(params[:portfolio_id])
     query_assets_result = PortfolioAnalyzerManager::QueryAssetsGetter.call(session[:query], @portfolio)
     @query_assets = query_assets_result.failure? ? [] : query_assets_result.data
   end
 
   def create
     # add condition asset ticker must be valid
-    @portfolio = Portfolio.find(asset_params[:portfolio_id])
     @asset = @portfolio.assets.new(asset_params)
     if !asset_in_portfolio? && @asset.save
       query_assets_result = PortfolioAnalyzerManager::QueryAssetsGetter.call(session[:query], @portfolio)
@@ -48,7 +47,7 @@ class AssetsController < ApplicationController
   private
 
   def asset_params
-    params.require(:asset).permit(:ticker, :allocation, :portfolio_id)
+    params.require(:asset).permit(:ticker, :allocation)
   end
 
   def set_asset
@@ -59,6 +58,16 @@ class AssetsController < ApplicationController
     @asset = Asset.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to portfolio_analyzer_path, alert: 'Asset not found.'
+  end
+
+  def set_portfolio
+    if params[:portfolio_id].blank?
+      redirect_to portfolio_analyzer_path, alert: 'No Portfolio ID provided.'
+      return
+    end
+    @portfolio = Portfolio.find(params[:portfolio_id])
+  rescue ActiveRecord::RecordNotFound
+    redirect_to portfolio_analyzer_path, alert: 'Portfolio not found.'
   end
 
   def asset_in_portfolio?

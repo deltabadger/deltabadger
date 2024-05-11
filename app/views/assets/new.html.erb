@@ -5,12 +5,11 @@
   <% end %>
   <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modals#submitEnd" } do %>
     <% @query_assets.each do |asset| %>
-      <%= asset.ticker %>
-      <%= button_to "Add",
-            portfolio_assets_path(@portfolio),
-            method: :post,
-            data: { turbo_frame: "portfolio-assets" },
-            params: { asset: { ticker: asset.ticker, portfolio_id: @portfolio.id } } %>
+      <%= form_with model: asset, url: portfolio_assets_path(@portfolio), data: { turbo_frame: "portfolio-assets" } do |form| %>
+        <%= asset.ticker %>
+        <%= form.hidden_field :ticker, value: asset.ticker %>
+        <%= form.submit "Add" %>
+      <% end %>
     <% end %>
   <% end %>
 <% end %>
