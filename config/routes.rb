@@ -124,6 +124,7 @@ Rails.application.routes.draw do
       patch :toggle_smart_allocation
       patch :update_risk_level
       patch :update_benchmark
+      patch :update_strategy
       patch :update_backtest_start_date
       post :normalize_allocations
       post :simulate
