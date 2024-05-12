@@ -6,7 +6,7 @@ class PortfoliosController < ApplicationController
 
   def show
     @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?
-    simulate_portfolio
+    @backtest = @portfolio.backtest
   end
 
   def update_benchmark
@@ -14,7 +14,22 @@ class PortfoliosController < ApplicationController
     return if @portfolio.benchmark == new_benchmark
 
     if Portfolio.benchmarks.include?(new_benchmark) && @portfolio.update(benchmark: new_benchmark)
-      simulate_portfolio
+      @backtest = @portfolio.backtest
+      respond_to do |format|
+        format.html { redirect_to portfolio_analyzer_path }
+        format.turbo_stream { render 'refresh_backtest_results' }
+      end
+    else
+      redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.'
+    end
+  end
+
+  def update_backtest_start_date
+    new_backtest_start_date = portfolio_params[:backtest_start_date]
+    return if @portfolio.backtest_start_date == new_backtest_start_date
+
+    if @portfolio.update(backtest_start_date: new_backtest_start_date)
+      @backtest = @portfolio.backtest
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
         format.turbo_stream { render 'refresh_backtest_results' }
@@ -66,8 +81,8 @@ class PortfoliosController < ApplicationController
   end
 
   def simulate
-    simulate_portfolio
-    render partial: 'backtest_results', locals: { portfolio: @portfolio, labels: @data_labels, series: @data_series }
+    @backtest = @portfolio.backtest
+    render partial: 'backtest_results', locals: { backtest: @backtest }
   end
 
   private
@@ -97,48 +112,5 @@ class PortfoliosController < ApplicationController
       symbols_result.data
     end
     all_symbols.map { |s| s[0...-4] }.sort!
-  end
-
-  def simulate_portfolio
-    # move to service
-    return if !@portfolio.normalized_allocations?
-
-    portfolio_type = @portfolio.strategy
-    assets_str = @portfolio.assets.map(&:ticker).join('_')
-    allocations_str = @portfolio.assets.map(&:allocation).join('_')
-    benchmark = @portfolio.benchmark
-    start_date = @portfolio.backtest_start_date || '2021-01-01'
-    cache_key = "simulate_#{portfolio_type}_#{assets_str}_#{allocations_str}_#{benchmark}_#{start_date}"
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
-    metrics = Rails.cache.fetch(cache_key, expires_in: expires_in) do
-      client = FinancialDataApiClient.new
-      symbols = @portfolio.assets.map { |a| "#{a.ticker}/USDT" }.join(',')
-      metrics_result = client.metrics(symbols, allocations_str.gsub('_', ','), benchmark, start_date, portfolio_type)
-      return if metrics_result.failure?
-
-      metrics_result.data
-    end
-
-    @metrics = {
-      expectedReturn: metrics['metrics']['expectedReturn'].round(2),
-      volatility: metrics['metrics']['volatility'].round(2),
-      alpha: metrics['metrics']['alpha'].round(2),
-      beta: metrics['metrics']['beta'].round(2),
-      sharpeRatio: metrics['metrics']['sharpeRatio'].round(2),
-      sortinoRatio: metrics['metrics']['sortinoRatio'].round(2),
-      treynorRatio: metrics['metrics']['treynorRatio'].round(2),
-      rSquared: metrics['metrics']['rSquared'].round(2),
-      valueAtRisk: metrics['metrics']['valueAtRisk'].round(2),
-      conditionalValueAtRisk: metrics['metrics']['conditionalValueAtRisk'].round(2),
-      omegaRatio: metrics['metrics']['omegaRatio'].round(2),
-      calmarRatio: metrics['metrics']['calmarRatio'].round(2),
-      ulcerIndex: metrics['metrics']['ulcerIndex'].round(2),
-      maxDrawdown: metrics['metrics']['maxDrawdown'].round(2),
-      cagr: metrics['metrics']['cagr'].round(2),
-      informationRatio: metrics['metrics']['informationRatio'].round(2)
-    }
-
-    @data_labels = metrics['timeSeries']['labels']
-    @data_series = metrics['timeSeries']['series']
   end
 end
