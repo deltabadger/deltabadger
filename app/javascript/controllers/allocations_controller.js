@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 
 // Connects to data-controller="allocations"
 export default class extends Controller {
-  static targets = ["allocation", "allocationDisplay", "riskLevel"];
+  static targets = ["allocation", "allocationInputText", "allocationSlider", "riskLevel"];
   static values = { assetTicker: String, riskLevels: Array, smartAllocations: Object };
 
   connect() {
@@ -21,7 +21,8 @@ export default class extends Controller {
       newValue = Math.min(1, Math.max(0, isRangeInput ? formattedInput : formattedInput / 100));
     }
     this.allocationTarget.value = newValue;
-    this.allocationDisplayTarget.value = (newValue * 100).toFixed(0);
+    this.allocationInputTextTarget.value = (newValue * 100).toFixed(0);
+    this.allocationSliderTarget.style.width = String(newValue * 100) + '%';
   }
 
   updateRiskLevel(event) {
@@ -34,7 +35,8 @@ export default class extends Controller {
   handleAllocationsUpdated = (event) => {
     if (this.assetTickerValue in event.detail) {
       this.allocationTarget.value = event.detail[this.assetTickerValue];
-      this.allocationDisplayTarget.value = (event.detail[this.assetTickerValue] * 100).toFixed(0);
+      this.allocationInputTextTarget.value = (event.detail[this.assetTickerValue] * 100).toFixed(0);
+      this.allocationSliderTarget.style.width = String(event.detail[this.assetTickerValue] * 100) + '%';
     }
   }
 }

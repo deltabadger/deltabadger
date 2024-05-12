@@ -1,4 +1,5 @@
 <%= turbo_frame_tag asset do %>
+  <% asset_color = asset.color || "#F7931A" %>
   <%= tag.div class: "basket__asset smart-allocation---off", 
               data: {
                 hw_animate_in_append: "animate-asset-in",
@@ -6,18 +7,23 @@
   } do %>
     <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset__form", onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations", allocations_asset_ticker_value: asset.ticker } do |form| %>
       <div class="ticker-input ticker-input--percentage">
-        <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "numeric-input iu-numeric iu-char-limit" %>
+        <%= form.text_field :allocation_input_text, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationInputText", action: "change->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "numeric-input iu-numeric iu-char-limit" %>
         <span>%</span>
-        <div class="ticker" style="background: #F7931A"><%= asset.ticker %></div>
+        <%= tag.div class: "ticker", style: "background: #{asset_color};" do %>
+          <%= asset.ticker %>
+        <% end %>
       </div>
       <div class="slider">
         <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, class: "slider__input", data: { allocations_target: "allocation", action: "input->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
         <div class="slider__style">
-          <div class="slider__style__track" style="border-left-color: #F7931A;">
-            <div class="slider__style__progress" style="width: 35%; background: #F7931A;">
-              <div class="slider__style__thumb" style="background: #F7931A;"></div>
-            </div>
-          </div>
+          <% disabled_color = "#8894B6" %> <%# move this to css variable? %>
+          <% slider_color = asset.portfolio.smart_allocation_on? ? disabled_color : asset_color %>
+          <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{(asset.allocation * 100).to_i}%; background: #{slider_color};", data: { allocations_target: "allocationSlider" } do %>
+              <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" do %>
+              <% end %>
+            <% end %>
+          <% end %>
         </div>
       </div>
     <% end %>
