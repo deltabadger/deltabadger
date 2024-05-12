@@ -4,15 +4,24 @@
                 hw_animate_in_append: "animate-asset-in",
                 hw_animate_out_remove: "animate-asset-out"
   } do %>
-    <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations", allocations_asset_ticker_value: asset.ticker } do |form| %>
+    <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset__form", onchange: "requestSubmit();" }, data: { turbo_frame: 'buttons', controller: "allocations", allocations_asset_ticker_value: asset.ticker } do |form| %>
       <div class="ticker-input ticker-input--percentage">
         <%= form.text_field :allocation_display, value: (asset.allocation * 100).round(0), data: { allocations_target: "allocationDisplay", action: "change->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "numeric-input iu-numeric iu-char-limit" %>
         <span>%</span>
         <div class="ticker" style="background: #F7931A"><%= asset.ticker %></div>
       </div>
-      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, data: { allocations_target: "allocation", action: "input->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
+      <div class="slider">
+        <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, class: "slider__input", data: { allocations_target: "allocation", action: "input->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
+        <div class="slider__style">
+          <div class="slider__style__track" style="border-left-color: #F7931A;">
+            <div class="slider__style__progress" style="width: 35%; background: #F7931A;">
+              <div class="slider__style__thumb" style="background: #F7931A;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     <% end %>
-    <%= button_to portfolio_asset_path(asset.portfolio_id, asset), method: :delete, class: "basket__add-asset__icon icon-20", style: "background: none; border: none; padding: 0;" do %>
+    <%= button_to portfolio_asset_path(asset.portfolio_id, asset), method: :delete, class: "basket__remove__icon icon-20", style: "background: none; border: none; padding: 0;" do %>
       <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
       </svg>
