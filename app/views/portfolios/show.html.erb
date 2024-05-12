@@ -14,7 +14,7 @@
     <%= link_to "Add asset", new_portfolio_asset_path(@portfolio), data: { turbo_frame: "modal" } %>
 
     <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: Time.now.utc - 2.days } do |form| %>
-      <%= form.label :backtest_start_date, "Backtest Start Date" %>
+      <%= form.label :backtest_start_date, "Backtest Since" %>
       <%= form.text_field :backtest_start_date, class: "fp_date" %>
     <% end %>
 
