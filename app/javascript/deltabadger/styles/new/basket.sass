@@ -6,14 +6,11 @@
         display: flex
         align-items: center
         gap: 1rem
-        .slider
+        &__form
+            display: flex
             width: 100%
-        &.smart-allocation---on
-            .slider
-                pointer-events: none
-                &__thumb
-                    display: none
-    &__add-asset
+            gap: 1rem         
+    &__remove
         background: $gray-100
         width: 20rem
         border-radius: 2rem
@@ -28,5 +25,5 @@
         &:hover
             background: $primary
             cursor: pointer
-            .basket__add-asset__icon
+            .basket__remove__icon
                 stroke: white
