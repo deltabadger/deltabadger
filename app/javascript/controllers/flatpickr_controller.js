@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import flatpickr from "flatpickr";
+import { english } from "flatpickr/dist/l10n/default.js";
 import { German } from "flatpickr/dist/l10n/de.js";
 import { Dutch } from "flatpickr/dist/l10n/nl.js";
 import { French } from "flatpickr/dist/l10n/fr.js";
@@ -19,6 +20,7 @@ export default class extends Controller {
   static values = { lang: String, maxDate: String, minDate: String };
 
   languages = {
+    en: english,
     de: German,
     nl: Dutch,
     fr: French,
