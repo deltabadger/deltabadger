@@ -6,6 +6,8 @@ class PortfoliosController < ApplicationController
 
   def show
     @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?
+    @backtest_max_date = Time.now.utc - 2.days
+    @benchmark_options = Portfolio.benchmarks.map { |k, _| [Portfolio::BENCHMARK_NAMES[k.to_sym], k] }
     @backtest = @portfolio.backtest
   end
 
@@ -24,6 +26,21 @@ class PortfoliosController < ApplicationController
     end
   end
 
+  def update_strategy
+    new_strategy = portfolio_params[:strategy]
+    return if @portfolio.strategy == new_strategy
+
+    if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy)
+      # @backtest = @portfolio.backtest
+      respond_to do |format|
+        format.html { redirect_to portfolio_analyzer_path }
+        format.turbo_stream { render 'refresh_backtest_results' }
+      end
+    else
+      redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.'
+    end
+  end
+
   def update_backtest_start_date
     new_backtest_start_date = portfolio_params[:backtest_start_date]
     return if @portfolio.backtest_start_date == new_backtest_start_date
@@ -35,7 +52,7 @@ class PortfoliosController < ApplicationController
         format.turbo_stream { render 'refresh_backtest_results' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.'
     end
   end
 
