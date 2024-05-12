@@ -95,7 +95,7 @@ class PortfoliosController < ApplicationController
     @portfolio = current_user.portfolios.first
     return if @portfolio.present?
 
-    @portfolio = Portfolio.new(user: current_user)
+    @portfolio = Portfolio.new(user: current_user, backtest_start_date: 1.year.ago.to_date.to_s)
     @portfolio.save
   end
 
