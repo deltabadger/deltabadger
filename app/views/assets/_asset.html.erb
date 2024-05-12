@@ -19,7 +19,7 @@
           <% disabled_color = "#8894B6" %> <%# move this to css variable? %>
           <% slider_color = asset.portfolio.smart_allocation_on? ? disabled_color : asset_color %>
           <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
-            <%= tag.div class: "slider__style__progress", style: "width: #{(asset.allocation * 100).to_i}%; background: #{slider_color};", data: { allocations_target: "allocationSlider" } do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{asset.allocation * 100}%; background: #{slider_color};", data: { allocations_target: "allocationSlider" } do %>
               <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" do %>
               <% end %>
             <% end %>
