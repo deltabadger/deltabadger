@@ -174,7 +174,7 @@ ActiveRecord::Schema.define(version: 2024_05_05_113832) do
     t.boolean "smart_allocation_on", default: false, null: false
     t.integer "risk_level", default: 2, null: false
     t.integer "benchmark", default: 0, null: false
-    t.string "backtest_start_date"
+    t.string "backtest_start_date", default: "2020"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
     t.index ["user_id"], name: "index_portfolios_on_user_id"

@@ -75,12 +75,50 @@ class Portfolio < ApplicationRecord
     allocations.transform_values { |r| r.transform_keys { |s| s.gsub('/USDT', '') } }
   end
 
+  def backtest
+    return if backtest_start_date.blank? || !normalized_allocations?
+
+    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
+    Rails.cache.fetch(backtest_cache_key, expires_in: expires_in) do
+      client = FinancialDataApiClient.new
+      symbols = assets.map { |a| "#{a.ticker}/USDT" }.join(',')
+      allocations = assets.map(&:allocation).join(',')
+      metrics_result = client.metrics(symbols, allocations, benchmark, backtest_start_date, strategy)
+      return if metrics_result.failure?
+
+      metrics_result.data
+    end
+
+    # backtest['metrics']['expectedReturn'].round(2)
+    # backtest['metrics']['volatility'].round(2)
+    # backtest['metrics']['alpha'].round(2)
+    # backtest['metrics']['beta'].round(2)
+    # backtest['metrics']['sharpeRatio'].round(2)
+    # backtest['metrics']['sortinoRatio'].round(2)
+    # backtest['metrics']['treynorRatio'].round(2)
+    # backtest['metrics']['rSquared'].round(2)
+    # backtest['metrics']['valueAtRisk'].round(2)
+    # backtest['metrics']['conditionalValueAtRisk'].round(2)
+    # backtest['metrics']['omegaRatio'].round(2)
+    # backtest['metrics']['calmarRatio'].round(2)
+    # backtest['metrics']['ulcerIndex'].round(2)
+    # backtest['metrics']['maxDrawdown'].round(2)
+    # backtest['metrics']['cagr'].round(2)
+    # backtest['metrics']['informationRatio'].round(2)
+  end
+
   private
 
   def smart_allocations_cache_key
     assets_str = assets.map(&:ticker).sort.join('_')
     start_date = backtest_start_date || '2021-01-01'
     "smart_allocations_#{strategy}_#{assets_str}_#{start_date}"
+  end
+
+  def backtest_cache_key
+    assets_str = assets.map(&:ticker).sort.join('_')
+    allocations_str = assets.map(&:allocation).join('_')
+    "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}"
   end
 
   def batch_update_allocations!(new_allocations)

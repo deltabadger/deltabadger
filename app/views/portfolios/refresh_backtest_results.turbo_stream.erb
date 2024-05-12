@@ -1,1 +1,1 @@
-<%= turbo_stream.replace "backtest-results", partial: "backtest_results", locals: { portfolio: @portfolio, labels: @data_labels, series: @data_series } %>
+<%= turbo_stream.replace "backtest-results", partial: "backtest_results", locals: { backtest: @backtest } %>
