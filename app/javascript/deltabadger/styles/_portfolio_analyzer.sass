@@ -1,3 +1,4 @@
+// modal
 .turbo-modal
     position: fixed
     z-index: 1
@@ -13,3 +14,32 @@
 
 dialog:-internal-dialog-in-top-layer::backdrop
     background: rgba(0, 0, 0, 0)
+
+
+// Card selector
+.card-container
+  display: flex
+  flex-wrap: wrap
+
+.card-input
+  display: none
+
+  /* Hides the radio button visually but it should still be selectable via the label
+
+.card
+  display: block
+  padding: 10px
+  margin: 5px
+  border: 1px solid #ccc
+  border-radius: 8px
+  background-color: #f8f8f8
+  cursor: pointer
+  transition: background-color 0.3s
+
+  &:hover
+    background-color: #e9e9e9
+
+.card-input:checked + .card
+  background-color: #d0ebff
+
+  /* Change background color when selected
