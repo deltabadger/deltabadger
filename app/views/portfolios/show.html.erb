@@ -3,7 +3,7 @@
     <%= render "buttons", portfolio: @portfolio %>
     <%= render "empty", portfolio: @portfolio %>
     <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
-      <% @portfolio.assets.each do |asset| %>
+      <% @portfolio.assets.order(:id).each do |asset| %>
         <%= render 'assets/asset', asset: asset %>
       <% end %>
     <% end %>
