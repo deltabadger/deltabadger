@@ -1,29 +1,23 @@
-
-
-<main class="columns main">
+<div class="columns">
   <div class="column gap-6">
     <%= render "buttons", portfolio: @portfolio %>
     <%= render "empty", portfolio: @portfolio %>
-    <%= turbo_frame_tag "portfolio-assets" do %>
+    <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
       <% @portfolio.assets.each do |asset| %>
         <%= render 'assets/asset', asset: asset %>
       <% end %>
     <% end %>
     
     <%= turbo_frame_tag "modal" %>
-    <div class="basket">
-      <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove mt-4", data: { turbo_frame: "modal" } do %>
-          <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
-            <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
-            <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-      <% end %>
-    </div>
-
-
-    <%= link_to "Add asset", new_portfolio_asset_path(@portfolio), data: { turbo_frame: "modal" } %>
+    
+    <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove mt-4", data: { turbo_frame: "modal" } do %>
+        <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
+          <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
+          <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    <% end %>
 
     <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
       <%= form.label :backtest_start_date, "Backtest Since" %>
@@ -48,56 +42,15 @@
         <% end %>
       </div>
     <% end %>
-
-    
-    <%= render "backtest_results", backtest: @backtest %>
-    
-
-    <div style="display: flex; justify-content: space-between; ">
-      <div class="toggle-group smart-allocation---toggle state--off">
-        <div class="toggle"></div>
-        <div class="toggle-label">Smart allocation</div>
-      </div>    
-
-      <div class="total-value">
-        <div class="label total-value---on total-value---toggle">Add total value</div>
-        <div class="label total-value---off">Total value</div>
-        <div class="ticker-input ticker-input--reverse ticker-input--autoscale total-value---off">
-          <input type="text" class="numeric-input iu-numeric iu-autowidth total-value-input--total" size="1" placeholder="0"> 
-          <div class="ticker" style="background: var(--primary)">BTC</div>
-        </div>
-
-        <svg class="icon-20 total-value---off total-value---toggle" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"/>
-        </svg>
-        
-        <svg class="icon-20 total-value---on  total-value---toggle" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
-          <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
-          <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        
-      </div>
-    </div>
-
-    <div class="basket">
-
-      <div class="basket__remove mt-4">
-        <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
-          <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
-          <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-
-    </div>
+  
   </div>
-  <div class="column gap-1"> 
-    <div class="widget">
 
+  <div class="column gap-1">
+
+    <div class="widget">
+      <%= render "backtest_results", backtest: @backtest %>
     </div>
+
     <div class="widget data-grid">
       <div class="data-grid__item">
         <div class="label">Exp. Return</div>
@@ -199,10 +152,9 @@
 
         </div>
       </div>
-      <div class="data-grid__item data-grid__item--empty">
-        <div class="label"></div>
-        <div class="data-grid__item__value"></div>
-      </div>
+      <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--4 data-grid__item--filler--3 data-grid__item--filler--2 data-grid__item--filler--6"></div>
+      <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--4"></div>
+      <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--4"></div>
     </div>
   </div>
-</main>
+</div>

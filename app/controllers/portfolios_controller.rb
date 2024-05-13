@@ -1,6 +1,8 @@
 require 'utilities/time'
 
 class PortfoliosController < ApplicationController
+
+  layout 'analyzer'
   # before_action :initialize_session, only: [:show]
   before_action :set_portfolio
 

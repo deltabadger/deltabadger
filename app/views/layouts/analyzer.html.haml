@@ -180,14 +180,11 @@
     #cookie_consent
 
     = render 'layouts/navbar'
-    .db-content-body.d_content-below-menu
-      //= render 'layouts/welcome_message'
+    //= render 'layouts/welcome_message'
+    %main.main
       = render 'layouts/referral_message'
       = render 'layouts/limit_reached'
-      .container
-        = yield
-    .container
-      = render 'layouts/footer'
+      = yield
 
     #current_user_subscription{ data: current_user.subscription_name }
 
