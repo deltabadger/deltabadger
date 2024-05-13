@@ -32,11 +32,10 @@ class PortfoliosController < ApplicationController
     new_strategy = portfolio_params[:strategy]
     return if @portfolio.strategy == new_strategy
 
-    if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy)
-      # @backtest = @portfolio.backtest
+    if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy, smart_allocation_on: false)
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
-        format.turbo_stream { render 'refresh_backtest_results' }
+        format.turbo_stream { render 'refresh_allocations' }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.'
@@ -47,11 +46,10 @@ class PortfoliosController < ApplicationController
     new_backtest_start_date = portfolio_params[:backtest_start_date]
     return if @portfolio.backtest_start_date == new_backtest_start_date
 
-    if @portfolio.update(backtest_start_date: new_backtest_start_date)
-      @backtest = @portfolio.backtest
+    if @portfolio.update(backtest_start_date: new_backtest_start_date, smart_allocation_on: false)
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
-        format.turbo_stream { render 'refresh_backtest_results' }
+        format.turbo_stream { render 'refresh_allocations' }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid date value.'
