@@ -1,5 +1,5 @@
 .widget
-    background: $widget-bg
+    background: var(--widget-background)
     padding: 3rem
     border-radius: 0rem
     display: flex
@@ -8,10 +8,14 @@
     &.data-grid
         padding: 0
 .data-grid
-    background: $gray-150
+    background: var(--widget-line)
     display: grid
-    grid-template-columns: repeat(4, 1fr)
+    grid-template-columns: repeat(6, 1fr)
     gap: 2px
+    @container (max-width: 1223px)
+        grid-template-columns:  repeat(5, 1fr)
+    @container (max-width: 959px)
+        grid-template-columns:  repeat(4, 1fr)
     @container (max-width: 767px)
         grid-template-columns:  repeat(3, 1fr)
     @container (max-width: 511px)
@@ -22,9 +26,9 @@
         align-items: center
         justify-content: center
         height: 14rem
-        background-color: $widget-bg
+        background-color: var(--widget-background)
         &:not(.data-grid__item--empty):hover
-            background-color: $gray-150
+            background-color: var(--widget-line)
             cursor: pointer
         &--chart
             display: flex
@@ -36,5 +40,23 @@
             font-size: 4rem
             line-height: 5rem
             font-weight: 500
-            color: $primary
+            color: var(--emphasis)
+        &--filler
+            display: none !important
+            &--2
+                @container (max-width: 511px)
+                    display: flex !important
+            &--3
+                @container (min-width: 512px) and (max-width: 767.5px)
+                    display: flex !important
+            &--4
+                @container (min-width: 768px) and (max-width: 959.5px)
+                    display: flex !important
+            &--5
+                @container (min-width: 960px) and (max-width: 1223px)
+                    display: flex !important
+            &--6
+                @container (min-width: 1223.5px)
+                    display: flex !important
+        
 
