@@ -7,6 +7,8 @@ class Asset < ApplicationRecord
   after_create :update_portfolio_smart_allocation_on
   after_destroy :update_portfolio_smart_allocation_on
 
+  enum type: %i[crypto stock]
+
   private
 
   def update_portfolio_smart_allocation_on
