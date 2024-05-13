@@ -5,23 +5,35 @@
     position: relative
     &__input
         width: 100%
-        opacity: 0  
+        opacity: 0 !important
+        &:not([disabled])
+            cursor: pointer
+        &[disabled]
+            &~ * 
+                .slider__style__thumb
+                    display: none
+                .slider__style__track
+                    border-left: 0
+                    border-right: 0
+                    overflow: hidden
     &__style
         pointer-events: none
         width: 100%
         position: absolute
         &__track
-            background-color: transparentize($primary, 0.8)
+            background-color: var(--slider-track)
             border-radius: 0.25rem
             height: 0.5rem
             width: 100%
-            border-left: 1rem solid $primary
+            border-left: 1rem solid var(--slider-track)
             border-right: 1rem solid transparent
         &__progress
             align-items: center
             background-color: $primary
             position: relative
             height: 100%
+            border-top-right-radius: 1rem
+            border-bottom-right-radius: 1rem
         &__thumb
             background-color: $primary
             border-radius: 1rem
