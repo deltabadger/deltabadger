@@ -16,11 +16,9 @@
       <div class="slider">
         <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, class: "slider__input", data: { allocations_target: "allocation", action: "input->allocations#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
         <div class="slider__style">
-          <% disabled_color = "#8894B6" %> <%# move this to css variable? %>
-          <% slider_color = asset.portfolio.smart_allocation_on? ? disabled_color : asset_color %>
-          <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
-            <%= tag.div class: "slider__style__progress", style: "width: #{asset.allocation * 100}%; background: #{slider_color};", data: { allocations_target: "allocationSlider" } do %>
-              <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" do %>
+          <%= tag.div class: "slider__style__track", style: "border-left-color: #{asset_color};" do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{asset.allocation * 100}%; background: #{asset_color};", data: { allocations_target: "allocationSlider" } do %>
+              <%= tag.div class: "slider__style__thumb", style: "background: #{asset_color};" do %>
               <% end %>
             <% end %>
           <% end %>
