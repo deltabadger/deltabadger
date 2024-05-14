@@ -1,6 +1,6 @@
-<div class="widget">
   <%= turbo_frame_tag "backtest-results" do %>
     <% if backtest.present? %>
+    <div class="widget">
       <%= tag.div data: { 
         controller: "portfolio-analyzer-chart",
         portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],
@@ -8,6 +8,8 @@
       } do %>
         <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="100"></canvas>
       <% end %>
+    </div>
+    <div class="widget">
       <div class="widget data-grid">
         <div class="data-grid__item">
           <div class="label">Exp. Return</div>
@@ -110,8 +112,11 @@
         <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5"></div>
         <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5"></div>
       </div>
+    </div>
     <% else %>
+    <div class="widget">
       <p>Simulate your portfolio to see backtest results</p>
+    </div>
     <% end %>
   <% end %>
-</div>
+
