@@ -48,7 +48,7 @@ class Portfolio < ApplicationRecord
 
   def set_smart_allocations!
     all_smart_allocations = get_smart_allocations
-    new_allocations = all_smart_allocations[Portfolio.risk_levels[risk_level].to_s]
+    new_allocations = all_smart_allocations[Portfolio.risk_levels[risk_level].to_i]
     batch_update_allocations!(new_allocations)
   end
 
@@ -57,7 +57,7 @@ class Portfolio < ApplicationRecord
 
     all_smart_allocations = get_smart_allocations
     current_allocations = Hash[assets.map { |a| [a.ticker, a.allocation] }]
-    all_smart_allocations[Portfolio.risk_levels[risk_level].to_s] == current_allocations
+    all_smart_allocations[Portfolio.risk_levels[risk_level].to_i] == current_allocations
   end
 
   def get_smart_allocations
@@ -73,7 +73,7 @@ class Portfolio < ApplicationRecord
       allocations_result.data
     end
 
-    allocations.transform_values { |r| r.transform_keys { |s| s.gsub('/USDT', '') } }
+    allocations.map { |r| r.transform_keys { |s| s.gsub('/USDT', '') } }
   end
 
   def backtest

@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus";
 // Connects to data-controller="allocations"
 export default class extends Controller {
   static targets = ["allocation", "allocationInputText", "allocationSlider", "riskLevel", "riskLevelSlider"];
-  static values = { assetTicker: String, riskLevels: Array, smartAllocations: Object };
+  static values = { assetTicker: String, riskLevels: Array, smartAllocations: Array };
 
   connect() {
     window.addEventListener('allocationsUpdated', this.handleAllocationsUpdated);

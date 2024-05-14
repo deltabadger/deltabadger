@@ -57,7 +57,7 @@ class PortfoliosController < ApplicationController
     return if @portfolio.smart_allocation_on? == portfolio_params[:smart_allocation_on]
 
     if @portfolio.update(smart_allocation_on: portfolio_params[:smart_allocation_on])
-      if portfolio_params[:smart_allocation_on]
+      if @portfolio.smart_allocation_on?
         @portfolio.set_smart_allocations!
         @smart_allocations = @portfolio.get_smart_allocations
       end
