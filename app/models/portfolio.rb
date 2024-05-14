@@ -65,15 +65,15 @@ class Portfolio < ApplicationRecord
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
     allocations = Rails.cache.fetch(smart_allocations_cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new
-      symbols = assets.map { |a| a.category == 'crypto' ? "#{a.ticker}/USDT" : a.ticker }.join(',')
-      sources = assets.map { |a| a.category == 'crypto' ? 'binance' : 'yfinance' }.join(',')
+      symbols = assets.map(&:symbol).join(',')
+      sources = assets.map(&:source).join(',')
       allocations_result = client.smart_allocations(symbols, sources, backtest_start_date, strategy)
       return if allocations_result.failure?
 
       allocations_result.data
     end
 
-    allocations.map { |r| r.transform_keys { |s| s.gsub('/USDT', '') } }
+    allocations.map { |r| r.transform_keys { |s| s.gsub(%r{/USDT$}, '') } }
   end
 
   def backtest
@@ -82,8 +82,8 @@ class Portfolio < ApplicationRecord
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
     Rails.cache.fetch(backtest_cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new
-      symbols = assets.map { |a| a.category == 'crypto' ? "#{a.ticker}/USDT" : a.ticker }.join(',')
-      sources = assets.map { |a| a.category == 'crypto' ? 'binance' : 'yfinance' }.join(',')
+      symbols = assets.map(&:symbol).join(',')
+      sources = assets.map(&:source).join(',')
       allocations = assets.map(&:allocation).join(',')
       metrics_result = client.metrics(symbols, sources, allocations, benchmark, backtest_start_date, strategy)
       return if metrics_result.failure?

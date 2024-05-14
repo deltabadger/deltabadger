@@ -47,7 +47,7 @@ module PortfolioAnalyzerManager
     end
 
     def ticker(symbol)
-      symbol['source'] == 'binance' ? symbol['symbol'].gsub(/USDT$/, '').upcase : symbol['symbol'].upcase
+      symbol['source'] == 'binance' ? symbol['symbol'].gsub(%r{/USDT$}, '').upcase : symbol['symbol'].upcase
     end
 
     def category(symbol)
