@@ -1,3 +1,5 @@
+require 'utilities/time'
+
 class Asset < ApplicationRecord
   belongs_to :portfolio
 
@@ -7,7 +9,7 @@ class Asset < ApplicationRecord
   after_create :update_portfolio_smart_allocation_on
   after_destroy :update_portfolio_smart_allocation_on
 
-  enum type: %i[crypto stock]
+  enum category: %i[crypto stock index bond], _prefix: :category # add _prefix to avoid conflict with index method
 
   private
 
