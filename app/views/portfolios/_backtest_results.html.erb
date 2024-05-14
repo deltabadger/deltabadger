@@ -1,14 +1,4 @@
   <%= turbo_frame_tag "backtest-results", class: "gap-1" do %>
-    <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
-      <%= form.label :backtest_start_date, "Backtest Since" %>
-      <%= form.text_field :backtest_start_date, class: "fp_date" %>
-    <% end %>
-
-    <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results" } do |form| %>
-      <%= form.label :benchmark, "Benchmark" %>
-      <%= form.select :benchmark, @benchmark_options, selected: @portfolio.benchmark %>
-    <% end %>
-
     <% if backtest.present? %>
 
       <div class="widget">
