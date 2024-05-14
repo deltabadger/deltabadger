@@ -47,24 +47,28 @@
 
 .animate-asset-in
   overflow: hidden
-  animation: slide-down 0.5s ease // cubic-bezier(.3,0,.3,1)
+  animation: slide-down 0.25s, fade-in 0.25s
 
 .animate-asset-out
   overflow: hidden
-  animation: slide-up 0.5s ease // cubic-bezier(.3,0,.3,1)
+  animation: slide-up 0.25s, fade-out 0.25s
 
 /* "max-height: auto" unfortunately does not work here, so we set
  * to a fixed height that is greater than the expected height.
 @keyframes slide-down
   from
     max-height: 0
+    padding-bottom: 0
 
   to
-    max-height: 50rem
+    max-height: 5rem
+    padding-bottom: 1rem
 
 @keyframes slide-up
   from
-    max-height: 50rem
+    max-height: 5rem
+    padding-bottom: 1rem
 
   to
-    max-height: 0    
+    max-height: 0
+    padding-bottom: 0
