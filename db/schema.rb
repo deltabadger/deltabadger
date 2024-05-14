@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_05_13_142534) do
+ActiveRecord::Schema.define(version: 2024_05_13_231321) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -69,7 +69,8 @@ ActiveRecord::Schema.define(version: 2024_05_13_142534) do
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
     t.string "color"
-    t.integer "type"
+    t.integer "category"
+    t.string "name"
     t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
   end
 
