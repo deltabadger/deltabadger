@@ -8,7 +8,7 @@
       <% end %>
     <% end %>
     
-   
+    <%= turbo_frame_tag "modal" %>
     
     <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove mt-4", data: { turbo_frame: "modal" } do %>
         <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -17,8 +17,6 @@
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
           <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-
-         <%= turbo_frame_tag "modal" %>
     <% end %>
 
     <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
