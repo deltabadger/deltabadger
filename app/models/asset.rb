@@ -11,6 +11,14 @@ class Asset < ApplicationRecord
 
   enum category: %i[crypto stock index bond], _prefix: :category # add _prefix to avoid conflict with index method
 
+  def symbol
+    category_crypto? ? "#{ticker}/USDT" : ticker
+  end
+
+  def source
+    category_crypto? ? 'binance' : 'yfinance'
+  end
+
   private
 
   def update_portfolio_smart_allocation_on
