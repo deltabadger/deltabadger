@@ -1,7 +1,4 @@
-require 'utilities/time'
-
 class PortfoliosController < ApplicationController
-
   layout 'analyzer'
   # before_action :initialize_session, only: [:show]
   before_action :set_portfolio
@@ -114,20 +111,5 @@ class PortfoliosController < ApplicationController
 
     @portfolio = Portfolio.new(user: current_user, backtest_start_date: 1.year.ago.to_date.to_s)
     @portfolio.save
-  end
-
-  def all_asset_tickers
-    # move to service
-    source = 'binance'
-    timeframe = '1d'
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
-    all_symbols = Rails.cache.fetch("symbols_#{source}_#{timeframe}", expires_in: expires_in) do
-      client = FinancialDataApiClient.new
-      symbols_result = client.symbols(source, timeframe)
-      return {} if symbols_result.failure?
-
-      symbols_result.data
-    end
-    all_symbols.map { |s| s[0...-4] }.sort!
   end
 end

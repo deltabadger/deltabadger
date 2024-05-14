@@ -8,111 +8,110 @@
       } do %>
         <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="100"></canvas>
       <% end %>
+      <div class="widget data-grid">
+        <div class="data-grid__item">
+          <div class="label">Exp. Return</div>
+          <div class="data-grid__item__value">
+            <%= (backtest['metrics']['expectedReturn'] * 100).round(2).to_s + '%' if backtest['metrics']['expectedReturn'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Volatility</div>
+          <div class="data-grid__item__value">
+            <%= (backtest['metrics']['volatility'] * 100).round(2).to_s + '%' if backtest['metrics']['volatility'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Alpha</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['alpha'].round(2) if backtest['metrics']['alpha'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Beta</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['beta'].round(2) if backtest['metrics']['beta'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Sharpe Ratio</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['sharpeRatio'].round(2) if backtest['metrics']['sharpeRatio'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Sortino Ratio</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['sortinoRatio'].round(2) if backtest['metrics']['sortinoRatio'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Treynor Ratio</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['treynorRatio'].round(2) if backtest['metrics']['treynorRatio'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">R²</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['rSquared'].round(2) if backtest['metrics']['rSquared'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">VaR</div>
+          <div class="data-grid__item__value">
+            <%= (backtest['metrics']['valueAtRisk'] * 100).round(2).to_s + '%' if backtest['metrics']['valueAtRisk'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">CVaR</div>
+          <div class="data-grid__item__value">
+            <%= (backtest['metrics']['conditionalValueAtRisk'] * 100).round(2).to_s + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Omega Ratio</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['omegaRatio'].round(2) if backtest['metrics']['omegaRatio'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Calmar Ratio</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['calmarRatio'].round(2) if backtest['metrics']['calmarRatio'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Max. Drawdown</div>
+          <div class="data-grid__item__value">
+            <%= (backtest['metrics']['maxDrawdown'] * 100).round(2).to_s + '%' if backtest['metrics']['maxDrawdown'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">CAGR</div>
+          <div class="data-grid__item__value">
+            <%= (backtest['metrics']['cagr'] * 100).round(2).to_s + '%' if backtest['metrics']['cagr'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Info. Ratio</div>
+          <div class="data-grid__item__value">
+            <%= backtest['metrics']['informationRatio'].round(2) if backtest['metrics']['informationRatio'].present? %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">Diversification</div>
+          <div class="data-grid__item__value">
+            —
+          </div>
+        </div>
+        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--3 data-grid__item--filler--6"></div>
+        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--3 data-grid__item--filler--6"></div>
+        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5"></div>
+        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5"></div>
+      </div>
     <% else %>
       <p>Simulate your portfolio to see backtest results</p>
     <% end %>
   <% end %>
-</div>
-
-<div class="widget data-grid">
-  <div class="data-grid__item">
-    <div class="label">Exp. Return</div>
-    <div class="data-grid__item__value">
-      <%= (backtest['metrics']['expectedReturn'] * 100).round(2).to_s + '%' if backtest['metrics']['expectedReturn'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Volatility</div>
-    <div class="data-grid__item__value">
-      <%= (backtest['metrics']['volatility'] * 100).round(2).to_s + '%' if backtest['metrics']['volatility'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Alpha</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['alpha'].round(2) if backtest['metrics']['alpha'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Beta</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['beta'].round(2) if backtest['metrics']['beta'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Sharpe Ratio</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['sharpeRatio'].round(2) if backtest['metrics']['sharpeRatio'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Sortino Ratio</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['sortinoRatio'].round(2) if backtest['metrics']['sortinoRatio'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Treynor Ratio</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['treynorRatio'].round(2) if backtest['metrics']['treynorRatio'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">R²</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['rSquared'].round(2) if backtest['metrics']['rSquared'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">VaR</div>
-    <div class="data-grid__item__value">
-      <%= (backtest['metrics']['valueAtRisk'] * 100).round(2).to_s + '%' if backtest['metrics']['valueAtRisk'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">CVaR</div>
-    <div class="data-grid__item__value">
-      <%= (backtest['metrics']['conditionalValueAtRisk'] * 100).round(2).to_s + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Omega Ratio</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['omegaRatio'].round(2) if backtest['metrics']['omegaRatio'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Calmar Ratio</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['calmarRatio'].round(2) if backtest['metrics']['calmarRatio'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Max. Drawdown</div>
-    <div class="data-grid__item__value">
-      <%= (backtest['metrics']['maxDrawdown'] * 100).round(2).to_s + '%' if backtest['metrics']['maxDrawdown'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">CAGR</div>
-    <div class="data-grid__item__value">
-      <%= (backtest['metrics']['cagr'] * 100).round(2).to_s + '%' if backtest['metrics']['cagr'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Info. Ratio</div>
-    <div class="data-grid__item__value">
-      <%= backtest['metrics']['informationRatio'].round(2) if backtest['metrics']['informationRatio'].present? %>
-    </div>
-  </div>
-  <div class="data-grid__item">
-    <div class="label">Diversification</div>
-    <div class="data-grid__item__value">
-      —
-    </div>
-  </div>
-  <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--3 data-grid__item--filler--6"></div>
-  <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--3 data-grid__item--filler--6"></div>
-  <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5"></div>
-  <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5"></div>
 </div>

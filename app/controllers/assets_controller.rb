@@ -43,7 +43,7 @@ class AssetsController < ApplicationController
   private
 
   def asset_params
-    params.require(:asset).permit(:ticker, :allocation)
+    params.require(:asset).permit(:ticker, :name, :allocation, :category, :color)
   end
 
   def set_asset
@@ -67,13 +67,6 @@ class AssetsController < ApplicationController
   end
 
   def asset_in_portfolio?
-    @portfolio.assets.find_by(ticker: asset_params[:ticker]).present?
-  end
-
-  def get_current_session_query_assets
-    query_asset_tickers = PortfolioAnalyzerManager::QueryAssetsTickersGetter.call(session[:query])
-    return [] if query_asset_tickers.failure?
-
-    query_asset_tickers.data.map { |a| Asset.new(ticker: a, portfolio_id: @portfolio.id) }
+    @portfolio.assets.find_by(ticker: asset_params[:ticker], category: asset_params[:category]).present?
   end
 end

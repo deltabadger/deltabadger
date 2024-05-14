@@ -13,12 +13,13 @@ class FinancialDataApiClient < ApplicationClient
     end
   end
 
-  def metrics(symbols, allocations, benchmark, start, strategy, start_balance = 1)
+  def metrics(symbols, sources, allocations, benchmark, start, strategy, start_balance = 1)
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'metrics'
         req.params = {
           symbols: symbols,
+          sources: sources,
           allocations: allocations,
           benchmark: benchmark,
           start: start,
@@ -30,25 +31,25 @@ class FinancialDataApiClient < ApplicationClient
     end
   end
 
-  def symbols(source, timeframe)
+  def symbols(source)
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'symbols'
         req.params = {
-          source: source,
-          timeframe: timeframe,
+          source: source
         }
       end
       Result::Success.new(response.body)
     end
   end
 
-  def smart_allocations(symbols, start, strategy)
+  def smart_allocations(symbols, sources, start, strategy)
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'smart-allocations'
         req.params = {
           symbols: symbols,
+          sources: sources,
           start: start,
           strategy: strategy
         }

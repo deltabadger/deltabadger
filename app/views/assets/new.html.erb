@@ -6,8 +6,13 @@
   <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modals#submitEnd" } do %>
     <% @query_assets.each do |asset| %>
       <%= form_with model: asset, url: portfolio_assets_path(@portfolio), data: { turbo_frame: "portfolio-assets" } do |form| %>
+        <%= asset.category %>
         <%= asset.ticker %>
+        <%= asset.name %>
         <%= form.hidden_field :ticker, value: asset.ticker %>
+        <%= form.hidden_field :name, value: asset.name %>
+        <%= form.hidden_field :category, value: asset.category %>
+        <%= form.hidden_field :color, value: asset.color %>
         <%= form.submit "Add" %>
       <% end %>
     <% end %>
