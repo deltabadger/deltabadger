@@ -94,4 +94,22 @@ export default class extends Controller {
       }
     }
   }
+
+  // // To use the new View Transitions (https://dev.to/nejremeslnici/how-to-use-view-transitions-in-hotwire-turbo-1kdin)
+  // // The transitions are more efficient but present some issues:
+  // // - Each animated element needs a unique id, and a css animation targeting that id -> the css can be embedded in a turbo frame with <style> tags but it's dirty
+  // // - No support for multiple element animations on the same page
+  // // - Browser compatibility
+  // handleNewFrameEvent(event) {
+  //   console.log("handleNewFrameEvent");
+  //   if (document.startViewTransition) {
+  //     console.log("startViewTransition");
+  //     const originalRender = event.detail.render;
+  //     event.detail.render = (currentElement, newElement) => {
+  //       document.startViewTransition(() =>
+  //         originalRender(currentElement, newElement)
+  //       );
+  //     };
+  //   }
+  // }
 }
