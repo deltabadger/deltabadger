@@ -96,6 +96,7 @@ class PortfoliosController < ApplicationController
 
   def simulate
     @backtest = @portfolio.backtest
+    puts @portfolio.chatgpt_prompt
     render partial: 'backtest_results', locals: { backtest: @backtest }
   end
 
