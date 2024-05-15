@@ -16,14 +16,13 @@
     <% end %>
 
     <%= render "buttons", portfolio: @portfolio %>
+    
     <%= render "empty", portfolio: @portfolio %>
     <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
       <% @portfolio.assets.order(:id).each do |asset| %>
         <%= render 'assets/asset', asset: asset %>
       <% end %>
     <% end %>
-    
-    <%= turbo_frame_tag "modal" %>
     
     <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove mt-4", data: { turbo_frame: "modal" } do %>
         <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -32,6 +31,20 @@
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
           <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
+    <% end %>
+
+    <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
+      <div class="card-container">
+        <p>Strategy:</p>
+        <% Portfolio.strategies.each do |strategy, _| %>
+          <%= form.radio_button :strategy, strategy, id: "fixed-#{strategy}", class: 'card-input' %>
+          <%= form.label :strategy, for: "fixed-#{strategy}", class: "card" do %>
+            <div class="card-content">
+              <h4><%= strategy.humanize %></h4>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
     <% end %>
   
   </div>
@@ -52,3 +65,5 @@
   
   </div>
 </div>
+
+<%= turbo_frame_tag "modal" %>

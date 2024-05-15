@@ -1,46 +1,55 @@
 <%= turbo_frame_tag "buttons" do %>
-  <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
-    <div class="custom-control custom-switch">
-      <%= form.check_box :smart_allocation_on, class: "custom-control-input", id: "smartAllocationToggle", disabled: portfolio.assets.empty? %>
-      <%= label_tag :smart_allocation_on, "Smart Allocation", class: "custom-control-label", for: "smartAllocationToggle" %>
-    </div>
-  <% end %>
 
-  <%= form_with model: portfolio, url: portfolio_update_risk_level_path(portfolio),
-  method: :patch,
-  html: { 
-    onchange: "requestSubmit();" 
-  },
-  data: { 
-    controller: "allocations",
-    allocations_risk_levels_value: Portfolio.humanized_risk_levels,
-    allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
-  } do |form| %>
-    <span>Risk Profile:</span>
-    <div class="slider">
-      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? %>
-      <div class="slider__style">
-        <% disabled_color = "#8894B6" %> <%# move this to css variable? %>
-        <% slider_color = portfolio.smart_allocation_on? ? "#2948A1" : disabled_color %>
-        <% slider_width = (Portfolio.risk_levels[portfolio.risk_level] / (Portfolio.risk_levels.size - 1).to_f) * 100 %>
-        <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
-          <%= tag.div class: "slider__style__progress", style: "width: #{slider_width}%; background: #{slider_color};", data: { allocations_target: "riskLevelSlider" } do %>
-            <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" do %>
+  <div class="smart-allocation">
+    <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
+      <div class="toggle toggle--vertical">
+        <%= form.check_box :smart_allocation_on, id: "smartAllocationToggle", disabled: portfolio.assets.empty? %>
+        <div class="toggle__style"></div>
+      </div>
+    <% end %>
+
+    <%= form_with model: portfolio, url: portfolio_update_risk_level_path(portfolio),
+    method: :patch,
+    html: { 
+      onchange: "requestSubmit();" 
+    },
+    class: "smart-allocation__slider",
+    data: { 
+      controller: "allocations",
+      allocations_risk_levels_value: Portfolio.humanized_risk_levels,
+      allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
+    } do |form| %>
+      
+      <span class="label">
+        Smart Allocation: 
+        <%= form.label :risk_level, portfolio.risk_level.humanize, data: { allocations_target: "riskLevel" }, class: "label__value" %>
+      </span>
+
+      <div class="slider">
+        <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? %>
+        <div class="slider__style">
+          <% disabled_color = "#8894B6" %> <%# move this to css variable? %>
+          <% slider_color = portfolio.smart_allocation_on? ? "#2948A1" : disabled_color %>
+          <% slider_width = (Portfolio.risk_levels[portfolio.risk_level] / (Portfolio.risk_levels.size - 1).to_f) * 100 %>
+          <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{slider_width}%; background: #{slider_color};", data: { allocations_target: "riskLevelSlider" } do %>
+              <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" do %>
+              <% end %>
             <% end %>
           <% end %>
-        <% end %>
+        </div>
       </div>
-    </div>
-    <%= form.label :risk_level, portfolio.risk_level.humanize, data: { allocations_target: "riskLevel" } %>
-  <% end %>
-
-  <%# <%= button_to "Normalize Allocations", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
-  <%# <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %>
+      
+    <% end %>
+  </div>
 
   <% unless portfolio.normalized_allocations? || portfolio.assets.empty? %>
-    <%= button_to "Normalize Allocations to Simulate", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
+    <%= button_to "Normalize and simulate", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
   <% end %>
+
   <% unless !portfolio.normalized_allocations? || portfolio.assets.empty? %>
     <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %>
   <% end %>
+
 <% end %>
+
