@@ -1,7 +1,7 @@
 <div class="columns">
   <div class="column gap-6">
 
-    <%= render "buttons", portfolio: @portfolio %>
+    <%= render "smart_allocation_controls", portfolio: @portfolio %>
     
     <%= render "empty", portfolio: @portfolio %>
     <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
@@ -18,6 +18,7 @@
           <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
     <% end %>
+    <%= render "normalize", portfolio: @portfolio %>
 
     <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
       <div class="card-container">
@@ -37,12 +38,12 @@
 
   <div class="column gap-1">
 
-    <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
+    <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
       <%= form.label :backtest_start_date, "Backtest Since" %>
       <%= form.text_field :backtest_start_date, class: "fp_date" %>
     <% end %>
 
-    <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest_results" } do |form| %>
+    <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" } do |form| %>
       <%= form.label :benchmark, "Benchmark" %>
       <%= form.select :benchmark, @benchmark_options, selected: @portfolio.benchmark %>
     <% end %>

@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "buttons" do %>
+<%= turbo_frame_tag "smart-allocation-controls" do %>
 
   <div class="smart-allocation">
     <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
@@ -15,6 +15,7 @@
     },
     class: "smart-allocation__slider",
     data: { 
+      turbo_frame: "backtest-results",
       controller: "allocations",
       allocations_risk_levels_value: Portfolio.humanized_risk_levels,
       allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
@@ -42,14 +43,5 @@
       
     <% end %>
   </div>
-
-  <% unless portfolio.normalized_allocations? || portfolio.assets.empty? %>
-    <%= button_to "Normalize and simulate", portfolio_normalize_allocations_path(portfolio), method: :post, disabled: portfolio.normalized_allocations? || portfolio.assets.empty? %>
-  <% end %>
-
-  <% unless !portfolio.normalized_allocations? || portfolio.assets.empty? %>
-    <%= button_to "Simulate", portfolio_simulate_path(portfolio), method: :post, disabled: !portfolio.normalized_allocations? || portfolio.assets.empty?, data: {turbo_frame: "backtest-results"} %>
-  <% end %>
-
 <% end %>
 

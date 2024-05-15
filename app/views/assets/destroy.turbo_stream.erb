@@ -4,4 +4,5 @@
 <% end %>
 <%= turbo_stream.remove @asset %>
 <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
-<%= turbo_stream.update "buttons", partial: "portfolios/buttons", locals: { portfolio: @asset.portfolio } %>
+<%= turbo_stream.update "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @asset.portfolio } %>
+<%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>

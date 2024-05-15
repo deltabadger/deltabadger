@@ -29,12 +29,12 @@ class Portfolio < ApplicationRecord
     @total_allocation = assets.map{ |a| a.allocation * 10_000 }.sum / 10_000.0
   end
 
-  def normalized_allocations?
+  def allocations_are_normalized?
     total_allocation == 1
   end
 
   def normalize_allocations!
-    return if normalized_allocations?
+    return if allocations_are_normalized?
 
     if total_allocation.zero?
       equal_allocation = (1.0 / assets.size).round(4)
@@ -77,7 +77,7 @@ class Portfolio < ApplicationRecord
   end
 
   def backtest
-    return if backtest_start_date.blank? || !normalized_allocations?
+    return if backtest_start_date.blank? || !allocations_are_normalized?
 
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
     Rails.cache.fetch(backtest_cache_key, expires_in: expires_in) do
@@ -108,7 +108,7 @@ class Portfolio < ApplicationRecord
     # backtest['metrics']['cagr'].round(2)
     # backtest['metrics']['informationRatio'].round(2)
   end
-  
+
   def chatgpt_prompt
     text = ''
     text += 'This is my portfolio: '

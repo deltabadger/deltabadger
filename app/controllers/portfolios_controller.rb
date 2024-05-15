@@ -15,10 +15,9 @@ class PortfoliosController < ApplicationController
     return if @portfolio.benchmark == new_benchmark
 
     if Portfolio.benchmarks.include?(new_benchmark) && @portfolio.update(benchmark: new_benchmark)
-      @backtest = @portfolio.backtest
-      respond_to do |format|
-        format.html { redirect_to portfolio_analyzer_path }
-        format.turbo_stream { render 'refresh_backtest_results' }
+      if @portfolio.allocations_are_normalized?
+        @backtest = @portfolio.backtest
+        render partial: 'backtest_results', locals: { backtest: @backtest }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.'
@@ -30,9 +29,10 @@ class PortfoliosController < ApplicationController
     return if @portfolio.strategy == new_strategy
 
     if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy, smart_allocation_on: false)
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
-        format.turbo_stream { render 'refresh_allocations' }
+        format.turbo_stream { render 'refresh' }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.'
@@ -44,9 +44,10 @@ class PortfoliosController < ApplicationController
     return if @portfolio.backtest_start_date == new_backtest_start_date
 
     if @portfolio.update(backtest_start_date: new_backtest_start_date, smart_allocation_on: false)
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
-        format.turbo_stream { render 'refresh_allocations' }
+        format.turbo_stream { render 'refresh' }
       end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid date value.'
@@ -61,8 +62,9 @@ class PortfoliosController < ApplicationController
         @portfolio.set_smart_allocations!
         @smart_allocations = @portfolio.get_smart_allocations
       end
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
-        format.turbo_stream { render 'refresh_allocations' }
+        format.turbo_stream { render 'refresh' }
         format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
       end
     else
@@ -77,8 +79,9 @@ class PortfoliosController < ApplicationController
     if Portfolio.risk_levels.include?(new_risk_level) && @portfolio.update(risk_level: new_risk_level)
       @portfolio.set_smart_allocations!
       @smart_allocations = @portfolio.get_smart_allocations
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
-        format.turbo_stream { render 'refresh_allocations' }
+        format.turbo_stream { render 'refresh' }
         format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
       end
     else
@@ -88,8 +91,9 @@ class PortfoliosController < ApplicationController
 
   def normalize_allocations
     @portfolio.normalize_allocations!
+    @backtest = @portfolio.backtest
     respond_to do |format|
-      format.turbo_stream { render 'refresh_allocations' }
+      format.turbo_stream { render 'refresh' }
       format.html { redirect_to portfolio_analyzer_path, notice: 'Portfolio allocations have been normalized.' }
     end
   end

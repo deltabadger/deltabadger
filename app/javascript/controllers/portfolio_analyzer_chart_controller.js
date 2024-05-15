@@ -84,11 +84,11 @@ export default class extends Controller {
         maintainAspectRatio: true,
         animation: {
           numbers: { duration: 0 },
-          colors: {
-            type: "color",
-            duration: 500,
-            from: "transparent",
-          },
+          // colors: {
+          //   type: "color",
+          //   duration: 500,
+          //   from: "transparent",
+          // },
         },
         scales: {
           x: {
