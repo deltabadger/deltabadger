@@ -1,6 +1,6 @@
 class AssetsController < ApplicationController
   before_action :set_asset, only: %i[destroy update]
-  before_action :set_portfolio, only: %i[new create destroy]
+  before_action :set_portfolio
 
   def new
     session[:query] = params[:query]
@@ -23,6 +23,7 @@ class AssetsController < ApplicationController
 
   def destroy
     if @asset.destroy
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully removed.' }
@@ -34,7 +35,11 @@ class AssetsController < ApplicationController
 
   def update
     if @asset.update(allocation: asset_params[:allocation])
-      render partial: 'portfolios/normalize', locals: { portfolio: @asset.portfolio }
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+      respond_to do |format|
+        format.turbo_stream
+        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset allocation was successfully updated.' }
+      end
     else
       redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.'
     end

@@ -5,4 +5,3 @@
 <%= turbo_stream.append "portfolio-assets", partial: "asset", locals: { asset: @asset } %>
 <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
 <%= turbo_stream.update "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @asset.portfolio } %>
-<%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>
