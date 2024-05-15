@@ -1,5 +1,20 @@
 <div class="columns">
   <div class="column gap-6">
+
+    <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
+      <div class="card-container">
+        <p>Strategy:</p>
+        <% Portfolio.strategies.each do |strategy, _| %>
+          <%= form.radio_button :strategy, strategy, id: "fixed-#{strategy}", class: 'card-input' %>
+          <%= form.label :strategy, for: "fixed-#{strategy}", class: "card" do %>
+            <div class="card-content">
+              <h4><%= strategy.humanize %></h4>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+
     <%= render "buttons", portfolio: @portfolio %>
     <%= render "empty", portfolio: @portfolio %>
     <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
@@ -17,20 +32,6 @@
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
           <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-    <% end %>
-
-    <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
-      <div class="card-container">
-        <p>Strategy:</p>
-        <% Portfolio.strategies.each do |strategy, _| %>
-          <%= form.radio_button :strategy, strategy, id: "fixed-#{strategy}", class: 'card-input' %>
-          <%= form.label :strategy, for: "fixed-#{strategy}", class: "card" do %>
-            <div class="card-content">
-              <h4><%= strategy.humanize %></h4>
-            </div>
-          <% end %>
-        <% end %>
-      </div>
     <% end %>
   
   </div>
