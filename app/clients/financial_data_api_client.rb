@@ -13,7 +13,7 @@ class FinancialDataApiClient < ApplicationClient
     end
   end
 
-  def metrics(symbols, sources, allocations, benchmark, start, strategy, start_balance = 1)
+  def metrics(symbols, sources, allocations, benchmark, source, start, strategy, start_balance = 1)
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'metrics'
@@ -22,6 +22,7 @@ class FinancialDataApiClient < ApplicationClient
           sources: sources,
           allocations: allocations,
           benchmark: benchmark,
+          source: source,
           start: start,
           strategy: strategy,
           'start-balance': start_balance

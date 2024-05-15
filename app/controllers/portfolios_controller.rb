@@ -6,7 +6,7 @@ class PortfoliosController < ApplicationController
   def show
     @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?
     @backtest_max_date = Time.now.utc - 2.days
-    @benchmark_options = Portfolio.benchmarks.map { |k, _| [Portfolio::BENCHMARK_NAMES[k.to_sym], k] }
+    @benchmark_options = Portfolio.benchmarks.map { |k, _| [Portfolio::BENCHMARK_NAMES[k.to_sym][:name], k] }
     @backtest = @portfolio.backtest
   end
 

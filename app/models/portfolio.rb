@@ -7,14 +7,15 @@ class Portfolio < ApplicationRecord
   validates :strategy, :benchmark, :risk_level, presence: true
 
   enum strategy: %i[fixed]
-  enum benchmark: %i[^GSPC ^DJI ^IXIC ^RUT]
+  enum benchmark: %i[^GSPC ^DJI ^IXIC ^RUT BTC/USDT]
   enum risk_level: %i[conservative moderate_conservative balanced moderate_aggressive aggressive]
 
   BENCHMARK_NAMES = {
-    '^GSPC': 'S&P 500 Index',
-    '^DJI': 'Dow Jones Industrial Average',
-    '^IXIC': 'Nasdaq Composite Index',
-    '^RUT': 'Russell 2000 Index'
+    '^GSPC': { source: 'yfinance', name: 'S&P 500 Index' },
+    '^DJI': { source: 'yfinance', name: 'Dow Jones Industrial Average' },
+    '^IXIC': { source: 'yfinance', name: 'Nasdaq Composite Index' },
+    '^RUT': { source: 'yfinance', name: 'Russell 2000 Index' },
+    'BTC/USDT': { source: 'binance', name: 'Bitcoin' }
   }.freeze
 
   def self.humanized_risk_levels
@@ -22,11 +23,15 @@ class Portfolio < ApplicationRecord
   end
 
   def benchmark_name
-    BENCHMARK_NAMES[benchmark.to_sym]
+    BENCHMARK_NAMES[benchmark.to_sym][:name]
+  end
+
+  def benchmark_source
+    BENCHMARK_NAMES[benchmark.to_sym][:source]
   end
 
   def total_allocation
-    @total_allocation = assets.map{ |a| a.allocation * 10_000 }.sum / 10_000.0
+    @total_allocation = assets.map { |a| a.allocation * 10_000 }.sum / 10_000.0
   end
 
   def allocations_are_normalized?
@@ -85,7 +90,7 @@ class Portfolio < ApplicationRecord
       symbols = assets.map(&:symbol).join(',')
       sources = assets.map(&:source).join(',')
       allocations = assets.map(&:allocation).join(',')
-      metrics_result = client.metrics(symbols, sources, allocations, benchmark, backtest_start_date, strategy)
+      metrics_result = client.metrics(symbols, sources, allocations, benchmark, benchmark_source, backtest_start_date, strategy)
       return if metrics_result.failure?
 
       metrics_result.data
