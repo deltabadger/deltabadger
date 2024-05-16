@@ -4,9 +4,9 @@
     <%= form.text_field :backtest_start_date, class: "fp_date sinput sinput--calendar" %>
   <% end %>
 
-  <%= button_to "5Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 5.year.ago.strftime('%Y-%m-%d') } }), method: :patch %>
-  <%= button_to "3Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 3.years.ago.strftime('%Y-%m-%d') } }), method: :patch %>
-  <%= button_to "1Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 1.years.ago.strftime('%Y-%m-%d') } }), method: :patch %>
-  <%= button_to "YTD", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: Date.today.beginning_of_year.strftime('%Y-%m-%d') } }), method: :patch %>
+  <%= button_to "5Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 5.year.ago.strftime('%Y-%m-%d') } }), method: :patch, title: "5 years ago" %>
+  <%= button_to "3Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 3.years.ago.strftime('%Y-%m-%d') } }), method: :patch, title: "3 years ago" %>
+  <%= button_to "1Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 1.years.ago.strftime('%Y-%m-%d') } }), method: :patch, title: "1 year ago" %>
+  <%= button_to "YTD", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: Date.today.beginning_of_year.strftime('%Y-%m-%d') } }), method: :patch, title: "Beginning of the year" %>
 
 <% end %>

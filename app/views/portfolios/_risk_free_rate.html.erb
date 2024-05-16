@@ -6,7 +6,7 @@
   <% end %>
 
   <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
-    <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch %>
+    <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name] %>
   <% end %>
 
 <% end %>

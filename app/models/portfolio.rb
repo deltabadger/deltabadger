@@ -18,9 +18,9 @@ class Portfolio < ApplicationRecord
     'BTC/USDT': { source: 'binance', name: 'Bitcoin' }
   }.freeze
   RISK_FREE_RATES = {
-    '^IRX': { shortname: '1Y Bonds', name: '13 Week Treasury Bill' },
-    '^FVX': { shortname: '5Y Bonds', name: '5 Year Treasury Note' },
-    '^TNX': { shortname: '10Y Bonds', name: '10 Year Treasury Note' },
+    '^IRX': { shortname: '1Y Bonds', name: '13 Week US Treasury Bill Yield' },
+    '^FVX': { shortname: '5Y Bonds', name: '5 Year US Treasury Note Yield' },
+    '^TNX': { shortname: '10Y Bonds', name: '10 Year US Treasury Note Yield' },
     'BTC/USDT': { shortname: 'Bitcoin', name: 'Bitcoin' }
   }.freeze
 
