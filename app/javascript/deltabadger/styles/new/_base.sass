@@ -18,8 +18,11 @@ body
     &__value
         font-weight: bold
         color: var(--emphasis)
+    &--select
+        border: 0
+        color: var(--emphasis)
 
-.sinput, select
+.sinput
     font-weight: 600 !important
     background: var(--sinput-background)
     color: var(--sinput-text)
@@ -31,10 +34,10 @@ body
     height: 4rem
     &--calendar
         width: 14.5rem
+
 select
-    border-right: solid 1rem var(--sinput-background)
-    border-left: solid 1rem var(--sinput-background)
-    padding-right: 0.5rem
+    -webkit-appearance: none !important
+
 .stretch-x
     display: flex
     flex-direction: row
