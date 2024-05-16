@@ -21,7 +21,7 @@
           </svg>
       <% end %>
       <%= render "normalize", portfolio: @portfolio %>
-      
+
     </div>
 
 
@@ -47,10 +47,7 @@
 
     <div class="stretch-x">
 
-      <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
-        <%= form.label :backtest_start_date, "Backtest since:", class: "label" %>
-        <%= form.text_field :backtest_start_date, class: "fp_date sinput sinput--calendar" %>
-      <% end %>
+      <%= render "start_date", portfolio: @portfolio %>
 
       <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" } do |form| %>
         <%= form.label :benchmark, "Benchmark:", class: "label" %>
