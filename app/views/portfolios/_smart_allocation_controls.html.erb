@@ -5,6 +5,7 @@
       <div class="toggle toggle--vertical--">
         <%= form.check_box :smart_allocation_on, id: "smartAllocationToggle", disabled: portfolio.assets.empty? %>
         <div class="toggle__style"></div>
+        <label class="label">Smart Allocation</label>
       </div>
     <% end %>
 
@@ -20,12 +21,14 @@
       allocations_risk_levels_value: Portfolio.humanized_risk_levels,
       allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
     } do |form| %>
-      
-      <span class="label">
-        Smart Allocation: 
-        <%= form.label :risk_level, portfolio.risk_level.humanize, data: { allocations_target: "riskLevel" }, class: "label__value" %>
-      </span>
-
+      <div class="stretch-x">
+        <select class="label label--select">
+          <option selected>Lowest Volatility</option>  
+        </select>
+        <select class="label label--select">
+          <option selected>Best Sharpe Ratio</option>
+        </select>
+      </div>
       <div class="slider">
         <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? %>
         <div class="slider__style">
