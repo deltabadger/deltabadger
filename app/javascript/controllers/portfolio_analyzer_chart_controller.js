@@ -13,12 +13,21 @@ export default class extends Controller {
   }
 
   connect() {
-    var series = this.seriesValue;
-    var labels = this.labelsValue.map(date => new Date(date).getTime());
+    const series = this.seriesValue;
+    const labels = this.labelsValue.map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
-    var max_points_to_draw = 300;
-    var log_scale = true;
+    const portfolio_color = "34, 67, 158" // #22439E
+    const benchmark_color = "0, 211, 161" // #00D3A1
+    const portfolio_gradient = this.canvasContext().createLinearGradient(0, 0, 0, 300);
+          portfolio_gradient.addColorStop(0, 'rgba(' + portfolio_color + ', 0.2)');
+          portfolio_gradient.addColorStop(1, 'rgba(' + portfolio_color + ', 0)');
+    const benchmark_gradient = this.canvasContext().createLinearGradient(0, 0, 0, 300);
+          benchmark_gradient.addColorStop(0, 'rgba(' + benchmark_color + ', 0.2)');
+          benchmark_gradient.addColorStop(1, 'rgba(' + benchmark_color + ', 0)');
+
+    let max_points_to_draw = 300;
+    let log_scale = true;
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
         const tooltip = this;
@@ -53,13 +62,16 @@ export default class extends Controller {
             label: "Portfolio",
             lineTension: 0.2,
             borderWidth: 2.5,
+            borderColor: 'rgb(' + portfolio_color + ')',
+            // backgroundColor: portfolio_gradient,
+            // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
               .concat([2.75]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
-            // pointBackgroundColor: "rgb(" + color1 + ")",
-            // pointBorderColor: "rgba(" + color1 + ", 0.5)",
+            pointBackgroundColor: "rgb(" + portfolio_color + ")",
+            pointBorderColor: "rgba(" + portfolio_color + ", 0.5)",
             pointBorderWidth: 3.5,
             data: series[0],
           },
@@ -67,13 +79,16 @@ export default class extends Controller {
             label: "Benchmark",
             lineTension: 0.2,
             borderWidth: 2.5,
+            borderColor: 'rgb(' + benchmark_color + ')',
+            // backgroundColor: benchmark_gradient,
+            // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
               .concat([2.75]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
-            // pointBackgroundColor: "rgb(" + color1 + ")",
-            // pointBorderColor: "rgba(" + color1 + ", 0.5)",
+            pointBackgroundColor: "rgb(" + benchmark_color + ")",
+            pointBorderColor: "rgba(" + benchmark_color + ", 0.5)",
             pointBorderWidth: 3.5,
             data: series[1],
           },
