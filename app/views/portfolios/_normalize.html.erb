@@ -1,5 +1,6 @@
 <%= turbo_frame_tag "normalize" do %>
   <% unless portfolio.allocations_are_normalized? || portfolio.assets.empty? %>
-    <%= button_to "Normalize and simulate", portfolio_normalize_allocations_path(portfolio), method: :post %>
+    <%= button_to "Normalize and simulate", portfolio_normalize_allocations_path(portfolio), method: :post, class: "basket__remove mt-4" %>
+    <%# TODO: adjust the class properly to look like an integrated button %>
   <% end %>
 <% end %>
