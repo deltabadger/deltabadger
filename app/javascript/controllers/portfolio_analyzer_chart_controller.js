@@ -67,12 +67,12 @@ export default class extends Controller {
             // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
-              .concat([2.75]),
+              .concat([3.75]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
             pointBackgroundColor: "rgb(" + portfolio_color + ")",
             pointBorderColor: "rgba(" + portfolio_color + ", 0.5)",
-            pointBorderWidth: 3.5,
+            pointBorderWidth: 4,
             data: series[0],
           },
           {
@@ -84,12 +84,12 @@ export default class extends Controller {
             // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
-              .concat([2.75]),
+              .concat([3.75]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
             pointBackgroundColor: "rgb(" + benchmark_color + ")",
             pointBorderColor: "rgba(" + benchmark_color + ", 0.5)",
-            pointBorderWidth: 3.5,
+            pointBorderWidth: 4,
             data: series[1],
           },
         ],
