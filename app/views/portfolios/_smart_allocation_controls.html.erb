@@ -23,10 +23,13 @@
     } do |form| %>
       <div class="stretch-x">
         <select class="label label--select">
-          <option selected>Lowest Volatility</option>  
+          <option selected>Lowest Volatility</option>
+          <option disabled>Lowest Max. Drawdown</option>
         </select>
-        <select class="label label--select">
-          <option selected>Best Sharpe Ratio</option>
+        <select class="label label--select text-align-right">
+          <option selected>Highest Sharpe Ratio</option>
+          <option disabled>Highest Sortino Ratio</option>
+          <option disabled>Highest Exp. Return</option>
         </select>
       </div>
       <div class="slider">
