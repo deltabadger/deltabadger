@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_05_13_231321) do
+ActiveRecord::Schema.define(version: 2024_05_16_124312) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -180,6 +180,7 @@ ActiveRecord::Schema.define(version: 2024_05_13_231321) do
     t.string "backtest_start_date"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.float "risk_free_rate", default: 0.0, null: false
     t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
