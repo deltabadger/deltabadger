@@ -2,14 +2,14 @@
   <div class="column gap-6">
 
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
-    
+
     <%= render "empty", portfolio: @portfolio %>
     <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
       <% @portfolio.assets.order(:id).each do |asset| %>
         <%= render 'assets/asset', asset: asset %>
       <% end %>
     <% end %>
-    
+
     <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove mt-4", data: { turbo_frame: "modal" } do %>
         <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
@@ -33,23 +33,27 @@
         <% end %>
       </div>
     <% end %>
-  
+
   </div>
 
   <div class="column gap-1">
 
-    <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
-      <%= form.label :backtest_start_date, "Backtest Since" %>
-      <%= form.text_field :backtest_start_date, class: "fp_date" %>
-    <% end %>
+    <div class="stretch-x">
 
-    <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" } do |form| %>
-      <%= form.label :benchmark, "Benchmark" %>
-      <%= form.select :benchmark, @benchmark_options, selected: @portfolio.benchmark %>
-    <% end %>
+      <%= form_with model: @portfolio, url: portfolio_update_backtest_start_date_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results", controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: @backtest_max_date } do |form| %>
+        <%= form.label :backtest_start_date, "Backtest since:", class: "label" %>
+        <%= form.text_field :backtest_start_date, class: "fp_date sinput sinput--calendar" %>
+      <% end %>
+
+      <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" } do |form| %>
+        <%= form.label :benchmark, "Benchmark:", class: "label" %>
+        <%= form.select :benchmark, @benchmark_options, selected: @portfolio.benchmark, class: "sinput" %>
+      <% end %>
+
+    </div>
 
     <%= render "backtest_results", backtest: @backtest %>
-  
+
   </div>
 </div>
 
