@@ -54,6 +54,8 @@
         <%= form.select :benchmark, @benchmark_options, { selected: @portfolio.benchmark }, { class: "sinput" } %>
       <% end %>
 
+      <%= render "risk_free_rate", portfolio: @portfolio %>
+
     </div>
 
     <%= render "backtest_results", backtest: @backtest %>

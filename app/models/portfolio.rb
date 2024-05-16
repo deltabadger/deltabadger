@@ -17,6 +17,12 @@ class Portfolio < ApplicationRecord
     '^RUT': { source: 'yfinance', name: 'Russell 2000 Index' },
     'BTC/USDT': { source: 'binance', name: 'Bitcoin' }
   }.freeze
+  RISK_FREE_RATES = {
+    '^IRX': { shortname: '1Y Bonds', name: '13 Week Treasury Bill' },
+    '^FVX': { shortname: '5Y Bonds', name: '5 Year Treasury Note' },
+    '^TNX': { shortname: '10Y Bonds', name: '10 Year Treasury Note' },
+    'BTC/USDT': { shortname: 'Bitcoin', name: 'Bitcoin' }
+  }.freeze
 
   def self.humanized_risk_levels
     risk_levels.keys.map { |key| key.to_s.humanize }
@@ -72,7 +78,13 @@ class Portfolio < ApplicationRecord
       client = FinancialDataApiClient.new
       symbols = assets.map(&:symbol).join(',')
       sources = assets.map(&:source).join(',')
-      allocations_result = client.smart_allocations(symbols, sources, backtest_start_date, strategy)
+      allocations_result = client.smart_allocations(
+        symbols: symbols,
+        sources: sources,
+        start: backtest_start_date,
+        strategy: strategy,
+        risk_free_rate: risk_free_rate
+      )
       return if allocations_result.failure?
 
       allocations_result.data
@@ -90,7 +102,16 @@ class Portfolio < ApplicationRecord
       symbols = assets.map(&:symbol).join(',')
       sources = assets.map(&:source).join(',')
       allocations = assets.map(&:allocation).join(',')
-      metrics_result = client.metrics(symbols, sources, allocations, benchmark, benchmark_source, backtest_start_date, strategy)
+      metrics_result = client.metrics(
+        symbols: symbols,
+        sources: sources,
+        allocations: allocations,
+        benchmark: benchmark,
+        source: benchmark_source,
+        start: backtest_start_date,
+        strategy: strategy,
+        risk_free_rate: risk_free_rate
+      )
       return if metrics_result.failure?
 
       metrics_result.data
@@ -123,7 +144,7 @@ class Portfolio < ApplicationRecord
     end
     text += '. '
     text += "Benchmark: #{benchmark_name}. "
-    text += 'Risk-free asset: 5-year Treasury Bonds. '
+    text += "Risk-free rate: #{(risk_free_rate * 100).round(2)}%. "
     text += "Metrics for time since #{backtest_start_date} to #{1.day.ago.to_date}: "
     text += "Portfolio performance +#{backtest['metrics']['totalReturn'].round(2)}%, "
     text += "Benchmark performance +#{backtest['metrics']['benchmarkTotalReturn'].round(2)}%, "
@@ -146,18 +167,56 @@ class Portfolio < ApplicationRecord
     text
   end
 
+  def get_risk_free_rate(key)
+    return if key.blank? || !RISK_FREE_RATES.include?(key.to_sym)
+
+    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
+    if key == 'BTC/USDT'
+      cache_key = "risk_free_rate_#{key}_#{backtest_start_date}"
+      metrics_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
+        client = FinancialDataApiClient.new
+        metrics_result = client.metrics(
+          symbols: key,
+          sources: 'binance',
+          allocations: 1,
+          start: backtest_start_date,
+          strategy: 'fixed'
+        )
+        return if metrics_result.failure?
+
+        metrics_result.data
+      end
+      metrics_result_data['metrics']['cagr'].round(4)
+    else
+      cache_key = "risk_free_rate_#{key}"
+      time_series_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
+        client = FinancialDataApiClient.new
+        time_series_result = client.time_series(
+          symbol: key,
+          timeframe: '1d',
+          source: 'yfinance',
+          limit: 1
+        )
+        return if time_series_result.failure?
+
+        time_series_result.data
+      end
+      (time_series_result_data[0][4] / 100).round(4)
+    end
+  end
+
   private
 
   def smart_allocations_cache_key
-    assets_str = assets.map(&:ticker).sort.join('_')
+    assets_str = assets.order(:id).map(&:ticker).sort.join('_')
     start_date = backtest_start_date || '2021-01-01'
-    "smart_allocations_#{strategy}_#{assets_str}_#{start_date}"
+    "smart_allocations_#{strategy}_#{assets_str}_#{start_date}_#{risk_free_rate}"
   end
 
   def backtest_cache_key
-    assets_str = assets.map(&:ticker).sort.join('_')
-    allocations_str = assets.map(&:allocation).join('_')
-    "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}"
+    assets_str = assets.order(:id).map(&:ticker).sort.join('_')
+    allocations_str = assets.order(:id).map(&:allocation).join('_')
+    "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 
   def batch_update_allocations!(new_allocations)

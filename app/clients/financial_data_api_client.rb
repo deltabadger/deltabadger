@@ -13,7 +13,17 @@ class FinancialDataApiClient < ApplicationClient
     end
   end
 
-  def metrics(symbols, sources, allocations, benchmark, source, start, strategy, start_balance = 10_000)
+  def metrics(
+    symbols: nil,
+    sources: nil,
+    allocations: nil,
+    benchmark: nil,
+    source: nil,
+    start: nil,
+    strategy: nil,
+    risk_free_rate: nil,
+    start_balance: 10_000
+  )
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'metrics'
@@ -25,8 +35,9 @@ class FinancialDataApiClient < ApplicationClient
           source: source,
           start: start,
           strategy: strategy,
+          risk_free_rate: risk_free_rate,
           'start-balance': start_balance
-        }
+        }.compact
       end
       Result::Success.new(response.body)
     end
@@ -44,7 +55,13 @@ class FinancialDataApiClient < ApplicationClient
     end
   end
 
-  def smart_allocations(symbols, sources, start, strategy)
+  def smart_allocations(
+    symbols: nil,
+    sources: nil,
+    start: nil,
+    strategy: nil,
+    risk_free_rate: nil
+  )
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'smart-allocations'
@@ -52,8 +69,33 @@ class FinancialDataApiClient < ApplicationClient
           symbols: symbols,
           sources: sources,
           start: start,
-          strategy: strategy
-        }
+          strategy: strategy,
+          risk_free_rate: risk_free_rate
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  def time_series(
+    symbol:,
+    timeframe:,
+    source: nil,
+    limit: nil,
+    start: nil
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url 'time-series'
+        req.params = {
+          symbol: symbol,
+          timeframe: timeframe,
+          source: source,
+          limit: limit,
+          start: start
+        }.compact
+        puts 'lelelelele'
+        puts req.params.inspect
       end
       Result::Success.new(response.body)
     end

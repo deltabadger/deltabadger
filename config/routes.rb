@@ -126,6 +126,7 @@ Rails.application.routes.draw do
       patch :update_benchmark
       patch :update_strategy
       patch :update_backtest_start_date
+      patch :update_risk_free_rate
       post :normalize_allocations
       post :simulate
     end

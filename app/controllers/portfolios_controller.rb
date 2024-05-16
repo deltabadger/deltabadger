@@ -5,7 +5,6 @@ class PortfoliosController < ApplicationController
 
   def show
     @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?
-    @backtest_max_date = Time.now.utc - 2.days
     @benchmark_options = Portfolio.benchmarks.map { |k, _| [Portfolio::BENCHMARK_NAMES[k.to_sym][:name], k] }
     @backtest = @portfolio.backtest
   end
@@ -44,6 +43,25 @@ class PortfoliosController < ApplicationController
     return if @portfolio.backtest_start_date == new_backtest_start_date
 
     if @portfolio.update(backtest_start_date: new_backtest_start_date, smart_allocation_on: false)
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+      respond_to do |format|
+        format.html { redirect_to portfolio_analyzer_path }
+        format.turbo_stream { render 'refresh' }
+      end
+    else
+      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.'
+    end
+  end
+
+  def update_risk_free_rate
+    new_risk_free_rate = if params[:risk_free_rate_shortcut].present?
+                           @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
+                         else
+                           portfolio_params[:risk_free_rate].to_f / 100
+                         end
+    return if @portfolio.risk_free_rate == new_risk_free_rate
+
+    if @portfolio.update(risk_free_rate: new_risk_free_rate, smart_allocation_on: false)
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
@@ -107,14 +125,21 @@ class PortfoliosController < ApplicationController
   private
 
   def portfolio_params
-    params.require(:portfolio).permit(:benchmark, :strategy, :backtest_start_date, :risk_level, :smart_allocation_on)
+    params.require(:portfolio).permit(
+      :benchmark,
+      :strategy,
+      :backtest_start_date,
+      :risk_level,
+      :smart_allocation_on,
+      :risk_free_rate
+    )
   end
 
   def set_portfolio
     @portfolio = current_user.portfolios.first
     return if @portfolio.present?
 
-    @portfolio = Portfolio.new(user: current_user, backtest_start_date: 1.year.ago.to_date.to_s)
+    @portfolio = Portfolio.new(user: current_user, backtest_start_date: 1.year.ago.to_date.to_s, risk_free_rate: 0.0435)
     @portfolio.save
   end
 end
