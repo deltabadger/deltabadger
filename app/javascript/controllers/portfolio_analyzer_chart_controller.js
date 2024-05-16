@@ -17,8 +17,8 @@ export default class extends Controller {
     const labels = this.labelsValue.map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
-    const portfolio_color = "34, 67, 158" // #22439E
-    const benchmark_color = "0, 211, 161" // #00D3A1
+    const portfolio_color = "0, 211, 161" // #00D3A1
+    const benchmark_color = "34, 67, 158" // #22439E
     const portfolio_gradient = this.canvasContext().createLinearGradient(0, 0, 0, 300);
           portfolio_gradient.addColorStop(0, 'rgba(' + portfolio_color + ', 0.2)');
           portfolio_gradient.addColorStop(1, 'rgba(' + portfolio_color + ', 0)');

@@ -30,10 +30,12 @@
         <label class="label">Strategy:</label>
         <% Portfolio.strategies.each do |strategy, _| %>
           <%= form.radio_button :strategy, strategy, id: "fixed-#{strategy}", class: 'card-input' %>
-          <%= form.label :strategy, for: "fixed-#{strategy}", class: "card" do %>
-            <div class="card-content">
-              <h4><%= strategy.humanize %></h4>
-            </div>
+          <%= form.label :strategy, for: "fixed-#{strategy}" do %>
+            <select class="sinput sinput--select">
+              <option selected>Fixed</option>
+              <option disabled>DCA (soon)</option>
+              <option disabled>Rebalancing (soon)</option>
+            </select>
           <% end %>
         <% end %>
       </div>
