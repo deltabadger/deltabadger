@@ -19,6 +19,27 @@ body
         font-weight: bold
         color: var(--emphasis)
 
+.sinput, select
+    font-weight: 600 !important
+    background: var(--sinput-background)
+    color: var(--sinput-text)
+    line-height: 4rem
+    border-radius: 2rem
+    border: 0
+    border-right: solid 1.5rem var(--sinput-background)
+    border-left: solid 1.5rem var(--sinput-background)
+    height: 4rem
+    &--calendar
+        width: 14.5rem
+select
+    border-right: solid 1rem var(--sinput-background)
+    border-left: solid 1rem var(--sinput-background)
+    padding-right: 0.5rem
+.stretch-x
+    display: flex
+    flex-direction: row
+    justify-content: space-between
+
 .icon-16
     width: 2rem
     height: 2rem
