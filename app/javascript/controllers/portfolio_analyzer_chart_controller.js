@@ -26,7 +26,7 @@ export default class extends Controller {
           benchmark_gradient.addColorStop(0, 'rgba(' + benchmark_color + ', 0.2)');
           benchmark_gradient.addColorStop(1, 'rgba(' + benchmark_color + ', 0)');
 
-    let max_points_to_draw = 300;
+    let max_points_to_draw = 200;
     let log_scale = true;
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
@@ -60,7 +60,7 @@ export default class extends Controller {
         datasets: [
           {
             label: "Portfolio",
-            lineTension: 0.2,
+            lineTension: 0.01, // 0.2,
             borderWidth: 2.5,
             borderColor: 'rgb(' + portfolio_color + ')',
             // backgroundColor: portfolio_gradient,
@@ -77,7 +77,7 @@ export default class extends Controller {
           },
           {
             label: "Benchmark",
-            lineTension: 0.2,
+            lineTension: 0.01, // 0.2,
             borderWidth: 2.5,
             borderColor: 'rgb(' + benchmark_color + ')',
             // backgroundColor: benchmark_gradient,
