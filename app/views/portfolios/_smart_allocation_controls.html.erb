@@ -22,15 +22,21 @@
       allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
     } do |form| %>
       <div class="stretch-x">
-        <select class="label label--select">
-          <option selected>Lowest Volatility</option>
-          <option disabled>Lowest Max. Drawdown (soon)</option>
-        </select>
-        <select class="label label--select text-align-right">
-          <option selected>Highest Sharpe Ratio</option>
-          <option disabled>Highest Sortino Ratio (soon)</option>
-          <option disabled>Highest Exp. Return (soon)</option>
-        </select>
+        <div class="label label--select">
+          Lowest Volatility
+          <select>
+            <option selected>Lowest Volatility</option>
+            <option disabled>Lowest Max. Drawdown (soon)</option>
+          </select>
+        </div>
+        <div class="label label--select">
+          Highest Sharpe Ratio
+          <select>
+            <option selected>Highest Sharpe Ratio</option>
+            <option disabled>Highest Sortino Ratio (soon)</option>
+            <option disabled>Highest Exp. Return (soon)</option>
+          </select>
+        </div>
       </div>
       <div class="slider">
         <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? %>
