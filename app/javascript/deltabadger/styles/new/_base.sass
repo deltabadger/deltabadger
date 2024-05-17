@@ -9,43 +9,6 @@ body
     font-family: Montserrat, sans-serif
     color:       var(--text)
 
-.label,.ticker,.toggle-label
-    user-select: none
-
-.label
-    font-weight: 600
-    color: var(--label)
-    &__value
-        font-weight: bold
-        color: var(--emphasis)
-    &--select
-        border: 0
-        color: var(--emphasis)
-
-.sinput
-    font-weight: 600 !important
-    background: var(--sinput-background)
-    color: var(--sinput-text)
-    line-height: 4rem
-    border-radius: 2rem
-    border: 0
-    padding: 0 1.5rem
-    height: 4rem
-    width: min-content
-    &--calendar
-        width: 14.5rem
-    &--select
-        position: relative
-        overflow: hidden
-        select
-            opacity: 0
-            position: absolute
-            top: 0
-            left: 0
-
-select
-    -webkit-appearance: none !important
-
 .main
     padding: 4rem 4rem 4rem 20rem
     @media only screen and (max-width: 1359px)
