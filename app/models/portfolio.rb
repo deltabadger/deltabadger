@@ -18,10 +18,9 @@ class Portfolio < ApplicationRecord
     'BTC/USDT': { source: 'binance', name: 'Bitcoin' }
   }.freeze
   RISK_FREE_RATES = {
-    '^IRX': { shortname: '1Y Bonds', name: '13 Week US Treasury Bill Yield' },
-    '^FVX': { shortname: '5Y Bonds', name: '5 Year US Treasury Note Yield' },
-    '^TNX': { shortname: '10Y Bonds', name: '10 Year US Treasury Note Yield' },
-    'BTC/USDT': { shortname: 'Bitcoin', name: 'Bitcoin' }
+    '^IRX': { shortname: '13W US Bonds', name: '13 Week US Treasury Bill Yield' },
+    '^FVX': { shortname: '5Y US Bonds', name: '5 Year US Treasury Note Yield' },
+    '^TNX': { shortname: '10Y US Bonds', name: '10 Year US Treasury Note Yield' }
   }.freeze
 
   def self.humanized_risk_levels
@@ -171,38 +170,20 @@ class Portfolio < ApplicationRecord
     return if key.blank? || !RISK_FREE_RATES.include?(key.to_sym)
 
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
-    if key == 'BTC/USDT'
-      cache_key = "risk_free_rate_#{key}_#{backtest_start_date}"
-      metrics_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
-        client = FinancialDataApiClient.new
-        metrics_result = client.metrics(
-          symbols: key,
-          sources: 'binance',
-          allocations: 1,
-          start: backtest_start_date,
-          strategy: 'fixed'
-        )
-        return if metrics_result.failure?
+    cache_key = "risk_free_rate_#{key}"
+    time_series_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
+      client = FinancialDataApiClient.new
+      time_series_result = client.time_series(
+        symbol: key,
+        timeframe: '1d',
+        source: 'yfinance',
+        limit: 1
+      )
+      return if time_series_result.failure?
 
-        metrics_result.data
-      end
-      metrics_result_data['metrics']['cagr'].round(4)
-    else
-      cache_key = "risk_free_rate_#{key}"
-      time_series_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
-        client = FinancialDataApiClient.new
-        time_series_result = client.time_series(
-          symbol: key,
-          timeframe: '1d',
-          source: 'yfinance',
-          limit: 1
-        )
-        return if time_series_result.failure?
-
-        time_series_result.data
-      end
-      (time_series_result_data[0][4] / 100).round(4)
+      time_series_result.data
     end
+    (time_series_result_data[0][4] / 100).round(4)
   end
 
   private
