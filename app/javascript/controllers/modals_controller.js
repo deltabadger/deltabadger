@@ -5,11 +5,12 @@ export default class extends Controller {
   connect() {
     this.open()
     // needed because ESC key does not trigger close event
-    this.element.addEventListener("close", this.enableBodyScroll.bind(this))
+    this.enableBodyScrollBound = this.enableBodyScroll.bind(this);
+    this.element.addEventListener("close", this.enableBodyScrollBound)
   }
 
   disconnect() {
-    this.element.removeEventListener("close", this.enableBodyScroll.bind(this))
+    this.element.removeEventListener("close", this.enableBodyScrollBound)
   }
 
   // hide modal on successful form submission
@@ -23,6 +24,7 @@ export default class extends Controller {
   open() {
     this.element.showModal()
     document.body.classList.add('overflow-hidden')
+    this.dispatchModalOpenEvent(true)
   }
 
   close() {
@@ -35,10 +37,13 @@ export default class extends Controller {
     } else {
       this.closeAndCleanUp()
     }
+    this.dispatchModalOpenEvent(false)
   }
 
   enableBodyScroll() {
+    this.closeAndCleanUp()
     document.body.classList.remove('overflow-hidden')
+    this.dispatchModalOpenEvent(false)
   }
 
   clickOutside(event) {
@@ -53,5 +58,10 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     frame.removeAttribute("src")
     frame.innerHTML = ""
+  }
+
+  dispatchModalOpenEvent(detail) {
+    const newEvent = new CustomEvent('modalIsOpen', { detail });
+    window.dispatchEvent(newEvent);
   }
 }
