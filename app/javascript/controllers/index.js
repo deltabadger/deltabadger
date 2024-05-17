@@ -10,6 +10,9 @@ application.register("allocations", AllocationsController)
 import FlatpickrController from "./flatpickr_controller"
 application.register("flatpickr", FlatpickrController)
 
+import FormKeyPressController from "./form_key_press_controller"
+application.register("form-key-press", FormKeyPressController)
+
 import FormSubmissionController from "./form_submission_controller"
 application.register("form-submission", FormSubmissionController)
 
