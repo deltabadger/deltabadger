@@ -1,7 +1,8 @@
 class PortfoliosController < ApplicationController
   layout 'analyzer'
-  # before_action :initialize_session, only: [:show]
+  before_action :authenticate_user!
   before_action :set_portfolio
+  # before_action :initialize_session, only: [:show]
 
   def show
     @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?

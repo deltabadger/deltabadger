@@ -1,4 +1,5 @@
 class AssetsController < ApplicationController
+  before_action :authenticate_user!
   before_action :set_asset, only: %i[destroy update]
   before_action :set_portfolio
 
