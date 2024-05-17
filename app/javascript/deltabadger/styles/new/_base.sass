@@ -29,11 +29,19 @@ body
     line-height: 4rem
     border-radius: 2rem
     border: 0
-    border-right: solid 1.5rem var(--sinput-background)
-    border-left: solid 1.5rem var(--sinput-background)
+    padding: 0 1.5rem
     height: 4rem
+    width: min-content
     &--calendar
         width: 14.5rem
+    &--select
+        position: relative
+        overflow: hidden
+        select
+            opacity: 0
+            position: absolute
+            top: 0
+            left: 0
 
 select
     -webkit-appearance: none !important
