@@ -81,7 +81,7 @@
         <div class="data-grid__item">
           <div class="label">Alpha</div>
           <div class="data-grid__item__value">
-            <%= backtest['metrics']['alpha'].round(2) if backtest['metrics']['alpha'].present? %>
+            <%= (backtest['metrics']['alpha'] * 100).round(2).to_s + '%' if backtest['metrics']['alpha'].present? %>
           </div>
         </div>
         <div class="data-grid__item">
