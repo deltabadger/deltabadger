@@ -12,7 +12,7 @@
 
     <div class="stretch-x">
 
-      <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove mt-4", data: { turbo_frame: "modal" } do %>
+      <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove", data: { turbo_frame: "modal" } do %>
           <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
             <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -23,42 +23,36 @@
       <%= render "normalize", portfolio: @portfolio %>
 
     </div>
-
-
-    <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
-      <div class="card-container">
-        <label class="label">Strategy:</label>
-        <% Portfolio.strategies.each do |strategy, _| %>
-          <%= form.radio_button :strategy, strategy, id: "fixed-#{strategy}", class: 'card-input' %>
-          <%= form.label :strategy, for: "fixed-#{strategy}" do %>
-            <select class="sinput sinput--select">
-              <option selected>Fixed</option>
-              <option disabled>DCA (soon)</option>
-              <option disabled>Rebalancing (soon)</option>
-            </select>
-          <% end %>
-        <% end %>
-      </div>
-    <% end %>
-
   </div>
 
   <div class="column gap-1">
 
-    <div class="stretch-x">
-
-      <%= render "start_date", portfolio: @portfolio %>
-
-      <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" } do |form| %>
-        <%= form.label :benchmark, "Benchmark:", class: "label" %>
-        <%= form.select :benchmark, @benchmark_options, { selected: @portfolio.benchmark }, { class: "sinput" } %>
-      <% end %>
-
-      <%= render "risk_free_rate", portfolio: @portfolio %>
-
+    <div class="flex-row">
+        <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, class: "flex-row" do |form| %>
+          <div class="sinput sinput--select">Fixed<% Portfolio.strategies.each do |strategy, _| %>
+              <%= form.radio_button :strategy, strategy, id: "fixed-#{strategy}", class: 'card-input' %>
+              <%= form.label :strategy, for: "fixed-#{strategy}" do %>
+                <select>
+                  <option selected>Fixed</option>
+                  <option disabled>DCA (soon)</option>
+                  <option disabled>Rebalancing (soon)</option>
+                </select>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+        <span class="label">since</span>
+        <%= render "start_date", portfolio: @portfolio %>
     </div>
 
     <%= render "backtest_results", backtest: @backtest %>
+
+    <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" } do |form| %>
+      <%= form.label :benchmark, "Benchmark:", class: "label" %>
+      <%= form.select :benchmark, @benchmark_options, { selected: @portfolio.benchmark }, { class: "sinput" } %>
+    <% end %>
+
+    <%= render "risk_free_rate", portfolio: @portfolio %>
 
   </div>
 </div>

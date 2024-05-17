@@ -1,12 +1,13 @@
-<%= turbo_frame_tag "risk-free-rate" do %>
+<%= turbo_frame_tag "risk-free-rate", style: "flex-direction: column; display: flex; gap: 0.5rem" do %>
   <%= form_with model: portfolio, url: portfolio_update_risk_free_rate_path(portfolio), method: :patch, html: { onchange: "requestSubmit();" } do |form| %>
     <%= form.label :risk_free_rate, "Risk-Free Rate:", class: "label" %>
-    <%= form.number_field :risk_free_rate, min: 0, max: 100, step: 0.01, value: (portfolio.risk_free_rate * 100).round(2) %>
-    <span>%</span>
+    <%= form.number_field :risk_free_rate, min: 0, max: 100, step: 0.01, value: (portfolio.risk_free_rate * 100).round(2), class: "sinput sinput--number sinput--rate" %>
+    <span class="label">%</span>
   <% end %>
-
-  <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
-    <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name] %>
-  <% end %>
+  <span class="flex-row gap-2">
+    <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
+        <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name], class: "sbutton sbutton--link" %>
+    <% end %>
+  </span>
 
 <% end %>
