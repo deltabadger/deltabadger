@@ -4,13 +4,10 @@
 .label
     font-weight: 600
     color: var(--label)
+    &__value,&--select
+        color: var(--emphasis)
     &__value
         font-weight: bold
-        color: var(--emphasis)
-    &--select
-        border: 0
-        color: var(--emphasis)
-
 .sinput
     font-weight: 600 !important
     background: var(--sinput-background)
@@ -34,14 +31,15 @@
         width: 8rem
         padding: 0
         text-align: center
-    &--select
-        position: relative
-        overflow: hidden
-        select
-            opacity: 0
-            position: absolute
-            top: 0
-            left: 0
+
+.label--select,.sinput--select
+    position: relative
+    overflow: hidden
+    select
+        opacity: 0
+        position: absolute
+        top: 0
+        left: 0
 
 select
     -webkit-appearance: none !important
