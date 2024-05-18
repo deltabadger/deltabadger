@@ -59,6 +59,12 @@
     gap: 2rem
     &__slider
         width: 100%
-        [disabled="disabled"] 
-            &~ * .slider__style__progress
+        &--off
+            pointer-events: none
+            .slider__style__progress
                 display: none
+            .label--select
+                color: var(--label-select-inactive)
+                svg
+                    path
+                        stroke: var(--label-select-inactive)

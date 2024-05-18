@@ -8,6 +8,10 @@
         color: var(--emphasis)
     &__value
         font-weight: bold
+    &--select
+        svg
+            path 
+                stroke: var(--emphasis)
 .sinput
     font-weight: 600 !important
     background: var(--sinput-background)
@@ -50,4 +54,24 @@ select
     font-weight: 600
     color: var(--label)
     padding: 0 0.25rem
-    // border-bottom: 2px solid var(--slider-track)
+    align-items: center
+    border: 0
+    border-radius: 2rem
+    display: flex
+    justify-content: center
+    height: 4rem
+    &--primary, &--success
+        color: #fff
+        padding: 0 2rem
+        gap: 1rem
+        svg
+            fill: #fff
+    &--primary
+        background: var(--primary)
+    &--success
+        background: var(--success)
+    &--add-asset  
+        width: 20rem
+        background: var(--sbutton-add-asset)
+        &:hover
+            background: var(--sbutton-add-asset-hover)

@@ -12,7 +12,7 @@
 
     <div class="stretch-x" data-controller="form-key-press">
 
-      <%= link_to new_portfolio_asset_path(@portfolio), class: "basket__remove", data: { turbo_frame: "modal", form_key_press_target: "button" } do %>
+      <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--add-asset", data: { turbo_frame: "modal", form_key_press_target: "button" } do %>
           <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
             <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -26,8 +26,8 @@
   </div>
 
   <div class="column gap-1">
-
-    <div class="flex-row">
+    <div class="stretch-x">
+      <div class="flex-row">
         <%= form_with model: @portfolio, url: portfolio_update_strategy_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, class: "flex-row" do |form| %>
           <div class="sinput sinput--select">
             Fixed
@@ -44,8 +44,12 @@
         <% end %>
         <span class="label">since</span>
         <%= render "start_date", portfolio: @portfolio %>
+      </div>
+      <button class="sbutton sbutton--success">
+          Get AI Insights
+          <svg class="icon-24" style="position: relative; left: 0.25rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M24 11.6a1 1 0 0 0-.3-.3l-5-5a1 1 0 1 0-1.4 1.4l3.3 3.3H1a1 1 0 1 0 0 2h19.6l-3.3 3.3a1 1 0 0 0 1.4 1.4l5-5a1 1 0 0 0 .2-1Z" /></svg>
+      </button>
     </div>
-
     <%= render "backtest_results", backtest: @backtest %>
     <div class="flex-row gap-2" style="flex-wrap: wrap; justify-content: space-between">
 
