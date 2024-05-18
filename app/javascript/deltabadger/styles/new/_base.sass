@@ -23,4 +23,39 @@ body
     display: flex
     flex-direction: column
     width: 100%
-    container-type: inline-size    
+    container-type: inline-size
+
+.modal--search
+    background: var(--modal-background) !important
+    width: 80rem
+    &__zoom-icon
+        width: 3rem
+        height: 3rem
+        position: absolute
+        top: 2rem
+        left: 2rem
+        path,circle
+            stroke: var(--text)
+            opacity: 0.5
+    &__input
+        background: rgba(0,0,0,0)
+        font-weight: 500
+        width: 100%
+        padding: 2rem 2rem 2rem 7rem
+        font-size: 2rem
+        border: none
+        height: 7rem
+        &:focus
+            outline: none
+    &__assets
+        &__item
+            display: grid
+            grid-template-columns: 15rem 3fr 1fr 7.5rem
+    &__cell
+        text-align: left
+        padding: 1rem 0 1rem 2rem
+        font-weight: 500
+        &--ticker
+            font-weight: bold
+        &--category
+            color: var(--label)
