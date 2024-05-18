@@ -26,9 +26,15 @@ body
     container-type: inline-size
 
 .modal--search
-    background: var(--modal-background) !important
-    width: 80rem
-    height: 50vh // needs to be adjusted, the idea was to show it in a fixed height similar to tradingview search
+    background: none !important
+    width: 100vw
+    height: 100vh
+    max-width: 62rem !important
+    max-height: 62rem !important
+    &__background
+        background: var(--modal-background)
+        border-radius: 1rem
+        overflow: hidden
     &__zoom-icon
         width: 3rem
         height: 3rem
@@ -50,14 +56,22 @@ body
             outline: none
     &__assets
         &__item
-            display: grid
-            grid-template-columns: 15rem 3fr 1fr 7.5rem
             &:hover
-                background: #0000FF
+                background: var(--modal-search-hover-background)
+            button
+                background: none
+                border: none
+                display: grid
+                grid-template-columns: 15rem 1fr 11rem
+                width: 100%
+
     &__cell
         text-align: left
         padding: 1rem 0 1rem 2rem
         font-weight: 500
+        overflow: hidden
+        text-overflow: ellipsis
+        text-wrap: nowrap
         &--ticker
             font-weight: bold
         &--category
