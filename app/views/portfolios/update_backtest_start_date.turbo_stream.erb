@@ -1,0 +1,11 @@
+<%= turbo_stream.replace "start-date", partial: "start_date", locals: { portfolio: @portfolio } %>
+<% if @portfolio.allocations_are_normalized? %>
+  <%= turbo_stream.replace "backtest-results", partial: "backtest_results", locals: { backtest: @backtest } %>
+<% end %>
+<% if @portfolio.smart_allocation_on? %>
+  <%= turbo_stream.update "portfolio-assets" do %>
+    <% @portfolio.assets.order(:id).each do |asset| %>
+      <%= render 'assets/asset', asset: asset %>
+    <% end %>
+  <% end %>
+<% end %>

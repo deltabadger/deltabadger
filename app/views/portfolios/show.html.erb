@@ -3,7 +3,7 @@
 
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
-    <%# render "empty", portfolio: @portfolio %>
+    <%= render "empty", portfolio: @portfolio %>
     <%= turbo_frame_tag "portfolio-assets", class: "basket" do %>
       <% @portfolio.assets.order(:id).each do |asset| %>
         <%= render 'assets/asset', asset: asset %>
@@ -51,7 +51,7 @@
 
       <%= render "risk_free_rate", portfolio: @portfolio %>
 
-      <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, data: { turbo_frame: "backtest-results" }, class: "flex-row" do |form| %>
+      <%= form_with model: @portfolio, url: portfolio_update_benchmark_path(@portfolio), method: :patch, html: { onchange: "requestSubmit();" }, class: "flex-row" do |form| %>
         <%= form.label :benchmark, "Benchmark:", class: "label" %>
           <div class="sinput sinput--select">
             S&P 500 Index

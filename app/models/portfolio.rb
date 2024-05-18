@@ -57,6 +57,8 @@ class Portfolio < ApplicationRecord
   end
 
   def set_smart_allocations!
+    return if allocations_are_smart? || assets.empty?
+
     all_smart_allocations = get_smart_allocations
     new_allocations = all_smart_allocations[Portfolio.risk_levels[risk_level].to_i]
     batch_update_allocations!(new_allocations)

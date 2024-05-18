@@ -128,7 +128,6 @@ Rails.application.routes.draw do
       patch :update_backtest_start_date
       patch :update_risk_free_rate
       post :normalize_allocations
-      post :simulate
     end
   
     get '/portfolio-analyzer', to: 'portfolios#show' # in the future, use only portfolios which can be automated etc.

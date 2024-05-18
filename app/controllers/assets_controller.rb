@@ -28,8 +28,7 @@ class AssetsController < ApplicationController
   def destroy
     puts "Destroying asset #{@portfolio.smart_allocation_on?}"
     if @asset.destroy
-      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
-      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+      set_backtest_data
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully removed.' }
@@ -79,5 +78,10 @@ class AssetsController < ApplicationController
 
   def asset_in_portfolio?
     @portfolio.assets.find_by(ticker: asset_params[:ticker], category: asset_params[:category]).present?
+  end
+
+  def set_backtest_data
+    @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
+    @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
   end
 end

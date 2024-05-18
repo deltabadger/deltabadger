@@ -1,0 +1,10 @@
+<%= turbo_stream.replace "smart-allocation-controls", partial: "smart_allocation_controls", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.replace "normalize", partial: "normalize", locals: { portfolio: @portfolio } %>
+<% if @portfolio.smart_allocation_on? %>
+  <%= turbo_stream.replace "backtest-results", partial: "backtest_results", locals: { backtest: @backtest } %>
+<% end %>
+<%= turbo_stream.update "portfolio-assets" do %>
+  <% @portfolio.assets.order(:id).each do |asset| %>
+    <%= render 'assets/asset', asset: asset %>
+  <% end %>
+<% end %>

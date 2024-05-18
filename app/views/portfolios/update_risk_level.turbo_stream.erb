@@ -1,0 +1,6 @@
+<%= turbo_stream.replace "backtest-results", partial: "backtest_results", locals: { backtest: @backtest } %>
+<%= turbo_stream.update "portfolio-assets" do %>
+  <% @portfolio.assets.order(:id).each do |asset| %>
+    <%= render 'assets/asset', asset: asset %>
+  <% end %>
+<% end %>
