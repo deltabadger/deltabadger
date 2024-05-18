@@ -42,7 +42,6 @@ export default class extends Controller {
 
   enableBodyScroll() {
     this.closeAndCleanUp()
-    document.body.classList.remove('overflow-hidden')
     this.dispatchModalOpenEvent(false)
   }
 
@@ -58,6 +57,7 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     frame.removeAttribute("src")
     frame.innerHTML = ""
+    document.body.classList.remove('overflow-hidden')
   }
 
   dispatchModalOpenEvent(detail) {
