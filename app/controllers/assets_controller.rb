@@ -10,9 +10,12 @@ class AssetsController < ApplicationController
   end
 
   def create
-    # add condition asset ticker must be valid
+    puts "Creating asset #{@portfolio.smart_allocation_on?}"
+    # TODO: add condition asset ticker must be valid
     @asset = @portfolio.assets.new(asset_params)
     if !asset_in_portfolio? && @asset.save
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
+      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }
@@ -23,7 +26,9 @@ class AssetsController < ApplicationController
   end
 
   def destroy
+    puts "Destroying asset #{@portfolio.smart_allocation_on?}"
     if @asset.destroy
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.turbo_stream

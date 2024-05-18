@@ -190,8 +190,7 @@ class Portfolio < ApplicationRecord
 
   def smart_allocations_cache_key
     assets_str = assets.order(:id).map(&:ticker).sort.join('_')
-    start_date = backtest_start_date || '2021-01-01'
-    "smart_allocations_#{strategy}_#{assets_str}_#{start_date}_#{risk_free_rate}"
+    "smart_allocations_#{strategy}_#{assets_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 
   def backtest_cache_key

@@ -5,7 +5,7 @@ class PortfoliosController < ApplicationController
   # before_action :initialize_session, only: [:show]
 
   def show
-    @smart_allocations = @portfolio.get_smart_allocations if @portfolio.smart_allocation_on?
+    @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
     @benchmark_options = Portfolio.benchmarks.map { |k, _| [Portfolio::BENCHMARK_NAMES[k.to_sym][:name], k] }
     @backtest = @portfolio.backtest
   end
@@ -15,6 +15,7 @@ class PortfoliosController < ApplicationController
     return if @portfolio.benchmark == new_benchmark
 
     if Portfolio.benchmarks.include?(new_benchmark) && @portfolio.update(benchmark: new_benchmark)
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       if @portfolio.allocations_are_normalized?
         @backtest = @portfolio.backtest
         render partial: 'backtest_results', locals: { backtest: @backtest }
@@ -28,7 +29,8 @@ class PortfoliosController < ApplicationController
     new_strategy = portfolio_params[:strategy]
     return if @portfolio.strategy == new_strategy
 
-    if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy, smart_allocation_on: false)
+    if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy)
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
@@ -43,7 +45,8 @@ class PortfoliosController < ApplicationController
     new_backtest_start_date = portfolio_params[:backtest_start_date]
     return if @portfolio.backtest_start_date == new_backtest_start_date
 
-    if @portfolio.update(backtest_start_date: new_backtest_start_date, smart_allocation_on: false)
+    if @portfolio.update(backtest_start_date: new_backtest_start_date)
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
@@ -62,7 +65,8 @@ class PortfoliosController < ApplicationController
                          end
     return if @portfolio.risk_free_rate == new_risk_free_rate
 
-    if @portfolio.update(risk_free_rate: new_risk_free_rate, smart_allocation_on: false)
+    if @portfolio.update(risk_free_rate: new_risk_free_rate)
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.html { redirect_to portfolio_analyzer_path }
@@ -77,10 +81,7 @@ class PortfoliosController < ApplicationController
     return if @portfolio.smart_allocation_on? == portfolio_params[:smart_allocation_on]
 
     if @portfolio.update(smart_allocation_on: portfolio_params[:smart_allocation_on])
-      if @portfolio.smart_allocation_on?
-        @portfolio.set_smart_allocations!
-        @smart_allocations = @portfolio.get_smart_allocations
-      end
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.turbo_stream { render 'refresh' }
@@ -96,8 +97,7 @@ class PortfoliosController < ApplicationController
     return if @portfolio.risk_level == new_risk_level
 
     if Portfolio.risk_levels.include?(new_risk_level) && @portfolio.update(risk_level: new_risk_level)
-      @portfolio.set_smart_allocations!
-      @smart_allocations = @portfolio.get_smart_allocations
+      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
       @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
       respond_to do |format|
         format.turbo_stream { render 'refresh' }
@@ -140,7 +140,11 @@ class PortfoliosController < ApplicationController
     @portfolio = current_user.portfolios.first
     return if @portfolio.present?
 
-    @portfolio = Portfolio.new(user: current_user, backtest_start_date: 1.year.ago.to_date.to_s, risk_free_rate: 0.0435)
+    @portfolio = Portfolio.new(
+      user: current_user,
+      backtest_start_date: 1.year.ago.to_date.to_s,
+      risk_free_rate: 0.0435
+    )
     @portfolio.save
   end
 end
