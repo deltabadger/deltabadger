@@ -1,18 +1,24 @@
 <%= render 'layouts/turbo_modal' do %>
   <%= form_with url: new_portfolio_asset_path(@portfolio), method: :get, data: { controller: "form-submission", turbo_frame: "asset-picker" } do |form| %>
-    <%= form.text_field :query, autofocus: true, data: { action: "input->form-submission#submit", form_key_press_target: "input" } %>
+
+    <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
+    <%= form.text_field :query, autofocus: true, data: { action: "input->form-submission#submit", form_key_press_target: "input" }, class: "modal--search__input" %>
+
+
   <% end %>
-  <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modals#submitEnd" } do %>
+  <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modals#submitEnd" }, class: "modal--search__assets" do %>
     <% @query_assets.each do |asset| %>
-      <%= form_with model: asset, url: portfolio_assets_path(@portfolio), data: { turbo_frame: "portfolio-assets" } do |form| %>
-        <%= asset.category %>
-        <%= asset.ticker %>
-        <%= asset.name %>
-        <%= form.hidden_field :ticker, value: asset.ticker %>
-        <%= form.hidden_field :name, value: asset.name %>
-        <%= form.hidden_field :category, value: asset.category %>
-        <%= form.hidden_field :color, value: asset.color %>
-        <%= form.submit "Add" %>
+      <%= form_with model: asset, url: portfolio_assets_path(@portfolio), data: { turbo_frame: "portfolio-assets" }, class: "modal--search__assets__item" do |form| %>
+        <div class="modal--search__cell modal--search__cell--ticker"><%= asset.ticker %></div>
+        <div class="modal--search__cell modal--search__cell--name"><%= asset.name %></div>
+        <div class="modal--search__cell modal--search__cell--category"><%= asset.category %></div>
+        <div class="modal--search__cell modal--search__cell--add">
+          <%= form.hidden_field :ticker, value: asset.ticker %>
+          <%= form.hidden_field :name, value: asset.name %>
+          <%= form.hidden_field :category, value: asset.category %>
+          <%= form.hidden_field :color, value: asset.color %>
+          <%= form.submit "Add" %>
+        </div>
       <% end %>
     <% end %>
   <% end %>
