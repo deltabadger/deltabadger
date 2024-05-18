@@ -36,7 +36,7 @@ class Portfolio < ApplicationRecord
   end
 
   def total_allocation
-    @total_allocation = assets.map { |a| a.allocation * 10_000 }.sum / 10_000.0
+    @total_allocation = assets.map(&:allocation).sum.round(4)
   end
 
   def allocations_are_normalized?
