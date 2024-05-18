@@ -28,6 +28,7 @@ body
 .modal--search
     background: var(--modal-background) !important
     width: 80rem
+    height: 50vh // needs to be adjusted, the idea was to show it in a fixed height similar to tradingview search
     &__zoom-icon
         width: 3rem
         height: 3rem
@@ -51,6 +52,8 @@ body
         &__item
             display: grid
             grid-template-columns: 15rem 3fr 1fr 7.5rem
+            &:hover
+                background: #0000FF
     &__cell
         text-align: left
         padding: 1rem 0 1rem 2rem
