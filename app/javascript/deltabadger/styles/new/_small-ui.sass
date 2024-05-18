@@ -60,9 +60,18 @@ select
     display: flex
     justify-content: center
     height: 4rem
-    &--primary
-        background: var(--emphasis)
+    &--primary, &--success
         color: #fff
+        padding: 0 2rem
+        gap: 1rem
+        svg
+            fill: #fff
+    &--primary
+        background: var(--primary)
+    &--success
+        background: var(--success)
     &--add-asset  
         width: 20rem
-        color: var(--widget-background)
+        background: var(--sbutton-add-asset)
+        &:hover
+            background: var(--sbutton-add-asset-hover)
