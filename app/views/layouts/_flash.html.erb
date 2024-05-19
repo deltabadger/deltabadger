@@ -1,3 +1,6 @@
 <% flash.each do |type, message| %>
-  <%= message %>
+  <%= tag.div class: "flash__message alert alert-primary", data: { controller: "removals", action: "animationend->removals#remove" }, role: "alert" do %>
+  <%# "alert alert-primary" classes and "alert" role are just for inheriting Bootstrap styles %>
+    <%= message %>
+  <% end %>
 <% end %>

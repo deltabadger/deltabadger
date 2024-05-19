@@ -27,3 +27,6 @@ application.register("modals", ModalsController)
 
 import PortfolioAnalyzerChartController from "./portfolio_analyzer_chart_controller"
 application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartController)
+
+import RemovalsController from "./removals_controller"
+application.register("removals", RemovalsController)
