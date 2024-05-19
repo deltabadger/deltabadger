@@ -2,7 +2,13 @@
 
     <% if backtest.present? %>
       <div class="widget">
-
+        <div class="data-grid__item">
+          <div class="label">Profit/Loss</div>
+          <% profitable = backtest['metrics']['totalReturn'] > 0 %>
+          <%= tag.div class: "data-grid__item__value", style: "color: var(--#{profitable ? 'success' : 'danger'})" do %>
+            <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
+          <% end %>
+        </div>
         <%= tag.div data: { 
           controller: "portfolio-analyzer-chart",
           portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],

@@ -13,8 +13,13 @@ export default class extends Controller {
     const labels = this.labelsValue.map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
-    const portfolio_color = "0, 211, 161" // #00D3A1
-    const benchmark_color = "34, 67, 158" // #22439E
+    const profitable = series[0][series[0].length - 1].y > series[0][0].y;
+    const rgb_success = this.#hexToRgb(this.#getCssVariableValue('--success'));
+    const rgb_danger = this.#hexToRgb(this.#getCssVariableValue('--danger'));
+    const portfolio_color = profitable ? rgb_success : rgb_danger
+    const benchmark_color = this.#hexToRgb(this.#getCssVariableValue('--primary'));
+    const font_color = this.#hexToRgba(this.#getCssVariableValue('--label'));
+    const tooltip_background_color = this.#hexToRgb(this.#getCssVariableValue('--widget-background'));
     const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           portfolio_gradient.addColorStop(0, 'rgba(' + portfolio_color + ', 0.2)');
           portfolio_gradient.addColorStop(1, 'rgba(' + portfolio_color + ', 0)');
@@ -22,14 +27,15 @@ export default class extends Controller {
           benchmark_gradient.addColorStop(0, 'rgba(' + benchmark_color + ', 0.2)');
           benchmark_gradient.addColorStop(1, 'rgba(' + benchmark_color + ', 0)');
 
-    let max_points_to_draw = 200;
+    let max_points_to_draw = 150;
     let log_scale = true;
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
         const tooltip = this;
-        return { x: 5, y: 100 };
+        return { x: 5, y: 5 };
     };
 
+    Chart.defaults.font.family = "Montserrat";
     new Chart(this.#canvasContext(), {
       type: "line",
       plugins: [
@@ -56,36 +62,38 @@ export default class extends Controller {
         datasets: [
           {
             label: "Portfolio",
-            lineTension: 0.01, // 0.2,
+            lineTension: 0, // 0.2,
             borderWidth: 2.5,
             borderColor: 'rgb(' + portfolio_color + ')',
             // backgroundColor: portfolio_gradient,
             // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
-              .concat([3.75]),
+              .concat([4]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
             pointBackgroundColor: "rgb(" + portfolio_color + ")",
             pointBorderColor: "rgba(" + portfolio_color + ", 0.5)",
-            pointBorderWidth: 4,
+            pointBorderWidth: 0,
             data: series[0],
           },
           {
             label: "Benchmark",
-            lineTension: 0.01, // 0.2,
+            lineTension: 0, // 0.2,
             borderWidth: 2.5,
             borderColor: 'rgb(' + benchmark_color + ')',
+            borderDash: [4, 2],
             // backgroundColor: benchmark_gradient,
             // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
-              .concat([3.75]),
+              // .concat([0]),
+              .concat([3.5]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
             pointBackgroundColor: "rgb(" + benchmark_color + ")",
             pointBorderColor: "rgba(" + benchmark_color + ", 0.5)",
-            pointBorderWidth: 4,
+            pointBorderWidth: 0,
             data: series[1],
           },
         ],
@@ -202,12 +210,12 @@ export default class extends Controller {
         },
         plugins: {
           legend: {
-            display: true,
-            position: "top",
+            display: false,
+            position: "bottom",
             align: "center",
             labels: {
               font: { size: 16 },
-              fontColor: "rgba(0, 0, 0, 0.66)",
+              fontColor: "rgba(" + font_color + ")",
               usePointStyle: true,
               boxWidth: 5,
               boxHeight: 5,
@@ -222,17 +230,18 @@ export default class extends Controller {
             cornerRadius: 5,
             caretPadding: 13,
             caretSize: 0,
-            titleColor: "#2a2a2a",
+            titleColor: "rgba(" + font_color + ")",
             titleFont: { size: 16 },
-            bodyColor: "#2a2a2a",
+            bodyColor: "rgba(" + font_color + ")",
             bodyFont: { size: 16 },
             bodySpacing: 5,
             backgroundColor: "transparent",
-            // multiKeyBackground: "#2a2a2a",
+            // multiKeyBackground: "rgb(" + tooltip_background_color + ")",
             position: "topLeft",
+            boxWidth: 10,
             callbacks: {
               label: function (context) {
-                let label = "";
+                let label = context.dataset.label + ": ";
                 if (context.parsed.y !== null) {
                   label += new Intl.NumberFormat("en-US", {
                     style: "currency",
@@ -261,5 +270,57 @@ export default class extends Controller {
 
   #canvasContext() {
     return this.analyzerChartTarget.getContext("2d");
+  }
+
+  #hexToRgb(hex) {
+    // Ensure the hex code starts with a hash symbol and is of correct length
+    if (hex.charAt(0) === '#') {
+        hex = hex.substring(1);
+    }
+
+    // Check if the hex code is either 3 or 6 characters long
+    if (hex.length !== 3 && hex.length !== 6) {
+        throw new Error('Invalid hex color code');
+    }
+
+    // If the hex code is 3 characters long, convert it to 6 characters
+    if (hex.length === 3) {
+        hex = hex.split('').map(function (char) {
+            return char + char;
+        }).join('');
+    }
+
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    return `${r}, ${g}, ${b}`;
+  }
+
+  #hexToRgba(hex) {
+    // Ensure the hex code starts with a hash symbol and is of correct length
+    if (hex.charAt(0) === '#') {
+        hex = hex.substring(1);
+    }
+
+    // Check if the hex code is 8 characters long (including alpha component)
+    if (hex.length !== 8) {
+        throw new Error('Invalid hex color code');
+    }
+
+    // Convert the hex code to RGBA values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const a = parseInt(hex.substring(6, 8), 16) / 255;
+
+    return `${r}, ${g}, ${b}, ${a.toFixed(2)}`;
+  }
+
+  #getCssVariableValue(variableName) {
+    const root = document.documentElement;
+    const style = getComputedStyle(root);
+    const value = style.getPropertyValue(variableName);
+    return value.trim();
   }
 }
