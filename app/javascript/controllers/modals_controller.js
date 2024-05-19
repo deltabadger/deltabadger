@@ -17,7 +17,6 @@ export default class extends Controller {
   // data-action="turbo:submit-end->modals#submitEnd"
   submitEnd(e) {
     if (e.detail.success) {
-      console.log('submitEnd', e.detail)
       this.animateOutCloseAndCleanUp()
     }
   }
