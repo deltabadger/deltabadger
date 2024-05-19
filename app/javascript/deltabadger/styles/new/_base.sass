@@ -13,7 +13,7 @@ dialog
   display: block // override default display: none, used if js is disabled
 
 .main
-    padding: 4rem 4rem 4rem 20rem
+    padding: 4rem 4rem 4rem 17rem
     @media only screen and (max-width: 1359px)
       padding-top: 16rem
     
@@ -97,3 +97,21 @@ dialog
             color: var(--emphasis)
         &--category
             color: var(--label)
+
+.insight
+    background: var(--insight-background)
+    padding: 2rem 1.5rem 2rem 2.5rem
+    strong
+        font-weight: 500
+        color: var(--insight-title)
+    &__name
+        font-weight: bold
+        color: var(--insight-title)
+    &--pro
+        background: var(--insight-pro-background)
+        b
+            color: var(--success)
+    &--con
+        background: var(--insight-con-background)
+        b
+            color: var(--danger)
