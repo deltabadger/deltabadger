@@ -96,6 +96,7 @@ export default class extends Controller {
   }
 
   // // To use the new View Transitions (https://dev.to/nejremeslnici/how-to-use-view-transitions-in-hotwire-turbo-1kdin)
+  // // https://turbo.hotwired.dev/handbook/drive#view-transitions
   // // The transitions are more efficient but present some issues:
   // // - Each animated element needs a unique id, and a css animation targeting that id -> the css can be embedded in a turbo frame with <style> tags but it's dirty
   // // - No support for multiple element animations on the same page
