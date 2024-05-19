@@ -47,7 +47,12 @@ export default class extends Controller {
   }
 
   #updateItems() {
-    this.items = document.querySelectorAll('[data-arrow-keys-navigation-target="item"]')
+    const new_items = document.querySelectorAll('[data-arrow-keys-navigation-target="item"]')
+    if (this.items && new_items.length !== this.items.length) {
+      this.index = 0
+      this.navigationInitialized = false
+    }
+    this.items = new_items
     this.buttons = document.querySelectorAll('[data-arrow-keys-navigation-target="button"]')
   }
 }
