@@ -11,26 +11,26 @@ export default class extends Controller {
   connect() {
     document.addEventListener(
       "turbo:before-stream-render",
-      this.handleStreamEvent
+      this.#handleStreamEvent
     );
     document.addEventListener(
       "turbo:before-frame-render",
-      this.handleFrameEvent
+      this.#handleFrameEvent
     );
   }
 
   disconnect() {
     document.removeEventListener(
       "turbo:before-stream-render",
-      this.handleStreamEvent
+      this.#handleStreamEvent
     );
     document.removeEventListener(
       "turbo:before-frame-render",
-      this.handleFrameEvent
+      this.#handleFrameEvent
     );
   }
 
-  handleStreamEvent(event) {
+  #handleStreamEvent(event) {
     const action = event.target.action;
     const actionStr = `${action.charAt(0).toUpperCase() + action.slice(1)}`;
 
@@ -68,7 +68,7 @@ export default class extends Controller {
     }
   }
 
-  handleFrameEvent(event) {
+  #handleFrameEvent(event) {
     // Add a class to an element we are about to remove from the page
     let elementToRemove = document.getElementById(
       event.detail.newFrame.id
@@ -100,7 +100,7 @@ export default class extends Controller {
   // // - Each animated element needs a unique id, and a css animation targeting that id -> the css can be embedded in a turbo frame with <style> tags but it's dirty
   // // - No support for multiple element animations on the same page
   // // - Browser compatibility
-  // handleNewFrameEvent(event) {
+  // #handleNewFrameEvent(event) {
   //   console.log("handleNewFrameEvent");
   //   if (document.startViewTransition) {
   //     console.log("startViewTransition");

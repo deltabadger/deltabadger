@@ -3,9 +3,9 @@ import { Controller } from "@hotwired/stimulus";
 // Connects to data-controller="modals"
 export default class extends Controller {
   connect() {
-    this.open()
+    this.#open()
     // needed because ESC key does not trigger close event
-    this.enableBodyScrollBound = this.enableBodyScroll.bind(this);
+    this.enableBodyScrollBound = this.#enableBodyScroll.bind(this);
     this.element.addEventListener("close", this.enableBodyScrollBound)
   }
 
@@ -17,50 +17,49 @@ export default class extends Controller {
   // data-action="turbo:submit-end->modals#submitEnd"
   submitEnd(e) {
     if (e.detail.success) {
-      this.close()
+      this.animateOutCloseAndCleanUp()
     }
   }
 
-  open() {
-    this.element.showModal()
-    document.body.classList.add('overflow-hidden')
-    this.dispatchModalOpenEvent(true)
-  }
-
-  close() {
+  animateOutCloseAndCleanUp() {
     const frame = document.getElementById('modal')
     const elementToRemove = frame.firstElementChild
     const exitAnimationClass = elementToRemove.dataset['hwAnimateOut'];
     if (exitAnimationClass) {
       elementToRemove.classList.add(exitAnimationClass)
-      elementToRemove.addEventListener("animationend", this.closeAndCleanUp.bind(this))
+      elementToRemove.addEventListener("animationend", this.#closeAndCleanUp.bind(this))
     } else {
-      this.closeAndCleanUp()
+      this.#closeAndCleanUp()
     }
-    this.dispatchModalOpenEvent(false)
-  }
-
-  enableBodyScroll() {
-    this.closeAndCleanUp()
-    this.dispatchModalOpenEvent(false)
   }
 
   clickOutside(event) {
     if (event.target === this.element) {
-      this.close()
+      this.animateOutCloseAndCleanUp()
     }
   }
 
-  closeAndCleanUp() {
+  #open() {
+    this.element.showModal()
+    document.body.classList.add('overflow-hidden')
+    this.#dispatchModalOpenEvent(true)
+  }
+
+  #enableBodyScroll() {
+    this.#closeAndCleanUp()
+  }
+
+  #closeAndCleanUp() {
     this.element.close()
     // clean up modal content
     const frame = document.getElementById('modal')
     frame.removeAttribute("src")
     frame.innerHTML = ""
     document.body.classList.remove('overflow-hidden')
+    this.#dispatchModalOpenEvent(false)
   }
 
-  dispatchModalOpenEvent(detail) {
+  #dispatchModalOpenEvent(detail) {
     const newEvent = new CustomEvent('modalIsOpen', { detail });
     window.dispatchEvent(newEvent);
   }
