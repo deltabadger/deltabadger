@@ -14,3 +14,4 @@
 <% if @asset.allocation != 0 %>
   <%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>
 <% end %>
+<%= render_turbo_stream_flash_messages %>

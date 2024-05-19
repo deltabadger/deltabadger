@@ -178,7 +178,9 @@
 
   %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: yield(:body_class)}
     #cookie_consent
-    = turbo_frame_tag "modal"
+    = turbo_frame_tag 'modal'
+    #flash.flash
+      = render 'layouts/flash'
 
     = render 'layouts/navbar'
     //= render 'layouts/welcome_message'

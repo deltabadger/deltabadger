@@ -11,3 +11,4 @@
 <% if @portfolio.allocations_are_normalized? && @portfolio.smart_allocation_on? %>
   <%= turbo_stream.replace "backtest-results", partial: "portfolios/backtest_results", locals: { backtest: @backtest } %>
 <% end %>
+<%= render_turbo_stream_flash_messages %>

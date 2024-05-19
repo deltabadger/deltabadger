@@ -2,4 +2,4 @@
 <% if @portfolio.allocations_are_normalized? %>
   <%= turbo_stream.replace "backtest-results", partial: "portfolios/backtest_results", locals: { backtest: @backtest } %>
 <% end %>
-<%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>
+<%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %><%= render_turbo_stream_flash_messages %>
