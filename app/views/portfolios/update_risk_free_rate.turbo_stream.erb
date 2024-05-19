@@ -1,12 +1,8 @@
 <%= turbo_stream.replace "risk-free-rate", partial: "risk_free_rate", locals: { portfolio: @portfolio } %>
 <% if @portfolio.allocations_are_normalized? %>
-  <%= turbo_stream.replace "backtest-results", partial: "backtest_results", locals: { backtest: @backtest } %>
+  <%= render_turbo_stream_backtest_results(@backtest) %>
 <% end %>
 <% if @portfolio.smart_allocation_on? %>
-  <%= turbo_stream.update "portfolio-assets" do %>
-    <% @portfolio.assets.order(:id).each do |asset| %>
-      <%= render 'assets/asset', asset: asset %>
-    <% end %>
-  <% end %>
+  <%= render_turbo_stream_portfolio_assets(@portfolio) %>
 <% end %>
 <%= render_turbo_stream_flash_messages %>

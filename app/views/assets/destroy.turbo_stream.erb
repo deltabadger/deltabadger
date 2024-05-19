@@ -1,15 +1,13 @@
 <% @portfolio.reload %>
 <% if @portfolio.smart_allocation_on? %>
-  <% @portfolio.assets.each do |asset| %>
-    <%= turbo_stream.replace asset, partial: "asset", locals: { asset: asset } %>
-  <% end %>
+  <%= render_turbo_stream_portfolio_assets(@portfolio) %>
 <% end %>
 <%= turbo_stream.remove @asset %>
 <% if @portfolio.assets.empty? %>
   <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
 <% end %>
 <% if @portfolio.allocations_are_normalized? && @asset.allocation != 0 %>
-  <%= turbo_stream.replace "backtest-results", partial: "portfolios/backtest_results", locals: { backtest: @backtest } %>
+  <%= render_turbo_stream_backtest_results(@backtest) %>
 <% end %>
 <% if @asset.allocation != 0 %>
   <%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>

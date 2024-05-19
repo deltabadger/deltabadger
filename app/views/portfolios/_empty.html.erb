@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "portfolio-empty" do %>
+<%= tag.div id: "portfolio-empty" do %>
   <% if portfolio.assets.empty? %>
     <%# better be a flash message? %>
     <p>Your Portfolio has no assets yet</p>

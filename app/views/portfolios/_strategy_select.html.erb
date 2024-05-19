@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "strategy-select" do %>
+<%= tag.div id: "strategy-select" do %>
   <%= form_with model: portfolio, url: portfolio_update_strategy_path(portfolio), method: :patch, html: { onchange: "requestSubmit();" }, class: "flex-row" do |form| %>
     <div class="sinput sinput--select">
       <%= portfolio.strategy.humanize %>

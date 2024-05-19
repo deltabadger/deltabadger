@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "normalize" do %>
+<%= tag.div id: "normalize" do %>
   <% unless portfolio.allocations_are_normalized? || portfolio.assets.empty? %>
     <%= button_to portfolio_normalize_allocations_path(portfolio), method: :post, class: "sbutton sbutton--primary" do %>
       Normalize and simulate
