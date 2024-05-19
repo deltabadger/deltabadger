@@ -28,10 +28,12 @@ export default class extends Controller {
     const waitForInputAndFillItWithKey = () => {
 
       // Dynamically find the input target after the turbo frame has loaded
+      const formElement = document.querySelector('[data-form-key-press-target="form"]');
       const inputElement = document.querySelector('[data-form-key-press-target="input"]');
 
       if (inputElement) {
         inputElement.value = event.key;
+        formElement.requestSubmit();
       } else {
         setTimeout(waitForInputAndFillItWithKey, 10);
       }

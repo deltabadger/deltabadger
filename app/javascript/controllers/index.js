@@ -7,6 +7,9 @@ import { application } from "./application"
 import AllocationsController from "./allocations_controller"
 application.register("allocations", AllocationsController)
 
+import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
+application.register("arrow-keys-navigation", ArrowKeysNavigationController)
+
 import FlatpickrController from "./flatpickr_controller"
 application.register("flatpickr", FlatpickrController)
 
