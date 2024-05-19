@@ -5,8 +5,12 @@
   <% end %>
 <% end %>
 <%= turbo_stream.remove @asset %>
-<%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
-<% if @portfolio.allocations_are_normalized? %>
+<% if @portfolio.assets.empty? %>
+  <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
+<% end %>
+<% if @portfolio.allocations_are_normalized? && @asset.allocation != 0 %>
   <%= turbo_stream.replace "backtest-results", partial: "portfolios/backtest_results", locals: { backtest: @backtest } %>
 <% end %>
-<%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>
+<% if @asset.allocation != 0 %>
+  <%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @asset.portfolio } %>
+<% end %>

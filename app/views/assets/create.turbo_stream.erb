@@ -5,7 +5,9 @@
   <% end %>
 <% end %>
 <%= turbo_stream.append "portfolio-assets", partial: "asset", locals: { asset: @asset } %>
-<%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
+<% if @portfolio.assets.size == 1 %>
+  <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
+<% end %>
 <% if @portfolio.allocations_are_normalized? && @portfolio.smart_allocation_on? %>
   <%= turbo_stream.replace "backtest-results", partial: "portfolios/backtest_results", locals: { backtest: @backtest } %>
 <% end %>
