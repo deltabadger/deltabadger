@@ -31,6 +31,15 @@ class Portfolio < ApplicationRecord
     benchmarks.keys.map { |key| [BENCHMARK_NAMES[key.to_sym][:name], key] }
   end
 
+  def smart_allocations
+    smart_allocations_result = PortfolioAnalyzerManager::SmartAllocationsGetter.call(self)
+    if smart_allocations_result.failure?
+      self.class.risk_levels.keys.map { |_| [] }
+    else
+      smart_allocations_result.data
+    end
+  end
+
   def benchmark_name
     BENCHMARK_NAMES[benchmark.to_sym][:name]
   end
@@ -63,39 +72,17 @@ class Portfolio < ApplicationRecord
   def set_smart_allocations!
     return if allocations_are_smart? || assets.empty?
 
-    all_smart_allocations = get_smart_allocations
-    new_allocations = all_smart_allocations[Portfolio.risk_levels[risk_level].to_i]
+    new_allocations = smart_allocations[Portfolio.risk_levels[risk_level].to_i]
+    return if new_allocations.empty?
+
     batch_update_allocations!(new_allocations)
   end
 
   def allocations_are_smart?
     return false unless Rails.cache.exist?(smart_allocations_cache_key)
 
-    all_smart_allocations = get_smart_allocations
     current_allocations = Hash[assets.map { |a| [a.ticker, a.allocation] }]
-    all_smart_allocations[Portfolio.risk_levels[risk_level].to_i] == current_allocations
-  end
-
-  def get_smart_allocations
-    # move to service
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
-    allocations = Rails.cache.fetch(smart_allocations_cache_key, expires_in: expires_in) do
-      client = FinancialDataApiClient.new
-      symbols = assets.map(&:symbol).join(',')
-      sources = assets.map(&:source).join(',')
-      allocations_result = client.smart_allocations(
-        symbols: symbols,
-        sources: sources,
-        start: backtest_start_date,
-        strategy: strategy,
-        risk_free_rate: risk_free_rate
-      )
-      return if allocations_result.failure?
-
-      allocations_result.data
-    end
-
-    allocations.map { |r| r.transform_keys { |s| s.gsub(%r{/USDT$}, '') } }
+    smart_allocations[Portfolio.risk_levels[risk_level].to_i] == current_allocations
   end
 
   def backtest
@@ -192,12 +179,12 @@ class Portfolio < ApplicationRecord
     (time_series_result_data[0][4] / 100).round(4)
   end
 
-  private
-
   def smart_allocations_cache_key
     assets_str = assets.order(:id).map(&:ticker).sort.join('_')
     "smart_allocations_#{strategy}_#{assets_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
+
+  private
 
   def backtest_cache_key
     assets_str = assets.order(:id).map(&:ticker).sort.join('_')

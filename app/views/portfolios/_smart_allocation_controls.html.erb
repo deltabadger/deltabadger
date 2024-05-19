@@ -19,7 +19,7 @@
       turbo_frame: "backtest-results",
       controller: "allocations",
       allocations_risk_levels_value: Portfolio.humanized_risk_levels,
-      allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.get_smart_allocations : {},
+      allocations_smart_allocations_value: portfolio.smart_allocations,
     } do |form| %>
       <div class="stretch-x">
         <div class="label label--select">
