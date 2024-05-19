@@ -9,7 +9,6 @@ export default class extends Controller {
 
   navigate(event) {
     const handleNavigation = (direction) => {
-      this.#updateItems();
       if (!this.navigationInitialized) {
         this.index = 0;
       } else {
@@ -22,14 +21,17 @@ export default class extends Controller {
     switch (event.key) {
       case "ArrowUp":
         event.preventDefault();
+        this.#updateItems();
         handleNavigation(-1);
         break;
       case "ArrowDown":
         event.preventDefault();
+        this.#updateItems();
         handleNavigation(1);
         break;
       case "Enter":
         event.preventDefault();
+        this.#updateItems();
         this.buttons[this.index].click();
         break;
     }
