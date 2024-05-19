@@ -1,5 +1,6 @@
 <%= turbo_frame_tag "modal" do %>
   <dialog data-controller="modals" data-action="click->modals#clickOutside" class="turbo-modal modal--search" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+      <%# <button data-action="modals#close">Cancel</button> %>
 
       <%= yield %>
 
