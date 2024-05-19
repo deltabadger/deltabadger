@@ -43,8 +43,7 @@ body
         top: 2rem
         left: 2rem
         path,circle
-            stroke: var(--text)
-            opacity: 0.5
+            stroke: var(--modal-search-placeholder)
     &__input
         background: rgba(0,0,0,0)
         font-weight: 500
@@ -55,6 +54,8 @@ body
         height: 7rem
         &:focus
             outline: none
+        &::placeholder
+            color: var(--modal-search-placeholder)
     &__assets
         max-height: calc(63rem - 7rem) !important
         display: block
