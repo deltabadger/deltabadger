@@ -27,6 +27,10 @@ class Portfolio < ApplicationRecord
     risk_levels.keys.map { |key| key.to_s.humanize }
   end
 
+  def self.benchmark_select_options
+    benchmarks.keys.map { |key| [BENCHMARK_NAMES[key.to_sym][:name], key] }
+  end
+
   def benchmark_name
     BENCHMARK_NAMES[benchmark.to_sym][:name]
   end

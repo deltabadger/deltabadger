@@ -1,0 +1,9 @@
+<%= turbo_frame_tag "benchmark-select" do %>
+  <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, html: { onchange: "requestSubmit();" }, class: "flex-row" do |form| %>
+    <%= form.label :benchmark, "Benchmark:", class: "label" %>
+    <div class="sinput sinput--select">
+      <%= portfolio.benchmark_name %>
+      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark } %>
+    </div>
+  <% end %>
+<% end %>

@@ -6,7 +6,6 @@ class PortfoliosController < ApplicationController
 
   def show
     @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on? && @portfolio.assets.any?
-    @benchmark_options = Portfolio.benchmarks.map { |k, _| [Portfolio::BENCHMARK_NAMES[k.to_sym][:name], k] }
     @backtest = @portfolio.backtest
   end
 
