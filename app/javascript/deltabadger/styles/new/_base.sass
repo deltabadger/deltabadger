@@ -29,12 +29,13 @@ body
     background: none !important
     width: 100vw
     height: 100vh
-    max-width: 62rem !important
-    max-height: 62rem !important
+    max-width: 63rem !important
+    max-height: 63rem !important
     &__background
         background: var(--modal-background)
         border-radius: 1rem
         overflow: hidden
+        max-height: 63rem !important
     &__zoom-icon
         width: 3rem
         height: 3rem
@@ -55,6 +56,9 @@ body
         &:focus
             outline: none
     &__assets
+        max-height: calc(63rem - 7rem) !important
+        display: block
+        overflow: scroll
         &__item
             &:hover
                 background: var(--modal-search-hover-background)
