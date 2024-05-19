@@ -8,10 +8,6 @@ export default class extends Controller {
   static targets = ["analyzerChart"];
   static values = { series: Array, labels: Array };
 
-  canvasContext() {
-    return this.analyzerChartTarget.getContext("2d");
-  }
-
   connect() {
     const series = this.seriesValue;
     const labels = this.labelsValue.map(date => new Date(date).getTime());
@@ -19,10 +15,10 @@ export default class extends Controller {
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
     const portfolio_color = "0, 211, 161" // #00D3A1
     const benchmark_color = "34, 67, 158" // #22439E
-    const portfolio_gradient = this.canvasContext().createLinearGradient(0, 0, 0, 300);
+    const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           portfolio_gradient.addColorStop(0, 'rgba(' + portfolio_color + ', 0.2)');
           portfolio_gradient.addColorStop(1, 'rgba(' + portfolio_color + ', 0)');
-    const benchmark_gradient = this.canvasContext().createLinearGradient(0, 0, 0, 300);
+    const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           benchmark_gradient.addColorStop(0, 'rgba(' + benchmark_color + ', 0.2)');
           benchmark_gradient.addColorStop(1, 'rgba(' + benchmark_color + ', 0)');
 
@@ -34,7 +30,7 @@ export default class extends Controller {
         return { x: 5, y: 100 };
     };
 
-    new Chart(this.canvasContext(), {
+    new Chart(this.#canvasContext(), {
       type: "line",
       plugins: [
         {
@@ -261,5 +257,9 @@ export default class extends Controller {
         },
       },
     });
+  }
+
+  #canvasContext() {
+    return this.analyzerChartTarget.getContext("2d");
   }
 }

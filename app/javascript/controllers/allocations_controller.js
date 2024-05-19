@@ -6,11 +6,11 @@ export default class extends Controller {
   static values = { assetTicker: String, riskLevels: Array, smartAllocations: Array };
 
   connect() {
-    window.addEventListener('allocationsUpdated', this.handleAllocationsUpdated);
+    window.addEventListener('allocationsUpdated', this.#handleAllocationsUpdated);
   }
 
   disconnect() {
-    window.removeEventListener('allocationsUpdated', this.handleAllocationsUpdated);
+    window.removeEventListener('allocationsUpdated', this.#handleAllocationsUpdated);
   }
 
   updateAssetAllocation(event) {
@@ -33,7 +33,7 @@ export default class extends Controller {
     window.dispatchEvent(newEvent);
   }
 
-  handleAllocationsUpdated = (event) => {
+  #handleAllocationsUpdated = (event) => {
     if (this.assetTickerValue in event.detail) {
       this.allocationTarget.value = event.detail[this.assetTickerValue];
       this.allocationInputTextTarget.value = (event.detail[this.assetTickerValue] * 100).toFixed(0);

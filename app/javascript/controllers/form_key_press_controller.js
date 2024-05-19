@@ -2,11 +2,11 @@ import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="form-key-press"
 export default class extends Controller {
-  static targets = ["button", "input"];
+  static targets = ["button"];
 
   connect() {
-    this.handleModalIsOpenBound = this.handleModalIsOpen.bind(this);
-    this.handleKeyPressBound = this.handleKeyPress.bind(this);
+    this.handleModalIsOpenBound = this.#handleModalIsOpen.bind(this);
+    this.handleKeyPressBound = this.#handleKeyPress.bind(this);
     window.addEventListener("modalIsOpen", this.handleModalIsOpenBound);
     window.addEventListener("keydown", this.handleKeyPressBound);
   }
@@ -16,7 +16,7 @@ export default class extends Controller {
     window.removeEventListener("keydown", this.handleKeyPressBound);
   }
   
-  handleModalIsOpen(event) {
+  #handleModalIsOpen(event) {
     if (event.detail) {
       window.removeEventListener("keydown", this.handleKeyPressBound);
     } else {
@@ -24,8 +24,8 @@ export default class extends Controller {
     }
   }
 
-  handleKeyPress(event) {
-    const waitForInput = () => {
+  #handleKeyPress(event) {
+    const waitForInputAndFillItWithKey = () => {
 
       // Dynamically find the input target after the turbo frame has loaded
       const inputElement = document.querySelector('[data-form-key-press-target="input"]');
@@ -33,17 +33,17 @@ export default class extends Controller {
       if (inputElement) {
         inputElement.value = event.key;
       } else {
-        setTimeout(waitForInput, 10);
+        setTimeout(waitForInputAndFillItWithKey, 10);
       }
     };
 
-    if (this.isLetter(event)) {
+    if (this.#isLetter(event)) {
       this.buttonTarget.click();
-      waitForInput();
+      waitForInputAndFillItWithKey();
     }
   }
 
-  isLetter(event) {
+  #isLetter(event) {
     const key = event.key;
     const hasModifier = event.ctrlKey || event.altKey || event.shiftKey || event.metaKey;
     return !hasModifier && key.length === 1 && key.match(/[a-z]/i);
