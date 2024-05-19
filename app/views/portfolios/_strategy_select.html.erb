@@ -5,12 +5,12 @@
       <% Portfolio.strategies.each do |strategy, _| %>
         <%# orm.radio_button :strategy, strategy, id: "fixed-#{strategy}" %>
         <%# form.label :strategy, for: "fixed-#{strategy}" do %><%# end %>
-          <select>
-            <option selected>Fixed</option>
-            <option disabled>DCA (soon)</option>
-            <option disabled>Rebalancing (soon)</option>
-          </select>
-        <% end %>
-      </div>
-    <% end %>
+        <select>
+          <option selected>Fixed</option>
+          <option disabled>DCA (soon)</option>
+          <option disabled>Rebalancing (soon)</option>
+        </select>
+      <% end %>
+    </div>
   <% end %>
+<% end %>
