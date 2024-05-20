@@ -14,6 +14,13 @@ $widget-bg: #F2F5FA
 
 $dropdown-bg: #FFF
 
+\:root
+  --c-gradient-step-a: rgb(255, 0, 0)
+  --c-gradient-step-b: rgb(255, 0, 255)
+  --c-gradient-step-c: rgb(0, 255, 255)
+  --c-gradient-step-d: rgb(0, 0, 255)
+  --c-gradient: -webkit-linear-gradient(5deg, var(--c-gradient-step-a), var(--c-gradient-step-b), var(--c-gradient-step-c), var(--c-gradient-step-d), var(--c-gradient-step-a))
+
 @media (prefers-color-scheme: light)
   .db-darkmode-only
     display: none
