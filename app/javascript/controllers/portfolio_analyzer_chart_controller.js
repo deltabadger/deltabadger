@@ -14,12 +14,12 @@ export default class extends Controller {
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
     const profitable = series[0][series[0].length - 1].y > series[0][0].y;
-    const rgb_success = this.#hexToRgb(this.#getCssVariableValue('--success'));
-    const rgb_danger = this.#hexToRgb(this.#getCssVariableValue('--danger'));
-    const portfolio_color = profitable ? rgb_success : rgb_danger
-    const benchmark_color = this.#hexToRgb(this.#getCssVariableValue('--primary'));
+    const rgb_success = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--success'));
+    const rgb_danger = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--danger'));
+    const portfolio_color = profitable ? rgb_success : rgb_danger;
+    const benchmark_color = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--primary'));
     const font_color = this.#hexToRgba(this.#getCssVariableValue('--label'));
-    const tooltip_background_color = this.#hexToRgb(this.#getCssVariableValue('--widget-background'));
+    const tooltip_background_color = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--widget-background'));
     const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           portfolio_gradient.addColorStop(0, 'rgba(' + portfolio_color + ', 0.2)');
           portfolio_gradient.addColorStop(1, 'rgba(' + portfolio_color + ', 0)');
@@ -58,15 +58,12 @@ export default class extends Controller {
         },
       ],
       data: {
-        // labels: labels,
         datasets: [
           {
             label: "Portfolio",
-            lineTension: 0, // 0.2,
+            lineTension: 0,
             borderWidth: 2.5,
             borderColor: 'rgb(' + portfolio_color + ')',
-            // backgroundColor: portfolio_gradient,
-            // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
               .concat([4]),
@@ -79,15 +76,12 @@ export default class extends Controller {
           },
           {
             label: "Benchmark",
-            lineTension: 0, // 0.2,
+            lineTension: 0,
             borderWidth: 2.5,
             borderColor: 'rgb(' + benchmark_color + ')',
             borderDash: [4, 2],
-            // backgroundColor: benchmark_gradient,
-            // fill: 'origin',
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
-              // .concat([0]),
               .concat([3.5]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
@@ -103,11 +97,6 @@ export default class extends Controller {
         maintainAspectRatio: true,
         animation: {
           numbers: { duration: 0 },
-          // colors: {
-          //   type: "color",
-          //   duration: 500,
-          //   from: "transparent",
-          // },
         },
         scales: {
           x: {
@@ -148,13 +137,6 @@ export default class extends Controller {
               font: { size: 11 },
               fontColor: "rgba(0, 0, 0, 0.66)",
               beginAtZero: true,
-              // for linear scale
-              // autoSkip: true,
-              // maxTicksLimit: 6,
-              // callback: function(value, index, values) {
-              //     return "$" + value + " ";
-              // }
-              // for log scale
               autoSkip: false,
               callback: function (value, index, values) {
                 if (log_scale) {
@@ -196,7 +178,6 @@ export default class extends Controller {
                   return "$" + value + " ";
                 }
               },
-              // suggestedMax: Math.max.apply(Math, data[0].y),
             },
             grid: {
               display: false,
@@ -236,7 +217,6 @@ export default class extends Controller {
             bodyFont: { size: 16 },
             bodySpacing: 5,
             backgroundColor: "transparent",
-            // multiKeyBackground: "rgb(" + tooltip_background_color + ")",
             position: "topLeft",
             boxWidth: 10,
             callbacks: {
@@ -273,47 +253,34 @@ export default class extends Controller {
   }
 
   #hexToRgb(hex) {
-    // Ensure the hex code starts with a hash symbol and is of correct length
     if (hex.charAt(0) === '#') {
         hex = hex.substring(1);
     }
-
-    // Check if the hex code is either 3 or 6 characters long
     if (hex.length !== 3 && hex.length !== 6) {
         throw new Error('Invalid hex color code');
     }
-
-    // If the hex code is 3 characters long, convert it to 6 characters
     if (hex.length === 3) {
         hex = hex.split('').map(function (char) {
             return char + char;
         }).join('');
     }
-
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
-
     return `${r}, ${g}, ${b}`;
   }
 
   #hexToRgba(hex) {
-    // Ensure the hex code starts with a hash symbol and is of correct length
     if (hex.charAt(0) === '#') {
         hex = hex.substring(1);
     }
-
-    // Check if the hex code is 8 characters long (including alpha component)
     if (hex.length !== 8) {
         throw new Error('Invalid hex color code');
     }
-
-    // Convert the hex code to RGBA values
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
     const a = parseInt(hex.substring(6, 8), 16) / 255;
-
     return `${r}, ${g}, ${b}, ${a.toFixed(2)}`;
   }
 
@@ -322,5 +289,24 @@ export default class extends Controller {
     const style = getComputedStyle(root);
     const value = style.getPropertyValue(variableName);
     return value.trim();
+  }
+
+  #hexOrWideGamutToRgb(color) {
+    if (color.startsWith('color(display-p3')) {
+      return this.#wideGamutToRgb(color);
+    } else {
+      return this.#hexToRgb(color);
+    }
+  }
+
+  #wideGamutToRgb(color) {
+    const match = color.match(/color\(display-p3\s([^\s]+)\s([^\s]+)\s([^\s]+)\)/);
+    if (match) {
+      const r = Math.round(parseFloat(match[1]) * 255);
+      const g = Math.round(parseFloat(match[2]) * 255);
+      const b = Math.round(parseFloat(match[3]) * 255);
+      return `${r}, ${g}, ${b}`;
+    }
+    throw new Error('Invalid wide gamut color');
   }
 }
