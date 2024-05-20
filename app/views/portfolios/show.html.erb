@@ -14,16 +14,16 @@
 
     <div id="asset_111">
       <div class="basket__asset smart-allocation---off">
-        <form data-controller="allocations" class="basket__asset__form" accept-charset="UTF-8" method="post">
+        <form class="basket__asset__form">
           <div class="ticker-input ticker-input--percentage">
-            <input value="0" disabled="disabled" class="numeric-input iu-numeric iu-char-limit" type="text" id="asset_allocation_input_text">
+            <input value="0" disabled="disabled" class="numeric-input iu-numeric iu-char-limit" type="text">
             <span>%</span>
             <div class="ticker" style="background: #048;">
               DEL
             </div>      
           </div>
           <div class="slider">
-            <input step="0.01" value="0.0" class="slider__input" disabled="disabled" min="0.0" max="1.0" type="range" id="asset_allocation">
+            <input step="0.01" value="0.0" class="slider__input" disabled="disabled" min="0.0" max="1.0" type="range">
             <div class="slider__style">
               <div class="slider__style__track" style="border-left-color: #f7931a;">
                 <div class="slider__style__progress" style="width: 0.0%; background: #f7931a;">
@@ -34,7 +34,7 @@
             </div>
           </div>
         </form>    
-        <form class="button_to" method="post" action="/en/portfolios/1/assets/68">
+        <form class="button_to">
           <button class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;" type="submit">
             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
