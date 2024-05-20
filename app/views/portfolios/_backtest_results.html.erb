@@ -1,7 +1,7 @@
   <%= tag.div id: "backtest-results", class: "gap-1" do %>
 
     <% if backtest.present? %>
-      <div class="widget">
+      <div class="widget widget--chart">
         <div class="data-grid__item">
           <div class="label">Profit/Loss</div>
           <% profitable = backtest['metrics']['totalReturn'] > 0 %>
