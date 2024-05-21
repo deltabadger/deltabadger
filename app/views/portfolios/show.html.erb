@@ -44,7 +44,7 @@
       </div>
     </div>
 
-    <div class="stretch-x" data-controller="form-key-press">
+    <div class="flex-row space-between" data-controller="form-key-press">
 
       <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--add-asset", data: { turbo_frame: "modal", form_key_press_target: "button" } do %>
           <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -60,7 +60,7 @@
   </div>
 
   <div class="column gap-1">
-    <div class="stretch-x">
+    <div class="flex-row space-between wrap gap-1">
       <div class="flex-row">
         <%= render "strategy_select", portfolio: @portfolio %>
         <span class="label">since</span>
@@ -73,7 +73,7 @@
     </div>
     <%= render "insights" %>
     <%= render "backtest_results", backtest: @backtest %>
-    <div class="flex-row gap-2" style="flex-wrap: wrap; justify-content: space-between">
+    <div class="flex-row gap-2 wrap space-between">
       <%= render "risk_free_rate", portfolio: @portfolio %>
       <%= render "benchmark_select", portfolio: @portfolio %>
     </div>

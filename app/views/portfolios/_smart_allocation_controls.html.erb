@@ -18,15 +18,15 @@
     allocations_risk_levels_value: Portfolio.humanized_risk_levels,
     allocations_smart_allocations_value: portfolio.smart_allocations,
   } do |form| %>
-    <div class="stretch-x">
-      <div class="label label--select">
+    <div class="flex-row space-between">
+      <div class="label label--select ellipsis">
         Lowest Volatility<svg class="icon-16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7L8 10L11 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <select>
           <option selected>Lowest Volatility</option>
           <option disabled>Lowest Max. Drawdown (soon)</option>
         </select>
       </div>
-      <div class="label label--select">
+      <div class="label label--select ellipsis">
         Highest Sharpe Ratio<svg class="icon-16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7L8 10L11 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <select>
           <option selected>Highest Sharpe Ratio</option>
