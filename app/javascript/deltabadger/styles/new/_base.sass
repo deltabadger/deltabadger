@@ -1,6 +1,8 @@
-html
+\:root
     background: var(--background)
     font-size: 8px
+    @media only screen and (max-width: 1359px)
+        font-size: 7.5px
     &.view--portfolios-show
         background: var(--background-new)
 
@@ -8,7 +10,7 @@ body
     font-size:   2rem
     font-family: Montserrat, sans-serif
     color:       var(--text)
-
+    position:    relative
 dialog
   display: block // override default display: none, used if js is disabled
 
@@ -16,11 +18,19 @@ dialog
     padding: 4rem 4rem 4rem 17rem
     @media only screen and (max-width: 1359px)
       padding-top: 16rem
-    
+      padding-left: 4rem
+    @media only screen and (max-width: 767px)
+      padding: 16rem 2rem 2rem
 
 .columns
-    display: flex
+    display: grid
     gap: 4rem
+    grid-template-columns: 1fr 1fr
+    @media only screen and (max-width: 1359px)
+        grid-template-columns: 2fr 3fr
+    @media only screen and (max-width: 1023px)
+        grid-template-columns: 1fr
+
 
 .column
     display: flex
@@ -97,10 +107,10 @@ dialog
         &--category
             color: var(--label)
 
-
 .insight, #backtest-results
     border-radius: .5rem
     overflow: hidden
+
 .insight
     padding: 2rem 2rem 2rem 6rem
     background: var(--insight-background) no-repeat 2rem 2rem
@@ -111,15 +121,15 @@ dialog
         b
             font-weight: 700
     &--summary
-        background-image: url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%20fill%3D%22color%28display-p3%200.3%200.5%201%29%22%2F%3E%3Cpath%20d%3D%22M13.6%208.8%2012.8%206a.9.9%200%200%200-1.6%200l-.8%202.7c-.2.3-.5.6-.9.6H7c-.9%200-1.2%201.1-.5%201.6l2.1%201.7c.3.2.4.6.3%201L8%2016.3c-.3.8.7%201.5%201.3%201l2.2-1.6a1%201%200%200%201%201%200l2.2%201.6c.6.5%201.6-.2%201.3-1l-.8-2.6a1%201%200%200%201%20.3-1l2.1-1.7c.7-.5.4-1.6-.5-1.6h-2.6a.9.9%200%200%201-.9-.6Z%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E') 
+        background-image: var(--icon-24-blue-circle-star)
     &--pro
         background-color: var(--insight-pro-background)
-        background-image: url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%20fill%3D%22color%28display-p3%200%200.7%200.4%29%22%2F%3E%3Cpath%20d%3D%22M12%206c.7%200%201.3.6%201.3%201.2v3.5h3.4a1.3%201.3%200%200%201%200%202.5h-3.4v3.5a1.3%201.3%200%200%201-2.6%200v-3.5H7.4a1.2%201.2%200%201%201%200-2.5h3.5V7.2c0-.6.5-1.2%201.2-1.2Z%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E')
+        background-image: var(--icon-24-green-circle-plus)
         b
             color: var(--success)
     &--con
         background-color: var(--insight-con-background)
-        background-image: url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%2210%22%20fill%3D%22color%28display-p3%201%200%200%29%22%2F%3E%3Cpath%20d%3D%22M16.8%2010.7a1.3%201.3%200%200%201%200%202.5H7.2a1.3%201.3%200%200%201%200-2.5h9.6Z%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E')
+        background-image: var(--icon-24-red-circle-minus)
         b
             color: var(--danger)
     &__hint
