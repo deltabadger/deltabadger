@@ -13,6 +13,8 @@ export default class extends Controller {
     const labels = this.labelsValue.map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
+    const minValue = Math.min(...series[0].map(x => x.y), ...series[1].map(x => x.y));
+    const maxValue = Math.max(...series[0].map(x => x.y), ...series[1].map(x => x.y));
     const profitable = series[0][series[0].length - 1].y > series[0][0].y;
     const success_color = this.#safeColor(this.#getCssVariableValue('--success'));
     const danger_color = this.#safeColor(this.#getCssVariableValue('--danger'));
@@ -73,6 +75,7 @@ export default class extends Controller {
             pointBorderColor: this.#setTransparency(portfolio_color, 0.5),
             pointBorderWidth: 0,
             data: series[0],
+            clip: {left: false, top: false, right: false, bottom: false},
           },
           {
             label: "Benchmark",
@@ -89,6 +92,7 @@ export default class extends Controller {
             pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
             pointBorderWidth: 0,
             data: series[1],
+            clip: {left: false, top: false, right: false, bottom: false},
           },
         ],
       },
@@ -127,6 +131,9 @@ export default class extends Controller {
           },
           y: {
             type: "logarithmic",
+            min: minValue,
+            max: maxValue,
+            beginAtZero: false,
             scaleLabel: {
               display: false,
               labelString: "USD",
@@ -397,7 +404,7 @@ export default class extends Controller {
       const b = match[3];
       return `rgba(${r}, ${g}, ${b}, ${transparency})`;
     }
-    
+
     throw new Error('Invalid color format. Must be display-p3 or rgba.');
   }
 
