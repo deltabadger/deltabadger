@@ -23,6 +23,7 @@
   flex-direction: column
   justify-content: space-between
   min-height: 60rem
+  z-index: 21000000
   @media only screen and (max-width: 1359px)
     height: 7.5rem
     min-height: 7.5rem
@@ -58,12 +59,43 @@
     margin-bottom: 4rem
     @media only screen and (max-width: 1359px)
       margin-right: 3rem
-  &__icon
+  &__item
     height: 7.5rem
     width: 7.5rem
     display: flex
     justify-content: center
     align-items: center
+    position: relative
+    &__tooltip
+      opacity: 0
+      position: absolute
+      left: 6rem
+      font-weight: 550
+      background: var(--menu-tooltip-background)
+      color: var(--widget-text)
+      padding: 0.5rem 1.25rem
+      border-radius: 0.5rem
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1)
+      white-space: nowrap
+      transition: 0.1s ease-out
+      pointer-events: none
+      text-align: center
+      @media only screen and (max-width: 1359px)
+        left: auto
+        top: 8rem
+      &__title
+      &__counter
+        color: var(--label)
+      
+    &:hover
+      .menu__item__tooltip
+        opacity: 1
+        left: 7rem
+        transition: 0.1s ease-in
+        transition-delay: 0
+        @media only screen and (max-width: 1359px)
+          left: auto
+          top: 7rem
     svg
       width: 3rem
       height: 3rem
@@ -88,6 +120,6 @@
     fill: var(--success)
   
 .view
-  &--home-dashboard .menu__icon--dashboard, &--portfolios-show .menu__icon--analyzer, &--affiliates-new .menu__icon--referral-program, &--affiliates-show .menu__icon--referral-program, &--settings-index .menu__icon--settings, &--upgrade .menu__icon--upgrade, &--legendary-badger .menu__icon--legendary-badger
+  &--home-dashboard .menu__item--dashboard, &--portfolios-show .menu__item--analyzer, &--affiliates-new .menu__item--referral-program, &--affiliates-show .menu__item--referral-program, &--settings-index .menu__item--settings, &--upgrade .menu__item--upgrade, &--legendary-badger .menu__item--legendary-badger
     .fill--icon
       fill: var(--menulink-active)
