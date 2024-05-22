@@ -35,14 +35,14 @@ export default class extends Controller {
     const success_color = this.#safeColor(this.#getCssVariableValue('--success'));
     const danger_color = this.#safeColor(this.#getCssVariableValue('--danger'));
     const portfolio_color = profitable ? success_color : danger_color;
-    const benchmark_color = this.#safeColor(this.#getCssVariableValue('--primary'));
+    const benchmark_color = this.#safeColor(this.#getCssVariableValue('--benchmark'));
     const font_color = this.#safeColor(this.#getCssVariableValue('--label'));
     const tooltip_background_color = this.#safeColor(this.#getCssVariableValue('--widget-background'));
     const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
           portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
     const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-          benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.2));
+          benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
           benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
 
     let log_scale = true;
@@ -100,7 +100,7 @@ export default class extends Controller {
             lineTension: 0,
             borderWidth: 2.5,
             borderColor: benchmark_color,
-            borderDash: [4, 2],
+            // borderDash: [4, 2],
             pointRadius: Array(this.maxPointsToDraw - 1)
               .fill(0)
               .concat([3.5]),
@@ -239,7 +239,7 @@ export default class extends Controller {
             titleColor: font_color,
             titleFont: { size: 16 },
             bodyColor: font_color,
-            bodyFont: { size: 16 },
+            bodyFont: { size: 16, weight: 600 },
             bodySpacing: 5,
             backgroundColor: "transparent",
             position: "topLeft",
