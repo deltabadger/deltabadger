@@ -14,18 +14,18 @@ export default class extends Controller {
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
     series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
     const profitable = series[0][series[0].length - 1].y > series[0][0].y;
-    const rgb_success = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--success'));
-    const rgb_danger = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--danger'));
-    const portfolio_color = profitable ? rgb_success : rgb_danger;
-    const benchmark_color = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--primary'));
-    const font_color = this.#hexToRgba(this.#getCssVariableValue('--label'));
-    const tooltip_background_color = this.#hexOrWideGamutToRgb(this.#getCssVariableValue('--widget-background'));
+    const success_color = this.#safeColor(this.#getCssVariableValue('--success'));
+    const danger_color = this.#safeColor(this.#getCssVariableValue('--danger'));
+    const portfolio_color = profitable ? success_color : danger_color;
+    const benchmark_color = this.#safeColor(this.#getCssVariableValue('--primary'));
+    const font_color = this.#safeColor(this.#getCssVariableValue('--label'));
+    const tooltip_background_color = this.#safeColor(this.#getCssVariableValue('--widget-background'));
     const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-          portfolio_gradient.addColorStop(0, 'rgba(' + portfolio_color + ', 0.2)');
-          portfolio_gradient.addColorStop(1, 'rgba(' + portfolio_color + ', 0)');
+          portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
+          portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
     const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-          benchmark_gradient.addColorStop(0, 'rgba(' + benchmark_color + ', 0.2)');
-          benchmark_gradient.addColorStop(1, 'rgba(' + benchmark_color + ', 0)');
+          benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.2));
+          benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
 
     let max_points_to_draw = 150;
     let log_scale = true;
@@ -50,7 +50,7 @@ export default class extends Controller {
               ctx.moveTo(x, yAxis.top);
               ctx.lineTo(x, yAxis.bottom);
               ctx.lineWidth = 0.5;
-              ctx.strokeStyle = "#ccc";
+              ctx.strokeStyle = font_color;
               ctx.stroke();
               ctx.restore();
             }
@@ -63,14 +63,14 @@ export default class extends Controller {
             label: "Portfolio",
             lineTension: 0,
             borderWidth: 2.5,
-            borderColor: 'rgb(' + portfolio_color + ')',
+            borderColor: portfolio_color,
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
               .concat([4]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
-            pointBackgroundColor: "rgb(" + portfolio_color + ")",
-            pointBorderColor: "rgba(" + portfolio_color + ", 0.5)",
+            pointBackgroundColor: portfolio_color,
+            pointBorderColor: this.#setTransparency(portfolio_color, 0.5),
             pointBorderWidth: 0,
             data: series[0],
           },
@@ -78,15 +78,15 @@ export default class extends Controller {
             label: "Benchmark",
             lineTension: 0,
             borderWidth: 2.5,
-            borderColor: 'rgb(' + benchmark_color + ')',
+            borderColor: benchmark_color,
             borderDash: [4, 2],
             pointRadius: Array(max_points_to_draw - 1)
               .fill(0)
               .concat([3.5]),
             pointHoverRadius: 0,
             pointHitRadius: 0,
-            pointBackgroundColor: "rgb(" + benchmark_color + ")",
-            pointBorderColor: "rgba(" + benchmark_color + ", 0.5)",
+            pointBackgroundColor: benchmark_color,
+            pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
             pointBorderWidth: 0,
             data: series[1],
           },
@@ -108,7 +108,7 @@ export default class extends Controller {
             ticks: {
               display: false,
               font: { size: 11 },
-              fontColor: "rgba(0, 0, 0, 0.66)",
+              fontColor: font_color,
               autoSkip: true,
               maxTicksLimit: 5,
               maxRotation: 0,
@@ -116,8 +116,8 @@ export default class extends Controller {
             },
             grid: {
               display: false,
-              lineWidth: 1,
-              color: "rgba(0, 0, 0, 0.25)",
+              lineWidth: 0.5,
+              color: font_color,
               drawOnChartArea: false,
               zeroLineWidth: 1,
             },
@@ -130,12 +130,12 @@ export default class extends Controller {
             scaleLabel: {
               display: false,
               labelString: "USD",
-              fontColor: "rgba(0, 0, 0, 0.66)",
+              fontColor: font_color,
             },
             ticks: {
               display: false,
               font: { size: 11 },
-              fontColor: "rgba(0, 0, 0, 0.66)",
+              fontColor: font_color,
               beginAtZero: true,
               autoSkip: false,
               callback: function (value, index, values) {
@@ -196,7 +196,7 @@ export default class extends Controller {
             align: "center",
             labels: {
               font: { size: 16 },
-              fontColor: "rgba(" + font_color + ")",
+              fontColor: font_color,
               usePointStyle: true,
               boxWidth: 5,
               boxHeight: 5,
@@ -211,9 +211,9 @@ export default class extends Controller {
             cornerRadius: 5,
             caretPadding: 13,
             caretSize: 0,
-            titleColor: "rgba(" + font_color + ")",
+            titleColor: font_color,
             titleFont: { size: 16 },
-            bodyColor: "rgba(" + font_color + ")",
+            bodyColor: font_color,
             bodyFont: { size: 16 },
             bodySpacing: 5,
             backgroundColor: "transparent",
@@ -249,39 +249,7 @@ export default class extends Controller {
   }
 
   #canvasContext() {
-    return this.analyzerChartTarget.getContext("2d");
-  }
-
-  #hexToRgb(hex) {
-    if (hex.charAt(0) === '#') {
-        hex = hex.substring(1);
-    }
-    if (hex.length !== 3 && hex.length !== 6) {
-        throw new Error('Invalid hex color code');
-    }
-    if (hex.length === 3) {
-        hex = hex.split('').map(function (char) {
-            return char + char;
-        }).join('');
-    }
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `${r}, ${g}, ${b}`;
-  }
-
-  #hexToRgba(hex) {
-    if (hex.charAt(0) === '#') {
-        hex = hex.substring(1);
-    }
-    if (hex.length !== 8) {
-        throw new Error('Invalid hex color code');
-    }
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const a = parseInt(hex.substring(6, 8), 16) / 255;
-    return `${r}, ${g}, ${b}, ${a.toFixed(2)}`;
+    return this.analyzerChartTarget.getContext("2d", { colorSpace: "display-p3" });
   }
 
   #getCssVariableValue(variableName) {
@@ -291,22 +259,161 @@ export default class extends Controller {
     return value.trim();
   }
 
-  #hexOrWideGamutToRgb(color) {
-    if (color.startsWith('color(display-p3')) {
-      return this.#wideGamutToRgb(color);
-    } else {
-      return this.#hexToRgb(color);
+  #displaySupportsP3Color() {
+    return matchMedia("(color-gamut: p3)").matches;
+  }
+
+  #canvasSupportsDisplayP3() {
+    let canvas = document.createElement("canvas");
+    try {
+      // Safari throws a TypeError if the colorSpace option is supported, but
+      // the system requirements (minimum macOS or iOS version) for Display P3
+      // support are not met.
+      let context = canvas.getContext("2d", { colorSpace: "display-p3" });
+      return context.getContextAttributes().colorSpace == "display-p3";
+    } catch {
+      return false;
     }
   }
 
-  #wideGamutToRgb(color) {
-    const match = color.match(/color\(display-p3\s([^\s]+)\s([^\s]+)\s([^\s]+)\)/);
-    if (match) {
-      const r = Math.round(parseFloat(match[1]) * 255);
-      const g = Math.round(parseFloat(match[2]) * 255);
-      const b = Math.round(parseFloat(match[3]) * 255);
-      return `${r}, ${g}, ${b}`;
+  #canvasSupportsWideGamutCSSColors() {
+    let context = document.createElement("canvas").getContext("2d");
+    let initialFillStyle = context.fillStyle;
+    context.fillStyle = "color(display-p3 0 1 0)";
+    return context.fillStyle != initialFillStyle;
+  }
+
+  #wideGamutColorSupported() {
+    return this.#displaySupportsP3Color() && this.#canvasSupportsDisplayP3() && this.#canvasSupportsWideGamutCSSColors();
+  }
+
+  #isValidDisplayP3Color(colorString) {
+    const regex = this.#displayP3Regex();
+    return regex.test(colorString);
+  }
+  
+  #isValidHexColor(hexString) {
+    const regex = this.#hexRegex();
+    return regex.test(hexString);
+  }
+
+  #isValidRgbColor(rgbString) {
+    const regex = this.#rgbRegex();
+    const match = regex.exec(rgbString);
+    if (!match) {
+      return false;
     }
-    throw new Error('Invalid wide gamut color');
+    const r = parseInt(match[1], 10);
+    const g = parseInt(match[2], 10);
+    const b = parseInt(match[3], 10);
+    return r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255;
+  }
+
+  #safeColor(color) {
+    // returns a display-p3 color string if provided and supported, otherwise returns the rgba color
+    if (this.#isValidDisplayP3Color(color) && !this.#wideGamutColorSupported()) {
+      return this.#displayP3ToRgba(color);
+    } else if (this.#isValidHexColor(color)) {
+      return this.#hexToRgba(color);
+    } else if (this.#isValidRgbColor(color)) {
+      return this.#rgbToRgba(color);
+    } else {
+      return color;
+    }
+  }
+
+  #displayP3ToRgba(displayP3String) {    
+    const match = displayP3String.match(this.#displayP3Regex());
+    if (!match) {
+      throw new Error('Invalid color(display-p3 ...) string');
+    }
+    const r = parseFloat(match[1]);
+    const g = parseFloat(match[5]);
+    const b = parseFloat(match[9]);
+    const a = match[14] ? parseFloat(match[10].trim()) : 1;
+    const srgbR = Math.round(Math.max(0, Math.min(1, r)) * 255);
+    const srgbG = Math.round(Math.max(0, Math.min(1, g)) * 255);
+    const srgbB = Math.round(Math.max(0, Math.min(1, b)) * 255);
+    return `rgba(${srgbR}, ${srgbG}, ${srgbB}, ${a})`;
+  }
+
+  #hexToRgba(hex) {
+    if (!this.#isValidHexColor(hex)) {
+      throw new Error('Invalid hex color code');
+    }
+    hex = hex.slice(1);
+    let r, g, b, a = 255;
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    } else if (hex.length === 8) {
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+      a = parseInt(hex.slice(6, 8), 16);
+    }
+    const alpha = (a / 255).toFixed(2);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  #rgbToRgba(rgbString) {
+    if (!this.#isValidRgbColor(color)) {
+      throw new Error('Invalid rgb color code');
+    }
+    const match = rgbString.match(this.#rgbRegex());
+    if (match) {
+      const r = match[1];
+      const g = match[2];
+      const b = match[3];
+      const a = 1;
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+    throw new Error('Unexpected error parsing the RGB string');
+  }
+
+  #setTransparency(color, transparency) {
+    // Validate transparency value
+    if (transparency < 0 || transparency > 1) {
+      throw new Error('Transparency value must be between 0 and 1');
+    }
+
+    let match = color.match(this.#displayP3Regex());
+    if (match) {
+      const r = match[1];
+      const g = match[5];
+      const b = match[9];
+      return `color(display-p3 ${r} ${g} ${b} / ${transparency})`;
+    }
+    
+    match = color.match(this.#rgbaRegex());
+    if (match) {
+      const r = match[1];
+      const g = match[2];
+      const b = match[3];
+      return `rgba(${r}, ${g}, ${b}, ${transparency})`;
+    }
+    
+    throw new Error('Invalid color format. Must be display-p3 or rgba.');
+  }
+
+  #displayP3Regex() {
+    return /^color\(display-p3\s(\d(\.\d+)?|1(\.0+)?|0(\.0+)?|0?\.\d+)\s(\d(\.\d+)?|1(\.0+)?|0(\.0+)?|0?\.\d+)\s(\d(\.\d+)?|1(\.0+)?|0(\.0+)?|0?\.\d+)(\s\/\s(0?\.\d+|1(\.0+)?|0(\.0+)?))?\)$/;
+  }
+
+  #rgbRegex() {
+    return /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/;
+  }
+
+  #rgbaRegex() {
+    return /^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(0?\.\d+|1(\.0+)?|0(\.0+)?)\s*\)$/;
+  }
+
+  #hexRegex() {
+    return /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/;
   }
 }
