@@ -44,6 +44,7 @@ export default class extends Controller {
     const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
           benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
+    const maxPointsToDraw = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
 
     let log_scale = true;
 
@@ -84,7 +85,7 @@ export default class extends Controller {
             lineTension: 0,
             borderWidth: 2.5,
             borderColor: portfolio_color,
-            pointRadius: Array(this.maxPointsToDraw - 1)
+            pointRadius: Array(maxPointsToDraw - 1)
               .fill(0)
               .concat([4]),
             pointHoverRadius: 0,
@@ -101,7 +102,7 @@ export default class extends Controller {
             borderWidth: 2.5,
             borderColor: benchmark_color,
             // borderDash: [4, 2],
-            pointRadius: Array(this.maxPointsToDraw - 1)
+            pointRadius: Array(maxPointsToDraw - 1)
               .fill(0)
               .concat([3.5]),
             pointHoverRadius: 0,
@@ -260,8 +261,8 @@ export default class extends Controller {
           decimation: {
             enabled: true,
             algorithm: "lttb",
-            samples: this.maxPointsToDraw,
-            threshold: this.maxPointsToDraw - 1,
+            samples: maxPointsToDraw,
+            threshold: maxPointsToDraw - 1,
           },
         },
         parsing: false,
