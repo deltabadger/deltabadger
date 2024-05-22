@@ -9,6 +9,22 @@ export default class extends Controller {
   static values = { series: Array, labels: Array };
 
   connect() {
+    this.resizeObserver = new ResizeObserver(() => {
+      const width = this.element.offsetWidth;
+      if (width !== this.previousWidth) {
+        this.maxPointsToDraw = Math.floor(width / 3.5);
+        this.previousWidth = width;
+        this.#buildChart();
+      }
+    });
+    this.resizeObserver.observe(this.element);
+  }
+
+  disconnect() {
+    this.resizeObserver.disconnect();
+  }
+
+  #buildChart() {
     const series = this.seriesValue;
     const labels = this.labelsValue.map(date => new Date(date).getTime());
     series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
@@ -29,7 +45,6 @@ export default class extends Controller {
           benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.2));
           benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
 
-    let max_points_to_draw = 150;
     let log_scale = true;
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
@@ -38,7 +53,10 @@ export default class extends Controller {
     };
 
     Chart.defaults.font.family = "Montserrat";
-    new Chart(this.#canvasContext(), {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = new Chart(this.#canvasContext(), {
       type: "line",
       plugins: [
         {
@@ -66,7 +84,7 @@ export default class extends Controller {
             lineTension: 0,
             borderWidth: 2.5,
             borderColor: portfolio_color,
-            pointRadius: Array(max_points_to_draw - 1)
+            pointRadius: Array(this.maxPointsToDraw - 1)
               .fill(0)
               .concat([4]),
             pointHoverRadius: 0,
@@ -83,7 +101,7 @@ export default class extends Controller {
             borderWidth: 2.5,
             borderColor: benchmark_color,
             borderDash: [4, 2],
-            pointRadius: Array(max_points_to_draw - 1)
+            pointRadius: Array(this.maxPointsToDraw - 1)
               .fill(0)
               .concat([3.5]),
             pointHoverRadius: 0,
@@ -242,8 +260,8 @@ export default class extends Controller {
           decimation: {
             enabled: true,
             algorithm: "lttb",
-            samples: max_points_to_draw,
-            threshold: max_points_to_draw - 1,
+            samples: this.maxPointsToDraw,
+            threshold: this.maxPointsToDraw - 1,
           },
         },
         parsing: false,
