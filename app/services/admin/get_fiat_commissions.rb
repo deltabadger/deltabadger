@@ -9,15 +9,15 @@ module Admin
         subscription_plan = subscription_plans[(payment['subscription_plan_id'])]
         affiliate = Affiliate.find(User.find(payment['user_id'])['referrer_id'])
         affiliate_commission_percent = affiliate.total_bonus_percent - affiliate.discount_percent
-        commission_in_btc = commission_in_btc(payment.currency, affiliate_commission_percent, subscription_plan)
-        return commission_in_btc if commission_in_btc.failure?
+        commission_in_btc_result = get_commission_in_btc(payment.currency, affiliate_commission_percent, subscription_plan)
+        return commission_in_btc_result if commission_in_btc_result.failure?
 
-        update_commission(affiliate, commission_in_btc.data)
+        update_commission(affiliate, commission_in_btc_result.data)
         payment.update(external_statuses: 'Commission granted')
       end
       Result::Success.new("Fiat payments\\' commissions granted")
-    rescue StandardError
-      return commission_in_btc if commission_in_btc.failure?
+    rescue StandardError => e
+      Result::Failure.new("Couldn\\'t grant the commissions: #{e}")
     end
 
     private
@@ -31,7 +31,7 @@ module Admin
       Result::Failure.new("Couldn\\'t fetch the payments' data")
     end
 
-    def btc_cost(subscription_plan, currency)
+    def get_btc_cost(subscription_plan, currency)
       undiscounted_cost = currency == 'EUR' ? subscription_plan.cost_eu : subscription_plan.cost_other
       btc_price_result = Admin::BitcoinPriceGetter.call(quote: currency)
       return btc_price_result if btc_price_result.failure?
@@ -39,11 +39,11 @@ module Admin
       Result::Success.new(undiscounted_cost / btc_price.data)
     end
 
-    def commission_in_btc(currency, commission_percent, subscription_plan)
-      btc_cost = btc_cost(subscription_plan, currency)
-      return btc_cost if btc_cost.failure?
+    def get_commission_in_btc(currency, commission_percent, subscription_plan)
+      btc_cost_result = get_btc_cost(subscription_plan, currency)
+      return btc_cost_result if btc_cost_result.failure?
 
-      Result::Success.new((commission_percent * btc_cost.data).ceil(8))
+      Result::Success.new((commission_percent * btc_cost_result.data).ceil(8))
     end
 
     def update_commission(affiliate, commission)
