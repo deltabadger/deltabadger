@@ -2,6 +2,9 @@ module Api
   class ApiKeysController < Api::BaseController
     def create
       keys_params = api_key_params.merge(user: current_user)
+      # prevent JSON parse errors like reading "\n" as "\\n"
+      keys_params[:key] = JSON.parse("{\"content\": \"#{keys_params[:key]}\"}")['content']
+      keys_params[:secret] = JSON.parse("{\"content\": \"#{keys_params[:secret]}\"}")['content']
       api_key = current_user.api_keys
                             .find_by(exchange_id: keys_params[:exchange_id], key_type: keys_params[:key_type])
 
