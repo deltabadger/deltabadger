@@ -119,7 +119,7 @@ Rails.application.routes.draw do
     get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
-    resources :portfolios, only: [:show] do
+    resources :portfolios, only: [] do
       resources :assets, only: [:new, :create, :destroy, :update]
       patch :toggle_smart_allocation
       patch :update_risk_level
