@@ -21,7 +21,7 @@ class AssetsController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid asset'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid asset', status: :unprocessable_entity
     end
   end
 
@@ -34,7 +34,7 @@ class AssetsController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully removed.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid asset'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid asset', status: :unprocessable_entity
     end
   end
 
@@ -46,7 +46,7 @@ class AssetsController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset allocation was successfully updated.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.', status: :unprocessable_entity
     end
   end
 

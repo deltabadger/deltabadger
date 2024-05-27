@@ -20,7 +20,7 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.', status: :unprocessable_entity
     end
   end
 
@@ -35,7 +35,7 @@ class PortfoliosController < ApplicationController
         format.turbo_stream { render 'update_benchmark' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.', status: :unprocessable_entity
     end
   end
 
@@ -50,7 +50,7 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.', status: :unprocessable_entity
     end
   end
 
@@ -69,7 +69,7 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.', status: :unprocessable_entity
     end
   end
 
@@ -81,7 +81,7 @@ class PortfoliosController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.', status: :unprocessable_entity
     end
   end
 
@@ -96,7 +96,7 @@ class PortfoliosController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.'
+      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.', status: :unprocessable_entity
     end
   end
 
