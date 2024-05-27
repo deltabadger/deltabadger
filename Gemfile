@@ -79,3 +79,4 @@ gem "faraday-net_http_persistent", "~> 2.1"
 gem "turbo-rails", "~> 2.0"
 gem "stimulus-rails", "~> 1.3"
 gem 'redis', '~> 5.0'
+gem "jwt", "~> 2.8"
