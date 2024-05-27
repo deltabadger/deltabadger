@@ -9,8 +9,8 @@
 
   <%= form_with model: portfolio, url: portfolio_update_risk_level_path(portfolio),
   method: :patch,
-  html: { 
-    onchange: "requestSubmit();" 
+  html: {
+    onchange: "requestSubmit();"
   },
   class: "smart-allocation__slider #{'smart-allocation__slider--off' unless portfolio.smart_allocation_on?}",
   data: {
