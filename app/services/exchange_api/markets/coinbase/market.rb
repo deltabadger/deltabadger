@@ -131,7 +131,7 @@ module ExchangeApi
 
         def authenticated_request(path)
           url = API_URL + path
-          @base_client.get(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, '', path, 'GET'))
+          @base_client.get(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, '', url, 'GET'))
         end
       end
     end
