@@ -4,7 +4,7 @@ class MetricsRepository < BaseRepository
 
   def initialize
     super
-    @redis_client = Redis.new(url: ENV.fetch('REDIS_AWS_URL'))
+    @redis_client = Redis.new(url: ENV.fetch('REDIS_URL'))
   end
 
   def update_metrics
