@@ -1,6 +1,6 @@
 .menu
   .menu__section.menu__section--top.menu__section--logo
-    %a.menu__logo{:href => root_path}
+    = link_to root_path, class: 'menu__logo', data: {turbo: false} do
       -unless current_user.subscription_name == 'legendary_badger'
         %svg{fill: "none", viewbox: "0 0 64 49", style: "height:6.125rem", xmlns: "http://www.w3.org/2000/svg"}
           %path.fill--icon-active{"clip-rule" => "evenodd", d: "M60 31.3a5.9 5.9 0 0 0 1.7-1.8l.3-1c0-.6-.2-1.1-.8-1.7-.6-.7-1.4-1.3-2.7-2a1 1 0 0 1 1-1.7c1.3.7 2.4 1.5 3.2 2.3.8.9 1.3 1.9 1.3 3 0 .8-.2 1.6-.6 2.3A34.8 34.8 0 0 1 32 49 35 35 0 0 1 .5 30.4c-.3-.6-.5-1.2-.5-2 0-1.1.5-2.1 1.3-3 .8-.8 2-1.6 3.2-2.3a1 1 0 0 1 1 1.7c-1.3.7-2.1 1.3-2.7 2-.6.6-.8 1.1-.8 1.7 0 .8.6 1.8 2 2.8 1.5 1 3.6 2 6.4 3A77.2 77.2 0 0 0 32 36.8c8.5 0 16.1-1 21.6-2.7 2.8-.8 5-1.8 6.4-2.9ZM32 47c10.9 0 20.2-4.6 26.4-12.5-1.2.6-2.6 1.1-4.2 1.6A79.2 79.2 0 0 1 32 39c-8.6 0-16.5-1-22.2-2.8-1.6-.5-3-1-4.2-1.6A33 33 0 0 0 32 47Z"}
@@ -22,7 +22,7 @@
               %path{d: "M0 0h64v60H0z", fill: "#fff"}
   .menu__section.menu__section--top.menu__section--main-menu
     
-    %a.menu__item.menu__item--dashboard{:href => root_path}
+    = link_to root_path, class: 'menu__item menu__item--dashboard', data: {turbo: false} do
       %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
         %path.fill--icon{"clip-rule" => "evenodd", d: "M12 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z", "fill-rule" => "evenodd"}
         %path.fill--icon{"clip-rule" => "evenodd", d: "M16 9.8c.5.2.7.8.4 1.3l-2.6 5.3a1 1 0 0 1-1.8-.8l2.6-5.4a1 1 0 0 1 1.4-.4Z", "fill-rule" => "evenodd"}
