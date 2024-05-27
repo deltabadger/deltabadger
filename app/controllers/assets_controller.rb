@@ -1,7 +1,7 @@
 class AssetsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_asset, only: %i[destroy update]
   before_action :set_portfolio
+  before_action :set_asset, only: %i[destroy update]
 
   def new
     session[:query] = params[:query]
@@ -10,7 +10,6 @@ class AssetsController < ApplicationController
   end
 
   def create
-    puts "Creating asset #{@portfolio.smart_allocation_on?}"
     # TODO: add condition asset ticker must be valid
     @asset = @portfolio.assets.new(asset_params)
     if !asset_in_portfolio? && @asset.save
@@ -26,7 +25,6 @@ class AssetsController < ApplicationController
   end
 
   def destroy
-    puts "Destroying asset #{@portfolio.smart_allocation_on?}"
     if @asset.destroy
       set_backtest_data
       respond_to do |format|
@@ -61,7 +59,7 @@ class AssetsController < ApplicationController
       redirect_to portfolio_analyzer_path, alert: 'No Asset ID provided.'
       return
     end
-    @asset = Asset.find(params[:id])
+    @asset = @portfolio.assets.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to portfolio_analyzer_path, alert: 'Asset not found.'
   end
@@ -71,7 +69,7 @@ class AssetsController < ApplicationController
       redirect_to portfolio_analyzer_path, alert: 'No Portfolio ID provided.'
       return
     end
-    @portfolio = Portfolio.find(params[:portfolio_id])
+    @portfolio = current_user.portfolios.find(params[:portfolio_id])
   rescue ActiveRecord::RecordNotFound
     redirect_to portfolio_analyzer_path, alert: 'Portfolio not found.'
   end
