@@ -3,7 +3,7 @@
     <div class="sinput sinput--select">
       <%= portfolio.strategy.humanize %>
       <% Portfolio.strategies.each do |strategy, _| %>
-        <%# orm.radio_button :strategy, strategy, id: "fixed-#{strategy}" %>
+        <%# form.radio_button :strategy, strategy, id: "fixed-#{strategy}" %>
         <%# form.label :strategy, for: "fixed-#{strategy}" do %><%# end %>
         <select>
           <option selected>Fixed</option>
