@@ -3,6 +3,7 @@
   <%= render_turbo_stream_backtest_results(@backtest) %>
 <% end %>
 <% if @portfolio.smart_allocation_on? %>
+  <%= turbo_stream.replace "smart-allocation-controls", partial: "smart_allocation_controls", locals: { portfolio: @portfolio } %>
   <%= render_turbo_stream_portfolio_assets(@portfolio) %>
 <% end %>
 <%= render_turbo_stream_flash_messages %>
