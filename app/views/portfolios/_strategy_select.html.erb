@@ -6,9 +6,9 @@
         <%# form.radio_button :strategy, strategy, id: "fixed-#{strategy}" %>
         <%# form.label :strategy, for: "fixed-#{strategy}" do %><%# end %>
         <select>
-          <option selected>Fixed</option>
-          <option disabled>DCA (soon)</option>
-          <option disabled>Rebalancing (soon)</option>
+          <option selected><%= t('analyzer.strategy.fixed') %></option>
+          <option disabled><%= t('analyzer.strategy.dca') %> <%= t('utils.soon') %></option>
+          <option disabled><%= t('analyzer.strategy.rebalancing') %> <%= t('utils.soon') %></option>
         </select>
       <% end %>
     </div>

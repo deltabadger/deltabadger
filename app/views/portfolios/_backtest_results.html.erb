@@ -3,7 +3,7 @@
     <% if backtest.present? %>
       <div class="widget widget--chart">
         <div class="data-grid__item">
-          <div class="label">Profit/Loss</div>
+          <div class="label"><%= t('analyzer.pnl') %></div>
           <% profitable = backtest['metrics']['totalReturn'] > 0 %>
           <%= tag.div class: "data-grid__item__value", style: "color: var(--#{profitable ? 'success' : 'danger'})" do %>
             <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
@@ -20,101 +20,181 @@
 
       <div class="widget data-grid">
         <div class="data-grid__item">
-          <div class="label">Exp. Return</div>
+          <div class="label">
+            <%= t('metrics.exp_return.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['expectedReturn'] * 100)) + '%' if backtest['metrics']['expectedReturn'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.exp_return.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">CAGR</div>
+          <div class="label">
+            <%= t('metrics.cagr.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['cagr'] * 100)) + '%' if backtest['metrics']['cagr'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.cagr.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Max. Drawdown</div>
+          <div class="label">
+            <%= t('metrics.max_drawdown.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['maxDrawdown'] * 100)) + '%' if backtest['metrics']['maxDrawdown'].present? %>
           </div>
-        </div>
-        <div class="data-grid__item">
-          <div class="label">Volatility</div>
-          <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['volatility'] * 100)) + '%' if backtest['metrics']['volatility'].present? %>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.max_drawdown.short_info') %>
           </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">VaR</div>
+          <div class="label">
+            <%= t('metrics.volatility.short_name') %>
+          </div>
+          <div class="data-grid__item__value">
+            <%= sprintf('%.2f', (backtest['metrics']['volatility'] * 100)) + '%' if backtest['metrics']['volatility'].present? %>
+          </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.volatility.short_info') %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">
+            <%= t('metrics.var.short_name') %>
+          </div>
           <%# Means there is a 5% chance of losing more than [VaR] of the portfolio value in a single day %>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.var.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">CVaR</div>
+          <div class="label">
+            <%= t('metrics.cvar.short_name') %>
+          </div>
           <%# Means means in the worst case scenario where the portfolio loses more than [VaR] in a single day, the average loss to expect would be [CVaR] %>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.cvar.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Sharpe Ratio</div>
+          <div class="label">
+            <%= t('metrics.sharpe_ratio.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['sharpeRatio']) if backtest['metrics']['sharpeRatio'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.sharpe_ratio.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Sortino Ratio</div>
+          <div class="label">
+            <%= t('metrics.sortino_ratio.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['sortinoRatio']) if backtest['metrics']['sortinoRatio'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.sortino_ratio.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Calmar Ratio</div>
+          <div class="label">
+            <%= t('metrics.calmar_ratio.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['calmarRatio']) if backtest['metrics']['calmarRatio'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.calmar_ratio.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Alpha</div>
+          <div class="label">
+            <%= t('metrics.alpha.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['alpha'] * 100)) + '%' if backtest['metrics']['alpha'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.alpha.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Beta</div>
+          <div class="label">
+            <%= t('metrics.beta.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['beta']) if backtest['metrics']['beta'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.beta.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Treynor Ratio</div>
+          <div class="label">
+            <%= t('metrics.treynor_ratio.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['treynorRatio']) if backtest['metrics']['treynorRatio'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.treynor_ratio.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Omega Ratio</div>
+          <div class="label">
+            <%= t('metrics.omega_ratio.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['omegaRatio']) if backtest['metrics']['omegaRatio'].present? %>
           </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.omega_ratio.short_info') %>
+          </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">R²</div>
+          <div class="label">
+            <%= t('metrics.r_squared.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', backtest['metrics']['rSquared']) if backtest['metrics']['rSquared'].present? %>
           </div>
-        </div>
-        <div class="data-grid__item">
-          <div class="label">Info. Ratio</div>
-          <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.r_squared.short_info') %>
           </div>
         </div>
         <div class="data-grid__item">
-          <div class="label">Diversification</div>
+          <div class="label">
+            <%= t('metrics.info_ratio.short_name') %>
+          </div>
+          <div class="data-grid__item__value">
+            <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>
+          </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.info_ratio.short_info') %>
+          </div>
+        </div>
+        <div class="data-grid__item">
+          <div class="label">
+            <%= t('metrics.diversification.short_name') %>
+          </div>
           <div class="data-grid__item__value">
             —
+          </div>
+          <div class="data-grid__item__tooltip">
+            <%= t('metrics.diversification.short_info') %>
           </div>
         </div>
         <div class="data-grid__item data-grid__item--filler data-grid__item--filler--5 data-grid__item--filler--3 data-grid__item--filler--6"></div>

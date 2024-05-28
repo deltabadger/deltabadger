@@ -1,6 +1,6 @@
 <%= tag.div id: "benchmark-select" do %>
   <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row" do |form| %>
-    <%= form.label :benchmark, "Benchmark:", class: "label" %>
+    <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
     <div class="sinput sinput--select">
       <%= portfolio.benchmark_name %>
       <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, onchange: "this.form.requestSubmit();" %>
