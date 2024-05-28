@@ -245,18 +245,21 @@ nl:
                 private_key: 'API Secret'
                 public_key: 'API Key'
             cancel: Annuleren
-            coinbase_pro:
+            coinbase:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
-                instructions_2_html: 'Ga in het gebruikersmenu (rechterbovenhoek) naar <b>API</b>.'
-                instructions_3_html: 'Druk op <b>New API Key</b>.'
-                instructions_4_1_html: 'Stel machtigingen in voor:'
-                instructions_4_2_html: '<b>View</b>'
-                instructions_4_3_html: '<b>Trade</b>'
-                instructions_5_html: 'Druk op <b>Create API Key</b>.'
-                instructions_6_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
-                passphrase: Wachtwoordzin
-                private_key: 'Secret Key'
-                public_key: 'API Key'
+                instructions_2_html: 'Selecteer het tabblad <b>Meer</b> in de linkerzijbalk.'
+                instructions_3_html: 'Selecteer <b>Geavanceerde API</b> en klik vervolgens op <b>Maak uw API-sleutel aan</b>. Als u het niet kunt vinden, ga dan direct via <a href="https://portal.cdp.coinbase.com/">hier</a>.'
+                instructions_4_html: 'Selecteer het tabblad <b>API-sleutels</b>.'
+                instructions_5_html: 'Klik op de knop <b>Maak API-sleutel aan</b>.'
+                instructions_6_1_html: 'Breid in het pop-upvenster <b>API-beperkingen</b> uit en configureer:'
+                instructions_6_2_html: '<b>API-sleutel bijnaam</b>: Geef uw gewenste naam op, <b>Deltabadger</b> is goed om het later te herkennen.'
+                instructions_6_3_html: '<b>IP-whitelist</b>: <b>3.18.70.231</b>.'
+                instructions_6_4_html: '<b>Portefeuille</b>: Selecteer de portefeuille waartoe u Deltabadger toegang wilt geven, <b>Standaard</b> als u geen Coinbase-portefeuilles gebruikt.'
+                instructions_6_5_html: '<b>Machtigingen</b>:<br>&middot; <b>Weergave</b> (alleen-lezen)<br>&middot; <b>Handel</b> (uitvoeren van transacties namens u)'
+                instructions_7_html: 'Klik op <b>Maak & download</b> en voltooi de 2-stapsverificatie.'
+                instructions_8_html: 'Kopieer en plak uw nieuwe API-sleutels in het bovenstaande formulier.'
+                private_key: 'Geheim'
+                public_key: 'API-sleutel naam'
             error_info: 'Validatie mislukt. Probeer het opnieuw of genereer nieuwe keys.'
             frequency_limit:
                 back_to_settings: 'Terug naar instellingen'
