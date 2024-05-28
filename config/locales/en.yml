@@ -812,8 +812,9 @@ en:
             short_info: 'The variety of different investments in your portfolio to spread risk.'
             best: 'Best Diversification'
     analyzer:
-        smart_allocation: 'Smart Allocation'
-        smart_allocation_info: 'Smart Allocation applies algorithms from Modern Portfolio Theory (MPT) to find the best allocation for your portfolio. You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
+        smart_allocation: 
+            name: 'Smart Allocation'
+            short_info_html: '<p>Smart Allocation applies algorithms from <b>Modern Portfolio Theory (MPT)</b> to find the best allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
         since: 'since'
         risk_free_rate: 'Risk-Free Rate'
         us_bonds: 'US Bonds'
