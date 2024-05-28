@@ -116,7 +116,7 @@ module ExchangeApi
             order_id = response.fetch('order_id')
             Result::Success.new(offer_id: order_id)
           else
-            error_to_failure([response['message']])
+            error_to_failure([response.dig('error_response', 'message')])
           end
         rescue JSON::ParserError
           Result::Failure.new('Could not parse Coinbase response', **RECOVERABLE)
