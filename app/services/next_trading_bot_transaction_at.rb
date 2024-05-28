@@ -40,8 +40,11 @@ class NextTradingBotTransactionAt < BaseService
   def last_paid_transaction(bot)
     interval = parse_interval.call(bot)
 
-    number_of_transactions = ((bot.any_last_transaction.created_at -
-      bot.last_transaction.created_at) / interval).floor
+    number_of_transactions = if interval.zero?
+                               ((bot.any_last_transaction.created_at - bot.last_transaction.created_at) / interval).floor
+                             else
+                               0
+                             end
 
     bot.last_transaction.created_at + number_of_transactions * interval
   end
