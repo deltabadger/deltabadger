@@ -241,31 +241,11 @@ id:
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
             cancel: Batal
-            coinbase_pro:
-                instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
-                instructions_2_html: 'Buka <b>API</b> di menu pengguna (pojok kanan atas).'
-                instructions_3_html: 'Tekan <b>Kunci API Baru</b>.'
-                instructions_4_1_html: 'Tetapkan izin untuk:'
-                instructions_4_2_html: '<b>Melihat</b>'
-                instructions_4_3_html: '<b>Trading</b>'
-                instructions_5_html: 'Tekan <b>Buat Kunci API</b>.'
-                instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                passphrase: 'Frasa Sandi'
-                private_key: 'Kunci Rahasia'
-                public_key: 'Kunci API'
             error_info: 'Validasi gagal. Coba lagi atau hasilkan kunci baru.'
             frequency_limit:
                 back_to_settings: 'Kembali ke pengaturan'
                 limit_exceeded: 'Untuk memenuhi limit %{frequency_limit} transaksi per menit dari bot, jadwal Anda akan dieksekusi dengan order masing-masing seharga %{price}%{currency}.'
                 start_the_bot: 'Ubah dan mulai'
-            ftx:
-                instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
-                instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
-                instructions_3_html: 'Gulir turun ke bagian <b>Kunci API</b>.'
-                instructions_4_html: 'Tekan <b>Buat Kunci API</b>.'
-                instructions_5_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
-                private_key: 'Kunci Privat'
-                public_key: 'Kunci Publik'
             gemini:
                 instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
                 instructions_2_html: 'Buka <b>Pengaturan</b> di menu akun (pojok kanan atas).'
@@ -342,13 +322,6 @@ id:
             step_schedule: Jadwal
             validating: Memvalidasi
             withdrawal:
-                ftx:
-                    instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
-                    instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
-                    instructions_3_html: 'Gulir turun ke bagian <b>Kunci API</b>.'
-                    instructions_4_html: 'Tekan <b>Buat Kunci API</b>.'
-                    instructions_5_html: ''
-                    instructions_6_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
                 kraken:
                     instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
                     instructions_2_html: 'Buka <b>Keamanan</b> → <b>API</b> di menu pengguna.'
@@ -360,18 +333,6 @@ id:
                     instructions_6_html: 'Tekan <b>Hasilkan Kunci</b>.'
                     instructions_7_html: 'Salin dan tempel kunci API baru Anda ke dalam formulir di atas.'
             withdrawal_address:
-                ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
-                    instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
-                    instructions_2_html: 'Buka menu Pengaturan (pojok kanan atas).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: 'Masuk ke akun %{{exchange_link}} Anda.'
                     instructions_2_html: ''

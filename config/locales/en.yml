@@ -273,18 +273,6 @@ en:
                 private_key: 'API Secret'
                 public_key: 'API Key'
             cancel: Cancel
-            coinbase_pro:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu (top right corner) go to <b>API</b>.'
-                instructions_3_html: 'Press <b>New API Key</b>.'
-                instructions_4_1_html: 'Set permissions for:'
-                instructions_4_2_html: '<b>View</b>'
-                instructions_4_3_html: '<b>Trade</b>'
-                instructions_5_html: 'Press <b>Create API Key</b>.'
-                instructions_6_html: 'Copy and paste your new API keys into the form above.'
-                passphrase: Passphrase
-                private_key: 'Secret Key'
-                public_key: 'API Key'
             coinbase:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'Select the <b>More</b> tab from the left sidebar.'
@@ -295,10 +283,9 @@ en:
                 instructions_6_2_html: '<b>API key nickname</b>: Give your preferred name, <b>Deltabadger</b> is good to recognize it later.'
                 instructions_6_3_html: '<b>IP whitelist</b>: <b>3.18.70.231</b>.'
                 instructions_6_4_html: '<b>Portfolio</b>: Select the portfolio you want Deltabadger to have access to, <b>Default</b> if not using Coinbase Portfolios.'
-                instructions_6_5_html: '<b>Permissions</b>:<br>&emsp;☑️ <b>Trade</b> (execute trades on your behalf)<br>&emsp;☑️ <b>Trade</b> (execute trades on your behalf)<br>&emsp;◻️ <s>Transfer (initiate transfer of funds)</s>'
+                instructions_6_5_html: '<b>Permissions</b>:<br>&middot; <b>View</b> (read-only)<br>&middot; <b>Trade</b> (execute trades on your behalf)'
                 instructions_7_html: 'Click <b>Create & download</b> and complete the 2-step verification.'
                 instructions_8_html: 'Copy and paste your new API keys into the form above.'
-                instructions_9_html: '<i>Optional: Delete the legacy keys (before May 31st 2024) <a href="https://www.coinbase.com/settings/api">here</a>.</i>'
                 private_key: 'Secret'
                 public_key: 'API key name'
             error_info: 'Validation failed. Try again or generate new keys.'

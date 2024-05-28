@@ -241,31 +241,11 @@ zh-cn:
                 private_key: 'API 私钥'
                 public_key: 'API 密钥'
             cancel: 取消
-            coinbase_pro:
-                instructions_1_html: '登录到 %{{exchange_link}} 账号。'
-                instructions_2_html: '在“用户”菜单（右上角）中，转到 <b>API</b>。'
-                instructions_3_html: '按<b>新建 API 密钥</b>。'
-                instructions_4_1_html: 为以下对象设置权限：
-                instructions_4_2_html: '<b>查看</b>'
-                instructions_4_3_html: '<b>交易</b>'
-                instructions_5_html: '按<b>创建 API 密钥</b>。'
-                instructions_6_html: '复制新 API 密钥并粘贴到上面的表单中。'
-                passphrase: 密码
-                private_key: 私钥
-                public_key: 'API 密钥'
             error_info: 验证失败。请重试或生成新密钥。
             frequency_limit:
                 back_to_settings: 返回设置
                 limit_exceeded: '要满足每分钟 %{frequency_limit} 个交易的机器人限制，您的安排将按各自 %{price}%{currency} 的单独订单执行。'
                 start_the_bot: 修订并开始
-            ftx:
-                instructions_1_html: '登录到 %{{exchange_link}} 账号。'
-                instructions_2_html: 转到“设置”菜单（右上角）。
-                instructions_3_html: '向下滚动到 <b>API 密钥</b>部分。'
-                instructions_4_html: '按<b>创建 API 密钥</b>。'
-                instructions_5_html: '复制新 API 密钥并粘贴到上面的表单中。'
-                private_key: 私有密钥
-                public_key: 公用密钥
             gemini:
                 instructions_1_html: '登录到 %{{exchange_link}} 账号。'
                 instructions_2_html: 在“账号”菜单（右上角）中，转到<b>设置</b>。
@@ -342,13 +322,6 @@ zh-cn:
             step_schedule: 安排
             validating: 正在验证
             withdrawal:
-                ftx:
-                    instructions_1_html: '登录到 %{{exchange_link}} 账号。'
-                    instructions_2_html: 转到“设置”菜单（右上角）。
-                    instructions_3_html: '向下滚动到 <b>API 密钥</b>部分。'
-                    instructions_4_html: '按<b>创建 API 密钥</b>。'
-                    instructions_5_html: ''
-                    instructions_6_html: '复制新 API 密钥并粘贴到上面的表单中。'
                 kraken:
                     instructions_1_html: '登录到 %{{exchange_link}} 账号。'
                     instructions_2_html: '在“用户”菜单中，转到<b>安全性</b> → <b>API</b>。'
@@ -360,18 +333,6 @@ zh-cn:
                     instructions_6_html: 按<b>生成密钥</b>。
                     instructions_7_html: '复制新 API 密钥并粘贴到上面的表单中。'
             withdrawal_address:
-                ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
-                    instructions_1_html: '登录到 %{{exchange_link}} 账号。'
-                    instructions_2_html: 转到“设置”菜单（右上角）。
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: '登录到 %{{exchange_link}} 账号。'
                     instructions_2_html: ''
