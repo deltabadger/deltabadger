@@ -241,31 +241,11 @@ ru:
                 private_key: 'API Секрет'
                 public_key: 'Ключ API'
             cancel: Отменить
-            coinbase_pro:
-                instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
-                instructions_2_html: 'В меню пользователя (в правом верхнем углу) перейдите в <b>API</b>.'
-                instructions_3_html: 'Нажмите <b>Новый ключ API</b>.'
-                instructions_4_1_html: 'Установите разрешения для следующего:'
-                instructions_4_2_html: '<b>Просмотр</b>'
-                instructions_4_3_html: '<b>Торговля</b>'
-                instructions_5_html: 'Нажмите <b>Создать ключ API</b>.'
-                instructions_6_html: 'Вставьте оба ключа в поля ввода выше.'
-                passphrase: 'Кодовая фраза'
-                private_key: 'Секретный ключ'
-                public_key: 'Ключ API'
             error_info: 'Проверка не удалась. Попробуйте еще раз или создайте новые ключи.'
             frequency_limit:
                 back_to_settings: 'Вернуться в настройки'
                 limit_exceeded: 'Чтобы выполнить ограничение бота на %{frequency_limit} транзакций в минуту, ваше расписание будет выполняться ордерами по %{price}%{currency} каждый.'
                 start_the_bot: 'Изменить и начать'
-            ftx:
-                instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
-                instructions_2_html: 'Перейдите в меню настроек (в правом верхнем углу).'
-                instructions_3_html: 'Прокрутите вниз до раздела<b>Ключ API</b>.'
-                instructions_4_html: 'Нажмите <b>Создать ключ API</b>.'
-                instructions_5_html: 'Вставьте оба ключа в поля ввода выше.'
-                private_key: 'Закрытый ключ'
-                public_key: 'Открытый ключ'
             gemini:
                 instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
                 instructions_2_html: 'В меню пользователя (в правом верхнем углу) перейдите в <b>Настройки</b>.'
@@ -342,13 +322,6 @@ ru:
             step_schedule: График
             validating: Проверка
             withdrawal:
-                ftx:
-                    instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
-                    instructions_2_html: 'Перейдите в меню настроек (в правом верхнем углу).'
-                    instructions_3_html: 'Прокрутите вниз до раздела<b>Ключ API</b>.'
-                    instructions_4_html: 'Нажмите <b>Создать ключ API</b>.'
-                    instructions_5_html: ''
-                    instructions_6_html: 'Вставьте оба ключа в поля ввода выше.'
                 kraken:
                     instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
                     instructions_2_html: 'В меню пользователя перейдите в <b>Безопасность</b> → <b>API</b>.'
@@ -360,18 +333,6 @@ ru:
                     instructions_6_html: 'Нажмите <b>Создать ключ</b>.'
                     instructions_7_html: 'Вставьте оба ключа в поля ввода выше.'
             withdrawal_address:
-                ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
-                    instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
-                    instructions_2_html: 'Перейдите в меню настроек (в правом верхнем углу).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
                     instructions_2_html: ''
