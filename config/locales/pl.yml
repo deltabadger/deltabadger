@@ -245,18 +245,21 @@ pl:
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
             cancel: Anuluj
-            coinbase_pro:
-                instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
-                instructions_2_html: 'W menu użytkownika (prawy górny róg) przejdź do <b>API</b>.'
-                instructions_3_html: 'Naciśnij <b>New API Key</b>.'
-                instructions_4_1_html: 'Ustaw uprawnienia dla:'
-                instructions_4_2_html: '<b>View</b>'
-                instructions_4_3_html: '<b>Trade</b>'
-                instructions_5_html: 'Naciśnij <b>Create API Key</b>.'
-                instructions_6_html: 'Wklej oba klucze do danych wejściowych powyżej.'
-                passphrase: Hasło
-                private_key: 'Klucz Sekretny'
-                public_key: 'Klucz API'
+            coinbase:
+                instructions_1_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                instructions_2_html: 'Wybierz zakładkę <b>Więcej</b> z lewego paska bocznego.'
+                instructions_3_html: 'Wybierz <b>Zaawansowane API</b>, a następnie kliknij <b>Utwórz klucz API</b>. Jeśli nie możesz go znaleźć, przejdź bezpośrednio z <a href="https://portal.cdp.coinbase.com/">tutaj</a>.'
+                instructions_4_html: 'Wybierz zakładkę <b>Klucze API</b>.'
+                instructions_5_html: 'Kliknij przycisk <b>Utwórz klucz API</b>.'
+                instructions_6_1_html: 'W oknie dialogowym rozwiń <b>Ograniczenia API</b> i skonfiguruj:'
+                instructions_6_2_html: '<b>Nazwa klucza API</b>: Podaj preferowaną nazwę, <b>Deltabadger</b> to dobry wybór, aby rozpoznać go później.'
+                instructions_6_3_html: '<b>Lista dozwolonych IP</b>: <b>3.18.70.231</b>.'
+                instructions_6_4_html: '<b>Portfel</b>: Wybierz portfel, do którego Deltabadger ma mieć dostęp, <b>Domyślny</b> jeśli nie używasz portfeli Coinbase.'
+                instructions_6_5_html: '<b>Uprawnienia</b>:<br>&middot; <b>Wyświetl</b> (tylko do odczytu)<br>&middot; <b>Handel</b> (wykonywanie transakcji w Twoim imieniu)'
+                instructions_7_html: 'Kliknij <b>Utwórz i pobierz</b> i zakończ weryfikację dwuetapową.'
+                instructions_8_html: 'Skopiuj i wklej nowe klucze API do powyższego formularza.'
+                private_key: 'Sekret'
+                public_key: 'Nazwa klucza API'
             error_info: 'Walidacja nie powiodła się. Spróbuj ponownie lub stwórz nowe klucze.'
             frequency_limit:
                 back_to_settings: 'Wróć do ustawień'

@@ -216,18 +216,21 @@ de:
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
             cancel: Abbrechen
-            coinbase_pro:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Benutzermenü (obere rechte Ecke) zu <b>API</b>.'
-                instructions_3_html: 'Drücke auf <b>Neuer API-Schlüssel</b>.'
-                instructions_4_1_html: 'Setze Berechtigungen für:'
-                instructions_4_2_html: '<b>Ansicht</b>'
-                instructions_4_3_html: '<b>Trade</b>'
-                instructions_5_html: 'Drücke auf <b>API-Schlüssel erstellen</b>.'
-                instructions_6_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                passphrase: Passphrase
-                private_key: API-Geheimnis
-                public_key: API-Schlüssel
+            coinbase:
+                instructions_1_html: 'Melden Sie sich in Ihrem %{exchange_link} Konto an.'
+                instructions_2_html: 'Wählen Sie die Registerkarte <b>Mehr</b> aus der linken Seitenleiste.'
+                instructions_3_html: 'Wählen Sie <b>Erweiterte API</b> und klicken Sie dann auf <b>Erstellen Sie Ihren API-Schlüssel</b>. Wenn Sie es nicht finden können, gehen Sie direkt von <a href="https://portal.cdp.coinbase.com/">hier</a>.'
+                instructions_4_html: 'Wählen Sie die Registerkarte <b>API-Schlüssel</b> aus.'
+                instructions_5_html: 'Klicken Sie auf die Schaltfläche <b>API-Schlüssel erstellen</b>.'
+                instructions_6_1_html: 'Erweitern Sie im Popup-Dialogfeld <b>API-Einschränkungen</b> und konfigurieren Sie:'
+                instructions_6_2_html: '<b>API-Schlüssel-Spitzname</b>: Geben Sie Ihren bevorzugten Namen ein, <b>Deltabadger</b> ist gut, um es später wiederzuerkennen.'
+                instructions_6_3_html: '<b>IP-Whitelist</b>: <b>3.18.70.231</b>.'
+                instructions_6_4_html: '<b>Portfolio</b>: Wählen Sie das Portfolio aus, auf das Deltabadger zugreifen soll, <b>Standard</b>, wenn Sie keine Coinbase-Portfolios verwenden.'
+                instructions_6_5_html: '<b>Berechtigungen</b>:<br>&middot; <b>Anzeigen</b> (nur lesen)<br>&middot; <b>Handel</b> (Ausführen von Trades in Ihrem Namen)'
+                instructions_7_html: 'Klicken Sie auf <b>Erstellen & herunterladen</b> und vervollständigen Sie die 2-Schritt-Verifizierung.'
+                instructions_8_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
+                private_key: 'Geheim'
+                public_key: 'API-Schlüssel-Name'
             error_info: 'Validierung fehlgeschlagen. Versuchen Sie erneut oder generieren Sie neue Schlüssel'
             frequency_limit:
                 back_to_settings: 'Zurück zu Einstellungen'

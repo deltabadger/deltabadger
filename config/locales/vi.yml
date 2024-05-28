@@ -241,31 +241,11 @@ vi:
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
             cancel: 'Hủy bỏ'
-            coinbase_pro:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
-                instructions_2_html: 'Tại menu người dùng (góc trên bên phải), đi đến <b>API</b>.'
-                instructions_3_html: 'Nhấn <b>Khóa API mới</b>.'
-                instructions_4_1_html: 'Thiết lập quyền đối với:'
-                instructions_4_2_html: '<b>Xem</b>'
-                instructions_4_3_html: '<b>Giao dịch</b>'
-                instructions_5_html: 'Nhấn <b>Tạo khóa API</b>.'
-                instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                passphrase: 'Cụm mật khẩu'
-                private_key: 'Khóa bí mật'
-                public_key: 'Khóa API'
             error_info: 'Xác thực không thành công. Vui lòng thử lại hoặc tạo khóa mới.'
             frequency_limit:
                 back_to_settings: 'Trở lại cài đặt'
                 limit_exceeded: 'Để đáp ứng giới hạn bot là %{frequency_limit} giao dịch mỗi phút, lịch trình của bạn sẽ được thực hiện theo lệnh với %{price}%{currency} mỗi lệnh.'
                 start_the_bot: 'Chỉnh sửa và bắt đầu'
-            ftx:
-                instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
-                instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
-                instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
-                instructions_5_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
-                private_key: 'Khóa riêng tư'
-                public_key: 'Khóa công khai'
             gemini:
                 instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
                 instructions_2_html: 'Ở menu tài khoản (góc trên bên phải), đi đến <b>Cài đặt</b>.'
@@ -342,13 +322,6 @@ vi:
             step_schedule: 'Lịch trình'
             validating: 'Đang xác thực'
             withdrawal:
-                ftx:
-                    instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
-                    instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                    instructions_3_html: 'Cuộc xuống phần <b>Khóa API</b>.'
-                    instructions_4_html: 'Nhấn <b>Tạo khóa API</b>.'
-                    instructions_5_html: ''
-                    instructions_6_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
                 kraken:
                     instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
                     instructions_2_html: 'Tại menu người dùng, đi đến <b>Bảo mật</b> → <b>API</b>.'
@@ -360,18 +333,6 @@ vi:
                     instructions_6_html: 'Nhấn <b>Tạo khóa</b>.'
                     instructions_7_html: 'Sao chép và dán các khóa API mới của bạn vào biểu mẫu trên đây.'
             withdrawal_address:
-                ftx:
-                    instructions_10_html: ''
-                    instructions_11_html: ''
-                    instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
-                    instructions_2_html: 'Đi đến menu Cài đặt (góc trên bên phải).'
-                    instructions_3_html: ''
-                    instructions_4_html: ''
-                    instructions_5_html: ''
-                    instructions_6_html: ''
-                    instructions_7_html: ''
-                    instructions_8_html: ''
-                    instructions_9_html: ''
                 kraken:
                     instructions_1_html: 'Đăng nhập vào tài khoản %{{exchange_link}} của bạn.'
                     instructions_2_html: ''
