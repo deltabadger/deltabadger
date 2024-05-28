@@ -746,3 +746,83 @@ en:
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
         saver: 'Get rid of the limits, and make an upgrade!'
+    metrics:
+        exp_return:
+            short_name: 'Exp. Return'
+            short_info: 'The average return you can expect from your investments over time.'
+            best: 'Highest Exp. Return'
+        cagr: 
+            short_name: 'CAGR'
+            short_info: 'The yearly growth rate of your investments over a specified period.'
+            best: 'Highest CAGR'
+        max_drawdown:
+            short_name: Max. Drawdown
+            short_info: 'The largest drop in your portfolio''s value from its peak to its lowest point.'
+            best: 'Lowest Max. Drawdown'
+        volatility:
+            short_name: 'Volatility'
+            short_info: 'How much your investment returns fluctuate over time.'
+            best: 'Lowest Volatility'
+        var:
+            short_name: 'VaR'
+            short_info: 'The maximum loss you might face in a given time period with a certain level of confidence.'
+            best: 'Lowest VaR'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'The average loss you could experience if your portfolio exceeds the VaR threshold.'
+            best: 'Lowest CVaR'
+        sharpe_ratio:
+            short_name: 'Sharpe Ratio'
+            short_info: 'A measure of your investment returns adjusted for risk.'
+            best: 'Highest Sharpe Ratio'
+        sortino_ratio:
+            short_name: 'Sortino Ratio'
+            short_info: 'Similar to Sharpe, but focuses only on negative fluctuations to assess performance.'
+            best: 'Highest Sortino Ratio'
+        calmar_ratio:
+            short_name: 'Calmar Ratio'
+            short_info: 'The rate of return compared to the maximum drawdown.'
+            best: 'Highest Calmar Ratio'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'The extra return your investment earns compared to a benchmark.'
+            best: 'Highest Alpha'
+        beta:
+            short_name: 'Beta'
+            short_info: 'How much your investment''s returns move in relation to the market.'
+            best: 'Lowest Beta'
+        treynor_ratio:
+            short_name: 'Treynor Ratio'
+            short_info: 'The returns you earn for taking on additional risk.'
+            best: 'Highest Treynor Ratio'
+        omega_ratio:
+            short_name: 'Omega Ratio'
+            short_info: 'A measure comparing the probability of gains versus losses.'
+            best: 'Highest Omega Ratio'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'How closely your investment''s performance matches the overall market.'
+            best: 'Highest R²'
+        info_ratio:
+            short_name: 'Info. Ratio'
+            short_info: 'The consistency of your investment returns compared to a benchmark.'
+            best: 'Highest Info. Ratio'
+        diversification:
+            short_name: 'Diversification'
+            short_info: 'The variety of different investments in your portfolio to spread risk.'
+            best: 'Best Diversification'
+    analyzer:
+        smart_allocation: 'Smart Allocation'
+        smart_allocation_info: 'Smart Allocation applies algorithms from Modern Portfolio Theory (MPT) to find the best allocation for your portfolio. You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
+        since: 'since'
+        risk_free_rate: 'Risk-Free Rate'
+        us_bonds: 'US Bonds'
+        benchmark: 'Benchmark'
+        get_ai_insights: 'Get AI Insights'
+        pnl: 'Profit/Loss'
+        strategy:
+            fixed: 'Fixed'
+            dca: 'DCA'
+            rebalancing: 'Rebalancing'
+    utils:
+        soon: '(soon)'
