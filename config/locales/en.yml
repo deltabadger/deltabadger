@@ -735,11 +735,11 @@ en:
     metrics:
         exp_return:
             short_name: 'Exp. Return'
-            short_info: 'The average return you can expect from your investments over time.'
+            short_info: 'The average return you can expect from your portfolio after 1 year.'
             best: 'Highest Exp. Return'
-        cagr: 
+        cagr:
             short_name: 'CAGR'
-            short_info: 'The yearly growth rate of your investments over a specified period.'
+            short_info: 'The yearly growth rate of your portfolio year after year.'
             best: 'Highest CAGR'
         max_drawdown:
             short_name: Max. Drawdown
@@ -747,15 +747,15 @@ en:
             best: 'Lowest Max. Drawdown'
         volatility:
             short_name: 'Volatility'
-            short_info: 'How much your investment returns fluctuate over time.'
+            short_info: 'How much your investment returns fluctuate on a daily basis.'
             best: 'Lowest Volatility'
         var:
             short_name: 'VaR'
-            short_info: 'The maximum loss you might face in a given time period with a certain level of confidence.'
+            short_info: 'There is a 5% chance the portfolio value drops by more than this amount in a single day.'
             best: 'Lowest VaR'
         cvar:
             short_name: 'CVaR'
-            short_info: 'The average loss you could experience if your portfolio exceeds the VaR threshold.'
+            short_info: 'The average loss you could expect in a day if your portfolio exceeds the VaR threshold that day.'
             best: 'Lowest CVaR'
         sharpe_ratio:
             short_name: 'Sharpe Ratio'
@@ -798,9 +798,9 @@ en:
             short_info: 'The variety of different investments in your portfolio to spread risk.'
             best: 'Best Diversification'
     analyzer:
-        smart_allocation: 
+        smart_allocation:
             name: 'Smart Allocation'
-            short_info_html: '<p>Smart Allocation applies algorithms from <b>Modern Portfolio Theory (MPT)</b> to find the best allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
+            short_info_html: '<p>Smart Allocation applies <b>Modern Portfolio Theory (MPT)</b> algorithms to find the best asset allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
         since: 'since'
         risk_free_rate: 'Risk-Free Rate'
         us_bonds: 'US Bonds'
