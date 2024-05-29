@@ -9,7 +9,7 @@
             <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
           <% end %>
         </div>
-        <%= tag.div data: { 
+        <%= tag.div data: {
           controller: "portfolio-analyzer-chart",
           portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],
           portfolio_analyzer_chart_series_value: backtest["timeSeries"]["series"]
