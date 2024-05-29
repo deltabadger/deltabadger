@@ -1,0 +1,42 @@
+import { Controller } from "@hotwired/stimulus";
+
+export default class extends Controller {
+  static targets = ["tooltip"];
+  static dynamicDelay = 1200;
+  static hoverTimeout = null;
+  static noHoverTimeout = null;
+
+  connect() {
+    this.showTooltipTimeout = null;
+  }
+
+  showTooltip() {
+    this.clearTimeouts();
+    this.constructor.hoverTimeout = setTimeout(() => {
+      this.constructor.dynamicDelay = 0;
+    }, 1200);
+
+    this.setTooltipTimeout();
+  }
+
+  hideTooltip() {
+    this.clearTimeouts();
+    this.element.classList.remove("show-tooltip");
+
+    this.constructor.noHoverTimeout = setTimeout(() => {
+      this.constructor.dynamicDelay = 1200;
+    }, 1200);
+  }
+
+  clearTimeouts() {
+    clearTimeout(this.showTooltipTimeout);
+    clearTimeout(this.constructor.hoverTimeout);
+    clearTimeout(this.constructor.noHoverTimeout);
+  }
+
+  setTooltipTimeout() {
+    this.showTooltipTimeout = setTimeout(() => {
+      this.element.classList.add("show-tooltip");
+    }, this.constructor.dynamicDelay);
+  }
+}

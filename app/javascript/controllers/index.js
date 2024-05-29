@@ -30,3 +30,6 @@ application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartControlle
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
+
+import TooltipController from "./tooltip_controller"
+application.register("tooltip", TooltipController)

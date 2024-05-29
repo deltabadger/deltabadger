@@ -1,0 +1,29 @@
+.tooltip
+    opacity: 0
+    position: absolute
+    font-weight: 550
+    background: var(--tooltip-background)
+    color: var(--tooltip-text)
+    padding: 2rem 2.25rem
+    border-radius: 1rem
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1)
+    transition: 0.1s ease-out
+    pointer-events: none
+    z-index: 1000000
+    &::before
+        content: ""
+        position: absolute
+        top: -2rem
+        left: 50%
+        transform: translateX(-50%)
+        border: 1rem solid transparent
+        border-bottom-color: var(--tooltip-background)
+        z-index: 1    
+.show-tooltip
+    .tooltip
+        opacity: 1
+        transition: 0.1s ease-in
+
+.tooltip--smart-allocation
+    top: calc(100% + 1rem)
+    max-width: 51.5rem
