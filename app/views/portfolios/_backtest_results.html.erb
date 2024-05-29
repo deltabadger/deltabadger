@@ -67,7 +67,6 @@
           <div class="label">
             <%= t('metrics.var.short_name') %>
           </div>
-          <%# Means there is a 5% chance of losing more than [VaR] of the portfolio value in a single day %>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
           </div>
@@ -79,7 +78,6 @@
           <div class="label">
             <%= t('metrics.cvar.short_name') %>
           </div>
-          <%# Means means in the worst case scenario where the portfolio loses more than [VaR] in a single day, the average loss to expect would be [CVaR] %>
           <div class="data-grid__item__value">
             <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
           </div>
