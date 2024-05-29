@@ -18,12 +18,27 @@
         transform: translateX(-50%)
         border: 1rem solid transparent
         border-bottom-color: var(--tooltip-background)
-        z-index: 1    
+        z-index: 1 
+
+.tooltip-icon--off
+    display: block
+.tooltip-icon--on
+    display: none
+   
 .show-tooltip
     .tooltip
         opacity: 1
         transition: 0.1s ease-in
+    .tooltip-icon--on
+        display: block
+    .tooltip-icon--off
+        display: none
 
+.tooltip-info-icon
+    cursor: pointer
+    position: relative
 .tooltip--smart-allocation
     top: calc(100% + 1rem)
-    max-width: 51.5rem
+    width: 42rem
+    left: -20rem
+

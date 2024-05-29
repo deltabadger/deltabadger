@@ -48,6 +48,9 @@ input[type=checkbox]
         width: 5rem
         height: 3rem
         opacity: 0
+        &~  *
+            path
+                fill: var(--label)
         &:checked 
             &~ .toggle__style
                 background-color: var(--toggle-background-active)
@@ -55,6 +58,6 @@ input[type=checkbox]
                     transform: translateX(2rem)
             &~ .label
                 color: var(--toggle-background-active)
-            &~  .icon-24
+            &~  *
                 path
                     fill: var(--toggle-background-active)
