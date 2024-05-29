@@ -14,16 +14,16 @@ export default class extends Controller {
   }
 
   showTooltip() {
-    this.clearTimeouts();
+    this.#clearTimeouts();
     this.constructor.hoverTimeout = setTimeout(() => {
       this.constructor.dynamicDelay = 0;
     }, 1500);
 
-    this.setTooltipTimeout();
+    this.#setTooltipTimeout();
   }
 
   hideTooltip() {
-    this.clearTimeouts();
+    this.#clearTimeouts();
     this.element.classList.remove("show-tooltip");
 
     this.constructor.noHoverTimeout = setTimeout(() => {
@@ -31,13 +31,13 @@ export default class extends Controller {
     }, 1500);
   }
 
-  clearTimeouts() {
+  #clearTimeouts() {
     clearTimeout(this.showTooltipTimeout);
     clearTimeout(this.constructor.hoverTimeout);
     clearTimeout(this.constructor.noHoverTimeout);
   }
 
-  setTooltipTimeout() {
+  #setTooltipTimeout() {
     this.showTooltipTimeout = setTimeout(() => {
       this.element.classList.add("show-tooltip");
     }, this.constructor.dynamicDelay);
