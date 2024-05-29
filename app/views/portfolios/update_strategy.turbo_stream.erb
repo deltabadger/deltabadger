@@ -1,6 +1,6 @@
 <%= turbo_stream.replace "strategy-select", partial: "strategy_select", locals: { portfolio: @portfolio } %>
 <% if @portfolio.allocations_are_normalized? %>
-  <%= render_turbo_stream_backtest_results(@backtest) %>
+  <%= render_turbo_stream_backtest_results(@backtest, @portfolio) %>
 <% end %>
 <% if @portfolio.smart_allocation_on? %>
   <%= turbo_stream.replace "smart-allocation-controls", partial: "smart_allocation_controls", locals: { portfolio: @portfolio } %>

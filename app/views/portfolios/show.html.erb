@@ -72,7 +72,7 @@
       </button>
     </div>
     <%# render "insights" %>
-    <%= render "backtest_results", backtest: @backtest %>
+    <%= render "backtest_results", backtest: @backtest, portfolio: @portfolio %>
     <div class="flex-row gap-2 wrap space-between">
       <%= render "risk_free_rate", portfolio: @portfolio %>
       <%= render "benchmark_select", portfolio: @portfolio %>
