@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static dynamicDelay = 1500;
+  static dynamicDelay = 500;
   static hoverTimeout = null;
   static noHoverTimeout = null;
 
@@ -17,7 +17,7 @@ export default class extends Controller {
     this.#clearTimeouts();
     this.constructor.hoverTimeout = setTimeout(() => {
       this.constructor.dynamicDelay = 0;
-    }, 1500);
+    }, 500);
 
     this.#setTooltipTimeout();
   }
@@ -27,8 +27,8 @@ export default class extends Controller {
     this.element.classList.remove("show-tooltip");
 
     this.constructor.noHoverTimeout = setTimeout(() => {
-      this.constructor.dynamicDelay = 1500;
-    }, 1500);
+      this.constructor.dynamicDelay = 500;
+    }, 500);
   }
 
   #clearTimeouts() {
