@@ -5,7 +5,7 @@
   <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>
 <% elsif @portfolio.smart_allocation_on? %>
   <%= turbo_stream.replace "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @portfolio } %>
-  <%= render_turbo_stream_portfolio_assets(@portfolio) %>
+  <%= render_turbo_stream_portfolio_assets(@portfolio, @asset) %>
 <% end %>
 <% if @portfolio.allocations_are_normalized? || @portfolio.assets.empty? %>
   <%= render_turbo_stream_backtest_results(@backtest, @portfolio) %>

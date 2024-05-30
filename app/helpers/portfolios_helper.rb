@@ -6,8 +6,10 @@ module PortfoliosHelper
     }
   end
 
-  def render_turbo_stream_portfolio_assets(portfolio)
+  def render_turbo_stream_portfolio_assets(portfolio, ignore_asset = nil)
     portfolio.assets.map do |asset|
+      next if asset == ignore_asset
+
       turbo_stream.replace asset, partial: 'assets/asset', locals: { asset: asset }
     end.join.html_safe
   end
