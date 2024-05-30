@@ -1,5 +1,5 @@
-<%= tag.div id: "portfolio-idle-assets-label", class: "label" do %>
-  <% if portfolio.idle_assets.any? %>
+<% if portfolio.idle_assets.any? %>
+  <%= tag.div id: "portfolio-idle-assets-label", class: "label basket__excluded-assets-label" do %>
     These assets neither lower Volatility nor increase Sharpe Ratio of your portfolio:
   <% end %>
 <% end %>

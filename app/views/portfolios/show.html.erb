@@ -4,18 +4,19 @@
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
     <%# render "empty", portfolio: @portfolio %>
-    <%= tag.div id: "portfolio-active-assets", class: "basket" do %>
-      <% @portfolio.active_assets.each do |asset| %>
-        <%= render 'assets/asset', asset: asset %>
+    <div>
+      <%= tag.div id: "portfolio-active-assets", class: "basket" do %>
+        <% @portfolio.active_assets.each do |asset| %>
+          <%= render 'assets/asset', asset: asset %>
+        <% end %>
       <% end %>
-    <% end %>
-    <%= render "idle_assets_label", portfolio: @portfolio %>
-    <%= tag.div id: "portfolio-idle-assets", class: "basket" do %>
-      <% @portfolio.idle_assets.each do |asset| %>
-        <%= render 'assets/asset', asset: asset %>
+      <%= render "idle_assets_label", portfolio: @portfolio %>
+      <%= tag.div id: "portfolio-idle-assets", class: "basket basket--idle" do %>
+        <% @portfolio.idle_assets.each do |asset| %>
+          <%= render 'assets/asset', asset: asset %>
+        <% end %>
       <% end %>
-    <% end %>
-
+    </div>
     <div class="flex-row space-between" data-controller="form-key-press">
 
       <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--add-asset", data: { turbo_frame: "modal", form_key_press_target: "button" } do %>
