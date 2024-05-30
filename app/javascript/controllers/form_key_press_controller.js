@@ -8,6 +8,7 @@ export default class extends Controller {
   static targets = ["button"];
 
   connect() {
+    this.keysPressed = [];
     this.handleModalIsOpenBound = this.#handleModalIsOpen.bind(this);
     this.handleKeyPressBound = this.#handleKeyPress.bind(this);
     window.addEventListener("modalIsOpen", this.handleModalIsOpenBound);
@@ -20,13 +21,16 @@ export default class extends Controller {
   }
 
   #handleModalIsOpen(event) {
-    if (!event.detail) {
+    if (event.detail) {
+      if (this.keysPressed.length === 0) {
+        window.removeEventListener("keydown", this.handleKeyPressBound);
+      }
+    } else {
       window.addEventListener("keydown", this.handleKeyPressBound);
     }
   }
 
   #handleKeyPress(event) {
-    this.keysPressed = this.keysPressed || [];
 
     const waitForInputAndFillItWithKeysPressed = () => {
 
