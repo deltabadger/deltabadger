@@ -37,7 +37,8 @@ export default class extends Controller {
     const portfolio_color = profitable ? success_color : danger_color;
     const benchmark_color = this.#safeColor(this.#getCssVariableValue('--benchmark'));
     const font_color = this.#safeColor(this.#getCssVariableValue('--label'));
-    const tooltip_background_color = this.#safeColor(this.#getCssVariableValue('--widget-background'));
+    const tooltip_background_color = this.#safeColor(this.#getCssVariableValue('--tooltip-background'));
+    const tooltip_font_color = this.#safeColor(this.#getCssVariableValue('--tooltip-text'));
     const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
           portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
           portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
@@ -50,7 +51,22 @@ export default class extends Controller {
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
         const tooltip = this;
-        return { x: 5, y: 5 };
+        return { x: 5, y: -5 };
+    };
+
+    Tooltip.positioners.dynamicPosition = function(elements, eventPosition) {
+      const tooltip = this;
+      const chartArea = tooltip.chart.chartArea;
+      const cursorX = eventPosition.x;
+
+      let y = -10
+      let x = 10;
+
+      if (cursorX < tooltip.width + x) {
+        x = chartArea.width;
+      }
+
+      return { x: x, y: y };
     };
 
     Chart.defaults.font.family = "Montserrat";
@@ -61,7 +77,7 @@ export default class extends Controller {
       type: "line",
       plugins: [
         {
-          afterDraw: (chart) => {
+          afterDatasetsDraw: (chart) => {
             if (chart.tooltip?._active?.length) {
               let x = chart.tooltip._active[0].element.x;
               let yAxis = chart.scales.y;
@@ -74,6 +90,13 @@ export default class extends Controller {
               ctx.strokeStyle = font_color;
               ctx.stroke();
               ctx.restore();
+            }
+          },
+          afterDraw: (chart) => {
+            // Trigger the tooltip to be redrawn, to avoid the line being drawn over it
+            if (chart.tooltip?._active?.length) {
+              chart.tooltip.update();
+              chart.tooltip.draw(chart.ctx);
             }
           },
         },
@@ -237,18 +260,18 @@ export default class extends Controller {
             intersect: false,
             boxPadding: 5,
             usePointStyle: true,
-            padding: 10,
+            padding: 16,
             cornerRadius: 5,
             caretPadding: 13,
             caretSize: 0,
-            titleColor: font_color,
+            titleColor: tooltip_font_color,
             titleFont: { size: 16 },
-            bodyColor: font_color,
-            bodyFont: { size: 16, weight: 600 },
+            bodyColor: tooltip_font_color,
+            bodyFont: { size: 16, weight: 550 },
             bodySpacing: 5,
-            backgroundColor: "transparent",
-            position: "topLeft",
-            boxWidth: 10,
+            backgroundColor: tooltip_background_color,
+            position: "dynamicPosition",
+            boxWidth: 16,
             callbacks: {
               label: function (context) {
                 let label = context.dataset.label + ": ";
@@ -321,7 +344,7 @@ export default class extends Controller {
     const regex = this.#displayP3Regex();
     return regex.test(colorString);
   }
-  
+
   #isValidHexColor(hexString) {
     const regex = this.#hexRegex();
     return regex.test(hexString);
@@ -352,7 +375,7 @@ export default class extends Controller {
     }
   }
 
-  #displayP3ToRgba(displayP3String) {    
+  #displayP3ToRgba(displayP3String) {
     const match = displayP3String.match(this.#displayP3Regex());
     if (!match) {
       throw new Error('Invalid color(display-p3 ...) string');
@@ -419,7 +442,7 @@ export default class extends Controller {
       const b = match[9];
       return `color(display-p3 ${r} ${g} ${b} / ${transparency})`;
     }
-    
+
     match = color.match(this.#rgbaRegex());
     if (match) {
       const r = match[1];
