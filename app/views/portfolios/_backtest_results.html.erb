@@ -35,7 +35,7 @@
             <%= t('metrics.exp_return.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['expectedReturn'] * 100)) + '%' if backtest['metrics']['expectedReturn'].present? %>
+              <%= sprintf('%.2f', (backtest['metrics']['expectedReturn'] * 100)) + '%' if backtest['metrics']['expectedReturn'].present? %>
           </div>
           <div class="tooltip">
             <%= t('metrics.exp_return.short_info') %>
@@ -46,7 +46,11 @@
             <%= t('metrics.cagr.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['cagr'] * 100)) + '%' if backtest['metrics']['cagr'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>  
+              <%= sprintf('%.2f', (backtest['metrics']['cagr'] * 100)) + '%' if backtest['metrics']['cagr'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.cagr.short_info') %>
@@ -79,7 +83,11 @@
             <%= t('metrics.var.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %> 
+              <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.var.short_info') %>
@@ -90,7 +98,11 @@
             <%= t('metrics.cvar.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.cvar.short_info') %>
@@ -112,7 +124,11 @@
             <%= t('metrics.sortino_ratio.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['sortinoRatio']) if backtest['metrics']['sortinoRatio'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>  
+              <%= sprintf('%.2f', backtest['metrics']['sortinoRatio']) if backtest['metrics']['sortinoRatio'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.sortino_ratio.short_info') %>
@@ -123,7 +139,11 @@
             <%= t('metrics.calmar_ratio.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['calmarRatio']) if backtest['metrics']['calmarRatio'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', backtest['metrics']['calmarRatio']) if backtest['metrics']['calmarRatio'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.calmar_ratio.short_info') %>
@@ -134,7 +154,11 @@
             <%= t('metrics.alpha.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['alpha'] * 100)) + '%' if backtest['metrics']['alpha'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', (backtest['metrics']['alpha'] * 100)) + '%' if backtest['metrics']['alpha'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.alpha.short_info') %>
@@ -145,7 +169,11 @@
             <%= t('metrics.beta.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['beta']) if backtest['metrics']['beta'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', backtest['metrics']['beta']) if backtest['metrics']['beta'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.beta.short_info') %>
@@ -156,7 +184,11 @@
             <%= t('metrics.treynor_ratio.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['treynorRatio']) if backtest['metrics']['treynorRatio'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', backtest['metrics']['treynorRatio']) if backtest['metrics']['treynorRatio'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.treynor_ratio.short_info') %>
@@ -167,7 +199,11 @@
             <%= t('metrics.omega_ratio.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['omegaRatio']) if backtest['metrics']['omegaRatio'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', backtest['metrics']['omegaRatio']) if backtest['metrics']['omegaRatio'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.omega_ratio.short_info') %>
@@ -178,7 +214,11 @@
             <%= t('metrics.r_squared.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['rSquared']) if backtest['metrics']['rSquared'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', backtest['metrics']['rSquared']) if backtest['metrics']['rSquared'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.r_squared.short_info') %>
@@ -189,7 +229,11 @@
             <%= t('metrics.info_ratio.short_name') %>
           </div>
           <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>
+            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+              <%= render 'svg/24x24_lock' %>
+            <% else %>
+              <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>
+            <% end %>
           </div>
           <div class="tooltip">
             <%= t('metrics.info_ratio.short_info') %>
