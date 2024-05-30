@@ -5,8 +5,7 @@ class PortfoliosController < ApplicationController
   # before_action :initialize_session, only: [:show]
 
   def show
-    @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on? && @portfolio.assets.any?
-    @backtest = @portfolio.backtest
+    set_backtest_data
   end
 
   def update_benchmark

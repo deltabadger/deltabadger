@@ -1,5 +1,6 @@
 <% @portfolio.reload %>
-<%= turbo_stream.append "portfolio-assets", partial: "asset", locals: { asset: @asset } %>
+<% append_id = @portfolio.active_assets.include?(@asset) ? "portfolio-active-assets" : "portfolio-idle-assets" %>
+<%= turbo_stream.append append_id, partial: "asset", locals: { asset: @asset } %>
 <% if @portfolio.assets.size == 1 %>
   <%= turbo_stream.replace "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @portfolio } %>
   <%= turbo_stream.update "portfolio-empty", partial: "portfolios/empty", locals: { portfolio: @asset.portfolio } %>

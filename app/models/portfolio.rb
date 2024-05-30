@@ -127,6 +127,20 @@ class Portfolio < ApplicationRecord
     # backtest['metrics']['informationRatio'].round(2)
   end
 
+  def active_assets
+    if smart_allocation_on?
+      assets.order(:id).select do |asset|
+        smart_allocations.map { |sa| sa[asset.ticker] }.sum.positive?
+      end
+    else
+      assets.order(:id)
+    end
+  end
+
+  def idle_assets
+    assets.order(:id) - active_assets
+  end
+
   def chatgpt_prompt
     text = ''
     text += 'This is my portfolio: '
