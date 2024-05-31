@@ -31,8 +31,9 @@ class UserDashboard < Administrate::BaseDashboard
     admin: Field::Boolean,
     terms_and_conditions: Field::Boolean,
     updates_agreement: Field::Boolean,
-    welcome_banner_showed: Field::Boolean,
-    referral_banner_showed: Field::Boolean,
+    welcome_banner_dismissed: Field::Boolean,
+    news_banner_dismissed: Field::Boolean,
+    referral_banner_dismissed: Field::Boolean,
     limit_reached?: Field::Boolean,
     referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
     current_referrer_profit: Field::Number,
@@ -76,8 +77,9 @@ class UserDashboard < Administrate::BaseDashboard
     admin
     terms_and_conditions
     updates_agreement
-    welcome_banner_showed
-    referral_banner_showed
+    welcome_banner_dismissed
+    news_banner_dismissed
+    referral_banner_dismissed
     referrer
     current_referrer_profit
   ].freeze
@@ -95,8 +97,9 @@ class UserDashboard < Administrate::BaseDashboard
     admin
     terms_and_conditions
     updates_agreement
-    welcome_banner_showed
-    referral_banner_showed
+    welcome_banner_dismissed
+    news_banner_dismissed
+    referral_banner_dismissed
   ].freeze
 
   # COLLECTION_FILTERS

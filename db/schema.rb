@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_05_16_124312) do
+ActiveRecord::Schema.define(version: 2024_05_31_000454) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -259,7 +259,7 @@ ActiveRecord::Schema.define(version: 2024_05_16_124312) do
     t.boolean "admin", default: false, null: false
     t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
-    t.boolean "welcome_banner_showed", default: false
+    t.boolean "welcome_banner_dismissed", default: false
     t.bigint "referrer_id"
     t.decimal "current_referrer_profit", default: "0.0", null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
@@ -267,9 +267,10 @@ ActiveRecord::Schema.define(version: 2024_05_16_124312) do
     t.integer "pending_plan_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
-    t.boolean "referral_banner_showed", default: false
+    t.boolean "referral_banner_dismissed", default: false
     t.datetime "last_otp_at"
     t.string "name"
+    t.boolean "news_banner_dismissed", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
