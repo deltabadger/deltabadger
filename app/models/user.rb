@@ -49,14 +49,6 @@ class User < ApplicationRecord
     credits <= 0
   end
 
-  def welcome_banner_showed?
-    welcome_banner_showed
-  end
-
-  def referral_banner_showed?
-    referral_banner_showed
-  end
-
   def eligible_referrer
     referrer if eligible_for_discount?
   end
