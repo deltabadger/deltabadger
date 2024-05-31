@@ -13,8 +13,7 @@ class AssetsController < ApplicationController
     # TODO: add condition asset ticker must be valid
     @asset = @portfolio.assets.new(asset_params)
     if !asset_in_portfolio? && @asset.save
-      @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
-      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+      set_backtest_data
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }
