@@ -95,6 +95,7 @@ Rails.application.routes.draw do
     namespace :settings do
       get '/', action: :index
       patch :hide_welcome_banner
+      patch :hide_news_banner
       patch :hide_referral_banner
       patch :update_password
       patch :update_email
@@ -129,7 +130,7 @@ Rails.application.routes.draw do
       patch :update_risk_free_rate
       post :normalize_allocations
     end
-  
+
     get '/portfolio-analyzer', to: 'portfolios#show' # in the future, use only portfolios which can be automated etc.
   end
 
