@@ -183,9 +183,10 @@
       = render 'layouts/flash'
 
     = render 'layouts/navbar'
-    //= render 'layouts/welcome_message'
     %main.main
-      = render 'layouts/referral_message'
+      -# = render 'layouts/banners/welcome_message'
+      = render 'layouts/banners/news_message'
+      = render 'layouts/banners/referral_message'
       = render 'layouts/limit_reached'
       = yield
 
