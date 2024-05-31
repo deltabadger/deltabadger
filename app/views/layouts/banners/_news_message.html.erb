@@ -1,6 +1,6 @@
 <% if @show_news_banner %>
   <div class="container" data-controller="removals">
-    <div class="alert alert-primary alertbox">
+    <div class="alert alert-primary alertbox alertbox--news">
       <div class="text">
         <p>
           For the last four years, Deltabadger has helped thousands of people accumulate crypto using automated dollar-cost averaging. But we've always looked beyond DCA, and our vision has been to build a one-stop shop for long-term investors.
@@ -21,6 +21,7 @@
       <%= button_to settings_hide_news_banner_path, method: :patch, title: "Close", class: "close", data: { action: "click->removals#submitAndRemove" } do %>
         <span aria-hidden="true">&times;</span>
       <% end %>
+      <%= render partial: 'layouts/svg_bubbleart_01' %>
     </div>
   </div>
 <% end %>
