@@ -1,16 +1,10 @@
-  <%= tag.div id: "backtest-results", class: "gap-1" do %>
+  <%= tag.div id: "backtest-results", class: "gap-1#{' backtests--warning' if backtest['timeSeries']['labels'][0] != portfolio.backtest_start_date || backtest['timeSeries']['labels'][-1] != yesterday_date}" do %>
 
     <% if backtest.present? %>
 
-      <%# Backtest time adjust warning %>
       <% yesterday_date = (Time.now.utc - 86400).strftime('%Y-%m-%d') %>
-      <% if backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date && backtest["timeSeries"]["labels"][-1] != yesterday_date %>
-        <span>Backtest time window has been adjusted to start at <%= backtest["timeSeries"]["labels"][0] %> and end at <%= backtest["timeSeries"]["labels"][-1] %> to fit all assets history.</span>
-      <% elsif backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date %>
-        <span>Backtest start date has been adjusted to <%= backtest["timeSeries"]["labels"][0] %> to fit all assets history.</span>
-      <% elsif backtest["timeSeries"]["labels"][-1] != yesterday_date %>
-        <span>Backtest end date has been adjusted to <%= backtest["timeSeries"]["labels"][-1] %> to fit all assets history.</span>
-      <% end %>
+      
+      <%= render 'backtest_time_adjust_warning', backtest: backtest, portfolio: @portfolio, yesterday_date: yesterday_date %>
 
       <div class="widget widget--chart">
         <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">

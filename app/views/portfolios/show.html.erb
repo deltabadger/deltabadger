@@ -20,12 +20,7 @@
     <div class="flex-row space-between" data-controller="form-key-press">
 
       <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--add-asset", data: { turbo_frame: "modal", form_key_press_target: "button" } do %>
-          <svg class="basket__remove__icon icon-24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M4 12H20H4Z"/>
-            <path d="M4 12H20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 4V20V4Z"/>
-            <path d="M12 4V20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <% render "svg/24x24_plus" %>
       <% end %>
       <%= render "normalize", portfolio: @portfolio %>
 

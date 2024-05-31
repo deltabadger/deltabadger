@@ -1,0 +1,11 @@
+<% if backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date || backtest["timeSeries"]["labels"][-1] != yesterday_date %>
+  <div class="insight insight--warning" style="margin-bottom: 2px">
+    <% if backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date && backtest["timeSeries"]["labels"][-1] != yesterday_date %>
+      <%= t('analyzer.backtest.time_window.adjusted_both_html', start_date: backtest["timeSeries"]["labels"][0], end_date: backtest["timeSeries"]["labels"][-1]) %>
+    <% elsif backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date %>
+      <%= t('analyzer.backtest.time_window.adjusted_start_html', start_date: backtest["timeSeries"]["labels"][0]) %>
+    <% elsif backtest["timeSeries"]["labels"][-1] != yesterday_date %>
+      <%= t('analyzer.backtest.time_window.adjusted_end_html', end_date: backtest["timeSeries"]["labels"][-1]) %>
+    <% end %>
+  </div>
+<% end %>
