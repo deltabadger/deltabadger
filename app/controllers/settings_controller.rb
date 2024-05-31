@@ -10,12 +10,17 @@ class SettingsController < ApplicationController
   end
 
   def hide_welcome_banner
-    current_user.update!(welcome_banner_showed: true)
+    current_user.update!(welcome_banner_dismissed: true)
+    head 200
+  end
+
+  def hide_news_banner
+    current_user.update!(news_banner_dismissed: true)
     head 200
   end
 
   def hide_referral_banner
-    current_user.update!(referral_banner_showed: true)
+    current_user.update!(referral_banner_dismissed: true)
     head 200
   end
 
