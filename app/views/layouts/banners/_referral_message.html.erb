@@ -1,0 +1,20 @@
+<% if @show_referral_banner %>
+  <% ref_link = ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, lang: nil) %>
+  <div class="container" data-controller="removals">
+    <div class="alert alert-success db-alert--welcome db-alert--flex">
+      <span>
+        <%= t('referral.banner_html') %>
+        <br>
+        <h4 class="referral_banner_link">
+          <a href="<%= ref_link %>" id="referral_banner_link"><%= ref_link %></a>
+          <span class="badge badge-success invisible" id="referral_badge">
+            <%= t('referral.copied') %>
+          </span>
+        </h4>
+      </span>
+      <%= button_to settings_hide_referral_banner_path, method: :patch, title: "Close", class: "close", data: { action: "click->removals#submitAndRemove" } do %>
+        <span aria-hidden="true">&times;</span>
+      <% end %>
+    </div>
+  </div>
+<% end %>

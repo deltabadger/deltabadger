@@ -1,11 +1,5 @@
-<% if @show_welcome_banner %>
-  <div class="container">
-    <div class="alert alert-primary db-alert--welcome db-alert--flex" data-controller="removals">
-      <span><%= t('welcome.banner_html', name: @user.name) %></span>
-      <%= button_to settings_hide_welcome_banner_path, method: :patch, title: "Close", class: "close", data: { action: "click->removals#submitAndRemove" } do %>
-        <span aria-hidden="true">&times;</span>
-      <% end %>
-    </div>
+<% if @show_news_banner %>
+  <div class="container" data-controller="removals">
     <div class="alert alert-primary alertbox">
       <div class="text">
         <p>
@@ -24,9 +18,9 @@
           With Bitcoin ETFs, crypto is now part of traditional finance, and we are adapting by expanding into conventional assets as well. Much more is coming, both for the Analyzer and the automations it unlocks. Stay tuned, and feel free to give us your feedback.
         </p>
       </div>
-      <button type="button" id="hide_welcome_banner_button" class="close" data-dismiss="alert" aria-label="Close">
+      <%= button_to settings_hide_news_banner_path, method: :patch, title: "Close", class: "close", data: { action: "click->removals#submitAndRemove" } do %>
         <span aria-hidden="true">&times;</span>
-      </button>
+      <% end %>
     </div>
   </div>
 <% end %>

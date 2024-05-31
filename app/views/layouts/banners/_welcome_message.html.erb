@@ -1,0 +1,10 @@
+<% if @show_welcome_banner %>
+  <div class="container" data-controller="removals">
+    <div class="alert alert-primary db-alert--welcome db-alert--flex">
+      <span><%= t('welcome.banner_html', name: current_user.name) %></span>
+      <%= button_to settings_hide_welcome_banner_path, method: :patch, title: "Close", class: "close", data: { action: "click->removals#submitAndRemove" } do %>
+        <span aria-hidden="true">&times;</span>
+      <% end %>
+    </div>
+  </div>
+<% end %>
