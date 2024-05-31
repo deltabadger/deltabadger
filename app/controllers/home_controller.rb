@@ -54,7 +54,6 @@ class HomeController < ApplicationController
 
   def set_welcome_banner
     @show_welcome_banner = true
-    @user = current_user
   end
 
   def set_news_banner
