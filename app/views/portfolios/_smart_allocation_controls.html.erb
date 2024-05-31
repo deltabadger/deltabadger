@@ -27,9 +27,9 @@
   },
   class: "smart-allocation__slider #{'smart-allocation__slider--off' unless portfolio.smart_allocation_on?}",
   data: {
-    controller: "allocations",
-    allocations_risk_levels_value: Portfolio.humanized_risk_levels,
-    allocations_smart_allocations_value: portfolio.smart_allocations,
+    controller: "risk-level-allocations",
+    risk_level_allocations_risk_levels_value: Portfolio.humanized_risk_levels,
+    risk_level_allocations_smart_allocations_value: portfolio.smart_allocations,
   } do |form| %>
     <div class="flex-row space-between">
       <div class="label label--select ellipsis">
@@ -49,13 +49,13 @@
       </div>
     </div>
     <div class="slider">
-      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.assets.empty? %>
+      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->risk-level-allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.assets.empty? %>
       <div class="slider__style">
         <% disabled_color = "#8894B6" %> <%# TODO: move this to css variable? %>
         <% slider_color = portfolio.smart_allocation_on? ? "#2948A1" : disabled_color %>
         <% slider_width = (Portfolio.risk_levels[portfolio.risk_level] / (Portfolio.risk_levels.size - 1).to_f) * 100 %>
         <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
-          <%= tag.div class: "slider__style__progress", style: "width: #{slider_width}%; background: #{slider_color};", data: { allocations_target: "riskLevelSlider" } do %>
+          <%= tag.div class: "slider__style__progress", style: "width: #{slider_width}%; background: #{slider_color};", data: { risk_level_allocations_target: "riskLevelSlider" } do %>
             <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" %>
           <% end %>
         <% end %>

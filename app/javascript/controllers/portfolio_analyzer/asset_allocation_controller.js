@@ -1,9 +1,9 @@
 import { Controller } from "@hotwired/stimulus";
 
-// Connects to data-controller="allocations"
+// Connects to data-controller="asset-allocation"
 export default class extends Controller {
-  static targets = ["allocation", "allocationInputText", "allocationSlider", "riskLevelSlider"];
-  static values = { assetTicker: String, riskLevels: Array, smartAllocations: Array };
+  static targets = ["allocation", "allocationInputText", "allocationSlider"];
+  static values = { assetTicker: String };
 
   connect() {
     window.addEventListener('riskLevelUpdated', this.#handleRiskLevelUpdated);
@@ -23,13 +23,6 @@ export default class extends Controller {
     this.allocationTarget.value = newValue;
     this.allocationInputTextTarget.value = (newValue * 100).toFixed(0);
     this.allocationSliderTarget.style.width = String(newValue * 100) + '%';
-  }
-
-  updateRiskLevel(event) {
-    this.riskLevelSliderTarget.style.width = String(event.target.value / (this.riskLevelsValue.length - 1) * 100) + '%';
-    const detail = this.smartAllocationsValue[event.target.value];
-    const newEvent = new CustomEvent('riskLevelUpdated', { detail });
-    window.dispatchEvent(newEvent);
   }
 
   #handleRiskLevelUpdated = (event) => {
