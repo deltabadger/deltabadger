@@ -27,7 +27,7 @@ $dropdown-bg: #FFF
   --c-gradient: -webkit-linear-gradient(5deg, var(--c-gradient-step-a), var(--c-gradient-step-b), var(--c-gradient-step-c), var(--c-gradient-step-d), var(--c-gradient-step-a))
 
 @media (prefers-color-scheme: light)
-  .db-darkmode-only
+  .db-darkmode-only,.darkmode-only
     display: none
   \:root
     --primary: #2948A1
@@ -72,8 +72,11 @@ $dropdown-bg: #FFF
     --tooltip-background: #fff
     --tooltip-text: #061A4F
 
+    --alertbox-news-background: #FFF
+    --alertbox-news-color: #061A4F
+
 @media (prefers-color-scheme: dark)
-  .db-lightmode-only
+  .db-lightmode-only,.lightmode-only
     display: none
   \:root
     --primary: #2948A1
@@ -116,3 +119,6 @@ $dropdown-bg: #FFF
 
     --tooltip-background: #2948A1
     --tooltip-text: #fff
+
+    --alertbox-news-background: #1A2646
+    --alertbox-news-color: #fff
