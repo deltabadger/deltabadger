@@ -1,253 +1,253 @@
-  <%= tag.div id: "backtest-results", class: "gap-1#{' backtests--warning' if backtest['timeSeries']['labels'][0] != portfolio.backtest_start_date || backtest['timeSeries']['labels'][-1] != yesterday_date}" do %>
+<% yesterday_date = (Time.now.utc - 86400).strftime('%Y-%m-%d') %>  
+  
+<%= tag.div id: "backtest-results", class: "gap-1#{' backtests--warning' if backtest['timeSeries']['labels'][0] != portfolio.backtest_start_date || backtest['timeSeries']['labels'][-1] != yesterday_date}" do %>
 
-    <% if backtest.present? %>
+  <% if backtest.present? %>
+    
+    <%= render 'backtest_time_adjust_warning', backtest: backtest, portfolio: @portfolio, yesterday_date: yesterday_date %>
 
-      <% yesterday_date = (Time.now.utc - 86400).strftime('%Y-%m-%d') %>
-      
-      <%= render 'backtest_time_adjust_warning', backtest: backtest, portfolio: @portfolio, yesterday_date: yesterday_date %>
-
-      <div class="widget widget--chart">
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label"><%= t('analyzer.pnl') %></div>
-          <% profitable = backtest['metrics']['totalReturn'] > 0 %>
-          <%= tag.div class: "data-grid__item__value", style: "color: var(--#{profitable ? 'success' : 'danger'})" do %>
-            <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
-          <% end %>
-        </div>
-        <%= tag.div data: {
-          controller: "portfolio-analyzer-chart",
-          portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],
-          portfolio_analyzer_chart_series_value: backtest["timeSeries"]["series"]
-        } do %>
-          <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="60"></canvas>
+    <div class="widget widget--chart">
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label"><%= t('analyzer.pnl') %></div>
+        <% profitable = backtest['metrics']['totalReturn'] > 0 %>
+        <%= tag.div class: "data-grid__item__value", style: "color: var(--#{profitable ? 'success' : 'danger'})" do %>
+          <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
         <% end %>
       </div>
+      <%= tag.div data: {
+        controller: "portfolio-analyzer-chart",
+        portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],
+        portfolio_analyzer_chart_series_value: backtest["timeSeries"]["series"]
+      } do %>
+        <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="60"></canvas>
+      <% end %>
+    </div>
 
-      <div class="widget data-grid">
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.exp_return.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-              <%= sprintf('%.2f', (backtest['metrics']['expectedReturn'] * 100)) + '%' if backtest['metrics']['expectedReturn'].present? %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.exp_return.short_info') %>
-          </div>
+    <div class="widget data-grid">
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.exp_return.short_name') %>
         </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.cagr.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>  
-              <%= sprintf('%.2f', (backtest['metrics']['cagr'] * 100)) + '%' if backtest['metrics']['cagr'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.cagr.short_info') %>
-          </div>
+        <div class="data-grid__item__value">
+            <%= sprintf('%.2f', (backtest['metrics']['expectedReturn'] * 100)) + '%' if backtest['metrics']['expectedReturn'].present? %>
         </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.max_drawdown.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['maxDrawdown'] * 100)) + '%' if backtest['metrics']['maxDrawdown'].present? %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.max_drawdown.short_info') %>
-          </div>
+        <div class="tooltip">
+          <%= t('metrics.exp_return.short_info') %>
         </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.volatility.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <%= sprintf('%.2f', (backtest['metrics']['volatility'] * 100)) + '%' if backtest['metrics']['volatility'].present? %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.volatility.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.var.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %> 
-              <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.var.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.cvar.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.cvar.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.sharpe_ratio.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <%= sprintf('%.2f', backtest['metrics']['sharpeRatio']) if backtest['metrics']['sharpeRatio'].present? %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.sharpe_ratio.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.sortino_ratio.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>  
-              <%= sprintf('%.2f', backtest['metrics']['sortinoRatio']) if backtest['metrics']['sortinoRatio'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.sortino_ratio.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.calmar_ratio.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', backtest['metrics']['calmarRatio']) if backtest['metrics']['calmarRatio'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.calmar_ratio.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.alpha.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', (backtest['metrics']['alpha'] * 100)) + '%' if backtest['metrics']['alpha'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.alpha.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.beta.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', backtest['metrics']['beta']) if backtest['metrics']['beta'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.beta.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.treynor_ratio.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', backtest['metrics']['treynorRatio']) if backtest['metrics']['treynorRatio'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.treynor_ratio.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.omega_ratio.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', backtest['metrics']['omegaRatio']) if backtest['metrics']['omegaRatio'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.omega_ratio.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.r_squared.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', backtest['metrics']['rSquared']) if backtest['metrics']['rSquared'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.r_squared.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-          <div class="label">
-            <%= t('metrics.info_ratio.short_name') %>
-          </div>
-          <div class="data-grid__item__value">
-            <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
-              <%= render 'svg/24x24_lock' %>
-            <% else %>
-              <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>
-            <% end %>
-          </div>
-          <div class="tooltip">
-            <%= t('metrics.info_ratio.short_info') %>
-          </div>
-        </div>
-        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--2 data-grid__item--filler--4 data-grid__item--filler--6"></div>
-        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>
-        <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>
-        <div class="data-grid__item data-grid__item--filler"></div>
       </div>
-    <% elsif portfolio.assets.empty? %>
-      <div class="widget">
-        <p>Add some assets to your portfolio to see backtest results</p>
-        <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.cagr.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>  
+            <%= sprintf('%.2f', (backtest['metrics']['cagr'] * 100)) + '%' if backtest['metrics']['cagr'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.cagr.short_info') %>
+        </div>
       </div>
-    <% else %>
-      <div class="widget">
-        <p>Unable to backtest this portfolio. The assets you selected have never coexisted since <%= portfolio.backtest_start_date %>! </p>
-        <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.max_drawdown.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <%= sprintf('%.2f', (backtest['metrics']['maxDrawdown'] * 100)) + '%' if backtest['metrics']['maxDrawdown'].present? %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.max_drawdown.short_info') %>
+        </div>
       </div>
-    <% end %>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.volatility.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <%= sprintf('%.2f', (backtest['metrics']['volatility'] * 100)) + '%' if backtest['metrics']['volatility'].present? %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.volatility.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.var.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %> 
+            <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.var.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.cvar.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.cvar.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.sharpe_ratio.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <%= sprintf('%.2f', backtest['metrics']['sharpeRatio']) if backtest['metrics']['sharpeRatio'].present? %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.sharpe_ratio.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.sortino_ratio.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>  
+            <%= sprintf('%.2f', backtest['metrics']['sortinoRatio']) if backtest['metrics']['sortinoRatio'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.sortino_ratio.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.calmar_ratio.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', backtest['metrics']['calmarRatio']) if backtest['metrics']['calmarRatio'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.calmar_ratio.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.alpha.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', (backtest['metrics']['alpha'] * 100)) + '%' if backtest['metrics']['alpha'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.alpha.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.beta.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', backtest['metrics']['beta']) if backtest['metrics']['beta'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.beta.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.treynor_ratio.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', backtest['metrics']['treynorRatio']) if backtest['metrics']['treynorRatio'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.treynor_ratio.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.omega_ratio.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', backtest['metrics']['omegaRatio']) if backtest['metrics']['omegaRatio'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.omega_ratio.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.r_squared.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', backtest['metrics']['rSquared']) if backtest['metrics']['rSquared'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.r_squared.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="label">
+          <%= t('metrics.info_ratio.short_name') %>
+        </div>
+        <div class="data-grid__item__value">
+          <% unless current_user.subscription_name == 'legendfary_badger' || current_user.subscription_name == 'holder' %>
+            <%= render 'svg/24x24_lock' %>
+          <% else %>
+            <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>
+          <% end %>
+        </div>
+        <div class="tooltip">
+          <%= t('metrics.info_ratio.short_info') %>
+        </div>
+      </div>
+      <div class="data-grid__item data-grid__item--filler data-grid__item--filler--2 data-grid__item--filler--4 data-grid__item--filler--6"></div>
+      <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>
+      <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>
+      <div class="data-grid__item data-grid__item--filler"></div>
+    </div>
+  <% elsif portfolio.assets.empty? %>
+    <div class="widget">
+      <p>Add some assets to your portfolio to see backtest results</p>
+      <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+    </div>
+  <% else %>
+    <div class="widget">
+      <p>Unable to backtest this portfolio. The assets you selected have never coexisted since <%= portfolio.backtest_start_date %>! </p>
+      <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+    </div>
   <% end %>
+<% end %>
 
