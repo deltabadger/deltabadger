@@ -8,6 +8,7 @@
 
 body
     font-size:   2rem
+    font-weight: 450
     font-family: Montserrat, sans-serif
     color:       var(--text)
     position:    relative
@@ -144,15 +145,28 @@ dialog
             font-style: normal
 
 .alertbox
+    border-radius: 2rem
+    box-shadow: 0 0.5rem 2rem 0 rgba(0,0,0,0.12)
     display: flex
     padding: 3rem
     overflow: hidden
+    position: relative
+    margin-bottom: 1rem
+    .close
+        font-size: 2rem
+        opacity: 1
+        *
+            fill: var(--label)
+    a
+        font-weight: bold
+        color: var(--link)
     &--news
         background: var(--alertbox-news-background)
         color: var(--alertbox-news-color)
-        padding-bottom: 30rem
+        padding-bottom: 12rem
     ul,ol
         margin-left: 3rem
+        font-weight: 600
     p,ul,ol
         margin-bottom: 2rem
     .art--legendary-badger
