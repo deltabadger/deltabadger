@@ -4,7 +4,7 @@
       <%= form.check_box :smart_allocation_on, onchange: "this.form.requestSubmit();" %>
       <div class="toggle__style"></div>
       <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
-      
+
       <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
         <div class="tooltip-icon--off">
           <%= render 'svg/24x24_info' %>

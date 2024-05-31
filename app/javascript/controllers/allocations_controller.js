@@ -2,15 +2,15 @@ import { Controller } from "@hotwired/stimulus";
 
 // Connects to data-controller="allocations"
 export default class extends Controller {
-  static targets = ["allocation", "allocationInputText", "allocationSlider", "riskLevelSlider"]; // "riskLevel"
+  static targets = ["allocation", "allocationInputText", "allocationSlider", "riskLevelSlider"];
   static values = { assetTicker: String, riskLevels: Array, smartAllocations: Array };
 
   connect() {
-    window.addEventListener('allocationsUpdated', this.#handleAllocationsUpdated);
+    window.addEventListener('riskLevelUpdated', this.#handleRiskLevelUpdated);
   }
 
   disconnect() {
-    window.removeEventListener('allocationsUpdated', this.#handleAllocationsUpdated);
+    window.removeEventListener('riskLevelUpdated', this.#handleRiskLevelUpdated);
   }
 
   updateAssetAllocation(event) {
@@ -26,14 +26,13 @@ export default class extends Controller {
   }
 
   updateRiskLevel(event) {
-    // this.riskLevelTarget.textContent = this.riskLevelsValue[event.target.value];
     this.riskLevelSliderTarget.style.width = String(event.target.value / (this.riskLevelsValue.length - 1) * 100) + '%';
     const detail = this.smartAllocationsValue[event.target.value];
-    const newEvent = new CustomEvent('allocationsUpdated', { detail });
+    const newEvent = new CustomEvent('riskLevelUpdated', { detail });
     window.dispatchEvent(newEvent);
   }
 
-  #handleAllocationsUpdated = (event) => {
+  #handleRiskLevelUpdated = (event) => {
     if (this.assetTickerValue in event.detail) {
       this.allocationTarget.value = event.detail[this.assetTickerValue];
       this.allocationInputTextTarget.value = (event.detail[this.assetTickerValue] * 100).toFixed(0);
