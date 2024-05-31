@@ -4,8 +4,11 @@
 
 import { application } from "./application"
 
-import AllocationsController from "./allocations_controller"
-application.register("allocations", AllocationsController)
+import AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
+application.register("asset-allocation", AssetAllocationController)
+
+import RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
+application.register("risk-level-allocations", RiskLevelAllocationsController)
 
 import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
 application.register("arrow-keys-navigation", ArrowKeysNavigationController)
