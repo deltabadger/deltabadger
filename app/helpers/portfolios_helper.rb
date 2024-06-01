@@ -6,58 +6,50 @@ module PortfoliosHelper
     }
   end
 
-  # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity,Metrics/MethodLength
   def render_turbo_stream_portfolio_assets(portfolio, last_active_assets_ids, last_idle_assets_ids)
     active_assets = portfolio.active_assets
     idle_assets = portfolio.idle_assets
     active_assets_ids = active_assets.map(&:id)
     idle_assets_ids = idle_assets.map(&:id)
 
-    active_assets_ids_to_remove = last_active_assets_ids - active_assets_ids
-    active_assets_ids_to_add = active_assets_ids - last_active_assets_ids
-
-    idle_assets_ids_to_remove = last_idle_assets_ids - idle_assets_ids
-    idle_assets_ids_to_add = idle_assets_ids - last_idle_assets_ids
-
     streams = []
+    streams.concat generate_remove_streams(active_assets_ids, last_active_assets_ids, 'active_asset')
+    streams.concat generate_remove_streams(idle_assets_ids, last_idle_assets_ids, 'idle_asset')
+    streams.concat generate_add_or_replace_streams(active_assets, active_assets_ids, last_active_assets_ids, 'active')
+    streams.concat generate_add_or_replace_streams(idle_assets, idle_assets_ids, last_idle_assets_ids, 'idle')
 
-    active_assets_ids_to_remove.each do |asset_id|
-      streams << turbo_stream.remove("active_asset_#{asset_id}")
-    end
-    idle_assets_ids_to_remove.each do |asset_id|
-      streams << turbo_stream.remove("idle_asset_#{asset_id}")
-    end
+    streams << handle_idle_assets_label(idle_assets_ids, last_idle_assets_ids, portfolio)
+    streams.compact.join.html_safe
+  end
 
-    active_assets.each_with_index do |asset, index|
-      if active_assets_ids_to_add.include?(asset.id)
+  private
+
+  def generate_remove_streams(current_ids, last_ids, prefix)
+    (last_ids - current_ids).map do |id|
+      turbo_stream.remove("#{prefix}_#{id}")
+    end
+  end
+
+  def generate_add_or_replace_streams(assets, current_ids, last_ids, prefix)
+    assets.map.with_index do |asset, index|
+      if (current_ids - last_ids).include?(asset.id)
         if index.zero?
-          streams << turbo_stream.append('portfolio-active-assets', partial: 'assets/asset', locals: { asset: asset })
+          turbo_stream.append("portfolio-#{prefix}-assets", partial: 'assets/asset', locals: { asset: asset })
         else
-          after_asset = active_assets[index - 1]
-          streams << turbo_stream.after("active_asset_#{after_asset.id}", partial: 'assets/asset', locals: { asset: asset })
+          after_asset = assets[index - 1]
+          turbo_stream.after("#{prefix}_asset_#{after_asset.id}", partial: 'assets/asset', locals: { asset: asset })
         end
       else
-        streams << turbo_stream.replace("active_asset_#{asset.id}", partial: 'assets/asset', locals: { asset: asset })
+        turbo_stream.replace("#{prefix}_asset_#{asset.id}", partial: 'assets/asset', locals: { asset: asset })
       end
     end
-
-    idle_assets.each_with_index do |asset, index|
-      if idle_assets_ids_to_add.include?(asset.id)
-        if index.zero?
-          streams << turbo_stream.append('portfolio-idle-assets', partial: 'assets/asset', locals: { asset: asset })
-        else
-          after_asset = idle_assets[index - 1]
-          streams << turbo_stream.after("idle_asset_#{after_asset.id}", partial: 'assets/asset', locals: { asset: asset })
-        end
-      end
-    end
-
-    if idle_assets_ids.any? && last_idle_assets_ids.none?
-      streams << turbo_stream.before('portfolio-idle-assets', partial: 'portfolios/idle_assets_label', locals: { portfolio: portfolio })
-    elsif idle_assets_ids.none? && last_idle_assets_ids.any?
-      streams << turbo_stream.remove('portfolio-idle-assets-label')
-    end
-    streams.join.html_safe
   end
-  # rubocop:enable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity,Metrics/MethodLength
+
+  def handle_idle_assets_label(idle_assets_ids, last_idle_assets_ids, portfolio)
+    if idle_assets_ids.any? && last_idle_assets_ids.none?
+      turbo_stream.before('portfolio-idle-assets', partial: 'portfolios/idle_assets_label', locals: { portfolio: portfolio })
+    elsif idle_assets_ids.none? && last_idle_assets_ids.any?
+      turbo_stream.remove('portfolio-idle-assets-label')
+    end
+  end
 end
