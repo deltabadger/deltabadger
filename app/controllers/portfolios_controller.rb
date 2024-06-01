@@ -2,7 +2,8 @@ class PortfoliosController < ApplicationController
   layout 'analyzer'
   before_action :authenticate_user!
   before_action :set_portfolio
-  # before_action :initialize_session, only: [:show]
+  before_action :set_last_assets, except: %i[update_risk_level]
+  after_action :save_last_assets, except: %i[update_risk_level normalize_allocations]
 
   def show
     set_backtest_data
@@ -136,5 +137,17 @@ class PortfoliosController < ApplicationController
   def set_backtest_data
     @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+  end
+
+  def set_last_assets
+    @last_active_assets_ids = session[:last_active_assets_ids] || []
+    @last_idle_assets_ids = session[:last_idle_assets_ids] || []
+  end
+
+  def save_last_assets
+    session[:last_active_assets_ids] = @portfolio.active_assets.map(&:id)
+    session[:last_idle_assets_ids] = @portfolio.idle_assets.map(&:id)
+    puts "Last active assets saved: #{session[:last_active_assets_ids]}"
+    puts "Last idle assets saved: #{session[:last_idle_assets_ids]}"
   end
 end

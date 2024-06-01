@@ -1,8 +1,11 @@
-<%= tag.div id: dom_id(asset) do %>
+<% id_prefix = asset.portfolio.active_assets.map(&:id).include?(asset.id) ? 'active' : 'idle' %>
+<%= tag.div id: "#{id_prefix}_#{dom_id(asset)}" do %>
   <% asset_color = asset.color || "#F7931A" %>
   <%= tag.div class: "basket__asset smart-allocation---off",
               data: {
                 hw_animate_in_append: "animate-asset-in",
+                hw_animate_in_prepend: "animate-asset-in",
+                hw_animate_in_after: "animate-asset-in",
                 hw_animate_out_remove: "animate-asset-out"
   } do %>
     <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset__form", onchange: "requestSubmit();" }, data: { controller: "asset-allocation", asset_allocation_asset_ticker_value: asset.ticker } do |form| %>

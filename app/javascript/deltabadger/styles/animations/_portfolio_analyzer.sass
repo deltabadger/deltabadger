@@ -1,6 +1,6 @@
 .smooth
   transition: all 0.25s ease-out
-  
+
 .animate-modal-in
   animation: fade-in 0.25s ease-out
 
@@ -71,4 +71,37 @@
 
   to
     max-height: 0
+    padding-bottom: 0
+
+
+.animate-label-in
+  overflow: hidden
+  animation: fade-in 0.25s
+
+.animate-label-out
+  overflow: hidden
+  animation: fade-out 0.25s
+
+/* "max-height: auto" unfortunately does not work here, so we set
+ * to a fixed height that is greater than the expected height.
+@keyframes slide-down-label
+  from
+    max-height: 0
+    padding-top: 0
+    padding-bottom: 0
+
+  to
+    max-height: 6rem
+    padding-top: 5rem
+    padding-bottom: 6rem
+
+@keyframes slide-up-label
+  from
+    max-height: 6rem
+    padding-top: 5rem
+    padding-bottom: 6rem
+
+  to
+    max-height: 0
+    padding-top: 0
     padding-bottom: 0

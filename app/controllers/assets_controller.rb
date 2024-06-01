@@ -2,6 +2,8 @@ class AssetsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_portfolio
   before_action :set_asset, only: %i[destroy update]
+  before_action :set_last_assets, only: %i[create destroy]
+  after_action :save_last_assets, only: %i[create destroy]
 
   def new
     session[:query] = params[:query]
@@ -80,5 +82,15 @@ class AssetsController < ApplicationController
   def set_backtest_data
     @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+  end
+
+  def set_last_assets
+    @last_active_assets_ids = session[:last_active_assets_ids] || []
+    @last_idle_assets_ids = session[:last_idle_assets_ids] || []
+  end
+
+  def save_last_assets
+    session[:last_active_assets_ids] = @portfolio.active_assets.map(&:id)
+    session[:last_idle_assets_ids] = @portfolio.idle_assets.map(&:id)
   end
 end

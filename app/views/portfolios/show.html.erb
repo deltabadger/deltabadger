@@ -10,10 +10,12 @@
           <%= render 'assets/asset', asset: asset %>
         <% end %>
       <% end %>
-      <%= render "idle_assets_label", portfolio: @portfolio %>
       <%= tag.div id: "portfolio-idle-assets", class: "basket basket--idle" do %>
-        <% @portfolio.idle_assets.each do |asset| %>
-          <%= render 'assets/asset', asset: asset %>
+        <% if @portfolio.idle_assets.any? %>
+          <%= render "idle_assets_label", portfolio: @portfolio %>
+          <% @portfolio.idle_assets.each do |asset| %>
+            <%= render 'assets/asset', asset: asset %>
+          <% end %>
         <% end %>
       <% end %>
     </div>
