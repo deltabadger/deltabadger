@@ -147,7 +147,5 @@ class PortfoliosController < ApplicationController
   def save_last_assets
     session[:last_active_assets_ids] = @portfolio.active_assets.map(&:id)
     session[:last_idle_assets_ids] = @portfolio.idle_assets.map(&:id)
-    puts "Last active assets saved: #{session[:last_active_assets_ids]}"
-    puts "Last idle assets saved: #{session[:last_idle_assets_ids]}"
   end
 end
