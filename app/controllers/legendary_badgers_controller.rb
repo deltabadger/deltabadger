@@ -1,8 +1,6 @@
 class LegendaryBadgersController < ApplicationController
   before_action :authenticate_user!
 
-  layout 'legendary_badger'
-
   def show
     @subscription = current_user.subscription
     puts @subscription.inspect
