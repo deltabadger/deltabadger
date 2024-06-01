@@ -44,7 +44,7 @@ export default class extends Controller {
         elementToRemove.dataset["hwAnimateOut"];
       if (exitAnimationClass) {
         event.preventDefault();
-        console.log("Adding stream exit animation class"); // delete after testing
+        console.log("Adding stream exit animation class to", elementToRemove); // delete after testing
         elementToRemove.classList.add(exitAnimationClass);
         elementToRemove.addEventListener("animationend", () => {
           event.target.performAction();
@@ -61,7 +61,7 @@ export default class extends Controller {
           elementToAdd.dataset["hwAnimateIn" + actionStr] ||
           elementToAdd.dataset["hwAnimateIn"];
         if (enterAnimationClass) {
-          console.log("Adding stream entry animation class"); // delete after testing
+          console.log("Adding stream entry animation class to", elementToAdd); // delete after testing
           elementToAdd.classList.add(enterAnimationClass);
         }
       }
@@ -77,7 +77,7 @@ export default class extends Controller {
       let exitAnimationClass = elementToRemove.dataset["hwAnimateOut"];
       if (exitAnimationClass) {
         event.preventDefault();
-        console.log("Adding frame exit animation class"); // delete after testing
+        console.log("Adding frame exit animation class to", elementToRemove); // delete after testing
         elementToRemove.classList.add(exitAnimationClass);
         elementToRemove.addEventListener("animationend", () => {
           event.target.performAction();
