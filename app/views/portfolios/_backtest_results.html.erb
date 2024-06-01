@@ -1,10 +1,8 @@
-<% yesterday_date = (Time.now.utc - 86400).strftime('%Y-%m-%d') %>
-
 <%= tag.div id: "backtest-results", class: "gap-1" do %>
 
   <% if backtest.present? %>
 
-    <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio, yesterday_date: yesterday_date %>
+    <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>
 
     <div class="widget widget--chart">
       <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
@@ -40,7 +38,7 @@
           <%= t('metrics.cagr.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', (backtest['metrics']['cagr'] * 100)) + '%' if backtest['metrics']['cagr'].present? %>
@@ -77,7 +75,7 @@
           <%= t('metrics.var.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', (backtest['metrics']['valueAtRisk'] * 100)) + '%' if backtest['metrics']['valueAtRisk'].present? %>
@@ -92,7 +90,7 @@
           <%= t('metrics.cvar.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', (backtest['metrics']['conditionalValueAtRisk'] * 100)) + '%' if backtest['metrics']['conditionalValueAtRisk'].present? %>
@@ -118,7 +116,7 @@
           <%= t('metrics.sortino_ratio.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['sortinoRatio']) if backtest['metrics']['sortinoRatio'].present? %>
@@ -133,7 +131,7 @@
           <%= t('metrics.calmar_ratio.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['calmarRatio']) if backtest['metrics']['calmarRatio'].present? %>
@@ -148,7 +146,7 @@
           <%= t('metrics.alpha.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', (backtest['metrics']['alpha'] * 100)) + '%' if backtest['metrics']['alpha'].present? %>
@@ -163,7 +161,7 @@
           <%= t('metrics.beta.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['beta']) if backtest['metrics']['beta'].present? %>
@@ -178,7 +176,7 @@
           <%= t('metrics.treynor_ratio.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['treynorRatio']) if backtest['metrics']['treynorRatio'].present? %>
@@ -193,7 +191,7 @@
           <%= t('metrics.omega_ratio.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['omegaRatio']) if backtest['metrics']['omegaRatio'].present? %>
@@ -208,7 +206,7 @@
           <%= t('metrics.r_squared.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['rSquared']) if backtest['metrics']['rSquared'].present? %>
@@ -223,7 +221,7 @@
           <%= t('metrics.info_ratio.short_name') %>
         </div>
         <div class="data-grid__item__value">
-          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'holder' %>
+          <% unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>
             <%= render 'svg/24x24_lock' %>
           <% else %>
             <%= sprintf('%.2f', backtest['metrics']['informationRatio']) if backtest['metrics']['informationRatio'].present? %>

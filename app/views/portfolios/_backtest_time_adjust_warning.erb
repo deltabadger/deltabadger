@@ -1,3 +1,5 @@
+<% yesterday_date = (Time.now.utc - 86400).strftime('%Y-%m-%d') %>
+
 <% if backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date || backtest["timeSeries"]["labels"][-1] != yesterday_date %>
   <div class="insight insight--warning" style="margin-bottom: 2px">
     <% if backtest["timeSeries"]["labels"][0] != portfolio.backtest_start_date && backtest["timeSeries"]["labels"][-1] != yesterday_date %>
