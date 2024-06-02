@@ -1,4 +1,3 @@
-<% id_prefix = asset.portfolio.active_assets.map(&:id).include?(asset.id) ? 'active' : 'idle' %>
 <%= tag.div id: "#{id_prefix}_#{dom_id(asset)}" do %>
   <% asset_color = asset.color || "#F7931A" %>
   <%= tag.div class: "basket__asset smart-allocation---off",

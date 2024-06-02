@@ -34,13 +34,13 @@ module PortfoliosHelper
     assets.map.with_index do |asset, index|
       if (current_ids - last_ids).include?(asset.id)
         if index.zero?
-          turbo_stream.prepend("portfolio-#{prefix}-assets", partial: 'assets/asset', locals: { asset: asset })
+          turbo_stream.prepend("portfolio-#{prefix}-assets", partial: 'assets/asset', locals: { asset: asset, id_prefix: prefix })
         else
           after_asset = assets[index - 1]
-          turbo_stream.after("#{prefix}_asset_#{after_asset.id}", partial: 'assets/asset', locals: { asset: asset })
+          turbo_stream.after("#{prefix}_asset_#{after_asset.id}", partial: 'assets/asset', locals: { asset: asset, id_prefix: prefix })
         end
       else
-        turbo_stream.replace("#{prefix}_asset_#{asset.id}", partial: 'assets/asset', locals: { asset: asset })
+        turbo_stream.replace("#{prefix}_asset_#{asset.id}", partial: 'assets/asset', locals: { asset: asset, id_prefix: prefix })
       end
     end
   end
