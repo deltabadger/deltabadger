@@ -9,91 +9,90 @@ import { Controller } from "@hotwired/stimulus";
 // Connects to data-controller="hotwire-animations"
 export default class extends Controller {
   connect() {
-    document.addEventListener(
-      "turbo:before-stream-render",
-      this.#handleStreamEvent
-    );
-    document.addEventListener(
-      "turbo:before-frame-render",
-      this.#handleFrameEvent
-    );
+    document.addEventListener("turbo:before-stream-render", this.#handleStreamEvent);
+    document.addEventListener("turbo:before-frame-render", this.#handleFrameEvent);
   }
 
   disconnect() {
-    document.removeEventListener(
-      "turbo:before-stream-render",
-      this.#handleStreamEvent
-    );
-    document.removeEventListener(
-      "turbo:before-frame-render",
-      this.#handleFrameEvent
-    );
+    document.removeEventListener("turbo:before-stream-render", this.#handleStreamEvent);
+    document.removeEventListener("turbo:before-frame-render", this.#handleFrameEvent);
   }
 
-  #handleStreamEvent(event) {
-    const action = event.target.action;
-    const actionStr = `${action.charAt(0).toUpperCase() + action.slice(1)}`;
-
-    // Add a class to an element we are about to remove from the page
-    const elementToRemove = document.getElementById(
-      event.target.target
-    )?.firstElementChild;
-    if (elementToRemove) {
-      let exitAnimationClass =
-        elementToRemove.dataset["hwAnimateOut" + actionStr] ||
-        elementToRemove.dataset["hwAnimateOut"];
-      if (exitAnimationClass) {
-        event.preventDefault();
-        console.log("Adding stream exit animation class to", elementToRemove); // delete after testing
-        elementToRemove.classList.add(exitAnimationClass);
-        elementToRemove.addEventListener("animationend", () => {
-          event.target.performAction();
-        });
-      }
-    }
-    // Add a class to an element we are about to add to the page
+  #handleStreamEvent = (event) => {
+    const actionStr = this.#capitalizeAction(event.target.action);
+    this.#animateElementToRemove(event.target.target, actionStr, event);
     if (event.target.firstElementChild instanceof HTMLTemplateElement) {
-      const elementToAdd =
-        event.target.templateElement.content.firstElementChild
-          ?.firstElementChild;
-      if (elementToAdd) {
-        let enterAnimationClass =
-          elementToAdd.dataset["hwAnimateIn" + actionStr] ||
-          elementToAdd.dataset["hwAnimateIn"];
-        if (enterAnimationClass) {
-          console.log("Adding stream entry animation class to", elementToAdd); // delete after testing
-          elementToAdd.classList.add(enterAnimationClass);
-        }
+      this.#animateElementToAdd(event.target.templateElement.content.firstElementChild, actionStr);
+    }
+  }
+
+  #handleFrameEvent = (event) => {
+    this.#animateElementToRemove(event.detail.newFrame.id, "", event);
+    this.#animateElementToAdd(event.detail.newFrame, "");
+  }
+
+  #capitalizeAction(action) {
+    return `${action.charAt(0).toUpperCase() + action.slice(1)}`;
+  }
+
+  #animateElementToRemove(targetId, actionStr, event) {
+    const elementToRemove = document.getElementById(targetId)?.firstElementChild;
+    if (elementToRemove) {
+      const exitAnimationClass = this.#getAnimationClass(elementToRemove, "Out", actionStr);
+      if (exitAnimationClass) {
+        this.#applyExitAnimation(elementToRemove, exitAnimationClass, event);
       }
     }
   }
 
-  #handleFrameEvent(event) {
-    // Add a class to an element we are about to remove from the page
-    let elementToRemove = document.getElementById(
-      event.detail.newFrame.id
-    ).firstElementChild;
-    if (elementToRemove) {
-      let exitAnimationClass = elementToRemove.dataset["hwAnimateOut"];
-      if (exitAnimationClass) {
-        event.preventDefault();
-        console.log("Adding frame exit animation class to", elementToRemove); // delete after testing
-        elementToRemove.classList.add(exitAnimationClass);
-        elementToRemove.addEventListener("animationend", () => {
-          event.target.performAction();
-        });
-      }
-    }
-    // Add a class to an element we are about to add to the page
-    let elementToAdd = event.detail.newFrame.firstElementChild;
+  #animateElementToAdd(element, actionStr) {
+    const elementToAdd = element?.firstElementChild;
     if (elementToAdd) {
-      let enterAnimationClass = elementToAdd.dataset["hwAnimateIn"];
+      const enterAnimationClass = this.#getAnimationClass(elementToAdd, "In", actionStr);
       if (enterAnimationClass) {
-        console.log("Adding frame entry animation class"); // delete after testing
         elementToAdd.classList.add(enterAnimationClass);
       }
     }
   }
+
+  #getAnimationClass(element, direction, actionStr) {
+    return element.dataset[`hwAnimate${direction}${actionStr}`] || element.dataset[`hwAnimate${direction}`];
+  }
+
+  #applyExitAnimation(element, exitAnimationClass, event) {
+    event.preventDefault();
+    element.classList.add(exitAnimationClass);
+    const { longestAnimationName, longestDuration } = this.#getLongestAnimation(element);
+    element.addEventListener("animationend", function handleAnimationEnd(e) {
+      if (e.animationName === longestAnimationName) {
+        event.target.performAction();
+        element.removeEventListener("animationend", handleAnimationEnd);
+      }
+    });
+  }
+
+  #getLongestAnimation(element) {
+    const computedStyle = window.getComputedStyle(element);
+    const animationNames = computedStyle.animationName.split(', ');
+    const animationDurations = computedStyle.animationDuration.split(', ');
+
+    let longestDuration = 0;
+    let longestAnimationName = '';
+
+    for (let i = 0; i < animationDurations.length; i++) {
+      const duration = parseFloat(animationDurations[i]);
+      const unit = animationDurations[i].match(/[a-z]+/i);
+      const durationInMs = unit && unit[0] === 's' ? duration * 1000 : duration;
+
+      if (durationInMs > longestDuration) {
+        longestDuration = durationInMs;
+        longestAnimationName = animationNames[i].trim();
+      }
+    }
+
+    return { longestAnimationName, longestDuration };
+  }
+
 
   // // To use the new View Transitions (https://dev.to/nejremeslnici/how-to-use-view-transitions-in-hotwire-turbo-1kdin)
   // // https://turbo.hotwired.dev/handbook/drive#view-transitions
