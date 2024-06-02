@@ -13,9 +13,9 @@ module PortfoliosHelper
     idle_assets_ids = idle_assets.map(&:id)
 
     streams = []
-    streams.concat generate_remove_streams(active_assets_ids, last_active_assets_ids, 'active_asset')
-    streams.concat generate_remove_streams(idle_assets_ids, last_idle_assets_ids, 'idle_asset')
+    streams.concat generate_remove_streams(active_assets_ids, last_active_assets_ids, 'active')
     streams.concat generate_add_or_replace_streams(active_assets, active_assets_ids, last_active_assets_ids, 'active')
+    streams.concat generate_remove_streams(idle_assets_ids, last_idle_assets_ids, 'idle')
     streams.concat generate_add_or_replace_streams(idle_assets, idle_assets_ids, last_idle_assets_ids, 'idle')
 
     streams << handle_idle_assets_label(idle_assets_ids, last_idle_assets_ids, portfolio)
@@ -26,7 +26,7 @@ module PortfoliosHelper
 
   def generate_remove_streams(current_ids, last_ids, prefix)
     (last_ids - current_ids).map do |id|
-      turbo_stream.remove("#{prefix}_#{id}")
+      turbo_stream.remove("#{prefix}_asset_#{id}")
     end
   end
 
@@ -34,7 +34,7 @@ module PortfoliosHelper
     assets.map.with_index do |asset, index|
       if (current_ids - last_ids).include?(asset.id)
         if index.zero?
-          turbo_stream.append("portfolio-#{prefix}-assets", partial: 'assets/asset', locals: { asset: asset })
+          turbo_stream.prepend("portfolio-#{prefix}-assets", partial: 'assets/asset', locals: { asset: asset })
         else
           after_asset = assets[index - 1]
           turbo_stream.after("#{prefix}_asset_#{after_asset.id}", partial: 'assets/asset', locals: { asset: asset })
