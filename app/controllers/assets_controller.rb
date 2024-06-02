@@ -16,7 +16,6 @@ class AssetsController < ApplicationController
     @asset = @portfolio.assets.new(asset_params)
     if !asset_in_portfolio? && @asset.save
       set_backtest_data
-      @html_id_prefix = @portfolio.active_assets.include?(@asset) ? 'active' : 'idle'
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }

@@ -127,18 +127,28 @@ class Portfolio < ApplicationRecord
     # backtest['metrics']['informationRatio'].round(2)
   end
 
+  def ordered_assets
+    @ordered_assets ||= assets.order(:id)
+  end
+
   def active_assets
-    if smart_allocation_on?
-      assets.order(:id).select do |asset|
-        smart_allocations.map { |sa| sa[asset.ticker] }.sum.positive?
-      end
-    else
-      assets.order(:id)
-    end
+    @active_assets ||= if smart_allocation_on?
+                         ordered_assets.select do |asset|
+                           smart_allocations.map { |sa| sa[asset.ticker] }.sum.positive?
+                         end
+                       else
+                         ordered_assets
+                       end
   end
 
   def idle_assets
-    assets.order(:id) - active_assets
+    @idle_assets ||= ordered_assets - active_assets
+  end
+
+  def reset_memoized_assets
+    @ordered_assets = nil
+    @active_assets = nil
+    @idle_assets = nil
   end
 
   def chatgpt_prompt
@@ -194,15 +204,15 @@ class Portfolio < ApplicationRecord
   end
 
   def smart_allocations_cache_key
-    assets_str = assets.order(:id).map(&:ticker).sort.join('_')
+    assets_str = ordered_assets.map(&:ticker).sort.join('_')
     "smart_allocations_#{strategy}_#{assets_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 
   private
 
   def backtest_cache_key
-    assets_str = assets.order(:id).map(&:ticker).sort.join('_')
-    allocations_str = assets.order(:id).map(&:allocation).join('_')
+    assets_str = ordered_assets.map(&:ticker).sort.join('_')
+    allocations_str = ordered_assets.map(&:allocation).join('_')
     "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 

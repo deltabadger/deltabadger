@@ -7,7 +7,7 @@
     <div>
       <%= tag.div id: "portfolio-active-assets", class: "basket" do %>
         <% @portfolio.active_assets.each do |asset| %>
-          <%= render 'assets/asset', asset: asset, id_prefix: 'active' %>
+          <%= render 'assets/asset', asset: asset %>
         <% end %>
       <% end %>
       <% if @portfolio.idle_assets.any? %>
@@ -15,7 +15,7 @@
       <% end %>
       <%= tag.div id: "portfolio-idle-assets", class: "basket basket--idle" do %>
         <% @portfolio.idle_assets.each do |asset| %>
-          <%= render 'assets/asset', asset: asset, id_prefix: 'idle' %>
+          <%= render 'assets/asset', asset: asset %>
         <% end %>
       <% end %>
     </div>

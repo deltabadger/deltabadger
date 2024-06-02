@@ -10,6 +10,6 @@
   <%= render_turbo_stream_portfolio_assets(@portfolio, @last_active_assets_ids, @last_idle_assets_ids) %>
   <%= render_turbo_stream_backtest_results(@backtest, @portfolio) %>
 <% else %>
-  <%= turbo_stream.append 'portfolio-active-assets', partial: 'assets/asset', locals: { asset: @asset, id_prefix: @html_id_prefix } %>
+  <%= turbo_stream.append 'portfolio-active-assets', partial: 'assets/asset', locals: { asset: @asset } %>
 <% end %>
 <%= render_turbo_stream_flash_messages %>
