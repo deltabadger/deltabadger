@@ -771,11 +771,11 @@ en:
             best: 'Highest Calmar Ratio'
         alpha:
             short_name: 'Alpha'
-            short_info: 'The extra return your investment earns compared to a benchmark.'
+            short_info: 'How much the portfolio has outperformed the benchmark on a risk-adjusted basis.'
             best: 'Highest Alpha'
         beta:
             short_name: 'Beta'
-            short_info: 'How much your investment''s returns move in relation to the market.'
+            short_info_html: 'The sensitivity of portfolio''s returns to the returns of the benchmark.<p>Beta = 1: Mirrors the benchmark</p><p>Beta > 1: More volatile</p><p>Beta < 1: Less volatile</p><p>Beta < 0: Inverse relationship</p>'
             best: 'Lowest Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'
