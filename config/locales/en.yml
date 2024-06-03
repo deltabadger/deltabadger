@@ -667,12 +667,14 @@ en:
             one: '1 day left'
             other: '%{count} days left'
         hodler: Hodler
-        hodler_description_html: 'DCA works best as a long-term commitment. Four years of <b class="badge badge-btc">unlimited transactions</b> for <b class="badge badge-all">all currencies</b>, lower fees with <b class="badge badge-limit">limit orders</b>, <b class="badge badge-limit">automatic withdrawals</b>, <b class="badge badge-limit">price condition</b>, <b class="badge badge-limit">time condition</b>(soon), <b class="badge badge-limit">webhooks</b> and <b class="badge badge-limit">portfolio rebalancing</b>(soon). Long-term plans also support the project, and that''s why Hodlers get <b class="badge badge-priority">priority access</b> to all new features.'
+        hodler_description_html: '<p><b>DCA works best as a long-term commitment.</b></p><p>Four years of <b>unlimited transactions</b> for <b>all currencies</b>, lower fees with <b>limit orders</b>, <b>automatic withdrawals</b>, <b>price condition</b>, <b>time condition</b>(soon), <b>webhooks</b> and <b>portfolio rebalancing</b>(soon). Long-term plans also support the project, and that''s why Hodlers get <b>priority access</b> to all new features.</p>'
         investor: Investor
-        investor_description_html: 'One year of <b class="badge badge-btc">unlimited transactions</b>, <b class="badge badge-btc">all currencies</b>, and <b class="badge badge-btc">automatic withdrawals</b>.'
+        investor_description_html: 'One year of <b>unlimited transactions</b>, <b>all currencies</b>, and <b>automatic withdrawals</b>.'
         legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p>One of a kind. Limited. Legendary.</p><p><b>Never pay to use the service ever again.</b></p><p>After <b class="badge badge-rebalancing">portfolio rebalancing</b> and <b class="badge badge-webhook">webhook-based trades</b> launch, the pricing will go up, but you''ll have lifetime access to everything for free.</p><p>Sell your subscription any time on decentralized markets. Yes! Nothing like this exists on the market.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Legendary Badgers are a small community for financial freedom seekers. Within a private Telegram channel, your voice will be important in the further growth of the platform. Together we make history.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your DCA status, and be Legendary.</p>'
+        legendary_badger_description_html: '<p><b>Never pay to use the service again.</b></p><p>Everything the Hodler plan has to offer, but for a lifetime.</p><p>Subscription comes with an <b>NFT</b>, so in the future you can sell it to another user.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Lifetime. Limited. Legendary.</p><p>Legendary Badgers are like nothing else on the market.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your long-term thinker status, and be Legendary.</p>'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
+        analyzer_html: 'Boost your portfolio with the unlimited power of <b>Portfolio Analyzer</b>.'
+        expires_soon_html: 'The 4-year plan will be replaced by an annual subscription of $199/year soon. So this is the last chance to get the 4-year access for half the price.' 
         payment:
             card: 'Card'
             account_holder: 'Account holder'
@@ -715,7 +717,7 @@ en:
             you_pay: 'You pay'
         plan_1_year: '1-year plan'
         plan_4_year: '4-year plan'
-        plan_life_time: 'Lifetime Plan'
+        plan_life_time: 'Lifetime plan'
         prolong_upgrade: 'Upgrade your plan'
         saver: Saver
         upgrade: Upgrade
@@ -817,5 +819,7 @@ en:
                 adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
 
-        utils:
+    utils:
         soon: '(soon)'
+        new: 'New'
+        important: 'Important!'
