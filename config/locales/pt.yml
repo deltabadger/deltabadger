@@ -539,7 +539,7 @@ pt:
     subscriptions:
         hodler: Hodler
         investor: Investor
-        investor_description_html: 'Um ano de <b class="badge badge-btc"> transações ilimitadas </b>, <b class="badge badge-btc"> todas as moedas </b> e <b class="badge badge-btc"> saques automáticos </b> (em breve).'
+        investor_description_html: 'Um ano de <b> transações ilimitadas </b>, <b> todas as moedas </b> e <b> saques automáticos </b> (em breve).'
         limit_reached_html: '<b>Parabéns!</b> Atingiu o nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         payment:
             account_holder: 'Titular da conta'
