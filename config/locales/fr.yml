@@ -59,7 +59,7 @@ fr:
             program_settings_html: 'Lien <span class="text-danger"> (ne peut pas être modifié) </span>'
             referrer_info: 'Informations du parrain'
             share_html: 'Partagez ce lien et <span class="text-success">gagnez des Bitcoins</span>'
-            submit: 'C’est parti !'
+            submit: 'C''est parti !'
             thanks_referral: 'Grâce au lien de parrainage de'
             title: 'Inscription au programme de parrainage'
             title_info: 'Vous pouvez partager votre lien dès maintenant, mais pour recevoir des versements en Bitcoin, vous devez d''abord finaliser votre inscription.'
@@ -635,15 +635,17 @@ fr:
             template_html: '<p>Wow,</p><p>merci d''avoir acheté notre forfait <b>%{plan_name}</b></p>. <p>Vous déchirez !</p>'
     subscriptions:
         days_left:
-            one: '1 jour restant'
-            other: '%{count} jours restants'
-        hodler: 'Hodler'
-        hodler_description_html: 'La méthode DCA fonctionne mieux comme engagement à long-terme. Quatre ans de <b>transactions illimitées</b> dans <b>toutes les devises</b>, des frais bas avec les <b>ordres limités</b>, <b>retraits automatiques</b>, <b>conditions de prix</b> ou <b>de temps</b> (à venir), <b>webhooks</b> (à venir) et <b>rééquilibrage du portefeuille</b> (à venir). Les forfaits long-terme soutiennent le projet, et c''est pourquoi les Hodlers ont un <b>accès prioritaire</b> à toutes les nouvelles fonctionnalités.'
-        investor: 'Investisseur'
-        investor_description_html: 'Un an de <b>transactions illimitées</b>, dans <b>toutes les devises</b>, et <b>retraits automatiques</b>.'
-        legendary_badger: 'NFT Legendary Badger'
-        legendary_badger_description_html: '<p>Unique. Limité. Légendaire.</p><p><b>Ne payez plus jamais pour utiliser le service. </b> </p><p>Après le lancement du <b>rééquilibrage du portefeuille </b> et des <b>échanges basés sur webhook</b>, vous aurez un accès à vie à toutes les fonctionnalités.</p><p>Revendez votre abonnement à n''importe quel moment sur les marchés décentralisés. Non, rien d''équivalent n''existe sur le marché !</p><p>Chaque jeton est associé à une illustration procédurale. Trouverez-vous les 21 "easter eggs" cachés dans <a href="https://deltabadger.com/legendary/" class="nobreak">la collection</a>?</p><p> Les Legendary Badgers sont une petite communauté pour ceux qui sont à la recherche de liberté finanière. Au sein d''un canal Telegram privé, votre voix sera entendue dans la croissance de la plateforme. Ensemble, nous faisons l''histoire.</p><p>Il n''y a que 1000 places à bord du vaisseau Legendary Badgers. Consolidez votre statut DCA et devenez Légendaire.</p>'
-        limit_reached_html: '<b> Félicitations ! </b> Vous avez atteint notre limite de transactions gratuites de 1200$/an. Pour continuer, passez au forfait illimité.'
+            one: "1 jour restant"
+            other: "%{count} jours restants"
+        hodler: Hodler
+        hodler_description_html: "<p><b>DCA fonctionne mieux comme un engagement à long terme.</b></p><p>Quatre ans de <b>transactions illimitées</b> pour <b>toutes les devises</b>, des frais plus bas avec des <b>ordres limités</b>, des <b>retraits automatiques</b>, une <b>condition de prix</b>, une <b>condition de temps</b>(bientôt), des <b>webhooks</b> et un <b>rééquilibrage de portefeuille</b>(bientôt). Les plans à long terme soutiennent également le projet, c''est pourquoi les Hodlers ont un <b>accès prioritaire</b> à toutes les nouvelles fonctionnalités.</p>"
+        investor: Investisseur
+        investor_description_html: "Un an de <b>transactions illimitées</b>, <b>toutes les devises</b> et <b>retraits automatiques</b>."
+        legendary_badger: "Legendary Badger"
+        legendary_badger_description_html: '<p><b>Ne payez plus jamais pour utiliser le service.</b></p><p>Tout ce que le plan Hodler offre, mais à vie.</p><p>L''abonnement comprend un <b>NFT</b>, ce qui vous permet de le vendre à un autre utilisateur à l''avenir.</p><p>Chaque jeton est associé à une œuvre d''art procédurale. Pouvez-vous trouver les 21 "œufs de Pâques" cachés dans <a href="https://deltabadger.com/legendary/" class="nobreak">la collection</a>?</p><p>À vie. Limité. Légendaire.</p><p>Les Legendary Badgers sont comme rien d''autre sur le marché.</p><p>Seulement 1000 places sur le vaisseau spatial des Legendary Badgers. Cimentez votre statut de penseur à long terme et devenez légendaire.</p>'
+        limit_reached_html: "<b>Félicitations!</b> Vous avez atteint notre limite de transactions gratuites de 1200 $/an. Pour continuer, passez au plan illimité."
+        analyzer_html: "Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>."
+        expires_soon_html: "Le plan de 4 ans sera bientôt remplacé par un abonnement annuel de 199 $/an. C''est donc la dernière chance d''obtenir l''accès de 4 ans à moitié prix."
         payment:
             account_holder: 'Titulaire du compte'
             account_number: 'Numéro de compte'
@@ -701,3 +703,91 @@ fr:
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
         saver: 'Dites au revoir aux limites et faites une mise à niveau !'
+    metrics:
+        exp_return:
+            short_name: 'Rend. Attendu'
+            short_info: 'Le rendement moyen que vous pouvez attendre de votre portefeuille après un an.'
+            best: 'Rend. Attendu le plus élevé'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'Le taux de croissance annuel de votre portefeuille année après année.'
+            best: 'CAGR le plus élevé'
+        max_drawdown:
+            short_name: 'Max. Déclin'
+            short_info: 'La plus grande baisse de la valeur de votre portefeuille de son sommet à son point le plus bas.'
+            best: 'Max. Déclin le plus bas'
+        volatility:
+            short_name: 'Volatilité'
+            short_info: 'À quel point les rendements de vos investissements fluctuent quotidiennement.'
+            best: 'Volatilité la plus basse'
+        var:
+            short_name: 'VaR'
+            short_info: 'Il y a 5% de chance que la valeur du portefeuille chute de plus que ce montant en une seule journée.'
+            best: 'VaR le plus bas'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'La perte moyenne que vous pourriez attendre en une journée si votre portefeuille dépasse le seuil de VaR ce jour-là.'
+            best: 'CVaR le plus bas'
+        sharpe_ratio:
+            short_name: 'Ratio Sharpe'
+            short_info: 'Une mesure de vos rendements d''investissement ajustés au risque.'
+            best: 'Ratio Sharpe le plus élevé'
+        sortino_ratio:
+            short_name: 'Ratio Sortino'
+            short_info: 'Similaire au ratio Sharpe, mais se concentre uniquement sur les fluctuations négatives pour évaluer la performance.'
+            best: 'Ratio Sortino le plus élevé'
+        calmar_ratio:
+            short_name: 'Ratio Calmar'
+            short_info: 'Le taux de rendement comparé au déclin maximal.'
+            best: 'Ratio Calmar le plus élevé'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'À quel point le portefeuille a surpassé le benchmark sur une base ajustée au risque.'
+            best: 'Alpha le plus élevé'
+        beta:
+            short_name: 'Beta'
+            short_info_html: 'La sensibilité des rendements du portefeuille aux rendements du benchmark.<p>Beta = 1 : Reflète le benchmark</p><p>Beta > 1 : Plus volatil</p><p>Beta < 1 : Moins volatil</p><p>Beta < 0 : Relation inverse</p>'
+            best: 'Beta le plus bas'
+        treynor_ratio:
+            short_name: 'Ratio Treynor'
+            short_info: 'Les rendements que vous gagnez en prenant des risques supplémentaires.'
+            best: 'Ratio Treynor le plus élevé'
+        omega_ratio:
+            short_name: 'Ratio Omega'
+            short_info: 'Une mesure comparant la probabilité de gains par rapport aux pertes.'
+            best: 'Ratio Omega le plus élevé'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'À quel point la performance de votre investissement correspond au marché global.'
+            best: 'R² le plus élevé'
+        info_ratio:
+            short_name: 'Ratio Info.'
+            short_info: 'La constance de vos rendements d''investissement par rapport à un benchmark.'
+            best: 'Ratio Info. le plus élevé'
+        diversification:
+            short_name: 'Diversification'
+            short_info: 'La variété des différentes investissements dans votre portefeuille pour répartir le risque.'
+            best: 'Meilleure Diversification'
+    analyzer:
+        smart_allocation:
+            name: 'Allocation Intelligente'
+            short_info_html: '<p>L''Allocation Intelligente applique des algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
+        since: 'depuis'
+        risk_free_rate: 'Taux sans risque'
+        us_bonds: 'Obligations US'
+        benchmark: 'Indice de référence'
+        get_ai_insights: 'Obtenez des informations AI'
+        pnl: 'Profit/Perte'
+        strategy:
+            fixed: 'Fixe'
+            dca: 'DCA'
+            rebalancing: 'Rééquilibrage'
+        backtest:
+            time_window:
+                adjusted_both_html: "La période de test rétroactif a été ajustée pour commencer le <strong>%{start_date}</strong> et se terminer le <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
+                adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
+                adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
+    utils:
+        soon: '(bientôt)'
+        new: 'Nouveau'
+        important: 'Important !'
