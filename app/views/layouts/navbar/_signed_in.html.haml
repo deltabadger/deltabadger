@@ -17,6 +17,7 @@
 
     = link_to portfolio_analyzer_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_analyzer'
+      .xsbadge= t('utils.new')
       .tooltip 
         = t('links.analyzer')
 
