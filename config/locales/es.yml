@@ -638,12 +638,14 @@ es:
             one: '1 día menos'
             other: '%{count} días disponibles'
         hodler: Hodler
-        hodler_description_html: 'DCA funciona mejor como compromiso a largo plazo. Cuatro años de <b>transacciones ilimitadas</b> para <b>todas las divisas</b>, comisiones más bajas con <b>órdenes limitadas</b>, <b>retiradas automáticas</b>, <b>condición de precio</b>, <b>condición de tiempo</b>(pronto), <b>webhooks</b> y <b>reequilibado del portfolio</b>(pronto). Los planes a largo plazo también apoyan el proyecto, y por eso los Hodlers tienen <b>acceso prioritario</b> a todas las nuevas funciones.'
+        hodler_description_html: '<p><b>DCA funciona mejor como compromiso a largo plazo.</b></p><p>Cuatro años de <b>transacciones ilimitadas</b> para <b>todas las divisas</b>, comisiones más bajas con <b>órdenes limitadas</b>, <b>retiradas automáticas</b>, <b>condición de precio</b>, <b>condición de tiempo</b>(pronto), <b>webhooks</b> y <b>reequilibado del portfolio</b>(pronto). Los planes a largo plazo también apoyan el proyecto, y por eso los Hodlers tienen <b>acceso prioritario</b> a todas las nuevas funciones.</p>'
         investor: Inversor
-        investor_description_html: 'Un año de <b>transacciones ilimitadas</b>, <b>todas las monedas</b> y <b>retiros automáticos</b> (pronto).'
+        investor_description_html: 'Un año de <b>transacciones ilimitadas</b>, <b>todas las monedas</b> y <b>retiros automáticos</b>.'
         legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p>Único. Limitado. Legendario.</p><p><b>No pague nunca más por utilizar el servicio.</b></p><p>Tras el <b>reequilibrio de la cartera</b> y el lanzamiento de las <b>operaciones basadas en webhooks</b>, el precio subirá, pero tendrás accesso de por vida a todo de forma gratuita.</p><p>Vende tu suscripción en cualquier momento en mercados descentralizados. Sí. No existe nada parecido en el mercado.</p><p>Cada token está asociado a una obra de arte procedimental. ¿Puedes encontrar los 21 "easter eggs" escondidos en <a href="https://deltabadger.com/legendary/" class="nobreak">la colección</a>?</p><p>Legendary Badgers es una pequeña comunidad de buscadores de libertad financiera. Dentro de un canal privado de Telegram, tu voz será importante para que la plataforma siga creciendo. Juntos haremos historia.</p><p>Sólo 1000 se sientan en la nave espacial de los Legendary Badgers. Consolida tu estatus de DCA y conviértete en Legendario.</p>'
+        legendary_badger_description_html: '<p><b>No pague nunca más por utilizar el servicio.</b></p><p>Todo lo que ofrece el plan Hodler, pero de por vida.</p><p>La suscripción viene con un <b>NFT</b>, por lo que en el futuro podrás venderlo a otro usuario.</p><p>Cada token está asociado a una obra de arte generada procedimentalmente. ¿Puedes encontrar los 21 "easter eggs" escondidos en <a href="https://deltabadger.com/legendary/" class="nobreak">la colección</a>?</p><p>De por vida. Limitado. Legendario.</p><p>Legendary Badgers son como nada más en el mercado.</p><p>Sólo 1000 están en la nave espacial de los Legendary Badgers. Consolida tu estatus de pensador a largo plazo y sé legendario.</p>'
         limit_reached_html: '<b>¡Felicidades!</b> Has alcanzado nuestro límite de transacciones gratuitas de 1200 dólares/año. Para continuar, actualiza al plan ilimitado.'
+        analyzer_html: 'Mejora tu cartera con el poder ilimitado del <b>Analizador de Cartera</b>.'
+        expires_soon_html: 'El plan de 4 años será reemplazado pronto por una suscripción anual de 199 $/año. Así que esta es la última oportunidad para obtener el acceso de 4 años por la mitad de precio.'
         payment:
             account_holder: 'Titular de la cuenta'
             account_number: 'Número de cuenta'
@@ -701,3 +703,91 @@ es:
         default: 'Hola, bienvenido a Deltabadger'
         legendary: '¡Los NFts llegarán pronto!'
         saver: '¡Deshazte de los límites y haz una actualización!'
+    metrics:
+        exp_return:
+            short_name: 'Rend. Esp.'
+            short_info: 'El rendimiento promedio que puede esperar de su cartera después de un año.'
+            best: 'Mayor Rend. Esp.'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'La tasa de crecimiento anual de su cartera año tras año.'
+            best: 'Mayor CAGR'
+        max_drawdown:
+            short_name: 'Máx. Caída'
+            short_info: 'La mayor caída en el valor de su cartera desde su punto más alto hasta su punto más bajo.'
+            best: 'Menor Máx. Caída'
+        volatility:
+            short_name: 'Volatilidad'
+            short_info: 'Cuánto fluctúan los rendimientos de su inversión diariamente.'
+            best: 'Menor Volatilidad'
+        var:
+            short_name: 'VaR'
+            short_info: 'Hay un 5% de probabilidad de que el valor de la cartera caiga más de esta cantidad en un solo día.'
+            best: 'Menor VaR'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'La pérdida promedio que podría esperar en un día si su cartera supera el umbral de VaR ese día.'
+            best: 'Menor CVaR'
+        sharpe_ratio:
+            short_name: 'Ratio Sharpe'
+            short_info: 'Una medida de los rendimientos de su inversión ajustada por riesgo.'
+            best: 'Mayor Ratio Sharpe'
+        sortino_ratio:
+            short_name: 'Ratio Sortino'
+            short_info: 'Similar al Sharpe, pero se centra solo en las fluctuaciones negativas para evaluar el rendimiento.'
+            best: 'Mayor Ratio Sortino'
+        calmar_ratio:
+            short_name: 'Ratio Calmar'
+            short_info: 'La tasa de retorno en comparación con la máxima caída.'
+            best: 'Mayor Ratio Calmar'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'Cuánto ha superado la cartera al índice de referencia ajustado por riesgo.'
+            best: 'Mayor Alpha'
+        beta:
+            short_name: 'Beta'
+            short_info_html: 'La sensibilidad de los rendimientos de la cartera a los rendimientos del índice de referencia.<p>Beta = 1: Refleja el índice de referencia</p><p>Beta > 1: Más volátil</p><p>Beta < 1: Menos volátil</p><p>Beta < 0: Relación inversa</p>'
+            best: 'Menor Beta'
+        treynor_ratio:
+            short_name: 'Ratio Treynor'
+            short_info: 'Los rendimientos que obtiene por asumir un riesgo adicional.'
+            best: 'Mayor Ratio Treynor'
+        omega_ratio:
+            short_name: 'Ratio Omega'
+            short_info: 'Una medida que compara la probabilidad de ganancias frente a pérdidas.'
+            best: 'Mayor Ratio Omega'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'Qué tan cerca coincide el rendimiento de su inversión con el mercado en general.'
+            best: 'Mayor R²'
+        info_ratio:
+            short_name: 'Ratio Info.'
+            short_info: 'La consistencia de los rendimientos de su inversión en comparación con un índice de referencia.'
+            best: 'Mayor Ratio Info.'
+        diversification:
+            short_name: 'Diversificación'
+            short_info: 'La variedad de diferentes inversiones en su cartera para distribuir el riesgo.'
+            best: 'Mejor Diversificación'
+    analyzer:
+        smart_allocation:
+            name: 'Asignación Inteligente'
+            short_info_html: '<p>La Asignación Inteligente aplica algoritmos de la <b>Teoría Moderna de Portafolios (MPT)</b> para encontrar la mejor asignación de activos para su cartera.</p>Puede optimizar para dos métricas diferentes e incluso elegir un punto deseado entre esas dos optimizaciones.'
+        since: 'desde'
+        risk_free_rate: 'Tasa Libre de Riesgo'
+        us_bonds: 'Bonos EE.UU.'
+        benchmark: 'Índice de referencia'
+        get_ai_insights: 'Obtener Información AI'
+        pnl: 'Ganancia/Pérdida'
+        strategy:
+            fixed: 'Fijo'
+            dca: 'DCA'
+            rebalancing: 'Rebalanceo'
+        backtest:
+            time_window:
+                adjusted_both_html: "El período de prueba retrospectiva se ha ajustado para comenzar el <strong>%{start_date}</strong> y finalizar el <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
+                adjusted_start_html: "La fecha de inicio de la prueba retrospectiva se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
+                adjusted_end_html: "La fecha de finalización de la prueba retrospectiva se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
+    utils:
+        soon: '(pronto)'
+        new: 'Nuevo'
+        important: '¡Importante!'

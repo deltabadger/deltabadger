@@ -818,7 +818,6 @@ en:
                 adjusted_both_html: "The backtest time window has been adjusted to start at <strong>%{start_date}</strong> and end at <strong>%{end_date}</strong> to fit the available history of all assets."
                 adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
-
     utils:
         soon: '(soon)'
         new: 'New'
