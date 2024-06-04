@@ -238,7 +238,7 @@
     </div>
   <% elsif portfolio.assets.empty? %>
     <div class="widget">
-      <p>Add some assets to your portfolio to see backtest results</p>
+      <%= render 'svg/landscape_empty' %>
       <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
     </div>
   <% else %>
