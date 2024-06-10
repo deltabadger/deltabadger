@@ -145,6 +145,17 @@ class Portfolio < ApplicationRecord
     @idle_assets ||= ordered_assets - active_assets
   end
 
+  def max_assets_reached?
+    assets.size >= case user.subscription_name
+                   when 'legendary_badger', 'hodler'
+                     20
+                   when 'investor'
+                     4
+                   else
+                     4
+                   end
+  end
+
   def reset_memoized_assets
     @ordered_assets = nil
     @active_assets = nil

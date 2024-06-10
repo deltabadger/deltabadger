@@ -20,7 +20,11 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.', status: :unprocessable_entity
+      flash.now[:alert] = 'Invalid benchmark value.'
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.' }
+      end
     end
   end
 
@@ -35,7 +39,11 @@ class PortfoliosController < ApplicationController
         format.turbo_stream { render 'update_benchmark' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.', status: :unprocessable_entity
+      flash.now[:alert] = 'Invalid strategy value.'
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.' }
+      end
     end
   end
 
@@ -50,7 +58,11 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.', status: :unprocessable_entity
+      flash.now[:alert] = 'Invalid start date value.'
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid start date value.' }
+      end
     end
   end
 
@@ -69,7 +81,11 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid date value.', status: :unprocessable_entity
+      flash.now[:alert] = 'Invalid risk free rate value.'
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid risk free rate value.' }
+      end
     end
   end
 
@@ -81,7 +97,11 @@ class PortfoliosController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.', status: :unprocessable_entity
+      flash.now[:alert] = 'Invalid smart allocation value.'
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.' }
+      end
     end
   end
 
@@ -93,10 +113,14 @@ class PortfoliosController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
+        format.html { redirect_to portfolio_analyzer_path, notice: 'Risk level has been updated.' }
       end
     else
-      redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.', status: :unprocessable_entity
+      flash.now[:alert] = 'Invalid risk level value.'
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid risk level value.' }
+      end
     end
   end
 
