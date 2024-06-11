@@ -36,7 +36,7 @@ module PortfolioAnalyzerManager
     private
 
     def get_remote_symbols_info
-      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
+      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
       Rails.cache.fetch('symbols', expires_in: expires_in) do
         client = FinancialDataApiClient.new
         symbols_result = client.symbols('all')

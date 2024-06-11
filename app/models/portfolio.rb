@@ -88,7 +88,7 @@ class Portfolio < ApplicationRecord
   def backtest
     return if backtest_start_date.blank? || !allocations_are_normalized?
 
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
+    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
     Rails.cache.fetch(backtest_cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new
       symbols = assets.map(&:symbol).join(',')
@@ -197,7 +197,7 @@ class Portfolio < ApplicationRecord
   def get_risk_free_rate(key)
     return if key.blank? || !RISK_FREE_RATES.include?(key.to_sym)
 
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds
+    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
     cache_key = "risk_free_rate_#{key}"
     time_series_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new
