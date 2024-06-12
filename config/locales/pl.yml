@@ -786,6 +786,8 @@ pl:
             best: 'Najlepsza Dywersyfikacja'
     analyzer:
         no_assets: 'Zacznij od dodania aktywów do swojego portfela.'
+        assets_dont_coexist: 'Nie można przetestować tego portfela. Aktywa, które wybrałeś, nigdy nie współistniały od %{backtest_start_date}!'
+        api_unreachable: 'Nie można przetestować tego portfela. Serwer danych API jest niedostępny.'
         smart_allocation:
             name: 'Inteligentna Alokacja'
             short_info_html: '<p>Inteligentna Alokacja stosuje algorytmy <b>Nowoczesnej Teorii Portfelowej (MPT)</b>, aby znaleźć najlepszy podział aktywów dla twojego portfela.</p>Możesz optymalizować dla dwóch różnych wskaźników, a nawet wybrać pożądany punkt między tymi dwoma optymalizacjami.'
