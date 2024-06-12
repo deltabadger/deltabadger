@@ -1,14 +1,13 @@
 <% yesterday_date = (Time.now.utc - 86400).strftime('%Y-%m-%d') %>
 <% start_date = backtest["timeSeries"]["labels"][0] %>
 <% end_date = backtest["timeSeries"]["labels"][-1] %>
+<% start_day_button = button_to start_date, portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: start_date } }), method: :patch, title: start_date %>
 <% if start_date != portfolio.backtest_start_date || end_date != yesterday_date %>
   <div class="insight insight--warning" style="margin-bottom: 2px">
     <% if start_date != portfolio.backtest_start_date && end_date != yesterday_date %>
-      <%= button_to start_date, portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: start_date } }), method: :patch, title: start_date %>
-      <%= t('analyzer.backtest.time_window.adjusted_both_html', start_date: start_date, end_date: end_date) %>
+      <%= t('analyzer.backtest.time_window.adjusted_both_html', start_date: start_day_button, end_date: end_date) %>
     <% elsif start_date != portfolio.backtest_start_date %>
-      <%= button_to start_date, portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: start_date } }), method: :patch, title: start_date %>
-      <%= t('analyzer.backtest.time_window.adjusted_start_html', start_date: start_date) %>
+      <%= t('analyzer.backtest.time_window.adjusted_start_html', start_date: start_day_button) %>
     <% elsif end_date != yesterday_date %>
       <%= t('analyzer.backtest.time_window.adjusted_end_html', end_date: end_date) %>
     <% end %>
