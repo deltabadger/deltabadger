@@ -564,12 +564,14 @@ de:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
         hodler: Hodler
-        hodler_description_html: 'DCA funktioniert am besten als langfristige Anlage. Vier Jahre lang <b class="badge badge-btc">unbegrenzte Transaktionen</b> für <b class="badge badge-all">alle Währungen</b>, niedrigere Gebühren mit <b class="badge badge-limit">Limit-Orders</b>, <b class="badge badge-limit">automatische Abhebungen</b>, <b class="badge badge-limit">Preisbedingung</b>, <b class="badge badge-limit">Zeitbedingung</b>(bald), <b class="badge badge-limit">Webhooks</b> und <b class="badge badge-limit">Portfolio-Rebalancing</b>(bald). Langfristige Pläne unterstützen auch das Projekt, und deshalb erhalten Hodler <b class="badge badge-priority">vorrangigen Zugang</b> zu allen neuen Funktionen.'
+        hodler_description_html: '<p><b>DCA funktioniert am besten als langfristige Anlage.</b></p><p>Vier Jahre lang <b>unbegrenzte Transaktionen</b> für <b>alle Währungen</b>, niedrigere Gebühren mit <b>Limit-Orders</b>, <b>automatische Abhebungen</b>, <b>Preisbedingung</b>, <b>Zeitbedingung</b>(bald), <b>Webhooks</b> und <b>Portfolio-Rebalancing</b>(bald). Langfristige Pläne unterstützen auch das Projekt, und deshalb erhalten Hodler <b>vorrangigen Zugang</b> zu allen neuen Funktionen.</p>'
         investor: Investor
-        investor_description_html: 'Ein Jahr lang <b class="badge badge-btc">unbegrenzte Transaktionen</b>, <b class="badge badge-btc">alle Währungen</b> und <b class="badge badge-btc">automatische Abhebungen</b>.'
-        legendary_badger: 'Legendary Badger-NFT'
-        legendary_badger_description_html: '<p>Einzigartig. Limitiert. Legendär.</p><p><b>Bezahle nie wieder für die Nutzung des Dienstes.</b></p><p>Nach der Einführung von <b class="badge badge-rebalancing">Portfolio-Rebalancing</b> und <b class="badge badge-webhook">Webhook-basierten Trades</b> werden die Preise steigen, aber du hast lebenslangen kostenlosen Zugang zu allem.</p><p>Verkaufe dein Abonnement jederzeit auf dezentralen Märkten. Ja! So etwas gibt es auf dem Markt nicht.</p><p>Jeder Token ist mit einem prozeduralen Kunstwerk verbunden. Kannst du alle 21 "Ostereier" finden, die in der <a href="https://deltabadger.com/legendary/" class="nobreak">Sammlung</a> versteckt sind?</p><p>Die "Legendary Badgers" sind eine kleine Gemeinschaft für Menschen, die finanzielle Freiheit suchen. In einem privaten Telegram-Kanal wird deine Stimme für das weitere Wachstum der Plattform wichtig sein. Gemeinsam schreiben wir Geschichte.</p><p>Nur 1000 sitzen im Raumschiff der "Legendary Badgers". Zementiere deinen DCA-Status und werde legendär.</p>'
-        limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Limit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
+        investor_description_html: 'Ein Jahr lang <b>unbegrenzte Transaktionen</b>, <b>alle Währungen</b> und <b>automatische Abhebungen</b>.'
+        legendary_badger: 'Legendary Badger'
+        legendary_badger_description_html: '<p><b>Bezahle nie wieder für die Nutzung des Dienstes.</b></p><p>Alles, was der Hodler-Plan zu bieten hat, aber ein Leben lang.</p><p>Das Abonnement kommt mit einem <b>NFT</b>, sodass du es in Zukunft an einen anderen Nutzer verkaufen kannst.</p><p>Jeder Token ist mit einem prozeduralen Kunstwerk verbunden. Kannst du alle 21 "Ostereier" finden, die in <a href="https://deltabadger.com/legendary/" class="nobreak">der Sammlung</a> versteckt sind?</p><p>Lebenslang. Limitiert. Legendär.</p><p>Legendary Badgers sind wie nichts anderes auf dem Markt.</p><p>Nur 1000 sitzen im Raumschiff der Legendary Badgers. Zementiere deinen langfristigen Denkstatus und werde legendär.</p>'
+        limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Transaktionslimit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
+        analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
+        expires_soon_html: 'Der 4-Jahres-Plan wird bald durch ein jährliches Abonnement von 199 $/Jahr ersetzt. Dies ist also die letzte Chance, den 4-Jahres-Zugang zum halben Preis zu erhalten.'
         payment:
             account_holder: Kontoinhaber
             account_number: Kontonummer
@@ -627,3 +629,91 @@ de:
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
         saver: 'Befreie dich von den Limits und mach ein Upgrade!'
+    metrics:
+        exp_return:
+            short_name: 'Erw. Rendite'
+            short_info: 'Die durchschnittliche Rendite, die Sie nach einem Jahr von Ihrem Portfolio erwarten können.'
+            best: 'Höchste Erw. Rendite'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'Das jährliche Wachstum Ihres Portfolios Jahr für Jahr.'
+            best: 'Höchste CAGR'
+        max_drawdown:
+            short_name: 'Max. Rückgang'
+            short_info: 'Der größte Wertverlust Ihres Portfolios vom Höchststand zum Tiefpunkt.'
+            best: 'Niedrigster Max. Rückgang'
+        volatility:
+            short_name: 'Volatilität'
+            short_info: 'Wie stark schwanken Ihre Anlageerträge täglich.'
+            best: 'Niedrigste Volatilität'
+        var:
+            short_name: 'VaR'
+            short_info: 'Es besteht eine 5% Chance, dass der Portfoliowert an einem Tag um mehr als diesen Betrag fällt.'
+            best: 'Niedrigster VaR'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'Der durchschnittliche Verlust an einem Tag, wenn Ihr Portfolio den VaR-Grenzwert überschreitet.'
+            best: 'Niedrigster CVaR'
+        sharpe_ratio:
+            short_name: 'Sharpe Ratio'
+            short_info: 'Eine Maßzahl für Ihre risikobereinigten Anlageerträge.'
+            best: 'Höchste Sharpe Ratio'
+        sortino_ratio:
+            short_name: 'Sortino Ratio'
+            short_info: 'Ähnlich wie Sharpe, aber konzentriert sich nur auf negative Schwankungen zur Leistungsbewertung.'
+            best: 'Höchste Sortino Ratio'
+        calmar_ratio:
+            short_name: 'Calmar Ratio'
+            short_info: 'Das Verhältnis der Rendite zum maximalen Rückgang.'
+            best: 'Höchste Calmar Ratio'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'Wie sehr das Portfolio den Benchmark auf risikobereinigter Basis übertroffen hat.'
+            best: 'Höchstes Alpha'
+        beta:
+            short_name: 'Beta'
+            short_info_html: 'Die Empfindlichkeit der Portfoliorenditen gegenüber den Renditen des Benchmarks.<p>Beta = 1: Spiegelbild des Benchmarks</p><p>Beta > 1: Volatiler</p><p>Beta < 1: Weniger volatil</p><p>Beta < 0: Inverse Beziehung</p>'
+            best: 'Niedrigstes Beta'
+        treynor_ratio:
+            short_name: 'Treynor Ratio'
+            short_info: 'Die Renditen, die Sie für das Eingehen zusätzlichen Risikos erzielen.'
+            best: 'Höchste Treynor Ratio'
+        omega_ratio:
+            short_name: 'Omega Ratio'
+            short_info: 'Eine Maßzahl, die die Wahrscheinlichkeit von Gewinnen gegenüber Verlusten vergleicht.'
+            best: 'Höchste Omega Ratio'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'Wie genau die Performance Ihrer Investition dem Gesamtmarkt entspricht.'
+            best: 'Höchstes R²'
+        info_ratio:
+            short_name: 'Info. Ratio'
+            short_info: 'Die Konsistenz Ihrer Anlageerträge im Vergleich zu einem Benchmark.'
+            best: 'Höchste Info. Ratio'
+        diversification:
+            short_name: 'Diversifikation'
+            short_info: 'Die Vielfalt der verschiedenen Investitionen in Ihrem Portfolio zur Risikoverteilung.'
+            best: 'Beste Diversifikation'
+    analyzer:
+        smart_allocation:
+            name: 'Intelligente Allokation'
+            short_info_html: '<p>Die intelligente Allokation wendet Algorithmen der <b>Modernen Portfoliotheorie (MPT)</b> an, um die beste Vermögensaufteilung für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'
+        since: 'seit'
+        risk_free_rate: 'Risikofreier Zinssatz'
+        us_bonds: 'US-Anleihen'
+        benchmark: 'Benchmark'
+        get_ai_insights: 'KI-Einblicke erhalten'
+        pnl: 'Gewinn/Verlust'
+        strategy:
+            fixed: 'Fest'
+            dca: 'DCA'
+            rebalancing: 'Neugewichtung'
+        backtest:
+            time_window:
+                adjusted_both_html: "Der Backtest-Zeitraum wurde angepasst, um am <strong>%{start_date}</strong> zu beginnen und am <strong>%{end_date}</strong> zu enden, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
+                adjusted_start_html: "Das Startdatum des Backtests wurde auf <strong>%{start_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
+                adjusted_end_html: "Das Enddatum des Backtests wurde auf <strong>%{end_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
+    utils:
+        soon: '(pronto)'
+        new: 'Nuevo'
+        important: '¡Importante!'

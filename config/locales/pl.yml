@@ -650,12 +650,14 @@ pl:
             many: 'Pozostało %{count} dni'
             other: 'Pozostało %{count} dni'
         hodler: Hodler
-        hodler_description_html: 'DCA działa najlepiej jako zobowiązanie długoterminowe. Cztery lata <b class="badge badge-btc">nieograniczonych transakcji</b> dla <b class="badge badge-all">wszystkich walut</b>, niższe opłaty przy <b class="badge badge-limit">zleceniach z limitem</b>, <b class="badge badge-limit">automatyczne wypłaty</b>, <b class="badge badge-limit">ustawienie progu ceny</b>, <b class="badge badge-limit">ustawienie limitu daty</b>(wkrótce), <b class="badge badge-limit">webhooki</b> i <b class="badge badge-limit">rebalansowanie portfela</b>(wkrótce). Długoterminowe plany również wspierają projekt, dlatego Hodlerzy otrzymują <b class="badge badge-priority">priorytetowy dostęp</b> do wszystkich nowych funkcji.'
+        hodler_description_html: '<p><b>DCA działa najlepiej jako zobowiązanie długoterminowe.</b></p><p>Cztery lata <b>nieograniczonych transakcji</b> dla <b>wszystkich walut</b>, niższe opłaty przy <b>zleceniach z limitem</b>, <b>automatyczne wypłaty</b>, <b>ustawienie progu ceny</b>, <b>ustawienie limitu daty</b>(wkrótce), <b>webhooki</b> i <b>rebalansowanie portfela</b>(wkrótce). Długoterminowe plany również wspierają projekt, dlatego Hodlerzy otrzymują <b>priorytetowy dostęp</b> do wszystkich nowych funkcji.</p>'
         investor: Inwestor
-        investor_description_html: 'Jeden rok <b class="badge badge-btc">bez limitu transakcji</b>, <b class="badge badge-btc">wszystkie waluty</b> i <b class="badge badge-btc">automatyczne wypłaty</b> (wkrótce).'
-        legendary_badger: 'Legendarny Borsuk NFT'
-        legendary_badger_description_html: '<p>Unikalny. Limitowany. Legendarny.</p><p><b>Koniec z płatnościami za korzystanie z serwisu.</b></p><p>Po uruchomieniu <b class="badge badge-rebalancing">rebalansowania portfela</b> i <b class="badge badge-webhook">transakcji opartych na webhookach</b>, ceny subskrypcji wzrosną, ale będziesz miał dożywotni dostęp do wszystkiego za darmo.</p><p>Sprzedaj swoją subskrypcję w dowolnym momencie na zdecentralizowanych rynkach. Nie ma na rynku drugiej takiej subskrypcji.</p><p>Każdy token powiązany jest z proceduralną grafiką. Czy uda ci się odnaleźć wszystkie 21 ręcznie zaprojektowanych "easter eggs" ukrytych w <a href="https://deltabadger.com/legendary/" class="nobreak">kolekcji</a>?</p><p>Legendarne Borsuki to mała społeczność dla poszukiwaczy wolności finansowej. Na prywatnym kanale Telegram, twój głos będzie się liczył w dalszym rozwoju platformy. Razem tworzymy historię.</p><p>Tylko 1000 miejsc na statku kosmicznym Legendarnych Borsuków. Ugruntuj swój status DCA i bądź Legendarny.</p>'
-        limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200$/rok. Aby kontynuować, wykup płatną subskrypcję.'
+        investor_description_html: 'Jeden rok <b>bez limitu transakcji</b>, <b>wszystkie waluty</b> i <b>automatyczne wypłaty</b>.'
+        legendary_badger: Legendarny Borsuk
+        legendary_badger_description_html: '<p><b>Koniec z opłatami za korzystanie z serwisu.</b></p><p>Wszystko, co oferuje plan Hodler, ale na całe życie.</p><p>Subskrypcja jest połączona z <b>NFT</b>, więc w przyszłości możesz ją sprzedać innemu użytkownikowi.</p><p>Każdy token powiązany jest z proceduralną grafiką. Czy uda ci się odnaleźć wszystkie 21 "easter eggs" ukrytych w <a href="https://deltabadger.com/legendary/" class="nobreak">kolekcji</a>?</p><p>Dożywotnie. Limitowane. Legendarne.</p><p>Legendarne Borsuki są jedyne w swoim rodzaju.</p><p>Tylko 1000 miejsc na statku kosmicznym Borsuków. Ugruntuj swój status inwestora długoterminowego i stań się Legendarny.</p>'
+        limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200 $/rok. Aby kontynuować, wykup płatną subskrypcję.'
+        analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
+        expires_soon_html: 'Plan 4-letni wkrótce zostanie zastąpiony przez roczną subskrypcję za 199 $/rok. To więc ostatnia szansa, aby uzyskać 4-letni dostęp za połowę ceny.'
         payment:
             account_holder: Odbiorca
             account_number: 'Numer konta'
@@ -717,3 +719,94 @@ pl:
         default: 'Cześć, witamy w Deltabadger'
         legendary: 'NFT już wkrótce!'
         saver: 'Zrób upgrade i pozbądź się limitów!'
+    metrics:
+        exp_return:
+            short_name: 'Ocz. Zwrot'
+            short_info: 'Średni zwrot, którego możesz oczekiwać od swojego portfela po roku.'
+            best: 'Najwyższy Ocz. Zwrot'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'Roczna stopa wzrostu twojego portfela rok po roku.'
+            best: 'Najwyższy CAGR'
+        max_drawdown:
+            short_name: 'Maks. Spadek'
+            short_info: 'Największy spadek wartości twojego portfela od szczytu do najniższego punktu.'
+            best: 'Najmniejszy Maks. Spadek'
+        volatility:
+            short_name: 'Zmienność'
+            short_info: 'Jak bardzo codziennie wahają się twoje zwroty z inwestycji.'
+            best: 'Najmniejsza Zmienność'
+        var:
+            short_name: 'VaR'
+            short_info: 'Istnieje 5% szansa, że wartość portfela spadnie o więcej niż ta kwota w jednym dniu.'
+            best: 'Najmniejszy VaR'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'Średnia strata, której możesz oczekiwać w ciągu dnia, jeśli twoje portfolio przekroczy próg VaR tego dnia.'
+            best: 'Najmniejszy CVaR'
+        sharpe_ratio:
+            short_name: 'Wskaźnik Sharpe'
+            short_info: 'Miara twoich zwrotów z inwestycji skorygowanych o ryzyko.'
+            best: 'Najwyższy Wskaźnik Sharpe'
+        sortino_ratio:
+            short_name: 'Wskaźnik Sortino'
+            short_info: 'Podobnie jak wskaźnik Sharpe, ale skupia się tylko na negatywnych wahaniach w ocenie wyników.'
+            best: 'Najwyższy Wskaźnik Sortino'
+        calmar_ratio:
+            short_name: 'Wskaźnik Calmar'
+            short_info: 'Stosunek stopy zwrotu do maksymalnego spadku.'
+            best: 'Najwyższy Wskaźnik Calmar'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'O ile portfel przewyższył benchmark na zasadzie skorygowanej o ryzyko.'
+            best: 'Najwyższa Alpha'
+        beta:
+            short_name: 'Beta'
+            short_info_html: 'Czułość zwrotów portfela na zwroty benchmarku.<p>Beta = 1: Odbicie benchmarku</p><p>Beta > 1: Bardziej zmienny</p><p>Beta < 1: Mniej zmienny</p><p>Beta < 0: Odwrotna zależność</p>'
+            best: 'Najmniejsza Beta'
+        treynor_ratio:
+            short_name: 'Wskaźnik Treynor'
+            short_info: 'Zwroty, które osiągasz, podejmując dodatkowe ryzyko.'
+            best: 'Najwyższy Wskaźnik Treynor'
+        omega_ratio:
+            short_name: 'Wskaźnik Omega'
+            short_info: 'Miara porównująca prawdopodobieństwo zysków w stosunku do strat.'
+            best: 'Najwyższy Wskaźnik Omega'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'Jak blisko wyniki twojej inwestycji odpowiadają ogólnemu rynkowi.'
+            best: 'Najwyższe R²'
+        info_ratio:
+            short_name: 'Wskaźnik Info.'
+            short_info: 'Spójność twoich zwrotów z inwestycji w porównaniu z benchmarkiem.'
+            best: 'Najwyższy Wskaźnik Info.'
+        diversification:
+            short_name: 'Dywersyfikacja'
+            short_info: 'Różnorodność różnych inwestycji w twoim portfelu w celu rozproszenia ryzyka.'
+            best: 'Najlepsza Dywersyfikacja'
+    analyzer:
+        no_assets: 'Zacznij od dodania aktywów do swojego portfela.'
+        assets_dont_coexist: 'Nie można przetestować tego portfela. Aktywa, które wybrałeś, nigdy nie współistniały od %{backtest_start_date}!'
+        api_unreachable: 'Nie można przetestować tego portfela. Serwer danych API jest niedostępny.'
+        smart_allocation:
+            name: 'Inteligentna Alokacja'
+            short_info_html: '<p>Inteligentna Alokacja stosuje algorytmy <b>Nowoczesnej Teorii Portfelowej (MPT)</b>, aby znaleźć najlepszy podział aktywów dla twojego portfela.</p>Możesz optymalizować dla dwóch różnych wskaźników, a nawet wybrać pożądany punkt między tymi dwoma optymalizacjami.'
+        since: 'od'
+        risk_free_rate: 'Stopa wolna od ryzyka'
+        us_bonds: 'Obligacje USA'
+        benchmark: 'Benchmark'
+        get_ai_insights: 'Uzyskaj Wgląd AI'
+        pnl: 'Zysk/Strata'
+        strategy:
+            fixed: 'Stała'
+            dca: 'DCA'
+            rebalancing: 'Rebalansowanie'
+        backtest:
+            time_window:
+                adjusted_both_html: "Okno czasowe testu wstecznego zostało dostosowane, aby rozpocząć się <strong>%{start_date}</strong> i zakończyć <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
+                adjusted_start_html: "Data rozpoczęcia testu wstecznego została dostosowana do <strong>%{start_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
+                adjusted_end_html: "Data zakończenia testu wstecznego została dostosowana do <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
+    utils:
+        soon: '(wkrótce)'
+        new: 'Nowość'
+        important: 'Ważne!'

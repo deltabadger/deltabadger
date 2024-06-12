@@ -1,0 +1,138 @@
+.content-below-menu
+  padding-top: 4rem
+  @media only screen and (max-width: 1359px)
+    padding-top: 14rem
+  @media only screen and (max-width: 549px)
+    padding-top: 14rem
+  &.db-page
+    padding-top: 15rem
+    @media only screen and (max-width: 1359px)
+      padding-top: 20rem
+    @media only screen and (max-width: 549px)
+      padding-top: 16rem
+.menu
+  padding: 3rem 2.4rem 2.5rem 2.5rem
+  top: 0
+  left: 0
+  bottom: 0
+  border-right: 1px solid var(--widget-line)
+  box-sizing: content-box
+  position: fixed
+  width: 8rem
+  display: flex
+  flex-direction: column
+  justify-content: space-between
+  align-items: center
+  min-height: 60rem
+  z-index: 21000000
+  @media only screen and (max-width: 1359px)
+    height: 6.5rem
+    min-height: 6.5rem
+    position: absolute
+    width: calc(100% - 5rem)
+    border: none
+    bottom: auto
+    flex-direction: row
+    gap: 1rem
+    padding-left: 3rem
+  @media only screen and (max-width: 549px)
+    width: calc(100% - 4rem)
+    gap: 0
+  &__section
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    @media only screen and (max-width: 1359px)
+      flex-direction: row
+      gap: 1rem
+    @media only screen and (max-width: 549px)
+      gap: 0
+    &--main-menu
+      @media only screen and (min-width: 1360px)
+        position: fixed
+        top: 14rem
+    &--logo
+      @media only screen and (max-width: 549px)
+        display: none
+  &__logo
+    width: 8rem
+    height: 5.75rem
+    display: flex
+    align-items: flex-end
+    @media only screen and (max-width: 1359px)
+      margin-right: 3rem
+      width: 8rem
+      height: 6.5rem
+  &__item
+    height: 6rem
+    width: 6rem
+    display: flex
+    justify-content: center
+    align-items: center
+    position: relative
+    border-radius: 1rem
+    .tooltip
+      left: 6rem
+      white-space: nowrap
+      text-align: center
+      padding: 0.5rem 1.25rem
+      &::before
+          display: none
+      @media only screen and (max-width: 1359px)
+        left: auto
+        top: 8rem
+      &__counter
+        color: var(--label)
+    &.show-tooltip
+      .tooltip
+        left: 7rem
+        @media only screen and (max-width: 1359px)
+          left: auto
+          top: 7rem
+    svg
+      width: 3rem
+      height: 3rem
+    svg + svg
+      display: none
+    &--last
+      align-self: flex-end
+  &__button
+    background: none
+    border: none
+    width: 6rem
+    height: 6rem
+    line-height: 6.5rem
+    color: var(--menulink)
+    text-decoration: none !important
+.fill
+  &--icon
+    fill: var(--menulink)
+  &--icon-active
+    fill: var(--menulink-active)
+  &--success
+    fill: var(--success)
+  
+.view
+  &--home-dashboard .menu__item--dashboard, &--portfolios-show .menu__item--analyzer, &--affiliates-new .menu__item--referral-program, &--affiliates-show .menu__item--referral-program, &--settings-index .menu__item--settings, &--upgrade .menu__item--upgrade, &--legendary-badger .menu__item--legendary-badger
+    background: var(--menuicon-active-background)
+    .fill--icon
+      fill: var(--menulink-active)
+
+.db--upgrade
+  .menu__item--upgrade
+    background: var(--menuicon-active-background)
+
+.menu__item--analyzer
+  .xsbadge
+    text-transform: uppercase
+    font-size: 1.125rem
+    font-weight: 700
+    letter-spacing: 0.125rem
+    color: #fff
+    background: var(--danger)
+    border-radius: 1.5rem
+    display: block
+    position: absolute
+    padding: 0.125rem 0.625rem
+    bottom: -0.875rem
+    right: -1rem

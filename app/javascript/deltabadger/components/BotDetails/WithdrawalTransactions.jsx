@@ -1,7 +1,6 @@
 import React from 'react'
 import I18n from 'i18n-js'
 import { RawHTML } from '../RawHtml'
-import { Chart } from './Chart';
 import { shouldRename, renameSymbol } from '../../utils/symbols';
 import {toFixedWithoutZeros} from "../helpers";
 import {WithdrawalBot} from "../WithdrawalBot";

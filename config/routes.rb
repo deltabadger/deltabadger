@@ -95,6 +95,7 @@ Rails.application.routes.draw do
     namespace :settings do
       get '/', action: :index
       patch :hide_welcome_banner
+      patch :hide_news_banner
       patch :hide_referral_banner
       patch :update_password
       patch :update_email
@@ -104,7 +105,7 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resource :legendary_badger, only: [:show, :update], path: '/legendary-badger', controller: :legendary_badger do
+    resource :legendary_badger, only: [:show, :update], path: '/legendary-badger' do
       get '/', action: :show
       patch '/', action: :update
     end
@@ -118,6 +119,19 @@ Rails.application.routes.draw do
     get '/referral-program', to: 'home#referral_program', as: :referral_program
     get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
+
+    resources :portfolios, only: [] do
+      resources :assets, only: [:new, :create, :destroy, :update]
+      patch :toggle_smart_allocation
+      patch :update_risk_level
+      patch :update_benchmark
+      patch :update_strategy
+      patch :update_backtest_start_date
+      patch :update_risk_free_rate
+      post :normalize_allocations
+    end
+
+    get '/portfolio-analyzer', to: 'portfolios#show' # in the future, use only portfolios which can be automated etc.
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
@@ -140,7 +154,7 @@ Rails.application.routes.draw do
   post '/update-payment-intent', to: 'upgrade#update_stripe_payment_intent'
   post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
 
-  get '*path', to: redirect("/#{I18n.default_locale}")
+  # get '*path', to: redirect("/#{I18n.default_locale}")
 
   telegram_webhook TelegramWebhooksController
 end

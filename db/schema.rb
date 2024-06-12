@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_03_29_172827) do
+ActiveRecord::Schema.define(version: 2024_05_31_000454) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -60,6 +60,18 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
+  end
+
+  create_table "assets", force: :cascade do |t|
+    t.bigint "portfolio_id", null: false
+    t.string "ticker"
+    t.float "allocation", default: 0.0, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.string "color"
+    t.integer "category"
+    t.string "name"
+    t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -159,6 +171,19 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
+  create_table "portfolios", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.integer "strategy", default: 0, null: false
+    t.boolean "smart_allocation_on", default: false, null: false
+    t.integer "risk_level", default: 2, null: false
+    t.integer "benchmark", default: 0, null: false
+    t.string "backtest_start_date"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.float "risk_free_rate", default: 0.0, null: false
+    t.index ["user_id"], name: "index_portfolios_on_user_id"
+  end
+
   create_table "setting_flags", force: :cascade do |t|
     t.string "name"
     t.boolean "value"
@@ -234,7 +259,7 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.boolean "admin", default: false, null: false
     t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
-    t.boolean "welcome_banner_showed", default: false
+    t.boolean "welcome_banner_dismissed", default: false
     t.bigint "referrer_id"
     t.decimal "current_referrer_profit", default: "0.0", null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
@@ -242,9 +267,10 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
     t.integer "pending_plan_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
-    t.boolean "referral_banner_showed", default: false
+    t.boolean "referral_banner_dismissed", default: false
     t.datetime "last_otp_at"
     t.string "name"
+    t.boolean "news_banner_dismissed", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
@@ -260,11 +286,13 @@ ActiveRecord::Schema.define(version: 2024_03_29_172827) do
   add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "assets", "portfolios"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plans"
+  add_foreign_key "portfolios", "users"
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"

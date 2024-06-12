@@ -1,0 +1,25 @@
+.ticker
+    background: $gray-300
+    border-radius: 2rem
+    color: #fff
+    font-size: 2.25rem
+    font-weight: 700
+    line-height: 4rem
+    text-align: center
+    width: 12rem
+    padding:            0 1.5rem
+    overflow:           hidden
+    text-overflow:      ellipsis
+    text-wrap:          nowrap
+
+.ticker-group
+    display: flex
+    @for $i from 1 through 20
+        .ticker:nth-child(#{$i})
+            z-index: 21 - $i
+    &--2
+        .ticker:not(:last-child)
+            margin-right: -1.75rem
+    &--many
+        .ticker:not(:last-child)
+            margin-right: -10rem 

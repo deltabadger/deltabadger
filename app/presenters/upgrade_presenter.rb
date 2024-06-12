@@ -66,7 +66,7 @@ class UpgradePresenter
 
   def legendary_badger_plan_available?
     @number_of_legendary_subscriptions ||= legendary_badger_plan&.subscriptions&.count.to_i
-    @number_of_legendary_subscriptions.positive? && (@number_of_legendary_subscriptions < 1000)
+    @number_of_legendary_subscriptions >= 0 && (@number_of_legendary_subscriptions < 1000)
   end
 
   def available_plans_for_current_user

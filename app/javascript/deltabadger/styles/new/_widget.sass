@@ -1,0 +1,87 @@
+.widget
+    background: var(--widget-background)
+    padding: 3rem
+    border-radius: 0rem
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    margin-bottom: 2px
+    &.data-grid
+        padding: 0
+    &--chart
+        gap: 0
+        .data-grid__item
+            height: auto
+
+.data-grid
+    background: none
+    display: grid
+    grid-template-columns: repeat(6, 1fr)
+    gap: 2px
+    @container (max-width: 1223px)
+        grid-template-columns:  repeat(5, 1fr)
+    @container (max-width: 959px)
+        grid-template-columns:  repeat(4, 1fr)
+    @container (max-width: 767px)
+        grid-template-columns:  repeat(3, 1fr)
+    @container (max-width: 511px)
+        grid-template-columns:  repeat(2, 1fr)
+    &__item
+        position: relative
+        display: flex
+        flex-direction: column
+        align-items: center
+        justify-content: center
+        height: 14rem
+        background-color: var(--widget-background)
+        &:not(.data-grid__item--empty):hover
+            // background-color: var(--widget-line)
+            // cursor: pointer
+        &--chart
+            display: flex
+            flex-direction: column
+            align-items: center
+            .data-grid__item__value
+                color: $success
+        &__value
+            font-size: 4rem
+            line-height: 5rem
+            font-weight: 500
+            color: var(--emphasis)
+            min-width: 3rem
+            min-height: 3rem
+            path
+                fill: var(--label)
+        &--filler
+            display: none !important
+            &--2
+                @container (max-width: 511px)
+                    display: flex !important
+            &--3
+                @container (min-width: 512px) and (max-width: 767px)
+                    display: flex !important
+            &--4
+                @container (min-width: 767.5px) and (max-width: 959px)
+                    display: flex !important
+            &--5
+                @container (min-width: 959.5px) and (max-width: 1223px)
+                    display: flex !important
+            &--6
+                @container (min-width: 1223.5px)
+                    display: flex !important
+        .tooltip
+            top: calc(100% - 2rem)
+            &::before
+                content: " "
+                display: block
+                width: 0
+                height: 0
+                border: 1rem solid transparent
+                border-bottom-color: var(--tooltip-background)
+                position: absolute
+                top: -2rem
+                left: 50%
+
+.backtests--warning
+    .widget--chart, .data-grid__item
+        background-color: var(--insight-warning-background)

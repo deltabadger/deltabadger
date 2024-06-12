@@ -23,7 +23,7 @@ module PaymentsManager
       update_params = {
         pending_wire_transfer: nil,
         pending_plan_id: nil,
-        welcome_banner_showed: true
+        welcome_banner_dismissed: true
       }
       unless payment.user.update(update_params)
         return Result::Failure.new(payment.user.errors.full_messages.join(', '), data: update_params)

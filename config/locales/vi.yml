@@ -613,7 +613,7 @@ vi:
         hodler: Hodler
         hodler_description_html: ''
         investor: Investor
-        investor_description_html: 'Một năm <b class="badge badge-btc"> giao dịch không giới hạn </b> , <b class="badge badge-btc"> tất cả các loại tiền </b> và <b class="badge badge-btc"> rút tiền tự động </b> (sớm).'
+        investor_description_html: 'Một năm <b> giao dịch không giới hạn </b> , <b> tất cả các loại tiền </b> và <b> rút tiền tự động </b> (sớm).'
         legendary_badger: ''
         legendary_badger_description_html: ''
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'

@@ -31,15 +31,15 @@
       position: absolute
       bottom: 3rem
       left: 3rem
-      color: lighten($success-dark,0%)
+      color: var(--success)
       line-height: 4rem
       font-weight: 500
       .progress
         border-radius: 1rem
         overflow: hidden
-        background: transparentize(lighten($success-dark,0%), 0.65)
+        background: var(--success-semitransparent)
       .progress-bar
-        background: lighten($success-dark,0%)
+        background: var(--success)
         border-radius: 1rem
     &--saver
       grid:
@@ -51,7 +51,7 @@
         template:
           rows: 8rem auto auto
     &--legendary_badger
-      padding-bottom: 25rem
+      padding-bottom: 28rem
       .db-plans__item__info
         z-index: 2
       .db_legendary-badger
@@ -167,14 +167,14 @@
   a
     color: #fff
   .badge
-    background: var(--planSelectedBadge)
+    background: var(--success)
     color: var(--planSelectedTxt)
   .db-plans__item__legendary-badgers-left
-    color: lighten($success-dark,10%)
+    color: var(--success)
     .progress
-      background: transparentize(lighten($success-dark,10%), 0.65)
+      background: var(--success-semitransparent)
     .progress-bar
-      background: lighten($success-dark,10%)
+      background: var(--success)
 .db-plan--other
   box-shadow: .1rem .1rem 1rem rgba(0, 0, 0, 0.05)
   background: var(--planBg)

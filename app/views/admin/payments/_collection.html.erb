@@ -81,7 +81,7 @@ to display a collection of resources in an HTML table.
         <% end %>
 
         <% if valid_action? :destroy, collection_presenter.resource_name %>
-          <td><%= link_to(
+          <td><%= button_to(
             t("administrate.actions.destroy"),
             [namespace, resource],
             class: "text-color-red",
@@ -90,7 +90,7 @@ to display a collection of resources in an HTML table.
           ) if show_action? :destroy, resource %></td>
         <% end %>
         <% if resource['payment_type'] == 'wire' && resource['status'] != 'paid'%>
-          <td><%= link_to(
+          <td><%= button_to(
             'Confirm',
             confirm_admin_payments_path(resource),
             style: "color: green",

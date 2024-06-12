@@ -69,20 +69,18 @@ It renders the `_table` partial to display details about the resources.
 </section>
 
 <section class="container container-fluid pl-5 pt-5">
-  <%= link_to(
+  <%= button_to(
     "Fiat to BTC",
     get_fiat_commissions_admin_affiliates_path,
     id: "get-wire-transfers-commissions",
     class: "button",
-    remote: false,
     method: :put,
   ) %>
 
-  <%= link_to(
+  <%= button_to(
     "Generate payout",
     mark_as_exported_admin_affiliates_path,
     class: "button #{'disabled' unless @total_unexported.to_f.positive?}",
-    remote: false,
     method: :post,
     data: { confirm: "Are you sure?" },
   ) %>
@@ -100,12 +98,11 @@ It renders the `_table` partial to display details about the resources.
     class: "button #{'disabled' unless @total_exported.to_f.positive?}"
   ) %>
 
-  <%= link_to(
+  <%= button_to(
     "Confirm payout",
     mark_as_paid_admin_affiliates_path,
     id: "confirm-payout",
     class: "button disabled",
-    remote: false,
     method: :post,
     data: { confirm: "Are you sure?" },
   ) %>

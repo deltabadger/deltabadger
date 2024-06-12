@@ -1,0 +1,110 @@
+.label,.ticker,.toggle-label
+    user-select: none
+
+.label
+    font-weight: 600
+    color: var(--label)
+    &__value,&--select
+        color: var(--emphasis)
+    &__value
+        font-weight: bold
+    &--select
+        svg
+            path 
+                stroke: var(--emphasis)
+
+.sbadge
+    background: primary
+    color: #fff
+    padding: 0.25rem 0.75rem
+    border-radius: 1rem
+    font-size: 1.5rem
+    text-transform: uppercase
+    &--success
+        background: var(--success)
+    &--danger
+        background: var(--danger)
+    &--warning
+        background: var(--warning)
+.sinput
+    font-weight: 600 !important
+    background: var(--sinput-background)
+    color: var(--sinput-text)
+    line-height: 4rem
+    border-radius: 2rem
+    border: 0
+    padding: 0 1.5rem
+    height: 4rem
+    width: fit-content
+    &--calendar
+        width: 15rem
+        text-align: center
+    &--number
+        text-align: right
+        -moz-appearance: textfield
+        &::-webkit-outer-spin-button, &::-webkit-inner-spin-button
+            -webkit-appearance: none
+            margin: 0
+    &--rate
+        display: inline-flex
+        width: 11rem
+        padding: 0 1.5rem
+        gap: 0.5rem
+        input
+            background: none
+            border: 0
+            text-align: center
+            width: 100%
+            color: var(--emphasis)
+            &::-webkit-outer-spin-button, &::-webkit-inner-spin-button
+                -webkit-appearance: none
+                margin: 0
+
+
+.sinput--disabled, input[disabled], select[disabled],button[disabled]
+    color: var(--label) !important
+    cursor: not-allowed
+
+.label--select,.sinput--select
+    position: relative
+    overflow: hidden
+    select
+        opacity: 0
+        position: absolute
+        top: 0
+        left: 0
+
+select
+    -webkit-appearance: none !important
+    cursor: pointer
+
+.sbutton
+    border: 0
+    background: none
+    font-weight: 600
+    color: var(--link)
+    padding: 0 0.25rem
+    align-items: center
+    border: 0
+    border-radius: 2rem
+    display: flex
+    justify-content: center
+    height: 4rem
+    white-space: nowrap
+    &--primary, &--success
+        color: #fff
+        padding: 0 2rem
+        gap: 1rem
+        svg
+            fill: #fff
+    &--primary
+        background: var(--primary)
+    &--success
+        background: var(--success)
+    &--add-asset  
+        width: 20rem
+        background: var(--sbutton-add-asset)
+        path
+            fill: var(--label)
+        &:hover
+            background: var(--sbutton-add-asset-hover)

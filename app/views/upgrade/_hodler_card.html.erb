@@ -24,4 +24,8 @@
     <% end %>
   <% end %>
 </div>
-<div class="db-plans__item__info"><%= t('subscriptions.hodler_description_html') %></div>
+<div class="db-plans__item__info">
+  <%= t('subscriptions.hodler_description_html') %>
+  <p><b class="sbadge sbadge--danger"><%= t('utils.new') %></b> <%= t('subscriptions.analyzer_html') %></p>
+  <p><b class="sbadge sbadge--warning"><%= t('utils.important') %></b> <%= t('subscriptions.expires_soon_html') %></p>
+</div>

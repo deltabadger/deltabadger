@@ -1,0 +1,41 @@
+// modal
+.turbo-modal
+  position: fixed
+  z-index: 1
+  left: 50%
+  top: 50%
+  transform: translate(-50%, -50%)
+  background-color: white
+  border-radius: 1rem
+  border: none
+  max-width: 100%
+  &--search
+    width: 100rem
+
+
+// flash messages
+.flash
+  position: fixed
+  top: 5rem
+  right: 5rem
+  z-index: 1
+
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 2rem
+
+  max-width: 100%
+  width: max-content
+  padding: 0 5rem
+
+  &__message
+    animation: appear-then-fade 4s both
+  
+@keyframes appear-then-fade
+  0%, 100%
+    opacity:0
+  5%, 60%
+    opacity:1
+  
+

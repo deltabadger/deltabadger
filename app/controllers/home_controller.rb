@@ -17,12 +17,17 @@ class HomeController < ApplicationController
   before_action(
     :set_welcome_banner,
     only: [:dashboard],
-    if: -> { !current_user.welcome_banner_showed? }
+    if: -> { !current_user.welcome_banner_dismissed? }
+  )
+  before_action(
+    :set_news_banner,
+    only: [:dashboard],
+    if: -> { !current_user.news_banner_dismissed? }
   )
   before_action(
     :set_referral_banner,
     only: [:dashboard],
-    if: -> { !current_user.referral_banner_showed? }
+    if: -> { !current_user.referral_banner_dismissed? }
   )
 
   layout 'guest', only: PUBLIC_PAGES
@@ -49,7 +54,10 @@ class HomeController < ApplicationController
 
   def set_welcome_banner
     @show_welcome_banner = true
-    @user = current_user
+  end
+
+  def set_news_banner
+    @show_news_banner = true
   end
 
   def set_referral_banner

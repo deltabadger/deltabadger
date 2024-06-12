@@ -611,9 +611,9 @@ id:
         days_left:
             other: ''
         hodler: Hodler
-        hodler_description_html: 'DCA bekerja paling baik sebagai komitmen jangka panjang. Empat tahun <b class="badge badge-btc"> transaksi tak terbatas </b> untuk <b class="badge badge-all"> semua mata uang </b> di bursa, <b class="badge badge-limit"> limit order </b> , <b class="badge badge-limit"> penarikan otomatis </b> (segera), <b class="badge badge-limit"> kondisi harga </b> , <b class="badge badge-limit"> kondisi waktu </b> (segera), <b class="badge badge-limit"> staking otomatis </b> (segera). Paket ini mendukung proyek, dan itulah sebabnya Hodlers mendapatkan <b class="badge badge-priority"> akses prioritas </b> ke semua fitur baru.'
+        hodler_description_html: 'DCA bekerja paling baik sebagai komitmen jangka panjang. Empat tahun <b> transaksi tak terbatas </b> untuk <b> semua mata uang </b> di bursa, <b> limit order </b> , <b> penarikan otomatis </b> (segera), <b> kondisi harga </b> , <b> kondisi waktu </b> (segera), <b> staking otomatis </b> (segera). Paket ini mendukung proyek, dan itulah sebabnya Hodlers mendapatkan <b> akses prioritas </b> ke semua fitur baru.'
         investor: Investor
-        investor_description_html: 'Satu tahun <b class="badge badge-btc"> transaksi tak terbatas </b> , <b class="badge badge-btc"> semua mata uang </b> , dan <b class="badge badge-btc"> penarikan otomatis </b> (segera).'
+        investor_description_html: 'Satu tahun <b> transaksi tak terbatas </b> , <b> semua mata uang </b> , dan <b> penarikan otomatis </b> (segera).'
         legendary_badger: ''
         legendary_badger_description_html: ''
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'

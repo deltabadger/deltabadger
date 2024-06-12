@@ -16,6 +16,7 @@ module.exports = function(api) {
   }
 
   return {
+    compact: ( isDevelopmentEnv || isTestEnv ) ? false : true,
     presets: [
       isTestEnv && [
         '@babel/preset-env',
@@ -51,12 +52,6 @@ module.exports = function(api) {
       isTestEnv && 'babel-plugin-dynamic-import-node',
       '@babel/plugin-transform-destructuring',
       [
-        '@babel/plugin-proposal-class-properties',
-        {
-          loose: true
-        }
-      ],
-      [
         '@babel/plugin-proposal-object-rest-spread',
         {
           useBuiltIns: true
@@ -74,12 +69,6 @@ module.exports = function(api) {
         '@babel/plugin-transform-regenerator',
         {
           async: false
-        }
-      ],
-      [
-        '@babel/plugin-proposal-private-methods',
-        {
-          "loose": true
         }
       ],
       isProductionEnv && [

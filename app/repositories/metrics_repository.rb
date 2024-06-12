@@ -20,7 +20,7 @@ class MetricsRepository < BaseRepository
   end
 
   def update_bots_in_profit
-    Scenic.database.refresh_materialized_view(:bots_total_amounts, concurrently: true, cascade: false)
+    Scenic.database.refresh_materializ.view(:bots_total_amounts, concurrently: true, cascade: false)
     profitable_bots_data = ProfitableBotsRepository.new.profitable_bots_data
     bots_in_profit = {
       profitBotsTillNow: profitable_bots_data[0],

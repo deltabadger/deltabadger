@@ -1,0 +1,66 @@
+<%= tag.div id: "smart-allocation-controls", class: "smart-allocation" do %>
+  <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch do |form| %>
+    <div class="toggle">
+      <%= form.check_box :smart_allocation_on, onchange: "this.form.requestSubmit();" %>
+      <div class="toggle__style"></div>
+      <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
+
+      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+        <div class="tooltip-icon--off">
+          <%= render 'svg/24x24_info' %>
+        </div>
+        <div class="tooltip-icon--on">
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+        <div class="tooltip tooltip--smart-allocation">
+          <%= t('analyzer.smart_allocation.short_info_html') %>
+        </div>
+      </div>
+
+    </div>
+  <% end %>
+
+  <%= form_with model: portfolio, url: portfolio_update_risk_level_path(portfolio),
+  method: :patch,
+  html: {
+    onchange: "requestSubmit();"
+  },
+  class: "smart-allocation__slider #{'smart-allocation__slider--off' unless portfolio.smart_allocation_on?}",
+  data: {
+    controller: "risk-level-allocations",
+    risk_level_allocations_risk_levels_value: Portfolio.humanized_risk_levels,
+    risk_level_allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.smart_allocations : nil,
+  } do |form| %>
+    <div class="flex-row space-between">
+      <div class="label label--select ellipsis">
+        <%= t('metrics.volatility.best') %><svg class="icon-16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7L8 10L11 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <select>
+          <option selected><%= t('metrics.volatility.best') %></option>
+          <option disabled><%= t('metrics.max_drawdown.best') %> (<%= t('utils.soon') %>)</option>
+        </select>
+      </div>
+      <div class="label label--select ellipsis">
+        <%= t('metrics.sharpe_ratio.best') %><svg class="icon-16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7L8 10L11 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <select>
+          <option selected><%= t('metrics.sharpe_ratio.best') %></option>
+          <option disabled><%= t('metrics.sortino_ratio.best') %> (<%= t('utils.soon') %>)</option>
+          <option disabled><%= t('metrics.exp_return.best') %> (<%= t('utils.soon') %>)</option>
+        </select>
+      </div>
+    </div>
+    <div class="slider">
+      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->risk-level-allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.assets.empty? %>
+      <div class="slider__style">
+        <% disabled_color = "#8894B6" %> <%# TODO: move this to css variable? %>
+        <% slider_color = portfolio.smart_allocation_on? ? "#2948A1" : disabled_color %>
+        <% slider_width = (Portfolio.risk_levels[portfolio.risk_level] / (Portfolio.risk_levels.size - 1).to_f) * 100 %>
+        <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
+          <%= tag.div class: "slider__style__progress", style: "width: #{slider_width}%; background: #{slider_color};", data: { risk_level_allocations_target: "riskLevelSlider" } do %>
+            <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+<% end %>
+

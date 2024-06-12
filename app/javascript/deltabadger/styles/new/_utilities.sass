@@ -1,0 +1,65 @@
+.ellipsis
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.wrap
+  flex-wrap: wrap
+
+.flex-column
+  display: flex
+  flex-direction: column
+
+.flex-row
+  display: flex
+  flex-direction: row
+
+.space-between
+  justify-content: space-between
+
+.text-align-right
+  text-align: right
+  text-align-last: right
+
+.icon-16
+  width: 2rem
+  height: 2rem
+  min-width: 2rem
+
+.icon-20
+  width: 2.5rem
+  height: 2.5rem
+  min-width: 2.5rem
+
+.icon-24
+  width: 3rem
+  height: 3rem
+  min-width: 3rem
+
+.flex-row
+  display: flex
+  gap: 1rem
+  align-items: center
+
+// margins and paddings
+
+$spacings: ("gap": gap, "m": margin, "mt": margin-top, "mb": margin-bottom, "mr": margin-right, "ml": margin-left, "mx": (margin-left, margin-right), "my": (margin-top, margin-bottom), "p": padding, "pt": padding-top, "pb": padding-bottom, "pr": padding-right, "pl": padding-left, "px": (padding-left, padding-right), "py": (padding-top, padding-bottom))
+
+@for $i from 1 through 6
+  @each $prefix, $property in $spacings
+    .#{$prefix}-#{$i}
+      @if type-of($property) == list
+        @each $prop in $property
+          #{$prop}: #{$i}rem
+      @else
+        #{$property}: #{$i}rem
+
+$directions: "t" "b" "l" "r"
+$sides: "m" "p"
+$values: 1 2 3 4 5
+
+@each $side in $sides
+  @each $direction in $directions
+    @each $value in $values
+      .#{$side}#{$direction}-#{$value}
+        #{$side + if($side == "m", "argin", "adding")}-#{if($direction == "t", "top", if($direction == "b", "bottom", if($direction == "l", "left", "right")))}: #{$value}rem
