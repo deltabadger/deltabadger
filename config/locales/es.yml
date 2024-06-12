@@ -784,9 +784,9 @@ es:
             rebalancing: 'Rebalanceo'
         backtest:
             time_window:
-                adjusted_both_html: "El período de prueba retrospectiva se ha ajustado para comenzar el <strong>%{start_date}</strong> y finalizar el <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
-                adjusted_start_html: "La fecha de inicio de la prueba retrospectiva se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
-                adjusted_end_html: "La fecha de finalización de la prueba retrospectiva se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
+                adjusted_both_html: "El período del backtest se ha ajustado para comenzar el <strong>%{start_date}</strong> y finalizar el <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
+                adjusted_start_html: "La fecha de inicio del backtest se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
+                adjusted_end_html: "La fecha de finalización del backtest se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
     utils:
         soon: '(pronto)'
         new: 'Nuevo'
