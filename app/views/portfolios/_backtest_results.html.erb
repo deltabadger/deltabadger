@@ -241,9 +241,14 @@
       <%= render 'svg/landscape_empty' %>
       <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
     </div>
-  <% else %>
+  <% elsif portfolio.backtest_api_error == "No history available for the given parameters" %>
     <div class="widget">
       <p>Unable to backtest this portfolio. The assets you selected have never coexisted since <%= portfolio.backtest_start_date %>! </p>
+      <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+    </div>
+  <% else %>
+    <div class="widget">
+      <p>Unable to backtest this portfolio </p>
       <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
     </div>
   <% end %>

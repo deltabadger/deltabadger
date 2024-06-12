@@ -94,8 +94,6 @@ class FinancialDataApiClient < ApplicationClient
           limit: limit,
           start: start
         }.compact
-        puts 'lelelelele'
-        puts req.params.inspect
       end
       Result::Success.new(response.body)
     end
