@@ -15,6 +15,7 @@ class User < ApplicationRecord
   has_many :transactions, through: :bots
   has_many :subscriptions
   has_many :payments
+  has_many :portfolios, dependent: :destroy
 
   validates :terms_and_conditions, acceptance: true
   validates :name, presence: true, if: -> { new_record? }
@@ -46,14 +47,6 @@ class User < ApplicationRecord
     return false if unlimited?
 
     credits <= 0
-  end
-
-  def welcome_banner_showed?
-    welcome_banner_showed
-  end
-
-  def referral_banner_showed?
-    referral_banner_showed
   end
 
   def eligible_referrer

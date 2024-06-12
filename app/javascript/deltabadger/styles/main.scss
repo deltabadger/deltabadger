@@ -1,31 +1,52 @@
 :root {
   font-size: 8px;
 }
-@import 'bootstrap/bootstrap';
-@import 'variables';
-@import 'mixins';
-@import 'styles';
-@import 'cookies';
-@import 'signup';
-@import 'pages';
-@import 'navbar';
-@import 'sidebar';
-@import 'bots';
-@import 'forms';
-@import 'checkout';
-@import 'stripe';
-@import 'spinner';
-@import 'dropdown';
-@import 'referral-stats';
-@import 'alerts';
-@import 'pricing';
-@import 'charts';
-@import 'modal';
+@import "bootstrap/bootstrap";
+@import "variables";
+@import "mixins";
+@import "styles";
+@import "cookies";
+@import "signup";
+@import "pages";
+@import "navbar";
+@import "sidebar";
+@import "bots";
+@import "forms";
+@import "checkout";
+@import "stripe";
+@import "spinner";
+@import "dropdown";
+@import "referral-stats";
+@import "alerts";
+@import "pricing";
+@import "charts";
+@import "modal";
 @import "exchanges";
 @import "qr_code";
 @import "rwd";
 @import "bonjoro";
 @import "bot_info";
 
-@import 'menu';
+@import "new/reset";
+@import "new/variables";
+@import "new/base";
+@import "new/small-ui";
+@import "new/ticker";
+@import "new/ticker-input";
+@import "new/slider";
+@import "new/basket";
+@import "new/tooltip";
+@import "new/toggle";
+@import "new/widget";
+@import "new/dropdown";
+@import "new/total-value";
+@import "new/navbar";
+@import "new/smart-allocation";
+
+@import "new/utilities";
+
+@import "animations/portfolio_analyzer";
+@import "portfolio_analyzer";
+
+
 

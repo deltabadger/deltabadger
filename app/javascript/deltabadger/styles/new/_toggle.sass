@@ -1,0 +1,63 @@
+input[type=checkbox]
+    cursor: pointer
+.toggle
+    display: flex
+    align-items: center
+    gap: 1rem
+    position: relative
+    &__style
+        position: relative
+        content: ""
+        width: 5rem
+        height: 3rem
+        background-color: var(--toggle-background)
+        border-radius: 1.5rem
+        transition: background-color 0.3s
+        pointer-events: none
+        &::after
+            content: ""
+            position: absolute
+            top:    0.25rem
+            left:   0.25rem
+            width:  2.5rem
+            height: 2.5rem
+            background-color: white
+            border-radius: 50%
+            transition: transform 0.3s
+    &--vertical
+        .toggle__style
+            width: 3rem !important
+            height: 5.5rem !important
+            &::after
+                top: 2.75rem !important
+        input[type="checkbox"]
+            width: 3rem !important
+            height: 5.5rem !important
+            &:checked
+                &~ .toggle__style
+                    &::after
+                        transform: translateY(-2.5rem) translateX(0) !important
+    .label
+        margin: 0
+        transition: color 0.3s
+        font-weight: 700
+        &__value
+            margin: 0
+    input[type="checkbox"]
+        position: absolute
+        width: 5rem
+        height: 3rem
+        opacity: 0
+        &~  *
+            path
+                fill: var(--label)
+        &:checked 
+            &~ .toggle__style
+                background-color: var(--toggle-background-active)
+                &::after
+                    transform: translateX(2rem)
+            &~ .label
+                color: var(--toggle-background-active)
+            &~  *
+                path
+                    fill: var(--toggle-background-active)
