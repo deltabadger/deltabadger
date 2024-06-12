@@ -800,6 +800,7 @@ en:
             short_info: 'The variety of different investments in your portfolio to spread risk.'
             best: 'Best Diversification'
     analyzer:
+        no_assets: 'Get started by adding a new asset.'
         smart_allocation:
             name: 'Smart Allocation'
             short_info_html: '<p>Smart Allocation applies <b>Modern Portfolio Theory (MPT)</b> algorithms to find the best asset allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
