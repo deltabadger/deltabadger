@@ -241,14 +241,18 @@
       <%= render 'svg/landscape_empty' %>
     </div>
   <% elsif portfolio.backtest_api_error == "No history available for the given parameters" %>
+    <div class="insight insight--warning" style="margin-bottom: 2px">
+      <%= t('analyzer.assets_dont_coexist', backtest_start_date: portfolio.backtest_start_date) %>
+    </div>
     <div class="widget">
-      <p>Unable to backtest this portfolio. The assets you selected have never coexisted since <%= portfolio.backtest_start_date %>! </p>
-      <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+      <%= render 'svg/landscape_empty_no_connection' %>
     </div>
   <% else %>
+    <div class="insight insight--warning" style="margin-bottom: 2px">
+      <%= t('analyzer.api_unreachable') %>
+      
     <div class="widget">
-      <p>Unable to backtest this portfolio right now. Data API server is unreachable.</p>
-      <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
+      <%= render 'svg/landscape_empty_no_connection' %>
     </div>
   <% end %>
 <% end %>
