@@ -801,6 +801,8 @@ en:
             best: 'Best Diversification'
     analyzer:
         no_assets: 'Get started by adding a new asset.'
+        assets_dont_coexist: 'Unable to backtest this portfolio. The assets you selected have never coexisted since %{backtest_start_date}!'
+        api_unreachable: 'Unable to backtest this portfolio right now. Data API server is unreachable.'
         smart_allocation:
             name: 'Smart Allocation'
             short_info_html: '<p>Smart Allocation applies <b>Modern Portfolio Theory (MPT)</b> algorithms to find the best asset allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
