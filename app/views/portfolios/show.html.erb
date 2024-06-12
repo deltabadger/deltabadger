@@ -4,7 +4,9 @@
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
     <div>
-      <%= render "empty", portfolio: @portfolio %>
+      <% if @portfolio.assets.empty? %>
+        <%= render "empty", portfolio: @portfolio %>
+      <% end %>
       <%= tag.div id: "portfolio-active-assets", class: "basket" do %>
         <% @portfolio.active_assets.each do |asset| %>
           <%= render 'assets/asset', asset: asset %>

@@ -239,7 +239,6 @@
   <% elsif portfolio.assets.empty? %>
     <div class="widget">
       <%= render 'svg/landscape_empty' %>
-      <%# TODO: Create a proper template for this message, to see it just set non normalized allocations manually and refresh http://localhost:3000/en/portfolio-analyzer %>
     </div>
   <% elsif portfolio.backtest_api_error == "No history available for the given parameters" %>
     <div class="widget">
