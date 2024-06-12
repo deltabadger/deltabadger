@@ -10,7 +10,7 @@ class ApplicationClient
   def with_rescue
     yield
   rescue Faraday::Error => e
-    Result::Failure.new(e.response_body)
+    Result::Failure.new(e.response_body, data: { status: e.response_status })
   rescue StandardError => e
     Raven.capture_exception(e)
     Result::Failure.new(e.message)

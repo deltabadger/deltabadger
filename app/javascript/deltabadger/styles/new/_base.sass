@@ -1,0 +1,177 @@
+\:root
+    background: var(--background)
+    font-size: 8px
+    @media only screen and (max-width: 1359px)
+        font-size: 7.5px
+    &.view--portfolios-show
+        background: var(--background-new)
+
+body
+    font-size:   2rem
+    font-weight: 450
+    font-family: Montserrat, sans-serif
+    color:       var(--text)
+    position:    relative
+dialog
+  display: block // override default display: none, used if js is disabled
+
+.main
+    padding: 4rem 4rem 4rem 17rem
+    @media only screen and (max-width: 1359px)
+      padding-top: 16rem
+      padding-left: 4rem
+    @media only screen and (max-width: 767px)
+      padding: 16rem 2rem 2rem
+
+.columns
+    display: grid
+    gap: 4rem
+    grid-template-columns: 1fr 1fr
+    @media only screen and (max-width: 1359px)
+        grid-template-columns: 2fr 3fr
+    @media only screen and (max-width: 1023px)
+        grid-template-columns: 1fr
+
+
+.column
+    display: flex
+    flex-direction: column
+    width: 100%
+    container-type: inline-size
+
+.modal--search
+    background: none !important
+    width: 100vw
+    height: 100vh
+    max-width: 63rem !important
+    max-height: 63rem !important
+    &__background
+        background: var(--modal-background)
+        border-radius: 1rem
+        overflow: hidden
+        max-height: 63rem !important
+    &__zoom-icon
+        width: 3rem
+        height: 3rem
+        position: absolute
+        top: 2rem
+        left: 2rem
+        path,circle
+            stroke: var(--modal-search-placeholder)
+    &__input
+        background: rgba(0,0,0,0)
+        font-weight: 500
+        width: 100%
+        padding: 2rem 2rem 2rem 7rem
+        font-size: 2rem
+        border: none
+        height: 7rem
+        &:focus
+            outline: none
+        &::placeholder
+            color: var(--modal-search-placeholder)
+    &__assets
+        max-height: calc(63rem - 7rem) !important
+        display: block
+        overflow-y: scroll
+        &::-webkit-scrollbar
+            -webkit-appearance: none
+            width: 12px
+            height: 12px
+        &::-webkit-scrollbar-thumb
+            background-color: rgba(0, 0, 0, 0.5)
+            border-radius: 10px
+            border: 2px solid #ffffff
+        &__item
+            &:hover
+                background: var(--modal-search-hover-background)
+            &__highlight
+                background: var(--modal-search-highlight-background)
+                &:hover
+                    background: var(--modal-search-highlight-background)
+            button
+                background: none
+                border: none
+                display: grid
+                grid-template-columns: 15rem 1fr 11rem
+                width: 100%
+    &__cell
+        text-align: left
+        padding: 1rem 0 1rem 2rem
+        font-weight: 500
+        overflow: hidden
+        text-overflow: ellipsis
+        text-wrap: nowrap
+        &--ticker
+            font-weight: bold
+            color: var(--emphasis)
+        &--category
+            color: var(--label)
+
+.insight
+    padding: 2rem 2rem 2rem 6rem
+    background: var(--insight-background) no-repeat 2rem 2rem
+    background-size: 3rem 3rem
+    &__name
+        font-weight: 700
+        color: var(--insight-title)
+        b
+            font-weight: 700
+    &--summary
+        background-image: var(--icon-24-blue-circle-star)
+    &--pro
+        background-color: var(--insight-pro-background)
+        background-image: var(--icon-24-green-circle-plus)
+        b
+            color: var(--success)
+    &--con
+        background-color: var(--insight-con-background)
+        background-image: var(--icon-24-red-circle-minus)
+        b
+            color: var(--danger)
+    &--warning
+        background-color: var(--insight-warning-background)
+        background-image: var(--icon-24-orange-circle-exclamation)
+        b
+            color: var(--warning)
+    &__hint
+        display: block
+        font-weight: 600
+        font-style: italic
+        margin-top: 2rem
+        &::before
+            content: "💡"
+            margin-right: 0.125rem
+            font-style: normal
+
+.alertbox
+    border-radius: 2rem
+    box-shadow: 0 0.5rem 2rem 0 rgba(0,0,0,0.12)
+    display: flex
+    padding: 3rem
+    overflow: hidden
+    position: relative
+    margin-bottom: 1rem
+    .close
+        font-size: 2rem
+        opacity: 1
+        *
+            fill: var(--label)
+    a
+        font-weight: bold
+        color: var(--link)
+    &--news
+        background: var(--alertbox-news-background)
+        color: var(--alertbox-news-color)
+        padding-bottom: 12rem
+    ul,ol
+        margin-left: 3rem
+        font-weight: 600
+    p,ul,ol
+        margin-bottom: 2rem
+    .art--legendary-badger
+        position: absolute
+        bottom: -5rem
+        right: 0rem
+        width: 40rem
+        height: 40rem

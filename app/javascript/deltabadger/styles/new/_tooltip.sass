@@ -1,0 +1,45 @@
+.tooltip
+    opacity: 0
+    position: absolute
+    font-weight: 550
+    background: var(--tooltip-background)
+    color: var(--tooltip-text)
+    padding: 2rem 2.25rem
+    border-radius: 1rem
+    box-shadow: 0 0rem 5rem 0.5rem rgba(0, 0, 0, 0.1)
+    transition: 0.1s ease-out
+    pointer-events: none
+    z-index: 1000000
+    user-select: none
+    &::before
+        content: ""
+        position: absolute
+        top: -2rem
+        left: 50%
+        transform: translateX(-50%)
+        border: 1rem solid transparent
+        border-bottom-color: var(--tooltip-background)
+        z-index: 1 
+
+.tooltip-icon--off
+    display: block
+.tooltip-icon--on
+    display: none
+   
+.show-tooltip
+    .tooltip
+        opacity: 1
+        transition: 0.1s ease-in
+    .tooltip-icon--on
+        display: block
+    .tooltip-icon--off
+        display: none
+
+.tooltip-info-icon
+    cursor: pointer
+    position: relative
+.tooltip--smart-allocation
+    top: calc(100% + 1rem)
+    width: 42rem
+    left: -20rem
+

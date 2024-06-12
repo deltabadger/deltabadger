@@ -76,4 +76,7 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 gem "telegram-bot", "~> 0.15.6"
 gem "faraday-net_http_persistent", "~> 2.1"
 
+gem "turbo-rails", "~> 2.0"
+gem "stimulus-rails", "~> 1.3"
+gem 'redis', '~> 5.0'
 gem "jwt", "~> 2.8"

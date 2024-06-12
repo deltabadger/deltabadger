@@ -1,73 +1,55 @@
-.d_menu
-  .d_menu__section.d_menu__section--top.d_menu__section--logo
-    %a.d_menu__logo{:href => root_path}
+.menu
+  .menu__section.menu__section--top.menu__section--logo
+
+    = link_to root_path, class: 'menu__logo', data: {turbo: false} do
       -unless current_user.subscription_name == 'legendary_badger'
-        %svg{fill: "none", viewbox: "0 0 64 49", style: "height:6.125rem", xmlns: "http://www.w3.org/2000/svg"}
-          %path.d_fill--icon-active{"clip-rule" => "evenodd", d: "M60 31.3a5.9 5.9 0 0 0 1.7-1.8l.3-1c0-.6-.2-1.1-.8-1.7-.6-.7-1.4-1.3-2.7-2a1 1 0 0 1 1-1.7c1.3.7 2.4 1.5 3.2 2.3.8.9 1.3 1.9 1.3 3 0 .8-.2 1.6-.6 2.3A34.8 34.8 0 0 1 32 49 35 35 0 0 1 .5 30.4c-.3-.6-.5-1.2-.5-2 0-1.1.5-2.1 1.3-3 .8-.8 2-1.6 3.2-2.3a1 1 0 0 1 1 1.7c-1.3.7-2.1 1.3-2.7 2-.6.6-.8 1.1-.8 1.7 0 .8.6 1.8 2 2.8 1.5 1 3.6 2 6.4 3A77.2 77.2 0 0 0 32 36.8c8.5 0 16.1-1 21.6-2.7 2.8-.8 5-1.8 6.4-2.9ZM32 47c10.9 0 20.2-4.6 26.4-12.5-1.2.6-2.6 1.1-4.2 1.6A79.2 79.2 0 0 1 32 39c-8.6 0-16.5-1-22.2-2.8-1.6-.5-3-1-4.2-1.6A33 33 0 0 0 32 47Z"}
-          %path.d_fill--icon-active{d: "M11.2 29c.2 1 1.7 1.4 2.1 0 1-3.8 2.7-6 4-6 .9 0 1.1 1.5 1.4 2.8.2 1.3.4 2.5 1 2.6.3 0 .7 0 .8-.4.5-1.7 1.2-10 1.5-13.6.5.7 1.7 1.5 2.7 1.7 1.7.4 2.3.2 2.3-.4 0-.4 0-.4-.3-.7l-.9-1.2c-.6-1-1.1-2.7-1.5-4.1-.3-1-.5-2-.8-2.5C22.8 6 21.8 5 21.8 5s2.2-.2 2.5-1c.2-.7-1.2-3.6-4.6-3.9-2.5-.2-4.3 1.6-5.4 2.7l-.8.8C10.6 5 9.2 9.9 9 13.8c-.2 3.5.5 4.3 1.3 3.8-.1 5.7.6 9.8.8 11.2v.2ZM28 29c.8 0 2-.3 2-.9 0-1.2-.9-2.1-2-2.1s-2 1-2 2.1c0 .6 1.2.9 2 .9ZM54 4a2 2 0 0 1-1 1.7V28a1 1 0 1 1-2 0V5.7A2 2 0 1 1 54 4ZM43 13.7a2 2 0 1 1 2 0V28a1 1 0 1 1-2 0V13.7ZM35 21.7a2 2 0 1 1 2 0V28a1 1 0 1 1-2 0v-6.3Z"}
+        = render 'svg/64x46_logo'
         -# = render 'layouts/devise_messages'
       -else
-        %svg{fill: "none", viewbox: "0 0 64 60", style: "height:7.5rem", xmlns: "http://www.w3.org/2000/svg"}
-          %g{"clip-path" => "url(#a)"}
-            %path.d_fill--icon-active{d: "M11.2 40c.2 1 1.7 1.4 2.1 0 1-3.8 2.7-6 4-6 .9 0 1.1 1.5 1.4 2.8.2 1.3.4 2.5 1 2.6.3 0 .7 0 .8-.4.5-1.7 1.2-10 1.5-13.6.5.7 1.7 1.5 2.7 1.7 1.7.4 2.3.2 2.3-.4 0-.4 0-.4-.3-.7l-.9-1.2c-.6-1-1.1-2.7-1.5-4.1-.3-1-.5-2-.8-2.5-.7-1.3-1.7-2.3-1.7-2.3s2.2-.2 2.5-1c.2-.7-1.2-3.6-4.6-3.9-2.5-.2-4.3 1.6-5.4 2.7l-.8.8C10.6 16 9.2 20.9 9 24.8c-.2 3.5.5 4.3 1.3 3.8-.1 5.7.6 9.8.8 11.2v.2Z", fill: "#2948A1"}
-            %path.d_fill--icon-active{"clip-rule" => "evenodd", d: "M60 42.3a5.9 5.9 0 0 0 1.7-1.8l.3-1c0-.6-.2-1.1-.8-1.7-.6-.7-3.7-2.8-9-4.2a1 1 0 0 1 1-1.8c6.2 1.8 8.7 3.8 9.5 4.6.8.9 1.3 1.9 1.3 3 0 .8-.2 1.6-.6 2.3A34.8 34.8 0 0 1 32 60 35 35 0 0 1 .5 41.4c-.3-.6-.5-1.2-.5-2 0-1.1.5-2.1 1.3-3 .8-.8 2-1.6 3.2-2.3a1 1 0 1 1 1 1.7c-1.3.7-2.1 1.3-2.7 2-.6.6-.8 1.1-.8 1.7 0 .8.6 1.8 2 2.8 1.5 1 3.6 2 6.4 3A77.2 77.2 0 0 0 32 47.8c8.5 0 16.1-1 21.6-2.7 2.8-.8 5-1.8 6.4-2.9ZM32 58c10.9 0 20.2-4.6 26.4-12.5-1.2.6-2.6 1.1-4.2 1.6A79.2 79.2 0 0 1 32 50c-8.6 0-16.5-1-22.2-2.8-1.6-.5-3-1-4.2-1.6A33 33 0 0 0 32 58Z", "fill-rule" => "evenodd"}
-            %path{"clip-rule" => "evenodd", d: "M26 6.5c1.6-2.4 4.4-4 7.6-4 2.5 0 4.7 1.6 7 3.4.4.4 1 .4 1.5 0 1-.9 2-1.7 3.2-2.3 1.1-.7 2.2-1 3.3-1.1h.4c5.1 0 9.2 4 9.2 9.1 0 1.7-.9 3.7-2.6 6a49.5 49.5 0 0 1-6 6.8 98 98 0 0 1-8.3 7c-1.2-.6-3-1.7-4.7-3.2v-.4a2.5 2.5 0 1 0-1.6 2.3c2.3 2 4.7 3.3 5.7 4 .4.1 1 .1 1.3-.2l-.7-1 .7 1a36.2 36.2 0 0 0 3-2.2c1.6-1.4 4-3.3 6.2-5.5a52 52 0 0 0 6.4-7c1.8-2.5 3.1-5.1 3.1-7.6C60.7 5.2 55.5 0 49 0h-.5c-1.6 0-3.1.7-4.4 1.4-1 .6-2 1.3-2.8 2-2-1.7-4.7-3.4-7.7-3.4-4 0-7.6 2-9.7 5.2a1.2 1.2 0 0 0 2 1.3Z", fill: "url(#b)", "fill-rule" => "evenodd"}
-          %defs
-            %lineargradient#b{gradientunits: "userSpaceOnUse", x1: "3.8", x2: "64.6", y1: "0", y2: "-13.6"}
-              %stop{"stop-color" => "red"}
-              %stop{offset: ".3", "stop-color" => "#F0F"}
-              %stop{offset: ".7", "stop-color" => "#0FF"}
-              %stop{offset: "1", "stop-color" => "#00F"}
-            %clippath#a
-              %path{d: "M0 0h64v60H0z", fill: "#fff"}
-  .d_menu__section.d_menu__section--top.d_menu__section--main-menu
-    %a.d_menu__icon.d_menu__icon--dashboard{:href => root_path, :title => t('links.dashboard')}
-      %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M12 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z", "fill-rule" => "evenodd"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M16 9.8c.5.2.7.8.4 1.3l-2.6 5.3a1 1 0 0 1-1.8-.8l2.6-5.4a1 1 0 0 1 1.4-.4Z", "fill-rule" => "evenodd"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M7 18c0 .6-.4 1-1 1h-.4c-1 0-2-.5-2.5-1.5a10 10 0 1 1 17.8 0c-.5 1-1.5 1.5-2.5 1.5H18a1 1 0 1 1 0-2h.4c.4 0 .6-.2.7-.4a8 8 0 1 0-14.3 0c.2.2.4.4.8.4H6c.6 0 1 .4 1 1Z", "fill-rule" => "evenodd"}
-      %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon-active{"clip-rule" => "evenodd", d: "M18.4 19h-3.6a3 3 0 0 0-.7-3.1l2.3-4.8a1 1 0 0 0-1.8-.9L12.3 15a3 3 0 0 0-3.1 4H5.6c-1 0-2-.5-2.5-1.5a10 10 0 1 1 17.8 0c-.5 1-1.5 1.5-2.5 1.5Z", "fill-rule" => "evenodd"}
-        %path.d_fill--icon-active{"clip-rule" => "evenodd", d: "M12 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z", "fill-rule" => "evenodd"}
-    %a.d_menu__icon.d_menu__icon--referral-program{:href => affiliate_path, :title => t('links.referral_program')}
-      %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M4 11a5 5 0 1 1 8.5 3.6l1.2.5c1.6.7 2.3 2.4 2.3 4a2 2 0 0 1-2 1.9H4a2 2 0 0 1-2-2c0-1.5.7-3.2 2.3-4l1.2-.4A5 5 0 0 1 4 11Zm5 5a9 9 0 0 0-3.8.9C4.5 17.2 4 18 4 19h10c0-1-.5-1.8-1.2-2.1A9 9 0 0 0 9 16Zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z", "fill-rule" => "evenodd"}
-        %path.d_fill--icon{d: "M15 2a5 5 0 0 0-3.8 1.7A1 1 0 1 0 12.8 5 3 3 0 0 1 15 4a3 3 0 0 1 3 3 3.2 3.2 0 0 1-2.4 3 1 1 0 0 0-.6 1 1 1 0 0 0 1 1c1 .1 1.9.4 2.8.9.7.3 1.2 1.1 1.2 2.1h-2.5a1 1 0 1 0 0 2H20a2 2 0 0 0 2-2c0-1.5-.7-3.2-2.3-4l-1.1-.4c.9-1 1.4-2.3 1.4-3.6a5 5 0 0 0-5-5Z"}
-      %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon-active{"clip-rule" => "evenodd", d: "M4 11a5 5 0 1 1 8.5 3.6l1.2.5c1.6.7 2.3 2.4 2.3 4a2 2 0 0 1-2 1.9H4a2 2 0 0 1-2-2c0-1.5.7-3.2 2.3-4l1.2-.4A5 5 0 0 1 4 11Z", fill: "#2948A1", "fill-rule" => "evenodd"}
-        %path.d_fill--icon-active{d: "M10.8 4.4C11.3 3.1 13 2 15 2a5 5 0 0 1 5 5c0 1.3-.5 2.6-1.4 3.6l1.1.5c1.6.7 2.3 2.4 2.3 4a2 2 0 0 1-2 1.9h-2.4c-.1-.3-.4-1.2-1-1.9-.8-.9-1.4-1.2-1.4-1.2s.8-1 .8-2.9c0-3.5-2.6-6.1-5.2-6.6Z"}
-    %a.d_menu__icon.d_menu__icon--settings{:href => settings_path, :title => t('links.settings')}
-      %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM2 12a10 10 0 1 1 20 0 10 10 0 0 1-20 0Z", fill: "#2948A1", "fill-rule" => "evenodd"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-5 3a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z", fill: "#2948A1", "fill-rule" => "evenodd"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M12 17c-2 0-3.8.6-5.4 1.8l-1.2-1.6c2-1.4 4.2-2.2 6.6-2.2 2.4 0 4.7.8 6.6 2.2l-1.2 1.6A9.2 9.2 0 0 0 12 17Z", "fill-rule" => "evenodd"}
-      %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon-active{"clip-rule" => "evenodd", d: "M22 12a10 10 0 0 1-2 6c-1.5-1-3-1.9-4.5-2.4A5 5 0 1 0 7 12a5 5 0 0 0 1.5 3.6c-1.5.5-3 1.3-4.4 2.5a10 10 0 1 1 18-6Zm-10 5c2.1 0 4.3.8 6.6 2.5a10 10 0 0 1-13.2 0C7.7 17.8 10 17 12 17Z", "fill-rule" => "evenodd"}
-        %path.d_fill--icon-active{d: "M12 9a3 3 0 0 1 0 6 3 3 0 0 1 0-6Z"}
-    - if current_user.subscription_name == 'legendary_badger'
-      - legendary_badger_plan = current_user.subscription_name == 'legendary_badger'
-      %a.d_menu__icon.d_menu__icon--legendary-badger{href: legendary_badger_plan ? legendary_badger_path : upgrade_path, :title => t('links.legendary_badger')}
-        %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-          %path.d_fill--icon{"clip-rule" => "evenodd", d: "M11.3055 19.4452L11.3848 19.5034C11.7347 19.7561 12.2453 19.7713 12.5949 19.5182L12.6954 19.4443C12.7641 19.3936 12.8637 19.3194 12.9898 19.2241C13.242 19.0334 13.6007 18.7575 14.0304 18.4142C14.8884 17.7288 16.0365 16.7688 17.1882 15.6762C18.3354 14.588 19.511 13.3448 20.4071 12.0921C21.278 10.8746 22 9.4921 22 8.15432C22 4.74908 19.2229 2 15.8114 2C14.3124 2 12.9804 2.81285 12.0037 3.55611C11.0272 2.79666 9.75831 2 8.18792 2C4.77637 2 2 4.74914 2 8.15432C2 9.49549 2.7213 10.8796 3.59274 12.0987C4.48897 13.3524 5.66484 14.5952 6.8121 15.6826C7.96401 16.7743 9.11219 17.7328 9.97029 18.4171C10.4001 18.7598 10.7588 19.035 11.011 19.2254C11.1372 19.3205 11.2368 19.3945 11.3055 19.4452ZM4 8.15432C4 5.86593 5.86868 4 8.18792 4C9.30497 4 10.256 4.69305 11.3615 5.60938C11.7316 5.91617 12.2677 5.91616 12.6378 5.60937C13.6812 4.74452 14.7636 4 15.8114 4C18.1309 4 20 5.86617 20 8.15432C20 8.83842 19.597 9.78691 18.7804 10.9285C17.989 12.0349 16.9146 13.179 15.8118 14.2252C14.7135 15.2671 13.6116 16.189 12.7821 16.8517C12.4794 17.0934 12.214 17.3 11.9993 17.4645C11.7848 17.3004 11.5196 17.0945 11.2172 16.8534C10.3878 16.192 9.28599 15.2717 8.1879 14.231C7.08516 13.1858 6.01103 12.0425 5.21976 10.9356C4.4037 9.79399 4 8.84313 4 8.15432Z", fill: "#2948A1", "fill-rule" => "evenodd"}
-        %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-          %path.d_fill--icon-active{d: "M11.3848 19.5034L11.3055 19.4452C11.2368 19.3945 11.1372 19.3205 11.011 19.2254C10.7588 19.035 10.4001 18.7598 9.97029 18.4171C9.11219 17.7328 7.96401 16.7743 6.8121 15.6826C5.66484 14.5952 4.48897 13.3524 3.59274 12.0987C2.7213 10.8796 2 9.49549 2 8.15432C2 4.74914 4.77637 2 8.18792 2C9.75831 2 11.0272 2.79666 12.0037 3.55611C12.9804 2.81285 14.3124 2 15.8114 2C19.2229 2 22 4.74908 22 8.15432C22 9.4921 21.278 10.8746 20.4071 12.0921C19.511 13.3448 18.3354 14.588 17.1882 15.6762C16.0365 16.7688 14.8884 17.7288 14.0304 18.4142C13.6007 18.7575 13.242 19.0334 12.9898 19.2241C12.8637 19.3194 12.7641 19.3936 12.6954 19.4443L12.5949 19.5182C12.2453 19.7713 11.7347 19.7561 11.3848 19.5034Z", fill: "#2948A1"}
-    - else
-      %a.d_menu__icon.d_menu__icon--upgrade{:href => upgrade_path, :title => t('subscriptions.upgrade_plan')}
-        %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-          %path.d_fill--success{"clip-rule" => "evenodd", d: "M9 10.7c.1.6-.2 1.1-.7 1.3-1.4.3-2.5.9-3.3 1.5-.7.6-1 1.2-1 1.8 0 .7.6 1.6 2.1 2.4A13 13 0 0 0 12 19a13 13 0 0 0 5.9-1.3C19.4 17 20 16 20 15.3c0-.6-.3-1.2-1-1.8a8.4 8.4 0 0 0-3.3-1.5 1 1 0 0 1 .6-2c1.5.4 3 1.1 4 2 1 .8 1.7 2 1.7 3.3 0 1.8-1.4 3.3-3.2 4.2A15 15 0 0 1 12 21c-2.6 0-5-.6-6.8-1.5C3.4 18.5 2 17 2 15.3c0-1.4.7-2.5 1.7-3.3 1-.9 2.5-1.6 4-2a1 1 0 0 1 1.3.7Z", "fill-rule" => "evenodd"}
-          %path.d_fill--success{"clip-rule" => "evenodd", d: "M11.3 2.3a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L13 5.4V15a1 1 0 1 1-2 0V5.4L8.7 7.7a1 1 0 0 1-1.4-1.4l4-4Z", "fill-rule" => "evenodd"}
-        %svg{fill: "none", viewbox: "0 0 24 24", xmlns: "http://www.w3.org/2000/svg"}
-          %path.d_fill--success{"clip-rule" => "evenodd", d: "M5.2 11A15 15 0 0 1 12 9.5c2.6 0 5 .5 6.8 1.5 1.8 1 3.2 2.4 3.2 4.2 0 2-1.4 3.4-3.2 4.3A15 15 0 0 1 12 21c-2.6 0-5-.6-6.8-1.5C3.4 18.5 2 17 2 15.2 2 13.4 3.4 12 5.2 11Zm6-8.7a1 1 0 0 1 1.5 0l4 4a1 1 0 0 1-1.4 1.4L13 5.4V15a1 1 0 1 1-2 0V5.4L8.7 7.7a1 1 0 0 1-1.4-1.4l4-4Z", "fill-rule" => "evenodd"}
+        = render 'svg/64x46_logo_legendary'
 
-    -# .db-tooltip
-    -#   - if legendary_badger_plan
-    -#     = t('subscriptions.plan_life_time')
-    -#   -else
-    -#     = t('subscriptions.days_left', count: current_user.plan_days_left)
+  .menu__section.menu__section--top.menu__section--main-menu
+
+    = link_to root_path, class: 'menu__item menu__item--dashboard', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_dashboard'
+      .tooltip 
+        = t('links.dashboard')
+
+    = link_to portfolio_analyzer_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_analyzer'
+      .xsbadge= t('utils.new')
+      .tooltip 
+        = t('links.analyzer')
+
+    = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_referral_program'
+      .tooltip 
+        = t('links.referral_program')
+
+    = link_to settings_path, class: 'menu__item menu__item--settings', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_account'
+      .tooltip
+        = t('links.settings')
+
+    - if current_user.subscription_name == 'legendary_badger'
+      = link_to legendary_badger_path, class: 'menu__item menu__item--legendary-badger', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+        = render 'svg/24x24_heart'
+        .tooltip
+          = t('links.legendary_badger')
+          = t('subscriptions.plan_life_time')
+
+    - else
+      = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+        = render 'svg/24x24_upgrade'
+        .tooltip
+          .tooltip__title
+            = t('subscriptions.upgrade_plan')
+          .tooltip__counter
+            = t('subscriptions.days_left', count: current_user.plan_days_left)
   
-  .d_menu__section.d_menu__section--bottom
+  .menu__section.menu__section--bottom
     .btn-group
-      %button.btn.btn-link.d_menu__button{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
+      %button.menu__button{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
         - if params[:lang].blank?
           = 'EN'
         - else
@@ -97,7 +79,6 @@
         - unless lang == 'zh-cn'
           = link_to "🇨🇳 中文", url_for(lang: 'zh-cn'), class: "dropdown-item"
     
-    = link_to destroy_user_session_path, method: :delete, class: 'd_menu__icon' do
-      %svg{:width => "24", :height => "24", :viewBox => "0 0 24 24", :xmlns => "http://www.w3.org/2000/svg"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M8.9 3.5c.2.5 0 1-.5 1.3a8 8 0 1 0 7.2 0 1 1 0 0 1 .8-1.8 10 10 0 1 1-8.8 0c.4-.2 1 0 1.3.5Z", "fill-rule" => "evenodd"}
-        %path.d_fill--icon{"clip-rule" => "evenodd", d: "M12 2c.6 0 1 .4 1 1v8a1 1 0 1 1-2 0V3c0-.6.4-1 1-1Z", "fill-rule" => "evenodd"}
+    = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button" do
+    
+      = render 'svg/24x24_logout'

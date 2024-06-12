@@ -537,10 +537,18 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
     subscriptions:
+        days_left:
+            one: '1 dia restante'
+            other: '%{count} dias restantes'
         hodler: Hodler
+        hodler_description_html: '<p><b>DCA funciona melhor como um compromisso de longo prazo.</b></p><p>Quatro anos de <b>transações ilimitadas</b> para <b>todas as moedas</b>, taxas mais baixas com <b>ordens limitadas</b>, <b>saques automáticos</b>, <b>condição de preço</b>, <b>condição de tempo</b>(em breve), <b>webhooks</b> e <b>rebalanceamento de portfólio</b>(em breve). Planos de longo prazo também apoiam o projeto, e é por isso que os Hodlers têm <b>acesso prioritário</b> a todos os novos recursos.</p>'
         investor: Investor
-        investor_description_html: 'Um ano de <b class="badge badge-btc"> transações ilimitadas </b>, <b class="badge badge-btc"> todas as moedas </b> e <b class="badge badge-btc"> saques automáticos </b> (em breve).'
-        limit_reached_html: '<b>Parabéns!</b> Atingiu o nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
+        investor_description_html: 'Um ano de <b>transações ilimitadas</b>, <b>todas as moedas</b> e <b>saques automáticos</b>.'
+        legendary_badger: Legendary Badger
+        legendary_badger_description_html: '<p><b>Nunca mais pague para usar o serviço.</b></p><p>Tudo o que o plano Hodler oferece, mas para a vida toda.</p><p>A assinatura vem com um <b>NFT</b>, para que no futuro você possa vendê-la para outro usuário.</p><p>Cada token está associado a uma obra de arte processual. Você consegue encontrar todos os 21 "ovos de páscoa" escondidos na <a href="https://deltabadger.com/legendary/" class="nobreak">coleção</a>?</p><p>Para a vida toda. Limitado. Lendário.</p><p>Os Legendary Badgers são como nada mais no mercado.</p><p>Apenas 1000 estão na nave espacial dos Legendary Badgers. Consolide seu status de pensador a longo prazo e seja lendário.</p>'
+        limit_reached_html: '<b>Parabéns!</b> Você atingiu nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
+        analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
+        expires_soon_html: 'O plano de 4 anos será substituído em breve por uma assinatura anual de $199/ano. Esta é a última chance de obter 4 anos de acesso pela metade do preço.'
         payment:
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
@@ -585,3 +593,91 @@ pt:
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         saver: 'Livra-te dos limites e faz um upgrade!'
+    metrics:
+        exp_return:
+            short_name: 'Rend. Esp.'
+            short_info: 'O rendimento médio que você pode esperar do seu portfólio após um ano.'
+            best: 'Maior Rend. Esp.'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'A taxa de crescimento anual do seu portfólio ano após ano.'
+            best: 'Maior CAGR'
+        max_drawdown:
+            short_name: 'Máx. Perda'
+            short_info: 'A maior queda no valor do seu portfólio do pico ao ponto mais baixo.'
+            best: 'Menor Máx. Perda'
+        volatility:
+            short_name: 'Volatilidade'
+            short_info: 'Quanto os retornos dos seus investimentos flutuam diariamente.'
+            best: 'Menor Volatilidade'
+        var:
+            short_name: 'VaR'
+            short_info: 'Há uma chance de 5% do valor do portfólio cair mais do que este valor em um único dia.'
+            best: 'Menor VaR'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'A perda média que você poderia esperar em um dia se seu portfólio exceder o limite de VaR naquele dia.'
+            best: 'Menor CVaR'
+        sharpe_ratio:
+            short_name: 'Índice Sharpe'
+            short_info: 'Uma medida dos seus retornos de investimento ajustados ao risco.'
+            best: 'Maior Índice Sharpe'
+        sortino_ratio:
+            short_name: 'Índice Sortino'
+            short_info: 'Semelhante ao Índice Sharpe, mas foca apenas nas flutuações negativas para avaliar o desempenho.'
+            best: 'Maior Índice Sortino'
+        calmar_ratio:
+            short_name: 'Índice Calmar'
+            short_info: 'A taxa de retorno comparada à máxima perda.'
+            best: 'Maior Índice Calmar'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'Quanto o portfólio superou o benchmark em uma base ajustada ao risco.'
+            best: 'Maior Alpha'
+        beta:
+            short_name: 'Beta'
+            short_info_html: 'A sensibilidade dos retornos do portfólio aos retornos do benchmark.<p>Beta = 1: Reflete o benchmark</p><p>Beta > 1: Mais volátil</p><p>Beta < 1: Menos volátil</p><p>Beta < 0: Relação inversa</p>'
+            best: 'Menor Beta'
+        treynor_ratio:
+            short_name: 'Índice Treynor'
+            short_info: 'Os retornos que você ganha por assumir risco adicional.'
+            best: 'Maior Índice Treynor'
+        omega_ratio:
+            short_name: 'Índice Omega'
+            short_info: 'Uma medida que compara a probabilidade de ganhos versus perdas.'
+            best: 'Maior Índice Omega'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'Quão de perto o desempenho do seu investimento corresponde ao mercado geral.'
+            best: 'Maior R²'
+        info_ratio:
+            short_name: 'Índice Info.'
+            short_info: 'A consistência dos seus retornos de investimento comparados a um benchmark.'
+            best: 'Maior Índice Info.'
+        diversification:
+            short_name: 'Diversificação'
+            short_info: 'A variedade de diferentes investimentos no seu portfólio para espalhar o risco.'
+            best: 'Melhor Diversificação'
+    analyzer:
+        smart_allocation:
+            name: 'Alocação Inteligente'
+            short_info_html: '<p>A Alocação Inteligente aplica algoritmos da <b>Teoria Moderna de Portfólios (MPT)</b> para encontrar a melhor alocação de ativos para o seu portfólio.</p>Você pode otimizar para duas métricas diferentes e até escolher um ponto desejado entre essas duas otimizações.'
+        since: 'desde'
+        risk_free_rate: 'Taxa Livre de Risco'
+        us_bonds: 'Títulos dos EUA'
+        benchmark: 'Benchmark'
+        get_ai_insights: 'Obter Insights de IA'
+        pnl: 'Lucro/Perda'
+        strategy:
+            fixed: 'Fixo'
+            dca: 'DCA'
+            rebalancing: 'Rebalanceamento'
+        backtest:
+            time_window:
+                adjusted_both_html: "A janela de tempo do backtest foi ajustada para começar em <strong>%{start_date}</strong> e terminar em <strong>%{end_date}</strong> para se adequar ao histórico disponível de todos os ativos."
+                adjusted_start_html: "A data de início do backtest foi ajustada para <strong>%{start_date}</strong> para se adequar ao histórico disponível de todos os ativos."
+                adjusted_end_html: "A data de término do backtest foi ajustada para <strong>%{end_date}</strong> para se adequar ao histórico disponível de todos os ativos."
+    utils:
+        soon: '(em breve)'
+        new: 'Novo'
+        important: 'Importante!'
