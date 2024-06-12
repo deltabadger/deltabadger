@@ -1,8 +1,12 @@
 class FinancialDataApiClient < ApplicationClient
   URL = ENV.fetch('FINANCIAL_DATA_API_URL').freeze
+  KEY = ENV.fetch('FINANCIAL_DATA_API_KEY').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
+      config.headers = {
+        'X-API-Key': KEY
+      }
       config.request :json
       config.response :json
       config.response :raise_error
