@@ -785,6 +785,7 @@ pl:
             short_info: 'Różnorodność różnych inwestycji w twoim portfelu w celu rozproszenia ryzyka.'
             best: 'Najlepsza Dywersyfikacja'
     analyzer:
+        no_assets: 'Zacznij od dodania aktywów do swojego portfela.'
         smart_allocation:
             name: 'Inteligentna Alokacja'
             short_info_html: '<p>Inteligentna Alokacja stosuje algorytmy <b>Nowoczesnej Teorii Portfelowej (MPT)</b>, aby znaleźć najlepszy podział aktywów dla twojego portfela.</p>Możesz optymalizować dla dwóch różnych wskaźników, a nawet wybrać pożądany punkt między tymi dwoma optymalizacjami.'
