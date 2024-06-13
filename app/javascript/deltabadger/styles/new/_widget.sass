@@ -6,6 +6,8 @@
     flex-direction: column
     gap: 2rem
     margin-bottom: 2px
+    @media only screen and (max-width: 549px)
+        padding: 2rem
     &.data-grid
         padding: 0
     &--chart
@@ -46,7 +48,6 @@
         &__value
             font-size: 4rem
             line-height: 5rem
-            font-weight: 500
             color: var(--emphasis)
             min-width: 3rem
             min-height: 3rem
