@@ -1,4 +1,6 @@
 class PortfoliosController < ApplicationController
+  include ApplicationHelper
+
   layout 'analyzer'
   before_action :authenticate_user!
   before_action :set_portfolio
