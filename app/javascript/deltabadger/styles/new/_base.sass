@@ -110,8 +110,10 @@ dialog
 
 .insight
     padding: 2rem 2rem 2rem 6rem
-    background: var(--insight-background) no-repeat 2rem 2rem
+    background: var(--insight-background) no-repeat 2rem 2.35rem
     background-size: 3rem 3rem
+    *
+        display: inline !important
     &__name
         font-weight: 700
         color: var(--insight-title)
@@ -175,3 +177,9 @@ dialog
         right: 0rem
         width: 40rem
         height: 40rem
+
+.api-key-stored
+    display: flex
+    align-items: center
+    svg
+        fill: var(--label)

@@ -236,7 +236,7 @@
       <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>
       <div class="data-grid__item data-grid__item--filler"></div>
     </div>
-  <% elsif portfolio.assets.empty? %>
+  <% elsif portfolio.assets.empty? || !portfolio.allocations_are_normalized? %>
     <div class="widget">
       <%= render 'svg/landscape_empty' %>
     </div>
@@ -250,7 +250,7 @@
   <% else %>
     <div class="insight insight--warning" style="margin-bottom: 2px">
       <%= t('analyzer.api_unreachable') %>
-      
+    </div>
     <div class="widget">
       <%= render 'svg/landscape_empty_no_connection' %>
     </div>
