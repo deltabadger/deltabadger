@@ -681,3 +681,17 @@ pt:
         soon: '(em breve)'
         new: 'Novo'
         important: 'Importante!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Valor de referência inválido."
+            invalid_strategy: "Valor de estratégia inválido."
+            invalid_start_date: "Valor de data de início inválido."
+            invalid_risk_free_rate: "Valor de taxa livre de risco inválido."
+            invalid_smart_allocation: "Valor de alocação inteligente inválido."
+            invalid_risk_level: "Valor de nível de risco inválido."
+            unable_to_calculate: "Não é possível calcular alocações inteligentes para esses parâmetros."
+            portfolio_normalized: "As alocações do portfólio foram normalizadas."
+            risk_level_updated: "O nível de risco foi atualizado."
+            smart_allocation_updated: "As alocações inteligentes foram atualizadas."
+            unable_to_set_risk_rate: "Não é possível definir a taxa livre de risco para %{risk_free_rate_name}."
+            api_unreachable: "Servidor de API de dados está inacessível."

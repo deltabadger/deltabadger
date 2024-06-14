@@ -791,3 +791,17 @@ fr:
         soon: '(bientôt)'
         new: 'Nouveau'
         important: 'Important !'
+    alert:
+        portfolio:
+            invalid_benchmark: "Valeur de référence invalide."
+            invalid_strategy: "Valeur de stratégie invalide."
+            invalid_start_date: "Valeur de date de début invalide."
+            invalid_risk_free_rate: "Valeur de taux sans risque invalide."
+            invalid_smart_allocation: "Valeur d''allocation intelligente invalide."
+            invalid_risk_level: "Valeur de niveau de risque invalide."
+            unable_to_calculate: "Impossible de calculer les allocations intelligentes pour ces paramètres."
+            portfolio_normalized: "Les allocations du portefeuille ont été normalisées."
+            risk_level_updated: "Le niveau de risque a été mis à jour."
+            smart_allocation_updated: "Les allocations intelligentes ont été mises à jour."
+            unable_to_set_risk_rate: "Impossible de définir le taux sans risque à %{risk_free_rate_name}."
+            api_unreachable: "Le serveur API de données est inaccessible."
