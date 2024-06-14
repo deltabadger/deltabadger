@@ -672,7 +672,7 @@ de:
             best: 'Höchstes Alpha'
         beta:
             short_name: 'Beta'
-            short_info_html: 'Die Empfindlichkeit der Portfoliorenditen gegenüber den Renditen des Benchmarks.<p>Beta = 1: Spiegelbild des Benchmarks</p><p>Beta > 1: Volatiler</p><p>Beta < 1: Weniger volatil</p><p>Beta < 0: Inverse Beziehung</p>'
+            short_info: 'Die Empfindlichkeit der Portfoliorenditen gegenüber den Renditen des Benchmarks.'
             best: 'Niedrigstes Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'

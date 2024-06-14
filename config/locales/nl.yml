@@ -746,7 +746,7 @@ nl:
             best: 'Hoogste Alpha'
         beta:
             short_name: 'Beta'
-            short_info_html: 'De gevoeligheid van de portfoliorendementen voor de rendementen van de benchmark.<p>Beta = 1: Spiegelt de benchmark</p><p>Beta > 1: Volatieler</p><p>Beta < 1: Minder volatiel</p><p>Beta < 0: Omgekeerde relatie</p>'
+            short_info: 'De gevoeligheid van de portfoliorendementen voor de rendementen van de benchmark.'
             best: 'Laagste Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'
