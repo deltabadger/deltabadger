@@ -791,3 +791,17 @@ nl:
         soon: '(binnenkort)'
         new: 'Nieuw'
         important: 'Belangrijk!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Ongeldige benchmarkwaarde."
+            invalid_strategy: "Ongeldige strategie waarde."
+            invalid_start_date: "Ongeldige startdatum waarde."
+            invalid_risk_free_rate: "Ongeldige risicovrije rente waarde."
+            invalid_smart_allocation: "Ongeldige slimme allocatie waarde."
+            invalid_risk_level: "Ongeldige risiconiveau waarde."
+            unable_to_calculate: "Niet in staat om slimme allocaties voor deze parameters te berekenen."
+            portfolio_normalized: "Portefeuille allocaties zijn genormaliseerd."
+            risk_level_updated: "Het risiconiveau is bijgewerkt."
+            smart_allocation_updated: "Slimme allocaties zijn bijgewerkt."
+            unable_to_set_risk_rate: "Niet in staat om de risicovrije rente vast te stellen op %{risk_free_rate_name}."
+            api_unreachable: "Gegevens API-server is onbereikbaar."

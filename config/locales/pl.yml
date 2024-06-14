@@ -810,3 +810,17 @@ pl:
         soon: '(wkrótce)'
         new: 'Nowość'
         important: 'Ważne!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Nieprawidłowa wartość benchmarku."
+            invalid_strategy: "Nieprawidłowa wartość strategii."
+            invalid_start_date: "Nieprawidłowa wartość daty początkowej."
+            invalid_risk_free_rate: "Nieprawidłowa wartość stopy wolnej od ryzyka."
+            invalid_smart_allocation: "Nieprawidłowa wartość inteligentnej alokacji."
+            invalid_risk_level: "Nieprawidłowa wartość poziomu ryzyka."
+            unable_to_calculate: "Nie można obliczyć inteligentnych alokacji dla tych parametrów."
+            portfolio_normalized: "Alokacje portfela zostały znormalizowane."
+            risk_level_updated: "Poziom ryzyka został zaktualizowany."
+            smart_allocation_updated: "Inteligentne alokacje zostały zaktualizowane."
+            unable_to_set_risk_rate: "Nie można ustawić stopy wolnej od ryzyka na %{risk_free_rate_name}."
+            api_unreachable: "Serwer API danych jest niedostępny."
