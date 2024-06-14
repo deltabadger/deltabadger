@@ -644,7 +644,7 @@ de:
             best: 'Niedrigster Max. Rückgang'
         volatility:
             short_name: 'Volatilität'
-            short_info: 'Wie stark schwanken Ihre Anlageerträge täglich.'
+            short_info: 'Die erwartete Variabilität der Renditen über ein Jahr.'
             best: 'Niedrigste Volatilität'
         var:
             short_name: 'VaR'

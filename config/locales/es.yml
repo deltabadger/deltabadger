@@ -718,7 +718,7 @@ es:
             best: 'Menor Máx. Caída'
         volatility:
             short_name: 'Volatilidad'
-            short_info: 'Cuánto fluctúan los rendimientos de su inversión diariamente.'
+            short_info: 'La variabilidad esperada de los rendimientos a lo largo de un año.'
             best: 'Menor Volatilidad'
         var:
             short_name: 'VaR'

@@ -734,7 +734,7 @@ pl:
             best: 'Najmniejszy Maks. Spadek'
         volatility:
             short_name: 'Zmienność'
-            short_info: 'Jak bardzo codziennie wahają się twoje zwroty z inwestycji.'
+            short_info: 'Oczekiwana zmienność zwrotów w ciągu roku.'
             best: 'Najmniejsza Zmienność'
         var:
             short_name: 'VaR'
