@@ -734,7 +734,7 @@ pl:
             best: 'Najmniejszy Maks. Spadek'
         volatility:
             short_name: 'Zmienność'
-            short_info: 'Jak bardzo codziennie wahają się twoje zwroty z inwestycji.'
+            short_info: 'Oczekiwana zmienność zwrotów w ciągu roku.'
             best: 'Najmniejsza Zmienność'
         var:
             short_name: 'VaR'
@@ -762,7 +762,7 @@ pl:
             best: 'Najwyższa Alpha'
         beta:
             short_name: 'Beta'
-            short_info_html: 'Czułość zwrotów portfela na zwroty benchmarku.<p>Beta = 1: Odbicie benchmarku</p><p>Beta > 1: Bardziej zmienny</p><p>Beta < 1: Mniej zmienny</p><p>Beta < 0: Odwrotna zależność</p>'
+            short_info: 'Czułość zwrotów portfela na zwroty benchmarku.'
             best: 'Najmniejsza Beta'
         treynor_ratio:
             short_name: 'Wskaźnik Treynor'

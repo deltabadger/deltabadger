@@ -718,7 +718,7 @@ fr:
             best: 'Max. Déclin le plus bas'
         volatility:
             short_name: 'Volatilité'
-            short_info: 'À quel point les rendements de vos investissements fluctuent quotidiennement.'
+            short_info: 'La variabilité attendue des rendements sur une année.'
             best: 'Volatilité la plus basse'
         var:
             short_name: 'VaR'
@@ -746,7 +746,7 @@ fr:
             best: 'Alpha le plus élevé'
         beta:
             short_name: 'Beta'
-            short_info_html: 'La sensibilité des rendements du portefeuille aux rendements du benchmark.<p>Beta = 1 : Reflète le benchmark</p><p>Beta > 1 : Plus volatil</p><p>Beta < 1 : Moins volatil</p><p>Beta < 0 : Relation inverse</p>'
+            short_info: 'La sensibilité des rendements du portefeuille aux rendements du benchmark.'
             best: 'Beta le plus bas'
         treynor_ratio:
             short_name: 'Ratio Treynor'
