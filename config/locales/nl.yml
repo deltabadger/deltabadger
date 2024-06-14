@@ -718,7 +718,7 @@ nl:
             best: 'Laagste Max. Terugval'
         volatility:
             short_name: 'Volatiliteit'
-            short_info: 'Hoeveel uw beleggingsrendementen dagelijks fluctueren.'
+            short_info: 'De verwachte variabiliteit van de rendementen over een jaar.'
             best: 'Laagste Volatiliteit'
         var:
             short_name: 'VaR'

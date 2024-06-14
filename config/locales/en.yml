@@ -749,7 +749,7 @@ en:
             best: 'Lowest Max. Drawdown'
         volatility:
             short_name: 'Volatility'
-            short_info: 'How much your investment returns fluctuate on a daily basis.'
+            short_info: 'The expected variability of returns over a year.'
             best: 'Lowest Volatility'
         var:
             short_name: 'VaR'
