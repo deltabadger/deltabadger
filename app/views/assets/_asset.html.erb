@@ -11,7 +11,7 @@
       <div class="ticker-input ticker-input--percentage" title="<%= asset.name %>">
         <%= form.text_field :allocation_input_text, value: (asset.allocation * 100).round(0), data: { asset_allocation_target: "allocationInputText", action: "change->asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "numeric-input iu-numeric iu-char-limit" %>
         <span>%</span>
-        <%= tag.div class: "ticker", style: "background: #{asset_color}; color: #{protect_ticker_text_contrast(asset_color)};" do %>
+        <%= tag.div class: "ticker", style: "background: #{asset_color}; color: #{ensure_contrast(asset_color, 1.5)};" do %>
           <%= asset.ticker %>
         <% end %>
       </div>

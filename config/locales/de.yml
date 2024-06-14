@@ -717,3 +717,17 @@ de:
         soon: '(pronto)'
         new: 'Nuevo'
         important: '¡Importante!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Ungültiger Benchmark-Wert."
+            invalid_strategy: "Ungültiger Strategie-Wert."
+            invalid_start_date: "Ungültiger Startdatum-Wert."
+            invalid_risk_free_rate: "Ungültiger risikofreier Zinssatz."
+            invalid_smart_allocation: "Ungültiger Smart-Allocation-Wert."
+            invalid_risk_level: "Ungültiger Risikoniveau-Wert."
+            unable_to_calculate: "Es können keine Smart-Allocations für diese Parameter berechnet werden."
+            portfolio_normalized: "Portfolio-Zuweisungen wurden normalisiert."
+            risk_level_updated: "Das Risikoniveau wurde aktualisiert."
+            smart_allocation_updated: "Die Smart-Allocations wurden aktualisiert."
+            unable_to_set_risk_rate: "Der risikofreie Zinssatz kann nicht auf %{risk_free_rate_name} festgelegt werden."
+            api_unreachable: "Daten-API-Server ist nicht erreichbar."

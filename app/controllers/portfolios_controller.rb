@@ -22,10 +22,10 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      flash.now[:alert] = 'Invalid benchmark value.'
+      flash.now[:alert] = t('alert.portfolio.invalid_benchmark')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid benchmark value.' }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_benchmark') }
       end
     end
   end
@@ -41,10 +41,10 @@ class PortfoliosController < ApplicationController
         format.turbo_stream { render 'update_benchmark' }
       end
     else
-      flash.now[:alert] = 'Invalid strategy value.'
+      flash.now[:alert] = t('alert.portfolio.invalid_strategy')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid strategy value.' }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_strategy') }
       end
     end
   end
@@ -60,10 +60,10 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      flash.now[:alert] = 'Invalid start date value.'
+      flash.now[:alert] = t('alert.portfolio.invalid_start_date')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid start date value.' }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_start_date') }
       end
     end
   end
@@ -93,10 +93,10 @@ class PortfoliosController < ApplicationController
         format.turbo_stream
       end
     else
-      flash.now[:alert] = 'Invalid risk free rate value.'
+      flash.now[:alert] = t('alert.portfolio.invalid_risk_free_rate')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid risk free rate value.' }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_risk_free_rate') }
       end
     end
   end
@@ -107,13 +107,13 @@ class PortfoliosController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Smart allocations have been updated.' }
+        format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.smart_allocation_updated') }
       end
     else
-      flash.now[:alert] = 'Invalid smart allocation value.'
+      flash.now[:alert] = t('alert.portfolio.invalid_smart_allocation')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid smart allocation value.' }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_smart_allocation') }
       end
     end
   end
@@ -126,13 +126,13 @@ class PortfoliosController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Risk level has been updated.' }
+        format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.risk_level_updated') }
       end
     else
-      flash.now[:alert] = 'Invalid risk level value.'
+      flash.now[:alert] = t('alert.portfolio.invalid_risk_level')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid risk level value.' }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_risk_level') }
       end
     end
   end
@@ -142,7 +142,7 @@ class PortfoliosController < ApplicationController
     @backtest = @portfolio.backtest
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to portfolio_analyzer_path, notice: 'Portfolio allocations have been normalized.' }
+      format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.portfolio_normalized') }
     end
   end
 
@@ -177,8 +177,7 @@ class PortfoliosController < ApplicationController
     return unless @portfolio.smart_allocation_on? && !@portfolio.allocations_are_smart?
 
     # show flash message if the data API server is unreachable.
-    flash.now[:alert] =
-      'Unable to calculate Smart Allocations for these parameters. Data API server is unreachable.'
+    flash.now[:alert] = t('alert.portfolio.unable_to_calculate')
   end
 
   def set_last_assets
@@ -196,8 +195,7 @@ class PortfoliosController < ApplicationController
       risk_free_rate_result = @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
       if risk_free_rate_result.errors.first != 'Invalid Risk Free Rate Key.'
         risk_free_rate_name = Portfolio::RISK_FREE_RATES[params[:risk_free_rate_shortcut].to_sym][:name]
-        flash.now[:alert] =
-          "Unable to set the risk free rate to #{risk_free_rate_name}. Data API server is unreachable."
+        flash.now[:alert] = t('alert.portfolio.unable_to_set_risk_rate', risk_free_rate_name: risk_free_rate_name) + " " + t('alert.portfolio.api_unreachable')
         nil
       else
         risk_free_rate_result.data

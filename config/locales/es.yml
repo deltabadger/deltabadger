@@ -791,3 +791,17 @@ es:
         soon: '(pronto)'
         new: 'Nuevo'
         important: '¡Importante!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Valor de referencia no válido."
+            invalid_strategy: "Valor de estrategia no válido."
+            invalid_start_date: "Valor de fecha de inicio no válido."
+            invalid_risk_free_rate: "Valor de tasa libre de riesgo no válido."
+            invalid_smart_allocation: "Valor de asignación inteligente no válido."
+            invalid_risk_level: "Valor de nivel de riesgo no válido."
+            unable_to_calculate: "No se pueden calcular asignaciones inteligentes para estos parámetros."
+            portfolio_normalized: "Las asignaciones de la cartera se han normalizado."
+            risk_level_updated: "El nivel de riesgo ha sido actualizado."
+            smart_allocation_updated: "Las asignaciones inteligentes han sido actualizadas."
+            unable_to_set_risk_rate: "No se puede establecer la tasa libre de riesgo en %{risk_free_rate_name}."
+            api_unreachable: "El servidor de la API de datos no está disponible."
