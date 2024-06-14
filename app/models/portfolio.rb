@@ -187,11 +187,11 @@ class Portfolio < ApplicationRecord
   end
 
   def get_risk_free_rate(key)
-    return if key.blank? || !RISK_FREE_RATES.include?(key.to_sym)
+    return Result::Failure.new('Invalid Risk Free Rate Key.') if key.blank? || !RISK_FREE_RATES.key?(key.to_sym)
 
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
     cache_key = "risk_free_rate_#{key}"
-    time_series_result_data = Rails.cache.fetch(cache_key, expires_in: expires_in) do
+    time_series_result = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new
       time_series_result = client.time_series(
         symbol: key,
@@ -199,11 +199,13 @@ class Portfolio < ApplicationRecord
         source: 'yfinance',
         limit: 1
       )
-      return if time_series_result.failure?
+      risk_free_rate_name = RISK_FREE_RATES[key.to_sym][:name]
+      error_message = "Unable to get the risk free rate for #{risk_free_rate_name}. Data API server is  unreachable."
+      return Result::Failure.new(error_message) if time_series_result.failure?
 
-      time_series_result.data
+      time_series_result
     end
-    (time_series_result_data[0][4] / 100).round(4)
+    Result::Success.new((time_series_result.data[0][4] / 100).round(4))
   end
 
   def smart_allocations_cache_key

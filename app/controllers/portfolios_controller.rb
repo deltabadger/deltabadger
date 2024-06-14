@@ -69,11 +69,21 @@ class PortfoliosController < ApplicationController
   end
 
   def update_risk_free_rate
-    new_risk_free_rate = if params[:risk_free_rate_shortcut].present?
-                           @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
-                         else
-                           portfolio_params[:risk_free_rate].to_f / 100
-                         end
+    if params[:risk_free_rate_shortcut].present?
+      risk_free_rate_result = @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
+      if risk_free_rate_result.failure?
+        flash.now[:alert] = risk_free_rate_result.errors.first
+        respond_to do |format|
+          format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+          format.html { redirect_to portfolio_analyzer_path, alert: risk_free_rate_result.errors.first }
+        end
+        return
+      else
+        new_risk_free_rate = risk_free_rate_result.data
+      end
+    else
+      new_risk_free_rate = portfolio_params[:risk_free_rate].to_f / 100
+    end
     return head :ok if @portfolio.risk_free_rate == new_risk_free_rate
 
     if @portfolio.update(risk_free_rate: new_risk_free_rate)
@@ -93,6 +103,7 @@ class PortfoliosController < ApplicationController
 
   def toggle_smart_allocation
     if @portfolio.update(smart_allocation_on: portfolio_params[:smart_allocation_on])
+      puts "smart allocation on: #{portfolio_params[:smart_allocation_on]}, @portfolio.smart_allocation_on: #{@portfolio.smart_allocation_on}"
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
@@ -163,6 +174,11 @@ class PortfoliosController < ApplicationController
   def set_backtest_data
     @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+    return unless @portfolio.smart_allocation_on? && !@portfolio.allocations_are_smart?
+
+    # show flash message if the data API server is unreachable.
+    flash.now[:alert] =
+      'Unable to calculate Smart Allocations for these parameters. Data API server is unreachable.'
   end
 
   def set_last_assets
@@ -173,5 +189,21 @@ class PortfoliosController < ApplicationController
   def save_last_assets
     session[:last_active_assets_ids] = @portfolio.active_assets.map(&:id)
     session[:last_idle_assets_ids] = @portfolio.idle_assets.map(&:id)
+  end
+
+  def parse_risk_free_rate_params
+    if params[:risk_free_rate_shortcut].present?
+      risk_free_rate_result = @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
+      if risk_free_rate_result.errors.first != 'Invalid Risk Free Rate Key.'
+        risk_free_rate_name = Portfolio::RISK_FREE_RATES[params[:risk_free_rate_shortcut].to_sym][:name]
+        flash.now[:alert] =
+          "Unable to set the risk free rate to #{risk_free_rate_name}. Data API server is unreachable."
+        nil
+      else
+        risk_free_rate_result.data
+      end
+    elsif portfolio_params[:risk_free_rate].present?
+      portfolio_params[:risk_free_rate].to_f / 100
+    end
   end
 end
