@@ -674,7 +674,7 @@ en:
         legendary_badger_description_html: '<p><b>Never pay to use the service again.</b></p><p>Everything the Hodler plan has to offer, but for a lifetime.</p><p>Subscription comes with an <b>NFT</b>, so in the future you can sell it to another user.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Lifetime. Limited. Legendary.</p><p>Legendary Badgers are like nothing else on the market.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your long-term thinker status, and be Legendary.</p>'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
         analyzer_html: 'Boost your portfolio with the unlimited power of <b>Portfolio Analyzer</b>.'
-        expires_soon_html: 'The 4-year plan will be replaced by an annual subscription of $199/year soon. So this is the last chance to get the 4-year access for half the price.' 
+        expires_soon_html: 'The 4-year plan will be replaced by an annual subscription of $199/year soon. So this is the last chance to get the 4-year access for half the price.'
         payment:
             card: 'Card'
             account_holder: 'Account holder'
@@ -777,7 +777,7 @@ en:
             best: 'Highest Alpha'
         beta:
             short_name: 'Beta'
-            short_info_html: 'The sensitivity of portfolio''s returns to the returns of the benchmark.<p>Beta = 1: Mirrors the benchmark</p><p>Beta > 1: More volatile</p><p>Beta < 1: Less volatile</p><p>Beta < 0: Inverse relationship</p>'
+            short_info: 'The sensitivity of portfolio''s returns to the returns of the benchmark.'
             best: 'Lowest Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'

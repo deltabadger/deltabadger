@@ -636,7 +636,7 @@ pt:
             best: 'Maior Alpha'
         beta:
             short_name: 'Beta'
-            short_info_html: 'A sensibilidade dos retornos do portfólio aos retornos do benchmark.<p>Beta = 1: Reflete o benchmark</p><p>Beta > 1: Mais volátil</p><p>Beta < 1: Menos volátil</p><p>Beta < 0: Relação inversa</p>'
+            short_info: 'A sensibilidade dos retornos do portfólio aos retornos do benchmark.'
             best: 'Menor Beta'
         treynor_ratio:
             short_name: 'Índice Treynor'
