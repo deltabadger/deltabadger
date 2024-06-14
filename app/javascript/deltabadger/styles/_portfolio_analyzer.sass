@@ -16,26 +16,38 @@
 // flash messages
 .flash
   position: fixed
-  top: 5rem
-  right: 5rem
+  bottom: 3rem
+  right: 3rem
   z-index: 1
 
   display: flex
   flex-direction: column
   align-items: center
-  gap: 2rem
+  gap: 1rem
 
   max-width: 100%
   width: max-content
-  padding: 0 5rem
 
   &__message
-    animation: appear-then-fade 4s both
+    animation: appear-then-fade 6s both
   
 @keyframes appear-then-fade
   0%, 100%
     opacity:0
-  5%, 60%
+  5%, 80%
     opacity:1
   
 
+.salert
+  background-color: var(--primary)
+  color: white
+  padding: 3rem 3.5rem
+  border-radius: 1rem
+  width: 50rem
+  max-width: calc(100vw - 6rem)
+  &--danger
+    background-color: var(--danger)
+  &--success
+    background-color: var(--success)
+  &--warning
+    background-color: var(--warning)
