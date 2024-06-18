@@ -15,7 +15,7 @@
   top: 0
   left: 0
   bottom: 0
-  border-right: 1px solid var(--widget-line)
+  // border-right: 1px solid var(--widget-line)
   box-sizing: content-box
   position: fixed
   width: 8rem
@@ -36,10 +36,12 @@
     gap: 1rem
     padding-left: 3.75rem
     padding-top: 3.15rem
+  @media only screen and (max-width: 767px)
+    padding-left: 2rem
+    width: calc(100% - 3rem)
   @media only screen and (max-width: 549px)
-    width: calc(100% - 4rem)
     gap: 0
-    padding: 2rem
+    justify-content: center
   &__section
     display: flex
     flex-direction: column
@@ -59,12 +61,6 @@
   &__logo
     width: 5rem
     height: 3.75rem
-    display: flex
-    align-items: flex-end
-    @media only screen and (max-width: 1359px)
-      // margin-right: 3rem
-      // // width: 5.333334rem
-      // // height: 4rem
   &__item
     height: 6rem
     width: 6rem

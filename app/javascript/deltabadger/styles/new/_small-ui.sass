@@ -62,7 +62,7 @@
 
 
 .sinput--disabled, input[disabled], select[disabled],button[disabled]
-    color: var(--label) !important
+    color: var(--label)
     cursor: not-allowed
 
 .label--select,.sinput--select
@@ -92,9 +92,12 @@ select
     height: 4rem
     white-space: nowrap
     &--primary, &--success
-        color: #fff
+        color: #fff !important
         padding: 0 2rem
         gap: 1rem
+        &:focus, &:active, &[disabled="disabled"]
+            color: #fff !important
+            outline: none
         svg
             fill: #fff
     &--primary
