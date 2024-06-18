@@ -3,6 +3,7 @@ module ExchangeApi::MapErrors
     def errors_mapping
       {
         'EAPI:Invalid nonce' => Error.new('A network inconsistency has occurred. Please wait a few seconds and try again', true),
+        'EAPI:Invalid key' => Error.new('Invalid API key', false),
         'EFunding:Invalid amount' => Error.new('Funds are not exceeding minimums', true),
         'EFunding:Unknown withdraw key' => Error.new('Provided address label does not exist', true),
         'EGeneral:Invalid arguments:volume' => Error.new('Offer funds are not exceeding minimums', true),
