@@ -97,4 +97,6 @@ Rails.application.configure do
     password: ENV['MAILER_SMTP_PASSWORD']
   }
   routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
+
+  config.exceptions_app = self.routes
 end
