@@ -1,3 +1,6 @@
+require 'sidekiq/web'
+require 'telegram/bot'
+
 Rails.application.routes.draw do
 
   get 'errors/not_found'
@@ -5,9 +8,6 @@ Rails.application.routes.draw do
   match "/404", to: "errors#not_found", via: :all
   match "/422", to: "errors#unprocessable_entity", via: :all
   match "/500", to: "errors#internal_server_error", via: :all
-
-  require 'sidekiq/web'
-  require 'telegram/bot'
   
   require 'sidekiq/prometheus/exporter'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
