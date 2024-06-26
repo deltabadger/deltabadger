@@ -1,5 +1,7 @@
 class Users::PasswordsController < Devise::PasswordsController
-  prepend_before_action :check_captcha, only: [:create]
+  prepend_before_action :check_turnstile, only: [:create]
+
+  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   def edit
     self.resource = resource_class.with_reset_password_token(params[:reset_password_token])
@@ -9,9 +11,11 @@ class Users::PasswordsController < Devise::PasswordsController
     super
   end
 
-  def check_captcha
-    return if verify_recaptcha
+  def check_turnstile
+    validate_cloudflare_turnstile
+  end
 
+  def handle_turnstile_failure
     self.resource = resource_class.new
     respond_with_navigational(resource) { render :new }
   end
