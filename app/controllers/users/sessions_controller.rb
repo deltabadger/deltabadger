@@ -1,5 +1,7 @@
 class Users::SessionsController < Devise::SessionsController
-  prepend_before_action :check_captcha, only: [:create]
+  prepend_before_action :check_turnstile, only: [:create]
+
+  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def create
@@ -19,7 +21,6 @@ class Users::SessionsController < Devise::SessionsController
         else
           abort_sign_in(I18n.t('errors.messages.bad_2fa_code'), :otp_code_token)
         end
-
       else
         abort_sign_in(I18n.t('errors.messages.empty_two_fa_token'), :otp_code_token)
       end
@@ -43,9 +44,11 @@ class Users::SessionsController < Devise::SessionsController
     respond_with resource, location: new_user_session_path
   end
 
-  def check_captcha
-    return if verify_recaptcha
+  def check_turnstile
+    validate_cloudflare_turnstile
+  end
 
+  def handle_turnstile_failure
     self.resource = resource_class.new
     respond_with_navigational(resource) { render :new }
   end
