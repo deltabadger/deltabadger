@@ -25,7 +25,7 @@ gem 'puma', '~> 6.3'
 gem "rack", "2.2.6.4"
 gem 'rack-cors'
 gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
-gem 'rails_cloudflare_turnstile', '~> 0.1.6'
+gem 'rails_cloudflare_turnstile', '~> 0.2.1'
 gem 'rqrcode'
 gem 'sass-rails', '>= 6'
 gem 'webpacker', '~> 5.4'
