@@ -9,8 +9,6 @@ import { NewsletterForm } from "../deltabadger/components/NewsletterForm";
 
 require.context("../images", true);
 
-Turbo.setFormMode("off")
-
 I18n.locale = document.head.dataset.locale || I18n.defaultLocale;
 
 if (document.getElementById("cookie_consent")) {
