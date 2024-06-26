@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 class Users::RegistrationsController < Devise::RegistrationsController
-  prepend_before_action :check_captcha, only: [:create]
+  prepend_before_action :check_turnstile, only: [:create]
+
+  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   def new
     @profit = DcaProfitGetter.call(2.year.ago, Time.current)
@@ -74,9 +76,11 @@ class Users::RegistrationsController < Devise::RegistrationsController
     session[:code]
   end
 
-  def check_captcha
-    return if verify_recaptcha
+  def check_turnstile
+    validate_cloudflare_turnstile
+  end
 
+  def handle_turnstile_failure
     self.resource = resource_class.new sign_up_params
     resource.validate
     set_email_in_use
