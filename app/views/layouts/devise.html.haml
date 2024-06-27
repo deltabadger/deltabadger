@@ -1,8 +1,6 @@
 !!!
 %html.db--devise.db--loggedout{:lang => I18n.locale, :prefix => "og: http://ogp.me/ns#"}
   %head
-    - unless @disable_third_party_scripts
-      -# %script{:type => "text/javascript", :src => "https://load.fomo.com/api/v1/AUZ_QZ5JVkZVLKS7dmRCxw/load.js"}
 
     %meta{:charset => "UTF-8"}
     %meta{:content => "width=device-width, initial-scale=1.0", :name => "viewport"}
@@ -50,13 +48,6 @@
           });
         });
       });
-
-      // scaling
-
-      // $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
-      // window.addEventListener('resize', function(event){
-      //   $("html").css("font-size", Math.min(Math.max($(this).width()/190, 10), 13.125) + "px");
-      // });
     
     = cloudflare_turnstile_script_tag
 

@@ -1,10 +1,5 @@
 module PaymentsManager
   class SubscriptionUpgrader < BaseService
-    def initialize(
-      fomo_notifications = Notifications::FomoEvents.new
-    )
-      @fomo_notifications = fomo_notifications
-    end
 
     def call(payment_id, email_params = nil)
       payment = Payment.find(payment_id)
@@ -28,12 +23,6 @@ module PaymentsManager
       unless payment.user.update(update_params)
         return Result::Failure.new(payment.user.errors.full_messages.join(', '), data: update_params)
       end
-
-      # @fomo_notifications.plan_bought(
-      #   first_name: payment.first_name,
-      #   country: payment.country,
-      #   plan_name: new_plan_name
-      # )
 
       Result::Success.new
     end
