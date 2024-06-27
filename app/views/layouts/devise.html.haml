@@ -55,4 +55,10 @@
     #cookie_consent
 
     = render 'layouts/navbar/devise'
-    = yield
+
+    .container.container--signup
+      .row{ style: "min-height: 64rem" }
+        .d-none.d-lg-block.col-lg-6
+          %h1 Gains up.<br>Risk down.
+        .col-12.col-lg-6
+          = yield

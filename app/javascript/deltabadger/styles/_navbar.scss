@@ -1,12 +1,32 @@
-.db-legendary-logo-wrapper {
-  height: 4.9rem;
+.db_nav__brand {
   display: flex;
-  align-items: flex-end;
-  svg {
-    overflow: visible;
+  align-items: center;
+  gap: 2rem;
+  &__logo {
+    width: 8rem;
+    fill: var(--navbarLink);
+    position: relative;
+    top: -.25rem;
+    @media (max-width: 575px) {
+      display: none;
+    } 
+    &--mobile {
+      display: none;
+      @media (max-width: 575px) {
+        display: block;
+        height: 3.75rem;
+      } 
+    }
+  }
+  &__name {
+    color: var(--navbarLink);
+    font-weight: 600;
+    font-size: 2.2rem;
+    position: relative;
+    top: .1rem;
   }
 }
-  
+
 .db--guest {
   .db-logo-svg-shape {
     fill: $textColorInverted;
@@ -101,13 +121,11 @@
   }
 }
 .db-navbar {
-  background: rgba(255,255,255,0);
-  transition: top 200ms ease-in-out;
-  background: none !important;
+  padding: 2rem;
   .navbar-brand {
     margin-left: 0;
     svg {
-      width: 6.4rem;
+      width: 8rem;
       height: auto;
     }
     .db-hi-welcome {
@@ -121,16 +139,6 @@
     width:  3rem;
     height: 3rem;
   }
-}
-
-.navbar-brand {
-  font-family:    $fontBrand;
-  color:          var(--navbarLink) !important;
-  text-transform: lowercase;
-  font-size:      1.2em;
-  line-height:    2.8rem;
-  margin-left:    1rem;
-  margin-right:   0;
 }
 
 .db-hi-welcome {
