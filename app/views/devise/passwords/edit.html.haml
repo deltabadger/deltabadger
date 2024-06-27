@@ -1,13 +1,6 @@
 .container.container--signup
   .row
-    .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-      %h3.db-modal-companion-title= t('ads.password_managers_html')
-      .db-signup__list
-        .db-signup__list__item
-          .material-icons check
-          %a.db-signup__list__item__text(href="https://bitwarden.com/" target="_blank" ref="nofollow")= t('ads.bitwarden_title')
-          = t('ads.bitwarden_text')
-    .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
+    .col{ style: "max-width: 60rem; margin: 0 auto; align-self: center"}
       %h3.db-modal-title= t('.title')
       = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :put }) do |f|
         = f.hidden_field :reset_password_token

@@ -2,41 +2,8 @@
 
 .container.container--signup
   .row
-    .d-none.d-lg-block.col-lg-6.col-xl-7.db-signup--text
-
-      %h3.db-modal-companion-title
-        Why DCA?
-
-      -if @profit.present? && @profit.success?
-        %h3.db-modal-companion-title= t('ads.dca_2y_profit_html', profit: @profit.data.to_i)
-
-      .db-signup__list
-
-        .db-signup__list__item
-          .material-icons check
-          %div.db-signup__list__item__text
-            Eliminate the need to time the market
-        .db-signup__list__item
-          .material-icons check
-          %div.db-signup__list__item__text
-            Buy more coins when prices are low
-        .db-signup__list__item
-          .material-icons check
-          %div.db-signup__list__item__text
-            Reduce investment stress and anxiety
-        .db-signup__list__item
-          .material-icons check
-          %div.db-signup__list__item__text
-            Get peace of mind and focus on other aspects of life
-
-        -# - t('ads.features').split(';').each do |feature|
-        -#   .db-signup__list__item
-        -#     .material-icons check
-        -#     %div.db-signup__list__item__text= raw feature
-
-    .col-12.col-sm-10.col-md-8.offset-sm-1.offset-md-2.offset-lg-0.col-lg-6.col-xl-5
+    .col{ style: "max-width: 60rem; margin: 0 auto; align-self: center"}
       %h3.db-modal-title= t('.title_html')
-
       = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
         - if @code_present
           = render partial: 'ref_codes/show', locals: { affiliate: @affiliate }
