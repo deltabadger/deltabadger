@@ -1,0 +1,44 @@
+<div class="btn-group">
+  <button class="btn btn-link btn-menu" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    <%= params[:lang].blank? ? 'EN' : params[:lang].to_s.upcase %>
+    <svg class="ml-0 btn__svg-icon db-svg-icon" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7.71,9.29l3.88,3.88l3.88-3.88c0.39-0.39,1.02-0.39,1.41,0l0,0c0.39,0.39,0.39,1.02,0,1.41l-4.59,4.59 c-0.39,0.39-1.02,0.39-1.41,0L6.29,10.7c-0.39-0.39-0.39-1.02,0-1.41l0,0C6.68,8.91,7.32,8.9,7.71,9.29z" />
+    </svg>
+  </button>
+  <div class="dropdown-menu dropdown-menu-right">
+    <% lang = params[:lang] %>
+    <% unless lang.blank? || lang == 'en' %>
+      <%= link_to "🇬🇧 English", url_for(lang: 'en'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'de' %>
+      <%= link_to "🇩🇪 Deutsch", url_for(lang: 'de'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'nl' %>
+      <%= link_to "🇳🇱 Nederlandse", url_for(lang: 'nl'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'fr' %>
+      <%= link_to "🇫🇷 Français", url_for(lang: 'fr'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'es' %>
+      <%= link_to "🇪🇸 Español", url_for(lang: 'es'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'pt' %>
+      <%= link_to "🇵🇹 Português", url_for(lang: 'pt'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'pl' %>
+      <%= link_to "🇵🇱 Polski", url_for(lang: 'pl'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'ru' %>
+      <%= link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'id' %>
+      <%= link_to "🇮🇩 Bahasa Indonesia", url_for(lang: 'id'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'vi' %>
+      <%= link_to "🇻🇳 Tiếng Việt", url_for(lang: 'vi'), class: "dropdown-item" %>
+    <% end %>
+    <% unless lang == 'zh-cn' %>
+      <%= link_to "🇨🇳 中文", url_for(lang: 'zh-cn'), class: "dropdown-item" %>
+    <% end %>
+  </div>
+</div>
