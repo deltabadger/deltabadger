@@ -13,18 +13,18 @@
 
     = link_to root_path, class: 'menu__item menu__item--dashboard', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_dashboard'
-      .tooltip 
+      .tooltip
         = t('links.dashboard')
 
     = link_to portfolio_analyzer_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_analyzer'
       .xsbadge= t('utils.new')
-      .tooltip 
+      .tooltip
         = t('links.analyzer')
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_referral_program'
-      .tooltip 
+      .tooltip
         = t('links.referral_program')
 
     = link_to settings_path, class: 'menu__item menu__item--settings', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
@@ -47,7 +47,7 @@
             = t('subscriptions.upgrade_plan')
           .tooltip__counter
             = t('subscriptions.days_left', count: current_user.plan_days_left)
-  
+
   .menu__section.menu__section--bottom
     .btn-group
       %button.menu__button{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
@@ -79,7 +79,7 @@
           = link_to "🇻🇳 Tiếng Việt", url_for(lang: 'vi'), class: "dropdown-item"
         - unless lang == 'zh-cn'
           = link_to "🇨🇳 中文", url_for(lang: 'zh-cn'), class: "dropdown-item"
-    
-    = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button" do
-    
+
+    = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button", data: {turbo: false} do
+
       = render 'svg/24x24_logout'
