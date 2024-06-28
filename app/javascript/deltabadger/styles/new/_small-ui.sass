@@ -81,6 +81,7 @@ select
 .sbutton
     border: 0
     background: none
+    cursor: pointer
     font-weight: 600
     color: var(--link)
     padding: 0 0.25rem
@@ -91,19 +92,32 @@ select
     justify-content: center
     height: 4rem
     white-space: nowrap
-    &--primary, &--success
+    color: #fff !important
+    padding: 0 2rem
+    gap: 1rem   
+    &:focus, &:active, &[disabled="disabled"]
         color: #fff !important
-        padding: 0 2rem
-        gap: 1rem
-        &:focus, &:active, &[disabled="disabled"]
-            color: #fff !important
-            outline: none
-        svg
-            fill: #fff
+        outline: none
+    svg
+        fill: #fff
     &--primary
         background: var(--primary)
     &--success
         background: var(--success)
+    &--danger
+        background: var(--danger)
+    &--outline, &--disabled, &--link
+        background: none !important
+        color: var(--link) !important
+    &--outline, &--disabled
+        border: 2px solid var(--link)
+        padding: 0 calc(2rem - 2px)
+    &--disabled
+        cursor: not-allowed
+        opacity: 0.5 
+    &--link
+        padding-left: 0
+        padding-right: 0 
     &--add-asset  
         width: 20rem
         background: var(--sbutton-add-asset)
@@ -111,3 +125,6 @@ select
             fill: var(--label)
         &:hover
             background: var(--sbutton-add-asset-hover)
+    &--icon-and-text
+        svg
+            width: 3rem

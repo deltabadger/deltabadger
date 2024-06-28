@@ -12,7 +12,7 @@
 
             - if refcode_presenter.valid?
               .form-group.db-form-group--main-btn
-                = f.submit t('affiliates.apply_code.accept'), class: "btn btn-success btn-lg"
+                = f.submit t('affiliates.apply_code.accept'), class: "sbutton sbutton--success btn-lg"
             - else
               .form-group.db-form-group--main-btn
-                = link_to t('affiliates.apply_code.reject'), dashboard_path, class: "btn btn-danger btn-lg"
+                = link_to t('affiliates.apply_code.reject'), dashboard_path, class: "sbutton sbutton--danger btn-lg"

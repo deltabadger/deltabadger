@@ -304,12 +304,10 @@ const BotTemplate = ({
           <StartButton settings={settings} getRestartType={getStartButtonType} onClickReset={_handleSubmit}
                        setShowInfo={setShowSmartIntervalsInfo} exchangeName={exchangeName} />}
           <div className={`db-bot__infotext text-${colorClass}`}>
-            <div className="db-bot__infotext__left">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <path stroke="#2948A1" strokeLinecap="round" strokeWidth="2" d="M7.8 10.8a6 6 0 0 1 8.4 0M5 8c3.8-4 10.2-4 14 0"/>
-                <circle cx="12" cy="15" r="2" stroke="#2948A1" strokeWidth="2"/>
-              </svg>
-              {exchangeName}:{baseName}{quoteName}
+            <div className="db-bot__infotext__left bot-ticker">
+              <span className="bot-ticker__exchange">{exchangeName}</span>
+              <span className="bot-ticker__divider">:</span>
+              <span className="bot-ticker__currencies">{baseName}{quoteName}</span>
             </div>
             {pending && nextResultFetchingTimestamp && <FetchFromExchangeTimer bot={bot} callback={reload}/>}
             {working && nextTransactionTimestamp && <Timer bot={bot} callback={reload}/>}

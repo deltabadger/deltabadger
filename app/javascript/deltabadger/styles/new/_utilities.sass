@@ -63,3 +63,7 @@ $values: 1 2 3 4 5
     @each $value in $values
       .#{$side}#{$direction}-#{$value}
         #{$side + if($side == "m", "argin", "adding")}-#{if($direction == "t", "top", if($direction == "b", "bottom", if($direction == "l", "left", "right")))}: #{$value}rem
+
+.cf-turnstile
+  display: flex
+  justify-content: center
