@@ -1,5 +1,11 @@
 // bots
 
+.bot-ticker
+  position: relative
+  top: 0.25rem
+  left: 1rem
+  &__exchange, &__divider
+    opacity: 0.6
 input
   &[type="checkbox"]
     &:not(:checked)
@@ -190,12 +196,9 @@ input
     display:                  flex
     border-radius:            $btn-border-radius
     flex-direction:           row-reverse
-    padding:                  $bot-gutter-width*0.5 $bot-gutter-width*0.8333 $bot-gutter-width*0.5 $bot-gutter-width*0.5
-    .btn
-      right:                  -1rem
-      position:               relative
-    .db-bot__modal .btn
-      right:                  0
+    padding:                  $bot-gutter-width*0.5
+    gap:                      1.5rem
+    font-weight:              400
   &__infotext
     border-radius:            $btn-border-radius
     line-height:              2rem
@@ -216,6 +219,8 @@ input
       align-items:            center
       svg
         width:                2.4rem
+    &__right
+      font-weight:            600
     &--setup
       text-align:             left
       position:               absolute
