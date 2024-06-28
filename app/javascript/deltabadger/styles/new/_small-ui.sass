@@ -114,7 +114,10 @@ select
         padding: 0 calc(2rem - 2px)
     &--disabled
         cursor: not-allowed
-        opacity: 0.5  
+        opacity: 0.5 
+    &--link
+        padding-left: 0
+        padding-right: 0 
     &--add-asset  
         width: 20rem
         background: var(--sbutton-add-asset)
@@ -122,3 +125,6 @@ select
             fill: var(--label)
         &:hover
             background: var(--sbutton-add-asset-hover)
+    &--icon-and-text
+        svg
+            width: 3rem
