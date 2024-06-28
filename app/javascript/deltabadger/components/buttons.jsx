@@ -204,10 +204,10 @@ export const RemoveButton = ({onClick, disabled}) => {
   }, []);
 
   return(
-    <div>
+    <div className="bot-footer">
       <div
         onClick={() => setOpen(true) }
-        className={`sbutton sbutton--link text-secondary ${disabled ? 'sbutton--disabled' : ''}`}
+        className={`sbutton sbutton--link sbutton--icon-and-text ${disabled ? 'sbutton--disabled' : ''}`}
       >
         <i className="material-icons">close</i>
         <span>{I18n.t('bots.buttons.delete.text')}</span>
