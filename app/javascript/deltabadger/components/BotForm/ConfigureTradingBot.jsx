@@ -69,7 +69,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="btn btn-link btn--reset btn--reset-back"
+      className="sbutton sbutton--link"
     >
       <i className="material-icons">close</i>
       <span>Cancel</span>
@@ -96,11 +96,11 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               <div className="db-bot__modal__btn-group">
                 <div onClick={() => {
                   setOpen(false)
-                }} className="btn btn-outline-primary">{I18n.t('bots.setup.frequency_limit.back_to_settings')}
+                }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.setup.frequency_limit.back_to_settings')}
                 </div>
                 <div onClick={
                   _handleSmartIntervalsChange
-                } className="btn btn-success">{I18n.t('bots.setup.frequency_limit.start_the_bot')}
+                } className="sbutton sbutton--success">{I18n.t('bots.setup.frequency_limit.start_the_bot')}
                 </div>
               </div>
             </div>
@@ -153,11 +153,11 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <div>
           <div
               onClick={_handleStarts}
-              className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
-            <span className="d-none d-sm-inline">Start</span>
-            <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/>
-            </svg>
+              className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+            <div className="animicon animicon--start">
+              <div className="animicon__a"></div>
+              <div className="animicon__b"></div>
+            </div>
           </div>
           { isOpen &&
           <div ref={node} className="db-bot__modal">
