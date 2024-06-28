@@ -12,6 +12,10 @@ input
       box-shadow:       inset 0 0 1.5rem var(--inactive)
       filter:           none
 
+.bot-footer
+  display:              flex
+  justify-content:      flex-start
+  padding:              2rem
 .db-bots
   display:              grid
   grid-auto-rows:       max-content
@@ -191,6 +195,7 @@ input
     *
       transition:             all 200ms linear
   &__header
+    user-select:              none
     align-items:              flex-start
     text-align:               center
     display:                  flex
@@ -298,12 +303,6 @@ input
       margin: 1em 3em
   &__footer
     margin-top: -.4em
-
-.db-bot-info__footer
-  display:         flex
-  justify-content: space-between
-  margin:          0 $bot-gutter-width*0.714 $bot-gutter-width*0.5
-  height:          3.8rem
 
 .db-smallinfo
   font-size: 1.4rem
