@@ -477,7 +477,7 @@ en:
                 email_used: 'This email is already used.'
                 name_invalid: 'It doesn''t have to be real :)'
                 submit: 'Start now'
-                title_html: 'Join <span class="text-success">free</span> account'
+                title_html: 'Create <span class="text-success">free</span> account'
             signed_up: 'Nice to meet you!'
             signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
             signed_up_but_locked: 'Oops, your account is locked.'
