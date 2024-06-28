@@ -42,7 +42,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="btn btn-link btn--reset btn--reset-back"
+      className="sbutton sbutton--link"
     >
       <i className="material-icons">close</i>
       <span>Cancel</span>
@@ -126,9 +126,11 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
       <div className="db-bot__header">
         <Breadcrumbs step={3} />
-        <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
-          <span className="d-none d-sm-inline">{I18n.t('bots.start')}</span>
-          <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
+        <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+          <div className="animicon animicon--start">
+            <div className="animicon__a"></div>
+            <div className="animicon__b"></div>
+          </div>
         </div>
     </div>
 
