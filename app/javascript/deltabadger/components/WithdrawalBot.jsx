@@ -152,17 +152,18 @@ const BotTemplate = ({
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
           {(!isStarting && !working && !pending) &&
-            <div onClick={_handleSubmit} className={`btn ${disableSubmit ? 'btn-outline-secondary disabled' : 'btn-outline-success'}`}>
-              <span className="d-none d-sm-inline">{I18n.t('bots.start')}</span>
-              <svg className="btn__svg-icon db-svg-icon db-svg-icon--play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 6.8v10.4a1 1 0 001.5.8l8.2-5.2a1 1 0 000-1.7L9.5 6a1 1 0 00-1.5.8z"/></svg>
+            <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+              <div className="animicon animicon--start">
+                <div className="animicon__a"></div>
+                <div className="animicon__b"></div>
+              </div>
             </div>
           }
           <div className={`db-bot__infotext text-${colorClass}`}>
-            <div className="db-bot__infotext__left">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <path stroke="#2948A1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m18 11-6 6-6-6M12 16V5"/>
-              </svg>
-              {exchangeName}:{currencyName}
+            <div className="db-bot__infotext__left bot-ticker">
+              <span className="bot-ticker__exchange">{exchangeName}</span>
+              <span className="bot-ticker__divider">:</span>
+              <span className="bot-ticker__currencies">{currencyName}</span>
             </div>
             {working && !intervalEnabled && <PercentageProgress bot={bot} callback={reload}/>}
             {working && intervalEnabled && nextTransactionTimestamp && <Timer bot={bot} callback={reload}/>}
