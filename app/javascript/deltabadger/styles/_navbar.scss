@@ -14,7 +14,7 @@
       display: none;
       @media (max-width: 575px) {
         display: block;
-        height: 3.75rem;
+        width: 5rem;
       } 
     }
   }
@@ -24,6 +24,14 @@
     font-size: 2.2rem;
     position: relative;
     top: .1rem;
+  }
+}
+.db--devise {
+  .col-12 {
+    @media (max-width: 575px) {
+      padding-right: 3rem;
+      padding-left: 3rem;
+    }
   }
 }
 
@@ -91,9 +99,6 @@
   .btn-outline-primary {
     border-color: var(--navbarLink);
   }
-  // path {
-  //   fill:  var(--navbarLink);
-  // }
   .db-hi-welcome {
     path {
       fill: transparent !important;
@@ -121,7 +126,7 @@
   }
 }
 .db-navbar {
-  padding: 2rem;
+  padding: 4rem;
   .navbar-brand {
     margin-left: 0;
     svg {
@@ -139,6 +144,9 @@
     width:  3rem;
     height: 3rem;
   }
+  @media (max-width: 575px) {
+    padding: 3rem
+  } 
 }
 
 .db-hi-welcome {
