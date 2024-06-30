@@ -638,14 +638,14 @@ es:
             one: '1 día menos'
             other: '%{count} días disponibles'
         hodler: Hodler
-        hodler_description_html: '<p><b>DCA funciona mejor como compromiso a largo plazo.</b></p><p>Cuatro años de <b>transacciones ilimitadas</b> para <b>todas las divisas</b>, comisiones más bajas con <b>órdenes limitadas</b>, <b>retiradas automáticas</b>, <b>condición de precio</b>, <b>condición de tiempo</b>(pronto), <b>webhooks</b> y <b>reequilibado del portfolio</b>(pronto). Los planes a largo plazo también apoyan el proyecto, y por eso los Hodlers tienen <b>acceso prioritario</b> a todas las nuevas funciones.</p>'
+        hodler_description_html: '<p><b>Bots DCA ilimitados</b>, comisiones más bajas con <b>órdenes limitadas</b>, <b>retiros automáticos</b>, <b>condición de precio</b>, <b>condición de tiempo</b>(pronto).</p>'
         investor: Inversor
         investor_description_html: 'Un año de <b>transacciones ilimitadas</b>, <b>todas las monedas</b> y <b>retiros automáticos</b>.'
         legendary_badger: 'Legendary Badger'
         legendary_badger_description_html: '<p><b>No pague nunca más por utilizar el servicio.</b></p><p>Todo lo que ofrece el plan Hodler, pero de por vida.</p><p>La suscripción viene con un <b>NFT</b>, por lo que en el futuro podrás venderlo a otro usuario.</p><p>Cada token está asociado a una obra de arte generada procedimentalmente. ¿Puedes encontrar los 21 "easter eggs" escondidos en <a href="https://deltabadger.com/legendary/" class="nobreak">la colección</a>?</p><p>De por vida. Limitado. Legendario.</p><p>Legendary Badgers son como nada más en el mercado.</p><p>Sólo 1000 están en la nave espacial de los Legendary Badgers. Consolida tu estatus de pensador a largo plazo y sé legendario.</p>'
         limit_reached_html: '<b>¡Felicidades!</b> Has alcanzado nuestro límite de transacciones gratuitas de 1200 dólares/año. Para continuar, actualiza al plan ilimitado.'
         analyzer_html: 'Mejora tu cartera con el poder ilimitado del <b>Analizador de Cartera</b>.'
-        expires_soon_html: 'El plan de 4 años será reemplazado pronto por una suscripción anual de 199 $/año. Así que esta es la última oportunidad para obtener el acceso de 4 años por la mitad de precio.'
+        expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Hodler: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
         payment:
             account_holder: 'Titular de la cuenta'
             account_number: 'Número de cuenta'
@@ -685,7 +685,6 @@ es:
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
             you_pay: 'Tu pagas'
         plan_1_year: 'Plan de 1 año'
-        plan_4_year: 'Plan de 4 años'
         plan_life_time: 'Plan de por vida'
         prolong_upgrade: 'Actualiza tu plan'
         saver: Ahorrador
@@ -788,7 +787,7 @@ es:
                 adjusted_start_html: "La fecha de inicio del backtest se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
                 adjusted_end_html: "La fecha de finalización del backtest se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
     utils:
-        soon: '(pronto)'
+        soon: 'pronto'
         new: 'Nuevo'
         important: '¡Importante!'
     alert:

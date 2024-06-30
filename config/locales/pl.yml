@@ -47,7 +47,7 @@ pl:
             valid_for: 'Ważny przy pierwszym zakupie na platformie.'
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
-        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>\n <ol>\n <li> Dla uproszczenia cena Bitcoina wynosi ~10000$, rabat 10%, a Twoja marża 20%. </li>\n <li> Osoba korzystająca z linku kupuje roczny plan za 49,99 USD, płacąc po rabacie 44,99 USD, co równa się 0,0045 BTC. Zarabiasz 0,001 BTC (20% z 49,99 $). </li>\n <li> Nie ma znaczenia, czy cena Bitcoina w międzyczasie się zmieni. Twój zysk w BTC zostaje ustalony w momencie transakcji. </li>\n <li> Następnym razem ten sam użytkownik kupuje 4-letni abonament za 149,99 USD i płaci 0,015 BTC. Nie otrzymuje już zniżki, ale ty nadal dostajesz swoje 20%, czyli 0,003 BTC. </li>\n <li> Będziesz zarabiać, dopóki masz aktywny plan<sup> 2 </sup> , a całkowity zysk z transakcji danego użytkownika nie osiągnie 50 USD. </li>\n </ol>\n\n <p> <em> Zarabianie w bitcoinach to najlepszy sposób na uśrednianie! </em> </p>\n <small class=\"mb-2\"><sup> 1 </sup> Limit wynosi 50 USD lub 50 EUR, w zależności od waluty, którą korzystający z linku widzi przy zakupie. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Dla użytkownika link polecający działa nawet po wygaśnięciu twojej subskrypcji. </small>\n </div>"
+        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>\n <ol>\n <li> Dla uproszczenia cena Bitcoina wynosi ~10000$, rabat 10%, a Twoja marża 20%. </li>\n <li> Osoba korzystająca z linku kupuje roczny plan za 49,99 USD, płacąc po rabacie 44,99 USD, co równa się 0,0045 BTC. Zarabiasz 0,001 BTC (20% z 49,99 $). </li>\n <li> Nie ma znaczenia, czy cena Bitcoina w międzyczasie się zmieni. Twój zysk w BTC zostaje ustalony w momencie transakcji. </li>\n <li> Następnym razem ten sam użytkownik kupuje abonament Hodler za 149,99 USD i płaci 0,015 BTC. Nie otrzymuje już zniżki, ale ty nadal dostajesz swoje 20%, czyli 0,003 BTC. </li>\n <li> Będziesz zarabiać, dopóki masz aktywny plan<sup> 2 </sup> , a całkowity zysk z transakcji danego użytkownika nie osiągnie 50 USD. </li>\n </ol>\n\n <p> <em> Zarabianie w bitcoinach to najlepszy sposób na uśrednianie! </em> </p>\n <small class=\"mb-2\"><sup> 1 </sup> Limit wynosi 50 USD lub 50 EUR, w zależności od waluty, którą korzystający z linku widzi przy zakupie. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Dla użytkownika link polecający działa nawet po wygaśnięciu twojej subskrypcji. </small>\n </div>"
         new:
             checked: 'Sprawdziłem wszystko dokładnie.'
             discount_info_html: '<b> Zarobisz <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, a korzystający z linku otrzyma <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu</b>.'
@@ -650,14 +650,14 @@ pl:
             many: 'Pozostało %{count} dni'
             other: 'Pozostało %{count} dni'
         hodler: Hodler
-        hodler_description_html: '<p><b>DCA działa najlepiej jako zobowiązanie długoterminowe.</b></p><p>Cztery lata <b>nieograniczonych transakcji</b> dla <b>wszystkich walut</b>, niższe opłaty przy <b>zleceniach z limitem</b>, <b>automatyczne wypłaty</b>, <b>ustawienie progu ceny</b>, <b>ustawienie limitu daty</b>(wkrótce), <b>webhooki</b> i <b>rebalansowanie portfela</b>(wkrótce). Długoterminowe plany również wspierają projekt, dlatego Hodlerzy otrzymują <b>priorytetowy dostęp</b> do wszystkich nowych funkcji.</p>'
+        hodler_description_html: '<p><b>Nieograniczone boty DCA</b>, niższe opłaty przy <b>zleceniach z limitem</b>, <b>automatyczne wypłaty</b>, <b>ustawienie progu ceny</b>, <b>ustawienie limitu daty</b>(wkrótce).</p>'
         investor: Inwestor
         investor_description_html: 'Jeden rok <b>bez limitu transakcji</b>, <b>wszystkie waluty</b> i <b>automatyczne wypłaty</b>.'
         legendary_badger: Legendarny Borsuk
         legendary_badger_description_html: '<p><b>Koniec z opłatami za korzystanie z serwisu.</b></p><p>Wszystko, co oferuje plan Hodler, ale na całe życie.</p><p>Subskrypcja jest połączona z <b>NFT</b>, więc w przyszłości możesz ją sprzedać innemu użytkownikowi.</p><p>Każdy token powiązany jest z proceduralną grafiką. Czy uda ci się odnaleźć wszystkie 21 "easter eggs" ukrytych w <a href="https://deltabadger.com/legendary/" class="nobreak">kolekcji</a>?</p><p>Dożywotnie. Limitowane. Legendarne.</p><p>Legendarne Borsuki są jedyne w swoim rodzaju.</p><p>Tylko 1000 miejsc na statku kosmicznym Borsuków. Ugruntuj swój status inwestora długoterminowego i stań się Legendarny.</p>'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200 $/rok. Aby kontynuować, wykup płatną subskrypcję.'
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
-        expires_soon_html: 'Plan 4-letni wkrótce zostanie zastąpiony przez roczną subskrypcję za 199 $/rok. To więc ostatnia szansa, aby uzyskać 4-letni dostęp za połowę ceny.'
+        expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Hodler: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
         payment:
             account_holder: Odbiorca
             account_number: 'Numer konta'
@@ -701,7 +701,6 @@ pl:
             wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'
             you_pay: Płacisz
         plan_1_year: 'Plan roczny'
-        plan_4_year: 'Plan 4-letni'
         plan_life_time: 'Plan dożywotni'
         prolong_upgrade: 'Zrób upgrade'
         saver: Oszczędny
@@ -807,7 +806,7 @@ pl:
                 adjusted_start_html: "Data rozpoczęcia testu wstecznego została dostosowana do <strong>%{start_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
                 adjusted_end_html: "Data zakończenia testu wstecznego została dostosowana do <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
     utils:
-        soon: '(wkrótce)'
+        soon: 'wkrótce'
         new: 'Nowość'
         important: 'Ważne!'
     alert:
