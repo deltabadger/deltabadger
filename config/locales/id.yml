@@ -611,14 +611,14 @@ id:
         days_left:
             other: ''
         hodler: Hodler
-        hodler_description_html: 'DCA bekerja paling baik sebagai komitmen jangka panjang. Empat tahun <b> transaksi tak terbatas </b> untuk <b> semua mata uang </b> di bursa, <b> limit order </b> , <b> penarikan otomatis </b> (segera), <b> kondisi harga </b> , <b> kondisi waktu </b> (segera), <b> staking otomatis </b> (segera). Paket ini mendukung proyek, dan itulah sebabnya Hodlers mendapatkan <b> akses prioritas </b> ke semua fitur baru.'
+        hodler_description_html: '<p><b>Bot DCA tanpa batas</b>, biaya lebih rendah dengan <b>limit order</b>, <b>penarikan otomatis</b>, <b>kondisi harga</b>, <b>kondisi waktu</b>(segera).</p>'
         investor: Investor
-        investor_description_html: 'Satu tahun <b> transaksi tak terbatas </b> , <b> semua mata uang </b> , dan <b> penarikan otomatis </b> (segera).'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
+        investor_description_html: 'Satu tahun <b>transaksi tak terbatas</b>, <b>semua mata uang</b>, dan <b>penarikan otomatis</b>.'
+        legendary_badger: 'Legendary Badger'
+        legendary_badger_description_html: '<p><b>Jangan pernah lagi membayar untuk menggunakan layanan ini.</b></p><p>Segala yang ditawarkan oleh paket Hodler, tetapi seumur hidup.</p><p>Langganan ini dilengkapi dengan <b>NFT</b>, sehingga di masa depan Anda dapat menjualnya kepada pengguna lain.</p><p>Setiap token terkait dengan karya seni prosedural. Bisakah Anda menemukan 21 "telur Paskah" yang tersembunyi dalam <a href="https://deltabadger.com/legendary/" class="nobreak">koleksi</a>?</p><p>Seumur hidup. Terbatas. Legendaris.</p><p>Legendary Badgers tidak seperti apa pun yang ada di pasar.</p><p>Hanya 1000 tempat di pesawat luar angkasa Legendary Badgers. Semen status pemikir jangka panjang Anda, dan jadilah Legendaris.</p>'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
-        maximalist_info: 'Jika Anda membeli Bitcoin saja, Anda membayar separuh dari harga normal.'
-        maximalist_title: 'Diskon Maksimal 50% Bitcoin'
+        analyzer_html: 'Tingkatkan portofolio Anda dengan kekuatan tak terbatas dari <b>Portfolio Analyzer</b>.'
+        expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Hodler: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
         payment:
             account_holder: 'Pemilik rekening'
             account_number: 'Nomor rekening'
@@ -657,7 +657,6 @@ id:
             wire_transfer_pending: 'Terima kasih! Kami akan segera mengaktifkan akun Anda dan menghubungi Anda melalui email.'
             you_pay: 'Anda membayar'
         plan_1_year: 'Paket 1 tahun'
-        plan_4_year: 'Paket 4 tahun'
         plan_life_time: ''
         prolong_upgrade: ''
         saver: Penabung

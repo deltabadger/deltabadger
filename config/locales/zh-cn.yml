@@ -611,14 +611,7 @@ zh-cn:
         days_left:
             other: '剩余 %{{count}} 天'
         hodler: Hodler
-        hodler_description_html: 'DCA作为一个长期承诺，效果最好。四年内对交易所的<b>所有货币</b> <b>进行无限制的交易</b>，<b>限价单</b>，<b>自动取款</b>（很快），<b>价格条件</b>，<b>时间条件</b>（很快），<b>自动定投</b>（很快）。该计划支持该项目，这就是为什么Hodlers可以<b>优先使用</b>所有新功能。'
-        investor: 投资者
-        investor_description_html: '一年内<b>无限制的交易</b>，<b>所有货币</b>，和<b>自动提款</b>（很快）。'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
-        limit_reached_html: '<b>恭喜！</b>您已达到每年 1200 美元的免费交易限制。要继续，请升级到无限制套餐。'
-        maximalist_info: 如果您仅买入比特币，您只需支付正常价格的一半。
-        maximalist_title: '比特币信徒可享受 50% 的折扣'
+        hodler_description_html: '<p><b>无限的 DCA 机器人</b>，<b>限价单</b> 费用更低，<b>自动取款</b>，<b>价格条件</b>，<b>时间条件</b>（很快）。</p>'
         payment:
             account_holder: 账号持有人
             account_number: 账号
@@ -657,7 +650,6 @@ zh-cn:
             wire_transfer_pending: 谢谢！我们很快会激活您的账号并通过电子邮件联系您。
             you_pay: 您支付
         plan_1_year: '1 年套餐'
-        plan_4_year: '4 年套餐'
         plan_life_time: ''
         prolong_upgrade: 延长或升级套餐
         saver: 储蓄者
