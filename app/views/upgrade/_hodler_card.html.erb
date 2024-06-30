@@ -4,7 +4,7 @@
     <% if days_left %>
       <div class="text-success"><%= t('subscriptions.days_left', count: current_user.plan_days_left) %></div>
     <% else %>
-      <%= t('subscriptions.plan_4_year') %>
+      <%= t('subscriptions.plan_1_year') %>
     <% end %>
   </div>
 </div>
@@ -27,5 +27,5 @@
 <div class="db-plans__item__info">
   <%= t('subscriptions.hodler_description_html') %>
   <p><b class="sbadge sbadge--danger"><%= t('utils.new') %></b> <%= t('subscriptions.analyzer_html') %></p>
-  <p><b class="sbadge sbadge--warning"><%= t('utils.important') %></b> <%= t('subscriptions.expires_soon_html') %></p>
+  <p><b class="sbadge sbadge--warning"><%= t('utils.soon') %></b> <%= t('subscriptions.expires_soon_html') %></p>
 </div>

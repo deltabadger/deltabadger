@@ -611,14 +611,14 @@ vi:
         days_left:
             other: ''
         hodler: Hodler
-        hodler_description_html: ''
+        hodler_description_html: '<p><b>Bot DCA không giới hạn</b>, phí thấp hơn với <b>lệnh giới hạn</b>, <b>rút tiền tự động</b>, <b>điều kiện giá</b>, <b>điều kiện thời gian</b>(sắp có).</p>'
         investor: Investor
-        investor_description_html: 'Một năm <b> giao dịch không giới hạn </b> , <b> tất cả các loại tiền </b> và <b> rút tiền tự động </b> (sớm).'
-        legendary_badger: ''
-        legendary_badger_description_html: ''
+        investor_description_html: 'Một năm <b>giao dịch không giới hạn</b>, <b>tất cả các loại tiền</b>, và <b>rút tiền tự động</b>.'
+        legendary_badger: Legendary Badger
+        legendary_badger_description_html: '<p><b>Không bao giờ phải trả phí sử dụng dịch vụ nữa.</b></p><p>Mọi thứ mà gói Hodler cung cấp, nhưng là suốt đời.</p><p>Đăng ký đi kèm với một <b>NFT</b>, do đó trong tương lai bạn có thể bán nó cho người dùng khác.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật quy trình. Bạn có thể tìm thấy tất cả 21 "trứng phục sinh" ẩn trong <a href="https://deltabadger.com/legendary/" class="nobreak">bộ sưu tập</a> không?</p><p>Suốt đời. Giới hạn. Huyền thoại.</p><p>Legendary Badgers là duy nhất trên thị trường.</p><p>Chỉ có 1000 chỗ ngồi trên tàu vũ trụ của Legendary Badgers. Hãy củng cố vị thế của bạn như một người suy nghĩ dài hạn và trở thành huyền thoại.</p>'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
-        maximalist_info: 'Nếu bạn chỉ mua Bitcoin, bạn trả một nửa giá thông thường.'
-        maximalist_title: 'Bitcoin Maximalist được giảm giá 50%'
+        analyzer_html: 'Tăng cường danh mục đầu tư của bạn với sức mạnh không giới hạn của <b>Trình phân tích Danh mục đầu tư</b>.'
+        expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Hodler: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
         payment:
             account_holder: 'Chủ tài khoản'
             account_number: 'Số tài khoản'
@@ -657,7 +657,6 @@ vi:
             wire_transfer_pending: 'Cảm ơn bạn! Chúng tôi sẽ sớm kích hoạt tài khoản của bạn và liên hệ với bạn qua email.'
             you_pay: 'Số tiền thanh toán'
         plan_1_year: 'gói 1 năm'
-        plan_4_year: 'gói 4 năm'
         plan_life_time: ''
         prolong_upgrade: ''
         saver: Saver
