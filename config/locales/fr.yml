@@ -638,14 +638,14 @@ fr:
             one: "1 jour restant"
             other: "%{count} jours restants"
         hodler: Hodler
-        hodler_description_html: "<p><b>DCA fonctionne mieux comme un engagement à long terme.</b></p><p>Quatre ans de <b>transactions illimitées</b> pour <b>toutes les devises</b>, des frais plus bas avec des <b>ordres limités</b>, des <b>retraits automatiques</b>, une <b>condition de prix</b>, une <b>condition de temps</b>(bientôt), des <b>webhooks</b> et un <b>rééquilibrage de portefeuille</b>(bientôt). Les plans à long terme soutiennent également le projet, c''est pourquoi les Hodlers ont un <b>accès prioritaire</b> à toutes les nouvelles fonctionnalités.</p>"
+        hodler_description_html: '<p><b>Bots DCA illimités</b>, des frais plus bas avec des <b>ordres limités</b>, des <b>retraits automatiques</b>, une <b>condition de prix</b>, une <b>condition de temps</b>(bientôt).</p>'
         investor: Investisseur
-        investor_description_html: "Un an de <b>transactions illimitées</b>, <b>toutes les devises</b> et <b>retraits automatiques</b>."
+        investor_description_html: 'Un an de <b>transactions illimitées</b>, <b>toutes les devises</b> et <b>retraits automatiques</b>.'
         legendary_badger: "Legendary Badger"
         legendary_badger_description_html: '<p><b>Ne payez plus jamais pour utiliser le service.</b></p><p>Tout ce que le plan Hodler offre, mais à vie.</p><p>L''abonnement comprend un <b>NFT</b>, ce qui vous permet de le vendre à un autre utilisateur à l''avenir.</p><p>Chaque jeton est associé à une œuvre d''art procédurale. Pouvez-vous trouver les 21 "œufs de Pâques" cachés dans <a href="https://deltabadger.com/legendary/" class="nobreak">la collection</a>?</p><p>À vie. Limité. Légendaire.</p><p>Les Legendary Badgers sont comme rien d''autre sur le marché.</p><p>Seulement 1000 places sur le vaisseau spatial des Legendary Badgers. Cimentez votre statut de penseur à long terme et devenez légendaire.</p>'
-        limit_reached_html: "<b>Félicitations!</b> Vous avez atteint notre limite de transactions gratuites de 1200 $/an. Pour continuer, passez au plan illimité."
-        analyzer_html: "Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>."
-        expires_soon_html: "Le plan de 4 ans sera bientôt remplacé par un abonnement annuel de 199 $/an. C''est donc la dernière chance d''obtenir l''accès de 4 ans à moitié prix."
+        limit_reached_html: '<b>Félicitations!</b> Vous avez atteint notre limite de transactions gratuites de 1200 $/an. Pour continuer, passez au plan illimité.'
+        analyzer_html: 'Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>.'
+        expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Hodler : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
         payment:
             account_holder: 'Titulaire du compte'
             account_number: 'Numéro de compte'
@@ -685,7 +685,6 @@ fr:
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
             you_pay: 'Vous payez'
         plan_1_year: 'Forfait de 1 an'
-        plan_4_year: 'Forfait de 4 ans'
         plan_life_time: 'Forfait à vie'
         prolong_upgrade: 'Mise à niveau du forfait'
         saver: 'Saver'
@@ -788,7 +787,7 @@ fr:
                 adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
                 adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
-        soon: '(bientôt)'
+        soon: 'bientôt'
         new: 'Nouveau'
         important: 'Important !'
     alert:
