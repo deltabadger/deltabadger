@@ -51,7 +51,7 @@ module PaymentsManager
       return 0 if @subscription_plan.name == current_plan.name
 
       plan_years_left = user.plan_days_left.to_f / 365
-      discount_multiplier = [2, plan_years_left / current_plan.years].min
+      discount_multiplier = [4, plan_years_left / current_plan.years].min
       (get_base_price(current_plan) * discount_multiplier).round(2)
     end
 
