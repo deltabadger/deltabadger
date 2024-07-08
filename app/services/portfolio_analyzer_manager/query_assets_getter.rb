@@ -8,12 +8,12 @@ module PortfolioAnalyzerManager
       symbols_info = PortfolioAnalyzerManager::SymbolsInfoGetter.call
       return symbols_info if symbols_info.failure?
 
-      query_upcase = query.upcase
+      query_downcase = query.downcase
       portfolio_assets_api_ids = portfolio.assets.pluck(:api_id)
 
       query_assets = symbols_info.data.each_with_object([]) do |symbol, assets|
         next if portfolio_assets_api_ids.include?(symbol['id'].to_s)
-        next unless matches_query?(symbol, query_upcase)
+        next unless matches_query?(symbol, query_downcase)
 
         assets << Asset.new(
           ticker: symbol['symbol']&.upcase,
@@ -30,9 +30,11 @@ module PortfolioAnalyzerManager
 
     private
 
-    def matches_query?(symbol, query)
-      attributes = [symbol['symbol'], symbol['name'], symbol['isin']].compact.map(&:upcase)
-      attributes.any? { |attr| attr.include?(query) }
+    def matches_query?(symbol, query_downcase)
+      ticker = symbol['symbol']&.downcase
+      name = symbol['name']&.downcase
+      isin = symbol['isin']&.downcase
+      ticker&.include?(query_downcase) || name&.include?(query_downcase) || isin&.include?(query_downcase)
     end
   end
 end
