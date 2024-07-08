@@ -673,3 +673,110 @@ id:
         banner_html: "Selamat datang! Anda saat ini menikmati <b>paket gratis dengan limit transaksi sebesar $1200/tahun</b>, tetapi tidak akan diberlakukan untuk bulan pertama. Cobalah jadwal mana saja yang Anda inginkan. Anda juga bisa meningkatkan paket agar nanti menikmati transaksi tanpa batas. Selain itu, paket Hodler 4 tahun memberi akses ke fitur eksperimental baru (misalnya semua mata uang untuk pertukaran). Kami mengapresiasi semua masukan. Bergabunglah dengan\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grup Telegram</a> dan ikuti kami di <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Selamat ber-averaging!"
         default: 'Hai, selamat datang di Deltabadger'
         saver: 'Hapus limit dan tingkatkan paket!'
+    metrics:
+        exp_return:
+            short_name: 'Exp. Return'
+            short_info: 'Pengembalian tahunan yang diharapkan berdasarkan model CAPM.'
+            best: 'Exp. Return Tertinggi'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'Seberapa banyak portofolio Anda tumbuh rata-rata setiap tahun.'
+            best: 'CAGR Tertinggi'
+        max_drawdown:
+            short_name: 'Max. Drawdown'
+            short_info: 'Penurunan terbesar dalam nilai portofolio Anda dari titik tertingginya.'
+            best: 'Max. Drawdown Terendah'
+        volatility:
+            short_name: 'Volatilitas'
+            short_info: 'Seberapa banyak pengembalian portofolio Anda berfluktuasi dalam setahun.'
+            best: 'Volatilitas Terendah'
+        var:
+            short_name: 'VaR'
+            short_info: 'Ada kemungkinan 95% bahwa portofolio Anda tidak akan kehilangan lebih dari jumlah ini dalam satu hari.'
+            best: 'VaR Terendah'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'Jika kerugian melebihi VaR, ini adalah kerugian rata-rata yang dapat Anda harapkan.'
+            best: 'CVaR Terendah'
+        sharpe_ratio:
+            short_name: 'Rasio Sharpe'
+            short_info: 'Seberapa banyak pengembalian yang Anda dapatkan untuk risiko yang Anda ambil.'
+            best: 'Rasio Sharpe Tertinggi'
+        sortino_ratio:
+            short_name: 'Rasio Sortino'
+            short_info: 'Mirip dengan Rasio Sharpe, tetapi hanya mempertimbangkan risiko penurunan.'
+            best: 'Rasio Sortino Tertinggi'
+        calmar_ratio:
+            short_name: 'Rasio Calmar'
+            short_info: 'Pengembalian dibandingkan dengan kerugian terbesar yang dialami portofolio Anda.'
+            best: 'Rasio Calmar Tertinggi'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'Seberapa banyak portofolio Anda mengungguli pasar, disesuaikan dengan risiko.'
+            best: 'Alpha Tertinggi'
+        beta:
+            short_name: 'Beta'
+            short_info: 'Bagaimana pengembalian portofolio Anda bergerak dibandingkan dengan pasar.'
+            best: 'Beta Terendah'
+        treynor_ratio:
+            short_name: 'Rasio Treynor'
+            short_info: 'Pengembalian yang Anda dapatkan untuk setiap unit risiko pasar.'
+            best: 'Rasio Treynor Tertinggi'
+        omega_ratio:
+            short_name: 'Rasio Omega'
+            short_info: 'Peluang keuntungan dibandingkan dengan peluang kerugian.'
+            best: 'Rasio Omega Tertinggi'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'Seberapa dekat pengembalian portofolio Anda mencerminkan pasar secara keseluruhan.'
+            best: 'R² Tertinggi'
+        info_ratio:
+            short_name: 'Rasio Info.'
+            short_info: 'Seberapa konsisten portofolio Anda mengungguli benchmark.'
+            best: 'Rasio Info. Tertinggi'
+        diversification:
+            short_name: 'Diversifikasi'
+            short_info: 'Variasi investasi yang berbeda dalam portofolio Anda untuk menyebarkan risiko.'
+            best: 'Diversifikasi Terbaik'
+    analyzer:
+        total_value: 'Nilai total'
+        no_assets: 'Mulailah dengan menambahkan aset baru.'
+        assets_dont_coexist: 'Tidak dapat melakukan backtest portofolio ini. Aset yang Anda pilih tidak pernah ada bersama sejak %{backtest_start_date}!'
+        api_unreachable: 'Tidak dapat melakukan backtest portofolio ini sekarang. Server API data tidak dapat dijangkau.'
+        smart_allocation:
+            name: 'Allocasi Cerdas'
+            short_info_html: '<p>Allocasi Cerdas menerapkan algoritma <b>Modern Portfolio Theory (MPT)</b> untuk menemukan alokasi aset terbaik untuk portofolio Anda.</p>Anda dapat mengoptimalkan untuk dua metrik yang berbeda dan bahkan memilih posisi yang diinginkan di antara dua optimasi tersebut.'
+        since: 'sejak'
+        risk_free_rate: 'Tingkat Bebas Risiko'
+        us_bonds: 'Obligasi AS'
+        benchmark: 'Benchmark'
+        benchmark_info: 'Semakin baik pilihan benchmark, semakin andal perhitungan Exp. Return. Pilih benchmark yang sesuai dengan strategi investasi dan segmen pasar portofolio Anda. Metrik lain yang dipengaruhi oleh benchmark termasuk Alpha, Beta, R², dan Rasio Info.'
+        get_ai_insights: 'Dapatkan Wawasan AI'
+        pnl: 'Profit/Loss'
+        strategy:
+            fixed: 'Tetap'
+            dca: 'DCA'
+            rebalancing: 'Rebalancing'
+        backtest:
+            time_window:
+                adjusted_both_html: "Jangka waktu backtest telah disesuaikan untuk dimulai pada <strong>%{start_date}</strong> dan berakhir pada <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
+                adjusted_start_html: "Tanggal mulai backtest telah disesuaikan menjadi <strong>%{start_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
+                adjusted_end_html: "Tanggal berakhirnya backtest telah disesuaikan menjadi <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
+    utils:
+        soon: 'segera'
+        new: 'Baru'
+        important: 'Penting!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Nilai benchmark tidak valid."
+            invalid_strategy: "Nilai strategi tidak valid."
+            invalid_start_date: "Nilai tanggal mulai tidak valid."
+            invalid_risk_free_rate: "Nilai tingkat bebas risiko tidak valid."
+            invalid_smart_allocation: "Nilai alokasi cerdas tidak valid."
+            invalid_risk_level: "Nilai tingkat risiko tidak valid."
+            unable_to_calculate: "Tidak dapat menghitung Alokasi Cerdas untuk parameter ini."
+            portfolio_normalized: "Alokasi portofolio telah dinormalisasi."
+            risk_level_updated: "Tingkat risiko telah diperbarui."
+            smart_allocation_updated: "Alokasi cerdas telah diperbarui."
+            unable_to_set_risk_rate: "Tidak dapat mengatur tingkat bebas risiko ke %{risk_free_rate_name}."
+            api_unreachable: "Server API data tidak dapat dijangkau."
