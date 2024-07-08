@@ -663,7 +663,7 @@ zh-cn:
         update: '更新'
     welcome:
         banner_html: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
-        metrics:
+    metrics:
         exp_return:
             short_name: '预期回报'
             short_info: '基于CAPM模型的年度预期回报。'
