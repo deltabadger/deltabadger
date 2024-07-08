@@ -13,6 +13,7 @@
           <%= form.hidden_field :name, value: asset.name %>
           <%= form.hidden_field :category, value: asset.category %>
           <%= form.hidden_field :color, value: asset.color %>
+          <%= form.hidden_field :api_id, value: asset.api_id %>
           <%= button_tag type: :submit, class: "modal--search__cell modal--search__cell--add", data: { arrow_keys_navigation_target: "button" } do %>
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset.ticker %></div>
             <div class="modal--search__cell modal--search__cell--name"><%= asset.name %></div>

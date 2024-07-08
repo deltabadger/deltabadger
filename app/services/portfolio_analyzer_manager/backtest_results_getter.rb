@@ -6,15 +6,12 @@ module PortfolioAnalyzerManager
       expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
       Rails.cache.fetch(portfolio.backtest_cache_key, expires_in: expires_in) do
         client = FinancialDataApiClient.new
-        symbols = portfolio.assets.map(&:symbol).join(',')
-        sources = portfolio.assets.map(&:source).join(',')
+        symbols = portfolio.assets.map(&:api_id).join(',')
         allocations = portfolio.assets.map(&:allocation).join(',')
         metrics_result = client.metrics(
           symbols: symbols,
-          sources: sources,
           allocations: allocations,
           benchmark: portfolio.benchmark,
-          source: portfolio.benchmark_source,
           start: portfolio.backtest_start_date,
           strategy: portfolio.strategy,
           risk_free_rate: portfolio.risk_free_rate

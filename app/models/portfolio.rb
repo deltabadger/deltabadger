@@ -7,20 +7,20 @@ class Portfolio < ApplicationRecord
   validates :strategy, :benchmark, :risk_level, presence: true
 
   enum strategy: %i[fixed]
-  enum benchmark: %i[^GSPC ^DJI ^IXIC ^RUT BTC/USDT]
+  enum benchmark: %i[65951 65775 65992 37818 1713]
   enum risk_level: %i[conservative moderate_conservative balanced moderate_aggressive aggressive]
 
   BENCHMARK_NAMES = {
-    '^GSPC': { source: 'yfinance', name: 'S&P 500 Index' },
-    '^DJI': { source: 'yfinance', name: 'Dow Jones Industrial Average' },
-    '^IXIC': { source: 'yfinance', name: 'Nasdaq Composite Index' },
-    '^RUT': { source: 'yfinance', name: 'Russell 2000 Index' },
-    'BTC/USDT': { source: 'binance', name: 'Bitcoin' }
+    '65951': { name: 'S&P 500 Index' },
+    '65775': { name: 'Dow Jones Industrial Average' },
+    '65992': { name: 'Nasdaq Composite Index' },
+    '37818': { name: 'Russell 2000 Index' },
+    '1713': { name: 'Bitcoin' }
   }.freeze
   RISK_FREE_RATES = {
-    '^IRX': { shortname: '13W', name: '13 Week US Treasury Bill Yield' },
-    '^FVX': { shortname: '5Y', name: '5 Year US Treasury Note Yield' },
-    '^TNX': { shortname: '10Y', name: '10 Year US Treasury Note Yield' }
+    '65987': { shortname: '13W', name: '13 Week US Treasury Bill Yield' },
+    '65943': { shortname: '5Y', name: '5 Year US Treasury Note Yield' },
+    '66379': { shortname: '10Y', name: '10 Year US Treasury Note Yield' }
   }.freeze
 
   def self.humanized_risk_levels
@@ -46,10 +46,6 @@ class Portfolio < ApplicationRecord
     BENCHMARK_NAMES[benchmark.to_sym][:name]
   end
 
-  def benchmark_source
-    BENCHMARK_NAMES[benchmark.to_sym][:source]
-  end
-
   def total_allocation
     assets.map(&:allocation).sum.round(4)
   end
@@ -63,9 +59,9 @@ class Portfolio < ApplicationRecord
 
     if total_allocation.zero?
       equal_allocation = (1.0 / assets.size).round(4)
-      new_allocations = Hash[assets.map { |a| [a.ticker, equal_allocation] }]
+      new_allocations = Hash[assets.map { |a| [a.api_id, equal_allocation] }]
     else
-      new_allocations = Hash[assets.map { |a| [a.ticker, (a.allocation / total_allocation).round(4)] }]
+      new_allocations = Hash[assets.map { |a| [a.api_id, (a.allocation / total_allocation).round(4)] }]
     end
     new_allocations = correct_normalized_allocations(new_allocations)
     batch_update_allocations!(new_allocations)
@@ -83,7 +79,7 @@ class Portfolio < ApplicationRecord
   def allocations_are_smart?
     return false unless Rails.cache.exist?(smart_allocations_cache_key)
 
-    current_allocations = Hash[assets.map { |a| [a.ticker, a.allocation] }]
+    current_allocations = Hash[assets.map { |a| [a.api_id, a.allocation] }]
     smart_allocations[Portfolio.risk_levels[risk_level].to_i] == current_allocations
   end
 
@@ -126,7 +122,7 @@ class Portfolio < ApplicationRecord
   def active_assets
     @active_assets ||= if smart_allocation_on? && !smart_allocations[Portfolio.risk_levels[risk_level].to_i].empty?
                          ordered_assets.select do |asset|
-                           smart_allocations.map { |sa| sa[asset.ticker] }.sum.positive?
+                           smart_allocations.map { |sa| sa[asset.api_id] }.sum.positive?
                          end
                        else
                          ordered_assets
@@ -196,7 +192,6 @@ class Portfolio < ApplicationRecord
       time_series_result = client.time_series(
         symbol: key,
         timeframe: '1d',
-        source: 'yfinance',
         limit: 1
       )
       risk_free_rate_name = RISK_FREE_RATES[key.to_sym][:name]
@@ -209,12 +204,12 @@ class Portfolio < ApplicationRecord
   end
 
   def smart_allocations_cache_key
-    assets_str = ordered_assets.map(&:ticker).sort.join('_')
+    assets_str = ordered_assets.map(&:api_id).sort.join('_')
     "smart_allocations_#{strategy}_#{assets_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 
   def backtest_cache_key
-    assets_str = ordered_assets.map(&:ticker).sort.join('_')
+    assets_str = ordered_assets.map(&:api_id).sort.join('_')
     allocations_str = ordered_assets.map(&:allocation).join('_')
     "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
@@ -226,7 +221,7 @@ class Portfolio < ApplicationRecord
 
     ActiveRecord::Base.transaction do
       assets.each do |asset|
-        unless asset.update(allocation: new_allocations[asset.ticker])
+        unless asset.update(allocation: new_allocations[asset.api_id])
           raise ActiveRecord::RecordInvalid, 'Invalid allocation value'
         end
       end

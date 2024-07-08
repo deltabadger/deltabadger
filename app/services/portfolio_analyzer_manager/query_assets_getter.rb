@@ -23,17 +23,22 @@ module PortfolioAnalyzerManager
         next if asset_already_in_portfolio?(portfolio, symbol) || !matches_query?(symbol, query)
 
         Asset.new(
-          ticker: ticker(symbol),
+          ticker: symbol['symbol']&.upcase,
           name: symbol['name'],
           portfolio_id: portfolio.id,
-          category: category(symbol),
-          color: symbol['color']
+          category: symbol['symbol_type'],
+          color: symbol['color'],
+          api_id: api_id(symbol)
         )
       end.compact
       Result::Success.new(query_assets)
     end
 
     private
+
+    def api_id(symbol)
+      symbol['id'].to_s
+    end
 
     def get_remote_symbols_info
       expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
@@ -46,26 +51,17 @@ module PortfolioAnalyzerManager
       end
     end
 
-    def ticker(symbol)
-      symbol['source'] == 'binance' ? symbol['symbol'].gsub(%r{/USDT$}, '').upcase : symbol['symbol'].upcase
-    end
-
-    def category(symbol)
-      custom_type = CUSTOM_CATEGORIES[ticker(symbol).to_sym]
-      return custom_type if custom_type
-
-      symbol['source'] == 'yfinance' ? 'stock' : 'crypto'
-    end
-
     def asset_already_in_portfolio?(portfolio, symbol)
-      portfolio_tickers = portfolio.assets.map(&:ticker)
-      portfolio_tickers.include?(ticker(symbol))
+      portfolio_assets_api_ids = portfolio.assets.map(&:api_id)
+      portfolio_assets_api_ids.include?(api_id(symbol))
     end
 
     def matches_query?(symbol, query)
       query = query.upcase
+      ticker = symbol['symbol']&.upcase
       name = symbol['name']&.upcase
-      ticker(symbol).upcase.include?(query) || name&.include?(query)
+      isin = symbol['isin']&.upcase
+      ticker&.include?(query) || name&.include?(query) || isin&.include?(query)
     end
   end
 end

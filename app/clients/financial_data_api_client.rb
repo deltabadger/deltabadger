@@ -19,10 +19,8 @@ class FinancialDataApiClient < ApplicationClient
 
   def metrics(
     symbols: nil,
-    sources: nil,
     allocations: nil,
     benchmark: nil,
-    source: nil,
     start: nil,
     strategy: nil,
     risk_free_rate: nil,
@@ -30,13 +28,11 @@ class FinancialDataApiClient < ApplicationClient
   )
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url 'metrics'
+        req.url 'v3/metrics'
         req.params = {
           symbols: symbols,
-          sources: sources,
           allocations: allocations,
           benchmark: benchmark,
-          source: source,
           start: start,
           strategy: strategy,
           risk_free_rate: risk_free_rate,
@@ -50,7 +46,7 @@ class FinancialDataApiClient < ApplicationClient
   def symbols(source)
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url 'symbols'
+        req.url 'v3/symbols'
         req.params = {
           source: source
         }
@@ -61,17 +57,15 @@ class FinancialDataApiClient < ApplicationClient
 
   def smart_allocations(
     symbols: nil,
-    sources: nil,
     start: nil,
     strategy: nil,
     risk_free_rate: nil
   )
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url 'smart-allocations'
+        req.url 'v3/smart-allocations'
         req.params = {
           symbols: symbols,
-          sources: sources,
           start: start,
           strategy: strategy,
           risk_free_rate: risk_free_rate
@@ -84,17 +78,15 @@ class FinancialDataApiClient < ApplicationClient
   def time_series(
     symbol:,
     timeframe:,
-    source: nil,
     limit: nil,
     start: nil
   )
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url 'time-series'
+        req.url 'v3/time-series'
         req.params = {
           symbol: symbol,
           timeframe: timeframe,
-          source: source,
           limit: limit,
           start: start
         }.compact
