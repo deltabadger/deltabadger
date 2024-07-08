@@ -736,69 +736,70 @@ en:
     metrics:
         exp_return:
             short_name: 'Exp. Return'
-            short_info: 'The average return you can expect from your portfolio after 1 year.'
+            short_info: 'The expected yearly return based on the CAPM model.'
             best: 'Highest Exp. Return'
         cagr:
             short_name: 'CAGR'
-            short_info: 'The yearly growth rate of your portfolio year after year.'
+            short_info: 'How much your portfolio has grown on average each year.'
             best: 'Highest CAGR'
         max_drawdown:
-            short_name: Max. Drawdown
-            short_info: 'The largest drop in your portfolio''s value from its peak to its lowest point.'
+            short_name: 'Max. Drawdown'
+            short_info: 'The biggest drop in your portfolio’s value from its highest point.'
             best: 'Lowest Max. Drawdown'
         volatility:
             short_name: 'Volatility'
-            short_info: 'The expected variability of returns over a year.'
+            short_info: 'How much the returns of your portfolio fluctuate in a year.'
             best: 'Lowest Volatility'
         var:
             short_name: 'VaR'
-            short_info: 'There is a 5% chance the portfolio value drops by more than this amount in a single day.'
+            short_info: 'There is a 95% chance that your portfolio won’t lose more than this amount in a single day.'
             best: 'Lowest VaR'
         cvar:
             short_name: 'CVaR'
-            short_info: 'The average loss you could expect in a day if your portfolio exceeds the VaR threshold that day.'
+            short_info: 'If losses exceed the VaR, this is the average loss you can expect.'
             best: 'Lowest CVaR'
         sharpe_ratio:
             short_name: 'Sharpe Ratio'
-            short_info: 'A measure of your investment returns adjusted for risk.'
+            short_info: 'How much return you’re getting for the risk you’re taking.'
             best: 'Highest Sharpe Ratio'
         sortino_ratio:
             short_name: 'Sortino Ratio'
-            short_info: 'Similar to Sharpe, but focuses only on negative fluctuations to assess performance.'
+            short_info: 'Similar to Sharpe Ratio, but only considers downside risk.'
             best: 'Highest Sortino Ratio'
         calmar_ratio:
             short_name: 'Calmar Ratio'
-            short_info: 'The rate of return compared to the maximum drawdown.'
+            short_info: 'The return compared to the biggest loss your portfolio has experienced.'
             best: 'Highest Calmar Ratio'
         alpha:
             short_name: 'Alpha'
-            short_info: 'How much the portfolio has outperformed the benchmark on a risk-adjusted basis.'
+            short_info: 'How much your portfolio outperformed the market, adjusted for risk.'
             best: 'Highest Alpha'
         beta:
             short_name: 'Beta'
-            short_info: 'The sensitivity of portfolio''s returns to the returns of the benchmark.'
+            short_info: 'How your portfolio’s returns move compared to the market.'
             best: 'Lowest Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'
-            short_info: 'The returns you earn for taking on additional risk.'
+            short_info: 'The return you’re getting for each unit of market risk.'
             best: 'Highest Treynor Ratio'
         omega_ratio:
             short_name: 'Omega Ratio'
-            short_info: 'A measure comparing the probability of gains versus losses.'
+            short_info: 'The chance of gains compared to the chance of losses.'
             best: 'Highest Omega Ratio'
         r_squared:
             short_name: 'R²'
-            short_info: 'How closely your investment''s performance matches the overall market.'
+            short_info: 'How closely your portfolio’s returns match the overall market.'
             best: 'Highest R²'
         info_ratio:
             short_name: 'Info. Ratio'
-            short_info: 'The consistency of your investment returns compared to a benchmark.'
+            short_info: 'How consistently your portfolio outperforms the benchmark.'
             best: 'Highest Info. Ratio'
         diversification:
             short_name: 'Diversification'
             short_info: 'The variety of different investments in your portfolio to spread risk.'
             best: 'Best Diversification'
     analyzer:
+        total_value: 'Total value'
         no_assets: 'Get started by adding a new asset.'
         assets_dont_coexist: 'Unable to backtest this portfolio. The assets you selected have never coexisted since %{backtest_start_date}!'
         api_unreachable: 'Unable to backtest this portfolio right now. Data API server is unreachable.'
@@ -809,6 +810,7 @@ en:
         risk_free_rate: 'Risk-Free Rate'
         us_bonds: 'US Bonds'
         benchmark: 'Benchmark'
+        benchmark_info: 'The better the benchmark choice, the more reliable the Exp. Return calculation. Pick a benchmark that closely matches the investment strategy and market segment of your portfolio. Other metrics affected by the benchmark include Alpha, Beta, R², and Info Ratio.'
         get_ai_insights: 'Get AI Insights'
         pnl: 'Profit/Loss'
         strategy:

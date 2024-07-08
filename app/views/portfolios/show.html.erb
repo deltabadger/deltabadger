@@ -1,7 +1,19 @@
 <div class="columns">
   <div class="column gap-6">
-
+    
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
+
+    <!-- 
+      <div class="portfolio-value">
+        <div class="label"><%= t('analyzer.total_value') %> (USD)</div>
+        <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
+        <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
+          </svg>
+        </div>
+      </div> 
+    -->
 
     <div>
       <% if @portfolio.assets.empty? %>
@@ -21,6 +33,7 @@
         <% end %>
       <% end %>
     </div>
+
     <div class="flex-row space-between" data-controller="form-key-press">
 
       <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--add-asset", data: { turbo_frame: "modal", form_key_press_target: "button" } do %>
@@ -51,6 +64,14 @@
     <div class="flex-row gap-2 wrap space-between">
       <%= render "risk_free_rate", portfolio: @portfolio %>
       <%= render "benchmark_select", portfolio: @portfolio %>
+    </div>
+    <div class="small-info mt-6">
+        <svg xmlns="http://www.w3.org/2000/svg" width="2.4rem" viewBox="0 0 24 24">
+          <path d="M12 7c.6 0 1 .5 1 1v4c0 .6-.5 1-1 1s-1-.5-1-1V8c0-.6.5-1 1-1zm0-5a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm1-3h-2v-2h2v2z"/>
+        </svg>
+        <div>
+        <%= t('analyzer.benchmark_info') %>
+        </div>
     </div>
   </div>
 </div>

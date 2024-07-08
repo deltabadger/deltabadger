@@ -33,15 +33,12 @@
     color: var(--input-text)
     font-weight: 700
     line-height: 4rem
-    background: $gray-100
+    background: var(--widget-background)
     border-radius: 2rem
     border: none
     padding: 0 2rem
     text-align: right
+    &::placeholder
+        color: var(--input-text-inactive)
     &:focus
         outline: none
-
-.smart-allocation---on
-    .numeric-input
-        color: $gray-300 !important
-        //pointer-events: none

@@ -663,5 +663,111 @@ zh-cn:
         update: '更新'
     welcome:
         banner_html: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
-        default: '嗨，欢迎来到 Deltabadger'
-        saver: 摆脱限制，进行升级！
+    metrics:
+        exp_return:
+            short_name: '预期回报'
+            short_info: '基于CAPM模型的年度预期回报。'
+            best: '最高预期回报'
+        cagr:
+            short_name: '年均增长率'
+            short_info: '您的投资组合平均每年的增长率。'
+            best: '最高年均增长率'
+        max_drawdown:
+            short_name: '最大回撤'
+            short_info: '您的投资组合从最高点到最低点的最大跌幅。'
+            best: '最低最大回撤'
+        volatility:
+            short_name: '波动率'
+            short_info: '您的投资组合一年内回报的波动情况。'
+            best: '最低波动率'
+        var:
+            short_name: '在险价值'
+            short_info: '在单个交易日内，您的投资组合不会损失超过此金额的概率为95%。'
+            best: '最低在险价值'
+        cvar:
+            short_name: '条件在险价值'
+            short_info: '如果损失超过在险价值，这是您可以预期的平均损失。'
+            best: '最低条件在险价值'
+        sharpe_ratio:
+            short_name: '夏普比率'
+            short_info: '您承担的风险所获得的回报。'
+            best: '最高夏普比率'
+        sortino_ratio:
+            short_name: '索提诺比率'
+            short_info: '与夏普比率相似，但仅考虑下行风险。'
+            best: '最高索提诺比率'
+        calmar_ratio:
+            short_name: '卡尔玛比率'
+            short_info: '与您投资组合所经历的最大损失相比的回报。'
+            best: '最高卡尔玛比率'
+        alpha:
+            short_name: '阿尔法'
+            short_info: '调整风险后，您的投资组合超越市场的程度。'
+            best: '最高阿尔法'
+        beta:
+            short_name: '贝塔'
+            short_info: '您的投资组合回报与市场的联动情况。'
+            best: '最低贝塔'
+        treynor_ratio:
+            short_name: '特雷诺比率'
+            short_info: '您承担的每单位市场风险所获得的回报。'
+            best: '最高特雷诺比率'
+        omega_ratio:
+            short_name: '欧米伽比率'
+            short_info: '收益概率与损失概率的比较。'
+            best: '最高欧米伽比率'
+        r_squared:
+            short_name: 'R²'
+            short_info: '您的投资组合回报与整体市场匹配的程度。'
+            best: '最高R²'
+        info_ratio:
+            short_name: '信息比率'
+            short_info: '您的投资组合相对于基准的一致表现。'
+            best: '最高信息比率'
+        diversification:
+            short_name: '多样化'
+            short_info: '您的投资组合中不同投资的多样性，以分散风险。'
+            best: '最佳多样化'
+    analyzer:
+        total_value: '总价值'
+        no_assets: '通过添加新资产开始。'
+        assets_dont_coexist: '无法对该投资组合进行回测。自%{backtest_start_date}以来，您选择的资产从未共存过！'
+        api_unreachable: '目前无法对该投资组合进行回测。数据API服务器无法访问。'
+        smart_allocation:
+            name: '智能分配'
+            short_info_html: '<p>智能分配应用<b>现代投资组合理论（MPT）</b>算法，为您的投资组合寻找最佳资产分配。</p>您可以优化两个不同的指标，甚至可以选择这两个优化之间的期望位置。'
+        since: '自'
+        risk_free_rate: '无风险利率'
+        us_bonds: '美国债券'
+        benchmark: '基准'
+        benchmark_info: '选择越好的基准，预期回报计算越可靠。选择与您的投资组合投资策略和市场板块紧密匹配的基准。受基准影响的其他指标包括阿尔法、贝塔、R²和信息比率。'
+        get_ai_insights: '获取AI洞察'
+        pnl: '盈亏'
+        strategy:
+            fixed: '固定'
+            dca: '定期定额投资'
+            rebalancing: '再平衡'
+        backtest:
+            time_window:
+            adjusted_both_html: "回测时间窗口已调整为<strong>%{start_date}</strong>到<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
+            adjusted_start_html: "回测开始日期已调整为<strong>%{start_date}</strong>，以适应所有资产的可用历史记录。"
+            adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
+        utils:
+        soon: '即将推出'
+        new: '新'
+        important: '重要！'
+        alert:
+        portfolio:
+            invalid_benchmark: "无效的基准值。"
+            invalid_strategy: "无效的策略值。"
+            invalid_start_date: "无效的开始日期值。"
+            invalid_risk_free_rate: "无效的无风险利率值。"
+            invalid_smart_allocation: "无效的智能分配值。"
+            invalid_risk_level: "无效的风险水平值。"
+            unable_to_calculate: "无法根据这些参数计算智能分配。"
+            portfolio_normalized: "投资组合分配已标准化。"
+            risk_level_updated: "风险水平已更新。"
+            smart_allocation_updated: "智能分配已更新。"
+            unable_to_set_risk_rate: "无法将无风险利率设置为%{risk_free_rate_name}。"
+            api_unreachable: "数据API服务器无法访问。"
+

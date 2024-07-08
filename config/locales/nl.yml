@@ -704,77 +704,82 @@ nl:
         saver: 'Weg met limieten, en doe een upgrade!'
     metrics:
         exp_return:
-            short_name: 'Verw. Rendement'
-            short_info: 'Het gemiddelde rendement dat u na een jaar van uw portefeuille kunt verwachten.'
-            best: 'Hoogste Verw. Rendement'
+            short_name: 'Verwachte Rendement'
+            short_info: 'Het verwachte jaarlijkse rendement op basis van het CAPM-model.'
+            best: 'Hoogste Verwachte Rendement'
         cagr:
             short_name: 'CAGR'
-            short_info: 'De jaarlijkse groeisnelheid van uw portefeuille jaar na jaar.'
+            short_info: 'Hoeveel uw portefeuille gemiddeld elk jaar is gegroeid.'
             best: 'Hoogste CAGR'
         max_drawdown:
             short_name: 'Max. Terugval'
-            short_info: 'De grootste daling in de waarde van uw portefeuille van de piek naar het laagste punt.'
+            short_info: 'De grootste daling van de waarde van uw portefeuille vanaf het hoogste punt.'
             best: 'Laagste Max. Terugval'
         volatility:
             short_name: 'Volatiliteit'
-            short_info: 'De verwachte variabiliteit van de rendementen over een jaar.'
+            short_info: 'Hoeveel de rendementen van uw portefeuille in een jaar fluctueren.'
             best: 'Laagste Volatiliteit'
         var:
             short_name: 'VaR'
-            short_info: 'Er is een kans van 5% dat de portfoliowaarde op een dag meer dan dit bedrag daalt.'
+            short_info: 'Er is 95% kans dat uw portefeuille niet meer dan dit bedrag in één dag verliest.'
             best: 'Laagste VaR'
         cvar:
             short_name: 'CVaR'
-            short_info: 'Het gemiddelde verlies dat u op een dag kunt verwachten als uw portefeuille de VaR-drempel die dag overschrijdt.'
+            short_info: 'Als de verliezen de VaR overschrijden, is dit het gemiddelde verlies dat u kunt verwachten.'
             best: 'Laagste CVaR'
         sharpe_ratio:
             short_name: 'Sharpe Ratio'
-            short_info: 'Een maatstaf voor uw beleggingsrendementen aangepast aan het risico.'
+            short_info: 'Het rendement dat u krijgt voor het risico dat u neemt.'
             best: 'Hoogste Sharpe Ratio'
         sortino_ratio:
             short_name: 'Sortino Ratio'
-            short_info: 'Vergelijkbaar met de Sharpe, maar richt zich alleen op negatieve fluctuaties om prestaties te beoordelen.'
+            short_info: 'Vergelijkbaar met de Sharpe Ratio, maar houdt alleen rekening met neerwaarts risico.'
             best: 'Hoogste Sortino Ratio'
         calmar_ratio:
             short_name: 'Calmar Ratio'
-            short_info: 'De rendementsgraad vergeleken met de maximale terugval.'
+            short_info: 'Het rendement vergeleken met het grootste verlies dat uw portefeuille heeft ervaren.'
             best: 'Hoogste Calmar Ratio'
         alpha:
             short_name: 'Alpha'
-            short_info: 'Hoeveel de portefeuille de benchmark heeft overtroffen op basis van risicocorrectie.'
+            short_info: 'Hoeveel uw portefeuille beter heeft gepresteerd dan de markt, aangepast voor risico.'
             best: 'Hoogste Alpha'
         beta:
             short_name: 'Beta'
-            short_info: 'De gevoeligheid van de portfoliorendementen voor de rendementen van de benchmark.'
+            short_info: 'Hoe de rendementen van uw portefeuille bewegen in vergelijking met de markt.'
             best: 'Laagste Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'
-            short_info: 'De rendementen die u verdient door extra risico te nemen.'
+            short_info: 'Het rendement dat u krijgt voor elke eenheid marktrisico.'
             best: 'Hoogste Treynor Ratio'
         omega_ratio:
             short_name: 'Omega Ratio'
-            short_info: 'Een maatstaf die de kans op winsten versus verliezen vergelijkt.'
+            short_info: 'De kans op winst vergeleken met de kans op verlies.'
             best: 'Hoogste Omega Ratio'
         r_squared:
             short_name: 'R²'
-            short_info: 'Hoe nauw de prestaties van uw belegging overeenkomen met de algehele markt.'
+            short_info: 'Hoe nauwkeurig de rendementen van uw portefeuille overeenkomen met de totale markt.'
             best: 'Hoogste R²'
         info_ratio:
-            short_name: 'Info. Ratio'
-            short_info: 'De consistentie van uw beleggingsrendementen vergeleken met een benchmark.'
-            best: 'Hoogste Info. Ratio'
+            short_name: 'Info Ratio'
+            short_info: 'Hoe consistent uw portefeuille beter presteert dan de benchmark.'
+            best: 'Hoogste Info Ratio'
         diversification:
             short_name: 'Diversificatie'
-            short_info: 'De verscheidenheid aan verschillende beleggingen in uw portefeuille om het risico te spreiden.'
+            short_info: 'De verscheidenheid aan verschillende investeringen in uw portefeuille om het risico te spreiden.'
             best: 'Beste Diversificatie'
     analyzer:
+        total_value: 'Totale waarde'
+        no_assets: 'Begin met het toevoegen van een nieuwe asset.'
+        assets_dont_coexist: 'Het is niet mogelijk om deze portefeuille te backtesten. De door u geselecteerde assets hebben nooit samen bestaan sinds %{backtest_start_date}!'
+        api_unreachable: 'Het is momenteel niet mogelijk om deze portefeuille te backtesten. De data API-server is niet bereikbaar.'
         smart_allocation:
             name: 'Slimme Allocatie'
-            short_info_html: '<p>Slimme Allocatie past <b>Moderne Portefeuille Theorie (MPT)</b> algoritmes toe om de beste activaspreiding voor uw portefeuille te vinden.</p>U kunt voor twee verschillende statistieken optimaliseren en zelfs een gewenst punt tussen deze twee optimalisaties kiezen.'
+            short_info_html: '<p>Slimme Allocatie past <b>Moderne Portefeuille Theorie (MPT)</b>-algoritmen toe om de beste activaspreiding voor uw portefeuille te vinden.</p>U kunt optimaliseren voor twee verschillende metrics en zelfs een gewenste plek kiezen tussen deze twee optimalisaties.'
         since: 'sinds'
-        risk_free_rate: 'Rentevrij Tarief'
+        risk_free_rate: 'Risicovrije Rente'
         us_bonds: 'Amerikaanse Obligaties'
         benchmark: 'Benchmark'
+        benchmark_info: 'Hoe beter de keuze van de benchmark, hoe betrouwbaarder de berekening van het Verwachte Rendement. Kies een benchmark die nauw aansluit bij de beleggingsstrategie en het marktsegment van uw portefeuille. Andere door de benchmark beïnvloede metrics zijn onder meer Alpha, Beta, R² en de Info Ratio.'
         get_ai_insights: 'Krijg AI Inzichten'
         pnl: 'Winst/Verlies'
         strategy:

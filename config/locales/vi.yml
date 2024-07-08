@@ -670,5 +670,110 @@ vi:
         update: 'Cập nhật'
     welcome:
         banner_html: "Chào mừng bạn! Bạn hiện đang sử dụng <b>gói miễn phí với hạn mức giao dịch là $1200/năm</b>, tuy nhiên gói này sẽ không có hiệu lực trong tháng đầu tiên. Hãy thử bất kỳ thời gian nào bạn muốn. Bạn cũng có thể nâng cấp gói để tận hưởng các giao dịch không giới hạn sau này. Ngoài ra, gói Hodler 4 năm còn cung cấp quyền truy cập vào các tính năng thử nghiệm mới (ví dụ: giao dịch bằng tất cả các đồng tiền). Chúng tôi hoan nghênh tất cả các ý kiến phản hồi. Tham gia\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">nhóm Telegram</a> của chúng tôi, hoặc theo dõi chúng tôi trên <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Chúc bạn trung bình giá thành công!"
-        default: 'Xin chào, chào mừng bạn đến với Deltabadger'
-        saver: 'Xóa bỏ giới hạn, và thực hiện nâng cấp!'
+    metrics:
+        exp_return:
+            short_name: 'Lợi nhuận kỳ vọng'
+            short_info: 'Lợi nhuận kỳ vọng hàng năm dựa trên mô hình CAPM.'
+            best: 'Lợi nhuận kỳ vọng cao nhất'
+        cagr:
+            short_name: 'CAGR'
+            short_info: 'Tốc độ tăng trưởng trung bình hàng năm của danh mục đầu tư của bạn.'
+            best: 'CAGR cao nhất'
+        max_drawdown:
+            short_name: 'Mức sụt giảm tối đa'
+            short_info: 'Mức giảm lớn nhất trong giá trị danh mục đầu tư của bạn từ đỉnh cao nhất.'
+            best: 'Mức sụt giảm tối đa thấp nhất'
+        volatility:
+            short_name: 'Độ biến động'
+            short_info: 'Mức độ dao động của lợi nhuận danh mục đầu tư của bạn trong một năm.'
+            best: 'Độ biến động thấp nhất'
+        var:
+            short_name: 'VaR'
+            short_info: 'Có 95% cơ hội danh mục đầu tư của bạn sẽ không mất nhiều hơn số này trong một ngày.'
+            best: 'VaR thấp nhất'
+        cvar:
+            short_name: 'CVaR'
+            short_info: 'Nếu tổn thất vượt quá VaR, đây là tổn thất trung bình bạn có thể mong đợi.'
+            best: 'CVaR thấp nhất'
+        sharpe_ratio:
+            short_name: 'Tỷ số Sharpe'
+            short_info: 'Lợi nhuận bạn nhận được so với rủi ro bạn đang chịu.'
+            best: 'Tỷ số Sharpe cao nhất'
+        sortino_ratio:
+            short_name: 'Tỷ số Sortino'
+            short_info: 'Tương tự như tỷ số Sharpe, nhưng chỉ xem xét rủi ro giảm.'
+            best: 'Tỷ số Sortino cao nhất'
+        calmar_ratio:
+            short_name: 'Tỷ số Calmar'
+            short_info: 'Lợi nhuận so với mức lỗ lớn nhất mà danh mục đầu tư của bạn đã trải qua.'
+            best: 'Tỷ số Calmar cao nhất'
+        alpha:
+            short_name: 'Alpha'
+            short_info: 'Mức độ danh mục đầu tư của bạn vượt trội hơn so với thị trường, điều chỉnh theo rủi ro.'
+            best: 'Alpha cao nhất'
+        beta:
+            short_name: 'Beta'
+            short_info: 'Mức độ biến động của lợi nhuận danh mục đầu tư của bạn so với thị trường.'
+            best: 'Beta thấp nhất'
+        treynor_ratio:
+            short_name: 'Tỷ số Treynor'
+            short_info: 'Lợi nhuận bạn nhận được cho mỗi đơn vị rủi ro thị trường.'
+            best: 'Tỷ số Treynor cao nhất'
+        omega_ratio:
+            short_name: 'Tỷ số Omega'
+            short_info: 'Cơ hội thu được lợi nhuận so với cơ hội bị lỗ.'
+            best: 'Tỷ số Omega cao nhất'
+        r_squared:
+            short_name: 'R²'
+            short_info: 'Mức độ lợi nhuận danh mục đầu tư của bạn phù hợp với thị trường chung.'
+            best: 'R² cao nhất'
+        info_ratio:
+            short_name: 'Tỷ số Thông tin'
+            short_info: 'Mức độ danh mục đầu tư của bạn thường xuyên vượt trội hơn so với tiêu chuẩn.'
+            best: 'Tỷ số Thông tin cao nhất'
+        diversification:
+            short_name: 'Đa dạng hóa'
+            short_info: 'Sự đa dạng của các khoản đầu tư khác nhau trong danh mục đầu tư của bạn để phân tán rủi ro.'
+            best: 'Đa dạng hóa tốt nhất'
+    analyzer:
+        total_value: 'Tổng giá trị'
+        no_assets: 'Bắt đầu bằng cách thêm tài sản mới.'
+        assets_dont_coexist: 'Không thể kiểm tra lại danh mục đầu tư này. Các tài sản bạn đã chọn chưa bao giờ cùng tồn tại kể từ %{backtest_start_date}!'
+        api_unreachable: 'Không thể kiểm tra lại danh mục đầu tư này ngay bây giờ. Máy chủ dữ liệu API không thể truy cập.'
+        smart_allocation:
+            name: 'Phân bổ thông minh'
+            short_info_html: '<p>Phân bổ thông minh áp dụng các thuật toán <b>Lý thuyết danh mục hiện đại (MPT)</b> để tìm phân bổ tài sản tốt nhất cho danh mục đầu tư của bạn.</p>Bạn có thể tối ưu hóa cho hai chỉ số khác nhau và thậm chí chọn một vị trí mong muốn giữa hai tối ưu hóa đó.'
+        since: 'kể từ'
+        risk_free_rate: 'Lãi suất phi rủi ro'
+        us_bonds: 'Trái phiếu Mỹ'
+        benchmark: 'Tiêu chuẩn'
+        benchmark_info: 'Lựa chọn tiêu chuẩn càng tốt, tính toán lợi nhuận kỳ vọng càng đáng tin cậy. Chọn tiêu chuẩn phù hợp với chiến lược đầu tư và phân khúc thị trường của danh mục đầu tư của bạn. Các chỉ số khác bị ảnh hưởng bởi tiêu chuẩn bao gồm Alpha, Beta, R², và Tỷ số Thông tin.'
+        get_ai_insights: 'Nhận thông tin chi tiết AI'
+        pnl: 'Lợi nhuận/Lỗ'
+        strategy:
+            fixed: 'Cố định'
+            dca: 'DCA'
+            rebalancing: 'Tái cân bằng'
+        backtest:
+            time_window:
+                adjusted_both_html: "Khoảng thời gian kiểm tra lại đã được điều chỉnh để bắt đầu từ <strong>%{start_date}</strong> và kết thúc vào <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
+                adjusted_start_html: "Ngày bắt đầu kiểm tra lại đã được điều chỉnh thành <strong>%{start_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
+                adjusted_end_html: "Ngày kết thúc kiểm tra lại đã được điều chỉnh thành <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
+    utils:
+        soon: 'sắp ra mắt'
+        new: 'Mới'
+        important: 'Quan trọng!'
+    alert:
+        portfolio:
+            invalid_benchmark: "Giá trị tiêu chuẩn không hợp lệ."
+            invalid_strategy: "Giá trị chiến lược không hợp lệ."
+            invalid_start_date: "Giá trị ngày bắt đầu không hợp lệ."
+            invalid_risk_free_rate: "Giá trị lãi suất phi rủi ro không hợp lệ."
+            invalid_smart_allocation: "Giá trị phân bổ thông minh không hợp lệ."
+            invalid_risk_level: "Mức độ rủi ro không hợp lệ."
+            unable_to_calculate: "Không thể tính toán Phân bổ Thông minh cho các thông số này."
+            portfolio_normalized: "Phân bổ danh mục đầu tư đã được chuẩn hóa."
+            risk_level_updated: "Mức độ rủi ro đã được cập nhật."
+            smart_allocation_updated: "Phân bổ thông minh đã được cập nhật."
+            unable_to_set_risk_rate: "Không thể đặt lãi suất phi rủi ro thành %{risk_free_rate_name}."
+            api_unreachable: "Máy chủ dữ liệu API không thể truy cập."

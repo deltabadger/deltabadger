@@ -1,7 +1,7 @@
 <% id_prefix = asset.portfolio.active_assets.map(&:id).include?(asset.id) ? 'active' : 'idle' %>
 <%= tag.div id: "#{id_prefix}_#{dom_id(asset)}" do %>
   <% asset_color = asset.color || "#F7931A" %>
-  <%= tag.div class: "basket__asset smart-allocation---off",
+  <%= tag.div class: "basket__asset",
               data: {
                 hw_animate_in_prepend: "animate-asset-in",
                 hw_animate_in_after: "animate-asset-in",
@@ -26,6 +26,7 @@
           <% end %>
         </div>
       </div>
+      <%# <input type="text" class="numeric-input iu-numeric iu-autowidth" style="width:40rem" size="1" placeholder="0.123">  %>
     <% end %>
     <%= button_to portfolio_asset_path(asset.portfolio_id, asset), method: :delete, class: "basket__remove__icon icon-20", style: "background: none; border: none; padding: 0;" do %>
       <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
