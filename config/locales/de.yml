@@ -631,76 +631,81 @@ de:
     metrics:
         exp_return:
             short_name: 'Erw. Rendite'
-            short_info: 'Die durchschnittliche Rendite, die Sie nach einem Jahr von Ihrem Portfolio erwarten können.'
+            short_info: 'Die erwartete jährliche Rendite basierend auf dem CAPM-Modell.'
             best: 'Höchste Erw. Rendite'
         cagr:
             short_name: 'CAGR'
-            short_info: 'Das jährliche Wachstum Ihres Portfolios Jahr für Jahr.'
-            best: 'Höchste CAGR'
+            short_info: 'Wie viel Ihr Portfolio durchschnittlich jedes Jahr gewachsen ist.'
+            best: 'Höchster CAGR'
         max_drawdown:
-            short_name: 'Max. Rückgang'
-            short_info: 'Der größte Wertverlust Ihres Portfolios vom Höchststand zum Tiefpunkt.'
-            best: 'Niedrigster Max. Rückgang'
+            short_name: 'Max. Drawdown'
+            short_info: 'Der größte Rückgang im Wert Ihres Portfolios von seinem Höchststand.'
+            best: 'Niedrigster Max. Drawdown'
         volatility:
             short_name: 'Volatilität'
-            short_info: 'Die erwartete Variabilität der Renditen über ein Jahr.'
+            short_info: 'Wie stark die Renditen Ihres Portfolios im Laufe eines Jahres schwanken.'
             best: 'Niedrigste Volatilität'
         var:
             short_name: 'VaR'
-            short_info: 'Es besteht eine 5% Chance, dass der Portfoliowert an einem Tag um mehr als diesen Betrag fällt.'
+            short_info: 'Es besteht eine 95%ige Wahrscheinlichkeit, dass Ihr Portfolio an einem einzigen Tag nicht mehr als diesen Betrag verliert.'
             best: 'Niedrigster VaR'
         cvar:
             short_name: 'CVaR'
-            short_info: 'Der durchschnittliche Verlust an einem Tag, wenn Ihr Portfolio den VaR-Grenzwert überschreitet.'
+            short_info: 'Wenn die Verluste den VaR überschreiten, ist dies der durchschnittliche Verlust, den Sie erwarten können.'
             best: 'Niedrigster CVaR'
         sharpe_ratio:
             short_name: 'Sharpe Ratio'
-            short_info: 'Eine Maßzahl für Ihre risikobereinigten Anlageerträge.'
+            short_info: 'Wie viel Rendite Sie für das eingegangene Risiko erhalten.'
             best: 'Höchste Sharpe Ratio'
         sortino_ratio:
             short_name: 'Sortino Ratio'
-            short_info: 'Ähnlich wie Sharpe, aber konzentriert sich nur auf negative Schwankungen zur Leistungsbewertung.'
+            short_info: 'Ähnlich der Sharpe Ratio, aber berücksichtigt nur das Abwärtsrisiko.'
             best: 'Höchste Sortino Ratio'
         calmar_ratio:
             short_name: 'Calmar Ratio'
-            short_info: 'Das Verhältnis der Rendite zum maximalen Rückgang.'
+            short_info: 'Die Rendite im Vergleich zum größten Verlust, den Ihr Portfolio erlebt hat.'
             best: 'Höchste Calmar Ratio'
         alpha:
             short_name: 'Alpha'
-            short_info: 'Wie sehr das Portfolio den Benchmark auf risikobereinigter Basis übertroffen hat.'
+            short_info: 'Wie viel Ihr Portfolio den Markt übertroffen hat, angepasst an das Risiko.'
             best: 'Höchstes Alpha'
         beta:
             short_name: 'Beta'
-            short_info: 'Die Empfindlichkeit der Portfoliorenditen gegenüber den Renditen des Benchmarks.'
+            short_info: 'Wie sich die Renditen Ihres Portfolios im Vergleich zum Markt bewegen.'
             best: 'Niedrigstes Beta'
         treynor_ratio:
             short_name: 'Treynor Ratio'
-            short_info: 'Die Renditen, die Sie für das Eingehen zusätzlichen Risikos erzielen.'
+            short_info: 'Die Rendite, die Sie für jede Einheit Marktrisiko erhalten.'
             best: 'Höchste Treynor Ratio'
         omega_ratio:
             short_name: 'Omega Ratio'
-            short_info: 'Eine Maßzahl, die die Wahrscheinlichkeit von Gewinnen gegenüber Verlusten vergleicht.'
+            short_info: 'Die Chance auf Gewinne im Vergleich zur Chance auf Verluste.'
             best: 'Höchste Omega Ratio'
         r_squared:
             short_name: 'R²'
-            short_info: 'Wie genau die Performance Ihrer Investition dem Gesamtmarkt entspricht.'
+            short_info: 'Wie genau die Renditen Ihres Portfolios mit dem Gesamtmarkt übereinstimmen.'
             best: 'Höchstes R²'
         info_ratio:
             short_name: 'Info. Ratio'
-            short_info: 'Die Konsistenz Ihrer Anlageerträge im Vergleich zu einem Benchmark.'
+            short_info: 'Wie konstant Ihr Portfolio den Benchmark übertrifft.'
             best: 'Höchste Info. Ratio'
         diversification:
-            short_name: 'Diversifikation'
-            short_info: 'Die Vielfalt der verschiedenen Investitionen in Ihrem Portfolio zur Risikoverteilung.'
-            best: 'Beste Diversifikation'
+            short_name: 'Diversifizierung'
+            short_info: 'Die Vielfalt verschiedener Investitionen in Ihrem Portfolio zur Streuung des Risikos.'
+            best: 'Beste Diversifizierung'
     analyzer:
+        total_value: 'Gesamtwert'
+        no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
+        assets_dont_coexist: 'Dieses Portfolio kann nicht backgetestet werden. Die von Ihnen ausgewählten Assets haben seit %{backtest_start_date} nie gleichzeitig existiert!'
+        api_unreachable: 'Dieses Portfolio kann derzeit nicht backgetestet werden. Der Daten-API-Server ist nicht erreichbar.'
         smart_allocation:
             name: 'Intelligente Allokation'
-            short_info_html: '<p>Die intelligente Allokation wendet Algorithmen der <b>Modernen Portfoliotheorie (MPT)</b> an, um die beste Vermögensaufteilung für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'
+            short_info_html: '<p>Intelligente Allokation wendet <b>Moderne Portfoliotheorie (MPT)</b> Algorithmen an, um die beste Asset-Allokation für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'
         since: 'seit'
         risk_free_rate: 'Risikofreier Zinssatz'
         us_bonds: 'US-Anleihen'
         benchmark: 'Benchmark'
+        benchmark_info: 'Je besser die Benchmark-Auswahl, desto zuverlässiger die Berechnung der Erw. Rendite. Wählen Sie eine Benchmark, die eng mit der Anlagestrategie und dem Marktsegment Ihres Portfolios übereinstimmt. Andere durch die Benchmark beeinflusste Metriken sind Alpha, Beta, R² und Info Ratio.'
         get_ai_insights: 'KI-Einblicke erhalten'
         pnl: 'Gewinn/Verlust'
         strategy:
