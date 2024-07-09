@@ -30,20 +30,25 @@
 @import "new/reset";
 @import "new/variables";
 @import "new/base";
-@import "new/small-ui";
+
+@import "new/alertbox";
 @import "new/animicon";
+@import "new/basket";
+@import "new/dropdown";
+@import "new/insight";
+@import "new/modal-search";
+@import "new/navbar";
+@import "new/slider";
+@import "new/small-ui";
+@import "new/smart-allocation";
 @import "new/ticker";
 @import "new/ticker-input";
-@import "new/slider";
-@import "new/basket";
-@import "new/tooltip";
 @import "new/toggle";
-@import "new/widget";
-@import "new/dropdown";
+@import "new/tooltip";
 @import "new/total-value";
-@import "new/navbar";
-@import "new/smart-allocation";
+@import "new/widget";
 
+@import "new/small-random";
 @import "new/utilities";
 
 @import "animations/portfolio_analyzer";

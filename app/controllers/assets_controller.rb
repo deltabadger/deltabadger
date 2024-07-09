@@ -76,7 +76,7 @@ class AssetsController < ApplicationController
   private
 
   def asset_params
-    params.require(:asset).permit(:ticker, :name, :allocation, :category, :color)
+    params.require(:asset).permit(:ticker, :name, :allocation, :category, :color, :api_id)
   end
 
   def set_asset
@@ -100,7 +100,7 @@ class AssetsController < ApplicationController
   end
 
   def asset_in_portfolio?
-    @portfolio.assets.find_by(ticker: asset_params[:ticker], category: asset_params[:category]).present?
+    @portfolio.assets.find_by(api_id: asset_params[:api_id]).present?
   end
 
   def set_backtest_data

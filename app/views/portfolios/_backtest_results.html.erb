@@ -26,15 +26,15 @@
         cagr: sprintf('%.2f%%', (backtest['metrics']['cagr'] * 100)),
         max_drawdown: sprintf('%.2f%%', (backtest['metrics']['maxDrawdown'] * 100)),
         volatility: sprintf('%.2f%%', (backtest['metrics']['volatility'] * 100)),
-        var: sprintf('%.2f%%', (backtest['metrics']['valueAtRisk'] * 100)),
-        cvar: sprintf('%.2f%%', (backtest['metrics']['conditionalValueAtRisk'] * 100)),
-        sharpe_ratio: sprintf('%.2f', backtest['metrics']['sharpeRatio']),
-        sortino_ratio: sprintf('%.2f', backtest['metrics']['sortinoRatio']),
-        calmar_ratio: sprintf('%.2f', backtest['metrics']['calmarRatio']),
+        var: backtest['metrics']['valueAtRisk'].nil? ? '-' : sprintf('%.2f%%', (backtest['metrics']['valueAtRisk'] * 100)),
+        cvar: backtest['metrics']['conditionalValueAtRisk'].nil? ? '-' : sprintf('%.2f%%', (backtest['metrics']['conditionalValueAtRisk'] * 100)),
+        sharpe_ratio: backtest['metrics']['sharpeRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['sharpeRatio']),
+        sortino_ratio: backtest['metrics']['sortinoRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['sortinoRatio']),
+        calmar_ratio: backtest['metrics']['calmarRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['calmarRatio']),
         alpha: sprintf('%.2f%%', (backtest['metrics']['alpha'] * 100)),
         beta: sprintf('%.2f', backtest['metrics']['beta']),
         treynor_ratio: sprintf('%.2f', backtest['metrics']['treynorRatio']),
-        omega_ratio: sprintf('%.2f', backtest['metrics']['omegaRatio']),
+        omega_ratio: backtest['metrics']['omegaRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['omegaRatio']),
         r_squared: sprintf('%.2f', backtest['metrics']['rSquared']),
         info_ratio: sprintf('%.2f', backtest['metrics']['informationRatio'])
       } %>
@@ -56,7 +56,7 @@
           </div>
         </div>
       <% end %>
-      
+
       <div class="data-grid__item data-grid__item--filler data-grid__item--filler--2 data-grid__item--filler--4 data-grid__item--filler--6"></div>
       <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>
       <div class="data-grid__item data-grid__item--filler data-grid__item--filler--6"></div>

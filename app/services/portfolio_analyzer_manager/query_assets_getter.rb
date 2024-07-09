@@ -1,71 +1,54 @@
 require 'utilities/time'
+require 'fuzzystringmatch'
 
 module PortfolioAnalyzerManager
   class QueryAssetsGetter < BaseService
-    CUSTOM_CATEGORIES = {
-      '^GSPC': 'index',
-      '^OEX': 'index',
-      '^DJI': 'index',
-      '^IXIC': 'index',
-      '^RUT': 'index',
-      '^FVX': 'bond',
-      '^TNX': 'bond',
-      '^TYX': 'bond'
-    }.freeze
-
     def call(query, portfolio)
       return Result::Success.new([]) if query.blank?
 
       symbols_info = PortfolioAnalyzerManager::SymbolsInfoGetter.call
       return symbols_info if symbols_info.failure?
 
-      query_assets = symbols_info.data.map do |symbol|
-        next if asset_already_in_portfolio?(portfolio, symbol) || !matches_query?(symbol, query)
+      query_downcase = query.downcase
+      portfolio_assets_api_ids = portfolio.assets.pluck(:api_id)
 
-        Asset.new(
-          ticker: ticker(symbol),
-          name: symbol['name'],
-          portfolio_id: portfolio.id,
-          category: category(symbol),
-          color: symbol['color']
-        )
-      end.compact
-      Result::Success.new(query_assets)
+      jarow = FuzzyStringMatch::JaroWinkler.create(:native)
+
+      query_assets = symbols_info.data.each_with_object([]) do |symbol, assets|
+        next if portfolio_assets_api_ids.include?(symbol['id'].to_s)
+
+        match_distances = get_match_distances(jarow, symbol, query_downcase)
+        next if match_distances.first < 0.8
+
+        assets << {
+          asset: Asset.new(
+            ticker: symbol['symbol']&.upcase,
+            name: symbol['name'],
+            portfolio_id: portfolio.id,
+            category: symbol['symbol_type'],
+            color: symbol['color'],
+            api_id: symbol['id'].to_s
+          ),
+          distances: match_distances
+        }
+      end
+
+      sorted_assets = query_assets.sort_by { |a| [-a[:distances][0], -a[:distances][1], -a[:distances][2]] }.map { |a| a[:asset] }
+
+      Result::Success.new(sorted_assets)
     end
 
     private
 
-    def get_remote_symbols_info
-      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
-      Rails.cache.fetch('symbols', expires_in: expires_in) do
-        client = FinancialDataApiClient.new
-        symbols_result = client.symbols('all')
-        return [] if symbols_result.failure?
-
-        symbols_result.data
-      end
-    end
-
-    def ticker(symbol)
-      symbol['source'] == 'binance' ? symbol['symbol'].gsub(%r{/USDT$}, '').upcase : symbol['symbol'].upcase
-    end
-
-    def category(symbol)
-      custom_type = CUSTOM_CATEGORIES[ticker(symbol).to_sym]
-      return custom_type if custom_type
-
-      symbol['source'] == 'yfinance' ? 'stock' : 'crypto'
-    end
-
-    def asset_already_in_portfolio?(portfolio, symbol)
-      portfolio_tickers = portfolio.assets.map(&:ticker)
-      portfolio_tickers.include?(ticker(symbol))
-    end
-
-    def matches_query?(symbol, query)
-      query = query.upcase
-      name = symbol['name']&.upcase
-      ticker(symbol).upcase.include?(query) || name&.include?(query)
+    def get_match_distances(jarow, symbol, query_downcase)
+      ticker = symbol['symbol']&.downcase
+      name = symbol['name']&.downcase
+      isin = symbol['isin']&.downcase
+      [
+        jarow.getDistance(ticker.to_s, query_downcase),
+        jarow.getDistance(name.to_s, query_downcase),
+        jarow.getDistance(isin.to_s, query_downcase)
+      ].sort.reverse
     end
   end
 end
