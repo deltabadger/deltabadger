@@ -80,4 +80,4 @@ gem "stimulus-rails", "~> 1.3"
 gem 'redis', '~> 5.0'
 gem "jwt", "~> 2.8"
 
-gem "fuzzy-string-match", "~> 1.0"
+gem "jaro_winkler", "~> 1.6"
