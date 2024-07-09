@@ -1,4 +1,5 @@
 require 'utilities/time'
+require 'fuzzystringmatch'
 
 module PortfolioAnalyzerManager
   class QueryAssetsGetter < BaseService
@@ -11,30 +12,43 @@ module PortfolioAnalyzerManager
       query_downcase = query.downcase
       portfolio_assets_api_ids = portfolio.assets.pluck(:api_id)
 
+      jarow = FuzzyStringMatch::JaroWinkler.create(:native)
+
       query_assets = symbols_info.data.each_with_object([]) do |symbol, assets|
         next if portfolio_assets_api_ids.include?(symbol['id'].to_s)
-        next unless matches_query?(symbol, query_downcase)
 
-        assets << Asset.new(
-          ticker: symbol['symbol']&.upcase,
-          name: symbol['name'],
-          portfolio_id: portfolio.id,
-          category: symbol['symbol_type'],
-          color: symbol['color'],
-          api_id: symbol['id'].to_s
-        )
+        match_distance = get_match_distance(jarow, symbol, query_downcase)
+        next if match_distance < 0.8
+
+        assets << {
+          asset: Asset.new(
+            ticker: symbol['symbol']&.upcase,
+            name: symbol['name'],
+            portfolio_id: portfolio.id,
+            category: symbol['symbol_type'],
+            color: symbol['color'],
+            api_id: symbol['id'].to_s
+          ),
+          distance: match_distance
+        }
       end
 
-      Result::Success.new(query_assets)
+      sorted_assets = query_assets.sort_by { |a| -a[:distance] }.map { |a| a[:asset] }
+
+      Result::Success.new(sorted_assets)
     end
 
     private
 
-    def matches_query?(symbol, query_downcase)
+    def get_match_distance(jarow, symbol, query_downcase)
       ticker = symbol['symbol']&.downcase
       name = symbol['name']&.downcase
       isin = symbol['isin']&.downcase
-      ticker&.include?(query_downcase) || name&.include?(query_downcase) || isin&.include?(query_downcase)
+      [
+        jarow.getDistance(ticker.to_s, query_downcase),
+        jarow.getDistance(name.to_s, query_downcase),
+        jarow.getDistance(isin.to_s, query_downcase)
+      ].max
     end
   end
 end
