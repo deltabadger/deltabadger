@@ -17,8 +17,8 @@ module PortfolioAnalyzerManager
       query_assets = symbols_info.data.each_with_object([]) do |symbol, assets|
         next if portfolio_assets_api_ids.include?(symbol['id'].to_s)
 
-        match_distance = get_match_distance(jarow, symbol, query_downcase)
-        next if match_distance < 0.8
+        match_distances = get_match_distances(jarow, symbol, query_downcase)
+        next if match_distances.first < 0.8
 
         assets << {
           asset: Asset.new(
@@ -29,18 +29,18 @@ module PortfolioAnalyzerManager
             color: symbol['color'],
             api_id: symbol['id'].to_s
           ),
-          distance: match_distance
+          distances: match_distances
         }
       end
 
-      sorted_assets = query_assets.sort_by { |a| -a[:distance] }.map { |a| a[:asset] }
+      sorted_assets = query_assets.sort_by { |a| [-a[:distances][0], -a[:distances][1], -a[:distances][2]] }.map { |a| a[:asset] }
 
       Result::Success.new(sorted_assets)
     end
 
     private
 
-    def get_match_distance(jarow, symbol, query_downcase)
+    def get_match_distances(jarow, symbol, query_downcase)
       ticker = symbol['symbol']&.downcase
       name = symbol['name']&.downcase
       isin = symbol['isin']&.downcase
@@ -48,7 +48,7 @@ module PortfolioAnalyzerManager
         jarow.getDistance(ticker.to_s, query_downcase),
         jarow.getDistance(name.to_s, query_downcase),
         jarow.getDistance(isin.to_s, query_downcase)
-      ].max
+      ].sort.reverse
     end
   end
 end
