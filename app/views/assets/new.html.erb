@@ -1,6 +1,6 @@
 <%= render 'layouts/turbo_modal' do %>
   <div class="modal--search__background">
-    <%= form_with url: new_portfolio_asset_path(@portfolio), method: :get, data: { controller: "form-submission", turbo_frame: "asset-picker", form_key_press_target: "form" } do |form| %>
+    <%= form_with url: new_portfolio_asset_path(@portfolio), method: :get, data: { controller: "form-submission", turbo_frame: "asset-picker", form_key_press_target: "form" }, html: { style: "position:relative" } do |form| %>
 
       <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
       <%= form.text_field :query, autofocus: true, autocomplete: "off", placeholder: "Search for an asset…", data: { action: "input->form-submission#submit", form_key_press_target: "input" }, class: "modal--search__input" %>
@@ -14,10 +14,10 @@
           <%= form.hidden_field :category, value: asset.category %>
           <%= form.hidden_field :color, value: asset.color %>
           <%= form.hidden_field :api_id, value: asset.api_id %>
-          <%= button_tag type: :submit, class: "modal--search__cell modal--search__cell--add", data: { arrow_keys_navigation_target: "button" } do %>
+          <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset.ticker %></div>
             <div class="modal--search__cell modal--search__cell--name"><%= asset.name %></div>
-            <div class="modal--search__cell modal--search__cell--category"><%= asset.category %></div>
+            <div class="modal--search__cell modal--search__cell--category"><%= asset.category == "Cryptocurrency" ? "Crypto" : asset.category %></div>
           <% end %>
         <% end %>
       <% end %>

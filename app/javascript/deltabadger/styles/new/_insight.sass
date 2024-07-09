@@ -1,0 +1,37 @@
+.insight
+    padding: 2rem 2rem 2.25rem 6rem
+    background: var(--insight-background) no-repeat 2rem 2.35rem
+    background-size: 3rem 3rem
+    *
+        display: inline !important
+    &__name
+        font-weight: 700
+        color: var(--insight-title)
+        b
+            font-weight: 700
+    &--summary
+        background-image: var(--icon-24-blue-circle-star)
+    &--pro
+        background-color: var(--insight-pro-background)
+        background-image: var(--icon-24-green-circle-plus)
+        b
+            color: var(--success)
+    &--con
+        background-color: var(--insight-con-background)
+        background-image: var(--icon-24-red-circle-minus)
+        b
+            color: var(--danger)
+    &--warning
+        background-color: var(--insight-warning-background)
+        background-image: var(--icon-24-orange-circle-exclamation)
+        b
+            color: var(--warning)
+    &__hint
+        display: block
+        font-weight: 600
+        font-style: italic
+        margin-top: 2rem
+        &::before
+            content: "💡"
+            margin-right: 0.125rem
+            font-style: normal
