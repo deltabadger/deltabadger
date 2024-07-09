@@ -33,6 +33,9 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
+    RubyInline (3.14.1)
+      ZenTest (~> 4.3)
+    ZenTest (4.12.2)
     actioncable (6.0.6.1)
       actionpack (= 6.0.6.1)
       nio4r (~> 2.0)
@@ -181,6 +184,8 @@ GEM
       ffi (>= 1.0.0)
       rake
     formatador (1.1.0)
+    fuzzy-string-match (1.0.1)
+      RubyInline (>= 3.8.6)
     globalid (1.1.0)
       activesupport (>= 5.0)
     guard (2.18.0)
@@ -507,6 +512,7 @@ DEPENDENCIES
   faraday
   faraday-manual-cache!
   faraday-net_http_persistent (~> 2.1)
+  fuzzy-string-match (~> 1.0)
   guard-rspec
   guard-rubocop
   haml-rails (~> 2.1)
