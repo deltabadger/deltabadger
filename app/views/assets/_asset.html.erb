@@ -7,7 +7,7 @@
                 hw_animate_in_after: "animate-asset-in",
                 hw_animate_out_remove: "animate-asset-out"
   } do %>
-    <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset__form", onchange: "requestSubmit();" }, data: { controller: "asset-allocation", asset_allocation_asset_ticker_value: asset.ticker } do |form| %>
+    <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset__form", onchange: "requestSubmit();" }, data: { controller: "asset-allocation", asset_allocation_asset_api_id_value: asset.api_id } do |form| %>
       <div class="ticker-input ticker-input--percentage" title="<%= asset.name %>">
         <%= form.text_field :allocation_input_text, value: (asset.allocation * 100).round(0), data: { asset_allocation_target: "allocationInputText", action: "change->asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "numeric-input iu-numeric iu-char-limit" %>
         <span>%</span>

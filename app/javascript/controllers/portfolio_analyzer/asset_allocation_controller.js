@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus";
 // Connects to data-controller="asset-allocation"
 export default class extends Controller {
   static targets = ["allocation", "allocationInputText", "allocationSlider"];
-  static values = { assetTicker: String };
+  static values = { assetApiId: String };
 
   connect() {
     window.addEventListener('riskLevelUpdated', this.#handleRiskLevelUpdated);
@@ -26,10 +26,10 @@ export default class extends Controller {
   }
 
   #handleRiskLevelUpdated = (event) => {
-    if (this.assetTickerValue in event.detail) {
-      this.allocationTarget.value = event.detail[this.assetTickerValue];
-      this.allocationInputTextTarget.value = (event.detail[this.assetTickerValue] * 100).toFixed(0);
-      this.allocationSliderTarget.style.width = String(event.detail[this.assetTickerValue] * 100) + '%';
+    if (this.assetApiIdValue in event.detail) {
+      this.allocationTarget.value = event.detail[this.assetApiIdValue];
+      this.allocationInputTextTarget.value = (event.detail[this.assetApiIdValue] * 100).toFixed(0);
+      this.allocationSliderTarget.style.width = String(event.detail[this.assetApiIdValue] * 100) + '%';
     }
   }
 }
