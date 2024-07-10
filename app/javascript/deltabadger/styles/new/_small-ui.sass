@@ -61,7 +61,7 @@
                 margin: 0
 
 
-.sinput--disabled, input[disabled], select[disabled],button[disabled]
+.sinput--disabled, input[disabled], select[disabled]
     color: var(--label)
     cursor: not-allowed
 
@@ -83,7 +83,6 @@ select
     background: none
     cursor: pointer
     font-weight: 600
-    color: var(--link)
     padding: 0 0.25rem
     align-items: center
     border: 0
@@ -92,11 +91,11 @@ select
     justify-content: center
     height: 4rem
     white-space: nowrap
-    color: #fff !important
+    color: #fff
     padding: 0 2rem
     gap: 1rem   
-    &:focus, &:active, &[disabled="disabled"]
-        color: #fff !important
+    &:focus, &:active, &[disabled="disabled"],&[disabled]
+        color: #fff
         outline: none
     svg
         fill: #fff
@@ -106,13 +105,17 @@ select
         background: var(--success)
     &--danger
         background: var(--danger)
-    &--outline, &--disabled, &--link
-        background: none !important
-        color: var(--link) !important
-    &--outline, &--disabled
+    &--outline, &--link
+        background: none
+        color: var(--link)
+        &[disabled="disabled"]
+            color: var(--label)
+    &--outline
         border: 2px solid var(--link)
         padding: 0 calc(2rem - 2px)
-    &--disabled
+        &[disabled="disabled"],&[disabled]
+            border-color: var(--label)
+    &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         opacity: 0.5 
     &--link
