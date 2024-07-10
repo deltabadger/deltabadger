@@ -541,7 +541,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
 
       </div>
 
-      <div className="db-bot__footer">
+      <div className="bot-footer">
         <ResetButton />
       </div>
     </div>
