@@ -22,7 +22,7 @@ module PortfolioAnalyzerManager
             ticker: symbol['symbol']&.upcase,
             name: symbol['name'],
             portfolio_id: portfolio.id,
-            category: symbol['symbol_type'],
+            category: symbol['category'],
             color: symbol['color'],
             api_id: symbol['id'].to_s
           ),
