@@ -18,9 +18,9 @@ class Portfolio < ApplicationRecord
     '1713': { name: 'Bitcoin' }
   }.freeze
   RISK_FREE_RATES = {
-    '65987': { shortname: '13W', name: '13 Week US Treasury Bill Yield' },
-    '65943': { shortname: '5Y', name: '5 Year US Treasury Note Yield' },
-    '66379': { shortname: '10Y', name: '10 Year US Treasury Note Yield' }
+    '65987': { shortname: '13W', name: '13 Week US Treasury Bill Index' },
+    '66416': { shortname: '5Y', name: '5 Year US Treasury' },
+    '66409': { shortname: '10Y', name: '10 Year US Treasury' }
   }.freeze
 
   def self.humanized_risk_levels
