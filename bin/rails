@@ -1,4 +1,4 @@
-if ENV['DISABLE_SPRING'] != 'TRUE'
+if ENV['DISABLE_SPRING'] != 'true'
   begin
     load File.expand_path('../spring', __FILE__)
   rescue LoadError => e
