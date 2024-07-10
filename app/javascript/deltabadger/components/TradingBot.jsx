@@ -532,7 +532,7 @@ const BotTemplate = ({
       </div>
 
       }
-      <div className="db-bot__footer" hidden={working}>
+      <div className="bot-footer" hidden={working}>
         <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/>
       </div>
 

@@ -185,7 +185,7 @@ export const AddApiKey = ({
       }
       <Instructions exchangeName={pickedExchangeName} type={type} />
       { !botView &&
-        <div className="db-bot__footer">
+        <div className="bot-footer">
           <ResetButton/>
         </div>
       }
