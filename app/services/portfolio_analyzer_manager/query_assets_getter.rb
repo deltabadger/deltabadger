@@ -1,5 +1,4 @@
 require 'utilities/time'
-require 'fuzzystringmatch'
 
 module PortfolioAnalyzerManager
   class QueryAssetsGetter < BaseService
@@ -12,13 +11,11 @@ module PortfolioAnalyzerManager
       query_downcase = query.downcase
       portfolio_assets_api_ids = portfolio.assets.pluck(:api_id)
 
-      jarow = FuzzyStringMatch::JaroWinkler.create(:native)
-
       query_assets = symbols_info.data.each_with_object([]) do |symbol, assets|
         next if portfolio_assets_api_ids.include?(symbol['id'].to_s)
 
-        match_distances = get_match_distances(jarow, symbol, query_downcase)
-        next if match_distances.first < 0.8
+        match_similarities = get_match_similarities(symbol, query_downcase)
+        next if match_similarities.first < 0.8
 
         assets << {
           asset: Asset.new(
@@ -29,25 +26,27 @@ module PortfolioAnalyzerManager
             color: symbol['color'],
             api_id: symbol['id'].to_s
           ),
-          distances: match_distances
+          similarities: match_similarities
         }
       end
 
-      sorted_assets = query_assets.sort_by { |a| [-a[:distances][0], -a[:distances][1], -a[:distances][2]] }.map { |a| a[:asset] }
+      sorted_assets = query_assets.sort_by do |a|
+                        [-a[:similarities][0], -a[:similarities][1], -a[:similarities][2]]
+                      end.map { |a| a[:asset] } # rubocop:disable Style/MultilineBlockChain
 
       Result::Success.new(sorted_assets)
     end
 
     private
 
-    def get_match_distances(jarow, symbol, query_downcase)
+    def get_match_similarities(symbol, query_downcase)
       ticker = symbol['symbol']&.downcase
       name = symbol['name']&.downcase
       isin = symbol['isin']&.downcase
       [
-        jarow.getDistance(ticker.to_s, query_downcase),
-        jarow.getDistance(name.to_s, query_downcase),
-        jarow.getDistance(isin.to_s, query_downcase)
+        JaroWinkler.similarity(ticker.to_s, query_downcase),
+        JaroWinkler.similarity(name.to_s, query_downcase),
+        JaroWinkler.similarity(isin.to_s, query_downcase)
       ].sort.reverse
     end
   end
