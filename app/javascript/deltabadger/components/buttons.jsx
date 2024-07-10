@@ -204,7 +204,7 @@ export const RemoveButton = ({onClick, disabled}) => {
   }, []);
 
   return(
-    <div className="bot-footer">
+    <div>
       <div
         onClick={() => setOpen(true) }
         className={`sbutton sbutton--link sbutton--icon-and-text ${disabled ? 'sbutton--disabled' : ''}`}
