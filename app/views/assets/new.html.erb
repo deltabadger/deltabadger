@@ -25,11 +25,9 @@
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset[:ticker] %></div>
             <div class="modal--search__cell modal--search__cell--name">
               <%= asset[:name] %>
-              <span class="modal--search__cell--name__country" style="margin-left: 10px"><%= asset[:country] %></span>
+              <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset[:country] %></span>
             </div>
-
-            <%# FIXME: replace this dirty style tag! %>
-            <div class="modal--search__cell modal--search__cell--category" style="text-align: right; margin-right: 20px"><%= asset[:category] == "Cryptocurrency" ? "Crypto" : asset[:category] %></div>
+            <div class="modal--search__cell modal--search__cell--category"><%= asset[:category] == "Cryptocurrency" ? "Crypto" : asset[:category] %></div>
 
           <% end %>
         <% end %>
