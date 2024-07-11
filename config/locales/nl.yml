@@ -473,6 +473,10 @@ nl:
         frequency_limit: 'Frequentiegrens overschreden'
         invalid_api_keys: 'Ongeldige tokens'
         limit_reached: 'Limiet gratis abonnement bereikt'
+        invalid_risk_free_rate_key: 'Ongeldige risicovrije rentetarief sleutel.'
+        unable_to_get_risk_free_rate: 'Kan het risicovrije rentetarief voor %{risk_free_rate_name} niet verkrijgen. Gegevens-API-server is niet bereikbaar.'
+        invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
+        invalid_allocation_value: 'Ongeldige toewijzingswaarde'
         messages:
             accepted: 'moet worden geaccepteerd'
             already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'
