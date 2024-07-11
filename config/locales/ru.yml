@@ -458,6 +458,10 @@ ru:
         frequency_limit: 'Превышено ограничение частоты'
         invalid_api_keys: 'Недействительные токены'
         limit_reached: 'Достигнут лимит бесплатного плана'
+        invalid_risk_free_rate_key: 'Неверный ключ безрисковой ставки.'
+        unable_to_get_risk_free_rate: 'Невозможно получить безрисковую ставку для %{risk_free_rate_name}. Сервер API данных недоступен.'
+        invalid_number_of_allocations: 'Недопустимое количество распределений'
+        invalid_allocation_value: 'Недопустимое значение распределения'
         messages:
             accepted: 'должен быть принят'
             already_confirmed: 'уже подтвержден, попробуйте войти.'
