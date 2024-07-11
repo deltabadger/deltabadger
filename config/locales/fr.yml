@@ -474,9 +474,9 @@ fr:
         invalid_api_keys: 'Tokens non valides'
         limit_reached: 'Limite du forfait gratuit atteinte'
         invalid_risk_free_rate_key: 'Clé de taux sans risque non valide.'
-        unable_to_get_risk_free_rate: 'Impossible d\'obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l\'API de données est inaccessible.'
-        invalid_number_of_allocations: 'Nombre d\'allocations non valide'
-        invalid_allocation_value: 'Valeur d\'allocation non valide'
+        unable_to_get_risk_free_rate: 'Impossible d''obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l''API de données est inaccessible.'
+        invalid_number_of_allocations: 'Nombre d''allocations non valide'
+        invalid_allocation_value: 'Valeur d''allocation non valide'
         messages:
             accepted: 'doit être accepté'
             already_confirmed: 'a déjà été confirmé, veuillez essayer de vous connecter.'
