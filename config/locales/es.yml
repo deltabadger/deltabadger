@@ -473,6 +473,10 @@ es:
         frequency_limit: 'Límite de frecuencia superado'
         invalid_api_keys: 'Tokens no válidos'
         limit_reached: 'Se ha alcanzado el límite del plan gratuito'
+        invalid_risk_free_rate_key: 'Clave de tasa libre de riesgo no válida.'
+        unable_to_get_risk_free_rate: 'No se puede obtener la tasa libre de riesgo para %{risk_free_rate_name}. El servidor de la API de datos no está disponible.'
+        invalid_number_of_allocations: 'Número de asignaciones no válido'
+        invalid_allocation_value: 'Valor de asignación no válido'
         messages:
             accepted: 'debe ser aceptado'
             already_confirmed: 'ya estaba confirmado, intenta iniciar sesión.'

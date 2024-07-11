@@ -501,6 +501,10 @@ en:
         frequency_limit: 'Frequency limit exceeded'
         invalid_api_keys: 'Invalid tokens'
         limit_reached: 'Free plan limit reached'
+        invalid_risk_free_rate_key: 'Invalid Risk Free Rate Key.'
+        unable_to_get_risk_free_rate: 'Unable to get the risk free rate for %{risk_free_rate_name}. Data API server is unreachable.'
+        invalid_number_of_allocations: 'Invalid number of allocations'
+        invalid_allocation_value: 'Invalid allocation value'
         messages:
             accepted: 'must be accepted'
             already_confirmed: 'was already confirmed, please try signing in.'

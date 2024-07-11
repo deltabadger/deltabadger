@@ -475,6 +475,10 @@ pl:
         frequency_limit: 'Przekroczyłeś limit częstotliwości'
         invalid_api_keys: 'Nieprawidłowe tokeny'
         limit_reached: 'Wyczerpałeś darmowy limit'
+        invalid_risk_free_rate_key: 'Nieprawidłowy klucz wolnej od ryzyka stopy procentowej.'
+        unable_to_get_risk_free_rate: 'Nie można uzyskać wolnej od ryzyka stopy procentowej dla %{risk_free_rate_name}. Serwer API danych jest niedostępny.'
+        invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
+        invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
         messages:
             accepted: 'musi zostać zaakceptowany'
             already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'
