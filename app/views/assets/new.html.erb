@@ -11,7 +11,7 @@
       <%# FIXME: test spinner. %>
       <% if @query_assets.blank? %>
         <%# This is just a placeholder to design the style, however it's shown even if no text is input in the form. To solve it I have to enable background tasks, that process the search and broadcast the results once ready. %>
-        <%= "spinner" %>
+        <div class="loader"></div>
       <% end %>
 
       <% @query_assets.each_with_index do |asset, index| %>
@@ -25,14 +25,9 @@
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset[:ticker] %></div>
             <div class="modal--search__cell modal--search__cell--name">
               <%= asset[:name] %>
-
-              <%# FIXME: replace this dirty span! %>
-              <span style="color: #ccc; margin-left: 10px"><%= asset[:country] %></span>
-
+              <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset[:country] %></span>
             </div>
-
-            <%# FIXME: replace this dirty style tag! %>
-            <div class="modal--search__cell modal--search__cell--category" style="text-align: right; margin-right: 20px"><%= asset[:category] == "Cryptocurrency" ? "Crypto" : asset[:category] %></div>
+            <div class="modal--search__cell modal--search__cell--category"><%= asset[:category] == "Cryptocurrency" ? "Crypto" : asset[:category] %></div>
 
           <% end %>
         <% end %>
