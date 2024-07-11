@@ -455,6 +455,10 @@ zh-cn:
         frequency_limit: 已超出频率限制
         invalid_api_keys: 无效的代币
         limit_reached: 已达到免费套餐限制
+        invalid_risk_free_rate_key: '无效的无风险利率键。'
+        unable_to_get_risk_free_rate: '无法获取 %{risk_free_rate_name} 的无风险利率。数据 API 服务器不可访问。'
+        invalid_number_of_allocations: '无效的分配数量'
+        invalid_allocation_value: '无效的分配值'
         messages:
             accepted: 必须被接受
             already_confirmed: 已进行确认，请尝试登录。

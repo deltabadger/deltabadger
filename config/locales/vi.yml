@@ -455,6 +455,10 @@ vi:
         frequency_limit: 'Đã vượt giới hạn tần suất'
         invalid_api_keys: 'Token không hợp lệ'
         limit_reached: 'Đã đạt hạn mức gói miễn phí'
+        invalid_risk_free_rate_key: 'Khóa tỷ lệ không rủi ro không hợp lệ.'
+        unable_to_get_risk_free_rate: 'Không thể lấy tỷ lệ không rủi ro cho %{risk_free_rate_name}. Máy chủ API dữ liệu không thể truy cập được.'
+        invalid_number_of_allocations: 'Số lượng phân bổ không hợp lệ'
+        invalid_allocation_value: 'Giá trị phân bổ không hợp lệ'
         messages:
             accepted: 'phải được chấp thuận'
             already_confirmed: 'đã được xác nhận, vui lòng thử đăng nhập.'

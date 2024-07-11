@@ -136,9 +136,7 @@ class Portfolio < ApplicationRecord
   def max_assets_reached?
     assets.size >= case user.subscription_name
                    when 'legendary_badger', 'hodler'
-                     20
-                   when 'investor'
-                     4
+                     100
                    else
                      4
                    end
@@ -178,12 +176,11 @@ class Portfolio < ApplicationRecord
     text += "Beta #{backtest['metrics']['beta'].round(2)}, "
     text += "R-squared #{backtest['metrics']['rSquared'].round(2)}, "
     text += "Information Ratio #{backtest['metrics']['informationRatio'].round(2)}"
-    text += ', Diversification 80%.'
     text
   end
 
   def get_risk_free_rate(key)
-    return Result::Failure.new('Invalid Risk Free Rate Key.') if key.blank? || !RISK_FREE_RATES.key?(key.to_sym)
+    return Result::Failure.new(I18n.t('errors.invalid_risk_free_rate_key')) if key.blank? || !RISK_FREE_RATES.key?(key.to_sym)
 
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
     cache_key = "risk_free_rate_#{key}"
@@ -195,7 +192,7 @@ class Portfolio < ApplicationRecord
         limit: 1
       )
       risk_free_rate_name = RISK_FREE_RATES[key.to_sym][:name]
-      error_message = "Unable to get the risk free rate for #{risk_free_rate_name}. Data API server is  unreachable."
+      error_message = I18n.t('errors.unable_to_get_risk_free_rate', risk_free_rate_name: risk_free_rate_name)
       return Result::Failure.new(error_message) if time_series_result.failure?
 
       time_series_result
@@ -217,12 +214,12 @@ class Portfolio < ApplicationRecord
   private
 
   def batch_update_allocations!(new_allocations)
-    raise ActiveRecord::RecordInvalid, 'Invalid number of allocations' if assets.size != new_allocations.size
+    raise ActiveRecord::RecordInvalid, I18n.t('errors.invalid_number_of_allocations') if assets.size != new_allocations.size
 
     ActiveRecord::Base.transaction do
       assets.each do |asset|
         unless asset.update(allocation: new_allocations[asset.api_id])
-          raise ActiveRecord::RecordInvalid, 'Invalid allocation value'
+          raise ActiveRecord::RecordInvalid, I18n.t('errors.invalid_allocation_value')
         end
       end
     end

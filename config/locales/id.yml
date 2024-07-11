@@ -455,6 +455,10 @@ id:
         frequency_limit: 'Limit frekuensi terlampaui'
         invalid_api_keys: 'Token tidak valid'
         limit_reached: 'Limit paket gratis tercapai'
+        invalid_risk_free_rate_key: 'Kunci Tingkat Bebas Risiko tidak valid.'
+        unable_to_get_risk_free_rate: 'Tidak dapat memperoleh tingkat bebas risiko untuk %{risk_free_rate_name}. Server API data tidak dapat dijangkau.'
+        invalid_number_of_allocations: 'Jumlah alokasi tidak valid'
+        invalid_allocation_value: 'Nilai alokasi tidak valid'
         messages:
             accepted: 'harus diterima'
             already_confirmed: 'sudah dikonfirmasi, silakan coba masuk.'
