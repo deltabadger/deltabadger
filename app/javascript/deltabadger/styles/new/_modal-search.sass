@@ -18,7 +18,7 @@
         path,circle
             stroke: var(--modal-search-placeholder)
     &__input
-        border-bottom: 1px solid var(--slider-track) !important
+        box-shadow: 0 1px var(--slider-track) !important
         background: rgba(0,0,0,0)
         font-weight: 500
         width: 100%
@@ -61,5 +61,11 @@
         &--ticker
             font-weight: bold
             color: var(--emphasis)
+        &--name
+            &__country
+                font-weight: 400
+                color: var(--label)
         &--category
             color: var(--label)
+            text-align: right
+            margin-right: 2.5rem
