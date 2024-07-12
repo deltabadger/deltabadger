@@ -43,7 +43,8 @@ module PortfolioAnalyzerManager
             category: symbol['category'],
             color: symbol['color'],
             api_id: symbol['id'].to_s,
-            country: symbol['country']
+            country: symbol['country'],
+            exchange: symbol['exchange']
           },
           similarities: match_similarities
         }
