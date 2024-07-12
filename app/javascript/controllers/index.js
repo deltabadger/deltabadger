@@ -4,14 +4,11 @@
 
 import { application } from "./application"
 
-import AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
-application.register("asset-allocation", AssetAllocationController)
-
-import RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
-application.register("risk-level-allocations", RiskLevelAllocationsController)
-
 import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
 application.register("arrow-keys-navigation", ArrowKeysNavigationController)
+
+import DropdownController from "./dropdown_controller"
+application.register("dropdown", DropdownController)
 
 import FlatpickrController from "./flatpickr_controller"
 application.register("flatpickr", FlatpickrController)
@@ -27,6 +24,12 @@ application.register("hotwire-animations", HotwireAnimationsController)
 
 import ModalsController from "./modals_controller"
 application.register("modals", ModalsController)
+
+import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
+application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
+
+import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
+application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
 
 import PortfolioAnalyzerChartController from "./portfolio_analyzer_chart_controller"
 application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartController)
