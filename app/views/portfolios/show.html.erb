@@ -1,10 +1,70 @@
+<div class="page-head">
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
+    New Portfolio <%= render "svg/16x16_down" %>
+    <div class="dropdown">
+      <a href="" class="dropdown__item">New +</a> <%# Opens a modal to pick a name and currency of the portfolio. In the future, also exchange to synchronize. %>
+      <div class="dropdown__item dropdown__item--divider"></div>
+      <a href="" class="dropdown__item">Binance</a>
+      <a href="" class="dropdown__item">Trezor</a>
+      <a href="" class="dropdown__item">Stock Exchange</a>
+    </div>
+  </div>
+  <div class="flex-row">
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+      <%= render "svg/24x24_dot_menu" %>
+      <div class="dropdown">
+        <a href="" class="dropdown__item">Change name</a> <%# Opens a modal to change the name. %>
+        <a href="" class="dropdown__item">Change currency</a> <%# Opens a modal to change the currency. %>
+        <a href="" class="dropdown__item">Duplicate</a> <%# Opens a modal to pick a name of the copy. %>
+        <a href="" class="dropdown__item">Stop tracking</a> <%# Only if portfolio is being tracked. %>
+
+        <div class="dropdown__item dropdown__item--divider"></div>
+        <a href="" class="dropdown__item dropdown__item--danger">Delete</a> <%# Opens "Are you sure?" modal. %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--
+<%# Newly created portfolio can be added to the Tracker (or stay only in the Analyzer). %>
+
+<div class="page-head">
+  <div class="sbutton sbutton--link">Tracked Portfolio <%= render "svg/16x16_down" %></div>
+  <div class="flex-row">
+    <div class="sbutton sbutton--success sbutton--outline">Start tracking <%= render "svg/24x24_plus" %></div>
+    <div class="sbutton sbutton--link"><%= render "svg/24x24_dot_menu" %></div>
+  </div>
+</div>
+
+<%# Portfolio that is being tracked After changing values "Save" is necessary to apply those changes to tracked portfolio. %>
+
+<div class="page-head">
+  <div class="sbutton sbutton--link">Tracked Portfolio <%= render "svg/16x16_down" %></div>
+  <div class="flex-row">
+    <div class="sbutton sbutton--outline">Reset</div>
+    <div class="sbutton sbutton--success">Save <%= render "svg/24x24_ok" %></div>
+    <div class="sbutton sbutton--link"><%= render "svg/24x24_dot_menu" %></div>
+  </div>
+</div>
+
+<%# Syncronized exchange account. After changing values the "Execute" button allows to execute trades to achieve new allocation. %>
+
+<div class="page-head">
+  <div class="sbutton sbutton--link">Binance account <%= render "svg/16x16_down" %></div>
+  <div class="flex-row">
+    <div class="sbutton sbutton--outline">Reset</div>
+    <div class="sbutton sbutton--success">Execute <%= render "svg/24x24_ok" %></div>
+    <div class="sbutton sbutton--link"><%= render "svg/24x24_dot_menu" %></div>
+  </div>
+</div>
+-->
+
 <div class="columns">
   <div class="column gap-6">
     
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
-    <!-- 
-      <div class="portfolio-value">
+      <!--<div class="portfolio-value">
         <div class="label"><%= t('analyzer.total_value') %> (USD)</div>
         <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
         <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
@@ -12,8 +72,7 @@
             <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
           </svg>
         </div>
-      </div> 
-    -->
+      </div>-->
 
     <div>
       <% if @portfolio.assets.empty? %>

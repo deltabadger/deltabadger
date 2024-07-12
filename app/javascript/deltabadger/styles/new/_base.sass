@@ -16,9 +16,9 @@ dialog
   display: block // override default display: none, used if js is disabled
 
 .main
-    padding: 4rem 4rem 4rem 17rem
+    padding: 4rem 4rem 4rem 24rem
     @media only screen and (max-width: 1359px)
-      padding-top: 16rem
+      padding-top: 20rem
       padding-left: 4rem
     @media only screen and (max-width: 767px)
       padding: 16rem 2rem 2rem
@@ -38,3 +38,12 @@ dialog
     flex-direction: column
     width: 100%
     container-type: inline-size
+
+.page-head
+    display: flex
+    margin-bottom: 6rem
+    align-items: center
+    gap: 6rem
+    font-weight: bold
+    justify-content: space-between
+    &--analyzer
