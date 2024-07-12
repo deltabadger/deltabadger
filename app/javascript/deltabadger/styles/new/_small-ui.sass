@@ -101,6 +101,8 @@ select
         fill: #fff
     &--primary
         background: var(--primary)
+    &--secondary
+        background: var(--menulink)
     &--success
         background: var(--success)
     &--danger
@@ -108,13 +110,35 @@ select
     &--outline, &--link
         background: none
         color: var(--link)
+        path
+            fill: var(--link)
         &[disabled="disabled"]
             color: var(--label)
+        &:focus, &:active, &[disabled="disabled"],&[disabled]
+            color: inherit
+        &.sbutton--success
+            color: var(--success)
+            path
+                fill: var(--success)
+        &.sbutton--danger
+            color: var(--danger)
+            path
+                fill: var(--danger)
+        &.sbutton--secondary
+            color: var(--menulink)
+            path
+                fill: var(--menulink)
     &--outline
         border: 2px solid var(--link)
         padding: 0 calc(2rem - 2px)
         &[disabled="disabled"],&[disabled]
             border-color: var(--label)
+        &.sbutton--success
+            border-color: var(--success)
+        &.sbutton--danger
+            border-color: var(--danger)
+        &.sbutton--secondary
+            border-color: var(--menulink)
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         opacity: 0.5 
