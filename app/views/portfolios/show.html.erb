@@ -2,6 +2,17 @@
   <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
     New Portfolio <%= render "svg/16x16_down" %>
     <div class="dropdown">
+      <span class="dropdown__item" style="color: var(--label)">Add Portfolio (soon)</span>
+    </div>
+  </div>
+</div>
+
+<!--
+
+<div class="page-head">
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
+    New Portfolio <%= render "svg/16x16_down" %>
+    <div class="dropdown">
       <a href="" class="dropdown__item">New +</a> <%# Opens a modal to pick a name and currency of the portfolio. In the future, also exchange to synchronize. %>
       <div class="dropdown__item dropdown__item--divider"></div>
       <a href="" class="dropdown__item">Binance</a>
@@ -25,7 +36,8 @@
   </div>
 </div>
 
-<!--
+
+
 <%# Newly created portfolio can be added to the Tracker (or stay only in the Analyzer). %>
 
 <div class="page-head">
@@ -57,6 +69,7 @@
     <div class="sbutton sbutton--link"><%= render "svg/24x24_dot_menu" %></div>
   </div>
 </div>
+
 -->
 
 <div class="columns">
