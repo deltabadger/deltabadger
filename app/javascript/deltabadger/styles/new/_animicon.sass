@@ -25,7 +25,11 @@
         box-sizing: content-box
         border-right: 1rem solid transparent
         border-left: 1rem solid transparent
-    &--outline
+    &--outline,&--link
         .animicon
             &__a, &__b
                 background-color: var(--link)
+        &.sbutton--success
+            .animicon
+                &__a, &__b
+                    background-color: var(--success)

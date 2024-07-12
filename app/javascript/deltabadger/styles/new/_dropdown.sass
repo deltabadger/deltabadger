@@ -11,23 +11,30 @@
         z-index: 999999
         pointer-events: none
         transition: 1s ease all
-    &.state--on
+    &--on
         &::before
-            background: rgba(0, 0, 0, 0.05)
+            background: rgba(0, 0, 0, 0.02)
             pointer-events: auto
         .dropdown
             display: block
+    &--right
+        .dropdown
+            left: auto
+            right: 0rem
 .dropdown
     display: none
     z-index: 1000000
     position: absolute
-    background: $dropdown-bg
-    border-radius: 0.5rem
-    box-shadow: 0px 0px 0px 1px #D9E0E7 inset, 0px 4px 8px 0px rgba(6, 26, 79, 0.10)
+    background: var(--dropdown-bg)
+    border-radius: 1rem
+    box-shadow: 0px 0px 0px 1px var(--dropdown-border) inset, 0px 4px 8px 0px rgba(6, 26, 79, 0.10)
     font-size: 2rem
     font-weight: 500
+    padding-top: 1rem
     padding-bottom: 1rem
     top: 4.5rem
+    overflow: hidden
+    left: 0
     &--ticker
         width: 40rem
     &__search
@@ -41,7 +48,7 @@
         &:focus
             outline: none
         &::placeholder
-            color: $gray-200
+            color: var(--label)
         &--icon
             position: absolute
             top: 0
@@ -49,19 +56,30 @@
             width: 6rem
             line-height: 6rem
             padding: 1.5rem
-            color: $gray-200
+            color: var(--label)
             path, circle
-                stroke: $gray-200
+                stroke: var(--label)
     &__item
-        color: $text !important
         display: grid
         cursor: pointer
-        grid-template-columns: 10rem 1fr
         line-height: 4rem
-        padding-left: 1.5rem
+        padding: 0.5rem 4rem 0.5rem 2.5rem
         text-align: left
+        text-decoration: none !important
+        &--danger
+            color: var(--danger)
+            &:hover
+                color: #fff !important
+                background: var(--danger) !important
+        &--divider
+            padding: 0
+            margin: 1rem 0
+            border-bottom: 1px solid var(--dropdown-border)
+            cursor: default !important
+            &:hover
+                background: none !important
         &:hover
-            background: $gray-100
+            background: var(--dropdown-hover)
         span
             color: transparentize($text,.35 )
 

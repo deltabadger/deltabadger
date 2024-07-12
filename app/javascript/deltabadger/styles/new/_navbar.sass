@@ -15,7 +15,7 @@
   top: 0
   left: 0
   bottom: 0
-  // border-right: 1px solid var(--widget-line)
+  border-right: 1px solid var(--widget-line)
   box-sizing: content-box
   position: fixed
   width: 8rem
@@ -39,7 +39,8 @@
   @media only screen and (max-width: 767px)
     padding-left: 2rem
     width: calc(100% - 3rem)
-  @media only screen and (max-width: 549px)
+    padding-top: 1.5rem
+  @media only screen and (max-width: 767px)
     gap: 0
     justify-content: center
   &__section
@@ -56,7 +57,9 @@
         position: fixed
         top: 12rem
     &--logo
-      @media only screen and (max-width: 549px)
+      @media only screen and (max-width: 1359px)
+        width: 13rem
+      @media only screen and (max-width: 767px)
         display: none
   &__logo
     width: 5rem
