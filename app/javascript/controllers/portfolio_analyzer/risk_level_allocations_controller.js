@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 
-// Connects to data-controller="risk-level-allocations"
+// Connects to data-controller="portfolio-analyzer--risk-level-allocations"
 export default class extends Controller {
   static targets = ["riskLevelSlider"];
   static values = { riskLevels: Array, smartAllocations: Array };

@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 
-// Connects to data-controller="asset-allocation"
+// Connects to data-controller="portfolio-analyzer--asset-allocation"
 export default class extends Controller {
   static targets = ["allocation", "allocationInputText", "allocationSlider"];
   static values = { assetApiId: String };
