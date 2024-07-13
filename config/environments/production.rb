@@ -49,7 +49,7 @@ Rails.application.configure do
   config.log_tags = [ :request_id ]
 
   # Use a different cache store in production.
-  config.cache_store = :redis_cache_store, { url: ENV['REDIS_URL'] }
+  config.cache_store = :redis_cache_store, { url: ENV['REDIS_AWS_URL'] }
   config.public_file_server.headers = {
     'Cache-Control' => "public, max-age=#{1.year.to_i}"
   }
