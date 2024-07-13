@@ -25,11 +25,11 @@ application.register("hotwire-animations", HotwireAnimationsController)
 import ModalsController from "./modals_controller"
 application.register("modals", ModalsController)
 
-import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
-application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
+import AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
+application.register("asset-allocation", AssetAllocationController)
 
-import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
-application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
+import RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
+application.register("risk-level-allocations", RiskLevelAllocationsController)
 
 import PortfolioAnalyzerChartController from "./portfolio_analyzer_chart_controller"
 application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartController)
