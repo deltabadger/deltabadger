@@ -2,6 +2,7 @@ development:
   # adapter: async
   adapter: redis
   url: <%= ENV['REDIS_URL'] %>
+  channel_prefix: deltabadger_development
 
 test:
   adapter: test
@@ -9,4 +10,4 @@ test:
 production:
   adapter: redis
   url: <%= ENV['REDIS_URL'] %>
-  # channel_prefix: appname_production
+  channel_prefix: deltabadger_production
