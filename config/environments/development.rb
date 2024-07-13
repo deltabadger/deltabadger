@@ -19,11 +19,10 @@ Rails.application.configure do
   if Rails.root.join('tmp', 'caching-dev.txt').exist?
     config.action_controller.perform_caching = true
 
-    # config.cache_store = :memory_store
-    config.cache_store = :redis_cache_store, { url: ENV['REDIS_URL'] }
-    config.public_file_server.headers = {
-      'Cache-Control' => "public, max-age=#{2.days.to_i}"
-    }
+    config.cache_store = :memory_store
+
+    # DO NOT use the same REDIS_URL for caching and Sidekiq: https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
+    # config.cache_store = :redis_cache_store
   else
     config.action_controller.perform_caching = false
     config.cache_store = :null_store
@@ -63,4 +62,8 @@ Rails.application.configure do
   config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
 
   routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
+
+  config.public_file_server.headers = {
+    'Cache-Control' => "public, max-age=#{2.days.to_i}"
+  }
 end
