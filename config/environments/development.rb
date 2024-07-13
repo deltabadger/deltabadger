@@ -23,10 +23,11 @@ Rails.application.configure do
   # Run rails dev:cache to toggle caching.
   if Rails.root.join('tmp', 'caching-dev.txt').exist?
     config.action_controller.perform_caching = true
+    config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
 
-    config.cache_store = :memory_store
-
-    # DO NOT use the same REDIS_URL for caching and Sidekiq: https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
+    # DO NOT use the same REDIS_URL for caching and Sidekiq:
+    # https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
+    # https://medium.com/@simptive/rails-using-redis-for-caching-as-well-as-for-sidekiq-jobs-5254ba0d2f7d
     # config.cache_store = :redis_cache_store
   else
     config.action_controller.perform_caching = false
