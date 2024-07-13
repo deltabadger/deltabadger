@@ -14,16 +14,21 @@ Rails.application.configure do
   # Show full error reports.
   config.consider_all_requests_local = true
 
+  # Configure public file server for tests with Cache-Control for performance.
+  config.public_file_server.headers = {
+    'Cache-Control' => "public, max-age=#{2.days.to_i}"
+  }
+
   # Enable/disable caching. By default caching is disabled.
   # Run rails dev:cache to toggle caching.
   if Rails.root.join('tmp', 'caching-dev.txt').exist?
     config.action_controller.perform_caching = true
+    config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
 
-    # config.cache_store = :memory_store
-    config.cache_store = :redis_cache_store, { url: ENV['REDIS_URL'] }
-    config.public_file_server.headers = {
-      'Cache-Control' => "public, max-age=#{2.days.to_i}"
-    }
+    # DO NOT use the same REDIS_URL for caching and Sidekiq:
+    # https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
+    # https://medium.com/@simptive/rails-using-redis-for-caching-as-well-as-for-sidekiq-jobs-5254ba0d2f7d
+    # config.cache_store = :redis_cache_store
   else
     config.action_controller.perform_caching = false
     config.cache_store = :null_store

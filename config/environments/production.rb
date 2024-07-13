@@ -13,6 +13,7 @@ Rails.application.configure do
   # Full error reports are disabled and caching is turned on.
   config.consider_all_requests_local       = false
   config.action_controller.perform_caching = true
+  config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
 
   # Ensures that a master key has been made available in either ENV["RAILS_MASTER_KEY"]
   # or in config/master.key. This key is used to decrypt credentials (and other encrypted files).
@@ -48,11 +49,13 @@ Rails.application.configure do
   # Prepend all log lines with the following tags.
   config.log_tags = [ :request_id ]
 
-  # Use a different cache store in production.
-  config.cache_store = :redis_cache_store, { url: ENV['REDIS_URL'] }
+  # Configure public file server for tests with Cache-Control for performance.
   config.public_file_server.headers = {
     'Cache-Control' => "public, max-age=#{1.year.to_i}"
   }
+
+  # Use a different cache store in production.
+  # config.cache_store = :memory_store
 
   # Use a real queuing backend for Active Job (and separate queues per environment)
   # config.active_job.queue_adapter     = :resque
