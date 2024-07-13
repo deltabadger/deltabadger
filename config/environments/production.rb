@@ -48,11 +48,13 @@ Rails.application.configure do
   # Prepend all log lines with the following tags.
   config.log_tags = [ :request_id ]
 
-  # Use a different cache store in production.
-  config.cache_store = :redis_cache_store, { url: ENV['REDIS_AWS_URL'] }
+  # Configure public file server for tests with Cache-Control for performance.
   config.public_file_server.headers = {
     'Cache-Control' => "public, max-age=#{1.year.to_i}"
   }
+
+  # Use a different cache store in production.
+  # config.cache_store = :memory_store
 
   # Use a real queuing backend for Active Job (and separate queues per environment)
   # config.active_job.queue_adapter     = :resque
