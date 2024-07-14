@@ -7,10 +7,22 @@ class SetUpSidekiq
     @schedule_withdrawal = schedule_withdrawal
   end
 
-  def fill_sidekiq_queue
+  def fill_sidekiq_queue(dry_run: false)
     Bot.working.each do |bot|
-      @schedule_transaction.call(bot) if bot.trading?
-      @schedule_withdrawal.call(bot) if bot.withdrawal?
+      if bot.trading?
+        params = continue_params(bot)
+        if params.present? && (params[:price] - bot.settings['price'].to_f).positive?
+          puts "User: #{bot.user.id}, bot: #{bot.id}, email: #{bot.user.email}, missed amount: #{params}, bot settings: #{bot.settings}"
+        end
+        @schedule_transaction.call(bot) unless dry_run
+
+        # disabled for now, must verify the continue_params[:price] is properly used (eg: buy 0.5 € not 0.5 BTC)
+        # @schedule_transaction.call(bot, continue_params: params) unless dry_run
+
+      elsif bot.withdrawal?
+        puts "User: #{bot.user.id}, bot: #{bot.id},  email: #{bot.user.email}, missed withdrawals: #{missed_withdrawals(bot)}, bot settings: #{bot.settings}"
+        @schedule_withdrawal.call(bot) unless dry_run
+      end
     end
 
     true
@@ -20,5 +32,19 @@ class SetUpSidekiq
 
   def working?(bot)
     bot.status == 'working'
+  end
+
+  def missed_withdrawals(bot)
+    next_withdrawal_at = NextWithdrawalBotTransactionAt.new.call(bot)
+    interval = ParseInterval.new.call(bot).to_i
+    time_missing_transactions = Time.current - next_withdrawal_at
+    (time_missing_transactions.to_f / interval).floor
+  end
+
+  def continue_params(bot)
+    restart_params = GetRestartParams.new.call(bot_id: bot.id)
+    return unless restart_params[:restartType] == 'missed'
+
+    { price: restart_params[:missedAmount], continue_schedule: false }
   end
 end
