@@ -36,7 +36,7 @@ class SetUpSidekiq
   end
 
   def continue_params(bot)
-    restart_params = GetRestartParams.new.call(bot.id)
+    restart_params = GetRestartParams.new.call(bot_id: bot.id)
     if restart_params[:restartType] == 'missed'
       puts "User: #{bot.user.id} bot: #{bot.id} missed transactions amount #{restart_params[:missedAmount]}"
       { price: restart_params[:missedAmount], continue_schedule: false }
