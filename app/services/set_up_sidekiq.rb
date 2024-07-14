@@ -10,19 +10,18 @@ class SetUpSidekiq
   def fill_sidekiq_queue
     Bot.working.each do |bot|
       if bot.trading?
-        next_transaction_at = NextTradingBotTransactionAt.new.call(bot)
-        missed_transactions(bot, next_transaction_at).times do |i|
-          puts "User: #{bot.user.id} bot: #{bot.id} manually setting missed transaction #{i}"
-          @schedule_transaction.call(bot)
+        restart_params = GetRestartParams.new.call(bot.id)
+        if restart_params[:restartType] == 'missed'
+          puts "User: #{bot.user.id} bot: #{bot.id} missed transactions amount #{restart_params[:missedAmount]}"
+          continue_params = {price: restart_params[:missedAmount], continue_schedule: false}
+        else
+          puts "User: #{bot.user.id} bot: #{bot.id} not missed transactions"
+          continue_params = nil
         end
-        @schedule_transaction.call(bot)
+        # @schedule_transaction.call(bot, continue_params: continue_params)
       elsif bot.withdrawal?
-        next_transaction_at = NextWithdrawalBotTransactionAt.new.call(bot)
-        missed_transactions(bot, next_transaction_at).times do |i|
-          puts "User: #{bot.user.id} bot: #{bot.id} manually setting missed withdrawal #{i}"
-          @schedule_withdrawal.call(bot)
-        end
-        @schedule_withdrawal.call(bot)
+        puts "User: #{bot.user.id} bot: #{bot.id} missed withdrawals: #{missed_withdrawals(bot)}"
+        # @schedule_withdrawal.call(bot)
       end
     end
 
@@ -35,9 +34,10 @@ class SetUpSidekiq
     bot.status == 'working'
   end
 
-  def missed_transactions(bot, next_transaction_at)
+  def missed_withdrawals(bot)
+    next_withdrawal_at = NextWithdrawalBotTransactionAt.new.call(bot)
     interval = ParseInterval.new.call(bot).to_i
-    time_missing_transactions = Time.current - next_transaction_at
+    time_missing_transactions = Time.current - next_withdrawal_at
     (time_missing_transactions.to_f / interval).floor
   end
 end
