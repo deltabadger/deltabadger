@@ -79,7 +79,5 @@ gem "turbo-rails", "~> 2.0"
 gem "stimulus-rails", "~> 1.3"
 gem 'redis', '~> 5.0'
 gem "jwt", "~> 2.8"
-
 gem "jaro_winkler", "~> 1.6"
-
 gem "oj", "~> 3.16"
