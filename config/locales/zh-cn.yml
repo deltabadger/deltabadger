@@ -549,7 +549,7 @@ zh-cn:
                 terms_and_conditions_tooltip: '继续操作即表示我同意 Deltabadger 的%{terms_and_conditions}和%{privacy_policy}。'
     home:
         confirm_registration:
-            deliverability_html: '<b>这非常重要！</b><br>如果未收到确认电子邮件，请查看<b>垃圾邮件文件夹</b>。如果仍找不到，请通过 %{email} 向我发送电子邮件。<br><br>谢谢，Jan'
+            deliverability_html: '<b>这非常重要！</b><br><br>如果未收到确认电子邮件，请查看<b>垃圾邮件文件夹</b>。如果仍找不到，请通过 %{email} 向我发送电子邮件。<br><br>谢谢，Jan'
             text_html: 请查看您的邮箱，并单击我们发送给您的<b>确认链接</b>。然后转到登录页面。
             title: 谢谢！
         contact:
