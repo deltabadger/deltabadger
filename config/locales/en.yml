@@ -597,7 +597,7 @@ en:
                 terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>This is very important!</b><br> If you didn''t get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, email me at %{email}. <br><br>Thanks, Jan'
+            deliverability_html: '<b>This is very important!</b><br><br> If you didn''t get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, email me at %{email}. <br><br>Thanks, Jan'
             text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
             title: Thanks!
         contact:

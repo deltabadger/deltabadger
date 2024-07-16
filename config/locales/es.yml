@@ -569,7 +569,7 @@ es:
                 terms_and_conditions_tooltip: 'Al continuar, acepto los %{terms_and_conditions} y la %{privacy_policy} de Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>¡Esto es muy importante!</b><br> Si no has recibido el correo electrónico de confirmación, revisa la <b>carpeta de correo no deseado</b>. Si sigues sin ubicar el mensaje, envíame un correo a la dirección %{email}. <br><br>Gracias, Jan'
+            deliverability_html: '<b>¡Esto es muy importante!</b><br><br> Si no has recibido el correo electrónico de confirmación, revisa la <b>carpeta de correo no deseado</b>. Si sigues sin ubicar el mensaje, envíame un correo a la dirección %{email}. <br><br>Gracias, Jan'
             text_html: 'Comprueba tu buzón y haz clic en el <b>enlace de confirmación</b> que te hemos enviado. A continuación, ve a la página de inicio de sesión.'
             title: ¡Gracias!
         contact:
