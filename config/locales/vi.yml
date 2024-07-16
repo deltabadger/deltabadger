@@ -549,7 +549,7 @@ vi:
                 terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy} của Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>Lưu ý quan trọng!</b><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'
+            deliverability_html: '<b>Lưu ý quan trọng!</b><br><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'
             text_html: 'Kiểm tra hộp thư của bạn và nhấp vào <b>liên kết xác nhận</b> mà chúng tôi đã gửi cho bạn. Sau đó vào trang đăng nhập.'
             title: 'Cảm ơn bạn!'
         contact:

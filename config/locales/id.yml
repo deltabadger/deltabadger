@@ -549,7 +549,7 @@ id:
                 terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>Penting sekali!</b><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
+            deliverability_html: '<b>Penting sekali!</b><br><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
             text_html: 'Periksa kotak surat Anda lalu klik <b>tautan konfirmasi</b> yang kami kirimkan kepada Anda. Kemudian, buka halaman masuk.'
             title: 'Terima kasih!'
         contact:

@@ -505,7 +505,7 @@ de:
                 terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy} von Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>Das ist sehr wichtig!</b><br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
+            deliverability_html: '<b>Das ist sehr wichtig!</b><br><br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
             title: Danke!
         contact:
