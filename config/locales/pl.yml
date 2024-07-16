@@ -579,7 +579,7 @@ pl:
                 terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy} firmy Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>To ważne! </b><br> Jeśli nie otrzymałeś e-maila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
+            deliverability_html: '<b>To ważne! </b><br><br> Jeśli nie otrzymałeś e-maila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
             text_html: 'Sprawdź swoją skrzynkę pocztową i kliknij <b>link potwierdzający</b>, który do Ciebie wysłaliśmy. Następnie przejdź do strony logowania.'
             title: Dzięki!
         contact:
