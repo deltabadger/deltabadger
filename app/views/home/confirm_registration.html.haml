@@ -8,32 +8,32 @@
 
 = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-primary btn-lg w-100 mt-5')
 
-/ Reddit Pixel
-:javascript
-  !function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','t2_9nws8asv');rdt('track', 'PageVisit');
+-# / Reddit Pixel
+-# :javascript
+-#   !function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','t2_9nws8asv');rdt('track', 'PageVisit');
 
-  rdt('track', 'Sign Up');
-/ DO NOT MODIFY
-/ End Reddit Pixel
+-#   rdt('track', 'Sign Up');
+-# / DO NOT MODIFY
+-# / End Reddit Pixel
 
-:javascript
-  function UnCryptMailto( s )
-    {
-        var n = 0;
-        var r = "";
-        for( var i = 0; i < s.length; i++)
-        {
-            n = s.charCodeAt( i );
-            if( n >= 8364 )
-            {
-                n = 128;
-            }
-            r += String.fromCharCode( n - 1 );
-        }
-        return r;
-    }
+-# :javascript
+-#   function UnCryptMailto( s )
+-#     {
+-#         var n = 0;
+-#         var r = "";
+-#         for( var i = 0; i < s.length; i++)
+-#         {
+-#             n = s.charCodeAt( i );
+-#             if( n >= 8364 )
+-#             {
+-#                 n = 128;
+-#             }
+-#             r += String.fromCharCode( n - 1 );
+-#         }
+-#         return r;
+-#     }
 
-    function linkTo_UnCryptMailto( s )
-    {
-        location.href=UnCryptMailto( s );
-    }
+-#     function linkTo_UnCryptMailto( s )
+-#     {
+-#         location.href=UnCryptMailto( s );
+-#     }
