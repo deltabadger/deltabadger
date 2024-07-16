@@ -569,7 +569,7 @@ nl:
                 terms_and_conditions_tooltip: 'Door verder te gaan, ga ik akkoord met de %{terms_and_conditions} en het %{privacy_policy} van Deltabadger.'
     home:
         confirm_registration:
-            deliverability_html: '<b>Dit is heel belangrijk!</b><br> Als je de bevestigingsmail niet hebt ontvangen, controleer dan je <b>junk folder</b>. Als je de mail nog steeds niet kunt vinden, stuur dan een email naar %{email}. <br><br>Bedankt, Jan'
+            deliverability_html: '<b>Dit is heel belangrijk!</b><br><br> Als je de bevestigingsmail niet hebt ontvangen, controleer dan je <b>junk folder</b>. Als je de mail nog steeds niet kunt vinden, stuur dan een email naar %{email}. <br><br>Bedankt, Jan'
             text_html: 'Controleer uw mailbox en klik op de <b>bevestigingslink</b> die wij u hebben gestuurd. Ga vervolgens naar de inlogpagina.'
             title: Bedankt!
         contact:
