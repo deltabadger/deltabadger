@@ -14,6 +14,7 @@
         .data-grid__item
             height: auto
             background: none
+            padding: 0
             &__value
                 color: $success
                 font-weight: 600
@@ -32,12 +33,10 @@
     @container (max-width: 511px)
         grid-template-columns:  repeat(2, 1fr)
     &__item
+        padding: 2.5rem 2.5rem 2rem 3rem
         position: relative
         display: flex
         flex-direction: column
-        align-items: center
-        justify-content: center
-        height: 14rem
         background-color: var(--widget-background)
         &:not(.data-grid__item--empty):hover
             // background-color: var(--widget-line)
@@ -56,7 +55,7 @@
                 @container (max-width: 511px)
                     display: flex !important
             &--3
-                @container (min-width: 512px) and (max-width: 767px)
+                @container (min-width: 511rem) and (max-width: 767px)
                     display: flex !important
             &--4
                 @container (min-width: 767.5px) and (max-width: 959px)
