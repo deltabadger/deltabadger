@@ -23,11 +23,10 @@
           <%= form.hidden_field :api_id, value: asset[:api_id] %>
           <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset[:ticker] %></div>
-            <% country = asset[:country] == 'Unknown' ? '' : asset[:country] == 'Germany' ? "#{asset[:country]} (#{asset[:exchange]})" : asset[:country] %>
             <% category = asset[:category] == "Cryptocurrency" ? "Crypto" : asset[:category] %>
             <div class="modal--search__cell modal--search__cell--name">
               <%= asset[:name] %>
-              <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= country %></span>
+              <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset[:country] %></span>
             </div>
             <div class="modal--search__cell modal--search__cell--category"><%= category %></div>
 
