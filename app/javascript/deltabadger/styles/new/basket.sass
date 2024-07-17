@@ -3,26 +3,48 @@
     flex-direction: column
     // gap: 1rem                // use this workaround for smooth animations
     &__asset
-        padding-bottom: 1rem    // use this workaround for smooth animations
-        display: flex
-        align-items: center
-        gap: 1rem
-        &__form
+        padding-bottom: 1rem
+        width: 100%
+        &-wrapper
             display: flex
-            width: 100%
-            gap: 1rem         
+            align-items: flex-end
+            gap: 1rem
+        &__info
+            display: grid
+            grid-template-columns: 3fr 1fr 9rem
+            gap: 1rem
+            &__input
+                background: var(--widget-background)
+                width: 100%
+                border: none
+                text-align: right
+                padding: 0 1rem 0 0
+                border-radius: 1rem
+                font-weight: 700
+                &--percentage
+                    padding-right: 2.5rem
+                    &+ .basket__asset__info__input-suffix
+                        position: absolute
+                        right: .5rem
+                        z-index: 10
+                        color: var(--label)
+                        font-weight: 500
+                &[disabled]
+                    background: none
+            &__value
+                text-align: right
+                padding-right: 3rem
+            &__name
+                font-weight: bold
+            &__ticker
+                font-weight: bold
+                opacity: 0.5
+                font-size: 0.75em
     &__remove
-        background: $gray-100
-        width: 20rem
-        border-radius: 2rem
-        height: 4rem
-        display: flex
-        justify-content: center
-        align-items: center
-        color: $gray-300
-        font-size: 4rem
         &__icon
-            stroke: $gray-300
+            stroke: var(--label)
+            position: relative
+            top: -0.6rem
     &__excluded-assets-label
         padding: 5rem 0 6rem
     &--idle
