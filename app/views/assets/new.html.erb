@@ -21,11 +21,18 @@
           <%= form.hidden_field :category, value: asset[:category] %>
           <%= form.hidden_field :color, value: asset[:color] %>
           <%= form.hidden_field :api_id, value: asset[:api_id] %>
+          <%= form.hidden_field :url, value: asset[:url] %>
           <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset[:ticker] %></div>
             <% category = asset[:category] == "Cryptocurrency" ? "Crypto" : asset[:category] %>
             <div class="modal--search__cell modal--search__cell--name">
               <%= asset[:name] %>
+              <% if asset[:url].present? %>
+                <%= link_to asset[:url], target: '_blank', rel: 'noopener noreferrer' do %>
+                  <%# insert svg %>
+                  link
+                <% end %>
+              <% end %>
               <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset[:country] %></span>
             </div>
             <div class="modal--search__cell modal--search__cell--category"><%= category %></div>

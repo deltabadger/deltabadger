@@ -76,7 +76,7 @@ class AssetsController < ApplicationController
   private
 
   def asset_params
-    params.require(:asset).permit(:ticker, :name, :allocation, :category, :color, :api_id)
+    params.require(:asset).permit(:ticker, :name, :allocation, :category, :color, :api_id, :url)
   end
 
   def set_asset
