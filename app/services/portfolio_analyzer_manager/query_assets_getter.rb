@@ -45,7 +45,7 @@ module PortfolioAnalyzerManager
             api_id: symbol['id'].to_s,
             country: symbol['country'],
             exchange: symbol['exchange'],
-            url: ("https://www.coingecko.com/coins/#{symbol['external_id']}" if symbol['external_id'].present?)
+            url: symbol['external_id'].present? ? "https://www.coingecko.com/coins/#{symbol['external_id']}" : nil
           },
           similarities: match_similarities
         }

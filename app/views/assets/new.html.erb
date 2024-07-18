@@ -21,6 +21,8 @@
           <%= form.hidden_field :category, value: asset[:category] %>
           <%= form.hidden_field :color, value: asset[:color] %>
           <%= form.hidden_field :api_id, value: asset[:api_id] %>
+          <%= form.hidden_field :country, value: asset[:country] %>
+          <%= form.hidden_field :exchange, value: asset[:exchange] %>
           <%= form.hidden_field :url, value: asset[:url] %>
           <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset[:ticker] %></div>
