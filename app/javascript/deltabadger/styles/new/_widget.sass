@@ -49,6 +49,8 @@
             min-height: 3rem
             path
                 fill: var(--label)
+            svg
+                width: 3rem
         &--filler
             display: none !important
             &--2
@@ -67,7 +69,8 @@
                 @container (min-width: 1223.5px)
                     display: flex !important
         .tooltip
-            top: calc(100% - 2rem)
+            top: calc(100% - 1rem)
+            left: 0
             &::before
                 content: " "
                 display: block
@@ -77,7 +80,7 @@
                 border-bottom-color: var(--tooltip-background)
                 position: absolute
                 top: -2rem
-                left: 50%
+                left: 4.5rem
 
 .backtests--warning
     .widget--chart, .data-grid__item
