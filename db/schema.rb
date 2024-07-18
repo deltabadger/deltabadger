@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_07_08_182956) do
+ActiveRecord::Schema.define(version: 2024_07_18_111929) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -72,6 +72,7 @@ ActiveRecord::Schema.define(version: 2024_07_08_182956) do
     t.string "name"
     t.string "api_id"
     t.string "category"
+    t.string "url"
     t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
   end
 
