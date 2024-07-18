@@ -23,18 +23,6 @@ module PortfolioAnalyzerManager
 
         match_similarities = get_match_similarities(symbol, query_downcase)
         next if match_similarities.first < 0.8
-
-        # assets << {
-        #   asset: Asset.new(
-        #     ticker: symbol['symbol']&.upcase,
-        #     name: symbol['name'],
-        #     portfolio_id: portfolio.id,
-        #     category: symbol['category'],
-        #     color: symbol['color'],
-        #     api_id: symbol['id'].to_s
-        #   ),
-        #   similarities: match_similarities
-        # }
         assets << {
           asset: {
             ticker: symbol['symbol']&.upcase,
