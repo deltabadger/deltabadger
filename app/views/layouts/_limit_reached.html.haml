@@ -1,5 +1,4 @@
 - if current_user.show_limit_reached_navbar?
-  .container.db-alert-container--upgrade
-    .alert.alert-primary.db-alert--flex
-      %span= t('subscriptions.limit_reached_html')
-      = link_to t('subscriptions.upgrade'), upgrade_path, class: 'sbutton sbutton--primary'
+  .alert.alert-primary.db-alert--flex
+    %span= t('subscriptions.limit_reached_html')
+    = link_to t('subscriptions.upgrade'), upgrade_path, class: 'sbutton sbutton--primary'
