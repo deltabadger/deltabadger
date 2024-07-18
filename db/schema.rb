@@ -73,6 +73,8 @@ ActiveRecord::Schema.define(version: 2024_07_18_111929) do
     t.string "api_id"
     t.string "category"
     t.string "url"
+    t.string "country"
+    t.string "exchange"
     t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
   end
 
