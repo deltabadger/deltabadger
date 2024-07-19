@@ -5,27 +5,32 @@
     &__asset
         padding-bottom: 2rem
         width: 100%
+        display: flex
+        flex-direction: column
+        gap: .25rem
         &-wrapper
             display: flex
             align-items: flex-end
             gap: 1rem
         &__info
             display: grid
-            grid-template-columns: 3fr 1fr 10rem
+            grid-template-columns: 3fr 1fr 11rem
             gap: 1rem
             &__input
                 background: var(--widget-background)
                 width: 100%
                 border: none
                 text-align: right
-                padding: 0 1rem 0 0
+                padding: .125rem 1rem 0 0
                 border-radius: 1rem
                 font-weight: 700
+                line-height: 2.875rem
                 &--percentage
-                    padding-right: 2.5rem
+                    padding-right: 3rem
                     &+ .basket__asset__info__input-suffix
                         position: absolute
-                        right: .5rem
+                        top: .125rem
+                        right: .75rem
                         z-index: 10
                         color: var(--label)
                         font-weight: 500
