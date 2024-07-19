@@ -35,8 +35,10 @@ class Portfolio < ApplicationRecord
     @smart_allocations ||= begin
       smart_allocations_result = PortfolioAnalyzerManager::SmartAllocationsGetter.call(self)
       if smart_allocations_result.failure?
+        puts "smart_allocations_result.errors #{smart_allocations_result.errors}"
         self.class.risk_levels.keys.map { |_| [] }
       else
+        puts "smart_allocations_result.data #{smart_allocations_result.data}"
         smart_allocations_result.data
       end
     end
@@ -47,11 +49,7 @@ class Portfolio < ApplicationRecord
   end
 
   def total_allocation
-    if smart_allocation_on?
-      assets.map { |asset| smart_allocations[risk_level_int][asset.api_id] }.sum.round(4)
-    else
-      assets.map(&:allocation).sum.round(4)
-    end
+    assets.map(&:effective_allocation).sum.round(4)
   end
 
   def allocations_are_normalized?
@@ -112,7 +110,7 @@ class Portfolio < ApplicationRecord
   end
 
   def active_assets
-    @active_assets ||= if smart_allocation_on? && !smart_allocations[risk_level_int].empty?
+    @active_assets ||= if assets.present? && smart_allocation_on? && !smart_allocations[risk_level_int].empty?
                          ordered_assets.select do |asset|
                            smart_allocations.map { |sa| sa[asset.api_id] }.sum.positive?
                          end
@@ -145,7 +143,7 @@ class Portfolio < ApplicationRecord
     text += 'This is my portfolio: '
     text += 'Assets:'
     assets.each do |asset|
-      text += " #{asset.ticker} #{(asset.allocation * 100).round(2)}%"
+      text += " #{asset.ticker} #{(asset.effective_allocation * 100).round(2)}%"
     end
     text += '. '
     text += "Benchmark: #{benchmark_name}. "
@@ -199,11 +197,7 @@ class Portfolio < ApplicationRecord
 
   def backtest_cache_key
     assets_str = ordered_assets.map(&:api_id).sort.join('_')
-    allocations_str = if smart_allocation_on?
-                        ordered_assets.map { |asset| smart_allocations[risk_level_int][asset.api_id] }.join('_')
-                      else
-                        ordered_assets.map(&:allocation).join('_')
-                      end
+    allocations_str = ordered_assets.map(&:effective_allocation).join('_')
     "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 

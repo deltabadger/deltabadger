@@ -3,7 +3,6 @@
 <%= tag.div id: "#{id_prefix}_#{dom_id(asset)}", class: "basket__asset-wrapper" do %>
   <% asset_color = asset.color || "#F7931A" %>
   <% adjusted_color = ensure_contrast(asset_color) %>
-  <% asset_allocation = asset.portfolio.smart_allocation_on? ? asset.portfolio.smart_allocations[asset.portfolio.risk_level_int][asset.api_id] : asset.allocation %>
 
   <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset", onchange: "requestSubmit();" },
     data: {
@@ -27,16 +26,16 @@
         <%# form.text_field :amount_input_text, class: "basket__asset__info__input" %>
       </div>
       <div style="position: relative">
-        <%= form.text_field :allocation_input_text, value: (asset_allocation * 100).round(2), data: { portfolio_analyzer__asset_allocation_target: "allocationInputText", action: "change->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "basket__asset__info__input basket__asset__info__input--percentage" %>
+        <%= form.text_field :allocation_input_text, value: (asset.effective_allocation * 100).round(2), data: { portfolio_analyzer__asset_allocation_target: "allocationInputText", action: "change->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "basket__asset__info__input basket__asset__info__input--percentage" %>
         <span class="basket__asset__info__input-suffix">%</span>
       </div>
     </div>
 
     <div class="slider">
-      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset_allocation, class: "slider__input numeric-input", data: { portfolio_analyzer__asset_allocation_target: "allocation", action: "input->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
+      <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.effective_allocation, class: "slider__input numeric-input", data: { portfolio_analyzer__asset_allocation_target: "allocation", action: "input->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
       <div class="slider__style">
         <%= tag.div class: "slider__style__track", style: "border-left-color: #{adjusted_color};" do %>
-          <%= tag.div class: "slider__style__progress", style: "width: #{asset_allocation * 100}%; background: #{adjusted_color};", data: { portfolio_analyzer__asset_allocation_target: "allocationSlider" } do %>
+          <%= tag.div class: "slider__style__progress", style: "width: #{asset.effective_allocation * 100}%; background: #{adjusted_color};", data: { portfolio_analyzer__asset_allocation_target: "allocationSlider" } do %>
             <%= tag.div class: "slider__style__thumb", style: "background: #{adjusted_color};" do %>
             <% end %>
           <% end %>

@@ -29,7 +29,7 @@
   data: {
     controller: "portfolio-analyzer--risk-level-allocations",
     portfolio_analyzer__risk_level_allocations_risk_levels_value: Portfolio.humanized_risk_levels,
-    portfolio_analyzer__risk_level_allocations_smart_allocations_value: portfolio.smart_allocation_on? ? portfolio.smart_allocations : [],
+    portfolio_analyzer__risk_level_allocations_smart_allocations_value: portfolio.assets.present? && portfolio.smart_allocation_on? ? portfolio.smart_allocations : [],
   } do |form| %>
     <div class="flex-row space-between">
       <div class="label label--select ellipsis">
