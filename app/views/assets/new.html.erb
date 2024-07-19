@@ -31,7 +31,7 @@
               <%= asset[:name] %>
               <% if asset[:url].present? %>
                 <%= link_to asset[:url], target: '_blank', rel: 'noopener noreferrer' do %>
-                  <<%= render partial: 'svg/24x24_external-link'< %>
+                  <%= render partial: 'svg/24x24_external-link' %>
                 <% end %>
               <% end %>
               <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset[:country] %></span>
