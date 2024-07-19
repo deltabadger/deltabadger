@@ -21,14 +21,14 @@ export default class extends Controller {
       newValue = Math.min(1, Math.max(0, isRangeInput ? formattedInput : formattedInput / 100));
     }
     this.allocationTarget.value = newValue;
-    this.allocationInputTextTarget.value = (newValue * 100).toFixed(0);
+    this.allocationInputTextTarget.value = (newValue * 100).toFixed(2);
     this.allocationSliderTarget.style.width = String(newValue * 100) + '%';
   }
 
   #handleRiskLevelUpdated = (event) => {
     if (this.assetApiIdValue in event.detail) {
       this.allocationTarget.value = event.detail[this.assetApiIdValue];
-      this.allocationInputTextTarget.value = (event.detail[this.assetApiIdValue] * 100).toFixed(0);
+      this.allocationInputTextTarget.value = (event.detail[this.assetApiIdValue] * 100).toFixed(2);
       this.allocationSliderTarget.style.width = String(event.detail[this.assetApiIdValue] * 100) + '%';
     }
   }
