@@ -72,11 +72,11 @@
       </div>
     </div>
     <div class="slider">
-      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: Portfolio.risk_levels[portfolio.risk_level], class: "slider__input", data: { action: "input->portfolio-analyzer--risk-level-allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.assets.empty? %>
+      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: portfolio.risk_level_int, class: "slider__input", data: { action: "input->portfolio-analyzer--risk-level-allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.assets.empty? %>
       <div class="slider__style">
         <% disabled_color = "#8894B6" %> <%# TODO: move this to css variable? %>
         <% slider_color = portfolio.smart_allocation_on? ? "#2948A1" : disabled_color %>
-        <% slider_width = (Portfolio.risk_levels[portfolio.risk_level] / (Portfolio.risk_levels.size - 1).to_f) * 100 %>
+        <% slider_width = (portfolio.risk_level_int / (Portfolio.risk_levels.size - 1).to_f) * 100 %>
         <%= tag.div class: "slider__style__track", style: "border-left-color: #{slider_color};" do %>
           <%= tag.div class: "slider__style__progress", style: "width: #{slider_width}%; background: #{slider_color};", data: { portfolio_analyzer__risk_level_allocations_target: "riskLevelSlider" } do %>
             <%= tag.div class: "slider__style__thumb", style: "background: #{slider_color};" %>

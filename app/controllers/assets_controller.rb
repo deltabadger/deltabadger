@@ -104,7 +104,6 @@ class AssetsController < ApplicationController
   end
 
   def set_backtest_data
-    @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
   end
 

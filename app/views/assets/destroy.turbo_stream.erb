@@ -13,7 +13,8 @@
 <% if @portfolio.allocations_are_normalized? || @portfolio.assets.empty? %>
   <%= render_turbo_stream_backtest_results(@backtest, @portfolio) %>
 <% end %>
-<% if @asset.allocation != 0 || @portfolio.assets.empty? %>
+<% asset_allocation = @asset.portfolio.smart_allocation_on? ? @asset.portfolio.smart_allocations[asset.portfolio.risk_level_int][@asset.api_id] : @asset.allocation %>
+<% if asset_allocation != 0 || @portfolio.assets.empty? %>
   <%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @portfolio } %>
 <% end %>
 <%= render_turbo_stream_flash_messages %>
