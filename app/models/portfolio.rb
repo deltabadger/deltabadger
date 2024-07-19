@@ -35,10 +35,8 @@ class Portfolio < ApplicationRecord
     @smart_allocations ||= begin
       smart_allocations_result = PortfolioAnalyzerManager::SmartAllocationsGetter.call(self)
       if smart_allocations_result.failure?
-        puts "smart_allocations_result.errors #{smart_allocations_result.errors}"
         self.class.risk_levels.keys.map { |_| [] }
       else
-        puts "smart_allocations_result.data #{smart_allocations_result.data}"
         smart_allocations_result.data
       end
     end
