@@ -4,6 +4,8 @@ require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
 
+  get 'sso', to: 'sso#sso'
+
   get 'errors/not_found'
   get 'errors/internal_server_error'
   match "/404", to: "errors#redirect_to_root", via: :all
