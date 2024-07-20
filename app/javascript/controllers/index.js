@@ -37,5 +37,8 @@ application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartControlle
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
 
+import NestedLinkInButtonController from "./nested_link_in_button_controller"
+application.register("nested-link-in-button", NestedLinkInButtonController)
+
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
