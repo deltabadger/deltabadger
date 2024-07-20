@@ -16,15 +16,12 @@
       <div class="basket__asset__info">
         <div class="basket__asset__info__name">
           <div class="ellipsis"><%= asset.name %></div>
-          <small style="opacity: 0.5; font-weight: bold"><%= asset.ticker %></small>
+          <div class="basket__asset__info__ticker"><%= asset.ticker %></div>
         </div>
-        <%# <div class="basket__asset__info__value">
-          $1,210,012.01
-        </div> %>
-        <div>
+        <div class="basket__asset__info__amount">
           <%# form.text_field :amount_input_text, class: "basket__asset__info__input" %>
         </div>
-        <div style="position: relative">
+        <div class="basket__asset__info__allocation">
           <%= form.text_field :allocation_input_text, value: sprintf('%.2f', asset.effective_allocation * 100), data: { portfolio_analyzer__asset_allocation_target: "allocationInputText", action: "change->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "basket__asset__info__input basket__asset__info__input--percentage" %>
           <span class="basket__asset__info__input-suffix">%</span>
         </div>
