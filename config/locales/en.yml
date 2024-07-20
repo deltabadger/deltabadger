@@ -112,6 +112,7 @@ en:
             subject: 'Oops! Next try…'
             template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
+        hodler_only: 'Hodler and Legendary Badger only'
         above: above
         add_new_bot: 'Add new bot'
         below: below
@@ -830,6 +831,7 @@ en:
         soon: 'soon'
         new: 'New'
         important: 'Important!'
+        see_at_coingecko: 'See at CoinGecko'
     alert:
         portfolio:
             invalid_benchmark: "Invalid benchmark value."

@@ -131,35 +131,21 @@ select:disabled, input:disabled
   &--select
     width: auto
 
-  &--hodler-only, &--legendary_badger-only
-    color: var(--pickExchangeItemInactive) !important
-    cursor: default
-    box-shadow: none
-    &:hover
-      color: var(--pickExchangeItemInactive) !important
-      background: var(--pickExchangeItemBg) !important
-      box-shadow: none !important
-    &--before
-      background: var(--primary)
-      color: #fff !important
+  &--hodler-only--before, &--legendary_badger-only--before
+    position: absolute
+    left: 0
+    right: 0
+    display: flex
+    justify-content: center
+    bottom: -1.5rem
+    a
+      font-size: 0.9em
+      padding: 0 1.5rem
+      border-radius: 2rem
+      background: $primary !important
+      color: white !important
       text-decoration: none !important
-      position: absolute
-      bottom: -.8rem
-      left: 25%
-      line-height: 1.8rem
-      font-size: 1.2rem
-      padding-left: .9rem
-      padding-right: .9rem
-      border-radius: 1.2rem
-      &:visited
-        text-decoration: none
-        color: #fff
-      &:hover
-        text-decoration: none
-        color: #fff
-      &:active
-        text-decoration: none
-        color: #fff
+      
 
 
 .db-bot
