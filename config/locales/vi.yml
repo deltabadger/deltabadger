@@ -106,6 +106,7 @@ vi:
             subject: 'Ồ! Bạn hãy thử lại nhé... 🧐'
             template_html: "<p>Ôi trời 🧐,</p>\n<p>Bot đã không thể thực hiện lệnh của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử lại lần nữa trong %{delay}.</p>\n<p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui lòng đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
+        hodler_only: 'Chỉ Hodler và Legendary Badger'
         above: 'trên đây'
         add_new_bot: 'Thêm bot mới'
         below: 'dưới đây'
@@ -767,6 +768,7 @@ vi:
         soon: 'sắp ra mắt'
         new: 'Mới'
         important: 'Quan trọng!'
+        see_at_coingecko: 'Xem trên CoinGecko'
     alert:
         portfolio:
             invalid_benchmark: "Giá trị tiêu chuẩn không hợp lệ."

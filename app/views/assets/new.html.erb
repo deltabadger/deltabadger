@@ -30,7 +30,7 @@
             <div class="modal--search__cell modal--search__cell--name">
               <%= asset[:name] %>
               <% if asset[:url].present? %>
-                <%= link_to asset[:url], target: '_blank', rel: 'noopener noreferrer', data: { controller: 'nested-link-in-button', action: 'click->nested-link-in-button#click', nested_link_in_button_target: "link_to" } do %>
+                <%= link_to asset[:url], target: '_blank', rel: 'noopener noreferrer', title: t('utils.see_at_coingecko'), data: { controller: 'nested-link-in-button', action: 'click->nested-link-in-button#click', nested_link_in_button_target: "link_to" } do %>
                   <%= render partial: 'svg/24x24_external-link' %>
                 <% end %>
               <% end %>

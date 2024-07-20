@@ -106,6 +106,7 @@ zh-cn:
             subject: '糟糕！再试一次… 🧐'
             template_html: "<p>天哪 🧐，</p>\n<p>机器人无法执行您的订单。<br>似乎发生了交易所问题。<br>我们将在 %{delay} 后重试。</p>\n<p>所有错误可在机器人日志中查看。<br>登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
+        hodler_only: '仅 Hodler 和 Legendary Badger'
         above: 高于
         add_new_bot: 添加新的机器人
         below: 低于
@@ -756,11 +757,12 @@ zh-cn:
             adjusted_both_html: "回测时间窗口已调整为<strong>%{start_date}</strong>到<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
             adjusted_start_html: "回测开始日期已调整为<strong>%{start_date}</strong>，以适应所有资产的可用历史记录。"
             adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
-        utils:
+    utils:
         soon: '即将推出'
         new: '新'
         important: '重要！'
-        alert:
+        see_at_coingecko: '查看 CoinGecko'
+    alert:
         portfolio:
             invalid_benchmark: "无效的基准值。"
             invalid_strategy: "无效的策略值。"

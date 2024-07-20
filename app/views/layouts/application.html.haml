@@ -167,15 +167,14 @@
     #cookie_consent
 
     = render 'layouts/navbar'
-    .db-content-body.content-below-menu
+    .main
+      = render 'layouts/banners/welcome_message'
+      = render 'layouts/banners/news_message'
+      = render 'layouts/banners/referral_message'
+      = render 'layouts/limit_reached'
+      = yield
       .container
-        = render 'layouts/banners/welcome_message'
-        = render 'layouts/banners/news_message'
-        = render 'layouts/banners/referral_message'
-        = render 'layouts/limit_reached'
-        = yield
-    .container
-      = render 'layouts/footer'
+        = render 'layouts/footer'
 
     #current_user_subscription{ data: current_user.subscription_name }
 

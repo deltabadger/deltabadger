@@ -83,6 +83,7 @@ pt:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
     bots:
+        hodler_only: 'Apenas Hodler e Legendary Badger'
         above: acima
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
@@ -689,6 +690,7 @@ pt:
         soon: 'em breve'
         new: 'Novo'
         important: 'Importante!'
+        see_at_coingecko: 'Ver no CoinGecko'
     alert:
         portfolio:
             invalid_benchmark: "Valor de referência inválido."
