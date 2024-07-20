@@ -109,6 +109,7 @@ fr:
             subject: 'Oups ! Prochain essai...'
             template_html: '<p>Le robot n''a pas pu exécuter votre ordre. On dirait qu''il s''agit d''un problème d''exchange. Nous réessayerons dans %{delay}.</p><p>Toutes les erreurs sont visibles dans le journal du robot. Connectez-vous pour vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
+        hodler_only: 'Seulement Hodler et Legendary Badger'
         above: 'au dessus'
         add_new_bot: 'Ajouter un nouveau bot'
         below: 'en dessous'
@@ -799,6 +800,7 @@ fr:
         soon: 'bientôt'
         new: 'Nouveau'
         important: 'Important !'
+        see_at_coingecko: 'Voir sur CoinGecko'
     alert:
         portfolio:
             invalid_benchmark: "Valeur de référence invalide."

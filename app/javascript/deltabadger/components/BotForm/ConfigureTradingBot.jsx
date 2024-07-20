@@ -498,7 +498,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
-              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
+              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
             </div>
           </label>
 
@@ -533,7 +533,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 size={ Math.max(priceRange.high.length, 1) }
               />
               <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[2]}</RawHTML>
-              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
+              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
             </div>
           </label>
 

@@ -83,6 +83,7 @@ de:
         first_month_ending_soon:
             subject: 'Dein Probemonat endet bald!'
     bots:
+        hodler_only: 'Nur Hodler und Legendary Badger'
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'
         below: unter
@@ -725,6 +726,7 @@ de:
         soon: 'bald'
         new: 'neu'
         important: 'Wichtig!'
+        see_at_coingecko: 'Siehe bei CoinGecko'
     alert:
         portfolio:
             invalid_benchmark: "Ungültiger Benchmark-Wert."

@@ -482,7 +482,7 @@ const BotTemplate = ({
               type="text"
               value={percentage}
               size={(percentage.length > 0) ? percentage.length : 1}
-              className="bot-input bot-input--sizable"
+              className="bot-input bot-input--sizable" 
               onChange={e => setPercentage(e.target.value)}
               onBlur={validatePercentage}
               disabled={working || !showLimitOrders || !isLimitSelected()}
@@ -490,7 +490,7 @@ const BotTemplate = ({
               className="hide-when-running">*</sup>
 
               { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }
-              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
+              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
             </div>
           </label>
 
@@ -525,7 +525,7 @@ const BotTemplate = ({
                 size={ Math.max(priceRange.high.length, 1) }
               />
               <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: settings.quote}))[2]}</RawHTML>
-              { !showLimitOrders && <a href={`/${document.body.dataset.locale}/upgrade`} className="bot input bot-input--hodler-only--before">Hodler and Legendary Badger only</a> }
+              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
             </div>
           </label>
         </form>
