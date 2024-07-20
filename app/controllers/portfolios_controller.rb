@@ -172,9 +172,8 @@ class PortfoliosController < ApplicationController
   end
 
   def set_backtest_data
-    @portfolio.set_smart_allocations! if @portfolio.smart_allocation_on?
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
-    return unless @portfolio.smart_allocation_on? && !@portfolio.allocations_are_smart?
+    return unless @portfolio.smart_allocation_on? && @portfolio.smart_allocations[0].empty?
 
     # show flash message if the data API server is unreachable.
     flash.now[:alert] = t('alert.portfolio.unable_to_calculate')
@@ -195,7 +194,7 @@ class PortfoliosController < ApplicationController
       risk_free_rate_result = @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
       if risk_free_rate_result.errors.first != 'Invalid Risk Free Rate Key.'
         risk_free_rate_name = Portfolio::RISK_FREE_RATES[params[:risk_free_rate_shortcut].to_sym][:name]
-        flash.now[:alert] = t('alert.portfolio.unable_to_set_risk_rate', risk_free_rate_name: risk_free_rate_name) + " " + t('alert.portfolio.api_unreachable')
+        flash.now[:alert] = "#{t('alert.portfolio.unable_to_set_risk_rate', risk_free_rate_name: risk_free_rate_name)} #{t('alert.portfolio.api_unreachable')}"
         nil
       else
         risk_free_rate_result.data

@@ -47,7 +47,7 @@ class Portfolio < ApplicationRecord
   end
 
   def total_allocation
-    assets.map(&:allocation).sum.round(4)
+    assets.map(&:effective_allocation).sum.round(4)
   end
 
   def allocations_are_normalized?
@@ -65,22 +65,6 @@ class Portfolio < ApplicationRecord
     end
     new_allocations = correct_normalized_allocations(new_allocations)
     batch_update_allocations!(new_allocations)
-  end
-
-  def set_smart_allocations!
-    return if allocations_are_smart? || assets.empty?
-
-    new_allocations = smart_allocations[Portfolio.risk_levels[risk_level].to_i]
-    return if new_allocations.empty?
-
-    batch_update_allocations!(new_allocations)
-  end
-
-  def allocations_are_smart?
-    return false unless Rails.cache.exist?(smart_allocations_cache_key)
-
-    current_allocations = Hash[assets.map { |a| [a.api_id, a.allocation] }]
-    smart_allocations[Portfolio.risk_levels[risk_level].to_i] == current_allocations
   end
 
   def backtest
@@ -115,12 +99,16 @@ class Portfolio < ApplicationRecord
     PortfolioAnalyzerManager::FinancialDataApiErrorParser.call(cached_result)
   end
 
+  def risk_level_int
+    Portfolio.risk_levels[risk_level]
+  end
+
   def ordered_assets
     @ordered_assets ||= assets.order(:id)
   end
 
   def active_assets
-    @active_assets ||= if smart_allocation_on? && !smart_allocations[Portfolio.risk_levels[risk_level].to_i].empty?
+    @active_assets ||= if assets.present? && smart_allocation_on? && !smart_allocations[risk_level_int].empty?
                          ordered_assets.select do |asset|
                            smart_allocations.map { |sa| sa[asset.api_id] }.sum.positive?
                          end
@@ -153,7 +141,7 @@ class Portfolio < ApplicationRecord
     text += 'This is my portfolio: '
     text += 'Assets:'
     assets.each do |asset|
-      text += " #{asset.ticker} #{(asset.allocation * 100).round(2)}%"
+      text += " #{asset.ticker} #{(asset.effective_allocation * 100).round(2)}%"
     end
     text += '. '
     text += "Benchmark: #{benchmark_name}. "
@@ -207,7 +195,7 @@ class Portfolio < ApplicationRecord
 
   def backtest_cache_key
     assets_str = ordered_assets.map(&:api_id).sort.join('_')
-    allocations_str = ordered_assets.map(&:allocation).join('_')
+    allocations_str = ordered_assets.map(&:effective_allocation).join('_')
     "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 

@@ -25,16 +25,16 @@
           <%# form.text_field :amount_input_text, class: "basket__asset__info__input" %>
         </div>
         <div style="position: relative">
-          <%= form.text_field :allocation_input_text, value: sprintf('%.2f', asset.allocation * 100), data: { portfolio_analyzer__asset_allocation_target: "allocationInputText", action: "change->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "basket__asset__info__input basket__asset__info__input--percentage" %>
+          <%= form.text_field :allocation_input_text, value: sprintf('%.2f', asset.effective_allocation * 100), data: { portfolio_analyzer__asset_allocation_target: "allocationInputText", action: "change->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on?, class: "basket__asset__info__input basket__asset__info__input--percentage" %>
           <span class="basket__asset__info__input-suffix">%</span>
         </div>
       </div>
 
       <div class="slider">
-        <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.allocation, class: "slider__input numeric-input", data: { portfolio_analyzer__asset_allocation_target: "allocation", action: "input->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
+        <%= form.range_field :allocation, in: 0.0..1.0, step: 0.01, value: asset.effective_allocation, class: "slider__input numeric-input", data: { portfolio_analyzer__asset_allocation_target: "allocation", action: "input->portfolio-analyzer--asset-allocation#updateAssetAllocation" }, disabled: asset.portfolio.smart_allocation_on? %>
         <div class="slider__style">
           <%= tag.div class: "slider__style__track", style: "border-left-color: #{adjusted_color};" do %>
-            <%= tag.div class: "slider__style__progress", style: "width: #{asset.allocation * 100}%; background: #{adjusted_color};", data: { portfolio_analyzer__asset_allocation_target: "allocationSlider" } do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{asset.effective_allocation * 100}%; background: #{adjusted_color};", data: { portfolio_analyzer__asset_allocation_target: "allocationSlider" } do %>
               <%= tag.div class: "slider__style__thumb", style: "background: #{adjusted_color};" do %>
               <% end %>
             <% end %>
