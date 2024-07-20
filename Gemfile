@@ -10,6 +10,7 @@ gem "attr_encrypted", "~> 3.1.0"
 gem 'bootsnap', '>= 1.4.2', require: false
 gem 'date', "= 3.3.3"
 gem 'devise'
+gem 'discourse_api'
 gem 'dotenv-rails'
 gem 'dotiw'
 gem 'faraday'
