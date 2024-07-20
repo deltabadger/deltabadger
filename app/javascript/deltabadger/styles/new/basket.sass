@@ -1,7 +1,6 @@
 .basket
     display: flex
     flex-direction: column
-    // gap: 1rem                // use this workaround for smooth animations
     &__asset
         width: 100%
         display: flex
@@ -14,7 +13,7 @@
             padding-bottom: 2rem
         &__info
             display: grid
-            grid-template-columns: 3fr 1fr 11rem
+            grid-template-columns: 3fr 1fr 11rem 
             gap: 1rem
             &__input
                 background: var(--widget-background)
@@ -49,6 +48,8 @@
                 font-weight: bold
                 opacity: 0.5
                 font-size: 0.75em
+                position: relative
+                top: 0.5rem
     &__remove
         &__icon
             stroke: var(--label)
