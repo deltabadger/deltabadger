@@ -15,6 +15,7 @@
             display: grid
             grid-template-columns: 3fr 1fr 11rem 
             gap: 1rem
+            height: 3rem
             &__input
                 background: var(--widget-background)
                 width: 100%
@@ -28,7 +29,7 @@
                     padding-right: 3.25rem
                     &+ .basket__asset__info__input-suffix
                         position: absolute
-                        top: .25rem
+                        top: .125rem
                         right: 1rem
                         z-index: 10
                         color: var(--label)
@@ -39,6 +40,8 @@
             &__value
                 text-align: right
                 padding-right: 3rem
+            &__allocation
+                position: relative
             &__name
                 font-weight: bold
                 display: flex

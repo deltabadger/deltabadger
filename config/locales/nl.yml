@@ -109,6 +109,7 @@ nl:
             subject: 'Oeps! Volgende poging...'
             template_html: '<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem bij de exchange. We proberen het opnieuw in %{delay}.</p><p>Alle errors zijn zichtbaar in het logboek van de bot. Log in om dit te controleren.</p><p>Errors:</p><blockquote><b>%{exchange}:%{base}%{quote}</b> <b> %{errors}</b></blockquote>'
     bots:
+        hodler_only: 'Alleen Hodler en Legendary Badger'
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
         below: onder
@@ -799,6 +800,7 @@ nl:
         soon: 'binnenkort'
         new: 'Nieuw'
         important: 'Belangrijk!'
+        see_at_coingecko: 'Zie op CoinGecko'
     alert:
         portfolio:
             invalid_benchmark: "Ongeldige benchmarkwaarde."
