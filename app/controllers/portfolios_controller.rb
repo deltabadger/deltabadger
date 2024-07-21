@@ -173,7 +173,7 @@ class PortfoliosController < ApplicationController
 
   def set_backtest_data
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
-    return unless @portfolio.smart_allocation_on? && @portfolio.smart_allocations[0].empty?
+    return unless @portfolio.smart_allocation_on? && @portfolio.assets.present? && @portfolio.smart_allocations[0].empty?
 
     # show flash message if the data API server is unreachable.
     flash.now[:alert] = t('alert.portfolio.unable_to_calculate')
