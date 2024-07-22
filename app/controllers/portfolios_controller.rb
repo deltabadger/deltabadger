@@ -103,7 +103,6 @@ class PortfoliosController < ApplicationController
 
   def toggle_smart_allocation
     if @portfolio.update(smart_allocation_on: portfolio_params[:smart_allocation_on])
-      puts "smart allocation on: #{portfolio_params[:smart_allocation_on]}, @portfolio.smart_allocation_on: #{@portfolio.smart_allocation_on}"
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
