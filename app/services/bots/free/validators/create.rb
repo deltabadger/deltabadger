@@ -36,6 +36,7 @@ module Bots::Free::Validators
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
       validate :plan_allowed_symbol
+      validate :plan_allowed_bot
       validates :interval, inclusion: { in: INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -96,6 +97,12 @@ module Bots::Free::Validators
         return if @paid_plan || symbol.in?(free_plan_symbols)
 
         errors.add(:symbol, "#{symbol} is not supported in your subscription")
+      end
+
+      def plan_allowed_bot
+        return if @user.unlimited? || @user.bots.where(status: 'working').count.zero?
+
+        errors.add(:base, 'Saver plan allows only one bot')
       end
 
       def hodler_or_legendary_badger_if_limit_order
