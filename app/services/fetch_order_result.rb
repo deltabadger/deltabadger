@@ -144,7 +144,7 @@ class FetchOrderResult < BaseService
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   def called_bot_type(bot, called_bot)
-    bot.send(called_bot == 'additional_bot'? 'additional_type' : 'type')
+    bot.send(called_bot == 'additional_bot' ? 'additional_type' : 'type')
   end
 
   def fixing_transaction?(price)
