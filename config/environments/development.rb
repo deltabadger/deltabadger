@@ -69,6 +69,4 @@ Rails.application.configure do
 
   routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
 
-  config.hosts << "1674-2001-7d0-82d0-4880-40e0-5055-2d2e-be56.ngrok-free.app"
-
 end
