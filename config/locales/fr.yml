@@ -393,6 +393,12 @@ fr:
         other: '%{count} jours restants'
     deltabadger: 'Deltabadger'
     devise:
+        risk_down: 'Réduire le risque.'
+        gains_up: 'Augmenter les gains.'
+        dca: 'Moyenne du Coût en Dollars'
+        analysis: 'Analyser le Portefeuille avec IA'
+        tracking: 'Suivi de Portefeuille (bientôt)'
+        rebalancing: 'Rééquilibrage de Portefeuille (bientôt)'
         confirmations:
             confirmed: 'Votre adresse e-mail a été confirmée avec succès.'
             new:
