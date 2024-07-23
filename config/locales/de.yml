@@ -359,6 +359,12 @@ de:
         read_more: 'Weitere Informationen'
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Risiko senken.'
+        gains_up: 'Gewinne steigern.'
+        dca: 'Durchschnittskostenmethode'
+        analysis: 'Portfolio mit KI analysieren'
+        tracking: 'Portfolio-Verfolgung (bald)'
+        rebalancing: 'Portfolio-Neuausrichtung (bald)'
         confirmations:
             confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigen.'
             new:

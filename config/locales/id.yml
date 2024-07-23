@@ -372,6 +372,12 @@ id:
         other: ''
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Kurangi risiko.'
+        gains_up: 'Tingkatkan keuntungan.'
+        dca: 'Rata-rata Biaya Dolar'
+        analysis: 'Analisis Portofolio dengan AI'
+        tracking: 'Pelacakan Portofolio (segera)'
+        rebalancing: 'Penyeimbangan Portofolio (segera)'
         confirmations:
             confirmed: 'Alamat email Anda berhasil dikonfirmasi.'
             new:
