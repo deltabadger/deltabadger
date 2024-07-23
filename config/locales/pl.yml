@@ -395,6 +395,12 @@ pl:
         other: 'Pozostało %{count} dni'
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Zmniejsz ryzyko.'
+        gains_up: 'Zwiększ zyski.'
+        dca: 'Dollar-Cost Averaging'
+        analysis: 'Analizuj portfel z AI'
+        tracking: 'Śledzenie portfela (wkrótce)'
+        rebalancing: 'Rebalansowanie portfela (wkrótce)'
         confirmations:
             confirmed: 'Twój adres e-mail został pomyślnie potwierdzony.'
             new:
