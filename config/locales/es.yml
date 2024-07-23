@@ -393,6 +393,12 @@ es:
         other: '%{count} días restantes'
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Reducir riesgo.'
+        gains_up: 'Aumentar ganancias.'
+        dca: 'Promedio de Costos en Dólares'
+        analysis: 'Analizar Portafolio con IA'
+        tracking: 'Seguimiento de Portafolio (pronto)'
+        rebalancing: 'Rebalanceo de Portafolio (pronto)'
         confirmations:
             confirmed: 'Tu dirección de correo electrónico se ha confirmado correctamente.'
             new:
