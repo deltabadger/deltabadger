@@ -104,5 +104,7 @@ Rails.application.configure do
   }
   routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
 
+  config.hosts << "community.deltabadger.com"
+
   config.exceptions_app = self.routes
 end
