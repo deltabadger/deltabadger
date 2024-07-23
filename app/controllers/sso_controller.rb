@@ -27,7 +27,7 @@ class SsoController < ApplicationController
       return render plain: 'No user logged in', status: :unauthorized
     end
 
-    temp_username = user.email.split('@').first if user.email.present?
+    temp_username = "badger#{user.id}"
 
     if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
       Rails.logger.error 'User attribute is missing'
