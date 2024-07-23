@@ -340,6 +340,12 @@ pt:
         read_more: 'Sabe mais'
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Reduzir risco.'
+        gains_up: 'Aumentar ganhos.'
+        dca: 'Média do Custo em Dólares'
+        analysis: 'Analisar Portfólio com IA'
+        tracking: 'Rastreamento de Portfólio (em breve)'
+        rebalancing: 'Rebalanceamento de Portfólio (em breve)'
         confirmations:
             confirmed: 'O seu endereço de e-mail foi confirmado com sucesso.'
             new:
