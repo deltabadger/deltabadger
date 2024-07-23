@@ -84,7 +84,7 @@ class User < ApplicationRecord
 
   def active_subscription
     now = Time.current
-    subscriptions.where('end_time > ?', now).order(end_time: :desc).first_or_create do |sub|
+    subscriptions.where('end_time > ?', now).order(subscription_plan_id: :desc, end_time: :desc).first_or_create do |sub|
       saver_plan = SubscriptionPlansRepository.new.saver
       sub.subscription_plan = saver_plan
       sub.end_time = now + saver_plan.duration
