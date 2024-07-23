@@ -102,7 +102,7 @@ module Bots::Free::Validators
       def plan_allowed_bot
         return if @user.unlimited? || @user.bots.where(status: 'working').count.zero?
 
-        errors.add(:base, 'Saver plan allows only one bot')
+        errors.add(:base, "#{@user.subscription_name.capitalize} plan allows only one bot")
       end
 
       def hodler_or_legendary_badger_if_limit_order
