@@ -59,6 +59,14 @@
     .container.container--signup
       .row{ style: "min-height: 74rem" }
         .d-none.d-lg-block.col-lg-6
-          %h1 Gains up.<br>Risk down.
+          %h1 
+            = t('devise.risk_down')
+            <br>
+            = t('devise.gains_up') 
+
+          %ul{style: "margin-left: 2.5rem; margin-top: 5rem; color: var(--primary); font-weight: bold; font-size: 2.5rem"}
+            %li{style:"margin-bottom: 1rem"}= t('devise.dca')
+            %li{style:"margin-bottom: 1rem"}= t('devise.analysis')
+            %li{style:"margin-bottom: 5rem"}= t('devise.tracking')
         .col-12.col-lg-6
           = yield
