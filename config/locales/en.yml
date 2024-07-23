@@ -421,6 +421,12 @@ en:
         other: '%{count} days left'
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Risk down.'
+        gains_up: 'Gains up.'
+        dca: 'Dollar-Cost Averaging'
+        analysis: 'Analyse Portfolio with AI'
+        tracking: 'Portfolio Tracking (soon)'
+        rebalancing: 'Portfolio Rebalancing (soon)'
         confirmations:
             confirmed: 'Your email address has been successfully confirmed.'
             new:
