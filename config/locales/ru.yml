@@ -375,6 +375,12 @@ ru:
         other: ''
     deltabadger: Deltabadger
     devise:
+        risk_down: 'Снижение риска.'
+        gains_up: 'Увеличение прибыли.'
+        dca: 'Средневзвешенная стоимость доллара'
+        analysis: 'Анализ портфеля с ИИ'
+        tracking: 'Отслеживание портфеля (скоро)'
+        rebalancing: 'Ребалансировка портфеля (скоро)'
         confirmations:
             confirmed: 'Ваш адрес электронной почты успешно подтвержден.'
             new:
