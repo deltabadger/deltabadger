@@ -38,6 +38,8 @@ class Exchange < ApplicationRecord
   private
 
   def filter_free_plan_symbols(symbols)
+    return symbols # disable free plan symbols limitation
+
     is_kraken = name.downcase == 'kraken'
     btc_eth = is_kraken ? %w[XBT ETH LTC XMR] : %w[BTC ETH LTC XMR]
     symbols.select { |s| btc_eth.include?(s.base) }
