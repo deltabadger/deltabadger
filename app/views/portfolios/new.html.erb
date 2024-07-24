@@ -1,9 +1,13 @@
-<main class="container">
-  <%= link_to sanitize("&larr; Back to portfolios"), portfolios_path %>
+<%= link_to sanitize("&larr; Back to portfolios"), portfolios_path %>
 
-  <div class="header">
-    <h1>New portfolio</h1>
+<%= render 'layouts/turbo_modal' do %>
+  <button data-action="modals#animateOutCloseAndCleanUp">Cancel</button>
+  <div class="modal--search modal--search__background">
+
+    <div class="header">
+      <h1>New portfolio</h1>
+    </div>
+
+    <%= render "form", portfolio: @portfolio %>
   </div>
-
-  <%= render "form", portfolio: @portfolio %>
-</main>
+<% end %>

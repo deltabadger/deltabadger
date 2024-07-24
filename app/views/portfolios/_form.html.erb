@@ -1,11 +1,11 @@
-<%= form_with model: portfolio do |form| %>
+<%= form_with model: portfolio, data: { turbo_frame: "portfolio", action: "turbo:submit-end->modals#submitEnd" } do |form| %>
   <% if portfolio.errors.any? %>
     <div class="error-message">
       <%= portfolio.errors.full_messages.to_sentence.capitalize %>
     </div>
   <% end %>
 
-  <%= form.text_field :label, autofocus: true %>
+  <%= form.text_field :label, autofocus: true, data: { controller: "autofocus" } %>
   <%= form.hidden_field :id, value: portfolio.id %>
   <%= form.submit "Save" %>
 <% end %>

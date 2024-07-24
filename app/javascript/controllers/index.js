@@ -7,6 +7,9 @@ import { application } from "./application"
 import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
 application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 
+import AutofocusController from "./autofocus_controller"
+application.register("autofocus", AutofocusController)
+
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
@@ -25,6 +28,9 @@ application.register("hotwire-animations", HotwireAnimationsController)
 import ModalsController from "./modals_controller"
 application.register("modals", ModalsController)
 
+import NestedLinkInButtonController from "./nested_link_in_button_controller"
+application.register("nested-link-in-button", NestedLinkInButtonController)
+
 import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
 application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
 
@@ -36,9 +42,6 @@ application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartControlle
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
-
-import NestedLinkInButtonController from "./nested_link_in_button_controller"
-application.register("nested-link-in-button", NestedLinkInButtonController)
 
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)

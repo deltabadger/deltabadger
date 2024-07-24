@@ -165,7 +165,6 @@
 
   %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: yield(:body_class)}
     #cookie_consent
-    = turbo_frame_tag 'modal'
     #flash.flash
       = render 'layouts/flash'
 
@@ -179,3 +178,4 @@
 
     #current_user_subscription{ data: current_user.subscription_name }
 
+    = turbo_frame_tag 'modal'
