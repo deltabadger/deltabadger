@@ -1,42 +1,38 @@
 <div class="page-head">
   <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
-    New Portfolio <%= render "svg/16x16_down" %>
+    <%= @portfolio.label || 'Default Portfolio' %>
+    <%= render "svg/16x16_down" %>
     <div class="dropdown">
-      <span class="dropdown__item" style="color: var(--label)">Add Portfolio (soon)</span>
-    </div>
-  </div>
-</div>
-
-<!--
-
-<div class="page-head">
-  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
-    New Portfolio <%= render "svg/16x16_down" %>
-    <div class="dropdown">
-      <a href="" class="dropdown__item">New +</a> <%# Opens a modal to pick a name and currency of the portfolio. In the future, also exchange to synchronize. %>
-      <div class="dropdown__item dropdown__item--divider"></div>
-      <a href="" class="dropdown__item">Binance</a>
-      <a href="" class="dropdown__item">Trezor</a>
-      <a href="" class="dropdown__item">Stock Exchange</a>
+      <%= link_to "New +", new_portfolio_path, class: "dropdown__item" %> <%# Opens a modal to pick a name and currency of the portfolio. In the future, also exchange to synchronize. %>
+      <% other_portfolios = @portfolios.order(:id).select { |portfolio| @portfolio.id != portfolio.id } %>
+      <% if other_portfolios.any? %>
+        <div class="dropdown__item dropdown__item--divider"></div>
+        <% other_portfolios.each do |portfolio| %>
+          <%= link_to portfolio.label || 'Default Portfolio', portfolio_path(portfolio), class: "dropdown__item" %>
+        <% end %>
+      <% end %>
     </div>
   </div>
   <div class="flex-row">
     <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
       <%= render "svg/24x24_dot_menu" %>
       <div class="dropdown">
-        <a href="" class="dropdown__item">Change name</a> <%# Opens a modal to change the name. %>
-        <a href="" class="dropdown__item">Change currency</a> <%# Opens a modal to change the currency. %>
-        <a href="" class="dropdown__item">Duplicate</a> <%# Opens a modal to pick a name of the copy. %>
-        <a href="" class="dropdown__item">Stop tracking</a> <%# Only if portfolio is being tracked. %>
+        <%= link_to "Change name", edit_portfolio_path(@portfolio), class: "dropdown__item" %> <%# Opens a modal to change the name. %>
+        <%# <a href="" class="dropdown__item">Change currency</a> Opens a modal to change the currency. %>
+        <%# <a href="" class="dropdown__item">Duplicate</a> Opens a modal to pick a name of the copy. %>
+        <%# <a href="" class="dropdown__item">Stop tracking</a> Only if portfolio is being tracked. %>
 
         <div class="dropdown__item dropdown__item--divider"></div>
-        <a href="" class="dropdown__item dropdown__item--danger">Delete</a> <%# Opens "Are you sure?" modal. %>
+
+        <%= button_to portfolio_path(@portfolio), method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo_confirm: "Are you sure?" } do %>
+          Delete
+        <% end %>
       </div>
     </div>
   </div>
 </div>
 
-
+<!--
 
 <%# Newly created portfolio can be added to the Tracker (or stay only in the Analyzer). %>
 
@@ -74,7 +70,7 @@
 
 <div class="columns">
   <div class="column gap-6">
-    
+
     <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
       <!--<div class="portfolio-value">

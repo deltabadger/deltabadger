@@ -3,15 +3,12 @@ class PortfoliosController < ApplicationController
 
   layout 'analyzer'
   before_action :authenticate_user!
-  before_action :set_portfolio
+  before_action :set_portfolio, except: %i[new create]
   before_action :set_last_assets, except: %i[update_risk_level]
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations]
 
-  def index
-    @portfolios = current_user.portfolios.all
-  end
-
   def show
+    @portfolios = current_user.portfolios.all
     set_backtest_data
   end
 
@@ -23,7 +20,7 @@ class PortfoliosController < ApplicationController
     @portfolio = Portfolio.new(default_portfolio_params.merge(portfolio_params))
 
     if @portfolio.save
-      redirect_to portfolios_path, notice: 'Portfolio was successfully created.'
+      redirect_to portfolio_path(@portfolio), notice: 'Portfolio was successfully created.'
     else
       render :new
     end
@@ -34,7 +31,7 @@ class PortfoliosController < ApplicationController
 
   def update
     if @portfolio.update(portfolio_params)
-      redirect_to portfolios_path, notice: 'Portfolio was successfully updated.'
+      redirect_to portfolio_path(@portfolio), notice: 'Portfolio was successfully updated.'
     else
       render :edit
     end
@@ -42,6 +39,7 @@ class PortfoliosController < ApplicationController
 
   def destroy
     @portfolio.destroy
+    session[:portfolio_id] = nil
     redirect_to portfolios_path, notice: 'Portfolio was successfully destroyed.'
   end
 
@@ -194,8 +192,16 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
-    # TODO: store portfolio in session and use it in the views
-    @portfolio = current_user.portfolios.first
+    if params[:id].present?
+      @portfolio = current_user.portfolios.find(params[:id])
+    elsif params[:portfolio_id].present?
+      @portfolio = current_user.portfolios.find(params[:portfolio_id])
+    elsif session[:portfolio_id].present?
+      @portfolio = current_user.portfolios.find(session[:portfolio_id])
+    else
+      @portfolio = current_user.portfolios.first
+    end
+    session[:portfolio_id] = @portfolio.id
     return if @portfolio.present?
 
     @portfolio = Portfolio.new(default_portfolio_params)
