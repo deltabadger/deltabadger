@@ -1,11 +1,16 @@
 .alertbox
-    border-radius: 2rem
+    border-radius: 1rem
     box-shadow: 0 0.5rem 2rem 0 rgba(0,0,0,0.12)
     display: flex
     padding: 3rem
     overflow: hidden
     position: relative
     margin-bottom: 1rem
+    &__text-column
+        @media screen and (min-width: 1170px)
+            max-width: 100rem
+        @media screen and (max-width: 1169.9px)
+            padding-bottom: 15rem
     .close
         font-size: 2rem
         opacity: 1
@@ -17,10 +22,15 @@
     &--news
         background: var(--alertbox-news-background)
         color: var(--alertbox-news-color)
-        padding-bottom: 12rem
     &--primary
-        background: $primary
+        background: linear-gradient(150deg, rgb(41 72 161) 0%, #1e3985 100%)
         color: white
+        .close
+            *
+                fill: #fff
+    &--welcome
+        .db-art__elem--basic
+            fill: white
     &--success
         background: var(--success-semitransparent)
     ul,ol

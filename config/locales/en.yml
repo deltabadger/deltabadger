@@ -419,7 +419,7 @@ en:
         start: Start
         starting: Starting
         stop: Pause
-        subaccounts_info: 'Use subaccount '
+        subaccounts_info: 'Use subaccount'
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
