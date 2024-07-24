@@ -148,6 +148,20 @@ pt:
         hour: Hora
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
+        messages:
+            symbol_not_supported: "%{symbol} não é suportado"
+            symbol_not_supported_subscription: "%{symbol} não é suportado pela sua assinatura"
+            upgrade_plan_more_bots: "Atualize seu plano para executar mais bots"
+            upgrade_plan_limit_orders: "Atualize seu plano para usar ordens limitadas"
+            specify_percentage_limit_order: "Especifique a porcentagem ao criar uma ordem limitada"
+            smart_intervals_above_minimum: "O valor dos intervalos inteligentes deve ser maior que %{minimum}"
+            invalid_price_range: "A faixa de preço é inválida"
+            upgrade_price_range: "Atualize para usar a faixa de preço"
+            subaccounts_not_allowed: "Subcontas não são permitidas nesta troca"
+            no_subaccount_name: "Nenhum nome de subconta fornecido"
+            wrong_subaccount_name: "Nome de subconta incorreto"
+        minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum}%{currency}."
+        minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum}USD."
         month: Mês
         next_buy: 'Próxima compra em %{countdown}'
         next_sell: 'Próxima venda em %{countdown}'
