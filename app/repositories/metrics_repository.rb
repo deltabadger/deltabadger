@@ -31,11 +31,18 @@ class MetricsRepository < BaseRepository
   end
 
   def metrics_data
+    Rails.logger.info('Fetching metrics data from Redis 0')
     metrics_response = @redis_client.get(METRICS_KEY)
+    Rails.logger.info("Fetching metrics data from Redis 1 #{metrics_response.inspect}")
     bots_in_profit_response = @redis_client.get(BOTS_IN_PROFIT_KEY)
+    Rails.logger.info("Fetching bots in profit data from Redis #{bots_in_profit_response.inspect}")
     data = {}
+    Rails.logger.info("Fetching metrics data from Redis 2 #{data.inspect}")
     data.merge!(JSON.parse(metrics_response)) if metrics_response.present?
+    Rails.logger.info("Fetching metrics data from Redis 3 #{data.inspect}")
     data.merge!(JSON.parse(bots_in_profit_response)) if bots_in_profit_response.present?
+    Rails.logger.info("Fetching metrics data from Redis 4 #{data.inspect}")
+    data
   end
 
   private
