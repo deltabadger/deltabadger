@@ -175,8 +175,20 @@ zh-cn:
         hour: 小时
         limit_buy: 限价购买
         limit_sell: 限价出售
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
+        messages:
+            symbol_not_supported: "%{symbol} 不支持"
+            symbol_not_supported_subscription: "%{symbol} 不在您的订阅中支持"
+            upgrade_plan_more_bots: "升级您的计划以运行更多机器人"
+            upgrade_plan_limit_orders: "升级您的计划以使用限价单"
+            specify_percentage_limit_order: "创建限价单时指定百分比"
+            smart_intervals_above_minimum: "智能间隔值应大于 %{minimum}"
+            invalid_price_range: "价格范围无效"
+            upgrade_price_range: "升级以使用价格范围"
+            subaccounts_not_allowed: "此交易所不允许使用子账户"
+            no_subaccount_name: "未提供子账户名称"
+            wrong_subaccount_name: "子账户名称错误"
+        minimum_withdrawal_disclaimer: "最低提款金额为 %{minimum}%{currency}。"
+        minimum_withdrawal_disclaimer_usd: "最低提款金额为 %{minimum}USD。"
         month: 月
         next_buy: '%{countdown} 后下次买入'
         next_sell: '%{countdown} 后下次出售'

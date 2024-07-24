@@ -175,8 +175,20 @@ id:
         hour: Jam
         limit_buy: 'Beli limit'
         limit_sell: 'Jual limit'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
+        messages:
+            symbol_not_supported: "%{symbol} tidak didukung"
+            symbol_not_supported_subscription: "%{symbol} tidak didukung oleh langganan Anda"
+            upgrade_plan_more_bots: "Tingkatkan paket Anda untuk menjalankan lebih banyak bot"
+            upgrade_plan_limit_orders: "Tingkatkan paket Anda untuk menggunakan pesanan batas"
+            specify_percentage_limit_order: "Tentukan persentase saat membuat pesanan batas"
+            smart_intervals_above_minimum: "Nilai interval pintar harus lebih besar dari %{minimum}"
+            invalid_price_range: "Rentang harga tidak valid"
+            upgrade_price_range: "Tingkatkan untuk menggunakan rentang harga"
+            subaccounts_not_allowed: "Subakun tidak diizinkan di bursa ini"
+            no_subaccount_name: "Tidak ada nama subakun yang disediakan"
+            wrong_subaccount_name: "Nama subakun salah"
+        minimum_withdrawal_disclaimer: "Ukuran penarikan minimum adalah %{minimum}%{currency}."
+        minimum_withdrawal_disclaimer_usd: "Ukuran penarikan minimum adalah %{minimum}USD."
         month: Bulan
         next_buy: 'Beli berikutnya dalam %{countdown}'
         next_sell: 'Jual berikutnya dalam %{countdown}'

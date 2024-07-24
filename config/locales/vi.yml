@@ -175,8 +175,20 @@ vi:
         hour: Giờ
         limit_buy: 'Lệnh chờ mua'
         limit_sell: 'Lệnh chờ bán'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
+        messages:
+            symbol_not_supported: "%{symbol} không được hỗ trợ"
+            symbol_not_supported_subscription: "%{symbol} không được hỗ trợ bởi gói đăng ký của bạn"
+            upgrade_plan_more_bots: "Nâng cấp gói của bạn để chạy nhiều bot hơn"
+            upgrade_plan_limit_orders: "Nâng cấp gói của bạn để sử dụng lệnh giới hạn"
+            specify_percentage_limit_order: "Chỉ định phần trăm khi tạo lệnh giới hạn"
+            smart_intervals_above_minimum: "Giá trị khoảng thời gian thông minh phải lớn hơn %{minimum}"
+            invalid_price_range: "Khoảng giá không hợp lệ"
+            upgrade_price_range: "Nâng cấp để sử dụng khoảng giá"
+            subaccounts_not_allowed: "Tài khoản phụ không được phép trên sàn giao dịch này"
+            no_subaccount_name: "Không cung cấp tên tài khoản phụ"
+            wrong_subaccount_name: "Tên tài khoản phụ sai"
+        minimum_withdrawal_disclaimer: "Kích thước rút tiền tối thiểu là %{minimum}%{currency}."
+        minimum_withdrawal_disclaimer_usd: "Kích thước rút tiền tối thiểu là %{minimum}USD."
         month: Tháng
         next_buy: 'Lần mua tiếp theo trong %{countdown}'
         next_sell: 'Lần bán tiếp theo trong %{countdown}'
