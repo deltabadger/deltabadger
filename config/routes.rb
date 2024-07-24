@@ -129,7 +129,8 @@ Rails.application.routes.draw do
     get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
-    resources :portfolios, path: '/portfolio-analyzer' do
+    get '/portfolio-analyzer', to: 'portfolios#show' # in the future, use only portfolios which can be automated etc.
+    resources :portfolios, except: [:index], path: '/portfolio-analyzer' do
       resources :assets, only: [:new, :create, :destroy, :update]
       patch :toggle_smart_allocation
       patch :update_risk_level
