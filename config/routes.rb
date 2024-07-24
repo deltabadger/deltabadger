@@ -139,6 +139,7 @@ Rails.application.routes.draw do
       patch :update_backtest_start_date
       patch :update_risk_free_rate
       post :normalize_allocations
+      post :duplicate
     end
   end
 
