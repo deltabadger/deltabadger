@@ -178,6 +178,18 @@ fr:
         hour: 'Heure'
         limit_buy: 'Achat limité'
         limit_sell: 'Vente limitée'
+        messages:
+            symbol_not_supported: "%{symbol} n''est pas pris en charge"
+            symbol_not_supported_subscription: "%{symbol} n''est pas pris en charge par votre abonnement"
+            upgrade_plan_more_bots: "Mettez à jour votre plan pour exécuter plus de bots"
+            upgrade_plan_limit_orders: "Mettez à jour votre plan pour utiliser des ordres limités"
+            specify_percentage_limit_order: "Spécifiez le pourcentage lors de la création d''un ordre limité"
+            smart_intervals_above_minimum: "La valeur des intervalles intelligents doit être supérieure à %{minimum}"
+            invalid_price_range: "La fourchette de prix est invalide"
+            upgrade_price_range: "Mettez à jour pour utiliser la fourchette de prix"
+            subaccounts_not_allowed: "Les sous-comptes ne sont pas autorisés sur cet échange"
+            no_subaccount_name: "Aucun nom de sous-compte fourni"
+            wrong_subaccount_name: "Nom de sous-compte incorrect"
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum}%{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'

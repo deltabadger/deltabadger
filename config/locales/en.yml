@@ -192,6 +192,18 @@ en:
         hour: Hour
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
+        messages:
+            symbol_not_supported: "%{symbol} is not supported"
+            symbol_not_supported_subscription: "%{symbol} is not supported in your subscription"
+            upgrade_plan_more_bots: "Upgrade your plan to run more bots"
+            upgrade_plan_limit_orders: "Upgrade your plan to use Limit Orders"
+            specify_percentage_limit_order: "Specify percentage when creating a limit order"
+            smart_intervals_above_minimum: "Smart intervals value should be greater than %{minimum}"
+            invalid_price_range: "Price range is invalid"
+            upgrade_price_range: "Upgrade to use Price Range"
+            subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
+            no_subaccount_name: "No subaccount name supplied"
+            wrong_subaccount_name: "Wrong subaccount name"
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum}USD.'
         month: Month
