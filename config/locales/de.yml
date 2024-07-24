@@ -151,6 +151,18 @@ de:
         hour: Stunde
         limit_buy: 'Limit Kauf'
         limit_sell: 'Limit Verkauf'
+        messages:
+            symbol_not_supported: "%{symbol} wird nicht unterstützt"
+            symbol_not_supported_subscription: "%{symbol} wird von deinem Abonnement nicht unterstützt"
+            upgrade_plan_more_bots: "Aktualisiere deinen Plan, um mehr Bots auszuführen"
+            upgrade_plan_limit_orders: "Aktualisiere deinen Plan, um Limit-Orders zu verwenden"
+            specify_percentage_limit_order: "Gib den Prozentsatz bei der Erstellung einer Limit-Order an"
+            smart_intervals_above_minimum: "Der Wert der intelligenten Intervalle sollte größer als %{minimum} sein"
+            invalid_price_range: "Der Preisbereich ist ungültig"
+            upgrade_price_range: "Aktualisiere, um den Preisbereich zu verwenden"
+            subaccounts_not_allowed: "Unterkonten sind auf diesem Austausch nicht erlaubt"
+            no_subaccount_name: "Kein Unterkontoname angegeben"
+            wrong_subaccount_name: "Falscher Unterkontoname"
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat
