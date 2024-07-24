@@ -1,0 +1,9 @@
+<main class="container">
+  <%= link_to sanitize("&larr; Back to portfolios"), portfolios_path %>
+
+  <div class="header">
+    <h1>New portfolio</h1>
+  </div>
+
+  <%= render "form", portfolio: @portfolio %>
+</main>

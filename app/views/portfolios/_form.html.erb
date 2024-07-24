@@ -1,0 +1,11 @@
+<%= form_with model: portfolio do |form| %>
+  <% if portfolio.errors.any? %>
+    <div class="error-message">
+      <%= portfolio.errors.full_messages.to_sentence.capitalize %>
+    </div>
+  <% end %>
+
+  <%= form.text_field :label, autofocus: true %>
+  <%= form.hidden_field :id, value: portfolio.id %>
+  <%= form.submit "Save" %>
+<% end %>

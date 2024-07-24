@@ -7,8 +7,42 @@ class PortfoliosController < ApplicationController
   before_action :set_last_assets, except: %i[update_risk_level]
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations]
 
+  def index
+    @portfolios = current_user.portfolios.all
+  end
+
   def show
     set_backtest_data
+  end
+
+  def new
+    @portfolio = Portfolio.new
+  end
+
+  def create
+    @portfolio = Portfolio.new(default_portfolio_params.merge(portfolio_params))
+
+    if @portfolio.save
+      redirect_to portfolios_path, notice: 'Portfolio was successfully created.'
+    else
+      render :new
+    end
+  end
+
+  def edit
+  end
+
+  def update
+    if @portfolio.update(portfolio_params)
+      redirect_to portfolios_path, notice: 'Portfolio was successfully updated.'
+    else
+      render :edit
+    end
+  end
+
+  def destroy
+    @portfolio.destroy
+    redirect_to portfolios_path, notice: 'Portfolio was successfully destroyed.'
   end
 
   def update_benchmark
@@ -149,6 +183,7 @@ class PortfoliosController < ApplicationController
 
   def portfolio_params
     params.require(:portfolio).permit(
+      :label,
       :benchmark,
       :strategy,
       :backtest_start_date,
@@ -159,15 +194,20 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
+    # TODO: store portfolio in session and use it in the views
     @portfolio = current_user.portfolios.first
     return if @portfolio.present?
 
-    @portfolio = Portfolio.new(
+    @portfolio = Portfolio.new(default_portfolio_params)
+    @portfolio.save
+  end
+
+  def default_portfolio_params
+    {
       user: current_user,
       backtest_start_date: 1.year.ago.to_date.to_s,
       risk_free_rate: 0.0435
-    )
-    @portfolio.save
+    }
   end
 
   def set_backtest_data
