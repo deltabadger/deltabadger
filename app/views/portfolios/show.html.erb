@@ -4,7 +4,7 @@
       <%= @portfolio.label || 'Default Portfolio' %>
       <%= render "svg/16x16_down" %>
       <div class="dropdown">
-        <%= link_to "New +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %> <%# Opens a modal to pick a name and currency of the portfolio. In the future, also exchange to synchronize. %>
+        <%= link_to "New +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
         <% other_portfolios = @portfolios.order(:id).select { |portfolio| @portfolio.id != portfolio.id } %>
         <% if other_portfolios.any? %>
           <div class="dropdown__item dropdown__item--divider"></div>
@@ -18,10 +18,9 @@
       <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
         <%= render "svg/24x24_dot_menu" %>
         <div class="dropdown">
-          <%= link_to "Change name", edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %> <%# Opens a modal to change the name. %>
+          <%= link_to "Change name", edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+          <%= button_to "Duplicate", portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
           <%# <a href="" class="dropdown__item">Change currency</a> Opens a modal to change the currency. %>
-          <%= button_to "Duplicate", portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %> <%# Opens a modal to change the name. %>
-          <%# <a href="" class="dropdown__item">Duplicate</a> Opens a modal to pick a name of the copy. %>
           <%# <a href="" class="dropdown__item">Stop tracking</a> Only if portfolio is being tracked. %>
 
           <div class="dropdown__item dropdown__item--divider"></div>
