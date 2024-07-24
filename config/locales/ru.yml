@@ -175,8 +175,20 @@ ru:
         hour: Час
         limit_buy: 'Лимитная покупка'
         limit_sell: 'Лимитная продажа'
-        minimum_withdrawal_disclaimer: ''
-        minimum_withdrawal_disclaimer_usd: ''
+        messages:
+            symbol_not_supported: "%{symbol} не поддерживается"
+            symbol_not_supported_subscription: "%{symbol} не поддерживается вашей подпиской"
+            upgrade_plan_more_bots: "Обновите план, чтобы запускать больше ботов"
+            upgrade_plan_limit_orders: "Обновите план, чтобы использовать лимитные ордера"
+            specify_percentage_limit_order: "Укажите процент при создании лимитного ордера"
+            smart_intervals_above_minimum: "Значение умных интервалов должно быть больше, чем %{minimum}"
+            invalid_price_range: "Диапазон цен недействителен"
+            upgrade_price_range: "Обновите, чтобы использовать диапазон цен"
+            subaccounts_not_allowed: "Субаккаунты не разрешены на этой бирже"
+            no_subaccount_name: "Не указано имя субаккаунта"
+            wrong_subaccount_name: "Неправильное имя субаккаунта"
+        minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum}%{currency}."
+        minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum}USD."
         month: Месяц
         next_buy: 'Следующая покупка через %{countdown}'
         next_sell: 'Следующая продажа через %{countdown}'

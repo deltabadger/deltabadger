@@ -178,6 +178,18 @@ nl:
         hour: Uur
         limit_buy: 'Limiet aankoop'
         limit_sell: 'Limiet verkoop'
+        messages:
+            symbol_not_supported: "%{symbol} wordt niet ondersteund"
+            symbol_not_supported_subscription: "%{symbol} wordt niet ondersteund door je abonnement"
+            upgrade_plan_more_bots: "Upgrade je plan om meer bots te draaien"
+            upgrade_plan_limit_orders: "Upgrade je plan om limietorders te gebruiken"
+            specify_percentage_limit_order: "Geef het percentage op bij het maken van een limietorder"
+            smart_intervals_above_minimum: "De waarde van slimme intervallen moet groter zijn dan %{minimum}"
+            invalid_price_range: "De prijsklasse is ongeldig"
+            upgrade_price_range: "Upgrade om de prijsklasse te gebruiken"
+            subaccounts_not_allowed: "Subaccounts zijn niet toegestaan op deze uitwisseling"
+            no_subaccount_name: "Geen subaccountnaam opgegeven"
+            wrong_subaccount_name: "Verkeerde subaccountnaam"
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum}%{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum}USD.'
         month: Maand

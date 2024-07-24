@@ -89,32 +89,32 @@ module Bots::Free::Validators
         symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
         return if symbol.in?(allowed_symbols)
 
-        errors.add(:symbol, "#{symbol} is not supported")
+        errors.add(:symbol, I18n.t('bots.messages.symbol_not_supported', symbol: symbol))
       end
 
       def plan_allowed_symbol
         symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
         return if @paid_plan || symbol.in?(free_plan_symbols)
 
-        errors.add(:symbol, "#{symbol} is not supported in your subscription")
+        errors.add(:symbol, I18n.t('bots.messages.symbol_not_supported_subscription', symbol: symbol))
       end
 
       def plan_allowed_bot
         return if @user.unlimited? || @user.bots.where(status: 'working').count.zero?
 
-        errors.add(:base, "#{@user.subscription_name.capitalize} plan allows only one bot")
+        errors.add(:base, I18n.t('bots.messages.upgrade_plan_more_bots'))
       end
 
       def hodler_or_legendary_badger_if_limit_order
         return if hodler || legendary_badger || order_type == 'market'
 
-        errors.add(:base, 'Limit orders are an hodler and legendary_badger only functionality')
+        errors.add(:base, I18n.t('bots.messages.upgrade_plan_limit_orders'))
       end
 
       def percentage_if_limit_order
         return if order_type == 'market' || (order_type == 'limit' && percentage.present?)
 
-        errors.add(:base, 'Specify percentage when creating a limit order')
+        errors.add(:base, I18n.t('bots.messages.specify_percentage_limit_order'))
       end
 
       def smart_intervals_above_minimum
@@ -128,13 +128,13 @@ module Bots::Free::Validators
 
         return if @smart_intervals_value.to_f >= @minimum.to_f
 
-        errors.add(:smart_intervals_value, " should be greater than #{@minimum}")
+        errors.add(:smart_intervals_value, I18n.t('bots.messages.smart_intervals_above_minimum', minimum: @minimum))
       end
 
       def validate_price_range
         return if !@price_range_enabled || price_range_valid?
 
-        errors.add(:price_range, ' is invalid')
+        errors.add(:price_range, I18n.t('bots.messages.invalid_price_range'))
       end
 
       def price_range_valid?
@@ -150,20 +150,20 @@ module Bots::Free::Validators
       def hodler_or_legendary_badger_if_price_range
         return if hodler || legendary_badger || !@price_range_enabled
 
-        errors.add(:base, 'Price range is a hodler and legendary badger only functionality')
+        errors.add(:base, I18n.t('bots.messages.upgrade_price_range'))
       end
 
       def validate_use_subaccount
         return unless @use_subaccount && !subaccounts_allowed_exchange
 
-        errors.add(:use_subaccount, 'Subaccounts not allowed on this exchange')
+        errors.add(:use_subaccount, I18n.t('bots.messages.subaccounts_not_allowed'))
       end
 
       def validate_subaccount_name
         return unless @use_subaccount
 
         if @selected_subaccount.nil? || @selected_subaccount.empty?
-          errors.add(:selected_subaccount, 'No subaccount name supplied')
+          errors.add(:selected_subaccount, I18n.t('bots.messages.no_subaccount_name'))
           return
         end
 
@@ -172,7 +172,7 @@ module Bots::Free::Validators
 
         return if (subaccounts.success? && subaccounts.data.include?(@selected_subaccount)) || subaccounts.failure?
 
-        errors.add(:selected_subaccount, 'Wrong subaccount name')
+        errors.add(:selected_subaccount, I18n.t('bots.messages.wrong_subaccount_name'))
       end
 
       def get_api_keys(user, exchange_id)
