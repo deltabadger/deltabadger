@@ -43,6 +43,30 @@ class PortfoliosController < ApplicationController
     redirect_to portfolios_path, notice: 'Portfolio was successfully destroyed.'
   end
 
+  def duplicate
+    ActiveRecord::Base.transaction do
+      new_portfolio = @portfolio.dup
+      new_portfolio.label = "#{new_portfolio.label} (copy)"
+      unless new_portfolio.save
+        raise ActiveRecord::Rollback, "Portfolio duplication failed"
+      end
+      @portfolio.assets.each do |asset|
+        new_asset = asset.dup
+        new_asset.portfolio = new_portfolio
+        unless new_asset.save
+          raise ActiveRecord::Rollback, "Asset duplication failed"
+        end
+      end
+      @portfolio = new_portfolio
+    end
+
+    if @portfolio.persisted?
+      render :edit, notice: 'Portfolio was successfully duplicated.'
+    else
+      redirect_to portfolio_analyzer_path, alert: 'Unable to duplicate portfolio.'
+    end
+  end
+
   def update_benchmark
     new_benchmark = portfolio_params[:benchmark]
     return head :ok if @portfolio.benchmark == new_benchmark
