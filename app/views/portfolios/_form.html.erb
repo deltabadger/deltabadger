@@ -1,0 +1,14 @@
+<%= form_with model: portfolio, class: "modal__form", data: { turbo_frame: "portfolio", action: "turbo:submit-end->modals#submitEnd" } do |form| %>
+  
+<div class="db-form__row db-form__row--input">
+  <%= form.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input db-form__input--empty" %>
+  <% if portfolio.errors.any? %>
+    <div class="db-form__info db-form__info--invalid">
+      <%= portfolio.errors.full_messages.to_sentence.capitalize %>
+    </div>
+  <% end %>
+  <label class="db-form__label" for="user_email"><%= t('analyzer.portfolio_name') %></label>
+</div>
+<%= form.hidden_field :id, value: portfolio.id %>
+<%= form.submit t('utils.save'), class: "btn btn-success btn-lg" %>
+<% end %>

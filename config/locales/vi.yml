@@ -759,6 +759,9 @@ vi:
             short_info: 'Sự đa dạng của các khoản đầu tư khác nhau trong danh mục đầu tư của bạn để phân tán rủi ro.'
             best: 'Đa dạng hóa tốt nhất'
     analyzer:
+        default_portfolio: 'Danh mục đầu tư mặc định'
+        change_portfolio_name: 'Đổi tên'
+        new_portfolio: 'Danh mục đầu tư mới'
         total_value: 'Tổng giá trị'
         no_assets: 'Bắt đầu bằng cách thêm tài sản mới.'
         assets_dont_coexist: 'Không thể kiểm tra lại danh mục đầu tư này. Các tài sản bạn đã chọn chưa bao giờ cùng tồn tại kể từ %{backtest_start_date}!'
@@ -783,10 +786,15 @@ vi:
                 adjusted_start_html: "Ngày bắt đầu kiểm tra lại đã được điều chỉnh thành <strong>%{start_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
                 adjusted_end_html: "Ngày kết thúc kiểm tra lại đã được điều chỉnh thành <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
     utils:
-        soon: 'sắp ra mắt'
-        new: 'Mới'
+        are_you_sure: 'Bạn có chắc không?'
+        change_name: 'Đổi tên'
+        delete: 'Xóa'
+        duplicate: 'Nhân bản'
         important: 'Quan trọng!'
+        new: 'Mới'
+        save: 'Lưu'
         see_at_coingecko: 'Xem trên CoinGecko'
+        soon: 'sắp ra mắt'
     alert:
         portfolio:
             invalid_benchmark: "Giá trị tiêu chuẩn không hợp lệ."
@@ -801,3 +809,9 @@ vi:
             smart_allocation_updated: "Phân bổ thông minh đã được cập nhật."
             unable_to_set_risk_rate: "Không thể đặt lãi suất phi rủi ro thành %{risk_free_rate_name}."
             api_unreachable: "Máy chủ dữ liệu API không thể truy cập."
+            portfolio_created: 'Danh mục đầu tư đã được tạo thành công.'
+            portfolio_updated: 'Danh mục đầu tư đã được cập nhật thành công.'
+            portfolio_destroyed: 'Danh mục đầu tư đã được xóa thành công.'
+            portfolio_duplicated: 'Danh mục đầu tư đã được nhân bản thành công.'
+            unable_to_duplicate_portfolio: 'Không thể nhân bản danh mục đầu tư.'
+

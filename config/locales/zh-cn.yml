@@ -752,6 +752,9 @@ zh-cn:
             short_info: '您的投资组合中不同投资的多样性，以分散风险。'
             best: '最佳多样化'
     analyzer:
+        default_portfolio: '默认投资组合'
+        change_portfolio_name: '更改名称'
+        new_portfolio: '新投资组合'
         total_value: '总价值'
         no_assets: '通过添加新资产开始。'
         assets_dont_coexist: '无法对该投资组合进行回测。自%{backtest_start_date}以来，您选择的资产从未共存过！'
@@ -776,10 +779,15 @@ zh-cn:
             adjusted_start_html: "回测开始日期已调整为<strong>%{start_date}</strong>，以适应所有资产的可用历史记录。"
             adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
     utils:
-        soon: '即将推出'
-        new: '新'
+        are_you_sure: '你确定吗？'
+        change_name: '更改名称'
+        delete: '删除'
+        duplicate: '复制'
         important: '重要！'
+        new: '新'
+        save: '保存'
         see_at_coingecko: '查看 CoinGecko'
+        soon: '即将推出'
     alert:
         portfolio:
             invalid_benchmark: "无效的基准值。"
@@ -794,4 +802,10 @@ zh-cn:
             smart_allocation_updated: "智能分配已更新。"
             unable_to_set_risk_rate: "无法将无风险利率设置为%{risk_free_rate_name}。"
             api_unreachable: "数据API服务器无法访问。"
+            portfolio_created: '投资组合已成功创建。'
+            portfolio_updated: '投资组合已成功更新。'
+            portfolio_destroyed: '投资组合已成功删除。'
+            portfolio_duplicated: '投资组合已成功复制。'
+            unable_to_duplicate_portfolio: '无法复制投资组合。'
+
 

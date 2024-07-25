@@ -3,12 +3,64 @@ class PortfoliosController < ApplicationController
 
   layout 'analyzer'
   before_action :authenticate_user!
-  before_action :set_portfolio
+  before_action :set_portfolio, except: %i[new create]
   before_action :set_last_assets, except: %i[update_risk_level]
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations]
 
   def show
+    @portfolios = current_user.portfolios.all
     set_backtest_data
+  end
+
+  def new
+    @portfolio = Portfolio.new
+  end
+
+  def create
+    @portfolio = Portfolio.new(default_portfolio_params.merge(portfolio_params))
+
+    if @portfolio.save
+      redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_created')
+    else
+      render :new
+    end
+  end
+
+  def edit; end
+
+  def update
+    if @portfolio.update(portfolio_params)
+      redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_updated')
+    else
+      render :edit
+    end
+  end
+
+  def destroy
+    @portfolio.destroy
+    session[:portfolio_id] = nil
+    redirect_to portfolios_path, notice: t('alert.portfolio.portfolio_destroyed')
+  end
+
+  def duplicate
+    ActiveRecord::Base.transaction do
+      new_portfolio = @portfolio.dup
+      new_portfolio.label = "#{new_portfolio.label} copy"
+      raise ActiveRecord::Rollback, 'Portfolio duplication failed' unless new_portfolio.save
+
+      @portfolio.assets.each do |asset|
+        new_asset = asset.dup
+        new_asset.portfolio = new_portfolio
+        raise ActiveRecord::Rollback, 'Asset duplication failed' unless new_asset.save
+      end
+      @portfolio = new_portfolio
+    end
+
+    if @portfolio.persisted?
+      render :edit, notice: t('alert.portfolio.portfolio_duplicated')
+    else
+      redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.unable_to_duplicate_portfolio')
+    end
   end
 
   def update_benchmark
@@ -149,6 +201,7 @@ class PortfoliosController < ApplicationController
 
   def portfolio_params
     params.require(:portfolio).permit(
+      :label,
       :benchmark,
       :strategy,
       :backtest_start_date,
@@ -159,15 +212,28 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
-    @portfolio = current_user.portfolios.first
+    @portfolio = if params[:id].present?
+                   current_user.portfolios.find(params[:id])
+                 elsif params[:portfolio_id].present?
+                   current_user.portfolios.find(params[:portfolio_id])
+                 elsif session[:portfolio_id].present?
+                   current_user.portfolios.find(session[:portfolio_id])
+                 else
+                   current_user.portfolios.first
+                 end
+    session[:portfolio_id] = @portfolio.id
     return if @portfolio.present?
 
-    @portfolio = Portfolio.new(
+    @portfolio = Portfolio.new(default_portfolio_params)
+    @portfolio.save
+  end
+
+  def default_portfolio_params
+    {
       user: current_user,
       backtest_start_date: 1.year.ago.to_date.to_s,
       risk_free_rate: 0.0435
-    )
-    @portfolio.save
+    }
   end
 
   def set_backtest_data
@@ -193,7 +259,9 @@ class PortfoliosController < ApplicationController
       risk_free_rate_result = @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
       if risk_free_rate_result.errors.first != 'Invalid Risk Free Rate Key.'
         risk_free_rate_name = Portfolio::RISK_FREE_RATES[params[:risk_free_rate_shortcut].to_sym][:name]
-        flash.now[:alert] = "#{t('alert.portfolio.unable_to_set_risk_rate', risk_free_rate_name: risk_free_rate_name)} #{t('alert.portfolio.api_unreachable')}"
+        flash.now[:alert] =
+          "#{t('alert.portfolio.unable_to_set_risk_rate',
+               risk_free_rate_name: risk_free_rate_name)} #{t('alert.portfolio.api_unreachable')}"
         nil
       else
         risk_free_rate_result.data
