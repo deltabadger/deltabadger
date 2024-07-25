@@ -1,15 +1,15 @@
 <%= turbo_frame_tag 'portfolio' do %>
   <div class="page-head">
     <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
-      <%= @portfolio.label || 'Default Portfolio' %>
+      <%= @portfolio.label || t('analyzer.default_portfolio') %>
       <%= render "svg/16x16_down" %>
       <div class="dropdown">
-        <%= link_to "New +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
+        <%= link_to "#{t('utils.new')} +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
         <% other_portfolios = @portfolios.order(:id).select { |portfolio| @portfolio.id != portfolio.id } %>
         <% if other_portfolios.any? %>
           <div class="dropdown__item dropdown__item--divider"></div>
           <% other_portfolios.each do |portfolio| %>
-            <%= link_to portfolio.label || 'Default Portfolio', portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "portfolio" } %>
+            <%= link_to portfolio.label || t('analyzer.default_portfolio'), portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "portfolio" } %>
           <% end %>
         <% end %>
       </div>
@@ -18,15 +18,13 @@
       <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
         <%= render "svg/24x24_dot_menu" %>
         <div class="dropdown">
-          <%= link_to "Change name", edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-          <%= button_to "Duplicate", portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-          <%# <a href="" class="dropdown__item">Change currency</a> Opens a modal to change the currency. %>
-          <%# <a href="" class="dropdown__item">Stop tracking</a> Only if portfolio is being tracked. %>
+          <%= link_to t('utils.change_name'), edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+          <%= button_to t('utils.duplicate'), portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
 
           <div class="dropdown__item dropdown__item--divider"></div>
 
-          <%= button_to portfolio_path(@portfolio), method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo_confirm: "Are you sure?" } do %>
-            Delete
+          <%= button_to portfolio_path(@portfolio), method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo_confirm: t('utils.are_you_sure') } do %>
+            <%= t('utils.delete') %>
           <% end %>
         </div>
       </div>
@@ -75,7 +73,7 @@
       <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
         <!--<div class="portfolio-value">
-          <div class="label"><%= t('analyzer.total_value') %> (USD)</div>
+          <div class="label"><%= t('utils.total_value') %> (USD)</div>
           <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
           <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
             <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -117,11 +115,11 @@
       <div class="flex-row space-between wrap gap-1">
         <div class="flex-row">
           <%= render "strategy_select", portfolio: @portfolio %>
-          <span class="label"><%= t('analyzer.since') %></span>
+          <span class="label"><%= t('utils.since') %></span>
           <%= render "start_date", portfolio: @portfolio %>
         </div>
           <button class="sbutton sbutton--success" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip" style="position: relative" disabled>
-            <%= t('analyzer.get_ai_insights') %>
+            <%= t('utils.get_ai_insights') %>
             <svg class="icon-24" style="position: relative; margin-right: -0.75rem; top: -.05rem" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="m13.6 9.3-.8-2.7a.9.9 0 0 0-1.6 0l-.8 2.7c-.2.3-.5.6-.9.6H7c-.9 0-1.2 1.1-.5 1.6l2.1 1.7c.3.2.4.6.3 1L8 16.8c-.3.8.7 1.5 1.3 1l2.2-1.6a1 1 0 0 1 1 0l2.2 1.6c.6.5 1.6-.2 1.3-1l-.8-2.6a1 1 0 0 1 .3-1l2.1-1.7c.7-.5.4-1.6-.5-1.6h-2.6a.9.9 0 0 1-.9-.6Z" /></svg>
             <div class="tooltip" style="position: absolute; top: 5rem; width: 100%;">
               Coming soon.

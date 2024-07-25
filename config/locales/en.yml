@@ -822,6 +822,9 @@ en:
             short_info: 'The variety of different investments in your portfolio to spread risk.'
             best: 'Best Diversification'
     analyzer:
+        default_portfolio: 'Default portfolio'
+        change_portfolio_name: 'Change name'
+        new_portfolio: 'New portfolio'
         total_value: 'Total value'
         no_assets: 'Get started by adding a new asset.'
         assets_dont_coexist: 'Unable to backtest this portfolio. The assets you selected have never coexisted since %{backtest_start_date}!'
@@ -846,10 +849,15 @@ en:
                 adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
-        soon: 'soon'
-        new: 'New'
+        are_you_sure: 'Are you sure?'
+        change_name: 'Change name'
+        delete: 'Delete'
+        duplicate: 'Duplicate'
         important: 'Important!'
+        new: 'New'
+        save: 'Save'
         see_at_coingecko: 'See at CoinGecko'
+        soon: 'soon'
     alert:
         portfolio:
             invalid_benchmark: "Invalid benchmark value."
