@@ -791,6 +791,9 @@ nl:
             short_info: 'De verscheidenheid aan verschillende investeringen in uw portefeuille om het risico te spreiden.'
             best: 'Beste Diversificatie'
     analyzer:
+        default_portfolio: 'Standaardportefeuille'
+        change_portfolio_name: 'Naam wijzigen'
+        new_portfolio: 'Nieuwe portefeuille'
         total_value: 'Totale waarde'
         no_assets: 'Begin met het toevoegen van een nieuwe asset.'
         assets_dont_coexist: 'Het is niet mogelijk om deze portefeuille te backtesten. De door u geselecteerde assets hebben nooit samen bestaan sinds %{backtest_start_date}!'
@@ -811,25 +814,36 @@ nl:
             rebalancing: 'Herbalancering'
         backtest:
             time_window:
-                adjusted_both_html: "Het backtest tijdsvenster is aangepast om te beginnen op <strong>%{start_date}</strong> en te eindigen op <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa."
-                adjusted_start_html: "De startdatum van de backtest is aangepast naar <strong>%{start_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa."
-                adjusted_end_html: "De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa."
+                adjusted_both_html: 'Het backtest tijdsvenster is aangepast om te beginnen op <strong>%{start_date}</strong> en te eindigen op <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
+                adjusted_start_html: 'De startdatum van de backtest is aangepast naar <strong>%{start_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
+                adjusted_end_html: 'De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
     utils:
-        soon: 'binnenkort'
-        new: 'Nieuw'
+        are_you_sure: 'Weet je het zeker?'
+        change_name: 'Naam wijzigen'
+        delete: 'Verwijderen'
+        duplicate: 'Dupliceren'
         important: 'Belangrijk!'
+        new: 'Nieuw'
+        save: 'Opslaan'
         see_at_coingecko: 'Zie op CoinGecko'
+        soon: 'binnenkort'
     alert:
         portfolio:
-            invalid_benchmark: "Ongeldige benchmarkwaarde."
-            invalid_strategy: "Ongeldige strategie waarde."
-            invalid_start_date: "Ongeldige startdatum waarde."
-            invalid_risk_free_rate: "Ongeldige risicovrije rente waarde."
-            invalid_smart_allocation: "Ongeldige slimme allocatie waarde."
-            invalid_risk_level: "Ongeldige risiconiveau waarde."
-            unable_to_calculate: "Niet in staat om slimme allocaties voor deze parameters te berekenen."
-            portfolio_normalized: "Portefeuille allocaties zijn genormaliseerd."
-            risk_level_updated: "Het risiconiveau is bijgewerkt."
-            smart_allocation_updated: "Slimme allocaties zijn bijgewerkt."
-            unable_to_set_risk_rate: "Niet in staat om de risicovrije rente vast te stellen op %{risk_free_rate_name}."
-            api_unreachable: "Gegevens API-server is onbereikbaar."
+            invalid_benchmark: 'Ongeldige benchmarkwaarde.'
+            invalid_strategy: 'Ongeldige strategie waarde.'
+            invalid_start_date: 'Ongeldige startdatum waarde.'
+            invalid_risk_free_rate: 'Ongeldige risicovrije rente waarde.'
+            invalid_smart_allocation: 'Ongeldige slimme allocatie waarde.'
+            invalid_risk_level: 'Ongeldige risiconiveau waarde.'
+            unable_to_calculate: 'Niet in staat om slimme allocaties voor deze parameters te berekenen.'
+            portfolio_normalized: 'Portefeuille allocaties zijn genormaliseerd.'
+            risk_level_updated: 'Het risiconiveau is bijgewerkt.'
+            smart_allocation_updated: 'Slimme allocaties zijn bijgewerkt.'
+            unable_to_set_risk_rate: 'Niet in staat om de risicovrije rente vast te stellen op %{risk_free_rate_name}.'
+            api_unreachable: 'Gegevens API-server is onbereikbaar.'
+            portfolio_created: 'Portefeuille is succesvol aangemaakt.'
+            portfolio_updated: 'Portefeuille is succesvol bijgewerkt.'
+            portfolio_destroyed: 'Portefeuille is succesvol verwijderd.'
+            portfolio_duplicated: 'Portefeuille is succesvol gedupliceerd.'
+            unable_to_duplicate_portfolio: 'Niet in staat om portefeuille te dupliceren.'
+
