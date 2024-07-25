@@ -807,6 +807,9 @@ pl:
             short_info: 'Różnorodność inwestycji w portfelu w celu rozproszenia ryzyka.'
             best: 'Najlepsza Dywersyfikacja'
     analyzer:
+        default_portfolio: 'Domyślne portfolio'
+        change_portfolio_name: 'Zmień nazwę'
+        new_portfolio: 'Nowe portfolio'
         total_value: 'Całkowita wartość'
         no_assets: 'Zacznij od dodania nowego aktywa.'
         assets_dont_coexist: 'Nie można przetestować tego portfela. Wybrane aktywa nigdy nie współistniały od %{backtest_start_date}!'
@@ -827,25 +830,36 @@ pl:
             rebalancing: 'Rebalansowanie'
         backtest:
             time_window:
-                adjusted_both_html: "Okno czasowe testu wstecznego zostało dostosowane, aby rozpocząć się <strong>%{start_date}</strong> i zakończyć <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
-                adjusted_start_html: "Data rozpoczęcia testu wstecznego została dostosowana do <strong>%{start_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
-                adjusted_end_html: "Data zakończenia testu wstecznego została dostosowana do <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów."
+                adjusted_both_html: 'Okno czasowe testu wstecznego zostało dostosowane, aby rozpocząć się <strong>%{start_date}</strong> i zakończyć <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów.'
+                adjusted_start_html: 'Data rozpoczęcia testu wstecznego została dostosowana do <strong>%{start_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów.'
+                adjusted_end_html: 'Data zakończenia testu wstecznego została dostosowana do <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów.'
     utils:
-        soon: 'wkrótce'
-        new: 'Nowość'
+        are_you_sure: 'Czy jesteś pewny?'
+        change_name: 'Zmień nazwę'
+        delete: 'Usuń'
+        duplicate: 'Duplikuj'
         important: 'Ważne!'
+        new: 'Nowość'
+        save: 'Zapisz'
         see_at_coingecko: 'Zobacz na CoinGecko'
+        soon: 'wkrótce'
     alert:
         portfolio:
-            invalid_benchmark: "Nieprawidłowa wartość benchmarku."
-            invalid_strategy: "Nieprawidłowa wartość strategii."
-            invalid_start_date: "Nieprawidłowa wartość daty początkowej."
-            invalid_risk_free_rate: "Nieprawidłowa wartość stopy wolnej od ryzyka."
-            invalid_smart_allocation: "Nieprawidłowa wartość inteligentnej alokacji."
-            invalid_risk_level: "Nieprawidłowa wartość poziomu ryzyka."
-            unable_to_calculate: "Nie można obliczyć inteligentnych alokacji dla tych parametrów."
-            portfolio_normalized: "Alokacje portfela zostały znormalizowane."
-            risk_level_updated: "Poziom ryzyka został zaktualizowany."
-            smart_allocation_updated: "Inteligentne alokacje zostały zaktualizowane."
-            unable_to_set_risk_rate: "Nie można ustawić stopy wolnej od ryzyka na %{risk_free_rate_name}."
-            api_unreachable: "Serwer API danych jest niedostępny."
+        invalid_benchmark: 'Nieprawidłowa wartość benchmarku.'
+        invalid_strategy: 'Nieprawidłowa wartość strategii.'
+        invalid_start_date: 'Nieprawidłowa wartość daty początkowej.'
+        invalid_risk_free_rate: 'Nieprawidłowa wartość stopy wolnej od ryzyka.'
+        invalid_smart_allocation: 'Nieprawidłowa wartość inteligentnej alokacji.'
+        invalid_risk_level: 'Nieprawidłowa wartość poziomu ryzyka.'
+        unable_to_calculate: 'Nie można obliczyć inteligentnych alokacji dla tych parametrów.'
+        portfolio_normalized: 'Alokacje portfela zostały znormalizowane.'
+        risk_level_updated: 'Poziom ryzyka został zaktualizowany.'
+        smart_allocation_updated: 'Inteligentne alokacje zostały zaktualizowane.'
+        unable_to_set_risk_rate: 'Nie można ustawić stopy wolnej od ryzyka na %{risk_free_rate_name}.'
+        api_unreachable: 'Serwer API danych jest niedostępny.'
+        portfolio_created: 'Portfel został pomyślnie utworzony.'
+        portfolio_updated: 'Portfel został pomyślnie zaktualizowany.'
+        portfolio_destroyed: 'Portfel został pomyślnie usunięty.'
+        portfolio_duplicated: 'Portfel został pomyślnie zduplikowany.'
+        unable_to_duplicate_portfolio: 'Nie można zduplikować portfela.'
+

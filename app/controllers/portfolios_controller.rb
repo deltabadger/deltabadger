@@ -20,18 +20,17 @@ class PortfoliosController < ApplicationController
     @portfolio = Portfolio.new(default_portfolio_params.merge(portfolio_params))
 
     if @portfolio.save
-      redirect_to portfolio_path(@portfolio), notice: 'Portfolio was successfully created.'
+      redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_created')
     else
       render :new
     end
   end
 
-  def edit
-  end
+  def edit; end
 
   def update
     if @portfolio.update(portfolio_params)
-      redirect_to portfolio_path(@portfolio), notice: 'Portfolio was successfully updated.'
+      redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_updated')
     else
       render :edit
     end
@@ -40,30 +39,27 @@ class PortfoliosController < ApplicationController
   def destroy
     @portfolio.destroy
     session[:portfolio_id] = nil
-    redirect_to portfolios_path, notice: 'Portfolio was successfully destroyed.'
+    redirect_to portfolios_path, notice: t('alert.portfolio.portfolio_destroyed')
   end
 
   def duplicate
     ActiveRecord::Base.transaction do
       new_portfolio = @portfolio.dup
-      new_portfolio.label = "#{new_portfolio.label} (copy)"
-      unless new_portfolio.save
-        raise ActiveRecord::Rollback, "Portfolio duplication failed"
-      end
+      new_portfolio.label = "#{new_portfolio.label} copy"
+      raise ActiveRecord::Rollback, 'Portfolio duplication failed' unless new_portfolio.save
+
       @portfolio.assets.each do |asset|
         new_asset = asset.dup
         new_asset.portfolio = new_portfolio
-        unless new_asset.save
-          raise ActiveRecord::Rollback, "Asset duplication failed"
-        end
+        raise ActiveRecord::Rollback, 'Asset duplication failed' unless new_asset.save
       end
       @portfolio = new_portfolio
     end
 
     if @portfolio.persisted?
-      render :edit, notice: 'Portfolio was successfully duplicated.'
+      render :edit, notice: t('alert.portfolio.portfolio_duplicated')
     else
-      redirect_to portfolio_analyzer_path, alert: 'Unable to duplicate portfolio.'
+      redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.unable_to_duplicate_portfolio')
     end
   end
 
@@ -216,15 +212,15 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
-    if params[:id].present?
-      @portfolio = current_user.portfolios.find(params[:id])
-    elsif params[:portfolio_id].present?
-      @portfolio = current_user.portfolios.find(params[:portfolio_id])
-    elsif session[:portfolio_id].present?
-      @portfolio = current_user.portfolios.find(session[:portfolio_id])
-    else
-      @portfolio = current_user.portfolios.first
-    end
+    @portfolio = if params[:id].present?
+                   current_user.portfolios.find(params[:id])
+                 elsif params[:portfolio_id].present?
+                   current_user.portfolios.find(params[:portfolio_id])
+                 elsif session[:portfolio_id].present?
+                   current_user.portfolios.find(session[:portfolio_id])
+                 else
+                   current_user.portfolios.first
+                 end
     session[:portfolio_id] = @portfolio.id
     return if @portfolio.present?
 
@@ -263,7 +259,9 @@ class PortfoliosController < ApplicationController
       risk_free_rate_result = @portfolio.get_risk_free_rate(params[:risk_free_rate_shortcut])
       if risk_free_rate_result.errors.first != 'Invalid Risk Free Rate Key.'
         risk_free_rate_name = Portfolio::RISK_FREE_RATES[params[:risk_free_rate_shortcut].to_sym][:name]
-        flash.now[:alert] = "#{t('alert.portfolio.unable_to_set_risk_rate', risk_free_rate_name: risk_free_rate_name)} #{t('alert.portfolio.api_unreachable')}"
+        flash.now[:alert] =
+          "#{t('alert.portfolio.unable_to_set_risk_rate',
+               risk_free_rate_name: risk_free_rate_name)} #{t('alert.portfolio.api_unreachable')}"
         nil
       else
         risk_free_rate_result.data

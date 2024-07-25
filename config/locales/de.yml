@@ -717,6 +717,9 @@ de:
             short_info: 'Die Vielfalt verschiedener Investitionen in Ihrem Portfolio zur Streuung des Risikos.'
             best: 'Beste Diversifizierung'
     analyzer:
+        default_portfolio: 'Standardportfolio'
+        change_portfolio_name: 'Namen ändern'
+        new_portfolio: 'Neues Portfolio'
         total_value: 'Gesamtwert'
         no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
         assets_dont_coexist: 'Dieses Portfolio kann nicht backgetestet werden. Die von Ihnen ausgewählten Assets haben seit %{backtest_start_date} nie gleichzeitig existiert!'
@@ -741,10 +744,15 @@ de:
                 adjusted_start_html: "Das Startdatum des Backtests wurde auf <strong>%{start_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
                 adjusted_end_html: "Das Enddatum des Backtests wurde auf <strong>%{end_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
     utils:
-        soon: 'bald'
-        new: 'neu'
+        are_you_sure: 'Bist du sicher?'
+        change_name: 'Namen ändern'
+        delete: 'Löschen'
+        duplicate: 'Duplizieren'
         important: 'Wichtig!'
+        new: 'neu'
+        save: 'Speichern'
         see_at_coingecko: 'Siehe bei CoinGecko'
+        soon: 'bald'
     alert:
         portfolio:
             invalid_benchmark: "Ungültiger Benchmark-Wert."
@@ -759,3 +767,9 @@ de:
             smart_allocation_updated: "Die Smart-Allocations wurden aktualisiert."
             unable_to_set_risk_rate: "Der risikofreie Zinssatz kann nicht auf %{risk_free_rate_name} festgelegt werden."
             api_unreachable: "Daten-API-Server ist nicht erreichbar."
+            portfolio_created: 'Portfolio wurde erfolgreich erstellt.'
+            portfolio_updated: 'Portfolio wurde erfolgreich aktualisiert.'
+            portfolio_destroyed: 'Portfolio wurde erfolgreich gelöscht.'
+            portfolio_duplicated: 'Portfolio wurde erfolgreich dupliziert.'
+            unable_to_duplicate_portfolio: 'Portfolio konnte nicht dupliziert werden.'
+

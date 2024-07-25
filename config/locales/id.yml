@@ -762,6 +762,9 @@ id:
             short_info: 'Variasi investasi yang berbeda dalam portofolio Anda untuk menyebarkan risiko.'
             best: 'Diversifikasi Terbaik'
     analyzer:
+        default_portfolio: 'Portofolio default'
+        change_portfolio_name: 'Ganti nama'
+        new_portfolio: 'Portofolio baru'
         total_value: 'Nilai total'
         no_assets: 'Mulailah dengan menambahkan aset baru.'
         assets_dont_coexist: 'Tidak dapat melakukan backtest portofolio ini. Aset yang Anda pilih tidak pernah ada bersama sejak %{backtest_start_date}!'
@@ -786,10 +789,15 @@ id:
                 adjusted_start_html: "Tanggal mulai backtest telah disesuaikan menjadi <strong>%{start_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
                 adjusted_end_html: "Tanggal berakhirnya backtest telah disesuaikan menjadi <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
     utils:
-        soon: 'segera'
-        new: 'Baru'
+        are_you_sure: 'Apakah Anda yakin?'
+        change_name: 'Ganti nama'
+        delete: 'Hapus'
+        duplicate: 'Duplikasi'
         important: 'Penting!'
+        new: 'Baru'
+        save: 'Simpan'
         see_at_coingecko: 'Lihat di CoinGecko'
+        soon: 'segera'
     alert:
         portfolio:
             invalid_benchmark: "Nilai benchmark tidak valid."
@@ -804,3 +812,9 @@ id:
             smart_allocation_updated: "Alokasi cerdas telah diperbarui."
             unable_to_set_risk_rate: "Tidak dapat mengatur tingkat bebas risiko ke %{risk_free_rate_name}."
             api_unreachable: "Server API data tidak dapat dijangkau."
+            portfolio_created: 'Portofolio berhasil dibuat.'
+            portfolio_updated: 'Portofolio berhasil diperbarui.'
+            portfolio_destroyed: 'Portofolio berhasil dihapus.'
+            portfolio_duplicated: 'Portofolio berhasil diduplikasi.'
+            unable_to_duplicate_portfolio: 'Tidak dapat menduplikasi portofolio.'
+
