@@ -860,15 +860,20 @@ en:
         soon: 'soon'
     alert:
         portfolio:
-            invalid_benchmark: "Invalid benchmark value."
-            invalid_strategy: "Invalid strategy value."
-            invalid_start_date: "Invalid start date value."
-            invalid_risk_free_rate: "Invalid risk free rate value."
-            invalid_smart_allocation: "Invalid smart allocation value."
-            invalid_risk_level: "Invalid risk level value."
-            unable_to_calculate: "Unable to calculate Smart Allocations for these parameters."
-            portfolio_normalized: "Portfolio allocations have been normalized."
-            risk_level_updated: "Risk level has been updated."
-            smart_allocation_updated: "Smart allocations have been updated."
-            unable_to_set_risk_rate: "Unable to set the risk free rate to %{risk_free_rate_name}."
-            api_unreachable: "Data API server is unreachable."
+            invalid_benchmark: 'Invalid benchmark value.'
+            invalid_strategy: 'Invalid strategy value.'
+            invalid_start_date: 'Invalid start date value.'
+            invalid_risk_free_rate: 'Invalid risk free rate value.'
+            invalid_smart_allocation: 'Invalid smart allocation value.'
+            invalid_risk_level: 'Invalid risk level value.'
+            unable_to_calculate: 'Unable to calculate Smart Allocations for these parameters.'
+            portfolio_normalized: 'Portfolio allocations have been normalized.'
+            risk_level_updated: 'Risk level has been updated.'
+            smart_allocation_updated: 'Smart allocations have been updated.'
+            unable_to_set_risk_rate: 'Unable to set the risk free rate to %{risk_free_rate_name}.'
+            api_unreachable: 'Data API server is unreachable.'
+            portfolio_created: 'Portfolio was successfully created.'
+            portfolio_updated: 'Portfolio was successfully updated.'
+            portfolio_destroyed: 'Portfolio was successfully destroyed.'
+            portfolio_duplicated: 'Portfolio was successfully duplicated.'
+            unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
