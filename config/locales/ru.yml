@@ -786,6 +786,9 @@ ru:
             short_info: 'Разнообразие различных инвестиций в вашем портфеле для распределения риска.'
             best: 'Лучшая Диверсификация'
     analyzer:
+        default_portfolio: 'Портфель по умолчанию'
+        change_portfolio_name: 'Изменить имя'
+        new_portfolio: 'Новый портфель'
         total_value: 'Общая стоимость'
         no_assets: 'Начните с добавления нового актива.'
         assets_dont_coexist: 'Невозможно провести бэктест этого портфеля. Выбранные вами активы никогда не сосуществовали с %{backtest_start_date}!'
@@ -810,21 +813,32 @@ ru:
                 adjusted_start_html: "Дата начала бэктеста была скорректирована на <strong>%{start_date}</strong>, чтобы соответствовать доступной истории всех активов."
                 adjusted_end_html: "Дата окончания бэктеста была скорректирована на <strong>%{end_date}</strong>, чтобы соответствовать доступной истории всех активов."
     utils:
-        soon: 'скоро'
-        new: 'Новый'
+        are_you_sure: 'Вы уверены?'
+        change_name: 'Изменить имя'
+        delete: 'Удалить'
+        duplicate: 'Дублировать'
         important: 'Важно!'
+        new: 'Новый'
+        save: 'Сохранить'
         see_at_coingecko: 'Смотреть на CoinGecko'
+        soon: 'скоро'
     alert:
         portfolio:
-            invalid_benchmark: "Недопустимое значение эталона."
-            invalid_strategy: "Недопустимое значение стратегии."
-            invalid_start_date: "Недопустимое значение даты начала."
-            invalid_risk_free_rate: "Недопустимое значение безрисковой ставки."
-            invalid_smart_allocation: "Недопустимое значение умного распределения."
-            invalid_risk_level: "Недопустимое значение уровня риска."
-            unable_to_calculate: "Невозможно рассчитать умное распределение для этих параметров."
-            portfolio_normalized: "Распределение активов в портфеле было нормализовано."
-            risk_level_updated: "Уровень риска был обновлен."
-            smart_allocation_updated: "Умное распределение было обновлено."
-            unable_to_set_risk_rate: "Невозможно установить безрисковую ставку на %{risk_free_rate_name}."
-            api_unreachable: "Сервер API данных недоступен."
+            invalid_benchmark: 'Недопустимое значение эталона.'
+            invalid_strategy: 'Недопустимое значение стратегии.'
+            invalid_start_date: 'Недопустимое значение даты начала.'
+            invalid_risk_free_rate: 'Недопустимое значение безрисковой ставки.'
+            invalid_smart_allocation: 'Недопустимое значение умного распределения.'
+            invalid_risk_level: 'Недопустимое значение уровня риска.'
+            unable_to_calculate: 'Невозможно рассчитать умное распределение для этих параметров.'
+            portfolio_normalized: 'Распределение активов в портфеле было нормализовано.'
+            risk_level_updated: 'Уровень риска был обновлен.'
+            smart_allocation_updated: 'Умное распределение было обновлено.'
+            unable_to_set_risk_rate: 'Невозможно установить безрисковую ставку на %{risk_free_rate_name}.'
+            api_unreachable: 'Сервер API данных недоступен.'
+            portfolio_created: 'Портфель был успешно создан.'
+            portfolio_updated: 'Портфель был успешно обновлен.'
+            portfolio_destroyed: 'Портфель был успешно удален.'
+            portfolio_duplicated: 'Портфель был успешно продублирован.'
+            unable_to_duplicate_portfolio: 'Невозможно продублировать портфель.'
+
