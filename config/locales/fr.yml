@@ -740,7 +740,7 @@ fr:
             best: 'Plus Faible Max. Drawdown'
         volatility:
             short_name: 'Volatilité'
-            short_info: 'L’ampleur des fluctuations des rendements de votre portefeuille sur un an.'
+            short_info: 'L''ampleur des fluctuations des rendements de votre portefeuille sur un an.'
             best: 'Plus Faible Volatilité'
         var:
             short_name: 'VaR'
@@ -764,7 +764,7 @@ fr:
             best: 'Meilleur Ratio de Calmar'
         alpha:
             short_name: 'Alpha'
-            short_info: 'L’excédent de rendement de votre portefeuille par rapport au marché, ajusté au risque.'
+            short_info: 'L''excédent de rendement de votre portefeuille par rapport au marché, ajusté au risque.'
             best: 'Meilleur Alpha'
         beta:
             short_name: 'Beta'
@@ -775,34 +775,37 @@ fr:
             short_info: 'Le rendement que vous obtenez pour chaque unité de risque de marché.'
             best: 'Meilleur Ratio de Treynor'
         omega_ratio:
-            short_name: 'Ratio d’Omega'
+            short_name: 'Ratio d''Omega'
             short_info: 'La probabilité de gains par rapport à la probabilité de pertes.'
-            best: 'Meilleur Ratio d’Omega'
+            best: 'Meilleur Ratio d''Omega'
         r_squared:
             short_name: 'R²'
             short_info: 'La corrélation entre les rendements de votre portefeuille et le marché global.'
             best: 'Meilleur R²'
         info_ratio:
-            short_name: 'Ratio d’Info'
+            short_name: 'Ratio d''Info'
             short_info: 'La constance avec laquelle votre portefeuille surperforme son indice de référence.'
-            best: 'Meilleur Ratio d’Info'
+            best: 'Meilleur Ratio d''Info'
         diversification:
             short_name: 'Diversification'
             short_info: 'La variété des investissements dans votre portefeuille pour répartir le risque.'
             best: 'Meilleure Diversification'
     analyzer:
+        default_portfolio: 'Portefeuille par défaut'
+        change_portfolio_name: 'Changer le nom'
+        new_portfolio: 'Nouveau portefeuille'
         total_value: 'Valeur Totale'
         no_assets: 'Commencez par ajouter un nouvel actif.'
-        assets_dont_coexist: 'Impossible de backtester ce portefeuille. Les actifs que vous avez sélectionnés n’ont jamais coexisté depuis %{backtest_start_date}!'
+        assets_dont_coexist: 'Impossible de backtester ce portefeuille. Les actifs que vous avez sélectionnés n''ont jamais coexisté depuis %{backtest_start_date}!'
         api_unreachable: 'Impossible de backtester ce portefeuille en ce moment. Le serveur de données API est inaccessible.'
         smart_allocation:
             name: 'Allocation Intelligente'
-            short_info_html: '<p>L’Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d’actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
+            short_info_html: '<p>L''Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
         since: 'depuis'
         risk_free_rate: 'Taux Sans Risque'
         us_bonds: 'Obligations US'
         benchmark: 'Indice de Référence'
-        benchmark_info: 'Plus le choix de l’indice de référence est bon, plus le calcul du Rendement Attendu est fiable. Choisissez un indice de référence qui correspond étroitement à la stratégie d’investissement et au segment de marché de votre portefeuille. D’autres métriques affectées par l’indice de référence incluent Alpha, Beta, R² et le Ratio d’Info.'
+        benchmark_info: 'Plus le choix de l''indice de référence est bon, plus le calcul du Rendement Attendu est fiable. Choisissez un indice de référence qui correspond étroitement à la stratégie d''investissement et au segment de marché de votre portefeuille. D''autres métriques affectées par l''indice de référence incluent Alpha, Beta, R² et le Ratio d''Info.'
         get_ai_insights: 'Obtenez des informations AI'
         pnl: 'Profit/Perte'
         strategy:
@@ -815,21 +818,32 @@ fr:
                 adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
                 adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
-        soon: 'bientôt'
-        new: 'Nouveau'
+        are_you_sure: 'Es-tu sûr ?'
+        change_name: 'Changer de nom'
+        delete: 'Supprimer'
+        duplicate: 'Dupliquer'
         important: 'Important !'
+        new: 'Nouveau'
+        save: 'Enregistrer'
         see_at_coingecko: 'Voir sur CoinGecko'
+        soon: 'bientôt'
     alert:
         portfolio:
-            invalid_benchmark: "Valeur de référence invalide."
-            invalid_strategy: "Valeur de stratégie invalide."
-            invalid_start_date: "Valeur de date de début invalide."
-            invalid_risk_free_rate: "Valeur de taux sans risque invalide."
-            invalid_smart_allocation: "Valeur d''allocation intelligente invalide."
-            invalid_risk_level: "Valeur de niveau de risque invalide."
-            unable_to_calculate: "Impossible de calculer les allocations intelligentes pour ces paramètres."
-            portfolio_normalized: "Les allocations du portefeuille ont été normalisées."
-            risk_level_updated: "Le niveau de risque a été mis à jour."
-            smart_allocation_updated: "Les allocations intelligentes ont été mises à jour."
-            unable_to_set_risk_rate: "Impossible de définir le taux sans risque à %{risk_free_rate_name}."
-            api_unreachable: "Le serveur API de données est inaccessible."
+            invalid_benchmark: 'Valeur de référence invalide.'
+            invalid_strategy: 'Valeur de stratégie invalide.'
+            invalid_start_date: 'Valeur de date de début invalide.'
+            invalid_risk_free_rate: 'Valeur de taux sans risque invalide.'
+            invalid_smart_allocation: 'Valeur d''allocation intelligente invalide.'
+            invalid_risk_level: 'Valeur de niveau de risque invalide.'
+            unable_to_calculate: 'Impossible de calculer les allocations intelligentes pour ces paramètres.'
+            portfolio_normalized: 'Les allocations du portefeuille ont été normalisées.'
+            risk_level_updated: 'Le niveau de risque a été mis à jour.'
+            smart_allocation_updated: 'Les allocations intelligentes ont été mises à jour.'
+            unable_to_set_risk_rate: 'Impossible de définir le taux sans risque à %{risk_free_rate_name}.'
+            api_unreachable: 'Le serveur API de données est inaccessible.'
+            portfolio_created: 'Le portefeuille a été créé avec succès.'
+            portfolio_updated: 'Le portefeuille a été mis à jour avec succès.'
+            portfolio_destroyed: 'Le portefeuille a été supprimé avec succès.'
+            portfolio_duplicated: 'Le portefeuille a été dupliqué avec succès.'
+            unable_to_duplicate_portfolio: 'Impossible de dupliquer le portefeuille.'
+

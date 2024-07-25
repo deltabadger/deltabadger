@@ -791,6 +791,9 @@ es:
             short_info: 'La variedad de diferentes inversiones en su cartera para distribuir el riesgo.'
             best: 'Mejor Diversificación'
     analyzer:
+        default_portfolio: 'Cartera predeterminada'
+        change_portfolio_name: 'Cambiar nombre'
+        new_portfolio: 'Nueva cartera'
         total_value: 'Valor total'
         no_assets: 'Comience añadiendo un nuevo activo.'
         assets_dont_coexist: 'No se puede backtestear esta cartera. ¡Los activos seleccionados nunca han coexistido desde %{backtest_start_date}!'
@@ -815,10 +818,15 @@ es:
                 adjusted_start_html: "La fecha de inicio del backtest se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
                 adjusted_end_html: "La fecha de finalización del backtest se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
     utils:
-        soon: 'pronto'
-        new: 'Nuevo'
+        are_you_sure: '¿Estás seguro?'
+        change_name: 'Cambiar nombre'
+        delete: 'Eliminar'
+        duplicate: 'Duplicar'
         important: '¡Importante!'
+        new: 'Nuevo'
+        save: 'Guardar'
         see_at_coingecko: 'Ver en CoinGecko'
+        soon: 'pronto'
     alert:
         portfolio:
             invalid_benchmark: "Valor de referencia no válido."
@@ -833,3 +841,8 @@ es:
             smart_allocation_updated: "Las asignaciones inteligentes han sido actualizadas."
             unable_to_set_risk_rate: "No se puede establecer la tasa libre de riesgo en %{risk_free_rate_name}."
             api_unreachable: "El servidor de la API de datos no está disponible."
+            portfolio_created: 'La cartera se ha creado con éxito.'
+            portfolio_updated: 'La cartera se ha actualizado con éxito.'
+            portfolio_destroyed: 'La cartera se ha eliminado con éxito.'
+            portfolio_duplicated: 'La cartera se ha duplicado con éxito.'
+            unable_to_duplicate_portfolio: 'No se puede duplicar la cartera.'

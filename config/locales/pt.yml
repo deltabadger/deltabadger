@@ -683,6 +683,9 @@ pt:
             short_info: 'A variedade de diferentes investimentos no seu portfólio para espalhar o risco.'
             best: 'Melhor Diversificação'
     analyzer:
+        default_portfolio: 'Portfólio padrão'
+        change_portfolio_name: 'Mudar nome'
+        new_portfolio: 'Novo portfólio'
         total_value: 'Valor Total'
         no_assets: 'Comece adicionando um novo ativo.'
         assets_dont_coexist: 'Não é possível fazer o backtest deste portfólio. Os ativos que você selecionou nunca coexistiram desde %{backtest_start_date}!'
@@ -707,21 +710,32 @@ pt:
                 adjusted_start_html: "A data de início do backtest foi ajustada para <strong>%{start_date}</strong> para se adequar ao histórico disponível de todos os ativos."
                 adjusted_end_html: "A data de término do backtest foi ajustada para <strong>%{end_date}</strong> para se adequar ao histórico disponível de todos os ativos."
     utils:
-        soon: 'em breve'
-        new: 'Novo'
+        are_you_sure: 'Você tem certeza?'
+        change_name: 'Mudar nome'
+        delete: 'Excluir'
+        duplicate: 'Duplicar'
         important: 'Importante!'
+        new: 'Novo'
+        save: 'Salvar'
         see_at_coingecko: 'Ver no CoinGecko'
+        soon: 'em breve'
     alert:
         portfolio:
-            invalid_benchmark: "Valor de referência inválido."
-            invalid_strategy: "Valor de estratégia inválido."
-            invalid_start_date: "Valor de data de início inválido."
-            invalid_risk_free_rate: "Valor de taxa livre de risco inválido."
-            invalid_smart_allocation: "Valor de alocação inteligente inválido."
-            invalid_risk_level: "Valor de nível de risco inválido."
-            unable_to_calculate: "Não é possível calcular alocações inteligentes para esses parâmetros."
-            portfolio_normalized: "As alocações do portfólio foram normalizadas."
-            risk_level_updated: "O nível de risco foi atualizado."
-            smart_allocation_updated: "As alocações inteligentes foram atualizadas."
-            unable_to_set_risk_rate: "Não é possível definir a taxa livre de risco para %{risk_free_rate_name}."
-            api_unreachable: "Servidor de API de dados está inacessível."
+            invalid_benchmark: 'Valor de referência inválido.'
+            invalid_strategy: 'Valor de estratégia inválido.'
+            invalid_start_date: 'Valor de data de início inválido.'
+            invalid_risk_free_rate: 'Valor de taxa livre de risco inválido.'
+            invalid_smart_allocation: 'Valor de alocação inteligente inválido.'
+            invalid_risk_level: 'Valor de nível de risco inválido.'
+            unable_to_calculate: 'Não é possível calcular alocações inteligentes para esses parâmetros.'
+            portfolio_normalized: 'As alocações do portfólio foram normalizadas.'
+            risk_level_updated: 'O nível de risco foi atualizado.'
+            smart_allocation_updated: 'As alocações inteligentes foram atualizadas.'
+            unable_to_set_risk_rate: 'Não é possível definir a taxa livre de risco para %{risk_free_rate_name}.'
+            api_unreachable: 'Servidor de API de dados está inacessível.'
+            portfolio_created: 'O portfólio foi criado com sucesso.'
+            portfolio_updated: 'O portfólio foi atualizado com sucesso.'
+            portfolio_destroyed: 'O portfólio foi excluído com sucesso.'
+            portfolio_duplicated: 'O portfólio foi duplicado com sucesso.'
+            unable_to_duplicate_portfolio: 'Não é possível duplicar o portfólio.'
+
