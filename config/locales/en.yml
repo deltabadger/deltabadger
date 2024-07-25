@@ -822,6 +822,9 @@ en:
             short_info: 'The variety of different investments in your portfolio to spread risk.'
             best: 'Best Diversification'
     analyzer:
+        default_portfolio: 'Default portfolio'
+        change_portfolio_name: 'Change name'
+        new_portfolio: 'New portfolio'
         total_value: 'Total value'
         no_assets: 'Get started by adding a new asset.'
         assets_dont_coexist: 'Unable to backtest this portfolio. The assets you selected have never coexisted since %{backtest_start_date}!'
@@ -846,21 +849,31 @@ en:
                 adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
-        soon: 'soon'
-        new: 'New'
+        are_you_sure: 'Are you sure?'
+        change_name: 'Change name'
+        delete: 'Delete'
+        duplicate: 'Duplicate'
         important: 'Important!'
+        new: 'New'
+        save: 'Save'
         see_at_coingecko: 'See at CoinGecko'
+        soon: 'soon'
     alert:
         portfolio:
-            invalid_benchmark: "Invalid benchmark value."
-            invalid_strategy: "Invalid strategy value."
-            invalid_start_date: "Invalid start date value."
-            invalid_risk_free_rate: "Invalid risk free rate value."
-            invalid_smart_allocation: "Invalid smart allocation value."
-            invalid_risk_level: "Invalid risk level value."
-            unable_to_calculate: "Unable to calculate Smart Allocations for these parameters."
-            portfolio_normalized: "Portfolio allocations have been normalized."
-            risk_level_updated: "Risk level has been updated."
-            smart_allocation_updated: "Smart allocations have been updated."
-            unable_to_set_risk_rate: "Unable to set the risk free rate to %{risk_free_rate_name}."
-            api_unreachable: "Data API server is unreachable."
+            invalid_benchmark: 'Invalid benchmark value.'
+            invalid_strategy: 'Invalid strategy value.'
+            invalid_start_date: 'Invalid start date value.'
+            invalid_risk_free_rate: 'Invalid risk free rate value.'
+            invalid_smart_allocation: 'Invalid smart allocation value.'
+            invalid_risk_level: 'Invalid risk level value.'
+            unable_to_calculate: 'Unable to calculate Smart Allocations for these parameters.'
+            portfolio_normalized: 'Portfolio allocations have been normalized.'
+            risk_level_updated: 'Risk level has been updated.'
+            smart_allocation_updated: 'Smart allocations have been updated.'
+            unable_to_set_risk_rate: 'Unable to set the risk free rate to %{risk_free_rate_name}.'
+            api_unreachable: 'Data API server is unreachable.'
+            portfolio_created: 'Portfolio was successfully created.'
+            portfolio_updated: 'Portfolio was successfully updated.'
+            portfolio_destroyed: 'Portfolio was successfully destroyed.'
+            portfolio_duplicated: 'Portfolio was successfully duplicated.'
+            unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
