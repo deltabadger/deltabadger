@@ -212,20 +212,20 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
-    @portfolio = if params[:id].present?
+    @portfolio = if params.present? && params[:id].present?
                    current_user.portfolios.find(params[:id])
-                 elsif params[:portfolio_id].present?
+                 elsif params.present? && params[:portfolio_id].present?
                    current_user.portfolios.find(params[:portfolio_id])
                  elsif session[:portfolio_id].present?
                    current_user.portfolios.find(session[:portfolio_id])
                  else
                    current_user.portfolios.first
                  end
+    unless @portfolio.present?
+      @portfolio = Portfolio.new(default_portfolio_params)
+      @portfolio.save
+    end
     session[:portfolio_id] = @portfolio.id
-    return if @portfolio.present?
-
-    @portfolio = Portfolio.new(default_portfolio_params)
-    @portfolio.save
   end
 
   def default_portfolio_params
