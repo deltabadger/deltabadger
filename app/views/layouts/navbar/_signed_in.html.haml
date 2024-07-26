@@ -45,8 +45,9 @@
         .tooltip
           .tooltip__title
             = t('subscriptions.upgrade_plan')
-          .tooltip__counter
-            = t('subscriptions.days_left', count: current_user.plan_days_left)
+          - if current_user.subscription_name != 'saver'
+            .tooltip__counter
+              = t('subscriptions.days_left', count: current_user.plan_days_left)
 
   .menu__section.menu__section--bottom
     .btn-group
