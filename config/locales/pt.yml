@@ -614,6 +614,18 @@ pt:
         confirm: Confirmar
         update: Atualizar
     welcome:
+        banner_html: |
+            <p>Oi %{name}, Deltabadger faz duas coisas:</p>
+            <ul>
+                <li>Dollar-Cost Averaging (DCA)</li>
+                <li>Análise de Portfólio</li>
+            </ul>
+            <p>É simples:</p>
+            <p>Primeiro, você adquire ativos, e não há melhor maneira de fazer isso do que com DCA automatizado.</p>
+            <p><b>O primeiro bot agora é completamente gratuito</b>.</p>
+            <p>Em seguida, nosso Analisador ajuda você a encontrar a alocação ideal dos seus ativos com <b>Alocação Inteligente</b> e fornece outras dicas sobre como melhorar seu portfólio.</p>
+            <p>Se você tem uma mentalidade de longo prazo e gosta do que vê, considere juntar-se aos Legendary Badgers — uma <b>comunidade exclusiva de 1.000 assinantes vitalícios</b>. Esta é uma oferta única que apoia o projeto e oferece uma oportunidade única de se tornar um beneficiário vitalício de todos os superpoderes do Deltabadger.</p>
+            <p style="margin-bottom:0">Atenciosamente, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         saver: 'Livra-te dos limites e faz um upgrade!'

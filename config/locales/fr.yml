@@ -721,7 +721,18 @@ fr:
         confirm: 'Confirmer'
         update: 'Mettre à jour'
     welcome:
-        banner_html: 'Salut %{name} ! <b>Vérifiez votre boîte mail</b> et découvrez mes conseils pour configurer parfaitement votre bot. <b>S''il a atterri dans les spam, déplacez-le dans votre boîte de réception</b>, pour pouvoir recevoir nos messages à l''avenir. Merci, Jan'
+        banner_html: |
+            <p>Bonjour %{name}, Deltabadger fait deux choses :</p>
+            <ul>
+                <li>Dollar-Cost Averaging (DCA)</li>
+                <li>Analyse de portefeuille</li>
+            </ul>
+            <p>C'est simple :</p>
+            <p>Tout d'abord, vous acquérez des actifs, et il n'y a pas de meilleure façon de le faire qu'avec le DCA automatisé.</p>
+            <p><b>Le premier bot est maintenant complètement gratuit</b>.</p>
+            <p>Ensuite, notre Analyseur vous aide à trouver la répartition optimale de vos actifs avec <b>Allocation Intelligente</b> et vous donne d'autres conseils pour améliorer votre portefeuille.</p>
+            <p>Si vous avez une mentalité à long terme et que vous aimez ce que vous voyez, envisagez de rejoindre les Legendary Badgers — une <b>communauté exclusive de 1 000 abonnés à vie</b>. C'est une offre unique qui soutient le projet et offre une occasion unique de devenir bénéficiaire à vie de tous les superpouvoirs de Deltabadger.</p>
+            <p style="margin-bottom:0">Cordialement, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
         saver: 'Dites au revoir aux limites et faites une mise à niveau !'

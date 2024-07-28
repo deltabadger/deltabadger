@@ -31,7 +31,7 @@ export default class extends Controller {
     ru: Russian,
     id: Indonesian,
     vi: Vietnamese,
-    "zh-cn": Mandarin,
+    cn: Mandarin,
   };
 
   connect() {

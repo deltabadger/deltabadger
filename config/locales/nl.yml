@@ -721,7 +721,18 @@ nl:
         confirm: 'Confirmer'
         update: 'Bijwerken'
     welcome:
-        banner_html: 'Hallo %{name}! <b>Controleer je mailbox</b> en vind tips voor de perfecte bot setup die ik voor jou heb voorbereid. <b>Als de mail in je spam-folder is beland, verplaats hem dan naar je inbox</b>, zodat je onze berichten in de toekomst niet mist. Bedankt, Jan'
+        banner_html: |
+            <p>Hallo %{name}, Deltabadger doet twee dingen:</p>
+            <ul>
+                <li>Dollar-Cost Averaging</li>
+                <li>Portefeuille-analyse</li>
+            </ul>
+            <p>Het is simpel:</p>
+            <p>Ten eerste, je verwerft activa, en er is geen betere manier om dit te doen dan met geautomatiseerde DCA.</p>
+            <p><b>De eerste bot is nu volledig gratis</b>.</p>
+            <p>Vervolgens helpt onze Analyzer je de optimale verdeling van je activa te vinden met <b>Smart Allocation</b> en geeft andere aanwijzingen hoe je je portefeuille kunt verbeteren.</p>
+            <p>Als je een lange-termijn visie hebt en je houdt van wat je ziet, overweeg dan om lid te worden van de Legendary Badgers — een <b>exclusieve gemeenschap van 1.000 levenslange abonnees</b>. Dit is een aanbod als geen ander dat zowel het project ondersteunt als een unieke kans biedt om een levenslange begunstigde te worden van alle superkrachten van Deltabadger.</p>
+            <p style="margin-bottom:0">Met vriendelijke groet, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
         saver: 'Weg met limieten, en doe een upgrade!'
