@@ -436,8 +436,7 @@ en:
         risk_down: 'Risk down.'
         gains_up: 'Gains up.'
         dca: 'Dollar-Cost Averaging'
-        analysis: 'Analyse Portfolio with AI'
-        tracking: 'Portfolio Tracking (soon)'
+        portfolio_analysis: 'Portfolio Analysis'
         rebalancing: 'Portfolio Rebalancing (soon)'
         confirmations:
             confirmed: 'Your email address has been successfully confirmed.'

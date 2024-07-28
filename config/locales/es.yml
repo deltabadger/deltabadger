@@ -408,8 +408,7 @@ es:
         risk_down: 'Reducir riesgo.'
         gains_up: 'Aumentar ganancias.'
         dca: 'Promedio de Costos en Dólares'
-        analysis: 'Analizar Portafolio con IA'
-        tracking: 'Seguimiento de Portafolio (pronto)'
+        portfolio_analysis: 'Análisis de Portafolio'
         rebalancing: 'Rebalanceo de Portafolio (pronto)'
         confirmations:
             confirmed: 'Tu dirección de correo electrónico se ha confirmado correctamente.'

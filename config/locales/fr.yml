@@ -408,8 +408,7 @@ fr:
         risk_down: 'Réduire le risque.'
         gains_up: 'Augmenter les gains.'
         dca: 'Moyenne du Coût en Dollars'
-        analysis: 'Analyser le Portefeuille avec IA'
-        tracking: 'Suivi de Portefeuille (bientôt)'
+        portfolio_analysis: 'Analyse de Portefeuille'
         rebalancing: 'Rééquilibrage de Portefeuille (bientôt)'
         confirmations:
             confirmed: 'Votre adresse e-mail a été confirmée avec succès.'

@@ -387,8 +387,7 @@ vi:
         risk_down: 'Giảm rủi ro.'
         gains_up: 'Tăng lợi nhuận.'
         dca: 'Trung Bình Chi Phí Đô La'
-        analysis: 'Phân Tích Danh Mục Đầu Tư bằng AI'
-        tracking: 'Theo Dõi Danh Mục Đầu Tư (sắp có)'
+        portfolio_analysis: 'Phân Tích Danh Mục Đầu Tư'
         rebalancing: 'Tái Cân Bằng Danh Mục Đầu Tư (sắp có)'
         confirmations:
             confirmed: 'Địa chỉ email của bạn đã được xác nhận thành công.'

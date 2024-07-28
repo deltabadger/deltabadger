@@ -387,8 +387,7 @@ cn:
         risk_down: '降低风险.'
         gains_up: '增加收益.'
         dca: '美元成本平均法'
-        analysis: '使用AI分析投资组合'
-        tracking: '投资组合跟踪（即将推出）'
+        portfolio_analysis: '投资组合分析'
         rebalancing: '投资组合再平衡（即将推出）'
         confirmations:
             confirmed: 您的电子邮件地址已成功进行确认。
