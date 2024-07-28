@@ -408,8 +408,7 @@ nl:
         risk_down: 'Risico verlagen.'
         gains_up: 'Winst verhogen.'
         dca: 'Dollar-Cost Gemiddelde'
-        analysis: 'Analyseer Portefeuille met AI'
-        tracking: 'Portefeuille volgen (binnenkort)'
+        portfolio_analysis: 'Portefeuille analyse'
         rebalancing: 'Portefeuille herschikken (binnenkort)'
         confirmations:
             confirmed: 'Uw emailadres is bevestigd.'

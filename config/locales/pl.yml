@@ -410,8 +410,7 @@ pl:
         risk_down: 'Zmniejsz ryzyko.'
         gains_up: 'Zwiększ zyski.'
         dca: 'Dollar-Cost Averaging'
-        analysis: 'Analizuj portfel z AI'
-        tracking: 'Śledzenie portfela (wkrótce)'
+        portfolio_analysis: 'Analiza portfela'
         rebalancing: 'Rebalansowanie portfela (wkrótce)'
         confirmations:
             confirmed: 'Twój adres e-mail został pomyślnie potwierdzony.'
