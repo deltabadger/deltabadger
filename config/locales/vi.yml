@@ -692,7 +692,18 @@ vi:
         confirm: 'Xác nhận'
         update: 'Cập nhật'
     welcome:
-        banner_html: "Chào mừng bạn! Bạn hiện đang sử dụng <b>gói miễn phí với hạn mức giao dịch là $1200/năm</b>, tuy nhiên gói này sẽ không có hiệu lực trong tháng đầu tiên. Hãy thử bất kỳ thời gian nào bạn muốn. Bạn cũng có thể nâng cấp gói để tận hưởng các giao dịch không giới hạn sau này. Ngoài ra, gói Hodler 4 năm còn cung cấp quyền truy cập vào các tính năng thử nghiệm mới (ví dụ: giao dịch bằng tất cả các đồng tiền). Chúng tôi hoan nghênh tất cả các ý kiến phản hồi. Tham gia\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">nhóm Telegram</a> của chúng tôi, hoặc theo dõi chúng tôi trên <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Chúc bạn trung bình giá thành công!"
+        banner_html: |
+            <p>Chào %{name}, Deltabadger làm hai việc:</p>
+            <ul>
+                <li>Dollar-Cost Averaging (DCA)</li>
+                <li>Phân tích danh mục đầu tư</li>
+            </ul>
+            <p>Rất đơn giản:</p>
+            <p>Đầu tiên, bạn mua tài sản, và không có cách nào tốt hơn để làm điều đó ngoài DCA tự động.</p>
+            <p><b>Bot đầu tiên hiện hoàn toàn miễn phí</b>.</p>
+            <p>Sau đó, Bộ phân tích của chúng tôi giúp bạn tìm ra phân bổ tối ưu cho tài sản của mình với <b>Phân bổ thông minh</b> và cung cấp các gợi ý khác về cách cải thiện danh mục đầu tư của bạn.</p>
+            <p>Nếu bạn có tư duy dài hạn và bạn thích những gì bạn thấy, hãy cân nhắc tham gia Legendary Badgers — một <b>cộng đồng độc quyền gồm 1.000 người đăng ký trọn đời</b>. Đây là một lời đề nghị độc đáo không chỉ hỗ trợ dự án mà còn mang đến cho bạn cơ hội trở thành người thụ hưởng trọn đời của tất cả các siêu năng lực của Deltabadger.</p>
+            <p style="margin-bottom:0">Trân trọng, Jan</p>
     metrics:
         exp_return:
             short_name: 'Lợi nhuận kỳ vọng'

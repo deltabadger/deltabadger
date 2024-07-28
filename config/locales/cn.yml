@@ -1,4 +1,4 @@
-zh-cn:
+cn:
     activerecord:
         errors:
             models:
@@ -685,7 +685,18 @@ zh-cn:
         confirm: '确认'
         update: '更新'
     welcome:
-        banner_html: "欢迎！您当前使用的是<b>免费套餐，交易限制为每年 1200 美元</b>，但首月不会实施此限制。请尝试您想要的任何安排。后续您也可以进行升级，享受无限制交易。通过 4 年 Hodler 套餐，可额外访问新的试验功能（例如，交易所中的所有货币）。我们感激所有反馈。加入我们的\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">Telegram 小组</a>，并在 <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a> 上关注我们。定投愉快！"
+        banner_html: |
+            <p>您好，%{name}，Deltabadger 做两件事：</p>
+            <ul>
+                <li>DCA (Dollar-Cost Averaging)</li>
+                <li>投资组合分析</li>
+            </ul>
+            <p>这很简单：</p>
+            <p>首先，您获得资产，而自动DCA是实现这一目标的最佳方式。</p>
+            <p><b>第一个机器人现在完全免费</b>。</p>
+            <p>然后，我们的分析器帮助您通过<b>智能分配</b>找到资产的最佳配置，并提供其他建议，以改进您的投资组合。</p>
+            <p>如果您有长期思维，并且喜欢您所看到的，请考虑加入 Legendary Badgers ——一个<b>由 1,000 名终身订阅者组成的独家社区</b>。这是一个无与伦比的机会，既能支持项目，又能成为 Deltabadger 所有超能力的终身受益者。</p>
+            <p style="margin-bottom:0">此致，Jan</p>
     metrics:
         exp_return:
             short_name: '预期回报'

@@ -752,7 +752,18 @@ en:
         confirm: Confirm
         update: Update
     welcome:
-        banner_html: 'Hey %{name}! <b>Check your mailbox</b> and find tips and tricks of the perfect bot setup I prepared for you. <b>If it landed in the spam folder, move it to your inbox</b>, so you can see our messages in the future. Thanks, Jan'
+        banner_html: |
+            <p>Hi %{name}, Deltabadger does two things:</p>
+            <ul>
+                <li>Dollar-Cost Averaging</li>
+                <li>Portfolio Analysis</li>
+            </ul>
+            <p>It's simple:</p>
+            <p>First, you acquire assets, and there is no better way to do it than with automated DCA.</p>
+            <p><b>The first bot is now completely free</b>.</p>
+            <p>Then, our Analyzer helps you find the optimal allocation of your assets with <b>Smart Allocation</b>, and provides other cues on how to improve your portfolio.</p>
+            <p>If you have a long-term mindset and you like what you see, consider joining Legendary Badgers — an <b>exclusive community of 1,000 lifetime subscribers</b>. This is an offer like no other that both supports the project and gives a unique opportunity to become a lifetime beneficiary of all Deltabadger's superpowers.</p>
+            <p style="margin-bottom:0">Best, Jan</p>
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
         saver: 'Get rid of the limits, and make an upgrade!'
@@ -877,3 +888,4 @@ en:
             portfolio_destroyed: 'Portfolio was successfully destroyed.'
             portfolio_duplicated: 'Portfolio was successfully duplicated.'
             unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
+    

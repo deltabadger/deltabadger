@@ -693,7 +693,18 @@ id:
         confirm: Konfirmasi
         update: Perbarui
     welcome:
-        banner_html: "Selamat datang! Anda saat ini menikmati <b>paket gratis dengan limit transaksi sebesar $1200/tahun</b>, tetapi tidak akan diberlakukan untuk bulan pertama. Cobalah jadwal mana saja yang Anda inginkan. Anda juga bisa meningkatkan paket agar nanti menikmati transaksi tanpa batas. Selain itu, paket Hodler 4 tahun memberi akses ke fitur eksperimental baru (misalnya semua mata uang untuk pertukaran). Kami mengapresiasi semua masukan. Bergabunglah dengan\n<a href=\"https://t.me/deltabadgerchat\" target=\"_blank\" rel=\"nofollow\">grup Telegram</a> dan ikuti kami di <a href=\"https://twitter.com/deltabadgerapp\" target=\"_blank\" rel=\"nofollow\">Twitter</a>. Selamat ber-averaging!"
+        banner_html: |
+            <p>Hai %{name}, Deltabadger melakukan dua hal:</p>
+            <ul>
+                <li>Dollar-Cost Averaging (DCA)</li>
+                <li>Analisis Portofolio</li>
+            </ul>
+            <p>Sangat sederhana:</p>
+            <p>Pertama, Anda memperoleh aset, dan tidak ada cara yang lebih baik untuk melakukannya selain dengan DCA otomatis.</p>
+            <p><b>Bot pertama sekarang sepenuhnya gratis</b>.</p>
+            <p>Kemudian, Analyzer kami membantu Anda menemukan alokasi optimal dari aset Anda dengan <b>Alokasi Cerdas</b> dan memberikan petunjuk lainnya tentang cara meningkatkan portofolio Anda.</p>
+            <p>Jika Anda memiliki pola pikir jangka panjang dan Anda menyukai apa yang Anda lihat, pertimbangkan untuk bergabung dengan Legendary Badgers — <b>komunitas eksklusif dari 1.000 pelanggan seumur hidup</b>. Ini adalah tawaran unik yang mendukung proyek dan memberi Anda kesempatan unik untuk menjadi penerima manfaat seumur hidup dari semua kekuatan super Deltabadger.</p>
+            <p style="margin-bottom:0">Salam, Jan</p>
         default: 'Hai, selamat datang di Deltabadger'
         saver: 'Hapus limit dan tingkatkan paket!'
     metrics:

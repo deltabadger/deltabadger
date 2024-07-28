@@ -32,6 +32,8 @@
 %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: ".view--upgrade"}
   #cookie_consent
   .container.content-below-menu
+    .page-head
+      .stitle= t('upgrade')
     = yield
   .container
     = render 'layouts/footer'

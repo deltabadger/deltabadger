@@ -6,9 +6,11 @@
     %a.btn.btn-outline-secondary{href: "mailto:contact@deltabadger.com"}
       %span= t('.deactivated.contact')
 
+.page-head
+  .stitle= t('.title')
 .row
   .col-sm-12.col-lg-6
-    %h2.mb-5= t('.title')
+    
     .db-referral-stats
       - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
       .db-referral-stats__item
