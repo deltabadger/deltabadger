@@ -647,7 +647,18 @@ de:
         confirm: Bestätigen
         update: Aktualisieren
     welcome:
-        banner_html: 'Hallo %{name}! <b>Überprüfe deine Mailbox</b> und finde Tipps und Tricks für das perfekte Bot-Setup, das ich für dich vorbereitet habe. <b>Wenn sie im Spam-Ordner gelandet ist, verschiebe sie in deinen Posteingang</b>, damit du unsere Nachrichten in Zukunft sehen kannst. Danke, Jan'
+        banner_html: |
+            <p>Hi %{name}, Deltabadger macht zwei Dinge:</p>
+            <ul>
+                <li>Dollar-Cost Averaging (DCA)</li>
+                <li>Portfolioanalyse</li>
+            </ul>
+            <p>Es ist einfach:</p>
+            <p>Zuerst erwerben Sie Vermögenswerte, und es gibt keinen besseren Weg, dies zu tun, als mit automatisiertem DCA.</p>
+            <p><b>Der erste Bot ist jetzt komplett kostenlos</b>.</p>
+            <p>Dann hilft Ihnen unser Analyzer, die optimale Verteilung Ihrer Vermögenswerte mit <b>Smart Allocation</b> zu finden, und gibt Ihnen weitere Hinweise, wie Sie Ihr Portfolio verbessern können.</p>
+            <p>Wenn Sie eine langfristige Denkweise haben und Ihnen gefällt, was Sie sehen, ziehen Sie in Erwägung, den Legendary Badgers beizutreten — einer <b>exklusiven Gemeinschaft von 1.000 lebenslangen Abonnenten</b>. Dies ist ein einzigartiges Angebot, das das Projekt unterstützt und Ihnen eine einmalige Gelegenheit bietet, lebenslanger Nutznießer aller Superkräfte von Deltabadger zu werden.</p>
+            <p style="margin-bottom:0">Beste Grüße, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
         saver: 'Befreie dich von den Limits und mach ein Upgrade!'
