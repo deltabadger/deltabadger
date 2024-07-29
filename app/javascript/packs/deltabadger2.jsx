@@ -22,7 +22,9 @@ require.context("../images", true);
 
 const store = configureStore(reducer);
 
-I18n.locale = document.head.dataset.locale || I18n.defaultLocale;
+document.addEventListener("turbo:load", () => {
+  I18n.locale = document.body.dataset.locale || I18n.defaultLocale;
+});
 
 document.addEventListener("turbo:load", () => {
   const dashboardDiv = document.getElementById("dashboard");
