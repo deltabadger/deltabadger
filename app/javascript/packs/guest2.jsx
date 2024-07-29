@@ -11,7 +11,9 @@ require.context("../images", true);
 
 Turbo.setFormMode("off")
 
-I18n.locale = document.head.dataset.locale || I18n.defaultLocale;
+document.addEventListener("turbo:load", () => {
+  I18n.locale = document.body.dataset.locale || I18n.defaultLocale;
+});
 
 if (document.getElementById("cookie_consent")) {
   document.addEventListener("turbo:load", () => {
