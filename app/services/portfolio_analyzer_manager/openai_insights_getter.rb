@@ -16,7 +16,6 @@ module PortfolioAnalyzerManager
           }
         )
         answer = response.dig("choices", 0, "message", "content")
-        puts answer
         return Result::Failure.new(response) if answer.blank?
 
         Result::Success.new(answer)
