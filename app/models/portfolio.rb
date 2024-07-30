@@ -136,37 +136,6 @@ class Portfolio < ApplicationRecord
     @idle_assets = nil
   end
 
-  def chatgpt_prompt
-    text = ''
-    text += 'This is my portfolio: '
-    text += 'Assets:'
-    assets.each do |asset|
-      text += " #{asset.ticker} #{(asset.effective_allocation * 100).round(2)}%"
-    end
-    text += '. '
-    text += "Benchmark: #{benchmark_name}. "
-    text += "Risk-free rate: #{(risk_free_rate * 100).round(2)}%. "
-    text += "Metrics for time since #{backtest_start_date} to #{1.day.ago.to_date}: "
-    text += "Portfolio performance +#{backtest['metrics']['totalReturn'].round(2)}%, "
-    text += "Benchmark performance +#{backtest['metrics']['benchmarkTotalReturn'].round(2)}%, "
-    text += "Expected Return #{backtest['metrics']['expectedReturn'].round(2)}%, "
-    text += "CAGR #{backtest['metrics']['cagr'].round(2)}%, "
-    text += "Volatility #{backtest['metrics']['volatility'].round(2)}%, "
-    text += "Max. Drawdown #{backtest['metrics']['maxDrawdown'].round(2)}%, "
-    text += "Calmar Ratio #{backtest['metrics']['calmarRatio'].round(2)}, "
-    text += "VaR #{backtest['metrics']['valueAtRisk'].round(2)}%, "
-    text += "CVaR #{backtest['metrics']['conditionalValueAtRisk'].round(2)}%, "
-    text += "Sharpe Ratio #{backtest['metrics']['sharpeRatio'].round(2)}, "
-    text += "Sortino Ratio #{backtest['metrics']['sortinoRatio'].round(2)}, "
-    text += "Treynor Ratio #{backtest['metrics']['treynorRatio'].round(2)}, "
-    text += "Omega Ratio #{backtest['metrics']['omegaRatio'].round(2)}, "
-    text += "Alpha #{backtest['metrics']['alpha'].round(2)}, "
-    text += "Beta #{backtest['metrics']['beta'].round(2)}, "
-    text += "R-squared #{backtest['metrics']['rSquared'].round(2)}, "
-    text += "Information Ratio #{backtest['metrics']['informationRatio'].round(2)}"
-    text
-  end
-
   def get_risk_free_rate(key)
     return Result::Failure.new(I18n.t('errors.invalid_risk_free_rate_key')) if key.blank? || !RISK_FREE_RATES.key?(key.to_sym)
 

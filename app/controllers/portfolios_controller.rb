@@ -197,6 +197,23 @@ class PortfoliosController < ApplicationController
     end
   end
 
+  def openai_insights
+    insights_result = PortfolioAnalyzerManager::OpenaiInsightsGetter.call(@portfolio)
+    if insights_result.success?
+      @insights = insights_result.data
+      respond_to do |format|
+        format.turbo_stream
+        format.html { redirect_to portfolio_analyzer_path } # TODO: redirect to the correct place
+      end
+    else
+      flash.now[:alert] = "Unable to get insights."
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: "Unable to get insights." }
+      end
+    end
+  end
+
   private
 
   def portfolio_params
