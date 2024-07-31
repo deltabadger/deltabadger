@@ -37,7 +37,7 @@ de:
             valid_for: 'Gültig für den ersten Kauf auf der Plattform.'
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n    <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n    <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n    <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n    <li>Beim nächsten Mal kauft der Empfohlene einen Hodler für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n    <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Hodler für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
         new:
             checked: 'Ich habe mir alles genau angesehen.'
             discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
@@ -393,6 +393,23 @@ de:
             timeout: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an um fortzufahren.'
             unauthenticated: 'Du musst dich erst registrieren, bevor du fortfahren kannst.'
             unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
+        mailer:
+            confirmation_instructions:
+                subject: 'E-Mail-Adresse bestätigen'
+                template_html: '<p>Ihre E-Mail-Adresse ist nur noch einen Klick davon entfernt, Teil des A-Teams des Großartigen zu werden! Bestätigen Sie jetzt und lassen Sie die guten Zeiten auf Autopilot weiterlaufen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Diese E-Mail bestätigen</a>'
+            email_changed:
+                subject: 'E-Mail bestätigt'
+                template_html: '<p>Erledigt! Dies ist Ihre neue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>'
+            password_change:
+                subject: 'Passwort geändert'
+                template_html: '<p>Es ist erledigt!</p><p>Ihr Passwort wurde geändert.</p><p>Ihre Geheimnisse sind sicherer als je zuvor!</p>'
+            reset_password_instructions:
+                subject: 'Passwortwiederherstellung'
+                template_html: '<p>Passwortwiederherstellung eingeleitet! Halten Sie durch, wir bringen Sie im Handumdrehen wieder ins Spiel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Mein Passwort ändern</a>'
+            unlock_instructions:
+                subject: 'Freischaltanweisungen'
+                template_html: '<p>Wir haben Ihr Konto aufgrund einer hohen Anzahl erfolgloser Anmeldeversuche gesperrt.</p><p>Klicken Sie auf den untenstehenden Link, um es zu entsperren:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mein Konto entsperren</a>'
+
         omniauth_callbacks:
             failure: 'Wir konnten dich aufgrund von "%{reason}" nicht von %{kind} authentifizieren.'
             success: 'Erfolgreich von %{kind} Konto authentifiziert.'
