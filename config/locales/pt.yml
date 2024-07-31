@@ -376,6 +376,22 @@ pt:
             timeout: 'A sua sessão expirou. Inicie sessão novamente para continuar.'
             unauthenticated: 'Tem de iniciar sessão ou registar-se antes de continuar.'
             unconfirmed: 'Tem de confirmar o seu endereço de e-mail antes de continuar.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Confirmar endereço de e-mail'
+                template_html: '<p>Seu endereço de e-mail está a um clique de se juntar ao A-Team da grandiosidade! Confirme agora e deixe os bons tempos rolarem no piloto automático.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmar este e-mail</a>'
+            email_changed:
+                subject: 'E-mail confirmado'
+                template_html: '<p>Feito! Este é seu novo e brilhante endereço Deltabadger:</p><p><b>%{email}</b></p>'
+            password_change:
+                subject: 'Senha alterada'
+                template_html: '<p>Está feito!</p><p>Sua senha foi alterada.</p><p>Seus segredos estão mais seguros do que nunca!</p>'
+            reset_password_instructions:
+                subject: 'Recuperação de senha'
+                template_html: '<p>Recuperação de senha iniciada! Aguente firme, vamos colocá-lo de volta no jogo em pouco tempo.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Alterar minha senha</a>'
+            unlock_instructions:
+                subject: 'Instruções de desbloqueio'
+                template_html: '<p>Bloqueamos sua conta devido a um grande número de tentativas de login malsucedidas.</p><p>Clique no link abaixo para desbloqueá-la:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear minha conta</a>'
         omniauth_callbacks:
             failure: 'Não foi possível autenticá-lo a partir de %{kind} devido a "%{reason}".'
             success: 'Autenticado com sucesso a partir da conta %{kind}.'

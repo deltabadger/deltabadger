@@ -18,13 +18,13 @@ pl:
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Potwierdź nowy adres bitcoinowy'
-            template_html: '<p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p><p><b>%{new_btc_address}</b></p><p>Ten adres będzie używany do Twoich wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p><a class="mail-button" href="%{confirmation_url}">Tak, zmieńmy go!</a>'
+            template_html: '<p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p><p><b>%{new_btc_address}</b></p><p>Ten adres będzie używany do Twoich wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Tak, zmieńmy go!</a>'
         referrals_payout_notification:
             subject: 'Nadszedł dzień wypłaty!'
             template_html: '<p>Twój link polecający zyskuje na popularności! Nieźle!!!</p><p>Wysłaliśmy prowizję w wysokości</p><p> <b>%{amount} BTC</b></p><p>na Twój portfel Bitcoin.</p><p>Dziękujemy za powiększanie gangu borsuka!</p>'
         registration_reminder:
             subject: 'Wow! Zarobiłeś %{amount} BTC!'
-            template_html: '<p>Czeka na Ciebie nowa prowizja z programu poleceń! Zakończ rejestrację, aby otrzymać swoje bitcoiny.</p><a class="email-button" href=%{link}>Dokończ rejestrację.</a>'
+            template_html: '<p>Czeka na Ciebie nowa prowizja z programu poleceń! Zakończ rejestrację, aby otrzymać swoje bitcoiny.</p><a class="email-button" style="color: #fff" href=%{link}>Dokończ rejestrację.</a>'
     affiliates:
         add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
         apply_code:
@@ -432,7 +432,7 @@ pl:
         mailer:
             confirmation_instructions:
                 subject: 'Potwierdź adres e-mail'
-                template_html: '<p>Twój adres e-mail jest o jedno kliknięcie od dołączenia do Drużyny A niesamowitości! Potwierdź go i niech zapanuje doskonałość.</p> <a class="mail-button" href="%{confirmation_url}">Potwierdź ten email</a>'
+                template_html: '<p>Twój adres e-mail jest o jedno kliknięcie od dołączenia do Drużyny A niesamowitości! Potwierdź go i niech zapanuje doskonałość.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Potwierdź ten email</a>'
             email_changed:
                 subject: 'E-mail potwierdzony'
                 template_html: '<p>Gotowe! To jest twój nowy i lśniący adres na Deltabadger:</p><p><b>%{email}</b></p>'
@@ -441,10 +441,10 @@ pl:
                 template_html: '<p>Udało się!</p><p>Hasło zostało zmienione.</p><p>Twoje tajemnice są bezpieczniejsze niż kiedykolwiek!</p>'
             reset_password_instructions:
                 subject: 'Odzyskiwanie hasła'
-                template_html: '<p>Odzyskiwanie hasła rozpoczęte! Jeszcze chwila, zaraz wrócisz do gry.</p><a class="mail-button" href="%{edit_password_url}">Zmień moje hasło</a>'
+                template_html: '<p>Odzyskiwanie hasła rozpoczęte! Jeszcze chwila, zaraz wrócisz do gry.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Zmień moje hasło</a>'
             unlock_instructions:
                 subject: 'Instrukcja odblokowania'
-                template_html: '<p>Zablokowaliśmy Twoje konto z powodu dużej liczby nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:</p><a class="mail-button" href="%{unlock_url}">Odblokuj moje konto</a>'
+                template_html: '<p>Zablokowaliśmy Twoje konto z powodu dużej liczby nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Odblokuj moje konto</a>'
         omniauth_callbacks:
             failure: 'Nie można uwierzytelnić %{kind} ponieważ „ %{reason} ”.'
             success: 'Pomyślne uwierzytelnienie z konta %{kind}.'
