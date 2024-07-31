@@ -18,7 +18,7 @@ nl:
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Bevestig nieuw Bitcoin-adres'
-            template_html: '<p>Het lijkt erop dat u uw Bitcoin-adres wilt veranderen naar:</p><p><b>%{new_btc_address}</b></p><p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p><p>Weet u het zeker?</p><a class="mail-button" href="%{confirmation_url}">Ja, laten we het veranderen!</a>'
+            template_html: '<p>Het lijkt erop dat u uw Bitcoin-adres wilt veranderen naar:</p><p><b>%{new_btc_address}</b></p><p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p><p>Weet u het zeker?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Ja, laten we het veranderen!</a>'
         referrals_payout_notification:
             subject: 'Het is betaaldag!'
             template_html: '<p>Top! Uw referral link wint aan populariteit!</p><p>Wij maken een commissie over van </p><p> <b>%{amount} BTC</b></p><p>naar uw Bitcoin wallet.</p><p>Dank voor het uitbreiden van de badger gang!</p>'
@@ -430,7 +430,7 @@ nl:
         mailer:
             confirmation_instructions:
                 subject: 'Bevestig email adres'
-                template_html: '<p>Je emailadres is één klik verwijderd van deelname aan het A-Team van awesomeness! Bevestig nu en laat de goede tijden maar komen op automatische piloot.</p> <a class="mail-button" href="%{confirmation_url}">Bevestig deze email</a>'
+                template_html: '<p>Je emailadres is één klik verwijderd van deelname aan het A-Team van awesomeness! Bevestig nu en laat de goede tijden maar komen op automatische piloot.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Bevestig deze email</a>'
             email_changed:
                 subject: 'Email bevestigd'
                 template_html: '<p>Klaar! Dit is je gloednieuwe schitterende Deltabadger adres:</p><p><b>%{email}</b></p>'
@@ -439,10 +439,10 @@ nl:
                 template_html: '<p>Klaar!</p><p>Uw wachtwoord is gewijzigd.</p> <p>Uw geheimen zijn veiliger dan ooit!</p>'
             reset_password_instructions:
                 subject: 'Wachtwoord herstel'
-                template_html: '<p>Wachtwoord herstel gestart! Hou vol, je kan in een mum van tijd weer aan de slag.</p><a class="mail-button" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
+                template_html: '<p>Wachtwoord herstel gestart! Hou vol, je kan in een mum van tijd weer aan de slag.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
             unlock_instructions:
                 subject: 'Instructies om te ontgrendelen'
-                template_html: '<p>We hebben uw account vergrendeld vanwege een hoog aantal mislukte inlogpogingen.</p><p>Klik op de onderstaande link om te ontgrendelen:</p><a class="mail-button" href="%{unlock_url}">Ontgrendel mijn account</a>'
+                template_html: '<p>We hebben uw account vergrendeld vanwege een hoog aantal mislukte inlogpogingen.</p><p>Klik op de onderstaande link om te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
         omniauth_callbacks:
             failure: 'Kan u niet verifiëren van %{kind} omdat "%{reason}".'
             success: 'Succesvol geverifieerd van %{kind} account.'

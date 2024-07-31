@@ -409,20 +409,20 @@ id:
             unconfirmed: 'Anda harus mengonfirmasi alamat email Anda sebelum melanjutkan.'
         mailer:
             confirmation_instructions:
-                subject: 'Selamat datang di Deltabadger 🎉'
-                template_html: "<p>Selamat Datang di Deltabadger 🎉,</p>\n<p>Dollar-cost averaging otomatis<br>untuk Bitcoin hanya dengan satu klik:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Konfirmasikan akun saya</a>\n</p>\n<p>Anda tidak ingat bahwa mendaftar?<br>Jangan khawatir. Abaikan saja.</p>"
+                subject: 'Konfirmasi alamat email'
+                template_html: '<p>Alamat email Anda hanya satu klik lagi untuk bergabung dengan A-Team kehebatan! Konfirmasikan sekarang dan biarkan waktu bersenang-senang berjalan otomatis.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Konfirmasi email ini</a>'
             email_changed:
-                subject: 'Alamat email baru 📨'
-                template_html: "<p>Halo 👋,</p>\n<p>Kami mengirim email ini untuk memberi tahu Anda bahwa alamat email yang terkait dengan akun Anda di Deltabadger telah diubah menjadi:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+                subject: 'Email dikonfirmasi'
+                template_html: '<p>Selesai! Ini adalah alamat Deltabadger baru dan bersinar Anda:</p><p><b>%{email}</b></p>'
             password_change:
-                subject: 'Kata sandi baru 🔑'
-                template_html: "<p>Selesai 🎉!</p>\n<p>Kata sandi Anda 🔑 telah diubah.</p>"
+                subject: 'Kata sandi diubah'
+                template_html: '<p>Sudah selesai!</p><p>Kata sandi Anda telah diubah.</p><p>Rahasia Anda lebih aman dari sebelumnya!</p>'
             reset_password_instructions:
-                subject: 'Reset kata sandi 🔑'
-                template_html: "<p>Halo 👋,</p>\n<p>Tampaknya Anda ingin mengubah<br/>kata sandi 🔑. Langkah bagus!</p>\n<p>Mari mulai:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Ubah kata sandi</a>\n  </p>\n<p>Anda tidak mengirim permintaan ini?<br/>Jangan khawatir! Abaikan saja.</p>"
+                subject: 'Pemulihan kata sandi'
+                template_html: '<p>Pemulihan kata sandi dimulai! Tunggu sebentar, kami akan mengembalikan Anda ke permainan dalam waktu singkat.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Ubah kata sandi saya</a>'
             unlock_instructions:
-                subject: 'Buka petunjuk 🔓'
-                template_html: "<p>Halo 👋,</p>\n<p>Kami mengunci akun Anda karena<br>banyaknya percobaan masuk yang gagal.</p>\n<p>Klik tautan di bawah ini untuk membukanya:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Buka kunci akun saya</a>\n</p>"
+                subject: 'Instruksi membuka kunci'
+                template_html: '<p>Kami mengunci akun Anda karena sejumlah besar percobaan login yang gagal.</p><p>Klik tautan di bawah ini untuk membukanya:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Buka kunci akun saya</a>'
         omniauth_callbacks:
             failure: 'Tidak dapat mengautentikasi Anda dari %{kind} karena "%{reason}".'
             success: 'Berhasil diautentikasi dari %{kind} akun.'
@@ -598,7 +598,7 @@ id:
     mailer:
         signature_html: 'Tim Deltabadger 🧑‍🚀'
     meta:
-        desc: 'Mulailah secara gratis strategi yang terbukti efektif untuk Binance, FTX, Coinbase, Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.'
+        desc: 'Mulailah secara gratis strategi yang terbukti efektif untuk Binance, Coinbase, Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.'
         title: 'Deltabadger • Automasikan Dollar-Cost Averaging untuk Kripto Apa Saja'
         title_short: 'Deltabadger • DCA Otomatis untuk Bitcoin dan Aset Lainnya'
         twitter_image_alt: 'Dollar-cost averaging otomatis untuk Bitcoin, Ethereum, Polkadot, Cardano, Solana, dan aset digital lainnya.'
