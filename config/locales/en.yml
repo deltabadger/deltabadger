@@ -18,13 +18,13 @@ en:
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirm new Bitcoin address'
-            template_html: '<p>It looks like you want to change your Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p><a class="mail-button" href="%{confirmation_url}">Yes, let''s change it!</a>'
+            template_html: '<p>It looks like you want to change your Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Yes, let''s change it!</a>'
         referrals_payout_notification:
             subject: 'It''s a payday!'
             template_html: '<p>Your referral link is gaining traction! Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
         registration_reminder:
             subject: 'Wow! You earned %{amount} BTC!'
-            template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><a class="email-button" href=%{link}>Complete registration.</a>'
+            template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><a class="email-button" style="color: #fff" href=%{link}>Complete registration.</a>'
     affiliates:
         add_link_info: 'You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:'
         apply_code:
@@ -160,8 +160,6 @@ en:
                     set_webhook: Switch to the Notifications tab, and provide Webhook URL that you see in your bot panel on the left.
                     experimental: The webhook bot is still very experimental. One improvement that is coming soon is the ability to buy and sell using all funds available on the account. Please, test it and let us know how can we improve it.
                     working_and_waiting: The bot is working and waiting for a signal.
-
-
                 withdraw_info_html: '<p class="mt-2"><b>Withdraw</b></p><p>Don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>'
                 title: Info
             log:
@@ -458,7 +456,7 @@ en:
         mailer:
             confirmation_instructions:
                 subject: 'Confirm email address'
-                template_html: '<p>Your email address is one click away from joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p> <a class="mail-button" href="%{confirmation_url}">Confirm this email</a>'
+                template_html: '<p>Your email address is one click away from joining the A-Team of awesomeness! Confirm now and let the good times roll on autopilot.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirm this email</a>'
             email_changed:
                 subject: 'Email confirmed'
                 template_html: '<p>Done! This is your brand new and shiny Deltabadger address:</p><p><b>%{email}</b></p>'
@@ -467,10 +465,10 @@ en:
                 template_html: '<p>It''s done!</p><p>Your password has been changed.</p><p>Your secrets are safer than ever!</p>'
             reset_password_instructions:
                 subject: 'Password recovery'
-                template_html: '<p>Password recovery initiated! Hang tight, we''ll have you back in the game in no time.</p><a class="mail-button" href="%{edit_password_url}">Change my password</a>'
+                template_html: '<p>Password recovery initiated! Hang tight, we''ll have you back in the game in no time.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Change my password</a>'
             unlock_instructions:
                 subject: 'Unlock instructions'
-                template_html: '<p>We locked your account due to a high number of unsuccessful log in attempts.</p><p>Click the link below to unlock it:</p><a class="mail-button" href="%{unlock_url}">Unlock my account</a>'
+                template_html: '<p>We locked your account due to a high number of unsuccessful log in attempts.</p><p>Click the link below to unlock it:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Unlock my account</a>'
         omniauth_callbacks:
             failure: 'Could not authenticate you from %{kind} because "%{reason}".'
             success: 'Successfully authenticated from %{kind} account.'
