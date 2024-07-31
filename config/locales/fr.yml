@@ -18,13 +18,13 @@ fr:
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirmer la nouvelle adresse Bitcoin'
-            template_html: '<p>On dirait que vous vouliez changer votre adresse Bitcoin en :</p><p><b>%{new_btc_address}</b></p><p>. Cette adresse sera utilisée pour vos paiements dans le cadre de notre programme de parrainage.</p><p>Êtes-vous sûr ?</p><a class="mail-button" href="%{confirmation_url}">Oui, changeons-la !</a>'
+            template_html: '<p>On dirait que vous vouliez changer votre adresse Bitcoin en :</p><p><b>%{new_btc_address}</b></p><p>. Cette adresse sera utilisée pour vos paiements dans le cadre de notre programme de parrainage.</p><p>Êtes-vous sûr ?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Oui, changeons-la !</a>'
         referrals_payout_notification:
             subject: 'C''est jour de paie !'
             template_html: '<p>Votre lien de parrainage fonctionne à merveille ! Super !</p><p>Nous transférons une commission de</p><p> <b>%{amount} BTC</b></p><p>sur votre portefeuille Bitcoin.</p><p>Merci d''agrandir le Badger gang !</p>'
         registration_reminder:
             subject: 'Wow! Vous avez gagné %{amount} BTC !'
-            template_html: '<p>Une nouvelle commission du programme de parrainage vous attend ! Terminez l''inscription pour recevoir vos bitcoins :</p><a class="email-button" href=%{link}>Terminer l''inscription.</a>'
+            template_html: '<p>Une nouvelle commission du programme de parrainage vous attend ! Terminez l''inscription pour recevoir vos bitcoins :</p><a class="email-button" style="color: #fff" href=%{link}>Terminer l''inscription.</a>'
     affiliates:
         add_link_info: 'Vous pouvez ajouter votre nom et un lien vers votre site web pour que le parrainé sache d''où vient la réduction. Vous pouvez également ne rien ajouter :'
         apply_code:
@@ -430,7 +430,7 @@ fr:
         mailer:
             confirmation_instructions:
                 subject: 'Confirmez votre adresse email'
-                template_html: '<p>Votre adresse électronique n''est plus qu''à un clic de rejoindre une équipe de génies ! Confirmez maintenant et profitez des bons moments en pilote automatique.</p> <a class="mail-button" href="%{confirmation_url}">Confirmer cet email</a>'
+                template_html: '<p>Votre adresse électronique n''est plus qu''à un clic de rejoindre une équipe de génies ! Confirmez maintenant et profitez des bons moments en pilote automatique.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmer cet email</a>'
             email_changed:
                 subject: 'E-mail confirmé'
                 template_html: '<p>C''est fait ! Voici votre toute nouvelle adresse Deltabadger :</p><p><b>%{email}</b></p>'
@@ -439,10 +439,10 @@ fr:
                 template_html: '<p>C''est fait !</p><p>Votre mot de passe a été modifié.</p><p>Vos secrets sont plus sûrs que jamais !</p>'
             reset_password_instructions:
                 subject: 'Récupération du mot de passe'
-                template_html: '<p>Récupération du mot de passe initiée ! Tenez bon, vous allez revenir dans le jeu très vite.</p><a class="mail-button" href="%{edit_password_url}">Modifier mon mot de passe</a>'
+                template_html: '<p>Récupération du mot de passe initiée ! Tenez bon, vous allez revenir dans le jeu très vite.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Modifier mon mot de passe</a>'
             unlock_instructions:
                 subject: 'Instructions de déverrouillage'
-                template_html: '<p>Nous avons verrouillé votre compte en raison d''un nombre élevé de tentatives de connexions infructueuses.</p><p>Cliquez sur le lien ci-dessous pour déverrouiller:</p><a class="mail-button" href="%{unlock_url}">Déverrouiller mon compte</a>'
+                template_html: '<p>Nous avons verrouillé votre compte en raison d''un nombre élevé de tentatives de connexions infructueuses.</p><p>Cliquez sur le lien ci-dessous pour déverrouiller:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Déverrouiller mon compte</a>'
         omniauth_callbacks:
             failure: 'Impossible de vous authentifier auprès de %{kind} parce que "%{reason}".'
             success: 'Authentification réussie avec le compte %{kind}.'
