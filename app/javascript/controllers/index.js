@@ -10,6 +10,9 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
+import DataLayerController from "./data_layer_controller"
+application.register("data-layer", DataLayerController)
+
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
