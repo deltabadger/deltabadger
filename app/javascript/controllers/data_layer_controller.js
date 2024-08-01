@@ -61,6 +61,7 @@ export default class extends Controller {
       value: price,
       items: [item],
     });
+    alert("Redirecting to checkout page...");
   }
 
   #isDisplayed(element) {
