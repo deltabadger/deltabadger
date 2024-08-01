@@ -10,10 +10,10 @@
     %title= t('meta.title')
 
     %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
-    
+
     %link{:href => asset_pack_path("media/images/favicon.ico"), rel: "icon", sizes: "any"}
     %link{:href => asset_pack_path("media/images/icon.svg"), rel: "icon", type: "image/svg+xml"}
-    
+
     = stylesheet_pack_tag 'guest2'
     = javascript_pack_tag 'guest2'
 
@@ -30,6 +30,9 @@
       /%script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=G-FY76G14DEX"}
 
     :javascript
+
+      // google
+      window.dataLayer = window.dataLayer || [];
       (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f); })(window,document,'script','dataLayer','GTM-W8FD8XHV');
 
       // input labels
@@ -42,7 +45,7 @@
           });
         });
       });
-    
+
     = cloudflare_turnstile_script_tag
 
   %body{ data: { locale: I18n.locale, controller: "hotwire-animations" }}
@@ -53,10 +56,10 @@
     .container.container--signup
       .row{ style: "min-height: 74rem" }
         .d-none.d-lg-block.col-lg-6
-          %h1 
+          %h1
             = t('devise.risk_down')
             <br>
-            = t('devise.gains_up') 
+            = t('devise.gains_up')
 
           %ul{style: "margin-left: 2.5rem; margin-top: 5rem; color: var(--navbarLink); font-weight: bold; font-size: 2.5rem"}
             %li{style:"margin-bottom: 1rem"}= t('devise.dca')
