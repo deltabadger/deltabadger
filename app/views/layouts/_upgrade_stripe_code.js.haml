@@ -1,12 +1,4 @@
 :javascript
-  // google
-  window.dataLayer = window.dataLayer || [];
-  function gtag() {
-    dataLayer.push(arguments);
-  }
-  gtag("js", new Date());
-  gtag("config", "UA-60645901-3");
-
   const stripe_script_src = 'script[src="https://js.stripe.com/v3/"]';
   let stripe = null;
   document.addEventListener('turbo:load', () => {

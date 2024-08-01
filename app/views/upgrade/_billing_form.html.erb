@@ -40,7 +40,7 @@
           </a>
         </li>
       </ul>
-      <div id="payTabContent" class="tab-content">
+      <div id="payTabContent" class="tab-content" data-controller="data-layer">
 
         <div id="payStripe" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_stripe_tab) %>" aria-labelledby="log-tab" role="tabpanel">
           <% if 'investor'.in?(upgrade_presenter.available_plans_for_current_user) %>
@@ -77,7 +77,7 @@
                 <div id="card-exp" class="db-form__input"></div>
                 <div id="card-cvc" class="db-form__input"></div>
               </div>
-              <button class="submit card-submit">
+              <button class="submit card-submit" data-action="click->data-layer#sendBeginCheckoutEvent" data-data-layer-target="button">
                 <div id="spinner" class="spinner hidden"></div>
                 <span id="button-text"><%= t('subscriptions.payment.pay') %></span>
               </button>
@@ -115,10 +115,11 @@
               <%= f.label :country, class: 'db-form__label' %>
             </div>
             <div class="db-form__row db-form__row--final-button">
-              <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false }, class: "btn btn-success btn-lg w-100" do %>
+              <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->data-layer#sendBeginCheckoutEvent", data_layer_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
                 <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
                 <% keys.each do |key| %>
                   <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: upgrade_presenter.selected_cost_presenter, method: 'total_price', key: key } %>
+                  </span>
                 <% end %>
               <% end %>
             </div>
@@ -166,7 +167,7 @@
               <%= f.label :country, class: 'db-form__label' %>
             </div>
             <div class="db-form__row db-form__row--final-button">
-              <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false }, class: "btn btn-success btn-lg w-100 px-1" do %>
+              <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->data-layer#sendBeginCheckoutEvent", data_layer_target: "button" }, class: "btn btn-success btn-lg w-100 px-1" do %>
                 <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
               <% end %>
             </div>
