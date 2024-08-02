@@ -92,6 +92,7 @@ Rails.application.routes.draw do
 
     namespace :upgrade do
       get '/', action: :index
+      get :success
       post :btcpay_payment
       get :btcpay_payment_success
       post :btcpay_payment_ipn

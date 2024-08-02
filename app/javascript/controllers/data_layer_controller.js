@@ -1,9 +1,15 @@
 import { Controller } from "@hotwired/stimulus";
 
 // Connects to data-controller="data-layer"
-// workaround when using current jQuery implementation
 export default class extends Controller {
   static targets = ["button"];
+  static values = { currency: String, name: String, price: Number, isPurchase: Boolean };
+
+  connect() {
+    if (this.isPurchaseValue) {
+      this.#sendPurchaseEvent();
+    }
+  }
 
   sendBeginCheckoutEvent(event) {
     let name = undefined;
@@ -55,44 +61,30 @@ export default class extends Controller {
       },
     });
 
-    // console.log("event 'begin_checkout' sent:", {
-    //   currency: currency,
-    //   value: price,
-    //   items: [item],
-    // });
+    // console.log("event 'begin_checkout' sent:", { currency: currency, value: price, items: [item] });
   }
 
   #isDisplayed(element) {
     return window.getComputedStyle(element).display !== "none";
   }
+
+  #sendPurchaseEvent() {
+    const item = {
+      name: this.nameValue,
+      currency: this.currencyValue,
+      quantity: 1,
+      price: this.priceValue
+    };
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'purchase',
+      ecommerce: {
+        currency: this.currencyValue,
+        value: this.priceValue,
+        items: [item]
+      }
+    });
+
+    console.log("event 'purchase' sent:", { currency: this.currencyValue, value: this.priceValue, items: [item] });
+  }
 }
-
-// expected implementation when using hotwire
-// export default class extends Controller {
-//   static targets = ["button"];
-//   static values = { currency: String, name: String, price: Number };
-
-//   connect() {
-//     console.log("Checkout controller connected");
-//   }
-
-//   sendBeginCheckoutEvent(event) {
-//     const item = {
-//       name: this.nameValue,
-//       currency: this.currencyValue,
-//       quantity: 1,
-//       price: this.priceValue
-//     };
-
-//     window.dataLayer.push({
-//       event: 'begin_checkout',
-//       ecommerce: {
-//         currency: this.currencyValue,
-//         value: this.priceValue,
-//         items: [item]
-//       }
-//     });
-
-//     console.log("Data layer event 'begin_checkout' sent:", { currency: this.currencyValue, value: this.priceValue, items: [item] });
-//   }
-// }
