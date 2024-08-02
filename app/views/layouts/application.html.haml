@@ -158,6 +158,8 @@
 
   %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: yield(:body_class)}
     #cookie_consent
+    #flash.flash
+      = render 'layouts/flash'
 
     = render 'layouts/navbar'
     .main

@@ -33,6 +33,9 @@
 
 %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: ".view--upgrade"}
   #cookie_consent
+  #flash.flash
+    = render 'layouts/flash'
+
   .container.content-below-menu
     .page-head
       .stitle= t('upgrade')

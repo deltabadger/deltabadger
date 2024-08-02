@@ -56,6 +56,9 @@
   %body{ data: { locale: I18n.locale, controller: "hotwire-animations" }}
     =yield(:db_guest_brave)
     #cookie_consent
+    #flash.flash
+      = render 'layouts/flash'
+
     .db--guest--bg-bottom
     = render 'layouts/navbar'
 
