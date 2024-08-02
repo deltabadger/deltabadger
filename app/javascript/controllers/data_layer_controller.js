@@ -60,7 +60,6 @@ export default class extends Controller {
         items: [item],
       },
     });
-
     // console.log("event 'begin_checkout' sent:", { currency: currency, value: price, items: [item] });
   }
 
