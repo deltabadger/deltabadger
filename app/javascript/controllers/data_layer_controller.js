@@ -6,7 +6,7 @@ export default class extends Controller {
   static targets = ["button"];
 
   sendBeginCheckoutEvent(event) {
-    // event.preventDefault()
+    event.preventDefault()
     let name = undefined;
     let currency = undefined;
     let price = undefined;
@@ -61,7 +61,7 @@ export default class extends Controller {
       value: price,
       items: [item],
     });
-    alert("Redirecting to checkout page...");
+    // alert("Redirecting to checkout page...");
   }
 
   #isDisplayed(element) {
