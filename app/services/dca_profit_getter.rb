@@ -2,7 +2,7 @@ class DcaProfitGetter < BaseService
   CACHE_KEY = 'dca_profit'.freeze
 
   def initialize
-    @client = CoinpaprikaClient.new
+    @client = CoingeckoClient.new
   end
 
   def call(start_date = 1.year.ago, end_date = Time.current)
@@ -20,10 +20,13 @@ class DcaProfitGetter < BaseService
   private
 
   def query_profit_dca(start_date, end_date)
-    ohlc_result = @client.get_ohlcv('btc-bitcoin', start_date: start_date.to_i, end_date: end_date.to_i)
-    return ohlc_result if ohlc_result.failure?
+    market_chart_result = @client.market_chart('bitcoin', 'usd', start_date: start_date.to_i, end_date: end_date.to_i)
+    return market_chart_result if market_chart_result.failure?
 
-    price_index = ohlc_result.data.map { |x| x.fetch('close') }
+    btc_price_result = Admin::BitcoinPriceGetter.call(quote: 'usd')
+    return btc_price_result if btc_price_result.failure?
+
+    price_index = market_chart_result.data['prices'][1..].map { |x| x[1] } + [btc_price_result.data]
     Result::Success.new(calculate_profit(price_index))
   end
 

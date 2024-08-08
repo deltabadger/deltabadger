@@ -1,14 +1,14 @@
 module Admin
   class BitcoinPriceGetter < BaseService
     def initialize
-      @client = CoinpaprikaClient.new
+      @client = CoingeckoClient.new
     end
 
     def call(quote:)
-      ticker_result = @client.get_ticker('btc-bitcoin', quotes: [quote])
-      return Result::Failure.new("Couldn\\'t fetch Bitcoin price ") if ticker_result.failure?
+      price_result = @client.simple_price(['bitcoin'], [quote])
+      return Result::Failure.new("Couldn\\'t fetch Bitcoin price ") if price_result.failure?
 
-      bitcoin_price = ticker_result.data['quotes'][quote.upcase]['price']
+      bitcoin_price = price_result.data['bitcoin'][quote.downcase]
       Result::Success.new(bitcoin_price)
     end
   end
