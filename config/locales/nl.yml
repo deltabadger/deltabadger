@@ -115,6 +115,8 @@ nl:
         below: onder
         buttons:
             automatic_withdrawal: 'Automatische Opname'
+            request_exchange: 'Vraag om een beurs toe te voegen'
+            move_existing_bot: 'Bestaande bot naar een andere beurs verplaatsen'
             delete:
                 cancel: Annuleren
                 ok: 'Volledig verwijderen'

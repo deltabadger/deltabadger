@@ -111,13 +111,15 @@ cn:
         add_new_bot: 添加新的机器人
         below: 低于
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: '自动提款'
+            request_exchange: '请求添加一个交易所'
+            move_existing_bot: '将现有机器人移动到另一个交易所'
             delete:
                 cancel: 取消
                 ok: 完全移除
                 text: 删除
                 warning_html: 这将移除机器人及其所有<br>历史数据。确定吗？
-            dollar_cost_averaging: ''
+            dollar_cost_averaging: '平均成本法'
             pending:
                 info_html: 正在处理...
                 text: 待处理

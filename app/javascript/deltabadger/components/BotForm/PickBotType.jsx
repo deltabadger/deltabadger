@@ -31,7 +31,7 @@ export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
           </svg>
           {I18n.t('bots.buttons.automatic_withdrawal')}
         </div>
-        <div
+        {/* <div
           className={`db-bot__types__item db-bot__types__item--wh ${showWebhookButton ? '' : 'db-bot__types__item--inactive'}`}
           onClick={() => showWebhookButton ? handleSubmit('webhook') : null}
         >
@@ -40,7 +40,13 @@ export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
                 <circle className="stroke-1" cx="12" cy="15" r="2" stroke="var(--pickExchangeItemTxt)" strokeWidth="2"/>
               </svg>
           {I18n.t('bots.buttons.webhook')}
-        </div>
+        </div> */}
+        <a
+          className="db-bot__types__item db-bot__types__item--move"
+          href="mailto:jan@deltabadger.com?subject=Move my bot to another exchange"
+        >
+          {I18n.t('bots.buttons.move_existing_bot')}
+        </a>
       </div>
     </div>
   )

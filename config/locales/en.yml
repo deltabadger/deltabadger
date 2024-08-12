@@ -117,8 +117,10 @@ en:
         add_new_bot: 'Add new bot'
         below: below
         buttons:
-            webhook: 'Webhook Trade'
             automatic_withdrawal: 'Automatic Withdrawal'
+            request_exchange: 'Ask to add an exchange'
+            move_existing_bot: 'Move existing bot to another exchange'
+            webhook: 'Webhook Trade'
             delete:
                 cancel: Cancel
                 ok: 'Remove completely'
