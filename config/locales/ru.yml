@@ -111,7 +111,9 @@ ru:
         add_new_bot: 'Добавить новый бот'
         below: ниже
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: 'Автоматический вывод средств'
+            request_exchange: 'Запрос на добавление биржи'
+            move_existing_bot: 'Переместить существующего бота на другую биржу'
             delete:
                 cancel: Отменить
                 ok: 'Удалить полностью'

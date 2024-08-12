@@ -89,6 +89,8 @@ de:
         below: unter
         buttons:
             automatic_withdrawal: 'Automatische Auszahlung'
+            request_exchange: 'Anfrage zum Hinzufügen einer Börse'
+            move_existing_bot: 'Vorhandenen Bot zu einer anderen Börse verschieben'
             delete:
                 cancel: Abbrechen
                 ok: 'Komplett entfernen'
