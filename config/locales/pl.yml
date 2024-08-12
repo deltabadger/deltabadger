@@ -115,6 +115,8 @@ pl:
         below: poniżej
         buttons:
             automatic_withdrawal: 'Automatyczna wypłata'
+            request_exchange: 'Poproś o dodanie giełdy'
+            move_existing_bot: 'Przenieś istniejącego bota na inną giełdę'
             delete:
                 cancel: Anuluj
                 ok: 'Usuń całkowicie'
