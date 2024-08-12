@@ -115,6 +115,8 @@ es:
         below: 'por debajo'
         buttons:
             automatic_withdrawal: 'Retirada automática'
+            request_exchange: 'Pedir agregar un intercambio'
+            move_existing_bot: 'Mover el bot existente a otro intercambio'
             delete:
                 cancel: Cancelar
                 ok: 'Eliminar por completo'
