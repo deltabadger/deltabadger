@@ -111,13 +111,15 @@ vi:
         add_new_bot: 'Thêm bot mới'
         below: 'dưới đây'
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: 'Rút tiền tự động'
+            request_exchange: 'Hỏi để thêm sàn giao dịch'
+            move_existing_bot: 'Di chuyển bot hiện tại sang sàn giao dịch khác'
             delete:
                 cancel: 'Hủy bỏ'
                 ok: 'Xóa toàn bộ'
                 text: Xóa
                 warning_html: 'Thao tác này sẽ xóa bot cùng với tất cả<br> dữ liệu lịch sử. Bạn có chắc muốn xóa không?'
-            dollar_cost_averaging: ''
+            dollar_cost_averaging: 'Trung bình chi phí đô la'
             pending:
                 info_html: 'Đang xử lý'
                 text: 'Đang chờ'
@@ -192,7 +194,7 @@ vi:
         month: Tháng
         next_buy: 'Lần mua tiếp theo trong %{countdown}'
         next_sell: 'Lần bán tiếp theo trong %{countdown}'
-        next_withdrawal: ''
+        next_withdrawal: 'Bài viết tiếp theo'
         price: giá
         price_range_buy_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         price_range_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'

@@ -88,6 +88,9 @@ pt:
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
         buttons:
+            automatic_withdrawal: 'Retirada automática'
+            request_exchange: 'Peça para adicionar uma troca'
+            move_existing_bot: 'Mover bot existente para outra troca'
             delete:
                 cancel: Cancelar
                 ok: 'Remover completamente'

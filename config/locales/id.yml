@@ -111,13 +111,15 @@ id:
         add_new_bot: 'Tambah bot baru'
         below: 'di bawah'
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: 'Penarikan otomatis'
+            request_exchange: 'Minta untuk menambahkan pertukaran'
+            move_existing_bot: 'Pindahkan bot yang ada ke pertukaran lain'
             delete:
                 cancel: Batal
                 ok: 'Hapus semuanya'
                 text: Hapus
                 warning_html: 'Tindakan ini akan menghapus bot dengan semua<br>data riwayatnya. Apakah Anda yakin?'
-            dollar_cost_averaging: ''
+            dollar_cost_averaging: 'Rata-rata Biaya Dolar'
             pending:
                 info_html: Memproses...
                 text: Tertunda
