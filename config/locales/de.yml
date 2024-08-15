@@ -150,7 +150,7 @@ de:
                 total_invested: 'Insgesamt investiert'
         for: für
         force_smart_intervals_html: '<b>Smart-Intervalle<sup>®</sup></b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
-        feecutter_html: '<b>GebührenSchneider<sup>®</sup></b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
 
         hour: Stunde
         limit_buy: 'Limit Kauf'

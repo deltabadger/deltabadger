@@ -52,12 +52,14 @@ a:not(.btn)
   margin-top: .48rem
   margin-left: -2rem
 
-[lang="ru"]
-  body
-    font-family: $fontTextCyrilic
-    font-size: 1.4rem
-  .btn
-    font-size: 1.4rem
+.text-success
+  color: var(--success) !important
+.text-danger
+  color: var(--danger) !important
+.bg-success
+  background-color: var(--success) !important
+.bg-danger
+  background-color: var(--danger) !important
 .m
   &b
     &-5
@@ -392,12 +394,9 @@ sup
 // free
 
 .text-success--lighter
-  color: $successLighter !important
-  color: #{'color(display-p3 0.0375 0.82 0.476) !important'}
-  //text-shadow: 0 0 2rem rgba(0,0,0,.2)
+  color: var(--success) !important
 .text-danger--lighter
-  color: #fc5565 !important
-  //text-shadow: 0 0 2rem rgba(0,0,0,.2)
+  color: var(--danger) !important
 
 // intro image
 .db-intro-image-container
