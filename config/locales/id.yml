@@ -173,7 +173,8 @@ id:
                 title: Statistik
                 total_invested: 'Total investasi'
         for: seharga
-        force_smart_intervals_html: 'Gunakan <em>smart interval</em> dengan order masing-masing senilai <split>$100</split> %{currency}.'
+        force_smart_intervals_html: '<b>Interval Cerdas<sup>®</sup></b> · Beli dengan pesanan senilai <split>$100</split> %{currency} masing-masing.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Kurangi biaya dengan pesanan batas'
         hour: Jam
         limit_buy: 'Beli limit'
         limit_sell: 'Jual limit'
@@ -197,7 +198,6 @@ id:
         next_withdrawal: ''
         price: harga
         price_range_buy_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
-        price_range_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Hanya jual dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
         sell: Jual
         setup:
@@ -311,7 +311,7 @@ id:
                 passphrase: 'Frasa Sandi'
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-            limit_warning: 'Bot order limit adalah fitur eksperimental. Tidak semua order akan diselesaikan. Untuk mencapai hasil yang bagus, Anda perlu meningkatkan nilai investasi secara proporsional. Saat ini, Deltabadger belum menawarkan bantuan untuk mengestimasikan pengaturan ini, jadi Anda perlu melakukan prosedur backtesting sendiri. Gunakan prosedur tersebut hanya jika Anda memahaminya.'
+            limit_warning: 'Biaya untuk pesanan batas sudah lebih rendah, tetapi dengan menetapkannya di bawah harga saat ini sebesar biaya tersebut, Anda dapat secara efektif menguranginya menjadi nol. Pesanan semacam itu mungkin dieksekusi jauh kemudian, atau kadang-kadang tidak sama sekali. Namun, jika Anda menjaga nilainya rendah, risikonya minimal. Bereksperimen dengan nilai yang lebih tinggi adalah risiko Anda sendiri. Beberapa orang bahkan menggunakan fitur ini dengan nilai yang diatur menjadi nol yang hampir menjamin eksekusi, tetapi Anda tetap mendapat manfaat dari biaya pembuat yang lebih rendah.'
             next: Berikutnya
             no_wallet_found: ''
             probit:

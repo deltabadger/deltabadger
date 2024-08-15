@@ -34,14 +34,14 @@ const TradingStats = ({
           <td scope="col">{ isBuyingBot(type) ? I18n.t('bots.details.stats.current_value') : I18n.t('bots.details.stats.current_value_sold', {base: base})}:</td>
           <th scope="col">
             { toFixedWithoutZeros(currentValue) } { quote }
-            { !currentPriceAvailable && <sup>*</sup> }
+            { !currentPriceAvailable }
           </th>
         </tr>
         <tr>
           <td scope="col">{ I18n.t('bots.details.stats.profit_loss') }:</td>
           <th scope="col" className={`text-${profitLoss.positive ? 'success' : 'danger'}`}>
             { toFixedWithoutZeros(profitLoss.value) } { quote } { profitLoss.percentage }
-            { !currentPriceAvailable && <sup>*</sup> }
+            { !currentPriceAvailable }
           </th>
         </tr>
       </tbody>
@@ -60,7 +60,6 @@ export const TradingTransactions = ({ bot, active }) => {
         <svg className="db-svg-icon db-svg--inactive db-svg--table-disclaimer" xmlns="http://www.w3.org/2000/svg" width="2.4rem" viewBox="0 0 24 24">
           <path d="M12 7c.6 0 1 .5 1 1v4c0 .6-.5 1-1 1s-1-.5-1-1V8c0-.6.5-1 1-1zm0-5a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm1-3h-2v-2h2v2z"/>
         </svg>
-        <sup>*</sup>
         <RawHTML tag="span">{I18n.t('bots.details.stats.exchange_unavailable_html')}</RawHTML>
       </p>
     }

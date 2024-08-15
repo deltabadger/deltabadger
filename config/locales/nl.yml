@@ -176,7 +176,8 @@ nl:
                 title: Statistieken
                 total_invested: 'Totaal geïnvesteerd'
         for: voor
-        force_smart_intervals_html: 'Gebruik <em>slimme intervallen</em> bij orders van <split>$100</split> %{currency} per stuk.'
+        force_smart_intervals_html: '<b>Slimme intervallen<sup>®</sup></b> · Koop met bestellingen van <split>100$</split> %{currency} per stuk.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Verlaag kosten met limietorders'
         hour: Uur
         limit_buy: 'Limiet aankoop'
         limit_sell: 'Limiet verkoop'
@@ -200,7 +201,6 @@ nl:
         next_withdrawal: 'Volgende opname in %{countdown}'
         price: 'de prijs'
         price_range_buy_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{currency}.'
-        price_range_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{currency}.'
         sell: Verkopen
         setup:
@@ -330,7 +330,7 @@ nl:
                 passphrase: Wachtwoordzin
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            limit_warning: 'De limietorder bot is een experimentele functie. Niet alle orders zullen worden uitgevoerd. Om goede resultaten te bekomen, moet u het geïnvesteerde bedrag proportioneel verhogen. Op dit moment biedt Deltabadger nog geen hulp bij het inschatten van deze aanpassing, dus uw eigen backtesting is noodzakelijk. Gebruik het alleen als u weet wat u doet.'
+            limit_warning: 'De kosten voor limietorders zijn al lager, maar door ze onder de huidige prijs in de hoogte van de kosten in te stellen, kunt u ze effectief tot nul reduceren. Een dergelijke order kan veel later worden uitgevoerd, of soms helemaal niet. Als u de waarde echter laag houdt, is het risico minimaal. Experimenteren met hogere waarden is op eigen risico. Sommige mensen gebruiken deze functie zelfs met de waarde op nul, wat de uitvoering bijna garandeert, maar u profiteert nog steeds van een lagere maker fee.'
             next: Volgende
             no_wallet_found: 'Geen wallet gevonden. Ga naar %{exchangeName} en voeg een opname wallet toe.'
             probit:

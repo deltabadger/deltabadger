@@ -173,7 +173,8 @@ cn:
                 title: 统计数据
                 total_invested: 总投资
         for: 适用于
-        force_smart_intervals_html: '使用<em>智能间隔</em>，每个订单各为 <split>100</split>%{currency}。'
+        force_smart_intervals_html: '<b>智能区间<sup>®</sup></b> · 使用每笔订单金额为 <split>$100</split> %{currency} 的订单购买。'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · 通过限价单减少费用'
         hour: 小时
         limit_buy: 限价购买
         limit_sell: 限价出售
@@ -197,7 +198,6 @@ cn:
         next_withdrawal: ''
         price: 价格
         price_range_buy_html: '仅在 <split>100</split> 到 <split>1000</split> %{{currency}}的价格范围内买入。'
-        price_range_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内买入。'
         price_range_sell_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内卖出。'
         sell: 出售
         setup:
@@ -311,7 +311,7 @@ cn:
                 passphrase: 密码
                 private_key: 'API 私钥'
                 public_key: 'API 密钥'
-            limit_warning: '限价订单机器人是试验功能。尚无法填入所有订单。为了获得良好的结果，您需要按比例增加投资的金额。目前，Deltabadger 尚无法就此次调整的估计提供任何帮助，因此，您需要自己进行回测。请仅在您清楚自己的行为时使用。'
+            limit_warning: '限价单的费用已经较低，但通过将其设定在当前价格以下的费用距离，您可以有效地将其减少到零。这类订单可能会在很久之后执行，或者有时根本不会执行。然而，如果您将数值保持在低水平，风险是最小的。尝试使用更高的数值风险自负。一些人甚至将此功能的数值设为零，这几乎可以保证执行，但您仍然能享受更低的做市商费用。'
             next: 下一步
             no_wallet_found: ''
             probit:

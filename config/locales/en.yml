@@ -188,7 +188,8 @@ en:
                 title: Statistics
                 total_invested: 'Total invested'
         for: for
-        force_smart_intervals_html: 'Use <em>smart intervals</em> with orders of <split>$100</split> %{currency} each.'
+        force_smart_intervals_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders of'
         hour: Hour
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
@@ -196,7 +197,7 @@ en:
             symbol_not_supported: "%{symbol} is not supported"
             symbol_not_supported_subscription: "%{symbol} is not supported in your subscription"
             upgrade_plan_more_bots: "Upgrade your plan to run more bots"
-            upgrade_plan_limit_orders: "Upgrade your plan to use Limit Orders"
+            upgrade_plan_limit_orders: "Upgrade your plan to use FeeCutter"
             specify_percentage_limit_order: "Specify percentage when creating a limit order"
             smart_intervals_above_minimum: "Smart intervals value should be greater than %{minimum}"
             invalid_price_range: "Price range is invalid"
@@ -212,7 +213,6 @@ en:
         next_withdrawal: 'Next in %{countdown}'
         price: 'the price'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
-        price_range_html: 'Buy only in the  price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
         sell: Sell
         buy_all: Buy all
@@ -356,7 +356,7 @@ en:
                 passphrase: Passphrase
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            limit_warning: 'The limit order bot is an experimental feature. Not all orders will get filled. To achieve good results, you need to increase the invested amount proportionally. At the moment, Deltabadger does not yet offer any help with estimating this adjustment, so your own backtesting is necessary. Use it only if you know what you''re doing.'
+            limit_warning: 'Fees for limit orders are already lower, but by setting them below the current price by the amount of the fee, you can effectively reduce them to zero. Such an order may be executed much later, or occasionally not at all. However, if you keep the value low, the risk is minimal. Experimenting with higher values is at your own risk. Some people even use this feature with the value set to zero, which almost guarantees execution, but you still benefit from a lower maker fee.'
             next: Next
             no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
             probit:
