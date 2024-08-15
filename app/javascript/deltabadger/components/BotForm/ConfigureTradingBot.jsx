@@ -487,9 +487,10 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               disabled={!showLimitOrders}
             />
             <div>
-              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
+              <RawHTML tag="span">{ I18n.t('bots.feecutter_html')}</RawHTML> <input
                 type="text"
-                size={(percentage.length > 0) ? percentage.length : 3 }
+                value={percentage}
+                size={(percentage.length > 0) ? percentage.length : 3}
                 value={percentage}
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
