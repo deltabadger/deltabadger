@@ -176,7 +176,9 @@ es:
                 title: Estadísticas
                 total_invested: 'Total invertido'
         for: por
-        force_smart_intervals_html: 'Utiliza solo órdenes de <split>100 $</split> %{currency} cada una.'
+        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre con órdenes de <split>$100</split> %{currency} cada una.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Reduzca tarifas con órdenes límite'
+
         hour: Hora
         limit_buy: 'Compra limitada'
         limit_sell: 'Venta limitada'
@@ -200,7 +202,6 @@ es:
         next_withdrawal: 'Próxima retirada en %{countdown}'
         price: 'del precio'
         price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
-        price_range_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
         price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
         sell: Vender
         setup:
@@ -330,7 +331,7 @@ es:
                 passphrase: 'Frase de acceso'
                 private_key: 'Secreto de API'
                 public_key: 'Clave API'
-            limit_warning: 'El bot de órdenes limitadas es una función experimental. No todas las órdenes se ejecutarán. Para lograr buenos resultados, es necesario aumentar la cantidad invertida de forma proporcional. Por el momento, Deltabadger no ofrece ninguna ayuda para estimar este ajuste, por lo que es necesario realizar tus propias pruebas. Utilízalo solo si sabes lo que estás haciendo.'
+            limit_warning: 'Las tarifas para órdenes límite ya son más bajas, pero al establecerlas por debajo del precio actual en la cantidad de la tarifa, puedes reducirlas efectivamente a cero. Tal orden puede ejecutarse mucho más tarde o, ocasionalmente, no ejecutarse en absoluto. Sin embargo, si mantienes el valor bajo, el riesgo es mínimo. Experimentar con valores más altos es bajo tu propio riesgo. Algunas personas incluso usan esta función con el valor establecido en cero, lo que casi garantiza la ejecución, pero aún así te beneficias de una tarifa de creador más baja.'
             next: Próximo
             no_wallet_found: 'No se ha encontrado ningún monedero. Ve a %{exchangeName} y añade un monedero de retirada.'
             probit:

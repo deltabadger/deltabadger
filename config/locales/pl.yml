@@ -176,7 +176,8 @@ pl:
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
         for: za
-        force_smart_intervals_html: 'Użyj <em>smart interwałów</em> i zleceń o wielkości <split>100</split> %{currency}.'
+        force_smart_intervals_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Zmniejsz opłaty za pomocą zleceń z limitem'
         hour: Godzina
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'
@@ -330,7 +331,7 @@ pl:
                 passphrase: Hasło
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
-            limit_warning: 'Bot zleceń limitowanych jest funkcją eksperymentalną. Nie wszystkie zlecenia zostaną zrealizowane. Aby osiągnąć dobre wyniki, należy proporcjonalnie zwiększyć inwestowaną kwotę. W tej chwili Deltabadger nie oferuje jeszcze żadnej pomocy w oszacowaniu tego dostosowania, dlatego konieczne są własne eksperymenty. Używaj, tylko jeśli wiesz co robisz.'
+            limit_warning: 'Opłaty za zlecenia z limitem są już niższe, ale ustawiając je poniżej aktualnej ceny o kwotę równą opłacie, możesz je skutecznie zredukować do zera. Takie zlecenie może zostać zrealizowane znacznie później lub czasami wcale. Jednakże, jeśli utrzymasz niską wartość, ryzyko jest minimalne. Eksperymentowanie z wyższymi wartościami jest na własne ryzyko. Niektórzy ludzie używają tej funkcji z wartością ustawioną na zero, co prawie gwarantuje realizację, ale nadal korzystasz z niższej opłaty dla makera.'
             next: Dalej
             no_wallet_found: 'Nie znaleziono portfela. Przejdź do %{exchangeName} i dodaj portfel do wypłaty.'
             probit:

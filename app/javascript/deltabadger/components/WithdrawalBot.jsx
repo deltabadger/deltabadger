@@ -218,7 +218,7 @@ const BotTemplate = ({
 
                 <small className="hide-when-running hide-when-disabled">
                   <div>
-                    <sup>*</sup>{getMinimumDisclaimer()}
+                    {getMinimumDisclaimer()}
                   </div>
                 </small>
               </div>
