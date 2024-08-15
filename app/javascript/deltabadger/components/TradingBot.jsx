@@ -481,7 +481,7 @@ const BotTemplate = ({
               <RawHTML tag="span">{ I18n.t('bots.feecutter_html')}</RawHTML> <input
               type="text"
               value={percentage}
-              size={(percentage.length > 0) ? percentage.length : 1}
+              size={(percentage.length > 0) ? percentage.length : 3}
               className="bot-input bot-input--sizable" 
               onChange={e => setPercentage(e.target.value)}
               onBlur={validatePercentage}
