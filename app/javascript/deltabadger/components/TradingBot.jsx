@@ -459,7 +459,7 @@ const BotTemplate = ({
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
-                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+                  {getSmartIntervalsDisclaimer()}
                 </div>
               </small>
             </div>
@@ -478,7 +478,7 @@ const BotTemplate = ({
               disabled={working || !showLimitOrders}
             />
             <div>
-              {isSellOffer() ? I18n.t('bots.sell') : (isLegacySell() ? I18n.t('bots.sell') : I18n.t('bots.buy'))} <input
+              <RawHTML tag="span">{ I18n.t('bots.feecutter_html')}</RawHTML> <input
               type="text"
               value={percentage}
               size={(percentage.length > 0) ? percentage.length : 1}
@@ -486,8 +486,7 @@ const BotTemplate = ({
               onChange={e => setPercentage(e.target.value)}
               onBlur={validatePercentage}
               disabled={working || !showLimitOrders || !isLimitSelected()}
-            /> % {isSellOffer() ? I18n.t('bots.above') : (isLegacySell() ? I18n.t('bots.above') :I18n.t('bots.below'))} {I18n.t('bots.price')}.<sup
-              className="hide-when-running">*</sup>
+            /> % {isSellOffer() ? I18n.t('bots.above') : (isLegacySell() ? I18n.t('bots.above') :I18n.t('bots.below'))} {I18n.t('bots.price')}.
 
               { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }
               { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }

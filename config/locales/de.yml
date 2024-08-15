@@ -149,7 +149,9 @@ de:
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
         for: für
-        force_smart_intervals_html: 'Verwenden Sie nur Bestellungen von jeweils <split>100$</split> %{currency}.'
+        force_smart_intervals_html: '<b>Smart-Intervalle<sup>®</sup></b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
+        feecutter_html: '<b>GebührenSchneider<sup>®</sup></b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
+
         hour: Stunde
         limit_buy: 'Limit Kauf'
         limit_sell: 'Limit Verkauf'
@@ -173,7 +175,6 @@ de:
         next_withdrawal: 'Nächste in %{countdown}'
         price: 'dem Preis'
         price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
-        price_range_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
         price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
         sell: Verkauf
         setup:
@@ -301,7 +302,7 @@ de:
                 passphrase: Passphrase
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
-            limit_warning: 'Der Limit-Order-Bot ist eine experimentelle Funktion. Nicht alle Aufträge werden dadurch ausgeführt. Um gute Ergebnisse zu erzielen, musst du den investierten Betrag anteilig erhöhen. Im Moment bietet der Deltabadger noch keine Hilfe bei der Abschätzung dieser Anpassung, daher ist dein eigenes Backtesting notwendig. Verwende ihn nur, wenn du weißt, was du tust.'
+            limit_warning: 'Die Gebühren für Limitaufträge sind bereits niedriger, aber indem Sie sie unter dem aktuellen Preis in Höhe der Gebühr festlegen, können Sie sie effektiv auf null reduzieren. Ein solcher Auftrag kann viel später ausgeführt werden oder gelegentlich gar nicht. Wenn Sie den Wert jedoch niedrig halten, ist das Risiko minimal. Das Experimentieren mit höheren Werten erfolgt auf eigenes Risiko. Einige Leute nutzen diese Funktion sogar mit einem auf null gesetzten Wert, was die Ausführung fast garantiert, aber Sie profitieren dennoch von einer niedrigeren Maker-Gebühr.'
             next: Weiter
             no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
             probit:
