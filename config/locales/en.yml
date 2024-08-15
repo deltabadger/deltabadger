@@ -189,7 +189,7 @@ en:
                 total_invested: 'Total invested'
         for: for
         force_smart_intervals_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders of'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders'
         hour: Hour
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
