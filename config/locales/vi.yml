@@ -173,7 +173,8 @@ vi:
                 title: 'Thống kê'
                 total_invested: 'Tổng giá trị đầu tư'
         for: cho
-        force_smart_intervals_html: 'Sử dụng <em>thời khoảng thông minh</em> để đặt lệnh với giá trị <split>$100</split> %{currency} mỗi lệnh.'
+        force_smart_intervals_html: '<b>Khoảng Thời Gian Thông Minh<sup>®</sup></b> · Mua với các đơn hàng trị giá <split>100$</split> %{currency} mỗi đơn.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Giảm phí với lệnh giới hạn'
         hour: Giờ
         limit_buy: 'Lệnh chờ mua'
         limit_sell: 'Lệnh chờ bán'
@@ -197,7 +198,6 @@ vi:
         next_withdrawal: 'Bài viết tiếp theo'
         price: giá
         price_range_buy_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
-        price_range_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Chỉ bán trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         sell: Bán
         setup:
@@ -311,7 +311,7 @@ vi:
                 passphrase: 'Cụm mật khẩu'
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-            limit_warning: 'Bot lệnh giới hạn là tính năng thử nghiệm. Hiện giờ bot chưa thể thực hiện tất cả các lệnh. Để đạt kết quả tốt nhất, bạn cần tăng số tiền đầu tư lên một cách tương xứng. Hiện tại, Deltabadger vẫn chưa cung cấp công cụ nào để ước tính số tiền điều chỉnh, vì vậy bạn cần tự mình thử nghiệm. Chỉ sử dụng nếu bạn biết mình đang làm gì.'
+            limit_warning: 'Phí cho các lệnh giới hạn đã thấp hơn, nhưng bằng cách đặt chúng thấp hơn giá hiện tại với số tiền phí, bạn có thể giảm chúng về 0. Lệnh như vậy có thể được thực hiện muộn hơn nhiều hoặc thỉnh thoảng không được thực hiện. Tuy nhiên, nếu bạn giữ giá trị thấp, rủi ro là tối thiểu. Thử nghiệm với các giá trị cao hơn là do bạn tự chịu trách nhiệm. Một số người thậm chí sử dụng tính năng này với giá trị đặt về 0, điều này gần như đảm bảo việc thực hiện, nhưng bạn vẫn hưởng lợi từ mức phí nhà tạo lập thấp hơn.'
             next: 'Tiếp theo'
             no_wallet_found: ''
             probit:

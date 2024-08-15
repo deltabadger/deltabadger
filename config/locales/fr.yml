@@ -176,7 +176,8 @@ fr:
                 title: 'Statistiques'
                 total_invested: 'Total investi'
         for: 'pour'
-        force_smart_intervals_html: 'Utiliser des <em>intervalles intelligents</em> avec des ordres de <split>100 $</split> %{currency} chacun.'
+        force_smart_intervals_html: '<b>Intervalles Intelligents<sup>®</sup></b> · Achetez avec des ordres de <split>100$</split> %{currency} chacun.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Réduisez les frais avec des ordres à cours limité'
         hour: 'Heure'
         limit_buy: 'Achat limité'
         limit_sell: 'Vente limitée'
@@ -200,7 +201,6 @@ fr:
         next_withdrawal: 'Prochain retrait dans %{countdown}'
         price: 'du prix'
         price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
-        price_range_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
         price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
         sell: 'Vendre'
         setup:
@@ -330,7 +330,7 @@ fr:
                 passphrase: 'Phrase secrète'
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-            limit_warning: 'Le bot de limite de commande est une fonctionnalité expérimentale. Tous les ordres ne seront pas exécutés. Pour obtenir de bons résultats, vous devrez augmenter le montant investi proportionnellement. Pour le moment, Deltabadger n''offre pas d''aide pour estimer cet ajustement, vos propres tests sont nécessaires. Utilisez cette fonctionnalité uniquement si vous savez ce que vous faites.'
+            limit_warning: 'Les frais pour les ordres à cours limité sont déjà plus bas, mais en les plaçant en dessous du prix actuel du montant des frais, vous pouvez les réduire efficacement à zéro. Un tel ordre peut être exécuté beaucoup plus tard, ou parfois pas du tout. Cependant, si vous gardez la valeur basse, le risque est minimal. Expérimenter avec des valeurs plus élevées est à vos propres risques. Certaines personnes utilisent même cette fonctionnalité avec la valeur fixée à zéro, ce qui garantit presque l''exécution, mais vous bénéficiez toujours d''un frais de créateur plus bas.'
             next: 'Suivant'
             no_wallet_found: 'Aucun portefeuille trouvé. Allez sur %{exchangeName} et ajoutez un portefeuille de retrait.'
             probit:

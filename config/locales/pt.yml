@@ -147,7 +147,8 @@ pt:
                 title: Estatísticas
                 total_invested: 'Total investido'
         for: para
-        force_smart_intervals_html: 'Use apenas ordens de <split>$100</split> %{currency} cada.'
+        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre com ordens de <split>$100</split> %{currency} cada uma.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Corte taxas com ordens limitadas'
         hour: Hora
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
@@ -170,7 +171,6 @@ pt:
         next_sell: 'Próxima venda em %{countdown}'
         price: 'do preço'
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
-        price_range_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{currency}.'
         sell: Vender
         setup:
@@ -297,7 +297,7 @@ pt:
                 passphrase: 'Frase de acesso'
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-            limit_warning: 'O bot para limitar pedido é uma funcionalidade experimentar. Nem todos os pedidos serão preenchidos. Para obter bons resultados, precisa de aumentar proporcionalmente o montante investido. Atualmente, a Deltabadger ainda não oferece ajuda para estimar este ajuste, pelo que precisará de recorrer às suas verificações anteriores. Utilize-o apenas se souber o que está a fazer.'
+            limit_warning: 'As taxas para ordens limite já são mais baixas, mas ao defini-las abaixo do preço atual no valor da taxa, você pode reduzi-las efetivamente a zero. Tal ordem pode ser executada muito mais tarde ou, ocasionalmente, não ser executada de forma alguma. No entanto, se você mantiver o valor baixo, o risco é mínimo. Experimentar com valores mais altos é por sua conta e risco. Algumas pessoas até usam esse recurso com o valor definido como zero, o que quase garante a execução, mas você ainda se beneficia de uma taxa de criador mais baixa.'
             next: Próximo
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'

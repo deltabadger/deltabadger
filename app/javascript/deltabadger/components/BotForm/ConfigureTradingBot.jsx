@@ -470,7 +470,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
-                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+                  {getSmartIntervalsDisclaimer()}
                 </div>
               </small>
             </div>
@@ -495,7 +495,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 onChange={e => setPercentage(e.target.value)}
                 onBlur={validatePercentage}
                 disabled={!showLimitOrders || !isLimitOrder()}
-                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
+                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
               { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
