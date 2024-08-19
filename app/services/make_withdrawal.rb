@@ -60,11 +60,15 @@ class MakeWithdrawal < BaseService
     account_info_api = @get_withdrawal_info_processor.call(api_key)
     withdrawal_api = @get_withdrawal_processor.call(api_key)
     balance = account_info_api.available_funds(bot)
+    Rails.logger.info "withdrawal balance: #{balance.inspect}" # delete after testing
     return balance unless balance.success?
 
     bot = @bots_repository.update(bot.id, account_balance: balance.data)
+    Rails.logger.info "withdrawal bot: #{bot.inspect}" # delete after testing
+    Rails.logger.info "withdrawal threshold : #{check_balance_threshold(bot, balance).inspect}" # delete after testing
     return Result::Failure.new(**SKIPPED) unless check_balance_threshold(bot, balance)
 
+    Rails.logger.info "withdrawal params: #{get_withdrawal_params(bot, balance).inspect}" # delete after testing
     withdrawal_api.make_withdrawal(get_withdrawal_params(bot, balance))
   end
 
@@ -77,6 +81,12 @@ class MakeWithdrawal < BaseService
   end
 
   def get_withdrawal_params(bot, balance)
+    params = {
+      amount: balance.data,
+      address: bot.address,
+      currency: bot.currency
+    } # delete after testing
+    Rails.logger.info "withdrawal params: #{params.inspect}" # delete after testing
     {
       amount: balance.data,
       address: bot.address,
