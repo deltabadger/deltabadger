@@ -38,7 +38,7 @@ class CoingeckoClient < ApplicationClient
   # @param to [Int] To date in UNIX timestamp
   # @param interval [String] can be one of these values: '5m', 'hourly', 'daily'
   # @param precision [Int] or 'full' for full data
-  def market_chart(coin_id, vs_currency, from, to, interval: 'daily', precision: 'full')
+  def market_chart(coin_id, vs_currency, from:, to:, interval: 'daily', precision: 'full')
     with_rescue do
       response = self.class.connection.get do |req|
         req.url "coins/#{coin_id}/market_chart/range"
