@@ -12,7 +12,7 @@ class DcaProfitGetter < BaseService
     return profit_result if profit_result.failure?
 
     Rails.cache.write(CACHE_KEY, profit_result, expires_in: 1.day) if profit_result.success?
-    profit
+    profit_result
   rescue StandardError
     Result::Failure.new
   end
@@ -20,7 +20,7 @@ class DcaProfitGetter < BaseService
   private
 
   def query_profit_dca(start_date, end_date)
-    market_chart_result = @client.market_chart('bitcoin', 'usd', start_date: start_date.to_i, end_date: end_date.to_i)
+    market_chart_result = @client.market_chart('bitcoin', 'usd', from: start_date.to_i, to: end_date.to_i)
     return market_chart_result if market_chart_result.failure?
 
     btc_price_result = Admin::BitcoinPriceGetter.call(quote: 'usd')
