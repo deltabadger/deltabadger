@@ -48,13 +48,17 @@ module ExchangeApi
         end
 
         def available_funds(bot)
+          Rails.logger.info "withdrawal available_funds bot.currency: #{bot.currency}" # delete after testing
           minimum = withdrawal_minimum(bot.currency)
+          Rails.logger.info "withdrawal available_funds minimum: #{minimum.inspect}" # delete after testing
           return minimum unless minimum.success?
 
           response = @client.withdraw_info(asset: bot.currency, key: bot.address, amount: minimum.data)
+          Rails.logger.info "withdrawal available_funds response: #{response.inspect}" # delete after testing
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
           data = response.fetch('result').fetch('limit').to_f
+          Rails.logger.info "withdrawal available_funds data: #{data.inspect}" # delete after testing
           Result::Success.new(data)
         rescue StandardError => e
           Raven.capture_exception(e)
