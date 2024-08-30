@@ -15,8 +15,8 @@ class MetricsRepository < BaseRepository
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
       availableLegendaryBadgers: legendary_badger_stats[:for_sale_legendary_badger_count],
       takenLegendaryBadgerNumbers: SubscriptionsRepository.new.model.used_sequence_numbers,
-      dca4yrProfitBtc: DcaProfitGetter.call('bitcoin', 4.years.ago),
-      dca4yrProfitSp500: DcaProfitGetter.call('s&p-500', 4.years.ago)
+      dca4yrProfitBtc: DcaProfitGetter.call('bitcoin', 4.years.ago).data,
+      dca4yrProfitSp500: DcaProfitGetter.call('s&p-500', 4.years.ago).data
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)
   end
