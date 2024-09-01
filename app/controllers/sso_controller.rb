@@ -5,7 +5,7 @@ class SsoController < ApplicationController
 
     if secret.nil? || discourse_sso_url.nil?
       Rails.logger.error 'Discourse SSO secret or URL not set'
-      return render plain: 'Configuration error: Discourse SSO secret or URL not set', status: :internal_server_error
+      return render plain: 'Configuration error', status: :internal_server_error
     end
 
     if request.query_string.blank?
@@ -27,36 +27,28 @@ class SsoController < ApplicationController
       return render plain: 'No user logged in', status: :unauthorized
     end
 
-    # Check if the user has a valid active subscription using the active_subscription method
-    if valid_subscription_plan?(user.active_subscription)
-      temp_username = "badger#{user.id}"
-
-      if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
-        Rails.logger.error 'User attribute is missing'
-        return render plain: 'User attribute is missing', status: :internal_server_error
-      end
-
-      sso.email = user.email
-      sso.name = user.name
-      sso.username = temp_username # Use the temporary username
-      sso.external_id = user.id.to_s
-      sso.sso_secret = secret
-
-      redirect_url = sso.to_url(discourse_sso_url)
-
-      redirect_to redirect_url
-    else
-      Rails.logger.error 'User does not have a valid subscription'
-      render plain: 'You do not have access to the community', status: :forbidden
+    # Check the subscription plan ID
+    active_subscription = user.active_subscription
+    unless active_subscription && [3, 4].include?(active_subscription.subscription_plan_id)
+      Rails.logger.error 'User does not have an eligible subscription plan for SSO'
+      return render plain: 'Upgrade your plan to access the community', status: :forbidden
     end
-  end
 
-  private
+    temp_username = "badger#{user.id}"
 
-  def valid_subscription_plan?(subscription)
-    return false if subscription.nil?
+    if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
+      Rails.logger.error 'User attribute is missing'
+      return render plain: 'User attribute is missing', status: :internal_server_error
+    end
 
-    valid_plan_ids = [3, 4]
-    valid_plan_ids.include?(subscription.subscription_plan_id)
+    sso.email = user.email
+    sso.name = user.name
+    sso.username = temp_username # Use the temporary username
+    sso.external_id = user.id.to_s
+    sso.sso_secret = secret
+
+    redirect_url = sso.to_url(discourse_sso_url)
+
+    redirect_to redirect_url
   end
 end
