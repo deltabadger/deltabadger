@@ -27,29 +27,36 @@ class SsoController < ApplicationController
       return render plain: 'No user logged in', status: :unauthorized
     end
 
-    # Check if the user has a valid subscription with plan_id 3 or 4
-    valid_subscription = user.subscriptions.current.where(subscription_plan_id: [3, 4]).exists?
+    # Check if the user has a valid active subscription using the active_subscription method
+    if valid_subscription_plan?(user.active_subscription)
+      temp_username = "badger#{user.id}"
 
-    unless valid_subscription
+      if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
+        Rails.logger.error 'User attribute is missing'
+        return render plain: 'User attribute is missing', status: :internal_server_error
+      end
+
+      sso.email = user.email
+      sso.name = user.name
+      sso.username = temp_username # Use the temporary username
+      sso.external_id = user.id.to_s
+      sso.sso_secret = secret
+
+      redirect_url = sso.to_url(discourse_sso_url)
+
+      redirect_to redirect_url
+    else
       Rails.logger.error 'User does not have a valid subscription'
-      return render plain: 'Access denied: You need an appropriate subscription to access this feature', status: :forbidden
+      render plain: 'You do not have access to the community', status: :forbidden
     end
+  end
 
-    temp_username = "badger#{user.id}"
+  private
 
-    if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
-      Rails.logger.error 'User attribute is missing'
-      return render plain: 'User attribute is missing', status: :internal_server_error
-    end
+  def valid_subscription_plan?(subscription)
+    return false if subscription.nil?
 
-    sso.email = user.email
-    sso.name = user.name
-    sso.username = temp_username # Use the temporary username
-    sso.external_id = user.id.to_s
-    sso.sso_secret = secret
-
-    redirect_url = sso.to_url(discourse_sso_url)
-
-    redirect_to redirect_url
+    valid_plan_ids = [3, 4]
+    valid_plan_ids.include?(subscription.subscription_plan_id)
   end
 end
