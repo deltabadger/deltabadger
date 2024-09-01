@@ -80,8 +80,6 @@ class User < ApplicationRecord
     webhook_bots_transactions.where('transactions.created_at > ? ', time)
   end
 
-  private
-
   def active_subscription
     now = Time.current
     subscriptions.where('end_time > ?', now).order(created_at: :desc).first_or_create do |sub|
@@ -91,6 +89,8 @@ class User < ApplicationRecord
       sub.credits = saver_plan.credits
     end
   end
+
+  private
 
   def set_affiliate
     affiliate_params = ActionController::Parameters.new(
