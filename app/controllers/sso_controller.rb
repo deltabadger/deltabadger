@@ -27,6 +27,14 @@ class SsoController < ApplicationController
       return render plain: 'No user logged in', status: :unauthorized
     end
 
+    # Check if the user has a valid subscription with plan_id 3 or 4
+    valid_subscription = user.subscriptions.current.where(subscription_plan_id: [3, 4]).exists?
+
+    unless valid_subscription
+      Rails.logger.error 'User does not have a valid subscription'
+      return render plain: 'Access denied: You need an appropriate subscription to access this feature', status: :forbidden
+    end
+
     temp_username = "badger#{user.id}"
 
     if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
