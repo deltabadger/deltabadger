@@ -113,7 +113,17 @@ module ExchangeApi
           response = JSON.parse(request.body)
           Rails.logger.info "Coinbase parse_request #{response.to_json}"
           if order_done?(request, response)
-            order_id = response.fetch('order_id')
+            order_id = response.dig('success_response', 'order_id')
+
+            # TODO: delete this block if it's not in the logs since 2024-09-04
+            if order_id.nil?
+              Rails.logger.info "Coinbase weird case where the answer did not contain success_response: #{response.to_json}"
+              order_id = response.fetch('order_id')
+            end
+            # TODO: delete this block if it's not in the logs since 2024-09-04
+
+            raise KeyError if order_id.nil?
+
             Result::Success.new(offer_id: order_id)
           else
             error_to_failure([response.dig('error_response', 'message')])
