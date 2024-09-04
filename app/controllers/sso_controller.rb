@@ -29,12 +29,17 @@ class SsoController < ApplicationController
 
     # Check the subscription plan ID
     active_subscription = user.active_subscription
-    unless active_subscription && [3, 4].include?(active_subscription.subscription_plan_id)
+    unless active_subscription && active_subscription.subscription_plan_id != 1
       Rails.logger.error 'User does not have an eligible subscription plan for SSO'
       return render plain: 'Upgrade your plan to access the community', status: :forbidden
     end
 
-    temp_username = "badger#{user.id}"
+    # Assign Discourse badges based on the subscription plan
+    assign_badges_to_user(user, active_subscription)
+
+    # Create a temporary username from the first word of user's name + user.id
+    first_name = user.name.split.first.downcase
+    temp_username = "#{first_name}#{user.id}"
 
     if user.email.nil? || user.name.nil? || user.id.nil? || temp_username.nil?
       Rails.logger.error 'User attribute is missing'
@@ -50,5 +55,23 @@ class SsoController < ApplicationController
     redirect_url = sso.to_url(discourse_sso_url)
 
     redirect_to redirect_url
+  end
+
+  private
+
+  def assign_badges_to_user(user, active_subscription)
+    discourse_api_key = ENV['DISCOURSE_API_KEY']
+    discourse_api_username = ENV['DISCOURSE_API_USERNAME']
+    discourse_site_url = ENV['DISCOURSE_SITE_URL']
+    discourse = DiscourseApi::Client.new(discourse_site_url)
+    discourse.api_key = discourse_api_key
+    discourse.api_username = discourse_api_username
+
+    legendary_badger_badge_id = 103 # Replace with the actual badge ID for "Legendary Badger"
+
+    # First, remove any badge the user shouldn't have
+    return unless active_subscription.subscription_plan_id == 4
+
+    discourse.user_badges.grant(user.id, legendary_badger_badge_id)
   end
 end
