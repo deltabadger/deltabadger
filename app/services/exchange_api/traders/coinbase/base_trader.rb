@@ -122,7 +122,7 @@ module ExchangeApi
             end
             # TODO: delete this block if it's not in the logs since 2024-09-04
 
-            raise JSON::ParserError if order_id.nil?
+            raise KeyError if order_id.nil?
 
             Result::Success.new(offer_id: order_id)
           else
