@@ -31,12 +31,12 @@ document.addEventListener("turbo:load", () => {
   if (dashboardDiv) {
     const node = document.getElementById("current_user_subscription");
     const data = node ? node.getAttribute("data") : null;
-    const isHodler = data === "hodler";
-    const isLegendaryBadger = data === "legendary_badger";
+    const isPro = data === "pro";
+    const isLegendary = data === "legendary";
     const root = createRoot(dashboardDiv);
     root.render(
       <Provider store={store}>
-        <Dashboard isHodler={isHodler} isLegendaryBadger={isLegendaryBadger} />
+        <Dashboard isPro={isPro} isLegendary={isLegendary} />
       </Provider>
     );
   }
