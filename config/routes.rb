@@ -116,7 +116,7 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resource :legendary_badger, only: [:show, :update], path: '/legendary-badger' do
+    resource :legendary, only: [:show, :update], path: '/legendary-badger' do
       get '/', action: :show
       patch '/', action: :update
     end

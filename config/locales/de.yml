@@ -25,7 +25,7 @@ de:
         btc_address_confirmation_sent: 'Bestätigungs-E-Mail versendet'
         create:
             error: 'Anmeldung zum Empfehlungsprogramm fehlgeschlagen'
-            saver_error: 'Du musst upgraden, um dich registrieren zu können'
+            free_plan_error: 'Du musst upgraden, um dich registrieren zu können'
         current_bitcoin_address: 'Aktuelle Bitcoin-Adresse'
         discount:
             accepted: 'Du hast den Empfehlungslink akzeptiert'
@@ -37,7 +37,7 @@ de:
             valid_for: 'Gültig für den ersten Kauf auf der Plattform.'
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Hodler für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Pro für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
         new:
             checked: 'Ich habe mir alles genau angesehen.'
             discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
@@ -83,7 +83,7 @@ de:
         first_month_ending_soon:
             subject: 'Dein Probemonat endet bald!'
     bots:
-        hodler_only: 'Nur Hodler und Legendary Badger'
+        pro_only: 'Nur Pro und Legendary'
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'
         below: unter
@@ -582,8 +582,8 @@ de:
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
-            saver_days_left_html: '<b>$%{credits}</b> vom Limit des kostenlosen Plans übrig.'
-            saver_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
+            free_plan_days_left_html: '<b>$%{credits}</b> vom Limit des kostenlosen Plans übrig.'
+            free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
             submit_password: 'Passwort ändern'
@@ -605,15 +605,15 @@ de:
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Unbegrenzte DCA-Bots</b>, niedrigere Gebühren mit <b>Limit-Orders</b>, <b>automatische Abhebungen</b>, <b>Preisbedingung</b>, <b>Zeitbedingung</b>(bald).</p>'
-        investor: Investor
-        investor_description_html: 'Ein Jahr lang <b>unbegrenzte Transaktionen</b>, <b>alle Währungen</b> und <b>automatische Abhebungen</b>.'
-        legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p><b>Bezahle nie wieder für die Nutzung des Dienstes.</b></p><p>Alles, was der Hodler-Plan zu bieten hat, aber ein Leben lang.</p><p>Das Abonnement kommt mit einem <b>NFT</b>, sodass du es in Zukunft an einen anderen Nutzer verkaufen kannst.</p><p>Jeder Token ist mit einem prozeduralen Kunstwerk verbunden. Kannst du alle 21 "Ostereier" finden, die in <a href="https://deltabadger.com/legendary/" class="nobreak">der Sammlung</a> versteckt sind?</p><p>Lebenslang. Limitiert. Legendär.</p><p>Legendary Badgers sind wie nichts anderes auf dem Markt.</p><p>Nur 1000 sitzen im Raumschiff der Legendary Badgers. Zementiere deinen langfristigen Denkstatus und werde legendär.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Unbegrenzte DCA-Bots</b>, niedrigere Gebühren mit <b>Limit-Orders</b>, <b>automatische Abhebungen</b>, <b>Preisbedingung</b>, <b>Zeitbedingung</b>(bald).</p>'
+        standard: Standard
+        standard_description_html: 'Ein Jahr lang <b>unbegrenzte Transaktionen</b>, <b>alle Währungen</b> und <b>automatische Abhebungen</b>.'
+        legendary: Legendary
+        legendary_description_html: '<p><b>Bezahle nie wieder für die Nutzung des Dienstes.</b></p><p>Alles, was der Pro-Plan zu bieten hat, aber ein Leben lang.</p><p>Das Abonnement kommt mit einem <b>NFT</b>, sodass du es in Zukunft an einen anderen Nutzer verkaufen kannst.</p><p>Jeder Token ist mit einem prozeduralen Kunstwerk verbunden. Kannst du alle 21 "Ostereier" finden, die in <a href="https://deltabadger.com/legendary/" class="nobreak">der Sammlung</a> versteckt sind?</p><p>Lebenslang. Limitiert. Legendär.</p><p>Legendary Badgers sind wie nichts anderes auf dem Markt.</p><p>Nur 1000 sitzen im Raumschiff der Legendary Badgers. Zementiere deinen langfristigen Denkstatus und werde legendär.</p>'
         limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Transaktionslimit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
-        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Hodler-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
+        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
             account_holder: Kontoinhaber
             account_number: Kontonummer
@@ -624,15 +624,15 @@ de:
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
-            compensation_hodler:
-                one: 'Entschädigung für 1 ungenutzten Tag des Hodler-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Hodler-Plans.'
-            compensation_investor:
+            compensation_pro:
+                one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
+            compensation_standard:
                 one: 'Entschädigung für 1 ungenutzten Tag des Investorenplans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
-            legendary_badger_discount: 'Early Bird-Rabatt'
-            legendary_badger_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
+            legendary_plan_discount: 'Early Bird-Rabatt'
+            legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
@@ -644,9 +644,9 @@ de:
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt
-            wire_cost_hodler_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_investor_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_legendary_badger_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_pro_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_standard_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_legendary_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
             wire_transfer: Banküberweisung
             wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
@@ -655,7 +655,7 @@ de:
         plan_1_year: 1-Jahr-Plan
         plan_life_time: 'Lebenslanger Plan'
         prolong_upgrade: 'Stufe deinen Plan hoch'
-        saver: Sparer
+        free: Sparer
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'
     legendary_badger:
@@ -680,7 +680,7 @@ de:
             <p style="margin-bottom:0">Beste Grüße, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
-        saver: 'Befreie dich von den Limits und mach ein Upgrade!'
+        free: 'Befreie dich von den Limits und mach ein Upgrade!'
     metrics:
         exp_return:
             short_name: 'Erw. Rendite'

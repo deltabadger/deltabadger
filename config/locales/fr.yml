@@ -35,7 +35,7 @@ fr:
         btc_address_confirmation_sent: 'Envoi de l''e-mail de confirmation'
         create:
             error: 'Échec de l''inscription au programme de parrainage'
-            saver_error: 'Vous devez mettre à niveau pour vous inscrire'
+            free_plan_error: 'Vous devez mettre à niveau pour vous inscrire'
         current_bitcoin_address: 'Adresse Bitcoin actuelle'
         discount:
             accepted: 'Vous avez accepté le lien de parrainage'
@@ -98,10 +98,10 @@ fr:
             template_html: '<p>Vous utilisez Deltabadger depuis près d''un mois !</p><p>Votre essai gratuit et illimité se termine bientôt. N''oubliez pas d''effectuer une mise à niveau pour continuer à faire fonctionner vos blaireaux les plus lourds !</p>'
         limit_almost_reached:
             subject: 'Limite presque atteinte'
-            template_html: '<p>Vous avez presque atteint la limite de transactions du forfait <b>Saver</b>.</p><p>Passez au plan <b>Investor</b> ou <b>Hodler</b> pour vous assurer que vos bots</br>continueront à fonctionner.</p>'
+            template_html: '<p>Vous avez presque atteint la limite de transactions du forfait <b>Free</b>.</p><p>Passez au plan <b>Standard</b> ou <b>Pro</b> pour vous assurer que vos bots</br>continueront à fonctionner.</p>'
         limit_reached:
             subject: 'Vous avez atteint la limite'
-            template_html: '<p>Bravo ! La limite de votre forfait <b>Saver</b> est atteinte.</p><p>On dirait que vous faites du DCA depuis un petit moment.</p><p>Nous espérons que vous êtes satisfait des résultats.</p><p>Passez au forfait <b>Investor</b> ou <b>Hodler</b> pour supprimer toutes les limites et remettre vos bots au travail.</p>'
+            template_html: '<p>Bravo ! La limite de votre forfait <b>Free</b> est atteinte.</p><p>On dirait que vous faites du DCA depuis un petit moment.</p><p>Nous espérons que vous êtes satisfait des résultats.</p><p>Passez au forfait <b>Standard</b> ou <b>Pro</b> pour supprimer toutes les limites et remettre vos bots au travail.</p>'
         notify_about_error:
             subject: 'Quelque chose s''est mal passé'
             template_html: '<p>Une erreur s''est produite lors du traitement de la dernière transaction.</p><p>Vous pouvez voir l''erreur dans le journal du bot. Connectez-vous pour le vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -109,7 +109,7 @@ fr:
             subject: 'Oups ! Prochain essai...'
             template_html: '<p>Le robot n''a pas pu exécuter votre ordre. On dirait qu''il s''agit d''un problème d''exchange. Nous réessayerons dans %{delay}.</p><p>Toutes les erreurs sont visibles dans le journal du robot. Connectez-vous pour vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Seulement Hodler et Legendary Badger'
+        pro_only: 'Seulement Pro et Legendary Badger'
         above: 'au dessus'
         add_new_bot: 'Ajouter un nouveau bot'
         below: 'en dessous'
@@ -638,8 +638,8 @@ fr:
             email_section: 'E-mail'
             name_section: 'Nom'
             password_section: 'Mot de passe'
-            saver_days_left_html: 'Il vous reste <b>$%{credits}</b> sur la limite de transactions du forfait gratuit.'
-            saver_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
+            free_plan_days_left_html: 'Il vous reste <b>$%{credits}</b> sur la limite de transactions du forfait gratuit.'
+            free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             submit_email: 'Mettre à jour l''e-mail'
             submit_name: 'Mettre à jour le nom'
             submit_password: 'Modifier le mot de passe'
@@ -661,15 +661,15 @@ fr:
         days_left:
             one: "1 jour restant"
             other: "%{count} jours restants"
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bots DCA illimités</b>, des frais plus bas avec des <b>ordres limités</b>, des <b>retraits automatiques</b>, une <b>condition de prix</b>, une <b>condition de temps</b>(bientôt).</p>'
-        investor: Investisseur
-        investor_description_html: 'Un an de <b>transactions illimitées</b>, <b>toutes les devises</b> et <b>retraits automatiques</b>.'
-        legendary_badger: "Legendary Badger"
-        legendary_badger_description_html: '<p><b>Ne payez plus jamais pour utiliser le service.</b></p><p>Tout ce que le plan Hodler offre, mais à vie.</p><p>L''abonnement comprend un <b>NFT</b>, ce qui vous permet de le vendre à un autre utilisateur à l''avenir.</p><p>Chaque jeton est associé à une œuvre d''art procédurale. Pouvez-vous trouver les 21 "œufs de Pâques" cachés dans <a href="https://deltabadger.com/legendary/" class="nobreak">la collection</a>?</p><p>À vie. Limité. Légendaire.</p><p>Les Legendary Badgers sont comme rien d''autre sur le marché.</p><p>Seulement 1000 places sur le vaisseau spatial des Legendary Badgers. Cimentez votre statut de penseur à long terme et devenez légendaire.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Bots DCA illimités</b>, des frais plus bas avec des <b>ordres limités</b>, des <b>retraits automatiques</b>, une <b>condition de prix</b>, une <b>condition de temps</b>(bientôt).</p>'
+        standard: Investisseur
+        standard_description_html: 'Un an de <b>transactions illimitées</b>, <b>toutes les devises</b> et <b>retraits automatiques</b>.'
+        legendary: "Legendary Badger"
+        legendary_description_html: '<p><b>Ne payez plus jamais pour utiliser le service.</b></p><p>Tout ce que le plan Pro offre, mais à vie.</p><p>L''abonnement comprend un <b>NFT</b>, ce qui vous permet de le vendre à un autre utilisateur à l''avenir.</p><p>Chaque jeton est associé à une œuvre d''art procédurale. Pouvez-vous trouver les 21 "œufs de Pâques" cachés dans <a href="https://deltabadger.com/legendary/" class="nobreak">la collection</a>?</p><p>À vie. Limité. Légendaire.</p><p>Les Legendary Badgers sont comme rien d''autre sur le marché.</p><p>Seulement 1000 places sur le vaisseau spatial des Legendary Badgers. Cimentez votre statut de penseur à long terme et devenez légendaire.</p>'
         limit_reached_html: '<b>Félicitations!</b> Vous avez atteint notre limite de transactions gratuites de 1200 $/an. Pour continuer, passez au plan illimité.'
         analyzer_html: 'Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>.'
-        expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Hodler : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
+        expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Pro : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
         payment:
             account_holder: 'Titulaire du compte'
             account_number: 'Numéro de compte'
@@ -680,15 +680,15 @@ fr:
             billing_information: 'Détails de facturation'
             bitcoin: 'Bitcoin'
             stripe_payment_succeeded: 'Paiement réussi, vous devriez être redirigé dans quelques secondes.'
-            compensation_hodler:
-                one: 'Compensation pour 1 jour inutilisé du forfait Hodler'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Hodler'
-            compensation_investor:
+            compensation_pro:
+                one: 'Compensation pour 1 jour inutilisé du forfait Pro'
+                other: 'Compensation pour %{count} jours inutilisés du forfait Pro'
+            compensation_standard:
                 one: 'Compensation pour 1 jour inutilisé du forfait Investisseur'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Investisseur'
             discount: '%{discount_percent}% de réduction'
-            legendary_badger_discount: 'Réduction Early Bird'
-            legendary_badger_discount_info: "À chaque vente, le montant de la réduction diminue de 1\_$. Ne tardez pas!"
+            legendary_plan_discount: 'Réduction Early Bird'
+            legendary_plan_discount_info: "À chaque vente, le montant de la réduction diminue de 1\_$. Ne tardez pas!"
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
@@ -700,9 +700,9 @@ fr:
             routing_number: 'Numéro de routage'
             server_error: 'Erreur du serveur de paiement, merci de réessayer plus tard.'
             vat: 'TVA'
-            wire_cost_hodler_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_investor_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_legendary_badger_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> sur le compte bancaire suivant :'
+            wire_cost_pro_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> sur le compte bancaire suivant :'
+            wire_cost_standard_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> sur le compte bancaire suivant :'
+            wire_cost_legendary_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> sur le compte bancaire suivant :'
             wire_cost_pending_html: 'Si vous n''avez pas encore effectué de paiement, envoyez <b>%{sign}%{price}</b> sur le compte bancaire suivant :'
             wire_transfer: 'Virement bancaire'
             wire_transfer_fill_form: 'Veuillez remplir le formulaire ci-dessus pour continuer'
@@ -711,7 +711,7 @@ fr:
         plan_1_year: 'Forfait de 1 an'
         plan_life_time: 'Forfait à vie'
         prolong_upgrade: 'Mise à niveau du forfait'
-        saver: 'Saver'
+        free: 'Gratuit'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mise à niveau du forfait'
     legendary_badger:
@@ -736,7 +736,7 @@ fr:
             <p style="margin-bottom:0">Cordialement, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
-        saver: 'Dites au revoir aux limites et faites une mise à niveau !'
+        free: 'Dites au revoir aux limites et faites une mise à niveau !'
     metrics:
         exp_return:
             short_name: 'Rendement Attendu'

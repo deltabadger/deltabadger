@@ -35,7 +35,7 @@ nl:
         btc_address_confirmation_sent: 'Bevestigingsmail verzonden'
         create:
             error: 'Verwijzingsprogramma registratie mislukt'
-            saver_error: 'Je moet upgraden om je te registreren'
+            free_plan_error: 'Je moet upgraden om je te registreren'
         current_bitcoin_address: 'Huidig Bitcoin-adres'
         discount:
             accepted: 'U heeft de referral link geaccepteerd'
@@ -47,7 +47,7 @@ nl:
             valid_for: 'Geldig voor de eerste aankoop op het platform.'
         info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
         invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Ons verwijzingsprogramma <b>betaalt tot $50</b><sup>1</sup> per gebruiker in BTC (met behulp van de wisselkoers van de transactie). Voorbeeld:</p> <ol><li>Voor de eenvoud, stel dat de prijs van Bitcoin ~$10000 is, de korting is 10%, en uw marge is 20%.</li><li>De doorverwezen persoon koopt een 1-jarig plan voor $49,99, en betaalt na de korting $44,99 wat gelijk is aan 0,0045BTC. U verdient 0,001BTC (20% van $49,99).</li><li>Het maakt niet uit of de prijs van Bitcoin ondertussen verandert. Uw winst ligt vast in BTC.</li><li>De volgende keer koopt de doorverwezen persoon een Hodler plan voor $149,99 en betaalt hij 0,015BTC. Hij of zij krijgt geen korting meer, maar jij krijgt nog steeds je 20% wat gelijk is aan 0,003BTC.</li><li>Je blijft winst maken zolang je een actief abonnement <sup>2</sup> hebt, en je totale winst per doorverwezen persoon niet hoger dan $50 is.</li> </ol><p><em>Bitcoins verdienen is de beste manier van dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> De limiet is 50USD of 50EUR, afhankelijk van de valuta van de prijsbepaling.</small> <br><small class="mb-5"><sup>2</sup> Voor de doorverwezen persoon werkt de referral link zelfs als uw abonnement is verlopen.</small> </div>'
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Ons verwijzingsprogramma <b>betaalt tot $50</b><sup>1</sup> per gebruiker in BTC (met behulp van de wisselkoers van de transactie). Voorbeeld:</p> <ol><li>Voor de eenvoud, stel dat de prijs van Bitcoin ~$10000 is, de korting is 10%, en uw marge is 20%.</li><li>De doorverwezen persoon koopt een 1-jarig plan voor $49,99, en betaalt na de korting $44,99 wat gelijk is aan 0,0045BTC. U verdient 0,001BTC (20% van $49,99).</li><li>Het maakt niet uit of de prijs van Bitcoin ondertussen verandert. Uw winst ligt vast in BTC.</li><li>De volgende keer koopt de doorverwezen persoon een Pro plan voor $149,99 en betaalt hij 0,015BTC. Hij of zij krijgt geen korting meer, maar jij krijgt nog steeds je 20% wat gelijk is aan 0,003BTC.</li><li>Je blijft winst maken zolang je een actief abonnement <sup>2</sup> hebt, en je totale winst per doorverwezen persoon niet hoger dan $50 is.</li> </ol><p><em>Bitcoins verdienen is de beste manier van dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> De limiet is 50USD of 50EUR, afhankelijk van de valuta van de prijsbepaling.</small> <br><small class="mb-5"><sup>2</sup> Voor de doorverwezen persoon werkt de referral link zelfs als uw abonnement is verlopen.</small> </div>'
         new:
             checked: 'Ik heb alles nauwkeurig nagekeken.'
             discount_info_html: 'U <b> verdient <span class="db-form-label-range--earn-percent">%{earn_percent_preview}%</span></b>, en de persoon die werd doorverwezen krijgt <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> korting</b>.'
@@ -98,10 +98,10 @@ nl:
             template_html: '<p>U gebruikt Deltabadger nu bijna een maand!</p><p>Uw gratis proefperiode eindigt binnenkort. Zorg voor een upgrade om je zwaardere badgers lopende te houden!</p>'
         limit_almost_reached:
             subject: 'Limiet bijna bereikt'
-            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Hodler</b> om te verzekeren dat je </br>bots blijven werken.</p>'
+            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Standard</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
         limit_reached:
             subject: 'U hebt de limiet bereikt'
-            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Hodler</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
+            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Standard</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
         notify_about_error:
             subject: 'Er ging iets mis'
             template_html: '<p>Er ging iets mis tijdens het verwerken van de laatste transactie.</p><p>U kan de error zien in het bot logboek. Log in om dit te controleren.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -109,7 +109,7 @@ nl:
             subject: 'Oeps! Volgende poging...'
             template_html: '<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem bij de exchange. We proberen het opnieuw in %{delay}.</p><p>Alle errors zijn zichtbaar in het logboek van de bot. Log in om dit te controleren.</p><p>Errors:</p><blockquote><b>%{exchange}:%{base}%{quote}</b> <b> %{errors}</b></blockquote>'
     bots:
-        hodler_only: 'Alleen Hodler en Legendary Badger'
+        pro_only: 'Alleen Pro en Legendary Badger'
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
         below: onder
@@ -638,8 +638,8 @@ nl:
             email_section: Email
             name_section: Voornaam
             password_section: Wachtwoord
-            saver_days_left_html: '<b>$%{credits}</b> van de transactielimiet van het gratis abonnement is nog over.'
-            saver_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
+            free_plan_days_left_html: '<b>$%{credits}</b> van de transactielimiet van het gratis abonnement is nog over.'
+            free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             submit_email: 'Email wijzigen'
             submit_name: 'Naam wijzigen'
             submit_password: 'Wachtwoord wijzigen'
@@ -661,15 +661,15 @@ nl:
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Onbeperkte DCA-bots</b>, lagere handelskosten door <b>limietorders</b>, <b>automatische opnames</b>, <b>eigen prijsvoorwaarde</b>, <b>eigen tijdvoorwaarde</b> (binnenkort).</p>'
-        investor: Investor
-        investor_description_html: 'Een jaar lang <b>onbeperkte transacties</b>, <b>alle cryptomunten</b>, en <b>automatische opnames</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Nooit meer betalen om deze dienst te gebruiken.</b></p><p>Alles wat het Hodler-plan biedt, maar dan voor het leven.</p><p>Het abonnement bevat een <b>NFT</b>, zodat je het in de toekomst aan een andere gebruiker kunt verkopen.</p><p>Elk token is geassocieerd met een kunstwerk. Kun jij alle 21 verborgen "easter eggs" vinden in <a href="https://deltabadger.com/legendary/" class="nobreak">de collectie</a>?</p><p>Levenslang. Gelimiteerd. Legendarisch.</p><p>Legendary Badgers zijn als niets anders op de markt.</p><p>Slechts 1000 tokens zitten op het ruimteschip van de Legendary Badgers. Verstevig je status als langetermijndenker en wees legendarisch.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Onbeperkte DCA-bots</b>, lagere handelskosten door <b>limietorders</b>, <b>automatische opnames</b>, <b>eigen prijsvoorwaarde</b>, <b>eigen tijdvoorwaarde</b> (binnenkort).</p>'
+        standard: Standard
+        standard_description_html: 'Een jaar lang <b>onbeperkte transacties</b>, <b>alle cryptomunten</b>, en <b>automatische opnames</b>.'
+        legendary: Legendary Badger
+        legendary_description_html: '<p><b>Nooit meer betalen om deze dienst te gebruiken.</b></p><p>Alles wat het Pro-plan biedt, maar dan voor het leven.</p><p>Het abonnement bevat een <b>NFT</b>, zodat je het in de toekomst aan een andere gebruiker kunt verkopen.</p><p>Elk token is geassocieerd met een kunstwerk. Kun jij alle 21 verborgen "easter eggs" vinden in <a href="https://deltabadger.com/legendary/" class="nobreak">de collectie</a>?</p><p>Levenslang. Gelimiteerd. Legendarisch.</p><p>Legendary Badgers zijn als niets anders op de markt.</p><p>Slechts 1000 tokens zitten op het ruimteschip van de Legendary Badgers. Verstevig je status als langetermijndenker en wees legendarisch.</p>'
         limit_reached_html: '<b>Gefeliciteerd!</b> Je hebt onze gratis transactielimiet van $1200/jaar bereikt. Om door te gaan, upgrade naar het unlimited plan.'
         analyzer_html: 'Versterk je portfolio met de onbeperkte kracht van de <b>Portfolio Analyzer</b>.'
-        expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Hodler-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
+        expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Pro-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
         payment:
             account_holder: Rekeninghouder
             account_number: Rekeningnummer
@@ -680,15 +680,15 @@ nl:
             billing_information: Factuurgegevens
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
-            compensation_hodler:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Hodler plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Hodler plan.'
-            compensation_investor:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Investor plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Investor plan.'
+            compensation_pro:
+                one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
+                other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'
+            compensation_standard:
+                one: 'Vergoeding voor 1 ongebruikte dag van het Standard plan.'
+                other: 'Vergoeding voor %{count} ongebruikte dagen van het Standard plan.'
             discount: '%{discount_percent}% korting'
-            legendary_badger_discount: 'Early Bird korting'
-            legendary_badger_discount_info: 'Bij elke verkoop daalt de korting met $1. Wacht niet!'
+            legendary_plan_discount: 'Early Bird korting'
+            legendary_plan_discount_info: 'Bij elke verkoop daalt de korting met $1. Wacht niet!'
             eu_bank_country: België
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'
             paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'
@@ -700,9 +700,9 @@ nl:
             routing_number: 'Routing nummer'
             server_error: 'Betalingen server error. Probeer het later opnieuw.'
             vat: BTW
-            wire_cost_hodler_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_investor_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_legendary_badger_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_pro_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_standard_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_legendary_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> naar de volgende bankrekening:'
             wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{sign}%{price}</b> naar volgende bankrekening:'
             wire_transfer: Bankoverschrijving
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
@@ -711,7 +711,7 @@ nl:
         plan_1_year: '1-jarig plan'
         plan_life_time: 'Levenslang plan'
         prolong_upgrade: 'Upgrade je abonnement'
-        saver: Spaarder
+        free: Spaarder
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
     legendary_badger:
@@ -736,7 +736,7 @@ nl:
             <p style="margin-bottom:0">Met vriendelijke groet, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
-        saver: 'Weg met limieten, en doe een upgrade!'
+        free: 'Weg met limieten, en doe een upgrade!'
     metrics:
         exp_return:
             short_name: 'Verwachte Rendement'

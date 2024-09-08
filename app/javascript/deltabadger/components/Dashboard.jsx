@@ -18,8 +18,8 @@ import { WebhookBot } from "./WebhookBot";
 let apiKeyTimeout;
 
 const DashboardTemplate = ({
-  isHodler,
-  isLegendaryBadger,
+  isPro,
+  isLegendary,
   bots = [],
   numberOfPages = 0,
   errors = {},
@@ -92,7 +92,7 @@ const DashboardTemplate = ({
     if(b.bot_type === 'free') {
       botsToRender.push(
         <TradingBot
-          showLimitOrders={isHodler || isLegendaryBadger}
+          showLimitOrders={isPro || isLegendary}
           key={`${b.id}-${b.id == currentBot}`}
           bot={b}
           open={currentBot && (b.id == currentBot.id)}
@@ -106,7 +106,7 @@ const DashboardTemplate = ({
     } else if(b.bot_type === 'withdrawal') {
       botsToRender.push(
         <WithdrawalBot
-          showLimitOrders={isHodler || isLegendaryBadger}
+          showLimitOrders={isPro || isLegendary}
           key={`${b.id}-${b.id == currentBot}`}
           bot={b}
           open={currentBot && (b.id == currentBot.id)}
@@ -120,7 +120,7 @@ const DashboardTemplate = ({
     } else {
       botsToRender.push(
           <WebhookBot
-              showLimitOrders={isHodler || isLegendaryBadger}
+              showLimitOrders={isPro || isLegendary}
               key={`${b.id}-${b.id == currentBot}`}
               bot={b}
               open={currentBot && (b.id == currentBot.id)}
@@ -143,8 +143,8 @@ const DashboardTemplate = ({
   return (
     <div className="db-bots">
       <BotForm
-        isHodler={isHodler}
-        isLegendaryBadger={isLegendaryBadger}
+        isPro={isPro}
+        isLegendary={isLegendary}
         open={isEmpty(bots)}
         currentBot={currentBot}
         callbackAfterCreation={(id) => {

@@ -35,7 +35,7 @@ es:
         btc_address_confirmation_sent: 'Correo electrónico de confirmación enviado'
         create:
             error: 'Error en el registro del programa de referidos'
-            saver_error: 'Tienes que actualizar para registrarte'
+            free_plan_error: 'Tienes que actualizar para registrarte'
         current_bitcoin_address: 'Dirección de Bitcoin actual'
         discount:
             accepted: 'Has aceptado el enlace de referencia'
@@ -98,10 +98,10 @@ es:
             template_html: '<p>Llevas casi un mes utilizando Deltabadger.</p><p>Tu prueba gratuita e ilimitada terminará pronto. Asegúrate de actualizar para que tus tejones más pesados sigan funcionando.</p>'
         limit_almost_reached:
             subject: 'Límite casi alcanzado'
-            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Inversor</b> o <b>Hodler</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
+            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Standard</b> o <b>Pro</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
         limit_reached:
             subject: 'Has llegado al límite'
-            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Inversor</b> o <b>Hodler</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
+            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Standard</b> o <b>Pro</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
         notify_about_error:
             subject: 'Algo salió mal'
             template_html: '<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Error:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -109,7 +109,7 @@ es:
             subject: 'Oops! Siguiente intento'
             template_html: '<p>El bot no ha podido realizar tu pedido. Parece un problema de intercambio. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Solo Hodler y Legendary Badger'
+        pro_only: 'Solo Pro y Legendary'
         above: 'por encima'
         add_new_bot: 'Añadir nuevo bot'
         below: 'por debajo'
@@ -639,8 +639,8 @@ es:
             email_section: 'Correo electrónico'
             name_section: Nombre
             password_section: Contraseña
-            saver_days_left_html: '<b>$%{créditos}</b> restantes del límite de transacción del plan gratuito.'
-            saver_reset_date_html: 'Tu tiempo se resetea en <b>%{end_time}</b>'
+            free_plan_days_left_html: '<b>$%{créditos}</b> restantes del límite de transacción del plan gratuito.'
+            free_plan_reset_date_html: 'Tu tiempo se resetea en <b>%{end_time}</b>'
             submit_email: 'Actualizar correo electrónico'
             submit_name: 'Actualizar nombre'
             submit_password: 'Cambiar contraseña'
@@ -662,15 +662,15 @@ es:
         days_left:
             one: '1 día menos'
             other: '%{count} días disponibles'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bots DCA ilimitados</b>, comisiones más bajas con <b>órdenes limitadas</b>, <b>retiros automáticos</b>, <b>condición de precio</b>, <b>condición de tiempo</b>(pronto).</p>'
-        investor: Inversor
-        investor_description_html: 'Un año de <b>transacciones ilimitadas</b>, <b>todas las monedas</b> y <b>retiros automáticos</b>.'
-        legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p><b>No pague nunca más por utilizar el servicio.</b></p><p>Todo lo que ofrece el plan Hodler, pero de por vida.</p><p>La suscripción viene con un <b>NFT</b>, por lo que en el futuro podrás venderlo a otro usuario.</p><p>Cada token está asociado a una obra de arte generada procedimentalmente. ¿Puedes encontrar los 21 "easter eggs" escondidos en <a href="https://deltabadger.com/legendary/" class="nobreak">la colección</a>?</p><p>De por vida. Limitado. Legendario.</p><p>Legendary Badgers son como nada más en el mercado.</p><p>Sólo 1000 están en la nave espacial de los Legendary Badgers. Consolida tu estatus de pensador a largo plazo y sé legendario.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Bots DCA ilimitados</b>, comisiones más bajas con <b>órdenes limitadas</b>, <b>retiros automáticos</b>, <b>condición de precio</b>, <b>condición de tiempo</b>(pronto).</p>'
+        standard: Inversor
+        standard_description_html: 'Un año de <b>transacciones ilimitadas</b>, <b>todas las monedas</b> y <b>retiros automáticos</b>.'
+        legendary: 'Legendary Badger'
+        legendary_description_html: '<p><b>No pague nunca más por utilizar el servicio.</b></p><p>Todo lo que ofrece el plan Pro, pero de por vida.</p><p>La suscripción viene con un <b>NFT</b>, por lo que en el futuro podrás venderlo a otro usuario.</p><p>Cada token está asociado a una obra de arte generada procedimentalmente. ¿Puedes encontrar los 21 "easter eggs" escondidos en <a href="https://deltabadger.com/legendary/" class="nobreak">la colección</a>?</p><p>De por vida. Limitado. Legendario.</p><p>Legendary Badgers son como nada más en el mercado.</p><p>Sólo 1000 están en la nave espacial de los Legendary Badgers. Consolida tu estatus de pensador a largo plazo y sé legendario.</p>'
         limit_reached_html: '<b>¡Felicidades!</b> Has alcanzado nuestro límite de transacciones gratuitas de 1200 dólares/año. Para continuar, actualiza al plan ilimitado.'
         analyzer_html: 'Mejora tu cartera con el poder ilimitado del <b>Analizador de Cartera</b>.'
-        expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Hodler: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
+        expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Pro: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
         payment:
             account_holder: 'Titular de la cuenta'
             account_number: 'Número de cuenta'
@@ -681,15 +681,15 @@ es:
             billing_information: 'Datos de facturación'
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Pago completado con éxito, se te debería redirigir en unos segundos.'
-            compensation_hodler:
-                one: 'Compensación por un día sin usar el plan Hodler'
-                other: 'Compensación por %{count} días sin usar el plan Hodler.'
-            compensation_investor:
+            compensation_pro:
+                one: 'Compensación por un día sin usar el plan Pro'
+                other: 'Compensación por %{count} días sin usar el plan Pro.'
+            compensation_standard:
                 one: 'Compensación por un día sin usar el plan Inversor'
                 other: 'Compensación por %{count} días sin usar el plan Inversor.'
             discount: '%{discount_percent} % de descuento'
-            legendary_badger_discount: 'Descuento por venta anticipada'
-            legendary_badger_discount_info: 'Con cada venta el descuento disminuye 1 $. ¡No esperes!'
+            legendary_plan_discount: 'Descuento por venta anticipada'
+            legendary_plan_discount_info: 'Con cada venta el descuento disminuye 1 $. ¡No esperes!'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
@@ -701,9 +701,9 @@ es:
             routing_number: 'Número de ruta bancaria'
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
             vat: IVA
-            wire_cost_hodler_html: 'Envía <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
-            wire_cost_investor_html: 'Envía <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
-            wire_cost_legendary_badger_html: 'Envía  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
+            wire_cost_pro_html: 'Envía <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
+            wire_cost_standard_html: 'Envía <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
+            wire_cost_legendary_html: 'Envía  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
             wire_cost_pending_html: 'Si no hiciste un pago aún, envía <b>%{sign}%{price}</b> a la siguiente cuenta bancaria:'
             wire_transfer: 'Transferencia bancaria'
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
@@ -712,7 +712,7 @@ es:
         plan_1_year: 'Plan de 1 año'
         plan_life_time: 'Plan de por vida'
         prolong_upgrade: 'Actualiza tu plan'
-        saver: Ahorrador
+        free: Gratis
         upgrade: Actualizar
         upgrade_plan: 'Actualizar plan'
     legendary_badger:
@@ -737,7 +737,7 @@ es:
             <p style="margin-bottom:0">Saludos, Jan</p>
         default: 'Hola, bienvenido a Deltabadger'
         legendary: '¡Los NFts llegarán pronto!'
-        saver: '¡Deshazte de los límites y haz una actualización!'
+        free: '¡Deshazte de los límites y haz una actualización!'
     metrics:
         exp_return:
             short_name: 'Rend. Esp.'
