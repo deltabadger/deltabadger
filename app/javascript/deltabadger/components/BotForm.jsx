@@ -30,8 +30,8 @@ const TYPES = [
 ]
 
 export const BotForm = ({
-  isHodler,
-  isLegendaryBadger,
+  isPro,
+  isLegendary,
   open,
   currentBot,
   callbackAfterCreation,
@@ -263,7 +263,7 @@ export const BotForm = ({
             callbackAfterClosing()
           }}
           handleSubmit={pickBotTypeHandler}
-          showWebhookButton={isHodler || isLegendaryBadger}
+          showWebhookButton={isPro || isLegendary}
           />
       case 'pick_exchange':
         return <PickExchange
@@ -306,7 +306,7 @@ export const BotForm = ({
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
-          showLimitOrders={isHodler || isLegendaryBadger}
+          showLimitOrders={isPro || isLegendary}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureTradingBotHandler}
@@ -326,7 +326,7 @@ export const BotForm = ({
         />
       case 'configure_webhook_bot':
         return <ConfigureWebhookBot
-            showLimitOrders={isHodler || isLegendaryBadger}
+            showLimitOrders={isPro || isLegendary}
             currentExchange={pickedExchange}
             handleReset={resetFormToStep(1)}
             handleSubmit={configureWebhookBotHandler}

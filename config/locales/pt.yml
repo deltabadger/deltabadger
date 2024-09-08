@@ -25,7 +25,7 @@ pt:
         btc_address_confirmation_sent: 'E-mail de confirmação enviado'
         create:
             error: 'Falha ao registar o programa de referência'
-            saver_error: 'Tem de atualizar para registar'
+            free_plan_error: 'Tem de atualizar para registar'
         current_bitcoin_address: 'Endereço Bitcoin atual'
         discount:
             accepted: 'Aceitou a ligação de referência'
@@ -83,7 +83,7 @@ pt:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
     bots:
-        hodler_only: 'Apenas Hodler e Legendary Badger'
+        pro_only: 'Apenas Pro e Legendary Badger'
         above: acima
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
@@ -583,15 +583,15 @@ pt:
         days_left:
             one: '1 dia restante'
             other: '%{count} dias restantes'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bots DCA ilimitados</b>, taxas mais baixas com <b>ordens limitadas</b>, <b>saques automáticos</b>, <b>condição de preço</b>, <b>condição de tempo</b>(em breve).</p>'
-        investor: Investor
-        investor_description_html: 'Um ano de <b>transações ilimitadas</b>, <b>todas as moedas</b> e <b>saques automáticos</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Nunca mais pague para usar o serviço.</b></p><p>Tudo o que o plano Hodler oferece, mas para a vida toda.</p><p>A assinatura vem com um <b>NFT</b>, para que no futuro você possa vendê-la para outro usuário.</p><p>Cada token está associado a uma obra de arte processual. Você consegue encontrar todos os 21 "ovos de páscoa" escondidos na <a href="https://deltabadger.com/legendary/" class="nobreak">coleção</a>?</p><p>Para a vida toda. Limitado. Lendário.</p><p>Os Legendary Badgers são como nada mais no mercado.</p><p>Apenas 1000 estão na nave espacial dos Legendary Badgers. Consolide seu status de pensador a longo prazo e seja lendário.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Bots DCA ilimitados</b>, taxas mais baixas com <b>ordens limitadas</b>, <b>saques automáticos</b>, <b>condição de preço</b>, <b>condição de tempo</b>(em breve).</p>'
+        standard: Standard
+        standard_description_html: 'Um ano de <b>transações ilimitadas</b>, <b>todas as moedas</b> e <b>saques automáticos</b>.'
+        legendary: Legendary Badger
+        legendary_description_html: '<p><b>Nunca mais pague para usar o serviço.</b></p><p>Tudo o que o plano Pro oferece, mas para a vida toda.</p><p>A assinatura vem com um <b>NFT</b>, para que no futuro você possa vendê-la para outro usuário.</p><p>Cada token está associado a uma obra de arte processual. Você consegue encontrar todos os 21 "ovos de páscoa" escondidos na <a href="https://deltabadger.com/legendary/" class="nobreak">coleção</a>?</p><p>Para a vida toda. Limitado. Lendário.</p><p>Os Legendary Badgers são como nada mais no mercado.</p><p>Apenas 1000 estão na nave espacial dos Legendary Badgers. Consolide seu status de pensador a longo prazo e seja lendário.</p>'
         limit_reached_html: '<b>Parabéns!</b> Você atingiu nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
-        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Hodler: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
+        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
@@ -611,9 +611,9 @@ pt:
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             routing_number: 'Número de encaminhamento'
             vat: IVA
-            wire_cost_hodler_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_investor_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_legendary_badger_html: 'Por favor, envie  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_pro_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_standard_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_legendary_html: 'Por favor, envie  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> para a seguinte conta bancária:'
             wire_transfer: 'Transferência bancária'
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
@@ -621,7 +621,7 @@ pt:
         plan_1_year: 'Plano de 1 ano'
         plan_life_time: 'Para a vida'
         prolong_upgrade: 'Atualizar plano'
-        saver: Saver
+        free: Free
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'
     legendary_badger:
@@ -646,7 +646,7 @@ pt:
             <p style="margin-bottom:0">Atenciosamente, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
-        saver: 'Livra-te dos limites e faz um upgrade!'
+        free: 'Livra-te dos limites e faz um upgrade!'
     metrics:
         exp_return:
             short_name: 'Retorno Esperado'

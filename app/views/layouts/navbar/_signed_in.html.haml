@@ -2,7 +2,7 @@
   .menu__section.menu__section--top.menu__section--logo
 
     = link_to root_path, class: 'menu__logo', data: {turbo: false} do
-      -unless current_user.subscription_name == 'legendary_badger'
+      -unless current_user.subscription_name == 'legendary'
         = render 'svg/40x30_logo'
         -# = render 'layouts/devise_messages'
       -else
@@ -32,11 +32,11 @@
       .tooltip
         = t('links.settings')
 
-    - if current_user.subscription_name == 'legendary_badger'
-      = link_to legendary_badger_path, class: 'menu__item menu__item--legendary-badger', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    - if current_user.subscription_name == 'legendary'
+      = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_heart'
         .tooltip
-          = t('links.legendary_badger')
+          = t('links.legendary')
           = t('subscriptions.plan_life_time')
 
     - else
@@ -45,7 +45,7 @@
         .tooltip
           .tooltip__title
             = t('subscriptions.upgrade_plan')
-          - if current_user.subscription_name != 'saver'
+          - if current_user.subscription_name != 'free'
             .tooltip__counter
               = t('subscriptions.days_left', count: current_user.plan_days_left)
 

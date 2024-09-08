@@ -15,9 +15,9 @@ module Api
         {
           id: exchange.id,
           name: exchange.name,
-          maker_fee: exchange.maker_fee || "?",
-          taker_fee: exchange.taker_fee || "?",
-          withdrawal_fee: exchange.withdrawal_fee || "?",
+          maker_fee: exchange.maker_fee || '?',
+          taker_fee: exchange.taker_fee || '?',
+          withdrawal_fee: exchange.withdrawal_fee || '?',
           symbols: symbols,
           all_symbols: all_symbols,
           trading_key_status: status_of_trading_key,
@@ -49,7 +49,7 @@ module Api
     end
 
     def paid_subscription?(subscription_name)
-      %w[hodler legendary_badger investor].include?(subscription_name)
+      %w[standard pro legendary].include?(subscription_name)
     end
 
     def get_withdrawal_info_processor(api_keys, exchange)
