@@ -36,38 +36,38 @@
     :javascript
       // payments plan
       $(document).ready(function(){
-        $(".db-plan-investor").click(function(){
-          $("#payment_plan_investor").click()
-          $(".db-plan-investor").addClass("db-plan--selected")
-          $(".db-plan-investor").removeClass("db-plan--other")
-          $(".db-plan-hodler").addClass("db-plan--other")
-          $(".db-plan-hodler").removeClass("db-plan--selected")
-          $(".db-plan-legendary_badger").addClass("db-plan--other")
-          $(".db-plan-legendary_badger").removeClass("db-plan--selected")
-          $(".db-checkout").addClass("db-checkout--investor");
-          $(".db-checkout").removeClass("db-checkout--hodler db-checkout--legendary_badger");
+        $(".db-plan-standard").click(function(){
+          $("#payment_plan_standard").click()
+          $(".db-plan-standard").addClass("db-plan--selected")
+          $(".db-plan-standard").removeClass("db-plan--other")
+          $(".db-plan-pro").addClass("db-plan--other")
+          $(".db-plan-pro").removeClass("db-plan--selected")
+          $(".db-plan-legendary").addClass("db-plan--other")
+          $(".db-plan-legendary").removeClass("db-plan--selected")
+          $(".db-checkout").addClass("db-checkout--standard-plan");
+          $(".db-checkout").removeClass("db-checkout--pro-plan db-checkout--legendary-plan");
         })
-        $(".db-plan-hodler").click(function(){
-          $("#payment_plan_hodler").click()
-          $(".db-plan-hodler").addClass("db-plan--selected")
-          $(".db-plan-hodler").removeClass("db-plan--other")
-          $(".db-plan-investor").addClass("db-plan--other")
-          $(".db-plan-investor").removeClass("db-plan--selected")
-          $(".db-plan-legendary_badger").addClass("db-plan--other")
-          $(".db-plan-legendary_badger").removeClass("db-plan--selected")
-          $(".db-checkout").addClass("db-checkout--hodler");
-          $(".db-checkout").removeClass("db-checkout--investor db-checkout--legendary_badger");
+        $(".db-plan-pro").click(function(){
+          $("#payment_plan_pro").click()
+          $(".db-plan-pro").addClass("db-plan--selected")
+          $(".db-plan-pro").removeClass("db-plan--other")
+          $(".db-plan-standard").addClass("db-plan--other")
+          $(".db-plan-standard").removeClass("db-plan--selected")
+          $(".db-plan-legendary").addClass("db-plan--other")
+          $(".db-plan-legendary").removeClass("db-plan--selected")
+          $(".db-checkout").addClass("db-checkout--pro-plan");
+          $(".db-checkout").removeClass("db-checkout--standard-plan db-checkout--legendary-plan");
         })
-        $(".db-plan-legendary_badger").click(function(){
-          $("#payment_plan_legendary_badger").click()
-          $(".db-plan-hodler").addClass("db-plan--other")
-          $(".db-plan-hodler").removeClass("db-plan--selected")
-          $(".db-plan-investor").addClass("db-plan--other")
-          $(".db-plan-investor").removeClass("db-plan--selected")
-          $(".db-plan-legendary_badger").addClass("db-plan--selected")
-          $(".db-plan-legendary_badger").removeClass("db-plan--other")
-          $(".db-checkout").addClass("db-checkout--legendary_badger");
-          $(".db-checkout").removeClass("db-checkout--investor db-checkout--hodler");
+        $(".db-plan-legendary").click(function(){
+          $("#payment_plan_legendary").click()
+          $(".db-plan-pro").addClass("db-plan--other")
+          $(".db-plan-pro").removeClass("db-plan--selected")
+          $(".db-plan-standard").addClass("db-plan--other")
+          $(".db-plan-standard").removeClass("db-plan--selected")
+          $(".db-plan-legendary").addClass("db-plan--selected")
+          $(".db-plan-legendary").removeClass("db-plan--other")
+          $(".db-checkout").addClass("db-checkout--legendary-plan");
+          $(".db-checkout").removeClass("db-checkout--standard-plan db-checkout--pro-plan");
         })
       })
 
@@ -99,26 +99,26 @@
 
           $(".vat-percent").text(dataset.vp);
 
-          $(".investor-total-price").text(dataset.itp);
-          $(".investor-base-price").text(dataset.ibp);
-          $(".investor-discounted-price").text(dataset.idp);
-          $(".investor-flat-discount").text(dataset.ifd);
-          $(".investor-discount-percent-amount").text(dataset.idpa);
-          $(".investor-total-vat").text(dataset.itv);
+          $(".standard-total-price").text(dataset.itp);
+          $(".standard-base-price").text(dataset.ibp);
+          $(".standard-discounted-price").text(dataset.idp);
+          $(".standard-flat-discount").text(dataset.ifd);
+          $(".standard-discount-percent-amount").text(dataset.idpa);
+          $(".standard-total-vat").text(dataset.itv);
 
-          $(".hodler-total-price").text(dataset.htp);
-          $(".hodler-base-price").text(dataset.hbp);
-          $(".hodler-discounted-price").text(dataset.hdp);
-          $(".hodler-flat-discount").text(dataset.hfd);
-          $(".hodler-discount-percent-amount").text(dataset.hdpa);
-          $(".hodler-total-vat").text(dataset.htv);
+          $(".pro-total-price").text(dataset.htp);
+          $(".pro-base-price").text(dataset.hbp);
+          $(".pro-discounted-price").text(dataset.hdp);
+          $(".pro-flat-discount").text(dataset.hfd);
+          $(".pro-discount-percent-amount").text(dataset.hdpa);
+          $(".pro-total-vat").text(dataset.htv);
 
-          $(".legendary_badger-total-price").text(dataset.lbtp);
-          $(".legendary_badger-base-price").text(dataset.lbbp);
-          $(".legendary_badger-discounted-price").text(dataset.lbdp);
-          $(".legendary_badger-flat-discount").text(dataset.lbfd);
-          $(".legendary_badger-discount-percent-amount").text(dataset.lbdpa);
-          $(".legendary_badger-total-vat").text(dataset.lbtv);
+          $(".legendary-total-price").text(dataset.lbtp);
+          $(".legendary-base-price").text(dataset.lbbp);
+          $(".legendary-discounted-price").text(dataset.lbdp);
+          $(".legendary-flat-discount").text(dataset.lbfd);
+          $(".legendary-discount-percent-amount").text(dataset.lbdpa);
+          $(".legendary-total-vat").text(dataset.lbtv);
         }
 
         $("#payment_country").change(function(event) {

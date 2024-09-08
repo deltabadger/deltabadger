@@ -45,7 +45,7 @@
             <%= t("metrics.#{key}.short_name") %>
           </div>
           <div class="data-grid__item__value">
-            <% if ["legendary_badger", "hodler"].include?(current_user.subscription_name) || !["cagr", "var", "cvar", "sortino_ratio", "calmar_ratio", "alpha", "beta", "treynor_ratio", "omega_ratio", "r_squared", "info_ratio"].include?(key.to_s) %>
+            <% if ["pro", "legendary"].include?(current_user.subscription_name) || !["cagr", "var", "cvar", "sortino_ratio", "calmar_ratio", "alpha", "beta", "treynor_ratio", "omega_ratio", "r_squared", "info_ratio"].include?(key.to_s) %>
               <%= value %>
             <% else %>
               <%= render 'svg/24x24_lock' %>

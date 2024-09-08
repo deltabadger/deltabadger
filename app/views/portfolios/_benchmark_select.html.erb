@@ -1,9 +1,9 @@
 <%= tag.div id: "benchmark-select" do %>
   <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row" do |form| %>
     <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
-    <div class="sinput sinput--select <%= 'sinput--disabled' unless current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler' %>">
+    <div class="sinput sinput--select <%= 'sinput--disabled' unless current_user.subscription_name == 'legendary' || current_user.subscription_name == 'pro' %>">
       <%= portfolio.benchmark_name %>
-      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, onchange: "this.form.requestSubmit();", disabled: !(current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler') %>
+      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, onchange: "this.form.requestSubmit();", disabled: !(current_user.subscription_name == 'legendary' || current_user.subscription_name == 'pro') %>
     </div>
   <% end %>
 <% end %>

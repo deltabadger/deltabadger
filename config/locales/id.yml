@@ -35,7 +35,7 @@ id:
         btc_address_confirmation_sent: 'Email konfirmasi dikirim'
         create:
             error: 'Pendaftaran program referral gagal'
-            saver_error: 'Anda harus meningkatkan paket untuk mendaftar'
+            free_plan_error: 'Anda harus meningkatkan paket untuk mendaftar'
         current_bitcoin_address: 'Alamat Bitcoin saat ini'
         discount:
             accepted: 'Anda telah menerima tautan referral'
@@ -95,10 +95,10 @@ id:
             template_html: "<p>Halo 👋,</p>\n<p>Anda telah menggunakan Deltabadger selama hampir satu bulan sekarang!</p>\n<p>Uji coba gratis tanpa batas Anda akan segera berakhir. Pastikan untuk meningkatkan paket agar badger Anda yang lebih besar tetap bekerja!</p>"
         limit_almost_reached:
             subject: 'Limit hampir tercapai ⌛'
-            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br> atau <b style=\"color: #0a45a4;\">Hodler</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
+            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Standard</b><br> atau <b style=\"color: #0a45a4;\">Pro</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
         limit_reached:
             subject: 'Anda telah mencapai limit 🥳'
-            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br>atau <b style=\"color: #0a45a4;\">Hodler</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
+            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Standard</b><br>atau <b style=\"color: #0a45a4;\">Pro</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
         notify_about_error:
             subject: 'Ada yang salah 😵'
             template_html: "<p>Ups… 😵</p>\n<p>Ada yang salah saat<br>memproses transaksi terakhir.</p>\n<p>Anda bisa melihat kesalahan itu di<br>log bot. Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -106,7 +106,7 @@ id:
             subject: 'Ups! Percobaan berikutnya… 🧐'
             template_html: "<p>Oh tidak 🧐,</p>\n<p>Bot tidak dapat melakukan order Anda.<br>Tampaknya ada masalah dengan pertukaran.<br>Kami akan mencobanya lagi dalam %{delay}.</p>\n<p>Semua kesalahan dapat dilihat di log bot.<br>Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: 'Hanya Hodler dan Legendary Badger'
+        pro_only: 'Hanya Pro dan Legendary Badger'
         above: 'di atas'
         add_new_bot: 'Tambah bot baru'
         below: 'di bawah'
@@ -549,8 +549,8 @@ id:
                 first_name: Nama
                 last_name: 'Nama Belakang'
                 other: Lainnya
-                submit_hodler_order: 'Paket Hodler Order'
-                submit_investor_order: 'Paket Investor Order'
+                submit_pro_order: 'Paket Pro Order'
+                submit_standard_order: 'Paket Standard Order'
             settings:
                 current_status: 'Status saat ini:'
                 disable_two_fa: 'Nonaktifkan 2FA'
@@ -635,15 +635,15 @@ id:
     subscriptions:
         days_left:
             other: ''
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bot DCA tanpa batas</b>, biaya lebih rendah dengan <b>limit order</b>, <b>penarikan otomatis</b>, <b>kondisi harga</b>, <b>kondisi waktu</b>(segera).</p>'
-        investor: Investor
-        investor_description_html: 'Satu tahun <b>transaksi tak terbatas</b>, <b>semua mata uang</b>, dan <b>penarikan otomatis</b>.'
-        legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p><b>Jangan pernah lagi membayar untuk menggunakan layanan ini.</b></p><p>Segala yang ditawarkan oleh paket Hodler, tetapi seumur hidup.</p><p>Langganan ini dilengkapi dengan <b>NFT</b>, sehingga di masa depan Anda dapat menjualnya kepada pengguna lain.</p><p>Setiap token terkait dengan karya seni prosedural. Bisakah Anda menemukan 21 "telur Paskah" yang tersembunyi dalam <a href="https://deltabadger.com/legendary/" class="nobreak">koleksi</a>?</p><p>Seumur hidup. Terbatas. Legendaris.</p><p>Legendary Badgers tidak seperti apa pun yang ada di pasar.</p><p>Hanya 1000 tempat di pesawat luar angkasa Legendary Badgers. Semen status pemikir jangka panjang Anda, dan jadilah Legendaris.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Bot DCA tanpa batas</b>, biaya lebih rendah dengan <b>limit order</b>, <b>penarikan otomatis</b>, <b>kondisi harga</b>, <b>kondisi waktu</b>(segera).</p>'
+        standard: Standard
+        standard_description_html: 'Satu tahun <b>transaksi tak terbatas</b>, <b>semua mata uang</b>, dan <b>penarikan otomatis</b>.'
+        legendary: 'Legendary Badger'
+        legendary_description_html: '<p><b>Jangan pernah lagi membayar untuk menggunakan layanan ini.</b></p><p>Segala yang ditawarkan oleh paket Pro, tetapi seumur hidup.</p><p>Langganan ini dilengkapi dengan <b>NFT</b>, sehingga di masa depan Anda dapat menjualnya kepada pengguna lain.</p><p>Setiap token terkait dengan karya seni prosedural. Bisakah Anda menemukan 21 "telur Paskah" yang tersembunyi dalam <a href="https://deltabadger.com/legendary/" class="nobreak">koleksi</a>?</p><p>Seumur hidup. Terbatas. Legendaris.</p><p>Legendary Badgers tidak seperti apa pun yang ada di pasar.</p><p>Hanya 1000 tempat di pesawat luar angkasa Legendary Badgers. Semen status pemikir jangka panjang Anda, dan jadilah Legendaris.</p>'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
         analyzer_html: 'Tingkatkan portofolio Anda dengan kekuatan tak terbatas dari <b>Portfolio Analyzer</b>.'
-        expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Hodler: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
+        expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Pro: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
         payment:
             account_holder: 'Pemilik rekening'
             account_number: 'Nomor rekening'
@@ -654,13 +654,13 @@ id:
             billing_information: 'Informasi penagihan'
             bitcoin: Bitcoin
             stripe_payment_succeeded: ''
-            compensation_hodler:
+            compensation_pro:
                 other: ''
-            compensation_investor:
-                other: 'Kompensasi atas %{{count}} hari yang tidak digunakan dari paket Investor.'
+            compensation_standard:
+                other: 'Kompensasi atas %{{count}} hari yang tidak digunakan dari paket Standard.'
             discount: 'Diskon %{discount_percent}%'
-            legendary_badger_discount: ''
-            legendary_badger_discount_info: ''
+            legendary_plan_discount: ''
+            legendary_plan_discount_info: ''
             eu_bank_country: Belgia
             invalid_vat_number: 'Nomor VAT UE tidak valid'
             paid_with_wire_transfer: 'Saya melakukan transfer SEPA'
@@ -672,9 +672,9 @@ id:
             routing_number: 'Nomor routing'
             server_error: ''
             vat: VAT
-            wire_cost_hodler_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_investor_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_legendary_badger_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_pro_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''standard-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_standard_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''pro-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_legendary_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''legendary-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_pending_html: 'Jika Anda belum melakukan pembayaran, kirimkan <b>%{sign}%{price}</b> ke rekening bank berikut:'
             wire_transfer: 'Transfer Bank'
             wire_transfer_description_html: 'Untuk membayar dengan transfer bank, kirim info utama untuk invois: <b>nama</b>, <b>nama belakang</b>, <b>alamat rumah</b>, <b>email</b> yang digunakan di Deltabadger, dan paket yang ingin Anda beli ke: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
@@ -684,7 +684,7 @@ id:
         plan_1_year: 'Paket 1 tahun'
         plan_life_time: ''
         prolong_upgrade: ''
-        saver: Penabung
+        free: Penabung
         upgrade: 'Tingkatkan Paket'
         upgrade_plan: 'Tingkatkan paket'
     legendary_badger:
@@ -708,7 +708,7 @@ id:
             <p>Jika Anda memiliki pola pikir jangka panjang dan Anda menyukai apa yang Anda lihat, pertimbangkan untuk bergabung dengan Legendary Badgers — <b>komunitas eksklusif dari 1.000 pelanggan seumur hidup</b>. Ini adalah tawaran unik yang mendukung proyek dan memberi Anda kesempatan unik untuk menjadi penerima manfaat seumur hidup dari semua kekuatan super Deltabadger.</p>
             <p style="margin-bottom:0">Salam, Jan</p>
         default: 'Hai, selamat datang di Deltabadger'
-        saver: 'Hapus limit dan tingkatkan paket!'
+        free: 'Hapus limit dan tingkatkan paket!'
     metrics:
         exp_return:
             short_name: 'Exp. Return'

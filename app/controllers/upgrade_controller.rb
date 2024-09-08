@@ -11,7 +11,7 @@ class UpgradeController < ApplicationController
 
   def index
     current_plan = current_user.subscription.subscription_plan
-    return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
+    return redirect_to legendary_path if current_plan.name == 'legendary'
 
     @upgrade_presenter = UpgradePresenter.new(current_user)
     @stripe_payment_in_process = check_stripe_payment_in_process

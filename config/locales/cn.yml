@@ -35,7 +35,7 @@ cn:
         btc_address_confirmation_sent: 确认电子邮件已发送
         create:
             error: 转介绍程序注册失败
-            saver_error: 您必须升级才能注册
+            free_plan_error: 您必须升级才能注册
         current_bitcoin_address: 当前比特币地址
         discount:
             accepted: 您已接受转介绍链接
@@ -95,10 +95,10 @@ cn:
             template_html: "<p>您好 👋，</p>\n<p>您现在使用 Deltabadger 快一个月了！</p>\n<p>您的免费无限试用即将结束。请确保升级，以便让您更沉重的獾继续奔跑！</p>"
         limit_almost_reached:
             subject: '几乎已达到限制 ⌛'
-            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b>，以确保您的</br>机器人将继续工作。</p>"
+            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Pro</b>，以确保您的</br>机器人将继续工作。</p>"
         limit_reached:
             subject: '您已达到限制 🥳'
-            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b> 以移除所有限制并<br>让机器人重新工作。</p>"
+            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Pro</b> 以移除所有限制并<br>让机器人重新工作。</p>"
         notify_about_error:
             subject: '发生问题 😵'
             template_html: "<p>糟糕… 😵</p>\n<p>处理上次交易时<br>发生问题。</p>\n<p>您可以在 <br>机器人日志中查看错误。登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -106,7 +106,7 @@ cn:
             subject: '糟糕！再试一次… 🧐'
             template_html: "<p>天哪 🧐，</p>\n<p>机器人无法执行您的订单。<br>似乎发生了交易所问题。<br>我们将在 %{delay} 后重试。</p>\n<p>所有错误可在机器人日志中查看。<br>登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: '仅 Hodler 和 Legendary Badger'
+        pro_only: '仅 Pro 和 Legendary'
         above: 高于
         add_new_bot: 添加新的机器人
         below: 低于
@@ -548,8 +548,8 @@ cn:
                 first_name: 名字
                 last_name: 姓氏
                 other: 其他
-                submit_hodler_order: '订购 Hodler 套餐'
-                submit_investor_order: 订购投资者套餐
+                submit_pro_order: '订购 Pro 套餐'
+                submit_standard_order: 订购投资者套餐
             settings:
                 current_status: 当前状态：
                 disable_two_fa: '禁用 2FA'
@@ -634,8 +634,8 @@ cn:
     subscriptions:
         days_left:
             other: '剩余 %{{count}} 天'
-        hodler: Hodler
-        hodler_description_html: '<p><b>无限的 DCA 机器人</b>，<b>限价单</b> 费用更低，<b>自动取款</b>，<b>价格条件</b>，<b>时间条件</b>（很快）。</p>'
+        pro: Pro
+        pro_description_html: '<p><b>无限的 DCA 机器人</b>，<b>限价单</b> 费用更低，<b>自动取款</b>，<b>价格条件</b>，<b>时间条件</b>（很快）。</p>'
         payment:
             account_holder: 账号持有人
             account_number: 账号
@@ -646,13 +646,13 @@ cn:
             billing_information: 账单信息
             bitcoin: 比特币
             stripe_payment_succeeded: ''
-            compensation_hodler:
+            compensation_pro:
                 other: ''
-            compensation_investor:
+            compensation_standard:
                 other: '对投资者套餐中未使用的 %{{count}} 天的补偿。'
             discount: '%{discount_percent}% 的折扣'
-            legendary_badger_discount: ''
-            legendary_badger_discount_info: ''
+            legendary_plan_discount: ''
+            legendary_plan_discount_info: ''
             eu_bank_country: 比利时
             invalid_vat_number: '无效的 EU VAT 编号'
             paid_with_wire_transfer: '我进行了 SEPA 汇款'
@@ -664,9 +664,9 @@ cn:
             routing_number: 汇款路线号码
             server_error: ''
             vat: VAT
-            wire_cost_hodler_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> 转账到以下银行账号：'
-            wire_cost_investor_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> 转账到以下银行账号：'
-            wire_cost_legendary_badger_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_pro_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''pro-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_standard_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''standard-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_legendary_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''legendary-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_pending_html: '如果尚未付款，请将 <b>%{sign}%{price}</b> 转账到以下银行账号：'
             wire_transfer: 电汇
             wire_transfer_description_html: '要电汇支付，请发送发票的基本信息：<b>名字</b>、<b>姓氏</b>、<b>物理地址</b>、在 Deltabadger 使用的<b>电子邮件</b>，以及您想购买的套餐：<a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>。'
@@ -676,7 +676,7 @@ cn:
         plan_1_year: '1 年套餐'
         plan_life_time: ''
         prolong_upgrade: 延长或升级套餐
-        saver: 储蓄者
+        free: 储蓄者
         upgrade: 升级
         upgrade_plan: 升级套餐
     legendary_badger:

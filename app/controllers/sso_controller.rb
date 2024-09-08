@@ -67,11 +67,11 @@ class SsoController < ApplicationController
     discourse.api_key = discourse_api_key
     discourse.api_username = discourse_api_username
 
-    legendary_badger_badge_id = 103 # Replace with the actual badge ID for "Legendary Badger"
+    legendary_plan_badge_id = 103 # Replace with the actual badge ID for "Legendary Badger"
 
     # First, remove any badge the user shouldn't have
     return unless active_subscription.subscription_plan_id == 4
 
-    discourse.user_badges.grant(user.id, legendary_badger_badge_id)
+    discourse.user_badges.grant(user.id, legendary_plan_badge_id)
   end
 end

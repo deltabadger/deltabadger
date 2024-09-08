@@ -25,10 +25,10 @@ FeeApiKey.find_or_create_by!(exchange: Exchange.find_or_create_by!(name: 'Coinba
 FeeApiKey.update(key: COINBASE_API_KEY)
 FeeApiKey.update(secret: COINBASE_API_SECRET)
 
-_saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 1200)
-investor = SubscriptionPlan.find_or_create_by!(name: 'investor', cost_eu: 49.99, cost_other: 49.99, unlimited: true, years: 1, credits: 1200)
-hodler = SubscriptionPlan.find_or_create_by!(name: 'hodler', cost_eu: 149.99, cost_other: 149.99, unlimited: true, years: 4, credits: 1200)
-legendary_badger = SubscriptionPlan.find_or_create_by!(name: 'legendary_badger', cost_eu: 249.99, cost_other: 249.99, unlimited: true, years: 10000, credits: 1200)
+SubscriptionPlan.find_or_create_by!(name: 'free', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 1200)
+standard_plan = SubscriptionPlan.find_or_create_by!(name: 'standard', cost_eu: 49.99, cost_other: 49.99, unlimited: true, years: 1, credits: 1200)
+pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro', cost_eu: 149.99, cost_other: 149.99, unlimited: true, years: 4, credits: 1200)
+legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary', cost_eu: 249.99, cost_other: 249.99, unlimited: true, years: 10000, credits: 1200)
 
 VatRate.find_or_create_by!(country: 'Other', vat: 0)
 VatRate.find_or_create_by!(country: 'Poland', vat: 0.23)
@@ -57,34 +57,34 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current - 30.days, credits: investor.credits)
+  user.subscriptions << Subscription.new(subscription_plan: standard_plan, end_time: Time.current - 30.days, credits: standard_plan.credits)
 end
 
 User.find_or_create_by(
-  email: "investor@test.com"
+  email: "standard@test.com"
 ) do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current + investor.duration + 1.day, credits: investor.credits)
+  user.subscriptions << Subscription.new(subscription_plan: standard_plan, end_time: Time.current + standard_plan.duration + 1.day, credits: standard_plan.credits)
 end
 
 
 User.find_or_create_by(
-  email: "hodler@test.com"
+  email: "pro@test.com"
 ) do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: hodler, end_time: Time.current + hodler.duration + 1.day, credits: hodler.credits)
+  user.subscriptions << Subscription.new(subscription_plan: pro_plan, end_time: Time.current + pro_plan.duration + 1.day, credits: pro_plan.credits)
 end
 
 
 User.find_or_create_by(
-  email: "legendary_badger@test.com"
+  email: "legendary@test.com"
 ) do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: legendary_badger, end_time: Time.current + legendary_badger.duration + 1.day, credits: legendary_badger.credits)
+  user.subscriptions << Subscription.new(subscription_plan: legendary_plan, end_time: Time.current + legendary_plan.duration + 1.day, credits: legendary_plan.credits)
 end

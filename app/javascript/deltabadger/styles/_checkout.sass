@@ -27,7 +27,7 @@
       template:
         columns: auto 10rem
         rows: 5rem auto auto
-    &__legendary-badgers-left
+    &__legendary-plans-left
       position: absolute
       bottom: 3rem
       left: 3rem
@@ -41,16 +41,16 @@
       .progress-bar
         background: var(--success)
         border-radius: 1rem
-    &--saver
+    &--free-plan
       grid:
         template:
           rows: 5rem auto auto !important
-    &--investor, &--hodler, &--legendary_badger
+    &--standard-plan, &--pro-plan, &--legendary-plan
       //min-height: 23rem
       grid:
         template:
           rows: 8rem auto auto
-    &--legendary_badger
+    &--legendary-plan
       padding-bottom: 28rem
       .db-plans__item__info
         z-index: 2
@@ -146,9 +146,9 @@
             start: 1
             end: 2
 
-.db-legendary-legendary-badger-discount
+.db-plan-legendary-discount
   display: none
-.db-plan-legendary_badger.db-plan--selected ~ .db-legendary-legendary-badger-discount
+.db-plan-legendary.db-plan--selected ~ .db-plan-legendary-discount
   display: grid
 
 .db-special-upgrade-discount
@@ -169,7 +169,7 @@
   .badge
     background: var(--success)
     color: var(--planSelectedTxt)
-  .db-plans__item__legendary-badgers-left
+  .db-plans__item__legendary-plans-left
     color: var(--success)
     .progress
       background: var(--success-semitransparent)
@@ -192,16 +192,16 @@
   @include media-breakpoint-down(sm)
     display: block
 
-.db-checkout--investor
-  .db-show--hodler, .db-show--legendary_badger
+.db-checkout--standard-plan
+  .db-show--pro, .db-show--legandary
     display: none
 
-.db-checkout--hodler
-  .db-show--investor, .db-show--legendary_badger
+.db-checkout--pro-plan
+  .db-show--standard, .db-show--legandary
     display: none
 
-.db-checkout--legendary_badger
-  .db-show--investor, .db-show--hodler
+.db-checkout--legendary-plan
+  .db-show--standard, .db-show--pro
     display: none
 
 .db-checkout--eu

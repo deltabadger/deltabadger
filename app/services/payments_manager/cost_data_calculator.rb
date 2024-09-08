@@ -8,7 +8,7 @@ module PaymentsManager
       vat_rate: VatRate.find_by!(country: payment.country), # just to be able to pass in cached values
       subscription_plan: payment.subscription_plan,         # just to be able to pass in cached values
       referrer: user.eligible_referrer,                     # just to be able to pass in cached values
-      legendary_badger_discount: nil                        # just to be able to pass in cached values
+      legendary_plan_discount: nil                          # just to be able to pass in cached values
     )
       @subscription_plan = subscription_plan
       @from_eu = payment.eu?
@@ -17,7 +17,7 @@ module PaymentsManager
       @discount_percent = Utilities::Number.to_bigdecimal(referrer&.discount_percent || 0)
       @commission_percent = Utilities::Number.to_bigdecimal(referrer&.commission_percent || 0)
       @vat = Utilities::Number.to_bigdecimal(vat_rate.vat)
-      @legendary_badger_discount = legendary_badger_discount
+      @legendary_plan_discount = legendary_plan_discount
       Result::Success.new(calculate_cost_data)
     rescue StandardError => e
       puts e.message
@@ -58,7 +58,7 @@ module PaymentsManager
     def flat_discounted_price
       # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
       # TODO: allow prices of 0 and let the controller upgrade the plan without payment in this case
-      @flat_discounted_price ||= [1, @base_price - @flat_discount - legendary_badger_discount].max
+      @flat_discounted_price ||= [1, @base_price - @flat_discount - legendary_plan_discount].max
     end
 
     def discount_percent_amount
@@ -81,14 +81,14 @@ module PaymentsManager
       (flat_discounted_price * (1 - @discount_percent)).round(2)
     end
 
-    def legendary_badger_discount
-      return 0 unless @subscription_plan.name == 'legendary_badger'
+    def legendary_plan_discount
+      return 0 unless @subscription_plan.name == 'legendary'
 
-      @legendary_badger_discount ||= legendary_badger_stats[:legendary_badger_discount]
+      @legendary_plan_discount ||= legendary_plan_stats[:legendary_plan_discount]
     end
 
-    def legendary_badger_stats
-      @legendary_badger_stats ||= PaymentsManager::LegendaryBadgerStatsCalculator.call.data
+    def legendary_plan_stats
+      @legendary_plan_stats ||= PaymentsManager::LegendaryPlanStatsCalculator.call.data
     end
   end
 end

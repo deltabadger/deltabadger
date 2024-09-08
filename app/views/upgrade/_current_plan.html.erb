@@ -1,16 +1,16 @@
 <% if current_user.unlimited? %>
   <% days_left = current_user.plan_days_left %>
-  <% if upgrade_presenter.current_plan_name == 'investor' %>
-    <div class="db-plans__item db-plans__item--investor db-plans__item--current">
-      <%= render partial: 'investor_card', locals: { days_left: days_left } %>
+  <% if upgrade_presenter.current_plan_name == 'standard' %>
+    <div class="db-plans__item db-plans__item--standard-plan db-plans__item--current">
+      <%= render partial: 'standard_plan_card', locals: { days_left: days_left } %>
     </div>
-  <% elsif upgrade_presenter.current_plan_name == 'hodler' %>
-    <div class="db-plans__item db-plans__item--hodler db-plans__item--current">
-      <%= render partial: 'hodler_card', locals: { days_left: days_left } %>
+  <% elsif upgrade_presenter.current_plan_name == 'pro' %>
+    <div class="db-plans__item db-plans__item--pro-plan db-plans__item--current">
+      <%= render partial: 'pro_plan_card', locals: { days_left: days_left } %>
     </div>
   <% else %>
-    <div class="db-plans__item db-plans__item--legendary_badger db-plans__item--current">
-      <%= render partial: 'legendary_badger_card', locals: { days_left: days_left, legendary_badger_stats: upgrade_presenter.legendary_badger_stats } %>
+    <div class="db-plans__item db-plans__item--legendary_plan db-plans__item--current">
+      <%= render partial: 'legendary_plan_card', locals: { days_left: days_left, legendary_plan_stats: upgrade_presenter.legendary_plan_stats } %>
     </div>
   <% end %>
 <% end %>

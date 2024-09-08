@@ -10,7 +10,7 @@ class Subscription < ApplicationRecord
 
   before_validation :set_sequence_number
 
-  validates :sequence_number, presence: true, if: -> { legendary_badger? }
+  validates :sequence_number, presence: true, if: -> { legendary? }
   validates :sequence_number,
             numericality: {
               only_integer: true,
@@ -18,10 +18,10 @@ class Subscription < ApplicationRecord
               less_than_or_equal_to: 999,
               message: '%<value>s is incorrect, please enter a number from 0 to 999'
             },
-            if: -> { sequence_number.present? && legendary_badger? }
+            if: -> { sequence_number.present? && legendary? }
   validate do
-    if sequence_number.present? && !legendary_badger?
-      errors.add :sequence_number, :used, message: 'is only available for the Legendary Badger NFT plan'
+    if sequence_number.present? && !legendary?
+      errors.add :sequence_number, :used, message: 'is only available for the Legendary plan'
     end
     errors.add :sequence_number, :used, message: '%<value>s is already used' if sequence_number_already_used?
   end
@@ -31,20 +31,20 @@ class Subscription < ApplicationRecord
   private
 
   def sequence_number_already_used?
-    legendary_badger? && sequence_number.present? && sequence_number.in?(Subscription.used_sequence_numbers - [sequence_number_was])
+    legendary? && sequence_number.present? && sequence_number.in?(Subscription.used_sequence_numbers - [sequence_number_was])
   end
 
-  def legendary_badger?
-    name == SubscriptionPlan::LEGENDARY_BADGER
+  def legendary?
+    name == SubscriptionPlan::LEGENDARY_PLAN
   end
 
   def set_sequence_number
-    self.sequence_number = next_sequence_number if legendary_badger? && !sequence_number.present?
+    self.sequence_number = next_sequence_number if legendary? && !sequence_number.present?
   end
 
   def self.used_sequence_numbers
-    legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_BADGER)
-    subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
+    legendary_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_PLAN)
+    subscriptions = Subscription.current.where(subscription_plan_id: legendary_plan.id)
     subscriptions.map(&:sequence_number).compact.sort
   end
 

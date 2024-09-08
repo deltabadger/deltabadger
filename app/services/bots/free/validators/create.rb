@@ -26,7 +26,7 @@ module Bots::Free::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :free_plan_symbols,
-                  :hodler, :legendary_badger, :force_smart_intervals, :smart_intervals_value, :exchange_name,
+                  :pro, :legendary, :force_smart_intervals, :smart_intervals_value, :exchange_name,
                   :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
       INTERVALS = %w[month week day hour].freeze
@@ -50,10 +50,10 @@ module Bots::Free::Validators
         smaller_than: 100
       }
       validates :use_subaccount, inclusion: { in: [true, false, nil] }
-      validate :hodler_or_legendary_badger_if_limit_order
+      validate :pro_or_legendary_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
-      validate :hodler_or_legendary_badger_if_price_range
+      validate :pro_or_legendary_if_price_range
       validate :validate_price_range
       validate :validate_use_subaccount
       validate :validate_subaccount_name
@@ -73,9 +73,9 @@ module Bots::Free::Validators
         @allowed_symbols = allowed_symbols
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
-        @hodler = user.subscription_name == 'hodler'
-        @legendary_badger = user.subscription_name == 'legendary_badger'
-        @paid_plan = %w[hodler investor legendary_badger].include?(user.subscription_name)
+        @pro = user.subscription_name == 'pro'
+        @legendary = user.subscription_name == 'legendary'
+        @paid_plan = %w[standard pro legendary].include?(user.subscription_name)
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
         @use_subaccount = params['use_subaccount']
         @selected_subaccount = params['selected_subaccount']
@@ -105,8 +105,8 @@ module Bots::Free::Validators
         errors.add(:base, I18n.t('bots.messages.upgrade_plan_more_bots'))
       end
 
-      def hodler_or_legendary_badger_if_limit_order
-        return if hodler || legendary_badger || order_type == 'market'
+      def pro_or_legendary_if_limit_order
+        return if pro || legendary || order_type == 'market'
 
         errors.add(:base, I18n.t('bots.messages.upgrade_plan_limit_orders'))
       end
@@ -147,8 +147,8 @@ module Bots::Free::Validators
         order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
       end
 
-      def hodler_or_legendary_badger_if_price_range
-        return if hodler || legendary_badger || !@price_range_enabled
+      def pro_or_legendary_if_price_range
+        return if pro || legendary || !@price_range_enabled
 
         errors.add(:base, I18n.t('bots.messages.upgrade_price_range'))
       end

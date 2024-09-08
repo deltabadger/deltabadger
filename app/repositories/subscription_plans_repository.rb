@@ -3,20 +3,20 @@ class SubscriptionPlansRepository < BaseRepository
     SubscriptionPlan
   end
 
-  def saver
-    find_by_name!(model::SAVER)
+  def free
+    find_by_name!(model::FREE_PLAN)
   end
 
-  def investor
-    find_by_name!(model::INVESTOR)
+  def standard
+    find_by_name!(model::STANDARD_PLAN)
   end
 
-  def hodler
-    find_by_name!(model::HODLER)
+  def pro
+    find_by_name!(model::PRO_PLAN)
   end
 
-  def legendary_badger
-    find_by_name!(model::LEGENDARY_BADGER)
+  def legendary
+    find_by_name!(model::LEGENDARY_PLAN)
   end
 
   private

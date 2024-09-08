@@ -9,11 +9,11 @@ class MetricsRepository < BaseRepository
 
   def update_metrics
     telegram_metrics = FetchTelegramMetrics.new.call
-    legendary_badger_stats = PaymentsManager::LegendaryBadgerStatsCalculator.call.data
+    legendary_plan_stats = PaymentsManager::LegendaryPlanStatsCalculator.call.data
     metrics = {
       liveBots: BotsRepository.new.count_with_status('working'),
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
-      availableLegendaryBadgers: legendary_badger_stats[:for_sale_legendary_badger_count],
+      availableLegendaryBadgers: legendary_plan_stats[:legendary_plans_for_sale_count],
       takenLegendaryBadgerNumbers: SubscriptionsRepository.new.model.used_sequence_numbers,
       dca4yrProfitBtc: DcaProfitGetter.call('bitcoin', 4.years.ago).data,
       dca4yrProfitSp500: DcaProfitGetter.call('s&p-500', 4.years.ago).data

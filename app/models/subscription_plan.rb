@@ -1,8 +1,8 @@
 class SubscriptionPlan < ApplicationRecord
-  SAVER = 'saver'.freeze
-  INVESTOR = 'investor'.freeze
-  HODLER = 'hodler'.freeze
-  LEGENDARY_BADGER = 'legendary_badger'.freeze
+  FREE_PLAN = 'free'.freeze
+  STANDARD_PLAN = 'standard'.freeze
+  PRO_PLAN = 'pro'.freeze
+  LEGENDARY_PLAN = 'legendary'.freeze
 
   has_many :subscriptions
 

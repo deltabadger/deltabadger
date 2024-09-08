@@ -11,7 +11,7 @@ vi:
         bitwarden_title: 'Thử Bitwarden'
         dca_2y_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Saver dài hạn.'
+        dca_standard_html: 'Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Free dài hạn.'
         dont_trade_automate_html: '<div>Đừng&nbsp;lướt sóng.</div> <div>Hãy tự động hóa.</div>'
         features: "tự động trung bình giá trên tài khoản giao dịch của bạn;\n<i>Thời khoảng thông minh</i> chỉ mất 5 phút để thiết lập;\ncập nhật các tính năng mới hàng tháng;\nhỗ trợ cộng đồng Telegram"
         password_managers_html: 'Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.'
@@ -35,7 +35,7 @@ vi:
         btc_address_confirmation_sent: 'Đã gửi email xác nhận'
         create:
             error: 'Đăng ký chương trình giới thiệu không thành công'
-            saver_error: 'Bạn cần nâng cấp để đăng ký'
+            free_plan_error: 'Bạn cần nâng cấp để đăng ký'
         current_bitcoin_address: 'Địa chỉ Bitcoin hiện tại'
         discount:
             accepted: 'Bạn đã chấp nhận liên kết giới thiệu'
@@ -95,10 +95,10 @@ vi:
             template_html: "<p>Xin chào 👋,</p>\n<p>Bạn đã sử dụng Deltabadger được gần một tháng!</p>\n<p>Thời hạn dùng thử miễn phí không giới hạn của bạn đã sắp hết. Hãy đảm bảo nâng cấp gói để giữ cho tài khoản của bạn tiếp tục hoạt động!</p>"
         limit_almost_reached:
             subject: 'Gần đạt hạn mức giao dịch ⌛'
-            template_html: "<p>Xin chào 👋,</p>\n<p>Bạn đã gần đạt <br>hạn mức giao dịch gói</p> <b style=\"color: #0a45a4;\">Saver</b>.\n<p>Hãy cập nhật lên gói <b style=\"color: #0a45a4;\">Investor</b><br> hoặc <b style=\"color: #0a45a4;\">Hodler</b> để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
+            template_html: "<p>Xin chào 👋,</p>\n<p>Bạn đã gần đạt <br>hạn mức giao dịch gói</p> <b style=\"color: #0a45a4;\">Free</b>.\n<p>Hãy cập nhật lên gói <b style=\"color: #0a45a4;\">Standard</b><br> hoặc <b style=\"color: #0a45a4;\">Pro</b> để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
         limit_reached:
             subject: 'Bạn đã đạt hạn mức giao dịch 🥳'
-            template_html: "<p>Xin chào 👋,</p>\n<p>Ồ, tốt lắm! Bạn đã đạt đến hạn mức gói <b style=\"color: #0a45a4;\">Saver</b><br>.</p>\n<p>Có vẻ như bạn đã thực hiện trung bình giá<br>được một thời gian.</p>\n<p>Chúng tôi hy vọng bạn hài lòng với<br>kết quả thu được.</p>\n<p>Nâng cấp gói của bạn lên <b style=\"color: #0a45a4;\">Investor</b><br>hoặc <b style=\"color: #0a45a4;\">Hodler</b> để gỡ bỏ tất cả hạn mức và<br>giúp bot của bạn hoạt động trở lại.</p>"
+            template_html: "<p>Xin chào 👋,</p>\n<p>Ồ, tốt lắm! Bạn đã đạt đến hạn mức gói <b style=\"color: #0a45a4;\">Free</b><br>.</p>\n<p>Có vẻ như bạn đã thực hiện trung bình giá<br>được một thời gian.</p>\n<p>Chúng tôi hy vọng bạn hài lòng với<br>kết quả thu được.</p>\n<p>Nâng cấp gói của bạn lên <b style=\"color: #0a45a4;\">Standard</b><br>hoặc <b style=\"color: #0a45a4;\">Pro</b> để gỡ bỏ tất cả hạn mức và<br>giúp bot của bạn hoạt động trở lại.</p>"
         notify_about_error:
             subject: 'Đã xảy ra lỗi 😵'
             template_html: "<p>Ồ… 😵</p>\n<p>Đã có lỗi xảy ra khi<br>xử lý giao dịch gần nhất.</p>\n<p>Bạn có thể xem lỗi trong<br>nhật ký bot. Đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -106,7 +106,7 @@ vi:
             subject: 'Ồ! Bạn hãy thử lại nhé... 🧐'
             template_html: "<p>Ôi trời 🧐,</p>\n<p>Bot đã không thể thực hiện lệnh của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử lại lần nữa trong %{delay}.</p>\n<p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui lòng đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: 'Chỉ Hodler và Legendary Badger'
+        pro_only: 'Chỉ Pro và Legendary Badger'
         above: 'trên đây'
         add_new_bot: 'Thêm bot mới'
         below: 'dưới đây'
@@ -548,8 +548,8 @@ vi:
                 first_name: Tên
                 last_name: Họ
                 other: Khác
-                submit_hodler_order: 'Gói đặt lệnh Hodler'
-                submit_investor_order: 'Gói đặt lệnh Investor'
+                submit_pro_order: 'Gói đặt lệnh Pro'
+                submit_standard_order: 'Gói đặt lệnh Standard'
             settings:
                 current_status: 'Trạng thái hiện tại:'
                 disable_two_fa: 'Tắt xác thực hai yếu tố'
@@ -634,15 +634,15 @@ vi:
     subscriptions:
         days_left:
             other: ''
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bot DCA không giới hạn</b>, phí thấp hơn với <b>lệnh giới hạn</b>, <b>rút tiền tự động</b>, <b>điều kiện giá</b>, <b>điều kiện thời gian</b>(sắp có).</p>'
-        investor: Investor
-        investor_description_html: 'Một năm <b>giao dịch không giới hạn</b>, <b>tất cả các loại tiền</b>, và <b>rút tiền tự động</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Không bao giờ phải trả phí sử dụng dịch vụ nữa.</b></p><p>Mọi thứ mà gói Hodler cung cấp, nhưng là suốt đời.</p><p>Đăng ký đi kèm với một <b>NFT</b>, do đó trong tương lai bạn có thể bán nó cho người dùng khác.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật quy trình. Bạn có thể tìm thấy tất cả 21 "trứng phục sinh" ẩn trong <a href="https://deltabadger.com/legendary/" class="nobreak">bộ sưu tập</a> không?</p><p>Suốt đời. Giới hạn. Huyền thoại.</p><p>Legendary Badgers là duy nhất trên thị trường.</p><p>Chỉ có 1000 chỗ ngồi trên tàu vũ trụ của Legendary Badgers. Hãy củng cố vị thế của bạn như một người suy nghĩ dài hạn và trở thành huyền thoại.</p>'
+        pro: Pro
+        pro_description_html: '<p><b>Bot DCA không giới hạn</b>, phí thấp hơn với <b>lệnh giới hạn</b>, <b>rút tiền tự động</b>, <b>điều kiện giá</b>, <b>điều kiện thời gian</b>(sắp có).</p>'
+        standard: Standard
+        standard_description_html: 'Một năm <b>giao dịch không giới hạn</b>, <b>tất cả các loại tiền</b>, và <b>rút tiền tự động</b>.'
+        legendary: Legendary Badger
+        legendary_description_html: '<p><b>Không bao giờ phải trả phí sử dụng dịch vụ nữa.</b></p><p>Mọi thứ mà gói Pro cung cấp, nhưng là suốt đời.</p><p>Đăng ký đi kèm với một <b>NFT</b>, do đó trong tương lai bạn có thể bán nó cho người dùng khác.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật quy trình. Bạn có thể tìm thấy tất cả 21 "trứng phục sinh" ẩn trong <a href="https://deltabadger.com/legendary/" class="nobreak">bộ sưu tập</a> không?</p><p>Suốt đời. Giới hạn. Huyền thoại.</p><p>Legendary Badgers là duy nhất trên thị trường.</p><p>Chỉ có 1000 chỗ ngồi trên tàu vũ trụ của Legendary Badgers. Hãy củng cố vị thế của bạn như một người suy nghĩ dài hạn và trở thành huyền thoại.</p>'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
         analyzer_html: 'Tăng cường danh mục đầu tư của bạn với sức mạnh không giới hạn của <b>Trình phân tích Danh mục đầu tư</b>.'
-        expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Hodler: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
+        expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Pro: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
         payment:
             account_holder: 'Chủ tài khoản'
             account_number: 'Số tài khoản'
@@ -653,13 +653,13 @@ vi:
             billing_information: 'Thông tin hóa đơn'
             bitcoin: Bitcoin
             stripe_payment_succeeded: ''
-            compensation_hodler:
+            compensation_pro:
                 other: ''
-            compensation_investor:
-                other: 'Khoản tiền bù đắp cho %{{count}} ngày không sử dụng trong gói Investor.'
+            compensation_standard:
+                other: 'Khoản tiền bù đắp cho %{{count}} ngày không sử dụng trong gói Standard.'
             discount: 'Chiết khấu %{discount_percent}%'
-            legendary_badger_discount: ''
-            legendary_badger_discount_info: ''
+            legendary_plan_discount: ''
+            legendary_plan_discount_info: ''
             eu_bank_country: Bỉ
             invalid_vat_number: 'Mã số thuế GTGT châu Âu không hợp lệ'
             paid_with_wire_transfer: 'Tôi đã chuyển khoản SEPA'
@@ -671,9 +671,9 @@ vi:
             routing_number: 'Số định tuyến'
             server_error: ''
             vat: 'Thuế GTGT'
-            wire_cost_hodler_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''investor-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_investor_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
-            wire_cost_legendary_badger_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''hodler-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
+            wire_cost_pro_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''pro-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
+            wire_cost_standard_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''standard-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
+            wire_cost_legendary_html: 'Hãy gửi <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''legendary-total-price''>%{price}</span></b> vào tài khoản ngân hàng sau:'
             wire_cost_pending_html: 'Nếu bạn chưa thanh toán, hãy gửi <b>%{sign}%{price}</b> vào tài khoản ngân hàng sau:'
             wire_transfer: 'Chuyển khoản ngân hàng'
             wire_transfer_description_html: 'Để thanh toán bằng chuyển khoản ngân hàng, vui lòng gửi thông tin cơ bản để lập hóa đơn: <b>tên</b>, <b>họ</b>, <b>địa chỉ</b>, <b>email</b> sử dụng tại Deltabadger, và gói bạn dự định mua tới địa chỉ: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
@@ -683,7 +683,7 @@ vi:
         plan_1_year: 'gói 1 năm'
         plan_life_time: ''
         prolong_upgrade: ''
-        saver: Saver
+        free: Free
         upgrade: 'Nâng cấp'
         upgrade_plan: 'Nâng cấp gói'
     legendary_badger:

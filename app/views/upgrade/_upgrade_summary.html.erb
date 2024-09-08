@@ -4,7 +4,7 @@
   <div class="db-checkout-summary__item db-checkout-summary__item--vat">
     <div class="db-checkout-summary__item__info">
       <%= '+' + t('subscriptions.payment.vat') %>
-      <span class='vat-percent'><%= cost_presenter[:hodler].vat_integer %></span>%
+      <span class='vat-percent'><%= cost_presenter[:pro].vat_integer %></span>%
     </div>
     <div class="db-checkout-summary__item__quote">
       <% keys.each do |key| %>
