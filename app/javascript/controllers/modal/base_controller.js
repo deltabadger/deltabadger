@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 
-// Connects to data-controller="modals"
+// Connects to data-controller="modal--base"
 export default class extends Controller {
   connect() {
     this.#open()
@@ -14,7 +14,7 @@ export default class extends Controller {
   }
 
   // hide modal on successful form submission
-  // data-action="turbo:submit-end->modals#submitEnd"
+  // data-action="turbo:submit-end->modal--base#submitEnd"
   submitEnd(e) {
     if (e.detail.success) {
       this.animateOutCloseAndCleanUp()
