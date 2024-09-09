@@ -11,11 +11,11 @@
         <% end %>
       </div>
       <%= tag.div data: {
-        controller: "portfolio-analyzer-chart",
-        portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],
-        portfolio_analyzer_chart_series_value: backtest["timeSeries"]["series"]
+        controller: "portfolio-analyzer--chart",
+        portfolio_analyzer__chart_labels_value: backtest["timeSeries"]["labels"],
+        portfolio_analyzer__chart_series_value: backtest["timeSeries"]["series"]
       } do %>
-        <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="60"></canvas>
+        <canvas data-portfolio-analyzer--chart-target="analyzerChart" width="200" height="60"></canvas>
       <% end %>
     </div>
 
