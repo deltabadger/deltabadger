@@ -1,9 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Used to automatically search on key press, similar to TradingView.
-// Listens to any key press that is a letter, clicks the button, and sets the input value to the key pressed
+// Listens to any key press that is a letter, clicks the button to open the search modal, sets the input value to the key pressed and submits the form.
 
-// Connects to data-controller="form-key-press"
+// Connects to data-controller="modal--open-and-submit-on-key-press"
 export default class extends Controller {
   static targets = ["button"];
 
@@ -35,8 +35,8 @@ export default class extends Controller {
     const waitForInputAndFillItWithKeysPressed = () => {
 
       // Dynamically find the input target after the turbo frame has loaded
-      const formElement = document.querySelector('[data-form-key-press-target="form"]');
-      const inputElement = document.querySelector('[data-form-key-press-target="input"]');
+      const formElement = document.querySelector('[data-modal--open-and-submit-on-key-press-target="form"]');
+      const inputElement = document.querySelector('[data-modal--open-and-submit-on-key-press-target="input"]');
 
       if (inputElement) {
         inputElement.value = this.keysPressed.join("");

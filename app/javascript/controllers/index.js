@@ -19,17 +19,20 @@ application.register("dropdown", DropdownController)
 import FlatpickrController from "./flatpickr_controller"
 application.register("flatpickr", FlatpickrController)
 
-import FormKeyPressController from "./form_key_press_controller"
-application.register("form-key-press", FormKeyPressController)
+import Form__SubmitAfterDelayController from "./form/submit_after_delay_controller"
+application.register("form--submit-after-delay", Form__SubmitAfterDelayController)
 
-import FormSubmissionController from "./form_submission_controller"
-application.register("form-submission", FormSubmissionController)
+import Form__SubmitController from "./form/submit_controller"
+application.register("form--submit", Form__SubmitController)
 
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
 
-import ModalsController from "./modals_controller"
-application.register("modals", ModalsController)
+import Modal__BaseController from "./modal/base_controller"
+application.register("modal--base", Modal__BaseController)
+
+import Modal__OpenAndSubmitOnKeyPressController from "./modal/open_and_submit_on_key_press_controller"
+application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmitOnKeyPressController)
 
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
@@ -37,11 +40,11 @@ application.register("nested-link-in-button", NestedLinkInButtonController)
 import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
 application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
 
+import PortfolioAnalyzer__ChartController from "./portfolio_analyzer/chart_controller"
+application.register("portfolio-analyzer--chart", PortfolioAnalyzer__ChartController)
+
 import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
 application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
-
-import PortfolioAnalyzerChartController from "./portfolio_analyzer_chart_controller"
-application.register("portfolio-analyzer-chart", PortfolioAnalyzerChartController)
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
