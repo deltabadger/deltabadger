@@ -9,7 +9,7 @@
       <%= render partial: 'pro_plan_card', locals: { days_left: days_left } %>
     </div>
   <% else %>
-    <div class="db-plans__item db-plans__item--legendary_plan db-plans__item--current">
+    <div class="db-plans__item db-plans__item--legendary-plan db-plans__item--current">
       <%= render partial: 'legendary_plan_card', locals: { days_left: days_left, legendary_plan_stats: upgrade_presenter.legendary_plan_stats } %>
     </div>
   <% end %>

@@ -19,7 +19,7 @@
 
 <% if 'legendary'.in?(upgrade_presenter.available_plans_for_current_user) %>
   <% legendary_plan_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
-  <div class="db-plans__item db-plans__item--legendary_plan db-plan-legendary_plan db-plan--<%= legendary_plan_selected ? 'selected' : 'other' %>">
+  <div class="db-plans__item db-plans__item--legendary-plan db-plan-legendary db-plan--<%= legendary_plan_selected ? 'selected' : 'other' %>">
     <%= render partial: 'legendary_plan_card', locals: {
       days_left: nil,
       upgrade_presenter: upgrade_presenter,
@@ -52,7 +52,7 @@
         <div class="db-show--pro">
           <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='pro-flat-discount-with-vat'><%= cost_presenter[:pro].flat_discount %></span>
         </div>
-        <div class="db-show--legandary">
+        <div class="db-show--legendary">
           <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary-flat-discount-with-vat'><%= cost_presenter[:legendary].flat_discount %></span>
         </div>
       </div>
@@ -69,7 +69,7 @@
         <div class="db-show--pro">
           <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='pro-flat-discount-with-vat'><%= cost_presenter[:pro].flat_discount %></span>
         </div>
-        <div class="db-show--legandary">
+        <div class="db-show--legendary">
           <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary-flat-discount-with-vat'><%= cost_presenter[:legendary].flat_discount %></span>
         </div>
       </div>
@@ -95,7 +95,7 @@
           </div>
         <% end %>
         <% if 'legendary'.in?(upgrade_presenter.available_plans_for_current_user) %>
-          <div class="db-show--legandary">
+          <div class="db-show--legendary">
             <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary-discount-percent-amount'><%= cost_presenter[:legendary].discount_percent_amount %></span>
           </div>
         <% end %>
