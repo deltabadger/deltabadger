@@ -8,28 +8,28 @@ class SettingFlagsRepository < BaseRepository
     SettingFlag
   end
 
-  def show_zen_payment
+  def show_zen_payment?
     setting = find_by_name!(SHOW_ZEN_PAYMENT)
     return false if setting.nil?
 
     setting.value
   end
 
-  def show_stripe_payment
+  def show_stripe_payment?
     setting = find_by_name!(SHOW_STRIPE_PAYMENT)
     return false if setting.nil?
 
     setting.value
   end
 
-  def show_bitcoin_payment
+  def show_bitcoin_payment?
     setting = find_by_name!(SHOW_BITCOIN_PAYMENT)
     return false if setting.nil?
 
     setting.value
   end
 
-  def show_wire_payment
+  def show_wire_payment?
     setting = find_by_name!(SHOW_WIRE_PAYMENT)
     return false if setting.nil?
 

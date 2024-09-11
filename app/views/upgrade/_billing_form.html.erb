@@ -1,10 +1,10 @@
 <% cost_presenters = upgrade_presenter.all_cost_presenters %>
 <% pending_wire_transfer = !current_user.pending_wire_transfer.nil? %>
 <% settings_repository = SettingFlagsRepository.new %>
-<% show_stripe_payment = settings_repository.show_stripe_payment %>
-<% show_zen_payment = settings_repository.show_zen_payment %>
-<% show_bitcoin_payment = settings_repository.show_bitcoin_payment %>
-<% show_wire_payment = settings_repository.show_wire_payment %>
+<% show_stripe_payment = settings_repository.show_stripe_payment? %>
+<% show_zen_payment = settings_repository.show_zen_payment? %>
+<% show_bitcoin_payment = settings_repository.show_bitcoin_payment? %>
+<% show_wire_payment = settings_repository.show_wire_payment? %>
 <% active_stripe_tab = !!show_stripe_payment %>
 <% active_zen_tab = !show_stripe_payment && show_zen_payment %>
 <% active_bitcoin_tab = !show_stripe_payment && !show_zen_payment && show_bitcoin_payment %>
