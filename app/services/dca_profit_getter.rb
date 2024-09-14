@@ -2,8 +2,13 @@ require 'utilities/time'
 
 class DcaProfitGetter < BaseService
   API_ID_MAP = {
-    'bitcoin' => 1713,
-    's&p-500' => 65_951
+    'bitcoin' => 1713, # Bitcoin
+    'gspc' => 65_951,  # S&P 500 Index
+    'vti' => 61_914,   # Vanguard Total Stock Market Index Fund ETF Shares
+    'vt' => 61_885,    # Vanguard Total World Stock Index Fund ETF Shares
+    'qqq' => 51_788,   # Invesco QQQ Trust
+    'gld' => 65_437,   # XAUUSD - Gold Spot US Dollar
+    'ita' => 37_549    # iShares U.S. Aerospace & Defense ETF
   }.freeze
 
   def initialize
