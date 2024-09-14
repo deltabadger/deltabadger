@@ -15,7 +15,7 @@ class MetricsRepository < BaseRepository
       btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
       availableLegendaryBadgers: legendary_badger_stats[:for_sale_legendary_badger_count],
       takenLegendaryBadgerNumbers: SubscriptionsRepository.new.model.used_sequence_numbers,
-      dca4yrProfitBtc: DcaProfitGetter.call('bitcoin', 4.years.ago).data,
+      dca4yrProfitBtc: DcaProfitGetter.call('btc', 4.years.ago).data,
       dca4yrProfitSp500: DcaProfitGetter.call('gspc', 4.years.ago).data,
       dca4yrProfitVti: DcaProfitGetter.call('vti', 4.years.ago).data,
       dca4yrProfitVt: DcaProfitGetter.call('vt', 4.years.ago).data,

@@ -2,7 +2,7 @@ require 'utilities/time'
 
 class DcaProfitGetter < BaseService
   API_ID_MAP = {
-    'bitcoin' => 1713, # Bitcoin
+    'btc' => 1713, # Bitcoin
     'gspc' => 65_951,  # S&P 500 Index
     'vti' => 61_914,   # Vanguard Total Stock Market Index Fund ETF Shares
     'vt' => 61_885,    # Vanguard Total World Stock Index Fund ETF Shares
@@ -15,7 +15,7 @@ class DcaProfitGetter < BaseService
     @client = FinancialDataApiClient.new
   end
 
-  def call(asset = 'bitcoin', start_date = 4.years.ago)
+  def call(asset = 'btc', start_date = 4.years.ago)
     Rails.cache.fetch(cache_key(asset, start_date), expires_in: 1.hour) do
       profit_result = query_profit_pcnt_dca(asset, start_date)
       return profit_result if profit_result.failure?
