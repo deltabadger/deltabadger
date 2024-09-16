@@ -142,6 +142,7 @@ Rails.application.routes.draw do
       patch :update_risk_free_rate
       post :normalize_allocations
       post :duplicate
+      get :compare
     end
   end
 
