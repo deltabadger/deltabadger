@@ -9,7 +9,6 @@ export default class extends Controller {
   static values = { series: Array, labels: Array, names: Array };
 
   connect() {
-    console.log('chart compare ok')
     this.resizeObserver = new ResizeObserver(() => {
       const width = this.element.offsetWidth;
       if (width !== this.previousWidth) {
@@ -33,18 +32,14 @@ export default class extends Controller {
     // 0. Find common dates between all series
     const commonDates = all_labels.reduce((acc, arr) => acc.filter(date => arr.includes(date)), all_labels[0]);
     const labels = commonDates.map(date => new Date(date).getTime());
-    console.log(commonDates)
-    console.log(labels)
 
     // 1. Remove benchmark series
     all_series = all_series.map(series => series[0]);
-    console.log(all_series)
 
     // 2. Filter out dates that are not common to all series
     all_series = all_series.map((arr, index) =>
       arr.filter((_, i) => commonDates.includes(all_labels[index][i]))
     );
-    console.log(all_series)
 
     // Normalize each series to start at 0
     all_series = all_series.map(arr => {
@@ -56,7 +51,6 @@ export default class extends Controller {
     all_series = all_series.map((series, index) =>
       series.map((x, i) => ({ x: labels[i], y: x }))
     );
-    console.log(all_series)
 
     const allYValues = all_series.flatMap(subArray => subArray.map(obj => obj.y));
     const minValue = Math.min(...allYValues);
@@ -105,14 +99,28 @@ export default class extends Controller {
       const chartArea = tooltip.chart.chartArea;
       const cursorX = eventPosition.x;
 
-      let y = -10
-      let x = 10;
+      let y = 130;
+      let x = 20;
 
       if (cursorX < tooltip.width + x) {
         x = chartArea.width;
       }
 
       return { x: x, y: y };
+    };
+
+    const legendMargin = {
+      id: "legendMargin",
+      afterInit(chart, args, options) {
+        console.log(chart.legend.fit)
+        const originalFit = chart.legend.fit;
+        chart.legend.fit = function fit() {
+          if(originalFit) {
+            originalFit.call(this);
+          }
+          return this.height += 30;
+        };
+      }
     };
 
     Chart.defaults.font.family = "Montserrat";
@@ -122,6 +130,7 @@ export default class extends Controller {
     this.chart = new Chart(this.#canvasContext(), {
       type: "line",
       plugins: [
+        legendMargin,
         {
           afterDatasetsDraw: (chart) => {
             if (chart.tooltip?._active?.length) {
@@ -164,11 +173,11 @@ export default class extends Controller {
               tooltipFormat: "yyyy/MM/dd",
             },
             ticks: {
-              display: false,
+              display: true,
               font: { size: 11 },
               fontColor: font_color,
               autoSkip: true,
-              maxTicksLimit: 5,
+              maxTicksLimit: 7,
               maxRotation: 0,
               minRotation: 0,
             },
@@ -180,7 +189,7 @@ export default class extends Controller {
               zeroLineWidth: 1,
             },
             border: {
-              display: false,
+              display: true,
             },
           },
           y: {
@@ -194,7 +203,7 @@ export default class extends Controller {
               fontColor: font_color,
             },
             ticks: {
-              display: false,
+              display: true,
               font: { size: 11 },
               fontColor: font_color,
               beginAtZero: true,
@@ -229,32 +238,36 @@ export default class extends Controller {
                     value == 3e11 ||
                     value == 3e12
                   ) {
-                    return new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 0,
-                    }).format(value);
+                    let n = (value - 1) * 100;
+                    n = Math.abs(n) == 0 || Math.abs(n) >= 10 ? Math.round(n) : Math.abs(n) >= 1 ? n.toFixed(1) : n.toFixed(2);
+                    n = n > 0 ? `+${n}%` : `${n}%`;
+                    return n;
+                    // return new Intl.NumberFormat("en-US", {
+                    //   style: "currency",
+                    //   currency: "USD",
+                    //   minimumFractionDigits: 0,
+                    // }).format(value);
                   }
                 } else {
-                  return "$" + value + " ";
+                  return (value - 1) * 100 + "%";
                 }
               },
             },
             grid: {
-              display: false,
+              display: true,
               lineWidth: 1,
               zeroLineWidth: 1,
             },
             border: {
-              display: false,
+              display: true,
             },
           },
         },
         plugins: {
           legend: {
             display: true,
-            position: "bottom",
-            align: "center",
+            position: "top",
+            align: "start",
             labels: {
               font: { size: 16 },
               fontColor: font_color,
@@ -284,10 +297,14 @@ export default class extends Controller {
               label: function (context) {
                 let label = context.dataset.label + ": ";
                 if (context.parsed.y !== null) {
-                  label += new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(context.parsed.y);
+                  let n = (context.parsed.y - 1) * 100;
+                  n = Math.abs(n) == 0 || Math.abs(n) >= 10 ? Math.round(n) : Math.abs(n) >= 1 ? n.toFixed(1) : n.toFixed(2);
+                  n = n > 0 ? `+${n}%` : `${n}%`;
+                  label += n;
+                  // label += new Intl.NumberFormat("en-US", {
+                  //   style: "currency",
+                  //   currency: "USD",
+                  // }).format(context.parsed.y);
                 }
                 return label;
               },
@@ -479,7 +496,7 @@ export default class extends Controller {
   }
 
   #createColorGenerator() {
-    const colors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#A133FF']; // List of 5 colors
+    const colors = ["#ea5545", "#f46a9b", "#ef9b20", "#edbf33", "#ede15b", "#bdcf32", "#87bc45", "#27aeef", "#b33dc6"]
     let currentIndex = 0; // Tracks the current color index
 
     return function() {
