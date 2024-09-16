@@ -3,9 +3,9 @@ class PortfoliosController < ApplicationController
 
   layout 'analyzer'
   before_action :authenticate_user!
-  before_action :set_portfolio, except: %i[new create]
-  before_action :set_last_assets, except: %i[update_risk_level]
-  after_action :save_last_assets, except: %i[update_risk_level normalize_allocations]
+  before_action :set_portfolio, except: %i[new create compare]
+  before_action :set_last_assets, except: %i[update_risk_level compare]
+  after_action :save_last_assets, except: %i[update_risk_level normalize_allocations compare]
 
   def show
     @portfolios = current_user.portfolios.all
@@ -61,6 +61,14 @@ class PortfoliosController < ApplicationController
     else
       redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.unable_to_duplicate_portfolio')
     end
+  end
+
+  def compare
+    # create a color generator
+    # Edit the chart view.
+    all_portfolios = current_user.portfolios.all.map { |portfolio| portfolio if portfolio.assets.present? }.compact
+    @portfolio_names = all_portfolios.map(&:label)
+    @backtests = all_portfolios.map(&:backtest)
   end
 
   def update_benchmark

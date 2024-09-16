@@ -37,6 +37,9 @@ application.register("nested-link-in-button", NestedLinkInButtonController)
 import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
 application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
 
+import PortfolioAnalyzer__CompareChartController from "./portfolio_analyzer/compare_chart_controller"
+application.register("portfolio-analyzer--compare-chart", PortfolioAnalyzer__CompareChartController)
+
 import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
 application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
 

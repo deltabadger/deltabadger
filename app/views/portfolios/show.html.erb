@@ -21,6 +21,9 @@
         <div class="dropdown">
           <%= link_to t('utils.change_name'), edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
           <%= button_to t('utils.duplicate'), portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+          <% if other_portfolios.any? %>
+            <%= link_to "Compare all portfolios 📈", portfolio_compare_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+          <% end %>
 
           <div class="dropdown__item dropdown__item--divider"></div>
 

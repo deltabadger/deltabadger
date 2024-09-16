@@ -1,0 +1,21 @@
+<%= link_to sanitize("&larr; Back to portfolios"), portfolios_path %>
+
+<%= render 'layouts/turbo_modal' do %>
+  <button data-action="modals#animateOutCloseAndCleanUp" class="modal__close"><%= render partial: 'svg/24x24_x' %></button>
+  <div class="modal__body modal__body--regular">
+
+    <div class="modal__header">
+       <h1 class="modal__title">Comparing portfolios</h1>
+    </div>
+
+    <%= tag.div data: {
+      controller: "portfolio-analyzer--compare-chart",
+      portfolio_analyzer__compare_chart_names_value: @portfolio_names.map { |name| name || t('analyzer.default_portfolio') },
+      portfolio_analyzer__compare_chart_labels_value: @backtests.map { |b| b["timeSeries"]["labels"] },
+      portfolio_analyzer__compare_chart_series_value: @backtests.map { |b| b["timeSeries"]["series"] }
+    } do %>
+      <canvas data-portfolio-analyzer--compare-chart-target="compareChart" width="16" height="9"></canvas>
+    <% end %>
+
+  </div>
+<% end %>
