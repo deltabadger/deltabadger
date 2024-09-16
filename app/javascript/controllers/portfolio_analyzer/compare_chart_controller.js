@@ -114,11 +114,12 @@ export default class extends Controller {
       afterInit(chart, args, options) {
         console.log(chart.legend.fit)
         const originalFit = chart.legend.fit;
+        const margin = options.margin || 0;
         chart.legend.fit = function fit() {
           if(originalFit) {
             originalFit.call(this);
           }
-          return this.height += 30;
+          return this.height += margin;
         };
       }
     };
@@ -264,6 +265,9 @@ export default class extends Controller {
           },
         },
         plugins: {
+          legendMargin: {
+            margin: 30,
+          },
           legend: {
             display: true,
             position: "top",
