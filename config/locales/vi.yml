@@ -378,10 +378,6 @@ vi:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Tôi đồng ý'
-        description: 'Chúng tôi sử dụng cookie để giúp mọi thứ đơn giản hơn.'
-        read_more: 'Tìm hiểu thêm'
     days_left:
         other: ''
     deltabadger: Deltabadger

@@ -26,12 +26,7 @@
     %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
 
     :javascript
-
-      window.dataLayer = window.dataLayer || [];
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f); })(window,document,'script','dataLayer','GTM-W8FD8XHV');
-
       // input labels
-
       window.addEventListener('load', function() {
         document.querySelectorAll('input').forEach(function(input) {
           input.classList.toggle('db-form__input--empty', input.value === '');
@@ -44,7 +39,6 @@
     = cloudflare_turnstile_script_tag
 
   %body{ data: { locale: I18n.locale, controller: "hotwire-animations" }}
-    #cookie_consent
     #flash.flash
       = render 'layouts/flash'
 

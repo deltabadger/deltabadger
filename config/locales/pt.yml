@@ -351,10 +351,6 @@ pt:
         stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
-    cookie:
-        agree: Concordo
-        description: 'Utilizamos cookies para simplificar tudo.'
-        read_more: 'Sabe mais'
     deltabadger: Deltabadger
     devise:
         risk_down: 'Reduzir risco.'
