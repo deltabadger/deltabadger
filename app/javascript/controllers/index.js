@@ -10,9 +10,6 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
-import DataLayerController from "./data_layer_controller"
-application.register("data-layer", DataLayerController)
-
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
@@ -48,3 +45,6 @@ application.register("removals", RemovalsController)
 
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
+
+import ZarazController from "./zaraz_controller"
+application.register("zaraz", ZarazController)
