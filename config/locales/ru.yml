@@ -378,10 +378,6 @@ ru:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Я согласен'
-        description: 'Мы используем файлы cookie, чтобы упростить работу.'
-        read_more: Подробнее
     days_left:
         one: ''
         few: ''
