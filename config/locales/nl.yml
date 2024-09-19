@@ -398,10 +398,6 @@ nl:
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
         withdrawal_percentage: '%{percentage}% tot de volgende opname'
-    cookie:
-        agree: 'Ik ga akkoord'
-        description: 'We gebruiken cookies om dingen eenvoudiger te maken.'
-        read_more: 'Meer informatie'
     days_left:
         one: '1 dag over'
         other: '%{count} dagen over'
