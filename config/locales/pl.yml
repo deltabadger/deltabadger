@@ -399,10 +399,6 @@ pl:
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
         withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
         withdrawal_percentage: '%{percentage}% do następnej wypłaty'
-    cookie:
-        agree: 'Zgadzam się'
-        description: 'Używamy ciasteczek, aby upraszczać rzeczy.'
-        read_more: 'Czytaj więcej'
     days_left:
         one: 'Pozostał 1 dzień'
         few: 'Pozostały %{count} dni'
