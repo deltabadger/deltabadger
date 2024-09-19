@@ -1,17 +1,17 @@
 import { Controller } from "@hotwired/stimulus";
 
-// Connects to data-controller="data-layer"
+// Connects to data-controller="zaraz"
 export default class extends Controller {
   static targets = ["button"];
   static values = { currency: String, name: String, price: Number, isPurchase: Boolean };
 
   connect() {
     if (this.isPurchaseValue) {
-      this.#sendPurchaseEvent();
+      this.#trackPurchaseEvent();
     }
   }
 
-  sendBeginCheckoutEvent(event) {
+  trackBeginCheckoutEvent(event) {
     let name = undefined;
     let currency = undefined;
     let price = undefined;
@@ -50,16 +50,13 @@ export default class extends Controller {
       quantity: 1,
       price: price,
     };
+    const eventProperties = {
+      currency: currency,
+      value: price,
+      items: [item],
+    };
 
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: "begin_checkout",
-      ecommerce: {
-        currency: currency,
-        value: price,
-        items: [item],
-      },
-    });
+    zaraz.track("begin_checkout", eventProperties);
     // console.log("event 'begin_checkout' sent:", { currency: currency, value: price, items: [item] });
   }
 
@@ -67,23 +64,20 @@ export default class extends Controller {
     return window.getComputedStyle(element).display !== "none";
   }
 
-  #sendPurchaseEvent() {
+  #trackPurchaseEvent() {
     const item = {
       name: this.nameValue,
       currency: this.currencyValue,
       quantity: 1,
       price: this.priceValue
     };
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({
-      event: 'purchase',
-      ecommerce: {
-        currency: this.currencyValue,
-        value: this.priceValue,
-        items: [item]
-      }
-    });
+    const eventProperties = {
+      currency: this.currencyValue,
+      value: this.priceValue,
+      items: [item]
+    };
 
-    console.log("event 'purchase' sent:", { currency: this.currencyValue, value: this.priceValue, items: [item] });
+    zaraz.track("purchase", eventProperties);
+    // console.log("event 'purchase' sent:", { currency: this.currencyValue, value: this.priceValue, items: [item] });
   }
 }

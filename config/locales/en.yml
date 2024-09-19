@@ -424,10 +424,6 @@ en:
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
         withdrawal_percentage: '%{percentage}% to next withdrawal'
-    cookie:
-        agree: 'I agree'
-        description: 'We use cookies to make things simpler.'
-        read_more: 'Read more'
     days_left:
         one: '1 day left'
         other: '%{count} days left'
@@ -887,4 +883,3 @@ en:
             portfolio_destroyed: 'Portfolio was successfully destroyed.'
             portfolio_duplicated: 'Portfolio was successfully duplicated.'
             unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
-    

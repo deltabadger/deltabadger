@@ -378,10 +378,6 @@ id:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Saya setuju'
-        description: 'Kami menggunakan kuki agar segalanya lebih mudah.'
-        read_more: 'Baca selengkapnya'
     days_left:
         other: ''
     deltabadger: Deltabadger

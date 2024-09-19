@@ -378,10 +378,6 @@ cn:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 我同意
-        description: '我们会使用 cookie 让事情更简单。'
-        read_more: 阅读更多
     days_left:
         other: '剩余 %{{count}} 天'
     deltabadger: Deltabadger
