@@ -140,6 +140,7 @@ Rails.application.routes.draw do
       patch :update_strategy
       patch :update_backtest_start_date
       patch :update_risk_free_rate
+      patch :update_compare_to
       post :normalize_allocations
       post :duplicate
       get :compare
