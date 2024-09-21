@@ -36,6 +36,12 @@ class Portfolio < ApplicationRecord
     benchmarks.keys.map { |key| [BENCHMARK_NAMES[key.to_sym][:name], key] }
   end
 
+  def compare_to_select_options
+    user.portfolios.includes(:assets).all.map do |portfolio|
+      [portfolio.label, portfolio.id] if portfolio.id != id && portfolio.assets.present? && portfolio.allocations_are_normalized?
+    end.compact
+  end
+
   def smart_allocations
     @smart_allocations ||= begin
       smart_allocations_result = PortfolioAnalyzerManager::SmartAllocationsGetter.call(self)

@@ -1,5 +1,17 @@
-<%= tag.div id: "backtest-results", class: "gap-1" do %>
+<%= turbo_frame_tag "backtest-results", class: "gap-1" do %>
+  <%= portfolio.compare_to %>
+  <%= portfolio.compare_to.present? %>
   <% if backtest.present? %>
+
+    <% chart_names = [localized_portfolio_label(@portfolio.label)] %>
+    <% chart_labels = [backtest["timeSeries"]["labels"]] %>
+    <% chart_series = [backtest["timeSeries"]["series"]] %>
+    <% if backtest['compare_to'].present? %>
+      <% chart_names += backtest['compare_to'].map { |name, _| localized_portfolio_label(name) } %>
+      <% chart_labels += backtest['compare_to'].map { |_, b| b["timeSeries"]["labels"] } %>
+      <% chart_series += backtest['compare_to'].map { |_, b| b["timeSeries"]["series"] } %>
+    <% end %>
+
     <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>
 
     <div class="widget widget--chart">
@@ -12,8 +24,9 @@
       </div>
       <%= tag.div data: {
         controller: "portfolio-analyzer-chart",
-        portfolio_analyzer_chart_labels_value: backtest["timeSeries"]["labels"],
-        portfolio_analyzer_chart_series_value: backtest["timeSeries"]["series"]
+        portfolio_analyzer_chart_names_value: chart_names,
+        portfolio_analyzer_chart_labels_value: chart_labels,
+        portfolio_analyzer_chart_series_value: chart_series,
       } do %>
         <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="60"></canvas>
       <% end %>

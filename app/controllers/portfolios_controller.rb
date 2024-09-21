@@ -63,12 +63,17 @@ class PortfoliosController < ApplicationController
     end
   end
 
-  def compare
-    # create a color generator
-    # Edit the chart view.
-    all_portfolios = current_user.portfolios.all.map { |portfolio| portfolio if portfolio.assets.present? }.compact
-    @portfolio_names = all_portfolios.map(&:label)
-    @backtests = all_portfolios.map(&:backtest)
+  def update_compare_to
+    new_value = portfolio_params[:compare_to][-1].to_i
+    compare_to = @portfolio.compare_to
+    new_compare_to = new_value.in?(@portfolio.compare_to) ? compare_to - [new_value] : compare_to + [new_value]
+
+    if @portfolio.update(compare_to: new_compare_to)
+      set_backtest_data
+      redirect_to portfolio_path(@portfolio)
+    else
+      flash.now[:alert] = t('alert.portfolio.unable_to_compare')
+    end
   end
 
   def update_benchmark
@@ -198,7 +203,7 @@ class PortfoliosController < ApplicationController
 
   def normalize_allocations
     @portfolio.normalize_allocations!
-    @backtest = @portfolio.backtest
+    set_backtest_data
     respond_to do |format|
       format.turbo_stream
       format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.portfolio_normalized') }
@@ -215,11 +220,13 @@ class PortfoliosController < ApplicationController
       :backtest_start_date,
       :risk_level,
       :smart_allocation_on,
-      :risk_free_rate
+      :risk_free_rate,
+      compare_to: []
     )
   end
 
   def set_portfolio
+    puts "params: #{params}"
     @portfolio = if params.present? && params[:id].present?
                    current_user.portfolios.find(params[:id])
                  elsif params.present? && params[:portfolio_id].present?
@@ -246,6 +253,12 @@ class PortfoliosController < ApplicationController
 
   def set_backtest_data
     @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+    if @portfolio.compare_to.present?
+      @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
+        portfolio = current_user.portfolios.find(portfolio_id)
+        [portfolio.label, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
+      end.compact
+    end
     return unless @portfolio.smart_allocation_on? && @portfolio.assets.present? && @portfolio.smart_allocations[0].empty?
 
     # show flash message if the data API server is unreachable.

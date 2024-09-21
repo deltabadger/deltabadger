@@ -1,0 +1,10 @@
+<% select_options = portfolio.compare_to_select_options.map { |label, id| [localized_portfolio_label(label), id] } %>
+<%= tag.div id: "compare-to-select" do %>
+  <%= form_with model: portfolio, url: portfolio_update_compare_to_path(portfolio), method: :patch, data: { turbo_frame: "backtest-results" }, class: "flex-row" do |form| %>
+    <%= form.label :compare_to, t('analyzer.compare') + ":", class: "label" %>
+    <%# <div class="sinput sinput--select"> %>
+    <div>
+      <%= form.select :compare_to, select_options, { selected: portfolio.compare_to }, multiple: true, size: 5, onchange: "this.form.requestSubmit();" %>
+    </div>
+  <% end %>
+<% end %>

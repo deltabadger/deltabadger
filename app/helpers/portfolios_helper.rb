@@ -1,4 +1,8 @@
 module PortfoliosHelper
+  def localized_portfolio_label(label)
+    label || t('analyzer.default_portfolio')
+  end
+
   def render_turbo_stream_backtest_results(backtest, portfolio)
     turbo_stream.replace 'backtest-results', partial: 'portfolios/backtest_results', locals: {
       backtest: backtest,
