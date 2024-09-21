@@ -127,8 +127,8 @@ export default class extends Controller {
               .fill(0)
               .concat([3.5]),
             pointHoverRadius: Array(maxPointsToDraw - 1)
-            .fill(0)
-            .concat([3.5]),
+              .fill(0)
+              .concat([3.5]),
             pointHitRadius: 0,
             pointBackgroundColor: benchmark_color,
             pointBorderColor: this.#setTransparency(benchmark_color, 0.5),

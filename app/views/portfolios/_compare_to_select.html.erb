@@ -4,6 +4,7 @@
     <%= form.label :compare_to, t('analyzer.compare') + ":", class: "label" %>
     <%# <div class="sinput sinput--select"> %>
     <div>
+      <%# TODO: fix why it doesn't let pick none %>
       <%= form.select :compare_to, select_options, { selected: portfolio.compare_to }, multiple: true, size: 5, onchange: "this.form.requestSubmit();" %>
     </div>
   <% end %>
