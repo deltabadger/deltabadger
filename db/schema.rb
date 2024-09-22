@@ -225,6 +225,7 @@ ActiveRecord::Schema.define(version: 2024_09_20_171222) do
     t.datetime "first_month_ending_sent_at"
     t.integer "sequence_number"
     t.string "eth_address"
+    t.index ["end_time"], name: "index_subscriptions_on_end_time"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
