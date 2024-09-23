@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_09_23_093414) do
+ActiveRecord::Schema.define(version: 2024_09_20_171222) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -188,7 +188,6 @@ ActiveRecord::Schema.define(version: 2024_09_23_093414) do
     t.float "risk_free_rate", default: 0.0, null: false
     t.string "label"
     t.json "compare_to", default: []
-    t.string "color"
     t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
@@ -226,7 +225,6 @@ ActiveRecord::Schema.define(version: 2024_09_23_093414) do
     t.datetime "first_month_ending_sent_at"
     t.integer "sequence_number"
     t.string "eth_address"
-    t.index ["end_time"], name: "index_subscriptions_on_end_time"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end

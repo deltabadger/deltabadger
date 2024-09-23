@@ -1,5 +1,5 @@
 <% if portfolio.compare_to %>
-  <% selected_options = portfolio.compare_to_selected_options.map { |label, color, id| [fill_default_portfolio_label(label), fill_default_portfolio_color(color), id] } %>
+  <% selected_options = portfolio.compare_to_selected_options.map.with_index { |(label, id), i| [fill_default_portfolio_label(label), fill_default_portfolio_color(i), id] } %>
   <% select_options = portfolio.compare_to_select_options.map { |label, id| [fill_default_portfolio_label(label), id] } %>
   <div class="multiselect mt-5">
     <% selected_options.each do |label, color, id| %>

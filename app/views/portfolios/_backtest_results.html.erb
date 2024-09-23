@@ -6,10 +6,10 @@
     <% chart_labels = [backtest["timeSeries"]["labels"]] %>
     <% chart_series = [backtest["timeSeries"]["series"]] %>
     <% if backtest['compare_to'].present? %>
-      <% chart_names += backtest['compare_to'].map { |name,_, _| fill_default_portfolio_label(name) } %>
-      <% chart_colors += backtest['compare_to'].map { |_, color, _| fill_default_portfolio_color(color) } %>
-      <% chart_labels += backtest['compare_to'].map { |_, _, b| b["timeSeries"]["labels"] } %>
-      <% chart_series += backtest['compare_to'].map { |_, _, b| b["timeSeries"]["series"] } %>
+      <% chart_names += backtest['compare_to'].map { |name, _| fill_default_portfolio_label(name) } %>
+      <% chart_colors += backtest['compare_to'].map.with_index { |_, i| fill_default_portfolio_color(i) } %>
+      <% chart_labels += backtest['compare_to'].map { |_, b| b["timeSeries"]["labels"] } %>
+      <% chart_series += backtest['compare_to'].map { |_, b| b["timeSeries"]["series"] } %>
     <% end %>
 
     <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>

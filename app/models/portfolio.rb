@@ -5,7 +5,6 @@ class Portfolio < ApplicationRecord
   has_many :assets, dependent: :destroy
 
   validates :strategy, :benchmark, :risk_level, presence: true
-  validates :color, format: { with: /\A#[0-9A-Fa-f]{6}\z/ }, allow_blank: true
 
   enum strategy: %i[fixed]
   enum benchmark: %i[65951 1713 65437 65775 65992 37818 61914 61885 51788 37549]
@@ -48,7 +47,7 @@ class Portfolio < ApplicationRecord
   def compare_to_selected_options
     compare_to.map do |portfolio_id|
       portfolio = user.portfolios.find(portfolio_id)
-      [portfolio.label, portfolio.color, portfolio_id]
+      [portfolio.label, portfolio_id]
     end.compact
   end
 

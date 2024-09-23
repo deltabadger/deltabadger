@@ -32,11 +32,14 @@ class PortfoliosController < ApplicationController
     params_copy = portfolio_params.dup.to_h
     params_copy.delete(:id)
     params_copy.delete(:label) if params_copy[:label].blank?
-    params_copy.delete(:color) if params_copy[:color].blank?
     if @portfolio.update(params_copy)
       redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_updated')
     else
-      render :edit
+      flash.now[:alert] = t('alert.portfolio.invalid_name')
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_name') }
+      end
     end
   end
 
@@ -220,7 +223,6 @@ class PortfoliosController < ApplicationController
     params.require(:portfolio).permit(
       :id,
       :label,
-      :color,
       :benchmark,
       :strategy,
       :backtest_start_date,
@@ -262,9 +264,7 @@ class PortfoliosController < ApplicationController
       if @portfolio.compare_to.present?
         @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
           portfolio = current_user.portfolios.find(portfolio_id)
-          if portfolio.assets.present? && portfolio.allocations_are_normalized?
-            [portfolio.label, portfolio.color, portfolio.backtest]
-          end
+          [portfolio.label, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
         end.compact
       end
     end

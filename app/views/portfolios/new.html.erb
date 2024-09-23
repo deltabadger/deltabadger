@@ -8,19 +8,7 @@
       <h1 class="modal__title"><%= t('analyzer.new_portfolio') %></h1>
     </div>
 
-    <%= form_with model: @portfolio, class: "modal__form", data: { turbo_frame: "portfolio", action: "turbo:submit-end->modals#submitEnd" } do |form| %>
-      <% if @portfolio.errors.any? %>
-        <div class="db-form__info db-form__info--invalid">
-          <%= @portfolio.errors.full_messages.to_sentence.capitalize %>
-        </div>
-      <% end %>
-      <div class="db-form__row db-form__row--input">
-        <%= form.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input db-form__input--empty" %>
-        <%= form.label :label, t('analyzer.portfolio_name') + ":", class: "db-form__label" %>
-      </div>
-      <%= form.hidden_field :id, value: @portfolio.id %>
-      <%= form.submit t('utils.save'), class: "btn btn-success btn-lg" %>
-    <% end %>
+    <%= render "edit_form", portfolio: @portfolio %>
 
   </div>
 <% end %>
