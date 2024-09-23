@@ -29,7 +29,11 @@ class PortfoliosController < ApplicationController
   def edit; end
 
   def update
-    if @portfolio.update(portfolio_params)
+    params_copy = portfolio_params.dup.to_h
+    params_copy.delete(:id)
+    params_copy.delete(:label) if params_copy[:label].blank?
+    params_copy.delete(:color) if params_copy[:color].blank?
+    if @portfolio.update(params_copy)
       redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_updated')
     else
       render :edit
@@ -214,7 +218,9 @@ class PortfoliosController < ApplicationController
 
   def portfolio_params
     params.require(:portfolio).permit(
+      :id,
       :label,
+      :color,
       :benchmark,
       :strategy,
       :backtest_start_date,
