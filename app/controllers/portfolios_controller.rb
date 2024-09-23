@@ -64,7 +64,7 @@ class PortfoliosController < ApplicationController
   end
 
   def update_compare_to
-    new_value = portfolio_params[:compare_to][-1].to_i
+    new_value = params[:compare_to_id].to_i
     compare_to = @portfolio.compare_to
     new_compare_to = new_value.in?(@portfolio.compare_to) ? compare_to - [new_value] : compare_to + [new_value]
 
@@ -220,8 +220,7 @@ class PortfoliosController < ApplicationController
       :backtest_start_date,
       :risk_level,
       :smart_allocation_on,
-      :risk_free_rate,
-      compare_to: []
+      :risk_free_rate
     )
   end
 
@@ -257,7 +256,9 @@ class PortfoliosController < ApplicationController
       if @portfolio.compare_to.present?
         @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
           portfolio = current_user.portfolios.find(portfolio_id)
-          [portfolio.label, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
+          if portfolio.assets.present? && portfolio.allocations_are_normalized?
+            [portfolio.label, portfolio.color, portfolio.backtest]
+          end
         end.compact
       end
     end

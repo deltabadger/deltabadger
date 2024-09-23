@@ -1,6 +1,10 @@
 module PortfoliosHelper
-  def localized_portfolio_label(label)
+  def fill_default_portfolio_label(label)
     label || t('analyzer.default_portfolio')
+  end
+
+  def fill_default_portfolio_color(color)
+    color || '#2948A1'
   end
 
   def render_turbo_stream_backtest_results(backtest, portfolio)

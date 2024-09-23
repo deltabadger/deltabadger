@@ -1,4 +1,4 @@
-<% portfolio_label = localized_portfolio_label(@portfolio.label) %>
+<% portfolio_label = fill_default_portfolio_label(@portfolio.label) %>
 <% other_portfolios = @portfolios.order(:id).select { |portfolio| @portfolio.id != portfolio.id } %>
 <%= turbo_frame_tag 'portfolio' do %>
   <div class="page-head">
@@ -10,7 +10,7 @@
         <% if other_portfolios.any? %>
           <div class="dropdown__item dropdown__item--divider"></div>
           <% other_portfolios.each do |portfolio| %>
-            <%= link_to localized_portfolio_label(portfolio.label), portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "portfolio" } %>
+            <%= link_to fill_default_portfolio_label(portfolio.label), portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "portfolio" } %>
           <% end %>
         <% end %>
       </div>
@@ -21,10 +21,6 @@
         <div class="dropdown">
           <%= link_to t('utils.change_name'), edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
           <%= button_to t('utils.duplicate'), portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-          <% if other_portfolios.any? %>
-            <%= link_to "Compare all portfolios 📈", portfolio_compare_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-          <% end %>
-
           <div class="dropdown__item dropdown__item--divider"></div>
 
           <%= button_to portfolio_path(@portfolio), method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo_confirm: 'Deleting portfolio: "' + portfolio_label + '". ' + t('utils.are_you_sure') } do %>

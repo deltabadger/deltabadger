@@ -38,7 +38,17 @@ class Portfolio < ApplicationRecord
 
   def compare_to_select_options
     user.portfolios.includes(:assets).all.map do |portfolio|
-      [portfolio.label, portfolio.id] if portfolio.id != id && portfolio.assets.present? && portfolio.allocations_are_normalized?
+      puts "portfolio.id: #{portfolio.id}, id: #{id}, compare_to: #{compare_to}"
+      if !portfolio.id.in?([id] + compare_to) && portfolio.assets.present? && portfolio.allocations_are_normalized?
+        [portfolio.label, portfolio.id]
+      end
+    end.compact
+  end
+
+  def compare_to_selected_options
+    compare_to.map do |portfolio_id|
+      portfolio = user.portfolios.find(portfolio_id)
+      [portfolio.label, portfolio.color, portfolio_id]
     end.compact
   end
 

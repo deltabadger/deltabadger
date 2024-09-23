@@ -109,7 +109,7 @@ class AssetsController < ApplicationController
     @backtest = @portfolio.backtest
     @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
       portfolio = current_user.portfolios.find(portfolio_id)
-      [portfolio.label, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
+      [portfolio.label, portfolio.color, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
     end.compact
   end
 

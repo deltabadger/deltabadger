@@ -6,7 +6,7 @@ window.Tooltip = Tooltip;
 
 export default class extends Controller {
   static targets = ["analyzerChart"];
-  static values = { series: Array, labels: Array, names: Array };
+  static values = { series: Array, labels: Array, names: Array, colors: Array };
 
   connect() {
     this.resizeObserver = new ResizeObserver(() => {
@@ -26,6 +26,7 @@ export default class extends Controller {
 
   #buildChart() {
     const all_names = this.namesValue;
+    const all_colors = this.colorsValue;
     const all_series = this.seriesValue;
     const all_labels = this.labelsValue;
 
@@ -46,7 +47,6 @@ export default class extends Controller {
     //       benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
     //       benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
     const maxPointsToDraw = Math.min(this.maxPointsToDraw, all_series[0][0].length, all_series[0][1].length);
-    const getColor = this.#createColorGenerator();
 
     let log_scale = true;
 
@@ -93,7 +93,7 @@ export default class extends Controller {
         });
         series[0].sort((item1, item2) => item1.x - item2.x);
 
-        color = this.#safeColor(getColor());
+        color = this.#safeColor(all_colors[i]);
         pointRadius = 3.5
       }
 
@@ -525,16 +525,5 @@ export default class extends Controller {
 
   #hexRegex() {
     return /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/;
-  }
-
-  #createColorGenerator() {
-    const colors = ["#ea5545", "#f46a9b", "#ef9b20", "#edbf33", "#ede15b", "#bdcf32", "#87bc45", "#27aeef", "#b33dc6"]
-    let currentIndex = 0; // Tracks the current color index
-
-    return function() {
-        const color = colors[currentIndex]; // Get the current color
-        currentIndex = (currentIndex + 1) % colors.length; // Move to the next color, reset if at the end
-        return color;
-    };
   }
 }
