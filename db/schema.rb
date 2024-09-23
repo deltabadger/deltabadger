@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_09_20_171222) do
+ActiveRecord::Schema.define(version: 2024_09_23_093414) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -188,6 +188,7 @@ ActiveRecord::Schema.define(version: 2024_09_20_171222) do
     t.float "risk_free_rate", default: 0.0, null: false
     t.string "label"
     t.json "compare_to", default: []
+    t.string "color"
     t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
