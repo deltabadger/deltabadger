@@ -51,6 +51,7 @@ export default class extends Controller {
     let log_scale = true;
 
     const datasets = [];
+    let benchmark;
     for (let i = 0; i < all_names.length; i++) {
       let series = all_series[i];
       let labels;
@@ -116,29 +117,28 @@ export default class extends Controller {
         clip: {left: false, top: false, right: false, bottom: false},
       });
       if (i === 0) {
-        datasets.push(
-          {
-            label: "Benchmark",
-            lineTension: 0,
-            borderWidth: 2.5,
-            borderColor: benchmark_color,
-            // borderDash: [4, 2],
-            pointRadius: Array(maxPointsToDraw - 1)
-              .fill(0)
-              .concat([3.5]),
-            pointHoverRadius: Array(maxPointsToDraw - 1)
-              .fill(0)
-              .concat([3.5]),
-            pointHitRadius: 0,
-            pointBackgroundColor: benchmark_color,
-            pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
-            pointBorderWidth: 0,
-            data: series[1],
-            clip: {left: false, top: false, right: false, bottom: false},
-          }
-        );
+        benchmark = {
+          label: "Benchmark",
+          lineTension: 0,
+          borderWidth: 2.5,
+          borderColor: benchmark_color,
+          // borderDash: [4, 2],
+          pointRadius: Array(maxPointsToDraw - 1)
+            .fill(0)
+            .concat([3.5]),
+          pointHoverRadius: Array(maxPointsToDraw - 1)
+            .fill(0)
+            .concat([3.5]),
+          pointHitRadius: 0,
+          pointBackgroundColor: benchmark_color,
+          pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
+          pointBorderWidth: 0,
+          data: series[1],
+          clip: {left: false, top: false, right: false, bottom: false},
+        }
       }
     }
+    datasets.push(benchmark);
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
         const tooltip = this;
