@@ -1,5 +1,3 @@
-<%= render "compare_to_select", portfolio: @portfolio %>
-
 <%= turbo_frame_tag "backtest-results" do %>
   <% if backtest.present? %>
 
@@ -32,6 +30,8 @@
       } do %>
         <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="60"></canvas>
       <% end %>
+
+      <%= render "compare_to_select", portfolio: @portfolio %>
     </div>
 
     <div class="widget data-grid">
