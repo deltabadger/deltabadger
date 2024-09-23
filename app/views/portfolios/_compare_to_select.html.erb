@@ -9,3 +9,34 @@
     </div>
   <% end %>
 <% end %>
+<div class="multiselect">
+
+  <div class="tag" style="background: #05a">
+    3-Fund Portfolio
+    <button class="tag__remove" data-action="click->dropdown#remove">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#fff" stroke-width="1.5" stroke-linecap="square"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="tag" style="background: #d02">
+    All-weather Portfolio
+    <button class="tag__remove" data-action="click->dropdown#remove">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#fff" stroke-width="1.5" stroke-linecap="square"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
+    Compare +
+
+    <div class="dropdown">
+      <a class="dropdown__item" data-turbo-frame="portfolio" href="/en/portfolio-analyzer/7">mDM IKZE</a>
+      <a class="dropdown__item" data-turbo-frame="portfolio" href="/en/portfolio-analyzer/8">Binance</a>
+      <a class="dropdown__item" data-turbo-frame="portfolio" href="/en/portfolio-analyzer/15">Magnificent 7</a>
+      <a class="dropdown__item" data-turbo-frame="portfolio" href="/en/portfolio-analyzer/16">Test new</a>
+      <a class="dropdown__item" data-turbo-frame="portfolio" href="/en/portfolio-analyzer/17">Diversified Portfolio</a>
+    </div>
+  </div>
+</div>

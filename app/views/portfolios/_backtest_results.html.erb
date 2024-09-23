@@ -1,4 +1,6 @@
-<%= turbo_frame_tag "backtest-results", class: "gap-1" do %>
+<%= render "compare_to_select", portfolio: @portfolio %>
+
+<%= turbo_frame_tag "backtest-results" do %>
   <% if backtest.present? %>
 
     <% chart_names = [localized_portfolio_label(@portfolio.label)] %>
@@ -10,10 +12,9 @@
       <% chart_series += backtest['compare_to'].map { |_, b| b["timeSeries"]["series"] } %>
     <% end %>
 
-    <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>
+  
 
-    Compare select menu is placed here for testing, we can move it wherever we want:
-    <%= render "compare_to_select", portfolio: @portfolio %>
+    <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>
 
     <div class="widget widget--chart">
       <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
