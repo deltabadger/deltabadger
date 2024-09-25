@@ -59,7 +59,7 @@ class AssetsController < ApplicationController
 
   def update
     if @asset.update(allocation: asset_params[:allocation])
-      @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+      set_backtest_data
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset allocation was successfully updated.' }
@@ -104,7 +104,13 @@ class AssetsController < ApplicationController
   end
 
   def set_backtest_data
-    @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+    return unless @portfolio.allocations_are_normalized?
+
+    @backtest = @portfolio.backtest
+    @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
+      portfolio = current_user.portfolios.find(portfolio_id)
+      [portfolio.label, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
+    end.compact
   end
 
   def set_last_assets

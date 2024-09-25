@@ -745,6 +745,7 @@ de:
     analyzer:
         default_portfolio: 'Standardportfolio'
         change_portfolio_name: 'Namen ändern'
+        compare: 'Vergleichen'
         new_portfolio: 'Neues Portfolio'
         total_value: 'Gesamtwert'
         no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
@@ -781,6 +782,7 @@ de:
         soon: 'bald'
     alert:
         portfolio:
+            invalid_name: 'Ungültiger Portfolioname.'
             invalid_benchmark: "Ungültiger Benchmark-Wert."
             invalid_strategy: "Ungültiger Strategie-Wert."
             invalid_start_date: "Ungültiger Startdatum-Wert."

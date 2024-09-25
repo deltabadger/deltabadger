@@ -7,15 +7,20 @@ class Portfolio < ApplicationRecord
   validates :strategy, :benchmark, :risk_level, presence: true
 
   enum strategy: %i[fixed]
-  enum benchmark: %i[65951 65775 65992 37818 1713]
+  enum benchmark: %i[65951 1713 65437 65775 65992 37818 61914 61885 51788 37549]
   enum risk_level: %i[conservative moderate_conservative balanced moderate_aggressive aggressive]
 
   BENCHMARK_NAMES = {
     '65951': { name: 'S&P 500 Index' },
+    '1713': { name: 'Bitcoin' },
+    '65437': { name: 'Gold' },
     '65775': { name: 'Dow Jones Industrial Average' },
     '65992': { name: 'Nasdaq Composite Index' },
     '37818': { name: 'Russell 2000 Index' },
-    '1713': { name: 'Bitcoin' }
+    '61914': { name: 'Vanguard Total Stock Market Index' },
+    '61885': { name: 'Vanguard Total World Stock Index' },
+    '51788': { name: 'Invesco QQQ Trust' },
+    '37549': { name: 'iShares U.S. Aerospace & Defense ETF' }
   }.freeze
   RISK_FREE_RATES = {
     '65987': { shortname: '13W', name: '13 Week US Treasury Bill Index' },
@@ -29,6 +34,21 @@ class Portfolio < ApplicationRecord
 
   def self.benchmark_select_options
     benchmarks.keys.map { |key| [BENCHMARK_NAMES[key.to_sym][:name], key] }
+  end
+
+  def compare_to_select_options
+    user.portfolios.includes(:assets).all.map do |portfolio|
+      if !portfolio.id.in?([id] + compare_to) && portfolio.assets.present? && portfolio.allocations_are_normalized?
+        [portfolio.label, portfolio.id]
+      end
+    end.compact
+  end
+
+  def compare_to_selected_options
+    compare_to.map do |portfolio_id|
+      portfolio = user.portfolios.find(portfolio_id)
+      [portfolio.label, portfolio_id]
+    end.compact
   end
 
   def smart_allocations
