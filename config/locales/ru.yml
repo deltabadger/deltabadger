@@ -796,6 +796,7 @@ ru:
     analyzer:
         default_portfolio: 'Портфель по умолчанию'
         change_portfolio_name: 'Изменить имя'
+        compare: 'Сравнить'
         new_portfolio: 'Новый портфель'
         total_value: 'Общая стоимость'
         no_assets: 'Начните с добавления нового актива.'
@@ -832,6 +833,7 @@ ru:
         soon: 'скоро'
     alert:
         portfolio:
+            invalid_name: 'Недопустимое название портфеля.'
             invalid_benchmark: 'Недопустимое значение эталона.'
             invalid_strategy: 'Недопустимое значение стратегии.'
             invalid_start_date: 'Недопустимое значение даты начала.'
