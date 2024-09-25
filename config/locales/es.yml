@@ -802,6 +802,7 @@ es:
     analyzer:
         default_portfolio: 'Cartera predeterminada'
         change_portfolio_name: 'Cambiar nombre'
+        compare: 'Comparar'
         new_portfolio: 'Nueva cartera'
         total_value: 'Valor total'
         no_assets: 'Comience añadiendo un nuevo activo.'
@@ -838,6 +839,7 @@ es:
         soon: 'pronto'
     alert:
         portfolio:
+            invalid_name: 'Nombre de cartera no válido.'
             invalid_benchmark: "Valor de referencia no válido."
             invalid_strategy: "Valor de estrategia no válido."
             invalid_start_date: "Valor de fecha de inicio no válido."
