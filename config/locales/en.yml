@@ -830,6 +830,7 @@ en:
     analyzer:
         default_portfolio: 'Default portfolio'
         change_portfolio_name: 'Change name'
+        compare: 'Compare'
         new_portfolio: 'New portfolio'
         total_value: 'Total value'
         no_assets: 'Get started by adding a new asset.'
@@ -866,6 +867,7 @@ en:
         soon: 'soon'
     alert:
         portfolio:
+            invalid_name: 'Invalid portfolio name.'
             invalid_benchmark: 'Invalid benchmark value.'
             invalid_strategy: 'Invalid strategy value.'
             invalid_start_date: 'Invalid start date value.'
