@@ -23,7 +23,7 @@ class Portfolio < ApplicationRecord
     '37549': { name: 'iShares U.S. Aerospace & Defense ETF' }
   }.freeze
   RISK_FREE_RATES = {
-    '65987': { shortname: '13W', name: '13 Week US Treasury Bill Index' },
+    '66411': { shortname: '1Y', name: '1 Year US Treasury' },
     '66416': { shortname: '5Y', name: '5 Year US Treasury' },
     '66409': { shortname: '10Y', name: '10 Year US Treasury' }
   }.freeze
