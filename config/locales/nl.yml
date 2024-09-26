@@ -801,6 +801,7 @@ nl:
     analyzer:
         default_portfolio: 'Standaardportefeuille'
         change_portfolio_name: 'Naam wijzigen'
+        compare: 'Vergelijken'
         new_portfolio: 'Nieuwe portefeuille'
         total_value: 'Totale waarde'
         no_assets: 'Begin met het toevoegen van een nieuwe asset.'
@@ -837,6 +838,7 @@ nl:
         soon: 'binnenkort'
     alert:
         portfolio:
+            invalid_name: 'Ongeldige portfolionaam.'
             invalid_benchmark: 'Ongeldige benchmarkwaarde.'
             invalid_strategy: 'Ongeldige strategie waarde.'
             invalid_start_date: 'Ongeldige startdatum waarde.'

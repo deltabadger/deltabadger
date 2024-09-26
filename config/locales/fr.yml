@@ -801,6 +801,7 @@ fr:
     analyzer:
         default_portfolio: 'Portefeuille par défaut'
         change_portfolio_name: 'Changer le nom'
+        compare: 'Comparer'
         new_portfolio: 'Nouveau portefeuille'
         total_value: 'Valeur Totale'
         no_assets: 'Commencez par ajouter un nouvel actif.'
@@ -837,6 +838,7 @@ fr:
         soon: 'bientôt'
     alert:
         portfolio:
+            invalid_name: 'Nom de portefeuille invalide.'
             invalid_benchmark: 'Valeur de référence invalide.'
             invalid_strategy: 'Valeur de stratégie invalide.'
             invalid_start_date: 'Valeur de date de début invalide.'
