@@ -264,7 +264,9 @@ class PortfoliosController < ApplicationController
       if @portfolio.compare_to.present?
         @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
           portfolio = current_user.portfolios.find(portfolio_id)
-          [portfolio.label, portfolio.backtest] if portfolio.assets.present? && portfolio.allocations_are_normalized?
+          if portfolio.assets.present? && portfolio.allocations_are_normalized?
+            [portfolio.label, portfolio.backtest(custom_start_date: @portfolio.backtest_start_date)]
+          end
         end.compact
       end
     end

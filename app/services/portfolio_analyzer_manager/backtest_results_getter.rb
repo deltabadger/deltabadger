@@ -2,7 +2,7 @@ require 'utilities/time'
 
 module PortfolioAnalyzerManager
   class BacktestResultsGetter < BaseService
-    def call(portfolio)
+    def call(portfolio, custom_start_date: nil)
       expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
       Rails.cache.fetch(portfolio.backtest_cache_key, expires_in: expires_in) do
         client = FinancialDataApiClient.new
@@ -12,7 +12,7 @@ module PortfolioAnalyzerManager
           symbols: symbols,
           allocations: allocations,
           benchmark: portfolio.benchmark,
-          start: portfolio.backtest_start_date,
+          start: custom_start_date || portfolio.backtest_start_date,
           strategy: portfolio.strategy,
           risk_free_rate: portfolio.risk_free_rate
         )
