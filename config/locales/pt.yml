@@ -711,6 +711,7 @@ pt:
     analyzer:
         default_portfolio: 'Portfólio padrão'
         change_portfolio_name: 'Mudar nome'
+        compare: 'Comparar'
         new_portfolio: 'Novo portfólio'
         total_value: 'Valor Total'
         no_assets: 'Comece adicionando um novo ativo.'
@@ -747,6 +748,7 @@ pt:
         soon: 'em breve'
     alert:
         portfolio:
+            invalid_name: 'Nome de portfólio inválido.'
             invalid_benchmark: 'Valor de referência inválido.'
             invalid_strategy: 'Valor de estratégia inválido.'
             invalid_start_date: 'Valor de data de início inválido.'
