@@ -87,10 +87,10 @@ class Portfolio < ApplicationRecord
     batch_update_allocations!(new_allocations)
   end
 
-  def backtest
+  def backtest(custom_start_date: nil)
     return if backtest_start_date.blank? || !allocations_are_normalized?
 
-    backtest_result = PortfolioAnalyzerManager::BacktestResultsGetter.call(self)
+    backtest_result = PortfolioAnalyzerManager::BacktestResultsGetter.call(self, custom_start_date: custom_start_date)
     return if backtest_result.failure?
 
     backtest_result.data
@@ -213,10 +213,11 @@ class Portfolio < ApplicationRecord
     "smart_allocations_#{strategy}_#{assets_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
   end
 
-  def backtest_cache_key
+  def backtest_cache_key(custom_start_date: nil)
     assets_str = ordered_assets.map(&:api_id).sort.join('_')
     allocations_str = ordered_assets.map(&:effective_allocation).join('_')
-    "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{backtest_start_date}_#{risk_free_rate}"
+    start_date = custom_start_date || backtest_start_date
+    "simulation_#{strategy}_#{assets_str}_#{allocations_str}_#{benchmark}_#{start_date}_#{risk_free_rate}"
   end
 
   private

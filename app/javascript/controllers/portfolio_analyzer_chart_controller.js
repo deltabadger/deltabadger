@@ -51,6 +51,7 @@ export default class extends Controller {
     let log_scale = true;
 
     const datasets = [];
+    const tooltip_multipliers = [];
     let benchmark;
     for (let i = 0; i < all_names.length; i++) {
       let series = all_series[i];
@@ -69,6 +70,7 @@ export default class extends Controller {
         maxValue = Math.max(maxValue, ...series[1].map(x => x.y));
         color = portfolio_color
         pointRadius = 4
+        tooltip_multipliers.push(1);
       } else {
         const filteredLabels = [];
         const filteredSeries = [];
@@ -78,21 +80,29 @@ export default class extends Controller {
             filteredSeries.push(series[0][index]);
           }
         });
+
+        // make line start from main series
         const startValue = all_series[0][0][all_labels[0].indexOf(filteredLabels[0])].y;
         series[0] = filteredSeries.map(value => (value * startValue / filteredSeries[0]))
+        tooltip_multipliers.push(startValue);
+
+        // start from zero
+        // series[0] = filteredSeries.map(value => (value / filteredSeries[0]))
+        // tooltip_multipliers.push(1);
+
         labels = filteredLabels.map(date => new Date(date).getTime());
         series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
         minValue = Math.min(minValue, ...series[0].map(x => x.y));
         maxValue = Math.max(maxValue, ...series[0].map(x => x.y));
 
         // add null values for missing x values
-        const xValues = all_series[0][0].map(item => item.x);
-        xValues.forEach(item => {
-          if (!labels.includes(item)) {
-            series[0].push({ x: item, y: null });
+        const xValues = all_series[0][0].map(label => label.x);
+        xValues.forEach(label => {
+          if (!labels.includes(label)) {
+            series[0].push({ x: label, y: null });
           }
         });
-        series[0].sort((item1, item2) => item1.x - item2.x);
+        series[0].sort((label1, label2) => label1.x - label2.x);
 
         color = this.#safeColor(all_colors[i]);
         pointRadius = 3.5
@@ -139,6 +149,7 @@ export default class extends Controller {
       }
     }
     datasets.push(benchmark);
+    tooltip_multipliers.push(1);
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
         const tooltip = this;
@@ -330,6 +341,10 @@ export default class extends Controller {
                 let label = context.dataset.label + ": ";
                 if (context.parsed.y !== null) {
                   let n = (context.parsed.y - 1) * 100;
+
+                  // make tooltip show the actual value from zero
+                  n = (context.parsed.y / tooltip_multipliers[context.datasetIndex] - 1) * 100;
+
                   n = Math.abs(n) == 0 || Math.abs(n) >= 10 ? Math.round(n) : Math.abs(n) >= 1 ? n.toFixed(1) : n.toFixed(2);
                   n = n > 0 ? `+${n}%` : `${n}%`;
                   label += n;
