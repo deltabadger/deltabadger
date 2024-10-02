@@ -378,10 +378,6 @@ id:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Saya setuju'
-        description: 'Kami menggunakan kuki agar segalanya lebih mudah.'
-        read_more: 'Baca selengkapnya'
     days_left:
         other: ''
     deltabadger: Deltabadger
@@ -777,6 +773,7 @@ id:
     analyzer:
         default_portfolio: 'Portofolio default'
         change_portfolio_name: 'Ganti nama'
+        compare: 'Bandingkan'
         new_portfolio: 'Portofolio baru'
         total_value: 'Nilai total'
         no_assets: 'Mulailah dengan menambahkan aset baru.'
@@ -813,6 +810,7 @@ id:
         soon: 'segera'
     alert:
         portfolio:
+            invalid_name: 'Nama portofolio tidak valid.'
             invalid_benchmark: "Nilai benchmark tidak valid."
             invalid_strategy: "Nilai strategi tidak valid."
             invalid_start_date: "Nilai tanggal mulai tidak valid."

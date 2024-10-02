@@ -11,5 +11,6 @@
 <% else %>
   <%= turbo_stream.append 'portfolio-active-assets', partial: 'assets/asset', locals: { asset: @asset } %>
 <% end %>
+
 <%= render_turbo_stream_backtest_results(@backtest, @portfolio) %>
 <%= render_turbo_stream_flash_messages %>

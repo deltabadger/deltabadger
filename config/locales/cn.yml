@@ -378,10 +378,6 @@ cn:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 我同意
-        description: '我们会使用 cookie 让事情更简单。'
-        read_more: 阅读更多
     days_left:
         other: '剩余 %{{count}} 天'
     deltabadger: Deltabadger
@@ -766,6 +762,7 @@ cn:
     analyzer:
         default_portfolio: '默认投资组合'
         change_portfolio_name: '更改名称'
+        compare: '比较'
         new_portfolio: '新投资组合'
         total_value: '总价值'
         no_assets: '通过添加新资产开始。'
@@ -802,6 +799,7 @@ cn:
         soon: '即将推出'
     alert:
         portfolio:
+            invalid_name: '无效的投资组合名称。'
             invalid_benchmark: "无效的基准值。"
             invalid_strategy: "无效的策略值。"
             invalid_start_date: "无效的开始日期值。"

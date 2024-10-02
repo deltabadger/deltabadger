@@ -1,4 +1,4 @@
-<% portfolio_label = @portfolio.label || t('analyzer.default_portfolio') %>
+<% portfolio_label = fill_default_portfolio_label(@portfolio.label) %>
 <% other_portfolios = @portfolios.order(:id).select { |portfolio| @portfolio.id != portfolio.id } %>
 <%= turbo_frame_tag 'portfolio' do %>
   <div class="page-head">
@@ -10,7 +10,7 @@
         <% if other_portfolios.any? %>
           <div class="dropdown__item dropdown__item--divider"></div>
           <% other_portfolios.each do |portfolio| %>
-            <%= link_to portfolio.label || t('analyzer.default_portfolio'), portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "portfolio" } %>
+            <%= link_to fill_default_portfolio_label(portfolio.label), portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "portfolio" } %>
           <% end %>
         <% end %>
       </div>
@@ -21,7 +21,6 @@
         <div class="dropdown">
           <%= link_to t('utils.change_name'), edit_portfolio_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
           <%= button_to t('utils.duplicate'), portfolio_duplicate_path(@portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-
           <div class="dropdown__item dropdown__item--divider"></div>
 
           <%= button_to portfolio_path(@portfolio), method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo_confirm: 'Deleting portfolio: "' + portfolio_label + '". ' + t('utils.are_you_sure') } do %>
@@ -128,7 +127,7 @@
           </button>
       </div>
       <%# render "insights" %>
-      <%= render "backtest_results", backtest: @backtest, portfolio: @portfolio %>
+      <%= render "backtest_results", backtest: @backtest, portfolio: @portfolio, compare_to_portfolios: @compare_to_portfolios %>
       <div class="flex-row gap-2 wrap space-between">
         <%= render "risk_free_rate", portfolio: @portfolio %>
         <%= render "benchmark_select", portfolio: @portfolio %>

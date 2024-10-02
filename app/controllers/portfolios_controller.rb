@@ -3,9 +3,9 @@ class PortfoliosController < ApplicationController
 
   layout 'analyzer'
   before_action :authenticate_user!
-  before_action :set_portfolio, except: %i[new create]
-  before_action :set_last_assets, except: %i[update_risk_level]
-  after_action :save_last_assets, except: %i[update_risk_level normalize_allocations]
+  before_action :set_portfolio, except: %i[new create compare]
+  before_action :set_last_assets, except: %i[update_risk_level compare]
+  after_action :save_last_assets, except: %i[update_risk_level normalize_allocations compare]
 
   def show
     @portfolios = current_user.portfolios.all
@@ -29,10 +29,17 @@ class PortfoliosController < ApplicationController
   def edit; end
 
   def update
-    if @portfolio.update(portfolio_params)
+    params_copy = portfolio_params.dup.to_h
+    params_copy.delete(:id)
+    params_copy.delete(:label) if params_copy[:label].blank?
+    if @portfolio.update(params_copy)
       redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_updated')
     else
-      render :edit
+      flash.now[:alert] = t('alert.portfolio.invalid_name')
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_name') }
+      end
     end
   end
 
@@ -60,6 +67,19 @@ class PortfoliosController < ApplicationController
       render :edit, notice: t('alert.portfolio.portfolio_duplicated')
     else
       redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.unable_to_duplicate_portfolio')
+    end
+  end
+
+  def update_compare_to
+    new_value = params[:compare_to_id].to_i
+    compare_to = @portfolio.compare_to
+    new_compare_to = new_value.in?(@portfolio.compare_to) ? compare_to - [new_value] : compare_to + [new_value]
+
+    if @portfolio.update(compare_to: new_compare_to)
+      set_backtest_data
+      redirect_to portfolio_path(@portfolio)
+    else
+      flash.now[:alert] = t('alert.portfolio.unable_to_compare')
     end
   end
 
@@ -190,7 +210,7 @@ class PortfoliosController < ApplicationController
 
   def normalize_allocations
     @portfolio.normalize_allocations!
-    @backtest = @portfolio.backtest
+    set_backtest_data
     respond_to do |format|
       format.turbo_stream
       format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.portfolio_normalized') }
@@ -201,6 +221,7 @@ class PortfoliosController < ApplicationController
 
   def portfolio_params
     params.require(:portfolio).permit(
+      :id,
       :label,
       :benchmark,
       :strategy,
@@ -212,6 +233,7 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
+    puts "params: #{params}"
     @portfolio = if params.present? && params[:id].present?
                    current_user.portfolios.find(params[:id])
                  elsif params.present? && params[:portfolio_id].present?
@@ -237,7 +259,17 @@ class PortfoliosController < ApplicationController
   end
 
   def set_backtest_data
-    @backtest = @portfolio.backtest if @portfolio.allocations_are_normalized?
+    if @portfolio.allocations_are_normalized?
+      @backtest = @portfolio.backtest
+      if @portfolio.compare_to.present?
+        @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
+          portfolio = current_user.portfolios.find(portfolio_id)
+          if portfolio.assets.present? && portfolio.allocations_are_normalized?
+            [portfolio.label, portfolio.backtest(custom_start_date: @portfolio.backtest_start_date)]
+          end
+        end.compact
+      end
+    end
     return unless @portfolio.smart_allocation_on? && @portfolio.assets.present? && @portfolio.smart_allocations[0].empty?
 
     # show flash message if the data API server is unreachable.

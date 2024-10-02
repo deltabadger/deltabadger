@@ -378,10 +378,6 @@ vi:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Tôi đồng ý'
-        description: 'Chúng tôi sử dụng cookie để giúp mọi thứ đơn giản hơn.'
-        read_more: 'Tìm hiểu thêm'
     days_left:
         other: ''
     deltabadger: Deltabadger
@@ -773,6 +769,7 @@ vi:
     analyzer:
         default_portfolio: 'Danh mục đầu tư mặc định'
         change_portfolio_name: 'Đổi tên'
+        compare: 'So sánh'
         new_portfolio: 'Danh mục đầu tư mới'
         total_value: 'Tổng giá trị'
         no_assets: 'Bắt đầu bằng cách thêm tài sản mới.'
@@ -809,6 +806,7 @@ vi:
         soon: 'sắp ra mắt'
     alert:
         portfolio:
+            invalid_name: 'Tên danh mục không hợp lệ.'
             invalid_benchmark: "Giá trị tiêu chuẩn không hợp lệ."
             invalid_strategy: "Giá trị chiến lược không hợp lệ."
             invalid_start_date: "Giá trị ngày bắt đầu không hợp lệ."
