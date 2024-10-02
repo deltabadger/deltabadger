@@ -398,10 +398,6 @@ nl:
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
         withdrawal_percentage: '%{percentage}% tot de volgende opname'
-    cookie:
-        agree: 'Ik ga akkoord'
-        description: 'We gebruiken cookies om dingen eenvoudiger te maken.'
-        read_more: 'Meer informatie'
     days_left:
         one: '1 dag over'
         other: '%{count} dagen over'
@@ -805,6 +801,7 @@ nl:
     analyzer:
         default_portfolio: 'Standaardportefeuille'
         change_portfolio_name: 'Naam wijzigen'
+        compare: 'Vergelijken'
         new_portfolio: 'Nieuwe portefeuille'
         total_value: 'Totale waarde'
         no_assets: 'Begin met het toevoegen van een nieuwe asset.'
@@ -841,6 +838,7 @@ nl:
         soon: 'binnenkort'
     alert:
         portfolio:
+            invalid_name: 'Ongeldige portfolionaam.'
             invalid_benchmark: 'Ongeldige benchmarkwaarde.'
             invalid_strategy: 'Ongeldige strategie waarde.'
             invalid_start_date: 'Ongeldige startdatum waarde.'
