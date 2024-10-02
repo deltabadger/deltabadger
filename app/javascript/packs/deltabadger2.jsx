@@ -7,7 +7,6 @@ import * as Sentry from "@sentry/react";
 import { Integrations } from "@sentry/tracing";
 import { Dashboard } from "../deltabadger/components/Dashboard";
 import style from "../deltabadger/styles/main.scss";
-import { CookieBanner } from "../deltabadger/components/CookieBanner";
 import { Provider } from "react-redux";
 import { configureStore } from "../deltabadger/Store";
 import { reducer } from "../deltabadger/reducer";
@@ -41,14 +40,6 @@ document.addEventListener("turbo:load", () => {
     );
   }
 });
-
-if (document.getElementById("cookie_consent")) {
-  document.addEventListener("turbo:load", () => {
-    createRoot(document.getElementById("cookie_consent")).render(
-      <CookieBanner />
-    );
-  });
-}
 
 if (document.getElementById("referral_banner_link")) {
   document.addEventListener("turbo:load", () => {
