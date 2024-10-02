@@ -4,6 +4,6 @@ class ApplicationMailer < ActionMailer::Base
 
   def initialize
     super()
-    @dca_profit = DcaProfitGetter.call('bitcoin', 1.year.ago)
+    @dca_profit = DcaProfitGetter.call('btc', 1.year.ago)
   end
 end

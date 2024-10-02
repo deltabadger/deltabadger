@@ -1,16 +1,16 @@
-.ticker
+.ticker, .tag
     background: $gray-300
     border-radius: 2rem
     color: #fff
     font-weight: 700
     line-height: 4rem
     text-align: center
-    width: 12rem
     padding:            0 1.5rem
     overflow:           hidden
     text-overflow:      ellipsis
     text-wrap:          nowrap
-
+.ticker
+    width: 12rem
 .ticker-group
     display: flex
     @for $i from 1 through 20
@@ -22,3 +22,24 @@
     &--many
         .ticker:not(:last-child)
             margin-right: -10rem 
+
+
+.tag
+    font-weight: 500
+    gap: .5rem
+    display: flex
+    .button_to
+        display: flex
+    &__remove
+        background: none
+        border: none
+        opacity: 0.5
+        margin-right: -.75rem
+        display: flex
+        align-items: center
+        justify-content: center
+        svg
+            width: 2.5rem
+            height: 2.5rem
+            path
+                fill: #fff !important
