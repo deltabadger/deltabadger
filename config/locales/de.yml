@@ -368,10 +368,6 @@ de:
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
         withdrawal_percentage: '%{percentage}% bis zur nächsten Auszahlung'
-    cookie:
-        agree: 'Ich stimme zu'
-        description: 'Wir nutzen Cookies, um alles einfacher zu gestalten.'
-        read_more: 'Weitere Informationen'
     deltabadger: Deltabadger
     devise:
         risk_down: 'Risiko senken.'
@@ -749,6 +745,7 @@ de:
     analyzer:
         default_portfolio: 'Standardportfolio'
         change_portfolio_name: 'Namen ändern'
+        compare: 'Vergleichen'
         new_portfolio: 'Neues Portfolio'
         total_value: 'Gesamtwert'
         no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
@@ -785,6 +782,7 @@ de:
         soon: 'bald'
     alert:
         portfolio:
+            invalid_name: 'Ungültiger Portfolioname.'
             invalid_benchmark: "Ungültiger Benchmark-Wert."
             invalid_strategy: "Ungültiger Strategie-Wert."
             invalid_start_date: "Ungültiger Startdatum-Wert."
