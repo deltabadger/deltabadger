@@ -590,6 +590,7 @@ ru:
     links:
         about: 'О нас'
         about_html: 'О <span class="d-none d-xl-inline">проекте</span>'
+        community: 'Сообщество Fireheads'
         contact: Контакты
         cookies_policy: 'Политика использования файлов cookie'
         create_account: 'Создать бесплатный аккаунт'

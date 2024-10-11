@@ -596,6 +596,7 @@ es:
     links:
         about: 'Acerca de'
         about_html: 'Acerca del <span class="d-none d-xl-inline">proyecto</span>'
+        community: 'Comunidad Fireheads'
         contact: Contacto
         cookies_policy: 'Política de cookies'
         create_account: 'Crear cuenta gratuita'
