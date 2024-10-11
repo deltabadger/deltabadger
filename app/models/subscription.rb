@@ -49,8 +49,8 @@ class Subscription < ApplicationRecord
   end
 
   def self.claimed_nft_ids
-    legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_BADGER)
-    subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id).where.not(eth_address: nil)
+    # we assume only Legendary Badger subscriptions can have an eth_address
+    subscriptions = Subscription.current.where.not(eth_address: nil)
     subscriptions.map(&:nft_id).compact.sort
   end
 
