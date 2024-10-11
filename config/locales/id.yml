@@ -576,6 +576,7 @@ id:
     links:
         about: Tentang
         about_html: 'Tentang <span class="d-none d-xl-inline">proyek</span>'
+        community: 'Komunitas Fireheads'
         contact: Kontak
         cookies_policy: 'Kebijakan Kuki'
         create_account: 'Buat akun gratis'

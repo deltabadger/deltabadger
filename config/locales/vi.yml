@@ -575,6 +575,7 @@ vi:
     links:
         about: Về
         about_html: 'Về <span class="d-none d-xl-inline">dự án</span>'
+        community: 'Cộng đồng Fireheads'
         contact: 'Liên hệ'
         cookies_policy: 'Chính sách Cookie'
         create_account: 'Tạo tài khoản miễn phí'

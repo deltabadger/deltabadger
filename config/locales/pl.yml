@@ -606,6 +606,7 @@ pl:
     links:
         about: 'O nas'
         about_html: 'O projekcie<span class="d-none d-xl-inline"></span>'
+        community: 'Społeczność Fireheads'
         contact: Kontakt
         cookies_policy: 'Polityka ciasteczek'
         create_account: 'Stwórz darmowe konto'
