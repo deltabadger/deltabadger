@@ -21,6 +21,11 @@
       .xsbadge= t('utils.new')
       .tooltip
         = t('links.analyzer')
+    
+    = link_to affiliate_path, class: "menu__item menu__item--community", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_referral_program'
+      .tooltip
+        = t('links.community')
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_referral_program'
@@ -38,7 +43,6 @@
         .tooltip
           = t('links.legendary_badger')
           = t('subscriptions.plan_life_time')
-
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'
