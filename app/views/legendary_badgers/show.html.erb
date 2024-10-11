@@ -28,7 +28,7 @@
 
     <%= form_with model: Subscription, url: legendary_badger_path, method: :patch, local: true, data: { controller: "checkbox" } do |f| %>
       <div class="db_legendary-badger__eth-form db-form__row db-form__row--input db-form__row--input--empty">
-        <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", placeholder: "0x123456789...", onchange: 'this.setAttribute("value", this.value);', required: true %>
+        <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", placeholder: "0x123456789...", onchange: 'this.setAttribute("value", this.value);' %>
         <% flash.each do |type, message| %>
           <div class="db-form__info db-form__info--<%= type %>"><%= message %></div>
         <% end %>
