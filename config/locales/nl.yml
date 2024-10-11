@@ -595,6 +595,7 @@ nl:
     links:
         about: 'Over ons'
         about_html: 'Over <span class="d-none d-xl-inline">het project</span>'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: Cookie-instellingen
         create_account: 'Gratis account aanmaken'
