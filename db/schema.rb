@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_09_20_171222) do
+ActiveRecord::Schema.define(version: 2024_10_11_145252) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -207,9 +207,9 @@ ActiveRecord::Schema.define(version: 2024_09_20_171222) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "years", default: 1, null: false
     t.integer "credits", default: 1200, null: false
     t.boolean "unlimited", default: false, null: false
+    t.integer "years", default: 1, null: false
     t.decimal "cost_eu", default: "0.0", null: false
     t.decimal "cost_other", default: "0.0", null: false
   end
@@ -223,7 +223,7 @@ ActiveRecord::Schema.define(version: 2024_09_20_171222) do
     t.decimal "credits"
     t.boolean "limit_almost_reached_sent", default: false
     t.datetime "first_month_ending_sent_at"
-    t.integer "sequence_number"
+    t.integer "nft_id"
     t.string "eth_address"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
