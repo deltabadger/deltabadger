@@ -16,7 +16,7 @@ module PaymentsManager
     private
 
     def legendary_badger_discount
-      [0, for_sale_legendary_badger_count].max
+      [0, for_sale_legendary_badger_count * 10].max
     end
 
     def sold_legendary_badger_count

@@ -187,12 +187,6 @@ sup
   position: relative
 
 .db--guest
-  .db-group-cta__avatar,
-  .db-group-cta__bubble,
-  .btn-success,
-  .db-dca-bot-image,
-  .alert
-
   .alert
     position: absolute
     width: calc(100% - 3rem)
@@ -909,45 +903,62 @@ sup
   left: 4rem
   text-decoration: none !important
 
+#dashboard, .db_legendary-badger
+  min-height: calc(100vh - 13rem)
+  @media (max-width: 1359.9px)
+    min-height: calc( 100vh - 23rem )
+
 .view--legendary-badger.view--logged-in
   .db-footer
     display: none
   .db-content-body
     padding: 0
 .db_legendary-badger
+  display: flex
+  justify-content: center
+  align-items: center
+  flex-direction: column
+  gap: 4rem
+  &__set
     display: flex
-    justify-content: center
-    align-items: center
-    height: 100vh
     flex-direction: column
-    gap: 4rem
-    &__set
-      display: flex
-      flex-direction: column
-      align-items: center
-    &__eth-address
-      text-align: center
-      display: flex
-      flex-direction: column
-      gap: 1rem
-      &__value
-        font-weight: bold
-        font-family: monospace
-        color: var(--link)
-    &__eth-form, .db-form__info
-      width: 60rem
-      max-width: calc(100vw - 5rem) !important
-    .db-form__input
-      width: 60rem
-      max-width: 100%
-    .btn
-      width: 100%
-    .db-form__label
-      background: var(--background)
-    img
-      width: 40rem
-      height: 40rem
-    &__title
-      color: var(--primary)
-      font-size: 2rem
-      font-weight: 700
+    align-items: center
+  &__eth-address
+    text-align: center
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    &__value
+      font-weight: bold
+      font-family: monospace
+      color: var(--link)
+  &__eth-form, .db-form__info
+    width: 60rem
+    max-width: calc(100vw - 5rem) !important
+  .db-form__input
+    width: 60rem
+    max-width: 100%
+  .btn
+    width: 100%
+  .db-form__label
+    background: var(--background)
+  img
+    width: 40rem
+    height: 40rem
+  &__title
+    color: var(--primary)
+    font-size: 2rem
+    font-weight: 700
+.lb_form
+  display: flex
+  flex-direction: column
+  gap: 5rem
+  .db-form__row,input
+      margin: 0
+  .checkbox
+      position: relative
+      top: 0.125rem
+      height: 2.25rem
+      min-width: 2.25rem
+      display: block
+  

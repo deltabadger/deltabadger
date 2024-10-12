@@ -10,6 +10,9 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
+import CheckboxController from "./checkbox_controller"
+application.register("checkbox", CheckboxController)
+
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
