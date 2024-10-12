@@ -687,8 +687,8 @@ vi:
         will_be_sent: 'NFT Legendary Badger sẽ được gửi đến:'
         invalid_address: '"%{eth_address}" là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
         update_success: '"%{eth_address}" đã được gửi thành công. NFT sẽ được gửi đến địa chỉ này.'
-        confirm: 'Xác nhận'
-        update: 'Cập nhật'
+        confirm_info: 'Tôi xác nhận địa chỉ là chính xác và hiểu rằng NFT sẽ được gửi đến địa chỉ này. Khi tôi nhấp vào "Nhận", nếu địa chỉ sai, không ai có thể khôi phục lại NFT.'
+        claim: 'Nhận NFT'
     welcome:
         banner_html: |
             <p>Chào %{name}, Deltabadger làm hai việc:</p>
