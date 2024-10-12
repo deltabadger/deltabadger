@@ -3,10 +3,10 @@
   align-items: center;
   gap: 2rem;
   &__logo {
-    width: 8rem;
+    height: 5rem;
     fill: var(--navbarLink);
     position: relative;
-    top: -.25rem;
+    top: -.5rem;
     @media (max-width: 575px) {
       display: none;
     } 
@@ -20,10 +20,10 @@
   }
   &__name {
     color: var(--navbarLink);
-    font-weight: 600;
-    font-size: 2.2rem;
+    font-weight: 650;
+    font-size: 2rem;
+    letter-spacing: .025rem;
     position: relative;
-    top: .1rem;
   }
 }
 .db--devise {

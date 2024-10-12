@@ -590,6 +590,7 @@ ru:
     links:
         about: 'О нас'
         about_html: 'О <span class="d-none d-xl-inline">проекте</span>'
+        community: 'Сообщество Fireheads'
         contact: Контакты
         cookies_policy: 'Политика использования файлов cookie'
         create_account: 'Создать бесплатный аккаунт'
@@ -711,8 +712,8 @@ ru:
         invalid_address: '"%{eth_address}" является недействительным адресом Ethereum. Пожалуйста, попробуйте снова.'
         update_success: '"%{eth_address}" был успешно отправлен. NFT будет отправлен на этот адрес.'
         ethereum_address: 'Адрес Ethereum'
-        confirm: 'Подтвердить'
-        update: 'Обновить'
+        confirm_info: 'Я подтверждаю, что адрес правильный и понимаю, что NFT будет отправлено на этот адрес. После нажатия на "Получить", если адрес неверен, никто не сможет восстановить NFT.'
+        claim: 'Получить NFT'
     welcome:
         banner_html: |
             <p>Привет, %{name}, Deltabadger делает две вещи:</p>
