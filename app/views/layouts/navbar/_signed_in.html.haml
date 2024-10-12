@@ -32,13 +32,17 @@
       .tooltip
         = t('links.settings')
 
+    = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+      = render 'svg/24x24_community'
+      .tooltip
+        = t('links.community')
+
     - if current_user.subscription_name == 'legendary_badger'
       = link_to legendary_badger_path, class: 'menu__item menu__item--legendary-badger', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_heart'
         .tooltip
           = t('links.legendary_badger')
           = t('subscriptions.plan_life_time')
-
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'

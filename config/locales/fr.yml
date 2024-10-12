@@ -595,6 +595,7 @@ fr:
     links:
         about: 'À propos'
         about_html: 'À propos du <span class="d-none d-xl-inline"> projet </span>'
+        community: 'Communauté Fireheads'
         contact: 'Contact'
         cookies_policy: 'Politique sur l''usage des cookies'
         create_account: 'Créer un compte gratuit'
@@ -715,8 +716,8 @@ fr:
         invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
         update_success: '"%{eth_address}" a été soumis avec succès. Le NFT sera envoyé à cette adresse.'
         ethereum_address: 'Adresse Ethereum'
-        confirm: 'Confirmer'
-        update: 'Mettre à jour'
+        confirm_info: 'Je confirme que l''adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur "Réclamer", si l''adresse est incorrecte, personne ne pourra récupérer le NFT.'
+        claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
             <p>Bonjour %{name}, Deltabadger fait deux choses :</p>

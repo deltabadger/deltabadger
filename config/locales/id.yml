@@ -576,6 +576,7 @@ id:
     links:
         about: Tentang
         about_html: 'Tentang <span class="d-none d-xl-inline">proyek</span>'
+        community: 'Komunitas Fireheads'
         contact: Kontak
         cookies_policy: 'Kebijakan Kuki'
         create_account: 'Buat akun gratis'
@@ -688,8 +689,8 @@ id:
         invalid_address: '"%{eth_address}" adalah alamat Ethereum yang tidak valid. Silakan coba lagi.'
         update_success: '"%{eth_address}" telah berhasil dikirimkan. NFT akan dikirim ke alamat ini.'
         ethereum_address: 'Alamat Ethereum'
-        confirm: Konfirmasi
-        update: Perbarui
+        confirm_info: 'Saya mengonfirmasi alamatnya benar dan memahami bahwa NFT akan dikirim ke alamat ini. Setelah saya mengklik "Klaim", jika alamat salah, tidak ada yang dapat memulihkan NFT.'
+        claim: 'Klaim NFT'
     welcome:
         banner_html: |
             <p>Hai %{name}, Deltabadger melakukan dua hal:</p>
