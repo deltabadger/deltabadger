@@ -95,7 +95,7 @@ pl:
             template_html: '<p>Wygląda na to, że Twojemu botowi wkrótce skończy się %{quote}.</p><p>Dokonaj przelewu do %{exchange_name}, aby mieć pewność, że bot działa nieprzerwanie.</p>'
         first_month_ending_soon:
             subject: 'Miesiąc próbny wkrótce się kończy!'
-            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby utrzymać swoje cięższe borsuki!</p>'
+            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
         limit_almost_reached:
             subject: 'Limit prawie wyczerpany'
             template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Investor</b> lub <b>Hodler</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
@@ -675,8 +675,8 @@ pl:
         hodler_description_html: '<p><b>Nieograniczone boty DCA</b>, niższe opłaty przy <b>zleceniach z limitem</b>, <b>automatyczne wypłaty</b>, <b>ustawienie progu ceny</b>, <b>ustawienie limitu daty</b>(wkrótce).</p>'
         investor: Inwestor
         investor_description_html: 'Jeden rok <b>bez limitu transakcji</b>, <b>wszystkie waluty</b> i <b>automatyczne wypłaty</b>.'
-        legendary_badger: Legendarny Borsuk
-        legendary_badger_description_html: '<p><b>Koniec z opłatami za korzystanie z serwisu.</b></p><p>Wszystko, co oferuje plan Hodler, ale na całe życie.</p><p>Subskrypcja jest połączona z <b>NFT</b>, więc w przyszłości możesz ją sprzedać innemu użytkownikowi.</p><p>Każdy token powiązany jest z proceduralną grafiką. Czy uda ci się odnaleźć wszystkie 21 "easter eggs" ukrytych w <a href="https://deltabadger.com/legendary/" class="nobreak">kolekcji</a>?</p><p>Dożywotnie. Limitowane. Legendarne.</p><p>Legendarne Borsuki są jedyne w swoim rodzaju.</p><p>Tylko 1000 miejsc na statku kosmicznym Borsuków. Ugruntuj swój status inwestora długoterminowego i stań się Legendarny.</p>'
+        legendary_badger: Legendary Badger
+        legendary_badger_description_html: '<p><b>Koniec z opłatami za korzystanie z serwisu.</b></p><p>Wszystko, co oferuje plan Hodler, ale na całe życie.</p><p>Subskrypcja jest połączona z <b>NFT</b>, więc w przyszłości możesz ją sprzedać innemu użytkownikowi.</p><p>Każdy token powiązany jest z proceduralną grafiką. Czy uda ci się odnaleźć wszystkie 21 "easter eggs" ukrytych w <a href="https://deltabadger.com/legendary/" class="nobreak">kolekcji</a>?</p><p>Dożywotnie. Limitowane. Legendarne.</p><p><i>Legendarne Borsuki</i> są jedyne w swoim rodzaju.</p><p>Tylko 1000 miejsc na statku kosmicznym Borsuków. Zacementuj swój status inwestora długoterminowego i stań się Legendarny.</p>'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200 $/rok. Aby kontynuować, wykup płatną subskrypcję.'
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
         expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Hodler: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
@@ -733,8 +733,8 @@ pl:
         invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
         update_success: '"%{eth_address}" został pomyślnie zgłoszony. NFT zostanie wysłane na ten adres.'
         ethereum_address: 'Adres Ethereum'
-        confirm: 'Potwierdź'
-        update: 'Aktualizuj'
+        confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
+        claim: 'Odbierz NFT'
     welcome:
         banner_html: |
             <p>Hej %{name}, Deltabadger robi dwie rzeczy:</p>

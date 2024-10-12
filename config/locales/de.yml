@@ -661,8 +661,8 @@ de:
         invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
         update_success: '"%{eth_address}" wurde erfolgreich eingereicht. Das NFT wird an diese Adresse gesendet.'
         ethereum_address: Ethereum-Adresse
-        confirm: Bestätigen
-        update: Aktualisieren
+        confirm_info: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf "Claim" klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
+        claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
             <p>Hi %{name}, Deltabadger macht zwei Dinge:</p>
