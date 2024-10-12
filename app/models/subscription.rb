@@ -8,49 +8,55 @@ class Subscription < ApplicationRecord
   delegate :display_name, to: :subscription_plan
   delegate :unlimited?, to: :subscription_plan
 
-  before_validation :set_sequence_number
+  before_validation :set_nft_id
 
-  validates :sequence_number, presence: true, if: -> { legendary_badger? }
-  validates :sequence_number,
+  validates :nft_id, presence: true, if: -> { legendary_badger? }
+  validates :nft_id,
             numericality: {
               only_integer: true,
               greater_than_or_equal_to: 0,
               less_than_or_equal_to: 999,
               message: '%<value>s is incorrect, please enter a number from 0 to 999'
             },
-            if: -> { sequence_number.present? && legendary_badger? }
+            if: -> { nft_id.present? && legendary_badger? }
   validate do
-    if sequence_number.present? && !legendary_badger?
-      errors.add :sequence_number, :used, message: 'is only available for the Legendary Badger NFT plan'
+    if nft_id.present? && !legendary_badger?
+      errors.add :nft_id, :used, message: 'is only available for the Legendary Badger NFT plan'
     end
-    errors.add :sequence_number, :used, message: '%<value>s is already used' if sequence_number_already_used?
+    errors.add :nft_id, :used, message: '%<value>s is already used' if nft_id_already_used?
   end
 
   validate :eth_address_is_valid, if: -> { !eth_address.nil? }
 
   private
 
-  def sequence_number_already_used?
-    legendary_badger? && sequence_number.present? && sequence_number.in?(Subscription.used_sequence_numbers - [sequence_number_was])
+  def nft_id_already_used?
+    legendary_badger? && nft_id.present? && nft_id.in?(Subscription.used_nft_ids - [nft_id_was])
   end
 
   def legendary_badger?
     name == SubscriptionPlan::LEGENDARY_BADGER
   end
 
-  def set_sequence_number
-    self.sequence_number = next_sequence_number if legendary_badger? && !sequence_number.present?
+  def set_nft_id
+    self.nft_id = next_nft_id if legendary_badger? && !nft_id.present?
   end
 
-  def self.used_sequence_numbers
+  def self.used_nft_ids
     legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_BADGER)
     subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
-    subscriptions.map(&:sequence_number).compact.sort
+    subscriptions.map(&:nft_id).compact.sort
   end
 
-  def next_sequence_number
-    allowable_sequence_numbers = [*0..999] - self.class.used_sequence_numbers
-    allowable_sequence_numbers.sample
+  def self.claimed_nft_ids
+    # we assume only Legendary Badger subscriptions can have an eth_address
+    subscriptions = Subscription.current.where.not(eth_address: nil)
+    subscriptions.map(&:nft_id).compact.sort
+  end
+
+  def next_nft_id
+    allowable_nft_ids = [*0..999] - self.class.used_nft_ids
+    allowable_nft_ids.sample
   end
 
   def eth_address_is_valid

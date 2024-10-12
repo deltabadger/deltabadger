@@ -621,6 +621,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -744,8 +745,8 @@ en:
         invalid_address: '"%{eth_address}" is an invalid Ethereum address. Please try again.'
         update_success: '"%{eth_address}" has been successfully submitted. The NFT will be sent to this address.'
         ethereum_address: 'Ethereum address'
-        confirm: Confirm
-        update: Update
+        confirm_info: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click "Claim", if the address is wrong, nobody can recover the NFT.'
+        claim: Claim NFT
     welcome:
         banner_html: |
             <p>Hi %{name}, Deltabadger does two things:</p>
