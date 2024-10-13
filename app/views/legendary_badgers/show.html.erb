@@ -25,23 +25,23 @@
     </div>
 
   <% else %>
+    <div class="db_legendary-badger__eth-form">
+      <%= form_with model: @subscription, url: legendary_badger_path, method: :patch, data: { controller: "checkbox form-validation" } do |f| %>
+        <div class="db-form__row db-form__row--input db-form__row--input--empty">
+          <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: "^0x[a-fA-F0-9]{40}$", required: true %>
+          <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label", for: "eth_address" %>
+        </div>
 
-    <%= form_with model: @subscription, url: legendary_badger_path, method: :patch, data: { controller: "checkbox form-validation" } do |f| %>
-      <div class="db_legendary-badger__eth-form db-form__row db-form__row--input db-form__row--input--empty">
-        <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", placeholder: "0x123456789...", pattern: "^0x[a-fA-F0-9]{40}$", required: true %>
-        <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label", for: "eth_address" %>
-      </div>
+        <div class="db-form__row" style="display: flex; gap: 2rem; align-items: flex-start;">
+          <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { checkbox_target: "checkbox", action: "checkbox#checkboxChanged" }, required: true %>
+          <%= f.label :eth_address_confirmation, I18n.t('legendary_badger.confirm_info') %>
+        </div>
 
-      <div class="db-form__row">
-        <%= f.check_box :eth_address_confirmation, data: { checkbox_target: "checkbox", action: "checkbox#checkboxChanged" }, required: true %>
-        <%= f.label :eth_address_confirmation, 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click "Claim", if the address is wrong, nobody can recover the NFT.' %>
-      </div>
-
-      <div class="db_legendary-badger__submit">
-        <%= f.submit I18n.t(('legendary_badger.claim')), class: "btn btn-lg btn-primary", data: { checkbox_target: "submit" } %>
-      </div>
-    <% end %>
-
+        <div class="db_legendary-badger__submit">
+          <%= f.submit I18n.t(('legendary_badger.claim')), class: "btn btn-lg btn-primary", data: { checkbox_target: "submit" } %>
+        </div>
+      <% end %>
+    </div>
   <% end %>
 
 </div>

@@ -599,6 +599,7 @@ nl:
     links:
         about: 'Over ons'
         about_html: 'Over <span class="d-none d-xl-inline">het project</span>'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: Cookie-instellingen
         create_account: 'Gratis account aanmaken'
@@ -718,8 +719,8 @@ nl:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
         update_success: '"%{eth_address}" is succesvol ingediend. Het NFT zal naar dit adres worden verzonden.'
         ethereum_address: 'Adresse Ethereum'
-        confirm: 'Confirmer'
-        update: 'Bijwerken'
+        confirm_info: 'Ik bevestig dat het adres correct is en begrijp dat de NFT naar dit adres zal worden verzonden. Zodra ik op "Claimen" klik, kan niemand de NFT herstellen als het adres onjuist is.'
+        claim: 'Claim NFT'
     welcome:
         banner_html: |
             <p>Hallo %{name}, Deltabadger doet twee dingen:</p>

@@ -553,6 +553,7 @@ de:
     links:
         about: Über
         about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
+        community: 'Fireheads Community'
         contact: Kontakt
         cookies_policy: Cookie-Richtlinien
         create_account: 'Erstelle ein kostenloses Konto'
@@ -567,6 +568,7 @@ de:
         settings: Einstellungen
         sign_up: Anmelden
         terms_and_conditions: AGB
+        
     meta:
         title: 'Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung'
         title_short: 'Deltabadger - Auto-DCA in Bitcoin und andere Assets'
@@ -662,8 +664,8 @@ de:
         will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
         update_success: '"%{eth_address}" wurde erfolgreich eingereicht. Das NFT wird an diese Adresse gesendet.'
         ethereum_address: Ethereum-Adresse
-        confirm: Bestätigen
-        update: Aktualisieren
+        confirm_info: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf "Claim" klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
+        claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
             <p>Hi %{name}, Deltabadger macht zwei Dinge:</p>

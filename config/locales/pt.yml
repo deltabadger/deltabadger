@@ -534,6 +534,7 @@ pt:
     links:
         about: Sobre
         about_html: 'Sobre <span class="d-none d-xl-inline">o projeto</span>'
+        community: 'Comunidade Fireheads'
         contact: Contacto
         cookies_policy: 'Política de Cookies'
         create_account: 'Criar conta gratuita'
@@ -628,8 +629,8 @@ pt:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
         update_success: '"%{eth_address}" foi submetido com sucesso. O NFT será enviado para este endereço.'
         ethereum_address: 'Endereço Ethereum'
-        confirm: Confirmar
-        update: Atualizar
+        confirm_info: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em "Reivindicar", se o endereço estiver errado, ninguém poderá recuperar o NFT.'
+        claim: 'Reivindicar NFT'
     welcome:
         banner_html: |
             <p>Oi %{name}, Deltabadger faz duas coisas:</p>

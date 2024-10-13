@@ -579,6 +579,7 @@ vi:
     links:
         about: Về
         about_html: 'Về <span class="d-none d-xl-inline">dự án</span>'
+        community: 'Cộng đồng Fireheads'
         contact: 'Liên hệ'
         cookies_policy: 'Chính sách Cookie'
         create_account: 'Tạo tài khoản miễn phí'
@@ -689,8 +690,8 @@ vi:
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger sẽ được gửi đến:'
         update_success: '"%{eth_address}" đã được gửi thành công. NFT sẽ được gửi đến địa chỉ này.'
-        confirm: 'Xác nhận'
-        update: 'Cập nhật'
+        confirm_info: 'Tôi xác nhận địa chỉ là chính xác và hiểu rằng NFT sẽ được gửi đến địa chỉ này. Khi tôi nhấp vào "Nhận", nếu địa chỉ sai, không ai có thể khôi phục lại NFT.'
+        claim: 'Nhận NFT'
     welcome:
         banner_html: |
             <p>Chào %{name}, Deltabadger làm hai việc:</p>
