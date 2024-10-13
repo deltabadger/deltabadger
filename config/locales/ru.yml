@@ -6,6 +6,10 @@ ru:
                     attributes:
                         code:
                             invalid_format: 'должен состоять из буквенно-цифровых символов верхнего регистра'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" является недействительным адресом Ethereum. Пожалуйста, попробуйте снова.'
     ads:
         bitwarden_text: '. Это бесплатно и с открытым исходным кодом.'
         bitwarden_title: 'Попробуйте Bitwarden'
@@ -708,7 +712,6 @@ ru:
         upgrade_plan: 'Обновить план'
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger будет отправлен на:'
-        invalid_address: '"%{eth_address}" является недействительным адресом Ethereum. Пожалуйста, попробуйте снова.'
         update_success: '"%{eth_address}" был успешно отправлен. NFT будет отправлен на этот адрес.'
         ethereum_address: 'Адрес Ethereum'
         confirm: 'Подтвердить'

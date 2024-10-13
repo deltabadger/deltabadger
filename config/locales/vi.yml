@@ -6,6 +6,10 @@ vi:
                     attributes:
                         code:
                             invalid_format: 'phải gồm các ký tự chữ viết hoa và số'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
     ads:
         bitwarden_text: '. Đây là nguồn mở và miễn phí.'
         bitwarden_title: 'Thử Bitwarden'
@@ -684,7 +688,6 @@ vi:
         upgrade_plan: 'Nâng cấp gói'
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger sẽ được gửi đến:'
-        invalid_address: '"%{eth_address}" là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
         update_success: '"%{eth_address}" đã được gửi thành công. NFT sẽ được gửi đến địa chỉ này.'
         confirm: 'Xác nhận'
         update: 'Cập nhật'

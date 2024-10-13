@@ -6,6 +6,10 @@ es:
                     attributes:
                         code:
                             invalid_format: 'tiene que constar de caracteres alfanuméricos en mayúscula'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
     ads:
         bitwarden_text: '. Es gratuito y de código abierto.'
         bitwarden_title: 'Prueba Bitwarden'
@@ -713,7 +717,6 @@ es:
         upgrade_plan: 'Actualizar plan'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT será enviado a:'
-        invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
         update_success: '"%{eth_address}" ha sido enviado con éxito. El NFT será enviado a esta dirección.'
         ethereum_address: 'Dirección de Ethereum'
         confirm: Confirmar

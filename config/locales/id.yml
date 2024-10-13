@@ -6,6 +6,10 @@ id:
                     attributes:
                         code:
                             invalid_format: 'harus berisi karakter alfabet numerik kapital'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" adalah alamat Ethereum yang tidak valid. Silakan coba lagi.'
     ads:
         bitwarden_text: '. Gratis dan sumber terbuka.'
         bitwarden_title: 'Coba Bitwarden'
@@ -685,7 +689,6 @@ id:
         upgrade_plan: 'Tingkatkan paket'
     legendary_badger:
         will_be_sent: 'NFT Badger Legendaris akan dikirim ke:'
-        invalid_address: '"%{eth_address}" adalah alamat Ethereum yang tidak valid. Silakan coba lagi.'
         update_success: '"%{eth_address}" telah berhasil dikirimkan. NFT akan dikirim ke alamat ini.'
         ethereum_address: 'Alamat Ethereum'
         confirm: Konfirmasi
