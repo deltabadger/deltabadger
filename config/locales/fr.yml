@@ -6,6 +6,10 @@ fr:
                     attributes:
                         code:
                             invalid_format: 'doit être composé de caractères alphanumériques majuscules'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
         bitwarden_text: 'C''est gratuit et open-source.'
         bitwarden_title: 'Essayez Bitwarden'
@@ -685,7 +689,7 @@ fr:
                 other: 'Compensation pour %{count} jours inutilisés du forfait Investisseur'
             discount: '%{discount_percent}% de réduction'
             legendary_badger_discount: 'Réduction Early Bird'
-            legendary_badger_discount_info: "À chaque vente, le montant de la réduction diminue de 1\_$. Ne tardez pas!"
+            legendary_badger_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
@@ -713,7 +717,6 @@ fr:
         upgrade_plan: 'Mise à niveau du forfait'
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
-        invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
         update_success: '"%{eth_address}" a été soumis avec succès. Le NFT sera envoyé à cette adresse.'
         ethereum_address: 'Adresse Ethereum'
         confirm_info: 'Je confirme que l''adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur "Réclamer", si l''adresse est incorrecte, personne ne pourra récupérer le NFT.'
