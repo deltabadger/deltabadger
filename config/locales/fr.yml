@@ -689,7 +689,7 @@ fr:
                 other: 'Compensation pour %{count} jours inutilisés du forfait Investisseur'
             discount: '%{discount_percent}% de réduction'
             legendary_badger_discount: 'Réduction Early Bird'
-            legendary_badger_discount_info: "À chaque vente, le montant de la réduction diminue de 1\_$. Ne tardez pas!"
+            legendary_badger_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'

@@ -706,7 +706,7 @@ pl:
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Inwestor.'
             discount: '%{discount_percent}% rabatu'
             legendary_badger_discount: 'Zniżka Early Bird'
-            legendary_badger_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 1 USD. Nie czekaj!'
+            legendary_badger_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
