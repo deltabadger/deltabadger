@@ -3,22 +3,26 @@ class LegendariesController < ApplicationController
 
   def show
     @subscription = current_user.subscription
-    puts @subscription.inspect
   end
 
   def update
-    if current_user.subscription.update(legendary_params)
-      redirect_to legendary_path, notice: I18n.t('legendary.update_success', eth_address: current_user.subscription.eth_address)
+    @subscription = current_user.subscription
+
+    if legendary_params[:eth_address_confirmation] && @subscription.update(eth_address: legendary_params[:eth_address])
+      ClaimNftMailer.form_submission_email(
+        current_user.email,
+        current_user.subscription.nft_id,
+        current_user.subscription.eth_address
+      ).deliver_later
+      redirect_to legendary_badger_path
     else
-      flash.now[:alert] = I18n.t('legendary.invalid_address', eth_address: current_user.subscription.eth_address)
-      @subscription = current_user.subscription.reload
-      render :show
+      render :show, status: :unprocessable_entity
     end
   end
 
   private
 
   def legendary_params
-    params.require(:subscription).permit(:eth_address)
+    params.require(:subscription).permit(:eth_address, :eth_address_confirmation)
   end
 end

@@ -17,11 +17,11 @@
     </div>
   </div>
 
-  <% if @subscription.eth_address.present? %>
+  <% if @subscription.eth_address_is_valid? %>
 
     <div class="db_legendary-plan__eth-address">
-      <div class="db_legendary-plan__eth-address__label"><%= I18n.t('legendary.will_be_sent') %></div>
-      <div class="db_legendary-plan__eth-address__value"><%= @subscription.eth_address %></div>
+      <div class="db_legendary-plan__eth-address__label"><%= I18n.t('legendary_badger.will_be_sent') %></div>
+      <%= link_to @subscription.eth_address, "https://etherscan.io/address/#{@subscription.eth_address}", class: "db_legendary-plan__eth-address__value" %>
     </div>
 
   <% else %>
@@ -29,16 +29,16 @@
       <%= form_with model: @subscription, url: legendary_path, method: :patch, data: { controller: "checkbox form-validation" } do |f| %>
         <div class="db-form__row db-form__row--input db-form__row--input--empty">
           <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: "^0x[a-fA-F0-9]{40}$", required: true %>
-          <%= f.label :eth_address, I18n.t('legendary.ethereum_address'), class: "db-form__label" %>
+          <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label" %>
         </div>
 
         <div class="db-form__row" style="display: flex; gap: 2rem; align-items: flex-start;">
           <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { checkbox_target: "checkbox", action: "checkbox#checkboxChanged" }, required: true %>
-          <%= f.label :eth_address_confirmation, I18n.t('legendary.confirm_info') %>
+          <%= f.label :eth_address_confirmation, I18n.t('legendary_badger.confirm_info') %>
         </div>
 
         <div class="db_legendary-plan__submit">
-          <%= f.submit I18n.t(('legendary.claim')), class: "btn btn-lg btn-primary", data: { checkbox_target: "submit" } %>
+          <%= f.submit I18n.t(('legendary_badger.claim')), class: "btn btn-lg btn-primary", data: { checkbox_target: "submit" } %>
         </div>
       <% end %>
     </div>

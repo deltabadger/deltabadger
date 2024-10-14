@@ -18,4 +18,30 @@ class SubscriptionPlan < ApplicationRecord
   def display_name
     I18n.t("subscriptions.#{name}")
   end
+
+  def free
+    find_by_name!(FREE_PLAN)
+  end
+
+  def standard
+    find_by_name!(STANDARD_PLAN)
+  end
+
+  def pro
+    find_by_name!(PRO_PLAN)
+  end
+
+  def legendary
+    find_by_name!(LEGENDARY_PLAN)
+  end
+
+  private
+
+  def plan_cache
+    @plan_cache ||= self.class.all.map { |sp| [sp.name, sp] }.to_h
+  end
+
+  def find_by_name!(name)
+    plan_cache.fetch(name)
+  end
 end

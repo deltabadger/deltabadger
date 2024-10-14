@@ -10,7 +10,7 @@ class Subscription < ApplicationRecord
 
   before_validation :set_nft_id
 
-  validates :nft_id, presence: true, if: -> { legendary_badger }
+  validates :nft_id, presence: true, if: -> { legendary_badger? }
   validates :nft_id,
             numericality: {
               only_integer: true,
@@ -28,6 +28,10 @@ class Subscription < ApplicationRecord
 
   validate :eth_address_is_valid, if: -> { !eth_address.nil? }
 
+  def eth_address_is_valid?
+    eth_address =~ /^0x[a-fA-F0-9]{40}$/
+  end
+
   private
 
   def nft_id_already_used?
@@ -43,7 +47,7 @@ class Subscription < ApplicationRecord
   end
 
   def self.used_nft_ids
-    legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_BADGER)
+    legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_PLAN)
     subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
     subscriptions.map(&:nft_id).compact.sort
   end
@@ -60,7 +64,7 @@ class Subscription < ApplicationRecord
   end
 
   def eth_address_is_valid
-    return if eth_address =~ /^0x[a-fA-F0-9]{40}$/
+    return if eth_address_is_valid?
 
     errors.add(:eth_address, :invalid_address, eth_address: eth_address)
   end

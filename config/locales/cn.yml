@@ -681,7 +681,6 @@ cn:
         upgrade_plan: 升级套餐
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT将发送至：'
-        update_success: '"%{eth_address}" 已成功提交。NFT 将发送到此地址。'
         confirm: '确认'
         update: '更新'
     welcome:

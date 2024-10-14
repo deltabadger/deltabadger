@@ -16,7 +16,7 @@ module PaymentsManager
     private
 
     def legendary_plan_discount
-      [0, legendary_plans_for_sale_count].max
+      [0, legendary_plans_for_sale_count * 10].max
     end
 
     def legendary_plans_sold_count
