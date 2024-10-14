@@ -16,7 +16,6 @@ class LegendaryBadgersController < ApplicationController
     else
       current_user.subscription.reload
       @subscription = current_user.subscription
-      # flash.now[:alert] = I18n.t('legendary_badger.invalid_address', eth_address: legendary_badger_params[:eth_address])
       render :show, status: :unprocessable_entity
     end
   end
