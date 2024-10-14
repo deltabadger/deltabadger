@@ -690,7 +690,7 @@ es:
                 other: 'Compensación por %{count} días sin usar el plan Inversor.'
             discount: '%{discount_percent} % de descuento'
             legendary_badger_discount: 'Descuento por venta anticipada'
-            legendary_badger_discount_info: 'Con cada venta el descuento disminuye 1 $. ¡No esperes!'
+            legendary_badger_discount_info: 'Con cada venta el descuento disminuye 10$. ¡No esperes!'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
