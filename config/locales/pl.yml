@@ -6,6 +6,10 @@ pl:
                     attributes:
                         code:
                             invalid_format: 'musi składać się z dużych liter i cyfr'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
     ads:
         bitwarden_text: '. Jest darmowy i open-source.'
         bitwarden_title: 'Spróbuj Bitwarden'
@@ -95,7 +99,7 @@ pl:
             template_html: '<p>Wygląda na to, że Twojemu botowi wkrótce skończy się %{quote}.</p><p>Dokonaj przelewu do %{exchange_name}, aby mieć pewność, że bot działa nieprzerwanie.</p>'
         first_month_ending_soon:
             subject: 'Miesiąc próbny wkrótce się kończy!'
-            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby utrzymać swoje cięższe borsuki!</p>'
+            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
         limit_almost_reached:
             subject: 'Limit prawie wyczerpany'
             template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Standard</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
@@ -606,6 +610,7 @@ pl:
     links:
         about: 'O nas'
         about_html: 'O projekcie<span class="d-none d-xl-inline"></span>'
+        community: 'Społeczność Fireheads'
         contact: Kontakt
         cookies_policy: 'Polityka ciasteczek'
         create_account: 'Stwórz darmowe konto'
@@ -701,7 +706,7 @@ pl:
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Inwestor.'
             discount: '%{discount_percent}% rabatu'
             legendary_plan_discount: 'Zniżka Early Bird'
-            legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 1 USD. Nie czekaj!'
+            legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
@@ -729,11 +734,10 @@ pl:
         upgrade_plan: 'Zrób upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
-        invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
         update_success: '"%{eth_address}" został pomyślnie zgłoszony. NFT zostanie wysłane na ten adres.'
         ethereum_address: 'Adres Ethereum'
-        confirm: 'Potwierdź'
-        update: 'Aktualizuj'
+        confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
+        claim: 'Odbierz NFT'
     welcome:
         banner_html: |
             <p>Hej %{name}, Deltabadger robi dwie rzeczy:</p>
