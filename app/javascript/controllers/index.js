@@ -10,14 +10,14 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
-import CheckboxController from "./checkbox_controller"
-application.register("checkbox", CheckboxController)
-
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
 import FlatpickrController from "./flatpickr_controller"
 application.register("flatpickr", FlatpickrController)
+
+import Form__CheckboxEnablesController from "./form/checkbox_enables_controller"
+application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 
 import Form__SubmitAfterDelayController from "./form/submit_after_delay_controller"
 application.register("form--submit-after-delay", Form__SubmitAfterDelayController)
@@ -25,8 +25,8 @@ application.register("form--submit-after-delay", Form__SubmitAfterDelayControlle
 import Form__SubmitController from "./form/submit_controller"
 application.register("form--submit", Form__SubmitController)
 
-import FormValidationController from "./form_validation_controller"
-application.register("form-validation", FormValidationController)
+import Form__ValidationController from "./form/validation_controller"
+application.register("form--validation", Form__ValidationController)
 
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
