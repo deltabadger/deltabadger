@@ -734,7 +734,6 @@ pl:
         upgrade_plan: 'Zrób upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
-        update_success: '"%{eth_address}" został pomyślnie zgłoszony. NFT zostanie wysłane na ten adres.'
         ethereum_address: 'Adres Ethereum'
         confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
         claim: 'Odbierz NFT'
