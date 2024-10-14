@@ -3,15 +3,15 @@
 
 <div class="db_legendary-plan">
   <div class="db_legendary-plan__set">
-    <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", @subscription.sequence_number) + ".svg") %>">
+    <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", @subscription.nft_id) + ".svg") %>">
     <div class="db_legendary-plan__title">
       <% short_list = { 0 => "Lost wallet", 1 => "Hodler", 21 => "Maximalist", 100 => "Gateway", 111 => "Smart intervals", 200 => "Bull market", 222 => "Failure", 300 => "Singularity is loading", 333 => "Money lego", 400 => "Access denied", 444 => "Things got wild", 500 => "Under construction", 555 => "I'm a human", 600 => "Let's Play", 666 => "Impostor", 700 => "Rebalancing", 777 => "Angel", 800 => "", 888 => "Thank you", 900 => "Market signals", 999 => "Hyperbitcoinization" } %>
-      <% if short_list.key?(@subscription.sequence_number) %>
-        <% key = @subscription.sequence_number %>
+      <% if short_list.key?(@subscription.nft_id) %>
+        <% key = @subscription.nft_id %>
         <% value = short_list[key] %>
         <% result = "#" + "#{sprintf("%03d",key)} · #{value}" %>
       <% else %>
-        <% result = "#" + sprintf("%03d", @subscription.sequence_number) %>
+        <% result = "#" + sprintf("%03d", @subscription.nft_id) %>
       <% end %>
       <%= result %>
     </div>
@@ -20,28 +20,28 @@
   <% if @subscription.eth_address.present? %>
 
     <div class="db_legendary-plan__eth-address">
-      <div class="db_legendary-plan__eth-address__label"><%= I18n.t('legendary_badger.will_be_sent') %></div>
+      <div class="db_legendary-plan__eth-address__label"><%= I18n.t('legendary.will_be_sent') %></div>
       <div class="db_legendary-plan__eth-address__value"><%= @subscription.eth_address %></div>
     </div>
 
-  <% end %>
+  <% else %>
+    <div class="db_legendary-plan__eth-form">
+      <%= form_with model: @subscription, url: legendary_path, method: :patch, data: { controller: "checkbox form-validation" } do |f| %>
+        <div class="db-form__row db-form__row--input db-form__row--input--empty">
+          <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: "^0x[a-fA-F0-9]{40}$", required: true %>
+          <%= f.label :eth_address, I18n.t('legendary.ethereum_address'), class: "db-form__label" %>
+        </div>
 
-  <%= form_with model: Subscription, url: legendary_path, method: :patch, local: true do |f| %>
+        <div class="db-form__row" style="display: flex; gap: 2rem; align-items: flex-start;">
+          <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { checkbox_target: "checkbox", action: "checkbox#checkboxChanged" }, required: true %>
+          <%= f.label :eth_address_confirmation, I18n.t('legendary.confirm_info') %>
+        </div>
 
-    <div class="db_legendary-plan__eth-form db-form__row db-form__row--input db-form__row--input--empty">
-      <%= f.text_field :eth_address, class: "db-form__input", id: "eth_address", placeholder: "0x123456789...", onchange: 'this.setAttribute("value", this.value);' %>
-
-      <% flash.each do |type, message| %>
-        <div class="db-form__info db-form__info--<%= type %>"><%= message %></div>
+        <div class="db_legendary-plan__submit">
+          <%= f.submit I18n.t(('legendary.claim')), class: "btn btn-lg btn-primary", data: { checkbox_target: "submit" } %>
+        </div>
       <% end %>
-
-      <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label", for: "eth_address" %>
     </div>
-
-    <div class="db_legendary-plan__submit">
-      <%= f.submit I18n.t((@subscription.eth_address.present? ? 'legendary_badger.update' : 'legendary_badger.confirm')), class: "btn btn-lg btn-primary" %>
-    </div>
-
   <% end %>
 
 </div>

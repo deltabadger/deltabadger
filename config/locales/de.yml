@@ -6,6 +6,10 @@ de:
                     attributes:
                         code:
                             invalid_format: 'muss aus alphanumerischen Zeichen in Großbuchstaben bestehen'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
     ads:
         bitwarden_text: '. Es ist kostenlos und open-source.'
         bitwarden_title: 'Probiere Bitwarden'
@@ -549,6 +553,7 @@ de:
     links:
         about: Über
         about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
+        community: 'Fireheads Community'
         contact: Kontakt
         cookies_policy: Cookie-Richtlinien
         create_account: 'Erstelle ein kostenloses Konto'
@@ -563,6 +568,7 @@ de:
         settings: Einstellungen
         sign_up: Anmelden
         terms_and_conditions: AGB
+
     meta:
         title: 'Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung'
         title_short: 'Deltabadger - Auto-DCA in Bitcoin und andere Assets'
@@ -628,7 +634,7 @@ de:
                 other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
             legendary_plan_discount: 'Early Bird-Rabatt'
-            legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
+            legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
@@ -656,11 +662,10 @@ de:
         upgrade_plan: 'Plan hochstufen'
     legendary_badger:
         will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
-        invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
         update_success: '"%{eth_address}" wurde erfolgreich eingereicht. Das NFT wird an diese Adresse gesendet.'
         ethereum_address: Ethereum-Adresse
-        confirm: Bestätigen
-        update: Aktualisieren
+        confirm_info: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf "Claim" klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
+        claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
             <p>Hi %{name}, Deltabadger macht zwei Dinge:</p>

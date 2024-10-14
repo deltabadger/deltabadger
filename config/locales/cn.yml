@@ -6,6 +6,10 @@ cn:
                     attributes:
                         code:
                             invalid_format: 必须由大写字母数字字符构成
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}"是一个无效的以太坊地址。请重试。'
     ads:
         bitwarden_text: 。这是免费、开源的。
         bitwarden_title: '试试 Bitwarden'
@@ -677,7 +681,6 @@ cn:
         upgrade_plan: 升级套餐
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT将发送至：'
-        invalid_address: '"%{eth_address}"是一个无效的以太坊地址。请重试。'
         update_success: '"%{eth_address}" 已成功提交。NFT 将发送到此地址。'
         confirm: '确认'
         update: '更新'

@@ -6,6 +6,10 @@ en:
                     attributes:
                         code:
                             invalid_format: 'has to consist of uppercase alphanumeric characters'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" is an invalid Ethereum address. Please try again.'
     ads:
         bitwarden_text: '. It''s free and open-source.'
         bitwarden_title: 'Try Bitwarden'
@@ -621,6 +625,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -712,7 +717,7 @@ en:
                 other: 'Compensation for %{count} unused days of the Standard plan.'
             discount: '%{discount_percent}% discount'
             legendary_plan_discount: 'Early Bird discount'
-            legendary_plan_discount_info: 'With every sale the discount decreases $1. Don''t wait!'
+            legendary_plan_discount_info: 'With every sale the discount decreases $10. Don''t wait!'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I made SEPA transfer'
@@ -741,11 +746,10 @@ en:
         upgrade_plan: 'Upgrade plan'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
-        invalid_address: '"%{eth_address}" is an invalid Ethereum address. Please try again.'
         update_success: '"%{eth_address}" has been successfully submitted. The NFT will be sent to this address.'
         ethereum_address: 'Ethereum address'
-        confirm: Confirm
-        update: Update
+        confirm_info: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click "Claim", if the address is wrong, nobody can recover the NFT.'
+        claim: Claim NFT
     welcome:
         banner_html: |
             <p>Hi %{name}, Deltabadger does two things:</p>

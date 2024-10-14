@@ -1,7 +1,9 @@
 <% flash.each do |flash_type, message| %>
   <% style_class = flash_type.to_sym == :alert ? 'danger' : 'primary' %>
   <%= tag.div class: "flash__message salert salert--#{style_class}", data: { controller: "removals", action: "animationend->removals#remove" }, role: "alert" do %>
-  <%# "alert alert-primary" classes and "alert" role are just for inheriting Bootstrap styles from https://getbootstrap.com/docs/4.6/components/alerts/ %>
+    <%= button_tag class: 'modal__close', data: { action: 'removals#remove' } do %>
+      <%= render partial: 'svg/24x24_x' %>
+    <% end %>
     <%= message %>
   <% end %>
 <% end %>
