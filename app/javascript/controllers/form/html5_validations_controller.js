@@ -6,7 +6,7 @@ import { Controller } from "@hotwired/stimulus"
 // The error message will be displayed in a `p` tag with class `error`.
 // source: https://www.jorgemanrubia.com/2019/02/16/form-validations-with-html5-and-modern-rails/
 
-// Connects to data-controller="form-validation"
+// Connects to data-controller="form--html5-validations"
 export default class extends Controller {
   connect() {
     this.element.setAttribute('novalidate', true)

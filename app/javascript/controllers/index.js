@@ -25,8 +25,8 @@ application.register("form--submit-after-delay", Form__SubmitAfterDelayControlle
 import Form__SubmitController from "./form/submit_controller"
 application.register("form--submit", Form__SubmitController)
 
-import Form__ValidationController from "./form/validation_controller"
-application.register("form--validation", Form__ValidationController)
+import Form__Html5ValidationsController from "./form/html5_validations_controller"
+application.register("form--html5-validations", Form__Html5ValidationsController)
 
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
