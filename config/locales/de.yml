@@ -568,7 +568,7 @@ de:
         settings: Einstellungen
         sign_up: Anmelden
         terms_and_conditions: AGB
-        
+
     meta:
         title: 'Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung'
         title_short: 'Deltabadger - Auto-DCA in Bitcoin und andere Assets'
@@ -634,7 +634,7 @@ de:
                 other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
             legendary_badger_discount: 'Early Bird-Rabatt'
-            legendary_badger_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $ 1. Warte also nicht!'
+            legendary_badger_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
