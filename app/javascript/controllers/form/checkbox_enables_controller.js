@@ -8,11 +8,11 @@ export default class extends Controller {
     this.toggleSubmitButton()
   }
 
-  toggleSubmitButton() {
-    this.submitTarget.disabled = !this.checkboxTarget.checked
-  }
-
   checkboxChanged() {
     this.toggleSubmitButton()
+  }
+
+  toggleSubmitButton() {
+    this.submitTarget.disabled = !this.checkboxTarget.checked
   }
 }
