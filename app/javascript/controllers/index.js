@@ -25,6 +25,9 @@ application.register("form-key-press", FormKeyPressController)
 import FormSubmissionController from "./form_submission_controller"
 application.register("form-submission", FormSubmissionController)
 
+import FormValidationController from "./form_validation_controller"
+application.register("form-validation", FormValidationController)
+
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
 
