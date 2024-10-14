@@ -717,7 +717,7 @@ en:
                 other: 'Compensation for %{count} unused days of the Investor plan.'
             discount: '%{discount_percent}% discount'
             legendary_badger_discount: 'Early Bird discount'
-            legendary_badger_discount_info: 'With every sale the discount decreases $1. Don''t wait!'
+            legendary_badger_discount_info: 'With every sale the discount decreases $10. Don''t wait!'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I made SEPA transfer'
