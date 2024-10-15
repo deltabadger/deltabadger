@@ -3,7 +3,6 @@ class LegendaryBadgersController < ApplicationController
 
   def show
     @subscription = current_user.subscription
-    puts @subscription.inspect
   end
 
   def update
@@ -15,7 +14,9 @@ class LegendaryBadgersController < ApplicationController
       ).deliver_later
       redirect_to legendary_badger_path, notice: I18n.t('legendary_badger.update_success', eth_address: current_user.subscription.eth_address)
     else
-      redirect_to legendary_badger_path, alert: I18n.t('legendary_badger.invalid_address', eth_address: current_user.subscription.eth_address)
+      current_user.subscription.reload
+      @subscription = current_user.subscription
+      render :show, status: :unprocessable_entity
     end
   end
 

@@ -62,6 +62,6 @@ class Subscription < ApplicationRecord
   def eth_address_is_valid
     return if eth_address =~ /^0x[a-fA-F0-9]{40}$/
 
-    errors.add(:eth_address, 'is not a valid Ethereum address')
+    errors.add(:eth_address, :invalid_address, eth_address: eth_address)
   end
 end
