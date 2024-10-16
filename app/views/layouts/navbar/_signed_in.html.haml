@@ -17,12 +17,12 @@
         = t('links.dashboard')
 
     = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_analyzer'
+      = render 'svg/24x24_prism_c'
       .tooltip
         = t('links.analyzer')
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_referral_program'
+      = render 'svg/24x24_bitcoin'
       .tooltip
         = t('links.referral_program')
 
