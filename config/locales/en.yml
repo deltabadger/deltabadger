@@ -51,7 +51,7 @@ en:
             valid_for: 'Valid for the first purchase on the platform.'
         info_preview: 'This is a preview of what referees will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referee buys a Hodler plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small> </div>'
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referee buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small> </div>'
         new:
             checked: 'I checked everything carefully.'
             discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
@@ -105,10 +105,10 @@ en:
             template_html: '<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>'
         limit_almost_reached:
             subject: 'Limit almost reached'
-            template_html: '<p>You''ve almost reached the <b>Saver</b> plan transaction limit.</p><p>Upgrade your plan to <b>Investor</b>  or <b>Hodler</b> to make sure that your</br>bots will continue to work.</p>'
+            template_html: '<p>You''ve almost reached the <b>Saver</b> plan transaction limit.</p><p>Upgrade your plan to <b>Investor</b>  or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>'
         limit_reached:
             subject: 'You''ve reached the limit'
-            template_html: '<p>Oh, well done! Your <b>Saver</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Investor</b> or <b>Hodler</b> to remove all limits and put your bots back to work.</p>'
+            template_html: '<p>Oh, well done! Your <b>Saver</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Investor</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>'
         notify_about_error:
             subject: 'Something went wrong'
             template_html: '<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -116,7 +116,6 @@ en:
             subject: 'Oops! Next try…'
             template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Hodler and Legendary Badger only'
         above: above
         add_new_bot: 'Add new bot'
         below: below
@@ -713,11 +712,11 @@ en:
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
             compensation_hodler:
-                one: 'Compensation for 1 unused day of the Hodler plan.'
-                other: 'Compensation for %{count} unused days of the Hodler plan.'
+                one: 'Compensation for 1 unused day of the Pro plan.'
+                other: 'Compensation for %{count} unused days of the Pro plan.'
             compensation_investor:
-                one: 'Compensation for 1 unused day of the Investor plan.'
-                other: 'Compensation for %{count} unused days of the Investor plan.'
+                one: 'Compensation for 1 unused day of the Basic plan.'
+                other: 'Compensation for %{count} unused days of the Basic plan.'
             discount: '%{discount_percent}% discount'
             legendary_badger_discount: 'Early Bird discount'
             legendary_badger_discount_info: 'With every sale the discount decreases $10. Don''t wait!'
@@ -755,14 +754,14 @@ en:
         claim: Claim NFT
     welcome:
         banner_html: |
-            <p>Welcome aboard, %{name}! Winning moves for you:</p>
+            <p>Welcome aboard, %{name}! Here are some winning moves for you:</p>
             <ol>
-                <li>Buy Bitcoin with our <b>DCA bot</b> below and shout, <i>“Look mom, no hands!”</i></li>
-                <li>Build a portfolio with <b>🌈⃤  Prism</b> analyzer and leave the market in your rearview.<sur>*</sur><br><small><sur>*</sur>No crystal ball required.</small></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start first <b>DCA bot</b> and shout, <i>“Look mom, no hands!”</i></li>
+                <li>Improve your portfolio with <b>🌈⃤  Prism</b> analyzer and leave the market in your rearview.<sur>*</sur><br><small><sur>*</sur>No crystal ball required.</small></li>
                 <li>Join the <b>Fireheads</b> community and retire early—because working 'til 65? Yeah, hard pass.</li>
             </ol>
-            <p>Start in the community. Join us at the Wednesday Bonfire call to meet a gang of financial freedom rebels, my cofounder Guillem, and me. Life's too short to wait for weekends. (Waiting for Wednesday is way cooler).</p>
-            <p style="margin-bottom:0">Best, Jan</p>
+            <p><a href="https://skool.com/fire" title="Go to the community">Start in the community</a>. Join us at the Wednesday Bonfire call to meet a gang of financial freedom rebels, my cofounder Guillem, and me. Life's too short to wait for weekends. (Waiting for Wednesday is way cooler).</p>
+            <p style="margin-bottom:0">Catch you there, Jan</p>
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
         saver: 'Get rid of the limits, and make an upgrade!'
