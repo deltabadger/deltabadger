@@ -28,7 +28,7 @@
     <div class="db_legendary-plan__eth-form">
       <%= form_with model: @subscription, url: legendary_path, method: :patch, data: { controller: "form--checkbox-enables form--html5-validations" } do |f| %>
         <div class="db-form__row db-form__row--input db-form__row--input--empty">
-          <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: "^0x[a-fA-F0-9]{40}$", required: true %>
+          <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: ethereum_address_pattern, required: true %>
           <%= f.label :eth_address, I18n.t('legendary_badger.ethereum_address'), class: "db-form__label" %>
         </div>
 

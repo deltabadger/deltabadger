@@ -29,7 +29,7 @@ class Subscription < ApplicationRecord
   validate :eth_address_is_valid, if: -> { !eth_address.nil? }
 
   def eth_address_is_valid?
-    eth_address =~ /^0x[a-fA-F0-9]{40}$/
+    eth_address =~ Regexp.new(Ethereum.address_pattern)
   end
 
   private
