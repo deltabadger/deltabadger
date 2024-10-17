@@ -584,12 +584,15 @@ pt:
         days_left:
             one: '1 dia restante'
             other: '%{count} dias restantes'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bots DCA ilimitados</b>, taxas mais baixas com <b>ordens limitadas</b>, <b>saques automáticos</b>, <b>condição de preço</b>, <b>condição de tempo</b>(em breve).</p>'
-        investor: Investor
-        investor_description_html: 'Um ano de <b>transações ilimitadas</b>, <b>todas as moedas</b> e <b>saques automáticos</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Nunca mais pague para usar o serviço.</b></p><p>Tudo o que o plano Hodler oferece, mas para a vida toda.</p><p>A assinatura vem com um <b>NFT</b>, para que no futuro você possa vendê-la para outro usuário.</p><p>Cada token está associado a uma obra de arte processual. Você consegue encontrar todos os 21 "ovos de páscoa" escondidos na <a href="https://deltabadger.com/legendary/" class="nobreak">coleção</a>?</p><p>Para a vida toda. Limitado. Lendário.</p><p>Os Legendary Badgers são como nada mais no mercado.</p><p>Apenas 1000 estão na nave espacial dos Legendary Badgers. Consolide seu status de pensador a longo prazo e seja lendário.</p>'
+        basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
+        pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
+        legendary_badger_info_html: '<p>Todos os recursos Pro para a vida toda.</p><p>Você gosta de pagar uma vez e ter tudo? Junte-se ao nosso clube exclusivo de 1000 assinantes vitalícios e escreva sua própria lenda.</p><p>Somos pensadores de longo prazo com mãos de diamante e visão.</p><p>O NFT torna a assinatura um ativo que você pode transferir ou vender.</p><p>Cada token é associado a uma obra de arte procedural, com 21 <i>ovos de páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
+        features:
+            analyzer_html: 'Prism — Analisador de portfólio'
+            dca: 'Bots de DCA'
+            price_limit: 'Limite de preço'
+            fee_cutter: 'Corta-Taxas'
+            withdrawals: 'Saques automáticos'
         limit_reached_html: '<b>Parabéns!</b> Você atingiu nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
         expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Hodler: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
@@ -633,17 +636,14 @@ pt:
         claim: 'Reivindicar NFT'
     welcome:
         banner_html: |
-            <p>Oi %{name}, Deltabadger faz duas coisas:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Análise de Portfólio</li>
-            </ul>
-            <p>É simples:</p>
-            <p>Primeiro, você adquire ativos, e não há melhor maneira de fazer isso do que com DCA automatizado.</p>
-            <p><b>O primeiro bot agora é completamente gratuito</b>.</p>
-            <p>Em seguida, nosso Analisador ajuda você a encontrar a alocação ideal dos seus ativos com <b>Alocação Inteligente</b> e fornece outras dicas sobre como melhorar seu portfólio.</p>
-            <p>Se você tem uma mentalidade de longo prazo e gosta do que vê, considere juntar-se aos Legendary Badgers — uma <b>comunidade exclusiva de 1.000 assinantes vitalícios</b>. Esta é uma oferta única que apoia o projeto e oferece uma oportunidade única de se tornar um beneficiário vitalício de todos os superpoderes do Deltabadger.</p>
-            <p style="margin-bottom:0">Atenciosamente, Jan</p>
+            <p>Bem-vindo a bordo, %{name}! Movimentos vencedores para você:</p>
+            <ol>
+            <li>Compre Bitcoin com nosso <b>bot DCA</b> abaixo e grite: <i>“Olha mãe, sem mãos!”</i></li>
+            <li>Construa um portfólio com o <b>🌈⃤ Prism</b> analyzer e deixe o mercado no retrovisor.</sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
+            <li>Junte-se à comunidade <b>Fireheads</b> e aposente-se cedo – Trabalhar até os 65 anos? Tô fora.</li>
+            </ol>
+            <p>Comece na comunidade. Participe da chamada Wednesday Bonfire para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem e eu. A vida é muito curta para esperar pelos fins de semana. (Esperar até quarta-feira é muito mais legal).</p>
+            <p style="margin-bottom:0">Abraços, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         saver: 'Livra-te dos limites e faz um upgrade!'
