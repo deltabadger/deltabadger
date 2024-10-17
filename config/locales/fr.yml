@@ -102,10 +102,10 @@ fr:
             template_html: '<p>Vous utilisez Deltabadger depuis près d''un mois !</p><p>Votre essai gratuit et illimité se termine bientôt. N''oubliez pas d''effectuer une mise à niveau pour continuer à faire fonctionner vos blaireaux les plus lourds !</p>'
         limit_almost_reached:
             subject: 'Limite presque atteinte'
-            template_html: '<p>Vous avez presque atteint la limite de transactions du forfait <b>Saver</b>.</p><p>Passez au plan <b>Investor</b> ou <b>Hodler</b> pour vous assurer que vos bots</br>continueront à fonctionner.</p>'
+            template_html: '<p>Vous avez presque atteint la limite de transactions du forfait <b>Saver</b>.</p><p>Passez au plan <b>Investor</b> ou <b>Pro</b> pour vous assurer que vos bots</br>continueront à fonctionner.</p>'
         limit_reached:
             subject: 'Vous avez atteint la limite'
-            template_html: '<p>Bravo ! La limite de votre forfait <b>Saver</b> est atteinte.</p><p>On dirait que vous faites du DCA depuis un petit moment.</p><p>Nous espérons que vous êtes satisfait des résultats.</p><p>Passez au forfait <b>Investor</b> ou <b>Hodler</b> pour supprimer toutes les limites et remettre vos bots au travail.</p>'
+            template_html: '<p>Bravo ! La limite de votre forfait <b>Saver</b> est atteinte.</p><p>On dirait que vous faites du DCA depuis un petit moment.</p><p>Nous espérons que vous êtes satisfait des résultats.</p><p>Passez au forfait <b>Investor</b> ou <b>Pro</b> pour supprimer toutes les limites et remettre vos bots au travail.</p>'
         notify_about_error:
             subject: 'Quelque chose s''est mal passé'
             template_html: '<p>Une erreur s''est produite lors du traitement de la dernière transaction.</p><p>Vous pouvez voir l''erreur dans le journal du bot. Connectez-vous pour le vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -113,7 +113,6 @@ fr:
             subject: 'Oups ! Prochain essai...'
             template_html: '<p>Le robot n''a pas pu exécuter votre ordre. On dirait qu''il s''agit d''un problème d''exchange. Nous réessayerons dans %{delay}.</p><p>Toutes les erreurs sont visibles dans le journal du robot. Connectez-vous pour vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Seulement Hodler et Legendary Badger'
         above: 'au dessus'
         add_new_bot: 'Ajouter un nouveau bot'
         below: 'en dessous'
@@ -673,7 +672,7 @@ fr:
             withdrawals: 'Retraits automatiques'
         limit_reached_html: '<b>Félicitations!</b> Vous avez atteint notre limite de transactions gratuites de 1200 $/an. Pour continuer, passez au plan illimité.'
         analyzer_html: 'Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>.'
-        expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Hodler : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
+        expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Pro : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
         payment:
             account_holder: 'Titulaire du compte'
             account_number: 'Numéro de compte'
@@ -685,8 +684,8 @@ fr:
             bitcoin: 'Bitcoin'
             stripe_payment_succeeded: 'Paiement réussi, vous devriez être redirigé dans quelques secondes.'
             compensation_hodler:
-                one: 'Compensation pour 1 jour inutilisé du forfait Hodler'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Hodler'
+                one: 'Compensation pour 1 jour inutilisé du forfait Pro'
+                other: 'Compensation pour %{count} jours inutilisés du forfait Pro'
             compensation_investor:
                 one: 'Compensation pour 1 jour inutilisé du forfait Investisseur'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Investisseur'
@@ -726,14 +725,14 @@ fr:
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
-            <p>Bienvenue à bord, %{name} ! Des mouvements gagnants pour toi :</p>
+            <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
             <ol>
-            <li>Achetez du Bitcoin avec notre <b>bot DCA</b> ci-dessous et criez : <i>“Regarde maman, sans les mains !”</i></li>
-            <li>Construis un portefeuille avec l'analyseur <b>🌈⃤ Prism</b> et laisse le marché dans ton rétroviseur.</sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
-            <li>Rejoins la communauté des <b>Fireheads</b> et prends ta retraite anticipée – travailler jusqu'à 65 ans ? Pas question.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Lance ton premier <b>bot DCA</b> et crie, <i>« Regarde maman, sans les mains ! »</i></li>
+                <li>Améliore ton portefeuille avec l'analyseur <b>🌈⃤ Prism</b> et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
+                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non merci.</li>
             </ol>
-            <p>Commence dans la communauté. Rejoins-nous lors de l'appel du Bonfire mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Mieux vaut attendre mercredi).</p>
-            <p style="margin-bottom:0">Cordialement, Jan</p>
+            <p><a href="https://skool.com/fire" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre mercredi est bien plus cool).</p>
+            <p style="margin-bottom:0">À bientôt, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
         saver: 'Dites au revoir aux limites et faites une mise à niveau !'

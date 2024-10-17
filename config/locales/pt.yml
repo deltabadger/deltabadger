@@ -87,7 +87,6 @@ pt:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
     bots:
-        hodler_only: 'Apenas Hodler e Legendary Badger'
         above: acima
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
@@ -595,7 +594,7 @@ pt:
             withdrawals: 'Saques automáticos'
         limit_reached_html: '<b>Parabéns!</b> Você atingiu nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
-        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Hodler: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
+        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
@@ -636,14 +635,14 @@ pt:
         claim: 'Reivindicar NFT'
     welcome:
         banner_html: |
-            <p>Bem-vindo a bordo, %{name}! Movimentos vencedores para você:</p>
+            <p>Bem-vindo a bordo, %{name}! Aqui estão alguns movimentos vencedores para você:</p>
             <ol>
-            <li>Compre Bitcoin com nosso <b>bot DCA</b> abaixo e grite: <i>“Olha mãe, sem mãos!”</i></li>
-            <li>Construa um portfólio com o <b>🌈⃤ Prism</b> analyzer e deixe o mercado no retrovisor.</sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
-            <li>Junte-se à comunidade <b>Fireheads</b> e aposente-se cedo – Trabalhar até os 65 anos? Tô fora.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Comece o primeiro <b>bot DCA</b> e grite, <i>“Olha mãe, sem mãos!”</i></li>
+                <li>Melhore seu portfólio com o <b>🌈⃤ Prism</b> analyzer e deixe o mercado no retrovisor.<sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
+                <li>Junte-se à comunidade <b>Fireheads</b> e aposente-se cedo—porque trabalhar até os 65? Não, obrigado.</li>
             </ol>
-            <p>Comece na comunidade. Participe da chamada Wednesday Bonfire para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem e eu. A vida é muito curta para esperar pelos fins de semana. (Esperar até quarta-feira é muito mais legal).</p>
-            <p style="margin-bottom:0">Abraços, Jan</p>
+            <p><a href="https://skool.com/fire" title="Ir para a comunidade">Comece na comunidade</a>. Participe da chamada Bonfire de quarta-feira para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem, e eu. A vida é muito curta para esperar pelos fins de semana. (Esperar até quarta-feira é muito mais legal).</p>
+            <p style="margin-bottom:0">Te vejo lá, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         saver: 'Livra-te dos limites e faz um upgrade!'
