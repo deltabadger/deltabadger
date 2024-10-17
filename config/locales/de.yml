@@ -41,7 +41,7 @@ de:
             valid_for: 'Gültig für den ersten Kauf auf der Plattform.'
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Hodler für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Pro für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
         new:
             checked: 'Ich habe mir alles genau angesehen.'
             discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
@@ -87,7 +87,6 @@ de:
         first_month_ending_soon:
             subject: 'Dein Probemonat endet bald!'
     bots:
-        hodler_only: 'Nur Hodler und Legendary Badger'
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'
         below: unter
@@ -618,7 +617,7 @@ de:
             withdrawals: 'Automatische Auszahlungen'
         limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Transaktionslimit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
-        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Hodler-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
+        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
             account_holder: Kontoinhaber
             account_number: Kontonummer
@@ -630,11 +629,11 @@ de:
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
             compensation_hodler:
-                one: 'Entschädigung für 1 ungenutzten Tag des Hodler-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Hodler-Plans.'
+                one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
             compensation_investor:
-                one: 'Entschädigung für 1 ungenutzten Tag des Investorenplans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
+                one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
             legendary_badger_discount: 'Early Bird-Rabatt'
             legendary_badger_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
@@ -671,14 +670,14 @@ de:
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
-            <p>Willkommen an Bord, %{name}! Gewinnende Züge für dich:</p>
+            <p>Willkommen an Bord, %{name}! Hier sind ein paar gewinnende Schritte für dich:</p>
             <ol>
-            <li>Kaufe Bitcoin mit unserem <b>DCA-Bot</b> unten und rufe: <i>„Guck mal, Mama, keine Hände!”</i></li>
-            <li>Baue ein Portfolio mit dem <b>🌈⃤ Prism</b> Analyzer auf und lass den Markt im Rückspiegel.</sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
-            <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – bis 65 arbeiten? Auf keinen Fall.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Starte deinen ersten <b>DCA-Bot</b> und rufe: <i>„Guck mal, Mama, keine Hände!”</i></li>
+                <li>Verbessere dein Portfolio mit dem <b>🌈⃤ Prism</b> Analyzer und lass den Markt im Rückspiegel. <sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
+                <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – denn bis 65 arbeiten? Nein, danke.</li>
             </ol>
-            <p>Starte in der Community. Sei dabei beim Wednesday Bonfire Call und triff eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich. Das Leben ist zu kurz, um auf Wochenenden zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
-            <p style="margin-bottom:0">Beste Grüße, Jan</p>
+            <p><a href="https://skool.com/fire" title="Zur Community">Starte in der Community</a>. Nimm an unserem Wednesday Bonfire Call teil, um eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich kennenzulernen. Das Leben ist zu kurz, um auf das Wochenende zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
+            <p style="margin-bottom:0">Bis dann, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
         saver: 'Befreie dich von den Limits und mach ein Upgrade!'
