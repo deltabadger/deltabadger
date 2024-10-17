@@ -102,10 +102,10 @@ es:
             template_html: '<p>Llevas casi un mes utilizando Deltabadger.</p><p>Tu prueba gratuita e ilimitada terminará pronto. Asegúrate de actualizar para que tus tejones más pesados sigan funcionando.</p>'
         limit_almost_reached:
             subject: 'Límite casi alcanzado'
-            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Inversor</b> o <b>Hodler</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
+            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Inversor</b> o <b>Pro</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
         limit_reached:
             subject: 'Has llegado al límite'
-            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Inversor</b> o <b>Hodler</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
+            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Inversor</b> o <b>Pro</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
         notify_about_error:
             subject: 'Algo salió mal'
             template_html: '<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Error:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -113,7 +113,6 @@ es:
             subject: 'Oops! Siguiente intento'
             template_html: '<p>El bot no ha podido realizar tu pedido. Parece un problema de intercambio. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Solo Hodler y Legendary Badger'
         above: 'por encima'
         add_new_bot: 'Añadir nuevo bot'
         below: 'por debajo'
@@ -674,7 +673,7 @@ es:
             withdrawals: 'Retiros automáticos'
         limit_reached_html: '<b>¡Felicidades!</b> Has alcanzado nuestro límite de transacciones gratuitas de 1200 dólares/año. Para continuar, actualiza al plan ilimitado.'
         analyzer_html: 'Mejora tu cartera con el poder ilimitado del <b>Analizador de Cartera</b>.'
-        expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Hodler: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
+        expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Pro: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
         payment:
             account_holder: 'Titular de la cuenta'
             account_number: 'Número de cuenta'
@@ -686,8 +685,8 @@ es:
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Pago completado con éxito, se te debería redirigir en unos segundos.'
             compensation_hodler:
-                one: 'Compensación por un día sin usar el plan Hodler'
-                other: 'Compensación por %{count} días sin usar el plan Hodler.'
+                one: 'Compensación por un día sin usar el plan Pro'
+                other: 'Compensación por %{count} días sin usar el plan Pro.'
             compensation_investor:
                 one: 'Compensación por un día sin usar el plan Inversor'
                 other: 'Compensación por %{count} días sin usar el plan Inversor.'
@@ -729,11 +728,11 @@ es:
         banner_html: |
             <p>¡Bienvenido al equipo, %{name}! 3 movimientos que te harán ganar:</p>
             <ol>
-            <li>Compra Bitcoin con nuestro <b>bot de DCA</b> y grita: <i>“¡Mira mamá, sin manos!”</i></li>
-            <li>Construye una cartera de inversión con <b>🌈⃤ Prism</b> analyzer y olvídate de predecir el mercado.</sur>*</sur><br><small><sur>*</sur>Nada de bolas de cristal.</small></li>
-            <li>Únete a la comunidad <b>Fireheads</b> y retírate antes de lo previsto, porque ¿trabajar hasta los 65? Mejor no.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Inicia tu primer <b>bot DCA</b> y grita, <i>“¡Mira mamá, sin manos!”</i></li>
+                <li>Mejora tu portafolio con el <b>🌈⃤ Prism</b> analyzer y deja al mercado en el retrovisor.<sur>*</sur><br><small><sur>*</sur>No necesitas una bola de cristal.</small></li>
+                <li>Únete a la comunidad <b>Fireheads</b> y retírate antes de lo previsto, porque ¿trabajar hasta los 65? Mejor no.</li>
             </ol>
-            <p>Comienza en la comunidad. Súmate a nuestra "Bonfire Call", una llamada que hacemos cada miércoles donde podrás conocer a un grupo de rebeldes de la libertad financiera, a mi cofundador Guillem y a mí. Sabemos que la vida es demasiado corta para esperar el fin de semana, esperar el miércoles es mucho más guay!</p>
+            <p><a href="https://skool.com/fire" title="Ir a la comunidad">Comienza en la comunidad</a>. Súmate a nuestra "Bonfire Call", una llamada que hacemos cada miércoles donde podrás conocer a un grupo de rebeldes de la libertad financiera, a mi cofundador Guillem y a mí. Sabemos que la vida es demasiado corta para esperar el fin de semana, esperar el miércoles es mucho más guay!</p>
             <p style="margin-bottom:0">Saludos, Jan</p>
         default: 'Hola, bienvenido a Deltabadger'
         legendary: '¡Los NFts llegarán pronto!'
