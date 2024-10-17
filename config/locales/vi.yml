@@ -634,13 +634,17 @@ vi:
             template_html: "<p>Tuyệt quá 💙,</p>\n<p>Cảm ơn bạn đã mua gói</p>\n<p>\n  <b>\n    %{years} năm %{plan_name} của chúng tôi\n  </b>\n</p>\n<p>Bạn thật tuyệt! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bot DCA không giới hạn</b>, phí thấp hơn với <b>lệnh giới hạn</b>, <b>rút tiền tự động</b>, <b>điều kiện giá</b>, <b>điều kiện thời gian</b>(sắp có).</p>'
-        investor: Investor
-        investor_description_html: 'Một năm <b>giao dịch không giới hạn</b>, <b>tất cả các loại tiền</b>, và <b>rút tiền tự động</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Không bao giờ phải trả phí sử dụng dịch vụ nữa.</b></p><p>Mọi thứ mà gói Hodler cung cấp, nhưng là suốt đời.</p><p>Đăng ký đi kèm với một <b>NFT</b>, do đó trong tương lai bạn có thể bán nó cho người dùng khác.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật quy trình. Bạn có thể tìm thấy tất cả 21 "trứng phục sinh" ẩn trong <a href="https://deltabadger.com/legendary/" class="nobreak">bộ sưu tập</a> không?</p><p>Suốt đời. Giới hạn. Huyền thoại.</p><p>Legendary Badgers là duy nhất trên thị trường.</p><p>Chỉ có 1000 chỗ ngồi trên tàu vũ trụ của Legendary Badgers. Hãy củng cố vị thế của bạn như một người suy nghĩ dài hạn và trở thành huyền thoại.</p>'
+            one: 'Còn 1 ngày'
+            other: 'Còn %{count} ngày'
+        basic_info: 'Không phức tạp, chỉ làm việc hiệu quả.'
+        pro_info: 'Có cái nhìn tổng quát, phân tích sâu và các tính năng Pro.'
+        legendary_badger_info_html: '<p>Tất cả các tính năng Pro trọn đời.</p><p>Bạn thích thanh toán một lần và nhận được tất cả? Tham gia câu lạc bộ giới hạn 1000 người đăng ký trọn đời của chúng tôi và viết nên huyền thoại của riêng bạn.</p><p>Chúng tôi là những người suy nghĩ dài hạn với đôi bàn tay kim cương và tầm nhìn chiến lược.</p><p>NFT biến đăng ký của bạn thành một tài sản có thể chuyển nhượng hoặc bán.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật tạo ngẫu nhiên, với 21 <i>trứng phục sinh</i> ẩn trong <a href="https://legendarybadgers.com/" class="nobreak">bộ sưu tập</a>.</p>'
+        features:
+            analyzer_html: 'Prism — công cụ phân tích danh mục đầu tư'
+            dca: 'Bot DCA'
+            price_limit: 'Giới hạn giá'
+            fee_cutter: 'Cắt giảm phí'
+            withdrawals: 'Tự động rút tiền'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
         analyzer_html: 'Tăng cường danh mục đầu tư của bạn với sức mạnh không giới hạn của <b>Trình phân tích Danh mục đầu tư</b>.'
         expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Hodler: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
@@ -694,17 +698,14 @@ vi:
         claim: 'Nhận NFT'
     welcome:
         banner_html: |
-            <p>Chào %{name}, Deltabadger làm hai việc:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Phân tích danh mục đầu tư</li>
-            </ul>
-            <p>Rất đơn giản:</p>
-            <p>Đầu tiên, bạn mua tài sản, và không có cách nào tốt hơn để làm điều đó ngoài DCA tự động.</p>
-            <p><b>Bot đầu tiên hiện hoàn toàn miễn phí</b>.</p>
-            <p>Sau đó, Bộ phân tích của chúng tôi giúp bạn tìm ra phân bổ tối ưu cho tài sản của mình với <b>Phân bổ thông minh</b> và cung cấp các gợi ý khác về cách cải thiện danh mục đầu tư của bạn.</p>
-            <p>Nếu bạn có tư duy dài hạn và bạn thích những gì bạn thấy, hãy cân nhắc tham gia Legendary Badgers — một <b>cộng đồng độc quyền gồm 1.000 người đăng ký trọn đời</b>. Đây là một lời đề nghị độc đáo không chỉ hỗ trợ dự án mà còn mang đến cho bạn cơ hội trở thành người thụ hưởng trọn đời của tất cả các siêu năng lực của Deltabadger.</p>
-            <p style="margin-bottom:0">Trân trọng, Jan</p>
+            <p>Chào mừng lên tàu, %{name}! Những bước đi chiến thắng cho bạn:</p>
+            <ol>
+            <li>Mua Bitcoin với <b>bot DCA</b> của chúng tôi bên dưới và hét: <i>“Mẹ ơi, nhìn này, không cần tay!”</i></li>
+            <li>Xây dựng danh mục đầu tư với <b>🌈⃤ Prism</b> analyzer và bỏ lại thị trường phía sau.</sur>*</sur><br><small><sur>*</sur>Không cần quả cầu pha lê.</small></li>
+            <li>Tham gia cộng đồng <b>Fireheads</b> và nghỉ hưu sớm – Làm việc đến 65 tuổi? Khỏi cần.</li>
+            </ol>
+            <p>Bắt đầu trong cộng đồng. Tham gia cuộc gọi Bonfire vào thứ Tư để gặp gỡ nhóm các kẻ nổi loạn tài chính, đồng sáng lập của tôi Guillem và tôi. Cuộc đời quá ngắn để đợi đến cuối tuần. (Đợi đến thứ Tư thì hay hơn).</p>
+            <p style="margin-bottom:0">Thân, Jan</p>
     metrics:
         exp_return:
             short_name: 'Lợi nhuận kỳ vọng'

@@ -635,13 +635,17 @@ id:
             template_html: "<p>Wow 💙,</p>\n<p>Terima kasih sudah membeli</p>\n<p>\n  <b>\n    paket %{plan_name} %{years}-tahun kami\n  </b>\n</p>\n<p>Keren! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bot DCA tanpa batas</b>, biaya lebih rendah dengan <b>limit order</b>, <b>penarikan otomatis</b>, <b>kondisi harga</b>, <b>kondisi waktu</b>(segera).</p>'
-        investor: Investor
-        investor_description_html: 'Satu tahun <b>transaksi tak terbatas</b>, <b>semua mata uang</b>, dan <b>penarikan otomatis</b>.'
-        legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p><b>Jangan pernah lagi membayar untuk menggunakan layanan ini.</b></p><p>Segala yang ditawarkan oleh paket Hodler, tetapi seumur hidup.</p><p>Langganan ini dilengkapi dengan <b>NFT</b>, sehingga di masa depan Anda dapat menjualnya kepada pengguna lain.</p><p>Setiap token terkait dengan karya seni prosedural. Bisakah Anda menemukan 21 "telur Paskah" yang tersembunyi dalam <a href="https://deltabadger.com/legendary/" class="nobreak">koleksi</a>?</p><p>Seumur hidup. Terbatas. Legendaris.</p><p>Legendary Badgers tidak seperti apa pun yang ada di pasar.</p><p>Hanya 1000 tempat di pesawat luar angkasa Legendary Badgers. Semen status pemikir jangka panjang Anda, dan jadilah Legendaris.</p>'
+            one: '1 hari tersisa'
+            other: '%{count} hari tersisa'
+        basic_info: 'Tanpa embel-embel, langsung bekerja.'
+        pro_info: 'Dapatkan gambaran besar, wawasan mendalam, dan fitur Pro.'
+        legendary_badger_info_html: '<p>Semua fitur Pro seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub terbatas kami yang terdiri dari 1000 pelanggan seumur hidup dan tulis legenda Anda sendiri.</p><p>Kami adalah pemikir jangka panjang dengan tangan berlian dan visi.</p><p>NFT membuat langganan menjadi aset yang dapat Anda transfer atau jual.</p><p>Setiap token terkait dengan karya seni prosedural, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
+        features:
+            analyzer_html: 'Prism — penganalisis portofolio'
+            dca: 'Bot DCA'
+            price_limit: 'Batas harga'
+            fee_cutter: 'Pemotong biaya'
+            withdrawals: 'Penarikan otomatis'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
         analyzer_html: 'Tingkatkan portofolio Anda dengan kekuatan tak terbatas dari <b>Portfolio Analyzer</b>.'
         expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Hodler: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
@@ -696,16 +700,14 @@ id:
         claim: 'Klaim NFT'
     welcome:
         banner_html: |
-            <p>Hai %{name}, Deltabadger melakukan dua hal:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Analisis Portofolio</li>
-            </ul>
-            <p>Sangat sederhana:</p>
-            <p>Pertama, Anda memperoleh aset, dan tidak ada cara yang lebih baik untuk melakukannya selain dengan DCA otomatis.</p>
-            <p><b>Bot pertama sekarang sepenuhnya gratis</b>.</p>
-            <p>Kemudian, Analyzer kami membantu Anda menemukan alokasi optimal dari aset Anda dengan <b>Alokasi Cerdas</b> dan memberikan petunjuk lainnya tentang cara meningkatkan portofolio Anda.</p>
-            <p>Jika Anda memiliki pola pikir jangka panjang dan Anda menyukai apa yang Anda lihat, pertimbangkan untuk bergabung dengan Legendary Badgers — <b>komunitas eksklusif dari 1.000 pelanggan seumur hidup</b>. Ini adalah tawaran unik yang mendukung proyek dan memberi Anda kesempatan unik untuk menjadi penerima manfaat seumur hidup dari semua kekuatan super Deltabadger.</p>
+            banner_html: |
+            <p>Selamat datang di kapal, %{name}! Langkah menang untukmu:</p>
+            <ol>
+            <li>Beli Bitcoin dengan <b>bot DCA</b> kami di bawah dan teriak: <i>“Lihat, Bu, tanpa tangan!”</i></li>
+            <li>Bangun portofolio dengan <b>🌈⃤ Prism</b> analyzer dan tinggalkan pasar di kaca spion.</sur>*</sur><br><small><sur>*</sur>Tidak perlu bola kristal.</small></li>
+            <li>Bergabunglah dengan komunitas <b>Fireheads</b> dan pensiun dini. Bekerja sampai usia 65? Tidak, terima kasih.</li>
+            </ol>
+            <p>Mulai di komunitas. Bergabunglah dengan kami pada panggilan Bonfire Rabu untuk bertemu sekelompok pemberontak kebebasan finansial, cofounder saya Guillem, dan saya. Hidup terlalu singkat untuk menunggu akhir pekan. (Menunggu Rabu jauh lebih keren).</p>
             <p style="margin-bottom:0">Salam, Jan</p>
         default: 'Hai, selamat datang di Deltabadger'
         saver: 'Hapus limit dan tingkatkan paket!'

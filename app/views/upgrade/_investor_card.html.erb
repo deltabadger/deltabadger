@@ -1,5 +1,5 @@
 <div class="db-plans__item__name">
-  <%= t('subscriptions.investor') %>
+  Basic
   <div class="db-years">
     <% if days_left %>
       <div class="text-success"><%= t('subscriptions.days_left', count: current_user.plan_days_left) %></div>
@@ -24,4 +24,10 @@
     <% end %>
   <% end %>
 </div>
-<div class="db-plans__item__info"><%= t('subscriptions.investor_description_html') %></div>
+<div class="db-plans__item__info">
+  <p><%= t('subscriptions.basic_info') %></p>
+  <ul>
+    <li><%= t('subscriptions.features.dca') %></li>
+    <li><%= t('subscriptions.features.withdrawals') %></li>
+  </ul>
+</div>
