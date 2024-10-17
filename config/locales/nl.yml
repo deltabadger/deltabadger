@@ -680,7 +680,6 @@ nl:
             bank_address: 'Bank adres'
             billing_information: Factuurgegevens
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
             compensation_pro:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'

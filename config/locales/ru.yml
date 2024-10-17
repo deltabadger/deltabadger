@@ -671,7 +671,6 @@ ru:
             bank_address: 'Адрес банка'
             billing_information: 'Информация об оплате'
             bitcoin: Биткоин
-            stripe_payment_succeeded: ''
             compensation_pro:
                 one: ''
                 few: ''

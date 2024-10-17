@@ -625,7 +625,6 @@ de:
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
             compensation_pro:
                 one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
