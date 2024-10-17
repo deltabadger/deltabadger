@@ -633,9 +633,20 @@ cn:
             template_html: "<p>哇 💙，</p>\n<p>感谢购买我们的</p>\n<p>\n  <b>\n    %{years} 年 %{plan_name} 套餐\n  </b>\n</p>\n<p>您真棒！🔥</p>"
     subscriptions:
         days_left:
-            other: '剩余 %{{count}} 天'
-        hodler: Hodler
-        hodler_description_html: '<p><b>无限的 DCA 机器人</b>，<b>限价单</b> 费用更低，<b>自动取款</b>，<b>价格条件</b>，<b>时间条件</b>（很快）。</p>'
+            one: '剩余1天'
+            other: '剩余%{count}天'
+        basic_info: '没有花哨的功能，但能完成任务。'
+        pro_info: '掌握全局，深入洞察，并享受Pro功能。'
+        legendary_badger_info_html: '<p>终身享受所有Pro功能。</p><p>只想支付一次并得到一切？加入我们限量的1000名终身订阅者俱乐部，书写属于你的传奇。</p><p>我们是长期思考者，手握钻石般的决心与远见。</p><p>NFT让订阅成为一个你可以转让或出售的资产。</p><p>每个代币都与程序生成的艺术作品关联，藏有21个隐藏的<i>彩蛋</i>，就在<a href="https://legendarybadgers.com/" class="nobreak">收藏品</a>中。</p>'
+        features:
+            analyzer_html: 'Prism — 投资组合分析器'
+            dca: 'DCA 机器人'
+            price_limit: '价格上限'
+            fee_cutter: '费率切割器'
+            withdrawals: '自动提现'
+        limit_reached_html: '<b>恭喜！</b> 你已达到我们每年1200美元的免费交易限额。想继续使用？请升级到无限计划。'
+        analyzer_html: '利用<b>🌈⃤ Prism</b>投资组合分析器的无限力量提升你的投资组合。'
+        expires_soon_html: '我们正在快速建设中，以下是即将加入Pro计划的最重要功能：<b>市场监控</b>，<b>投资组合再平衡</b>（由分析器驱动），以及<b>现有账户同步</b>。</b>'
         payment:
             account_holder: 账号持有人
             account_number: 账号
@@ -686,16 +697,13 @@ cn:
         update: '更新'
     welcome:
         banner_html: |
-            <p>您好，%{name}，Deltabadger 做两件事：</p>
-            <ul>
-                <li>DCA (Dollar-Cost Averaging)</li>
-                <li>投资组合分析</li>
-            </ul>
-            <p>这很简单：</p>
-            <p>首先，您获得资产，而自动DCA是实现这一目标的最佳方式。</p>
-            <p><b>第一个机器人现在完全免费</b>。</p>
-            <p>然后，我们的分析器帮助您通过<b>智能分配</b>找到资产的最佳配置，并提供其他建议，以改进您的投资组合。</p>
-            <p>如果您有长期思维，并且喜欢您所看到的，请考虑加入 Legendary Badgers ——一个<b>由 1,000 名终身订阅者组成的独家社区</b>。这是一个无与伦比的机会，既能支持项目，又能成为 Deltabadger 所有超能力的终身受益者。</p>
+            <p>欢迎登船，%{name}！你的获胜之道：</p>
+            <ol>
+            <li>使用我们的<b>DCA 机器人</b>购买比特币，并大喊：<i>“妈妈，看，我不用手！”</i></li>
+            <li>使用<b>🌈⃤ Prism</b>分析器建立一个投资组合，把市场甩在身后。</sur>*</sur><br><small><sur>*</sur>无需水晶球。</small></li>
+            <li>加入<b>Fireheads</b>社区，提前退休——工作到65岁？绝对不行。</li>
+            </ol>
+            <p>从社区开始。加入我们的周三篝火会议，认识一群追求财务自由的叛逆者，我的联合创始人 Guillem 和我。生命太短，不能只等周末。（等待周三更酷）。</p>
             <p style="margin-bottom:0">此致，Jan</p>
     metrics:
         exp_return:
