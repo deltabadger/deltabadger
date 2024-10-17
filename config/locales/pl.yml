@@ -51,7 +51,7 @@ pl:
             valid_for: 'Ważny przy pierwszym zakupie na platformie.'
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
-        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>\n <ol>\n <li> Dla uproszczenia cena Bitcoina wynosi ~10000$, rabat 10%, a Twoja marża 20%. </li>\n <li> Osoba korzystająca z linku kupuje roczny plan za 49,99 USD, płacąc po rabacie 44,99 USD, co równa się 0,0045 BTC. Zarabiasz 0,001 BTC (20% z 49,99 $). </li>\n <li> Nie ma znaczenia, czy cena Bitcoina w międzyczasie się zmieni. Twój zysk w BTC zostaje ustalony w momencie transakcji. </li>\n <li> Następnym razem ten sam użytkownik kupuje abonament Hodler za 149,99 USD i płaci 0,015 BTC. Nie otrzymuje już zniżki, ale ty nadal dostajesz swoje 20%, czyli 0,003 BTC. </li>\n <li> Będziesz zarabiać, dopóki masz aktywny plan<sup> 2 </sup> , a całkowity zysk z transakcji danego użytkownika nie osiągnie 50 USD. </li>\n </ol>\n\n <p> <em> Zarabianie w bitcoinach to najlepszy sposób na uśrednianie! </em> </p>\n <small class=\"mb-2\"><sup> 1 </sup> Limit wynosi 50 USD lub 50 EUR, w zależności od waluty, którą korzystający z linku widzi przy zakupie. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Dla użytkownika link polecający działa nawet po wygaśnięciu twojej subskrypcji. </small>\n </div>"
+        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>\n <ol>\n <li> Dla uproszczenia cena Bitcoina wynosi ~10000$, rabat 10%, a Twoja marża 20%. </li>\n <li> Osoba korzystająca z linku kupuje roczny plan za 49,99 USD, płacąc po rabacie 44,99 USD, co równa się 0,0045 BTC. Zarabiasz 0,001 BTC (20% z 49,99 $). </li>\n <li> Nie ma znaczenia, czy cena Bitcoina w międzyczasie się zmieni. Twój zysk w BTC zostaje ustalony w momencie transakcji. </li>\n <li> Następnym razem ten sam użytkownik kupuje abonament Pro za 149,99 USD i płaci 0,015 BTC. Nie otrzymuje już zniżki, ale ty nadal dostajesz swoje 20%, czyli 0,003 BTC. </li>\n <li> Będziesz zarabiać, dopóki masz aktywny plan<sup> 2 </sup> , a całkowity zysk z transakcji danego użytkownika nie osiągnie 50 USD. </li>\n </ol>\n\n <p> <em> Zarabianie w bitcoinach to najlepszy sposób na uśrednianie! </em> </p>\n <small class=\"mb-2\"><sup> 1 </sup> Limit wynosi 50 USD lub 50 EUR, w zależności od waluty, którą korzystający z linku widzi przy zakupie. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Dla użytkownika link polecający działa nawet po wygaśnięciu twojej subskrypcji. </small>\n </div>"
         new:
             checked: 'Sprawdziłem wszystko dokładnie.'
             discount_info_html: '<b> Zarobisz <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, a korzystający z linku otrzyma <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu</b>.'
@@ -102,7 +102,7 @@ pl:
             template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
         limit_almost_reached:
             subject: 'Limit prawie wyczerpany'
-            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Investor</b> lub <b>Hodler</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
+            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Investor</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
         limit_reached:
             subject: 'Wyczerpałeś darmowy limit'
             template_html: '<p>No to się udało! Osiagnąłeś limit planu <b>Oszczędny</b>.</p><p>Wygląda na to, że od jakiegoś czasu uśredniasz cenę z naszymi botami.</p><p>Mamy nadzieję, że jesteś zadowolony z wyników.</p><p>Zrób upgrade, aby usunąć wszystkie limity i przywrócić swoje boty do pracy.</p>'
@@ -113,7 +113,6 @@ pl:
             subject: 'Ups! Następna próba...'
             template_html: '<p>Bot nie mógł wykonać twojego zamówienia. Wygląda to na problem z wymianą walut. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logu bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Tylko Hodler i Legendary Badger'
         above: powyżej
         add_new_bot: 'Dodaj nowego bota'
         below: poniżej
@@ -686,7 +685,7 @@ pl:
             withdrawals: 'Automatyczne wypłaty'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200 $/rok. Aby kontynuować, wykup płatną subskrypcję.'
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
-        expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Hodler: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
+        expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Pro: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
         payment:
             account_holder: Odbiorca
             account_number: 'Numer konta'
@@ -698,15 +697,15 @@ pl:
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Płatność się powiodła, powinieneś zostać przekierowany w ciągu kilku sekund.'
             compensation_hodler:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Hodler.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Hodler.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Hodler.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Hodler.'
+                one: 'Wyrównanie za 1 niewykorzystany dzień planu Pro.'
+                few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'
+                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
+                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
             compensation_investor:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Inwestor.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Inwestor.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Inwestor.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Inwestor.'
+                one: 'Wyrównanie za 1 niewykorzystany dzień planu Basic.'
+                few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
+                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
+                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
             discount: '%{discount_percent}% rabatu'
             legendary_badger_discount: 'Zniżka Early Bird'
             legendary_badger_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
@@ -743,14 +742,14 @@ pl:
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |
-            <p>Witamy na pokładzie, %{name}! Zwycięskie ruchy dla Ciebie:</p>
+            <p>Witamy na pokładzie, %{name}! Oto kilka zwycięskich ruchów dla Ciebie:</p>
             <ol>
-                <li>Kup Bitcoin z naszym <b>botem DCA</b> poniżej i krzycz: <i>„Mamo, patrz, jadę bez trzymanki!”</i></li>
-                <li>Zbuduj portfel z analizatorem <b>🌈⃤ Prism</b> i zostaw rynek w tyle.</sur>*</sur><br><small><sur>*</sur>Nie potrzebujesz szklanej kuli.</small></li>
-                <li>Dołącz do społeczności <b>Fireheads</b> i przejdź na wczesną emeryturę. Tyrać do 65? Nie, dziękuję.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Uruchom swojego pierwszego <b>bota DCA</b> i krzyknij, <i>„Mamo, patrz, jadę bez trzymanki!”</i></li>
+                <li>Popraw swój portfel z <b>🌈⃤ Prism</b> analyzer i zostaw rynek w tyle.<sur>*</sur><br><small><sur>*</sur>Nie potrzebujesz szklanej kuli.</small></li>
+                <li>Dołącz do społeczności <b>Fireheads</b> i przejdź na wczesną emeryturę—bo pracować do 65? Dzięki, ale nie.</li>
             </ol>
-            <p>Rozpocznij w społeczności. Wpadnij na środowy Bonfire Meetup, aby spotkać grupę dążących do wolności finansowej buntowników, mojego cofundera Guillema i mnie. Życie jest zbyt krótkie, by czekać na weekendy. (Lepiej czekać na środę).</p>
-            <p style="margin-bottom:0">Pozdr, Jan</p>
+            <p><a href="https://skool.com/fire" title="Wejdź do społeczności">Rozpocznij w społeczności</a>. Dołącz do nas na środowym Bonfire call, aby spotkać grupę buntowników dążących do wolności finansowej, mojego współzałożyciela Guillema i mnie. Życie jest zbyt krótkie, by czekać na weekendy. (Czekanie na środę jest znacznie fajniejsze).</p>
+            <p style="margin-bottom:0">Do zobaczenia, Jan</p>
         default: 'Cześć, witamy w Deltabadger'
         legendary: 'NFT już wkrótce!'
         saver: 'Zrób upgrade i pozbądź się limitów!'
