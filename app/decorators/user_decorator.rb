@@ -4,12 +4,6 @@ class UserDecorator < ActiveRecordDecorator
     super(user)
   end
 
-  delegate :email, :name, :id, to: :__getobj__
-
-  def username
-    __getobj__.email.split('@').first # Use email as the username
-  end
-
   def plan_days_left
     (subscription.end_time.to_date - Date.today).to_i
   end
