@@ -99,10 +99,10 @@ cn:
             template_html: "<p>您好 👋，</p>\n<p>您现在使用 Deltabadger 快一个月了！</p>\n<p>您的免费无限试用即将结束。请确保升级，以便让您更沉重的獾继续奔跑！</p>"
         limit_almost_reached:
             subject: '几乎已达到限制 ⌛'
-            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b>，以确保您的</br>机器人将继续工作。</p>"
+            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Pro</b>，以确保您的</br>机器人将继续工作。</p>"
         limit_reached:
             subject: '您已达到限制 🥳'
-            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b> 以移除所有限制并<br>让机器人重新工作。</p>"
+            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Pro</b> 以移除所有限制并<br>让机器人重新工作。</p>"
         notify_about_error:
             subject: '发生问题 😵'
             template_html: "<p>糟糕… 😵</p>\n<p>处理上次交易时<br>发生问题。</p>\n<p>您可以在 <br>机器人日志中查看错误。登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -110,7 +110,6 @@ cn:
             subject: '糟糕！再试一次… 🧐'
             template_html: "<p>天哪 🧐，</p>\n<p>机器人无法执行您的订单。<br>似乎发生了交易所问题。<br>我们将在 %{delay} 后重试。</p>\n<p>所有错误可在机器人日志中查看。<br>登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: '仅 Hodler 和 Legendary Badger'
         above: 高于
         add_new_bot: 添加新的机器人
         below: 低于
@@ -548,7 +547,7 @@ cn:
                 first_name: 名字
                 last_name: 姓氏
                 other: 其他
-                submit_hodler_order: '订购 Hodler 套餐'
+                submit_hodler_order: '订购 Pro 套餐'
                 submit_investor_order: 订购投资者套餐
             settings:
                 current_status: 当前状态：
@@ -697,14 +696,14 @@ cn:
         update: '更新'
     welcome:
         banner_html: |
-            <p>欢迎登船，%{name}！你的获胜之道：</p>
+            <p>欢迎登船，%{name}！以下是一些为你准备的获胜之道：</p>
             <ol>
-            <li>使用我们的<b>DCA 机器人</b>购买比特币，并大喊：<i>“妈妈，看，我不用手！”</i></li>
-            <li>使用<b>🌈⃤ Prism</b>分析器建立一个投资组合，把市场甩在身后。</sur>*</sur><br><small><sur>*</sur>无需水晶球。</small></li>
-            <li>加入<b>Fireheads</b>社区，提前退休——工作到65岁？绝对不行。</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> 启动你的第一个 <b>DCA 机器人</b>，然后大喊：<i>“妈妈，看，我不用手！”</i></li>
+                <li>用 <b>🌈⃤ Prism</b> 分析器改进你的投资组合，把市场甩在身后。<sur>*</sur><br><small><sur>*</sur>无需水晶球。</small></li>
+                <li>加入 <b>Fireheads</b> 社区，提前退休——工作到65岁？不，谢谢。</li>
             </ol>
-            <p>从社区开始。加入我们的周三篝火会议，认识一群追求财务自由的叛逆者，我的联合创始人 Guillem 和我。生命太短，不能只等周末。（等待周三更酷）。</p>
-            <p style="margin-bottom:0">此致，Jan</p>
+            <p><a href="https://skool.com/fire" title="进入社区">进入社区</a>。加入我们每周三的篝火通话，认识一群追求财务自由的叛逆者，我的联合创始人 Guillem 和我。生命太短，不能只等周末。（等周三更酷）。</p>
+            <p style="margin-bottom:0">到时候见, Jan</p>
     metrics:
         exp_return:
             short_name: '预期回报'

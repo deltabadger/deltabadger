@@ -51,7 +51,7 @@ nl:
             valid_for: 'Geldig voor de eerste aankoop op het platform.'
         info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
         invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Ons verwijzingsprogramma <b>betaalt tot $50</b><sup>1</sup> per gebruiker in BTC (met behulp van de wisselkoers van de transactie). Voorbeeld:</p> <ol><li>Voor de eenvoud, stel dat de prijs van Bitcoin ~$10000 is, de korting is 10%, en uw marge is 20%.</li><li>De doorverwezen persoon koopt een 1-jarig plan voor $49,99, en betaalt na de korting $44,99 wat gelijk is aan 0,0045BTC. U verdient 0,001BTC (20% van $49,99).</li><li>Het maakt niet uit of de prijs van Bitcoin ondertussen verandert. Uw winst ligt vast in BTC.</li><li>De volgende keer koopt de doorverwezen persoon een Hodler plan voor $149,99 en betaalt hij 0,015BTC. Hij of zij krijgt geen korting meer, maar jij krijgt nog steeds je 20% wat gelijk is aan 0,003BTC.</li><li>Je blijft winst maken zolang je een actief abonnement <sup>2</sup> hebt, en je totale winst per doorverwezen persoon niet hoger dan $50 is.</li> </ol><p><em>Bitcoins verdienen is de beste manier van dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> De limiet is 50USD of 50EUR, afhankelijk van de valuta van de prijsbepaling.</small> <br><small class="mb-5"><sup>2</sup> Voor de doorverwezen persoon werkt de referral link zelfs als uw abonnement is verlopen.</small> </div>'
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Ons verwijzingsprogramma <b>betaalt tot $50</b><sup>1</sup> per gebruiker in BTC (met behulp van de wisselkoers van de transactie). Voorbeeld:</p> <ol><li>Voor de eenvoud, stel dat de prijs van Bitcoin ~$10000 is, de korting is 10%, en uw marge is 20%.</li><li>De doorverwezen persoon koopt een 1-jarig plan voor $49,99, en betaalt na de korting $44,99 wat gelijk is aan 0,0045BTC. U verdient 0,001BTC (20% van $49,99).</li><li>Het maakt niet uit of de prijs van Bitcoin ondertussen verandert. Uw winst ligt vast in BTC.</li><li>De volgende keer koopt de doorverwezen persoon een Pro plan voor $149,99 en betaalt hij 0,015BTC. Hij of zij krijgt geen korting meer, maar jij krijgt nog steeds je 20% wat gelijk is aan 0,003BTC.</li><li>Je blijft winst maken zolang je een actief abonnement <sup>2</sup> hebt, en je totale winst per doorverwezen persoon niet hoger dan $50 is.</li> </ol><p><em>Bitcoins verdienen is de beste manier van dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> De limiet is 50USD of 50EUR, afhankelijk van de valuta van de prijsbepaling.</small> <br><small class="mb-5"><sup>2</sup> Voor de doorverwezen persoon werkt de referral link zelfs als uw abonnement is verlopen.</small> </div>'
         new:
             checked: 'Ik heb alles nauwkeurig nagekeken.'
             discount_info_html: 'U <b> verdient <span class="db-form-label-range--earn-percent">%{earn_percent_preview}%</span></b>, en de persoon die werd doorverwezen krijgt <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> korting</b>.'
@@ -102,10 +102,10 @@ nl:
             template_html: '<p>U gebruikt Deltabadger nu bijna een maand!</p><p>Uw gratis proefperiode eindigt binnenkort. Zorg voor een upgrade om je zwaardere badgers lopende te houden!</p>'
         limit_almost_reached:
             subject: 'Limiet bijna bereikt'
-            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Hodler</b> om te verzekeren dat je </br>bots blijven werken.</p>'
+            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
         limit_reached:
             subject: 'U hebt de limiet bereikt'
-            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Hodler</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
+            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
         notify_about_error:
             subject: 'Er ging iets mis'
             template_html: '<p>Er ging iets mis tijdens het verwerken van de laatste transactie.</p><p>U kan de error zien in het bot logboek. Log in om dit te controleren.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -113,7 +113,6 @@ nl:
             subject: 'Oeps! Volgende poging...'
             template_html: '<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem bij de exchange. We proberen het opnieuw in %{delay}.</p><p>Alle errors zijn zichtbaar in het logboek van de bot. Log in om dit te controleren.</p><p>Errors:</p><blockquote><b>%{exchange}:%{base}%{quote}</b> <b> %{errors}</b></blockquote>'
     bots:
-        hodler_only: 'Alleen Hodler en Legendary Badger'
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
         below: onder
@@ -673,7 +672,7 @@ nl:
             withdrawals: 'Automatische opnames'
         limit_reached_html: '<b>Gefeliciteerd!</b> Je hebt onze gratis transactielimiet van $1200/jaar bereikt. Om door te gaan, upgrade naar het unlimited plan.'
         analyzer_html: 'Versterk je portfolio met de onbeperkte kracht van de <b>Portfolio Analyzer</b>.'
-        expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Hodler-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
+        expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Pro-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
         payment:
             account_holder: Rekeninghouder
             account_number: Rekeningnummer
@@ -685,11 +684,11 @@ nl:
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
             compensation_hodler:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Hodler plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Hodler plan.'
+                one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
+                other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'
             compensation_investor:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Investor plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Investor plan.'
+                one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
+                other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
             discount: '%{discount_percent}% korting'
             legendary_badger_discount: 'Early Bird korting'
             legendary_badger_discount_info: 'Bij elke verkoop daalt de korting met $10. Wacht niet!'
@@ -726,14 +725,14 @@ nl:
         claim: 'Claim NFT'
     welcome:
         banner_html: |
-            <p>Welkom aan boord, %{name}! Winnende moves voor jou:</p>
+            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende stappen voor jou:</p>
             <ol>
-            <li>Koop Bitcoin met onze <b>DCA-bot</b> hieronder en roep: <i>“Kijk mam, geen handen!”</i></li>
-            <li>Bouw een portfolio op met de <b>🌈⃤ Prism</b> analyzer en laat de markt in je achteruitkijkspiegel.</sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
-            <li>Sluit je aan bij de <b>Fireheads</b> community en ga vroeg met pensioen – werken tot je 65e? Geen denken aan.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je eerste <b>DCA-bot</b> en roep: <i>“Kijk mam, zonder handen!”</i></li>
+                <li>Verbeter je portfolio met de <b>🌈⃤ Prism</b> analyzer en laat de markt achter in je achteruitkijkspiegel. <sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
+                <li>Sluit je aan bij de <b>Fireheads</b> community en ga vroeg met pensioen—want werken tot je 65e? Nee, bedankt.</li>
             </ol>
-            <p>Begin in de community. Doe mee met de Wednesday Bonfire call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
-            <p style="margin-bottom:0">Groetjes, Jan</p>
+            <p><a href="https://skool.com/fire" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire Call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem, en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
+            <p style="margin-bottom:0">Tot ziens, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
         saver: 'Weg met limieten, en doe een upgrade!'
