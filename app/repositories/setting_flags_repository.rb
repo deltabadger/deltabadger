@@ -1,5 +1,4 @@
 class SettingFlagsRepository < BaseRepository
-  SHOW_STRIPE_PAYMENT = 'show_stripe_payment'.freeze
   SHOW_ZEN_PAYMENT = 'show_zen_payment'.freeze
   SHOW_WIRE_PAYMENT = 'show_wire_payment'.freeze
   SHOW_BITCOIN_PAYMENT = 'show_bitcoin_payment'.freeze
@@ -10,13 +9,6 @@ class SettingFlagsRepository < BaseRepository
 
   def show_zen_payment?
     setting = find_by_name!(SHOW_ZEN_PAYMENT)
-    return false if setting.nil?
-
-    setting.value
-  end
-
-  def show_stripe_payment?
-    setting = find_by_name!(SHOW_STRIPE_PAYMENT)
     return false if setting.nil?
 
     setting.value

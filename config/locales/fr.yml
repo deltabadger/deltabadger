@@ -680,7 +680,6 @@ fr:
             bank_address: 'Adresse de la banque'
             billing_information: 'Détails de facturation'
             bitcoin: 'Bitcoin'
-            stripe_payment_succeeded: 'Paiement réussi, vous devriez être redirigé dans quelques secondes.'
             compensation_pro:
                 one: 'Compensation pour 1 jour inutilisé du forfait Pro'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Pro'

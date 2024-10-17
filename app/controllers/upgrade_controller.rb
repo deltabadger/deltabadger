@@ -3,9 +3,6 @@ class UpgradeController < ApplicationController
   skip_before_action :verify_authenticity_token, only: %i[
     btcpay_payment_ipn
     zen_payment_ipn
-    create_stripe_payment_intent
-    update_stripe_payment_intent
-    confirm_stripe_payment
     wire_transfer_payment
   ] # TODO: for wire_transfer_payment, remove from list after fixing the CSRF issue --> use form_with + button_to
 
@@ -14,7 +11,6 @@ class UpgradeController < ApplicationController
     return redirect_to legendary_path if current_plan.name == 'legendary'
 
     @upgrade_presenter = UpgradePresenter.new(current_user)
-    @stripe_payment_in_process = check_stripe_payment_in_process
     @errors = session.delete(:errors) || []
   end
 
@@ -95,44 +91,6 @@ class UpgradeController < ApplicationController
     redirect_to action: 'index'
   end
 
-  def create_stripe_payment_intent
-    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
-    if payment_intent_result.success?
-      puts "payment_intent_result.data['id']: #{payment_intent_result.data['id']}"
-      session[:payment_intent_id] = payment_intent_result.data['id']
-      render json: {
-        clientSecret: payment_intent_result.data['client_secret'],
-        payment_intent_id: payment_intent_result.data['id']
-      }
-    else
-      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      session[:errors] = payment_intent_result.errors
-      render json: { error: 'Internal Server Error' }, status: :internal_server_error
-    end
-  end
-
-  def update_stripe_payment_intent
-    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, current_user)
-    if payment_intent_result.success?
-      render json: { "status": 'ok' }
-    else
-      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      session[:errors] = payment_intent_result.errors
-      render json: { error: 'Internal Server Error' }, status: :internal_server_error
-    end
-  end
-
-  def confirm_stripe_payment
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
-    if payment_finalizer_result.success?
-      session.delete(:payment_intent_id)
-      render json: { payment_status: 'succeeded' }
-    else
-      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      render json: { payment_status: 'failed' }
-    end
-  end
-
   private
 
   def zen_payment_params
@@ -154,18 +112,5 @@ class UpgradeController < ApplicationController
       .require(:payment)
       .permit(:subscription_plan_id, :first_name, :last_name, :country)
       .merge(user: current_user)
-  end
-
-  def check_stripe_payment_in_process
-    return false unless session[:payment_intent_id]
-
-    params = { payment_intent_id: session[:payment_intent_id] }
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
-    if payment_finalizer_result.success?
-      session.delete(:payment_intent_id)
-      redirect_to upgrade_path
-    else
-      true
-    end
   end
 end

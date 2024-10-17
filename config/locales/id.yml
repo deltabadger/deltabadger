@@ -654,7 +654,6 @@ id:
             bank_address: 'Alamat bank'
             billing_information: 'Informasi penagihan'
             bitcoin: Bitcoin
-            stripe_payment_succeeded: ''
             compensation_pro:
                 other: ''
             compensation_standard:

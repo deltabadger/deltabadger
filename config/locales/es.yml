@@ -681,7 +681,6 @@ es:
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Pago completado con éxito, se te debería redirigir en unos segundos.'
             compensation_pro:
                 one: 'Compensación por un día sin usar el plan Pro'
                 other: 'Compensación por %{count} días sin usar el plan Pro.'

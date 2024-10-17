@@ -653,7 +653,6 @@ vi:
             bank_address: 'Địa chỉ ngân hàng'
             billing_information: 'Thông tin hóa đơn'
             bitcoin: Bitcoin
-            stripe_payment_succeeded: ''
             compensation_pro:
                 other: ''
             compensation_standard:

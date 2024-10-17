@@ -645,7 +645,6 @@ cn:
             bank_address: 银行地址
             billing_information: 账单信息
             bitcoin: 比特币
-            stripe_payment_succeeded: ''
             compensation_pro:
                 other: ''
             compensation_standard:
