@@ -57,7 +57,7 @@
         </div>
       </div>
     </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_standard', count: current_user.plan_days_left) %></div>
+    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_standard', count: subscribed_plan_days_left) %></div>
   </div>
 <% end %>
 
@@ -74,7 +74,7 @@
         </div>
       </div>
     </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_pro', count: current_user.plan_days_left) %></div>
+    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_pro', count: subscribed_plan_days_left) %></div>
   </div>
 <% end %>
 
