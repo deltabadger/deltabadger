@@ -37,7 +37,6 @@ gem 'kraken_ruby_client', git: 'https://github.com/jonatack/kraken_ruby_client'
 gem 'sentry-raven'
 gem 'bitcoin-ruby', git: 'https://github.com/lian/bitcoin-ruby', branch: 'master', require: 'bitcoin'
 gem 'i18n-js', '~> 3.8.0'
-gem 'stripe'
 gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
 gem 'bundler', '>= 2.3.5'

@@ -693,7 +693,6 @@ pl:
             bank_address: 'Adres banku'
             billing_information: 'Informacje rozliczeniowe'
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Płatność się powiodła, powinieneś zostać przekierowany w ciągu kilku sekund.'
             compensation_pro:
                 one: 'Wyrównanie za 1 niewykorzystany dzień planu Pro.'
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'

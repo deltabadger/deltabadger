@@ -708,7 +708,6 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
             compensation_pro:
                 one: 'Compensation for 1 unused day of the Pro plan.'
                 other: 'Compensation for %{count} unused days of the Pro plan.'
