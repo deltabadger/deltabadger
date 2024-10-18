@@ -334,7 +334,7 @@ es:
                 passphrase: 'Frase de acceso'
                 private_key: 'Secreto de API'
                 public_key: 'Clave API'
-            limit_warning: 'Las tarifas para órdenes límite ya son más bajas, pero al establecerlas por debajo del precio actual en la cantidad de la tarifa, puedes reducirlas efectivamente a cero. Tal orden puede ejecutarse mucho más tarde o, ocasionalmente, no ejecutarse en absoluto. Sin embargo, si mantienes el valor bajo, el riesgo es mínimo. Experimentar con valores más altos es bajo tu propio riesgo. Algunas personas incluso usan esta función con el valor establecido en cero, lo que casi garantiza la ejecución, pero aún así te beneficias de una tarifa de creador más baja.'
+            limit_warning: 'Establecer tus órdenes al valor de la comisión reduce efectivamente la comisión a cero. Aunque las órdenes limitadas pueden tardar más en ejecutarse, generalmente son una buena idea. La configuración predeterminada lo hace por ti, así que es mejor mantenerla si no estás seguro.'
             next: Próximo
             no_wallet_found: 'No se ha encontrado ningún monedero. Ve a %{exchangeName} y añade un monedero de retirada.'
             probit:
@@ -586,7 +586,7 @@ es:
                 password: Contraseña
                 password_confirmation: 'confirmación de contraseña'
                 remember_me: Recuérdame
-                terms_and_conditions_tooltip: 'Al continuar, acepto los %{terms_and_conditions} y la %{privacy_policy} de Deltabadger.'
+                terms_and_conditions_tooltip: 'Al continuar, acepto los %{terms_and_conditions} y la %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>¡Esto es muy importante!</b><br><br> Si no has recibido el correo electrónico de confirmación, revisa la <b>carpeta de correo no deseado</b>. Si sigues sin ubicar el mensaje, envíame un correo a la dirección %{email}. <br><br>Gracias, Jan'
@@ -609,6 +609,7 @@ es:
         log_out: 'Cerrar sesión'
         menu: Menú
         privacy_policy: 'Política de privacidad'
+        earn: 'Ganar'
         referral_program: 'Programa de referidos'
         resend_link: 'Reenviar enlace'
         settings: Configuración
@@ -664,7 +665,7 @@ es:
             other: '%{count} días disponibles'
         basic_info: 'Sin adornos, solo emociones, pero hace el trabajo.'
         pro_info: 'Obtén una vista general, información detallada y características Pro.'
-        legendary_badger_info_html: '<p>Todas las características Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro club limitado de 1000 suscriptores de por vida y escribe tu propia leyenda.</p><p>Somos pensadores a largo plazo con manos de diamante y visión.</p><p>El NFT convierte la suscripción en un activo que puedes transferir o vender.</p><p>Cada token está asociado con una obra de arte generada procedimentalmente, con 21 <i>huevos de pascua</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
+        legendary_badger_info_html: '<p>Obtén todas las funciones actuales y futuras del plan Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro exclusivo club de 1,000 pensadores a largo plazo con manos de diamante y visión, y crea tu propia leyenda.</p><p>El NFT que recibes convierte tu suscripción en un activo que puedes transferir o vender. Cada token viene con una obra de arte procedural única, con 21 <i>easter eggs</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
         features:
             analyzer_html: 'Prism — Analizador de cartera'
             dca: 'Bots DCA'
@@ -732,7 +733,7 @@ es:
                 <li>Mejora tu portafolio con el <b>🌈⃤ Prism</b> analyzer y deja al mercado en el retrovisor.<sur>*</sur><br><small><sur>*</sur>No necesitas una bola de cristal.</small></li>
                 <li>Únete a la comunidad <b>Fireheads</b> y retírate antes de lo previsto, porque ¿trabajar hasta los 65? Mejor no.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Ir a la comunidad">Comienza en la comunidad</a>. Súmate a nuestra "Bonfire Call", una llamada que hacemos cada miércoles donde podrás conocer a un grupo de rebeldes de la libertad financiera, a mi cofundador Guillem y a mí. Sabemos que la vida es demasiado corta para esperar el fin de semana, esperar el miércoles es mucho más guay!</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Ir a la comunidad">Comienza en la comunidad</a>. Súmate a nuestra "Bonfire Call", una llamada que hacemos cada miércoles donde podrás conocer a un grupo de rebeldes de la libertad financiera, a mi cofundador Guillem y a mí. Sabemos que la vida es demasiado corta para esperar el fin de semana, esperar el miércoles es mucho más guay!</p>
             <p style="margin-bottom:0">Saludos, Jan</p>
         default: 'Hola, bienvenido a Deltabadger'
         legendary: '¡Los NFts llegarán pronto!'

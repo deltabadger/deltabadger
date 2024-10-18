@@ -305,7 +305,7 @@ de:
                 passphrase: Passphrase
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
-            limit_warning: 'Die Gebühren für Limitaufträge sind bereits niedriger, aber indem Sie sie unter dem aktuellen Preis in Höhe der Gebühr festlegen, können Sie sie effektiv auf null reduzieren. Ein solcher Auftrag kann viel später ausgeführt werden oder gelegentlich gar nicht. Wenn Sie den Wert jedoch niedrig halten, ist das Risiko minimal. Das Experimentieren mit höheren Werten erfolgt auf eigenes Risiko. Einige Leute nutzen diese Funktion sogar mit einem auf null gesetzten Wert, was die Ausführung fast garantiert, aber Sie profitieren dennoch von einer niedrigeren Maker-Gebühr.'
+            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Standardeinstellung übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
             next: Weiter
             no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
             probit:
@@ -539,7 +539,7 @@ de:
                 password: Passwort
                 password_confirmation: 'Passwort bestätigen'
                 remember_me: 'Daten speichern'
-                terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy} von Deltabadger.'
+                terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Das ist sehr wichtig!</b><br><br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
@@ -562,6 +562,7 @@ de:
         log_out: Ausloggen
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
+        earn: Verdienen
         referral_program: Empfehlungsprogramm
         resend_link: 'Link erneut zuschicken'
         settings: Einstellungen
@@ -670,13 +671,13 @@ de:
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
-            <p>Willkommen an Bord, %{name}! Hier sind ein paar gewinnende Schritte für dich:</p>
+            <p>Willkommen an Bord, %{name}! Hier sind einige Gewinnzüge für dich:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Starte deinen ersten <b>DCA-Bot</b> und rufe: <i>„Guck mal, Mama, keine Hände!”</i></li>
-                <li>Verbessere dein Portfolio mit dem <b>🌈⃤ Prism</b> Analyzer und lass den Markt im Rückspiegel. <sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
-                <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – denn bis 65 arbeiten? Nein, danke.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Starte den kostenlosen <b>DCA-Bot</b> und rufe, <i>„Guck mal, Mama, keine Hände!“</i></li>
+                <li>Verbessere dein Portfolio mit dem <b>🌈⃤  Prism</b> Analyzer und lass den Markt im Rückspiegel.<sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
+                <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – bis 65 arbeiten? Ganz bestimmt nicht.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Zur Community">Starte in der Community</a>. Nimm an unserem Wednesday Bonfire Call teil, um eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich kennenzulernen. Das Leben ist zu kurz, um auf das Wochenende zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Zur Community gehen">Starte in der Community</a>. Schließe dich uns beim Wednesday Bonfire Call an, um eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich kennenzulernen. Das Leben ist zu kurz, um auf das Wochenende zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
             <p style="margin-bottom:0">Bis dann, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'

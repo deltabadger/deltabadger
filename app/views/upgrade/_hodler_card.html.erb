@@ -27,10 +27,10 @@
 <div class="db-plans__item__info">
   <p><%= t('subscriptions.pro_info') %></p>
   <ul>
-    <li><%= t('subscriptions.features.dca') %></li>
-    <li><%= t('subscriptions.features.feecutter') %></li>
-    <li><%= t('subscriptions.features.price_limit') %></li>
-    <li><%= t('subscriptions.features.withdrawals') %></li>
-    <li><%= t('subscriptions.features.analyzer_html') %></li>
+    <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.dca') %></li>
+    <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.withdrawals') %></li>
+    <li><%= render 'svg/24x24_check' %>FeeCutter</li>
+    <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.price_limit') %></li>
+    <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.analyzer_html') %></li>
   </ul>
 </div>

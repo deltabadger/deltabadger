@@ -314,7 +314,7 @@ vi:
                 passphrase: 'Cụm mật khẩu'
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-            limit_warning: 'Phí cho các lệnh giới hạn đã thấp hơn, nhưng bằng cách đặt chúng thấp hơn giá hiện tại với số tiền phí, bạn có thể giảm chúng về 0. Lệnh như vậy có thể được thực hiện muộn hơn nhiều hoặc thỉnh thoảng không được thực hiện. Tuy nhiên, nếu bạn giữ giá trị thấp, rủi ro là tối thiểu. Thử nghiệm với các giá trị cao hơn là do bạn tự chịu trách nhiệm. Một số người thậm chí sử dụng tính năng này với giá trị đặt về 0, điều này gần như đảm bảo việc thực hiện, nhưng bạn vẫn hưởng lợi từ mức phí nhà tạo lập thấp hơn.'
+            limit_warning: 'Đặt lệnh với mức phí tương ứng sẽ giảm phí của bạn xuống bằng không. Mặc dù lệnh giới hạn có thể mất nhiều thời gian hơn để thực hiện, chúng thường là một ý tưởng tốt. Cài đặt mặc định thực hiện điều này cho bạn, vì vậy tốt nhất nên giữ nguyên nếu bạn không chắc chắn.'
             next: 'Tiếp theo'
             no_wallet_found: ''
             probit:
@@ -565,7 +565,7 @@ vi:
                 password: 'Mật khẩu'
                 password_confirmation: 'Xác nhận mật khẩu'
                 remember_me: 'Nhớ tôi'
-                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy} của Deltabadger.'
+                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Lưu ý quan trọng!</b><br><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'
@@ -588,6 +588,7 @@ vi:
         log_out: 'Đăng xuất'
         menu: Menu
         privacy_policy: 'Chính sách Quyền riêng tư'
+        earn: Kiếm
         referral_program: 'Chương trình giới thiệu'
         resend_link: 'Gửi lại liên kết'
         settings: 'Cài đặt'
@@ -637,7 +638,7 @@ vi:
             other: 'Còn %{count} ngày'
         basic_info: 'Không phức tạp, chỉ làm việc hiệu quả.'
         pro_info: 'Có cái nhìn tổng quát, phân tích sâu và các tính năng Pro.'
-        legendary_badger_info_html: '<p>Tất cả các tính năng Pro trọn đời.</p><p>Bạn thích thanh toán một lần và nhận được tất cả? Tham gia câu lạc bộ giới hạn 1000 người đăng ký trọn đời của chúng tôi và viết nên huyền thoại của riêng bạn.</p><p>Chúng tôi là những người suy nghĩ dài hạn với đôi bàn tay kim cương và tầm nhìn chiến lược.</p><p>NFT biến đăng ký của bạn thành một tài sản có thể chuyển nhượng hoặc bán.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật tạo ngẫu nhiên, với 21 <i>trứng phục sinh</i> ẩn trong <a href="https://legendarybadgers.com/" class="nobreak">bộ sưu tập</a>.</p>'
+        legendary_badger_info_html: '<p>Nhận tất cả các tính năng hiện tại và tương lai của gói Pro trọn đời.</p><p>Bạn có thích trả tiền một lần và có được tất cả? Tham gia câu lạc bộ giới hạn 1.000 người suy nghĩ dài hạn với “tay kim cương” và tầm nhìn của chúng tôi, và tạo ra huyền thoại của riêng bạn.</p><p>NFT bạn nhận được biến đăng ký của bạn thành một tài sản mà bạn có thể chuyển nhượng hoặc bán. Mỗi mã thông báo đi kèm với tác phẩm nghệ thuật theo thủ tục độc đáo, với 21 <i>trứng phục sinh</i> ẩn trong <a href="https://legendarybadgers.com/" class="nobreak">bộ sưu tập</a>.</p>'
         features:
             analyzer_html: 'Prism — công cụ phân tích danh mục đầu tư'
             dca: 'Bot DCA'
@@ -703,7 +704,7 @@ vi:
                 <li>Cải thiện danh mục đầu tư của bạn với công cụ phân tích <b>🌈⃤ Prism</b> và bỏ lại thị trường phía sau.<sur>*</sur><br><small><sur>*</sur>Không cần quả cầu pha lê.</small></li>
                 <li>Tham gia cộng đồng <b>Fireheads</b> và nghỉ hưu sớm—vì làm việc đến 65 tuổi? Không, cảm ơn.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Tham gia cộng đồng">Bắt đầu trong cộng đồng</a>. Tham gia cuộc gọi Bonfire vào thứ Tư để gặp gỡ nhóm các kẻ nổi loạn tài chính, đồng sáng lập của tôi Guillem, và tôi. Cuộc đời quá ngắn để đợi đến cuối tuần. (Chờ đợi đến thứ Tư thì tuyệt hơn nhiều).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Tham gia cộng đồng">Bắt đầu trong cộng đồng</a>. Tham gia cuộc gọi Bonfire vào thứ Tư để gặp gỡ nhóm các kẻ nổi loạn tài chính, đồng sáng lập của tôi Guillem, và tôi. Cuộc đời quá ngắn để đợi đến cuối tuần. (Chờ đợi đến thứ Tư thì tuyệt hơn nhiều).</p>
             <p style="margin-bottom:0">Hẹn gặp bạn, Jan</p>
     metrics:
         exp_return:

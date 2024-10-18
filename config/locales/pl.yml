@@ -334,7 +334,7 @@ pl:
                 passphrase: Hasło
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
-            limit_warning: 'Opłaty za zlecenia z limitem są już niższe, ale ustawiając je poniżej aktualnej ceny o kwotę równą opłacie, możesz je skutecznie zredukować do zera. Takie zlecenie może zostać zrealizowane znacznie później lub czasami wcale. Jednakże, jeśli utrzymasz niską wartość, ryzyko jest minimalne. Eksperymentowanie z wyższymi wartościami jest na własne ryzyko. Niektórzy ludzie używają tej funkcji z wartością ustawioną na zero, co prawie gwarantuje realizację, ale nadal korzystasz z niższej opłaty dla makera.'
+            limit_warning: 'Ustawienie zleceń na kwotę opłaty efektywnie obniża opłatę do zera. Chociaż realizacja zleceń z limitem może potrwać dłużej, zazwyczaj jest to dobry pomysł. Domyślne ustawienie robi to za Ciebie, więc najlepiej się go trzymać, jeśli nie jesteś pewien.'
             next: Dalej
             no_wallet_found: 'Nie znaleziono portfela. Przejdź do %{exchangeName} i dodaj portfel do wypłaty.'
             probit:
@@ -596,7 +596,7 @@ pl:
                 password: Hasło
                 password_confirmation: 'Potwierdź hasło'
                 remember_me: 'Zapamiętaj mnie'
-                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy} firmy Deltabadger.'
+                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>To ważne! </b><br><br> Jeśli nie otrzymałeś e-maila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
@@ -619,6 +619,7 @@ pl:
         log_out: Wyloguj
         menu: Menu
         privacy_policy: 'Polityka prywatności'
+        earn: 'Zarabiaj'
         referral_program: 'Program referencyjny'
         resend_link: 'Wyślij ponownie link'
         settings: Ustawienia
@@ -676,7 +677,7 @@ pl:
             other: 'Pozostało %{count} dni'
         basic_info: 'Bez szmerów bajerów, ale konkret.'
         pro_info: 'Zyskaj szeroki obraz, dogłębną analizę i funkcje Pro.'
-        legendary_badger_info_html: '<p>Wszystkie funkcje Pro na dożywotnio.</p><p>Lubisz płacić raz i mieć wszystko? Dołącz do naszego elitarnego klubu 1000 subskrybentów na całe życie i pisz własną legendę.</p><p>Myślimy długoterminowo, mamy diamentowe dłonie i wizję.</p><p>NFT sprawia, że subskrypcja staje się aktywem, które możesz przenieść lub sprzedać.</p><p>Każdy token jest powiązany z generatywnym artworkiem, a 21 to ukryte w <a href="https://legendarybadgers.com/" class="nobreak">kolekcji</a> <i>easter eggs</i>.</p>'
+        legendary_badger_info_html: '<p>Uzyskaj wszystkie aktualne i przyszłe funkcje planu Pro na całe życie.</p><p>Lubisz płacić raz i mieć wszystko? Dołącz do naszego ekskluzywnego klubu 1000 długoterminowych myślicieli z diamentowymi rękoma i wizją, i stwórz własną legendę.</p><p>Otrzymany NFT zamienia twoją subskrypcję w aktywo, które możesz przekazać lub sprzedać. Każdy token jest wyposażony w unikalną sztukę proceduralną, z 21 ukrytymi <i>easter eggami</i> w <a href="https://legendarybadgers.com/" class="nobreak">kolekcji</a>.</p>'
         features:
             analyzer_html: 'Prism — analityk portfela'
             dca: 'Boty DCA'
@@ -742,13 +743,13 @@ pl:
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |
-            <p>Witamy na pokładzie, %{name}! Oto kilka zwycięskich ruchów dla Ciebie:</p>
+            <p>Witamy na pokładzie, %{name}! Parę zwycięskich ruchów, na dobry początek:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Uruchom swojego pierwszego <b>bota DCA</b> i krzyknij, <i>„Mamo, patrz, jadę bez trzymanki!”</i></li>
-                <li>Popraw swój portfel z <b>🌈⃤ Prism</b> analyzer i zostaw rynek w tyle.<sur>*</sur><br><small><sur>*</sur>Nie potrzebujesz szklanej kuli.</small></li>
-                <li>Dołącz do społeczności <b>Fireheads</b> i przejdź na wczesną emeryturę—bo pracować do 65? Dzięki, ale nie.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Wystartuj darmowego <b>bota DCA</b> i krzyknij, <i>„Mamo, patrz, jadę bez trzymanki!”</i></li>
+                <li>Popraw swój portfel za pomocą analizatora <b>🌈⃤  Prism</b> i zostaw rynek w tyle.<sur>*</sur><br><small><sur>*</sur>Nie potrzebujesz szklanej kuli.</small></li>
+                <li>Dołącz do społeczności <b>Fireheads</b> i przejdź na wcześniejszą emeryturę—bo tyrać do 65 roku życia? Nah, obejdzie się.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Wejdź do społeczności">Rozpocznij w społeczności</a>. Dołącz do nas na środowym Bonfire call, aby spotkać grupę buntowników dążących do wolności finansowej, mojego współzałożyciela Guillema i mnie. Życie jest zbyt krótkie, by czekać na weekendy. (Czekanie na środę jest znacznie fajniejsze).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Przejdź do społeczności">Zacznij od społeczności</a>. Wpadnij do nas na środowy Bonfire Meetup, aby spotać grupę dążących do wolności finansowej rebeliantów, mojego cofoundera Guillema i mnie. Życie jest zbyt krótkie, by czekać na weekend. (Czekanie na środę jest mniej boomerskie).</p>
             <p style="margin-bottom:0">Do zobaczenia, Jan</p>
         default: 'Cześć, witamy w Deltabadger'
         legendary: 'NFT już wkrótce!'
