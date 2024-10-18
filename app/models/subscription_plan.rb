@@ -5,10 +5,8 @@ class SubscriptionPlan < ApplicationRecord
   LEGENDARY_PLAN = 'legendary'.freeze
 
   has_many :subscriptions
+  has_many :subscription_plan_variants, dependent: :destroy
 
-  validates :years, numericality: { only_integer: true, greater_than: 0 }
-  validates :cost_eu, numericality: { greater_than_or_equal_to: 0 }
-  validates :cost_other, numericality: { greater_than_or_equal_to: 0 }
   validates :credits, numericality: { only_integer: true, greater_than: 0 }
 
   def duration
