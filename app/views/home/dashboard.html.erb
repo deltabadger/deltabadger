@@ -1,2 +1,14 @@
 <% content_for :body_class, ".view--dashboard" %>
+
+<!--<div class="page-head">
+  <div class="stitle">
+    <%# t('links.dashboard') %>
+  </div>
+</div>-->
+  
+<%= render 'layouts/banners/welcome_message' %>
+<%= render 'layouts/banners/news_message' %>
+<%= render 'layouts/banners/referral_message' %>
+<%= render 'layouts/limit_reached' %>
+
 <div id="dashboard"></div>

@@ -48,13 +48,17 @@ module ExchangeApi
         end
 
         def available_funds(bot)
+          Rails.logger.info "withdrawal available_funds bot.currency: #{bot.currency}" # TODO: delete after testing
           minimum = withdrawal_minimum(bot.currency)
+          Rails.logger.info "withdrawal available_funds minimum: #{minimum.inspect}" # TODO: delete after testing
           return minimum unless minimum.success?
 
           response = @client.withdraw_info(asset: bot.currency, key: bot.address, amount: minimum.data)
+          Rails.logger.info "withdrawal available_funds response: #{response.inspect}" # TODO: delete after testing
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
           data = response.fetch('result').fetch('limit').to_f
+          Rails.logger.info "withdrawal available_funds data: #{data.inspect}" # TODO: delete after testing
           Result::Success.new(data)
         rescue StandardError => e
           Raven.capture_exception(e)
@@ -64,8 +68,8 @@ module ExchangeApi
         private
 
         def fetch_minimum_fee_data(currency)
-          csv_text = File.read(File.expand_path('../kraken_minimums_and_fees.csv', __FILE__))
-          minimums_fees_csv = CSV.parse(csv_text, :headers => true)
+          csv_text = File.read(File.expand_path('kraken_minimums_and_fees.csv', __dir__))
+          minimums_fees_csv = CSV.parse(csv_text, headers: true)
           minimums_fees_csv.each.find { |row| row['Asset'] == currency }
         end
       end
