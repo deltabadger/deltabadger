@@ -333,7 +333,7 @@ nl:
                 passphrase: Wachtwoordzin
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            limit_warning: 'De kosten voor limietorders zijn al lager, maar door ze onder de huidige prijs in de hoogte van de kosten in te stellen, kunt u ze effectief tot nul reduceren. Een dergelijke order kan veel later worden uitgevoerd, of soms helemaal niet. Als u de waarde echter laag houdt, is het risico minimaal. Experimenteren met hogere waarden is op eigen risico. Sommige mensen gebruiken deze functie zelfs met de waarde op nul, wat de uitvoering bijna garandeert, maar u profiteert nog steeds van een lagere maker fee.'
+            limit_warning: 'Door je orders op het bedrag van de vergoeding in te stellen, verlaag je de vergoeding effectief tot nul. Hoewel limietorders langer kunnen duren om uitgevoerd te worden, zijn ze over het algemeen een goed idee. De standaardinstelling regelt dit voor je, dus blijf daarbij als je niet zeker bent.'
             next: Volgende
             no_wallet_found: 'Geen wallet gevonden. Ga naar %{exchangeName} en voeg een opname wallet toe.'
             probit:
@@ -585,7 +585,7 @@ nl:
                 password: Wachtwoord
                 password_confirmation: 'Wachtwoord bevestiging'
                 remember_me: 'Onthoud mij'
-                terms_and_conditions_tooltip: 'Door verder te gaan, ga ik akkoord met de %{terms_and_conditions} en het %{privacy_policy} van Deltabadger.'
+                terms_and_conditions_tooltip: 'Door verder te gaan, ga ik akkoord met de %{terms_and_conditions} en het %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Dit is heel belangrijk!</b><br><br> Als je de bevestigingsmail niet hebt ontvangen, controleer dan je <b>junk folder</b>. Als je de mail nog steeds niet kunt vinden, stuur dan een email naar %{email}. <br><br>Bedankt, Jan'
@@ -608,6 +608,7 @@ nl:
         log_out: Afmelden
         menu: Menu
         privacy_policy: Privacybeleid
+        earn: Verdien
         referral_program: Verwijzingsprogramma
         resend_link: 'Link opnieuw verzenden'
         settings: Instellingen
@@ -663,7 +664,7 @@ nl:
             other: '%{count} dagen over'
         basic_info: 'Geen franje, alleen spanning, maar doet het werk.'
         pro_info: 'Krijg een overzicht, diepgaande inzichten en Pro-functies.'
-        legendary_badger_info_html: '<p>Alle Pro-functies voor het leven.</p><p>Houd je van een keer betalen en alles krijgen? Word lid van onze exclusieve club van 1000 levenslange abonnees en schrijf je eigen legende.</p><p>Wij zijn langetermijndenker met diamant handen en visie.</p><p>Het NFT maakt het abonnement een verhandelbaar actief dat je kunt overdragen of verkopen.</p><p>Elke token is gekoppeld aan procedurele kunst met 21 <i>easter eggs</i> verborgen in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
+        legendary_badger_info_html: '<p>Krijg alle huidige en toekomstige functies van het Pro-plan voor altijd.</p><p>Betaal je graag één keer en krijg je alles? Sluit je aan bij onze exclusieve club van 1.000 langetermijndenkers met diamanten handen en visie, en creëer je eigen legende.</p><p>De NFT die je ontvangt, verandert je abonnement in een actief dat je kunt overdragen of verkopen. Elke token wordt geleverd met unieke procedurele kunst, met 21 verborgen <i>paaseieren</i> in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
         features:
             analyzer_html: 'Prism — portfoliobeheerder'
             dca: 'DCA-bots'
@@ -725,14 +726,14 @@ nl:
         claim: 'Claim NFT'
     welcome:
         banner_html: |
-            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende stappen voor jou:</p>
+            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende zetten voor jou:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je eerste <b>DCA-bot</b> en roep: <i>“Kijk mam, zonder handen!”</i></li>
-                <li>Verbeter je portfolio met de <b>🌈⃤ Prism</b> analyzer en laat de markt achter in je achteruitkijkspiegel. <sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je gratis <b>DCA-bot</b> en roep, <i>“Kijk mam, zonder handen!”</i></li>
+                <li>Verbeter je portfolio met de <b>🌈⃤  Prism</b> analyzer en laat de markt in je achteruitkijkspiegel.<sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
                 <li>Sluit je aan bij de <b>Fireheads</b> community en ga vroeg met pensioen—want werken tot je 65e? Nee, bedankt.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire Call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem, en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
-            <p style="margin-bottom:0">Tot ziens, Jan</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
+            <p style="margin-bottom:0">Tot dan, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
         saver: 'Weg met limieten, en doe een upgrade!'
