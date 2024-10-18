@@ -207,9 +207,9 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "years", default: 1, null: false
     t.integer "credits", default: 1200, null: false
     t.boolean "unlimited", default: false, null: false
+    t.integer "years", default: 1, null: false
     t.decimal "cost_eu", default: "0.0", null: false
     t.decimal "cost_other", default: "0.0", null: false
   end
