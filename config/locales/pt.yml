@@ -6,6 +6,10 @@ pt:
                     attributes:
                         code:
                             invalid_format: 'tem de consistir em carateres alfanuméricos maiúsculos'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
         bitwarden_text: '. É gratuito e de código aberto.'
         bitwarden_title: 'Experimente a Bitwarden'
@@ -83,11 +87,13 @@ pt:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
     bots:
-        hodler_only: 'Apenas Hodler e Legendary Badger'
         above: acima
         add_new_bot: 'Adicionar novo bot'
         below: abaixo
         buttons:
+            automatic_withdrawal: 'Retirada automática'
+            request_exchange: 'Peça para adicionar uma troca'
+            move_existing_bot: 'Mover bot existente para outra troca'
             delete:
                 cancel: Cancelar
                 ok: 'Remover completamente'
@@ -144,7 +150,8 @@ pt:
                 title: Estatísticas
                 total_invested: 'Total investido'
         for: para
-        force_smart_intervals_html: 'Use apenas ordens de <split>$100</split> %{currency} cada.'
+        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre com ordens de <split>$100</split> %{currency} cada uma.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Corte taxas com ordens limitadas'
         hour: Hora
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
@@ -167,7 +174,6 @@ pt:
         next_sell: 'Próxima venda em %{countdown}'
         price: 'do preço'
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
-        price_range_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{currency}.'
         sell: Vender
         setup:
@@ -294,7 +300,7 @@ pt:
                 passphrase: 'Frase de acesso'
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-            limit_warning: 'O bot para limitar pedido é uma funcionalidade experimentar. Nem todos os pedidos serão preenchidos. Para obter bons resultados, precisa de aumentar proporcionalmente o montante investido. Atualmente, a Deltabadger ainda não oferece ajuda para estimar este ajuste, pelo que precisará de recorrer às suas verificações anteriores. Utilize-o apenas se souber o que está a fazer.'
+            limit_warning: 'Definir suas ordens no valor da taxa reduz efetivamente sua taxa a zero. Embora as ordens limitadas possam demorar mais para serem executadas, geralmente são uma boa ideia. A configuração padrão faz isso por você, então é melhor mantê-la se você estiver em dúvida.'
             next: Próximo
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
@@ -348,10 +354,6 @@ pt:
         stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
-    cookie:
-        agree: Concordo
-        description: 'Utilizamos cookies para simplificar tudo.'
-        read_more: 'Sabe mais'
     deltabadger: Deltabadger
     devise:
         risk_down: 'Reduzir risco.'
@@ -376,6 +378,22 @@ pt:
             timeout: 'A sua sessão expirou. Inicie sessão novamente para continuar.'
             unauthenticated: 'Tem de iniciar sessão ou registar-se antes de continuar.'
             unconfirmed: 'Tem de confirmar o seu endereço de e-mail antes de continuar.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Confirmar endereço de e-mail'
+                template_html: '<p>Seu endereço de e-mail está a um clique de se juntar ao A-Team da grandiosidade! Confirme agora e deixe os bons tempos rolarem no piloto automático.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmar este e-mail</a>'
+            email_changed:
+                subject: 'E-mail confirmado'
+                template_html: '<p>Feito! Este é seu novo e brilhante endereço Deltabadger:</p><p><b>%{email}</b></p>'
+            password_change:
+                subject: 'Senha alterada'
+                template_html: '<p>Está feito!</p><p>Sua senha foi alterada.</p><p>Seus segredos estão mais seguros do que nunca!</p>'
+            reset_password_instructions:
+                subject: 'Recuperação de senha'
+                template_html: '<p>Recuperação de senha iniciada! Aguente firme, vamos colocá-lo de volta no jogo em pouco tempo.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Alterar minha senha</a>'
+            unlock_instructions:
+                subject: 'Instruções de desbloqueio'
+                template_html: '<p>Bloqueamos sua conta devido a um grande número de tentativas de login malsucedidas.</p><p>Clique no link abaixo para desbloqueá-la:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear minha conta</a>'
         omniauth_callbacks:
             failure: 'Não foi possível autenticá-lo a partir de %{kind} devido a "%{reason}".'
             success: 'Autenticado com sucesso a partir da conta %{kind}.'
@@ -502,7 +520,7 @@ pt:
                 password: Palavra-passe
                 password_confirmation: 'Confirmação de senha'
                 remember_me: Lembrar-me
-                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy} da Deltabadger.'
+                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Isto é muito importante!</b><br><br> Se não recebeu o e-mail de confirmação, verifique a sua <b>pasta de e-mail de lixo</b>. Se, ainda assim, não o encontrar, envie-me um e-mail para %{email}. <br><br>Obrigado, Jan'
@@ -515,6 +533,7 @@ pt:
     links:
         about: Sobre
         about_html: 'Sobre <span class="d-none d-xl-inline">o projeto</span>'
+        community: 'Comunidade Fireheads'
         contact: Contacto
         cookies_policy: 'Política de Cookies'
         create_account: 'Criar conta gratuita'
@@ -524,7 +543,8 @@ pt:
         log_out: 'Terminar sessão'
         menu: Menu
         privacy_policy: 'Política de Privacidade'
-        referral_program: 'Programa de referência'
+        earn: 'Ganhar'
+        referral_program: 'Compartilhe e ganhe'
         resend_link: 'Reenviar ligação'
         settings: Definições
         sign_up: Registar
@@ -564,15 +584,18 @@ pt:
         days_left:
             one: '1 dia restante'
             other: '%{count} dias restantes'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bots DCA ilimitados</b>, taxas mais baixas com <b>ordens limitadas</b>, <b>saques automáticos</b>, <b>condição de preço</b>, <b>condição de tempo</b>(em breve).</p>'
-        investor: Investor
-        investor_description_html: 'Um ano de <b>transações ilimitadas</b>, <b>todas as moedas</b> e <b>saques automáticos</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Nunca mais pague para usar o serviço.</b></p><p>Tudo o que o plano Hodler oferece, mas para a vida toda.</p><p>A assinatura vem com um <b>NFT</b>, para que no futuro você possa vendê-la para outro usuário.</p><p>Cada token está associado a uma obra de arte processual. Você consegue encontrar todos os 21 "ovos de páscoa" escondidos na <a href="https://deltabadger.com/legendary/" class="nobreak">coleção</a>?</p><p>Para a vida toda. Limitado. Lendário.</p><p>Os Legendary Badgers são como nada mais no mercado.</p><p>Apenas 1000 estão na nave espacial dos Legendary Badgers. Consolide seu status de pensador a longo prazo e seja lendário.</p>'
+        basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
+        pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
+        legendary_badger_info_html: '<p>Obtenha todos os recursos atuais e futuros do plano Pro para a vida toda.</p><p>Gosta de pagar uma vez e obter tudo? Junte-se ao nosso clube exclusivo de 1.000 pensadores de longo prazo com mãos de diamante e visão, e crie sua própria lenda.</p><p>O NFT que você recebe transforma sua assinatura em um ativo que você pode transferir ou vender. Cada token vem com uma arte processual única, com 21 <i>ovos de Páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
+        features:
+            analyzer_html: 'Prism — Analisador de portfólio'
+            dca: 'Bots de DCA'
+            price_limit: 'Limite de preço'
+            fee_cutter: 'Corta-Taxas'
+            withdrawals: 'Saques automáticos'
         limit_reached_html: '<b>Parabéns!</b> Você atingiu nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
-        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Hodler: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
+        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
@@ -607,24 +630,20 @@ pt:
         upgrade_plan: 'Atualizar plano'
     legendary_badger:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
-        invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
         update_success: '"%{eth_address}" foi submetido com sucesso. O NFT será enviado para este endereço.'
         ethereum_address: 'Endereço Ethereum'
-        confirm: Confirmar
-        update: Atualizar
+        confirm_info: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em "Reivindicar", se o endereço estiver errado, ninguém poderá recuperar o NFT.'
+        claim: 'Reivindicar NFT'
     welcome:
         banner_html: |
-            <p>Oi %{name}, Deltabadger faz duas coisas:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Análise de Portfólio</li>
-            </ul>
-            <p>É simples:</p>
-            <p>Primeiro, você adquire ativos, e não há melhor maneira de fazer isso do que com DCA automatizado.</p>
-            <p><b>O primeiro bot agora é completamente gratuito</b>.</p>
-            <p>Em seguida, nosso Analisador ajuda você a encontrar a alocação ideal dos seus ativos com <b>Alocação Inteligente</b> e fornece outras dicas sobre como melhorar seu portfólio.</p>
-            <p>Se você tem uma mentalidade de longo prazo e gosta do que vê, considere juntar-se aos Legendary Badgers — uma <b>comunidade exclusiva de 1.000 assinantes vitalícios</b>. Esta é uma oferta única que apoia o projeto e oferece uma oportunidade única de se tornar um beneficiário vitalício de todos os superpoderes do Deltabadger.</p>
-            <p style="margin-bottom:0">Atenciosamente, Jan</p>
+            <p>Bem-vindo a bordo, %{name}! Aqui estão alguns movimentos vencedores para você:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Inicie o <b>bot DCA</b> grátis e grite, <i>“Olha mãe, sem as mãos!”</i></li>
+                <li>Melhore seu portfólio com o <b>🌈⃤  Prism</b> analyzer e deixe o mercado no retrovisor.<sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
+                <li>Junte-se à comunidade <b>Fireheads</b> e se aposente cedo—porque trabalhar até os 65 anos? Não, obrigado.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Ir para a comunidade">Comece na comunidade</a>. Participe da nossa chamada Bonfire de quarta-feira para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem e eu. A vida é muito curta para esperar pelo fim de semana. (Esperar até quarta-feira é muito mais legal).</p>
+            <p style="margin-bottom:0">Nos vemos lá, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         saver: 'Livra-te dos limites e faz um upgrade!'
@@ -696,6 +715,7 @@ pt:
     analyzer:
         default_portfolio: 'Portfólio padrão'
         change_portfolio_name: 'Mudar nome'
+        compare: 'Comparar'
         new_portfolio: 'Novo portfólio'
         total_value: 'Valor Total'
         no_assets: 'Comece adicionando um novo ativo.'
@@ -732,6 +752,7 @@ pt:
         soon: 'em breve'
     alert:
         portfolio:
+            invalid_name: 'Nome de portfólio inválido.'
             invalid_benchmark: 'Valor de referência inválido.'
             invalid_strategy: 'Valor de estratégia inválido.'
             invalid_start_date: 'Valor de data de início inválido.'

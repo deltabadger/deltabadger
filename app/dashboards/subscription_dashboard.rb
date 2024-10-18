@@ -16,7 +16,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     updated_at: Field::DateTime,
     credits: Field::String.with_options(searchable: false),
     limit_almost_reached_sent: Field::Boolean,
-    sequence_number: Field::Number
+    nft_id: Field::Number
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -29,7 +29,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     subscription_plan
     user
     end_time
-    sequence_number
+    nft_id
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -43,7 +43,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     updated_at
     credits
     limit_almost_reached_sent
-    sequence_number
+    nft_id
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -55,7 +55,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     end_time
     credits
     limit_almost_reached_sent
-    sequence_number
+    nft_id
   ].freeze
 
   # COLLECTION_FILTERS

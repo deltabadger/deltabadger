@@ -13,9 +13,6 @@
     %script{:crossorigin => "anonymous", :integrity => "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q", :src => "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"}
     %script{:crossorigin => "anonymous", :integrity => "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl", :src => "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"}
 
-    / Global site tag (gtag.js) - Google Analytics
-    %script{:async => "", :src => "https://www.googletagmanager.com/gtag/js?id=G-FY76G14DEX"}
-
     %title
       = t('meta.title')
     %link{:href => "https://fonts.googleapis.com/icon?family=Material+Icons", :rel => "stylesheet"}
@@ -33,14 +30,6 @@
         bonjoro('identify', "#{current_user.email}", { userHash: "#{escape_javascript bonjoro_user_hash(current_user.email)}" });
 
     :javascript
-      // google
-
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-FY76G14DEX');
-
       // payments plan
       $(document).ready(function(){
         $(".db-plan-investor").click(function(){
@@ -164,14 +153,11 @@
       });
 
   %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: yield(:body_class)}
-    #cookie_consent
+    #flash.flash
+      = render 'layouts/flash'
 
     = render 'layouts/navbar'
     .main
-      = render 'layouts/banners/welcome_message'
-      = render 'layouts/banners/news_message'
-      = render 'layouts/banners/referral_message'
-      = render 'layouts/limit_reached'
       = yield
       .container
         = render 'layouts/footer'

@@ -6,7 +6,7 @@ window.Tooltip = Tooltip;
 
 export default class extends Controller {
   static targets = ["analyzerChart"];
-  static values = { series: Array, labels: Array };
+  static values = { series: Array, labels: Array, names: Array, colors: Array };
 
   connect() {
     this.resizeObserver = new ResizeObserver(() => {
@@ -25,13 +25,14 @@ export default class extends Controller {
   }
 
   #buildChart() {
-    const series = this.seriesValue;
-    const labels = this.labelsValue.map(date => new Date(date).getTime());
-    series[0] = series[0].map((x, i) => ({ x: labels[i], y: x }));
-    series[1] = series[1].map((x, i) => ({ x: labels[i], y: x }));
-    const minValue = Math.min(...series[0].map(x => x.y), ...series[1].map(x => x.y));
-    const maxValue = Math.max(...series[0].map(x => x.y), ...series[1].map(x => x.y));
-    const profitable = series[0][series[0].length - 1].y > series[0][0].y;
+    const all_names = this.namesValue;
+    const all_colors = this.colorsValue;
+    const all_series = this.seriesValue;
+    const all_labels = this.labelsValue;
+
+    let minValue;
+    let maxValue;
+    const profitable = all_series[0][0][all_series[0][0].length - 1] > all_series[0][0][0];
     const success_color = this.#safeColor(this.#getCssVariableValue('--success'));
     const danger_color = this.#safeColor(this.#getCssVariableValue('--danger'));
     const portfolio_color = profitable ? success_color : danger_color;
@@ -39,15 +40,116 @@ export default class extends Controller {
     const font_color = this.#safeColor(this.#getCssVariableValue('--label'));
     const tooltip_background_color = this.#safeColor(this.#getCssVariableValue('--tooltip-background'));
     const tooltip_font_color = this.#safeColor(this.#getCssVariableValue('--tooltip-text'));
-    const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-          portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
-          portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
-    const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-          benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
-          benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
-    const maxPointsToDraw = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
+    // const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
+    //       portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
+    //       portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
+    // const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
+    //       benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
+    //       benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
+    const maxPointsToDraw = Math.min(this.maxPointsToDraw, all_series[0][0].length, all_series[0][1].length);
 
     let log_scale = true;
+
+    const datasets = [];
+    const tooltip_multipliers = [];
+    let benchmark;
+    for (let i = 0; i < all_names.length; i++) {
+      let series = all_series[i];
+      let labels;
+      let color;
+      let pointRadius;
+      if (i === 0) {
+        labels = all_labels[i].map(date => new Date(date).getTime());
+        series[0] = series[0].map(value => (value / series[0][0])); // Normalize to 1
+        series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
+        minValue = Math.min(minValue, ...series[0].map(x => x.y));
+        maxValue = Math.max(maxValue, ...series[0].map(x => x.y));
+        series[1] = series[1].map(value => (value / series[1][0])) // Normalize to 1
+        series[1] = series[1].map((x, j) => ({ x: labels[j], y: x }));
+        minValue = Math.min(minValue, ...series[1].map(x => x.y));
+        maxValue = Math.max(maxValue, ...series[1].map(x => x.y));
+        color = portfolio_color
+        pointRadius = 4
+        tooltip_multipliers.push(1);
+      } else {
+        const filteredLabels = [];
+        const filteredSeries = [];
+        all_labels[i].forEach((date, index) => {
+          if (all_labels[0].includes(date)) {
+            filteredLabels.push(date);
+            filteredSeries.push(series[0][index]);
+          }
+        });
+
+        // make line start from main series
+        const startValue = all_series[0][0][all_labels[0].indexOf(filteredLabels[0])].y;
+        series[0] = filteredSeries.map(value => (value * startValue / filteredSeries[0]))
+        tooltip_multipliers.push(startValue);
+
+        // start from zero
+        // series[0] = filteredSeries.map(value => (value / filteredSeries[0]))
+        // tooltip_multipliers.push(1);
+
+        labels = filteredLabels.map(date => new Date(date).getTime());
+        series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
+        minValue = Math.min(minValue, ...series[0].map(x => x.y));
+        maxValue = Math.max(maxValue, ...series[0].map(x => x.y));
+
+        // add null values for missing x values
+        const xValues = all_series[0][0].map(label => label.x);
+        xValues.forEach(label => {
+          if (!labels.includes(label)) {
+            series[0].push({ x: label, y: null });
+          }
+        });
+        series[0].sort((label1, label2) => label1.x - label2.x);
+
+        color = this.#safeColor(all_colors[i]);
+        pointRadius = 3.5
+      }
+
+      datasets.push({
+        label: all_names[i],
+        lineTension: 0,
+        borderWidth: 2.5,
+        borderColor: color,
+        pointRadius: Array(maxPointsToDraw - 1)
+          .fill(0)
+          .concat([pointRadius]),
+        pointHoverRadius: Array(maxPointsToDraw - 1)
+          .fill(0)
+          .concat([pointRadius]),
+        pointHitRadius: 0,
+        pointBackgroundColor: color,
+        pointBorderColor: this.#setTransparency(color, 0.5),
+        pointBorderWidth: 0,
+        data: series[0],
+        clip: {left: false, top: false, right: false, bottom: false},
+      });
+      if (i === 0) {
+        benchmark = {
+          label: "Benchmark",
+          lineTension: 0,
+          borderWidth: 2.5,
+          borderColor: benchmark_color,
+          // borderDash: [4, 2],
+          pointRadius: Array(maxPointsToDraw - 1)
+            .fill(0)
+            .concat([3.5]),
+          pointHoverRadius: Array(maxPointsToDraw - 1)
+            .fill(0)
+            .concat([3.5]),
+          pointHitRadius: 0,
+          pointBackgroundColor: benchmark_color,
+          pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
+          pointBorderWidth: 0,
+          data: series[1],
+          clip: {left: false, top: false, right: false, bottom: false},
+        }
+      }
+    }
+    datasets.push(benchmark);
+    tooltip_multipliers.push(1);
 
     Tooltip.positioners.topLeft = function(elements, eventPosition) {
         const tooltip = this;
@@ -102,45 +204,7 @@ export default class extends Controller {
         },
       ],
       data: {
-        datasets: [
-          {
-            label: "Portfolio",
-            lineTension: 0,
-            borderWidth: 2.5,
-            borderColor: portfolio_color,
-            pointRadius: Array(maxPointsToDraw - 1)
-              .fill(0)
-              .concat([4]),
-            pointHoverRadius: Array(maxPointsToDraw - 1)
-            .fill(0)
-            .concat([4]),
-            pointHitRadius: 0,
-            pointBackgroundColor: portfolio_color,
-            pointBorderColor: this.#setTransparency(portfolio_color, 0.5),
-            pointBorderWidth: 0,
-            data: series[0],
-            clip: {left: false, top: false, right: false, bottom: false},
-          },
-          {
-            label: "Benchmark",
-            lineTension: 0,
-            borderWidth: 2.5,
-            borderColor: benchmark_color,
-            // borderDash: [4, 2],
-            pointRadius: Array(maxPointsToDraw - 1)
-              .fill(0)
-              .concat([3.5]),
-            pointHoverRadius: Array(maxPointsToDraw - 1)
-            .fill(0)
-            .concat([3.5]),
-            pointHitRadius: 0,
-            pointBackgroundColor: benchmark_color,
-            pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
-            pointBorderWidth: 0,
-            data: series[1],
-            clip: {left: false, top: false, right: false, bottom: false},
-          },
-        ],
+        datasets: datasets,
       },
       options: {
         responsive: true,
@@ -276,10 +340,18 @@ export default class extends Controller {
               label: function (context) {
                 let label = context.dataset.label + ": ";
                 if (context.parsed.y !== null) {
-                  label += new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(context.parsed.y);
+                  let n = (context.parsed.y - 1) * 100;
+
+                  // make tooltip show the actual value from zero
+                  n = (context.parsed.y / tooltip_multipliers[context.datasetIndex] - 1) * 100;
+
+                  n = Math.abs(n) == 0 || Math.abs(n) >= 10 ? Math.round(n) : Math.abs(n) >= 1 ? n.toFixed(1) : n.toFixed(2);
+                  n = n > 0 ? `+${n}%` : `${n}%`;
+                  label += n;
+                  // label += new Intl.NumberFormat("en-US", {
+                  //   style: "currency",
+                  //   currency: "USD",
+                  // }).format(context.parsed.y);
                 }
                 return label;
               },

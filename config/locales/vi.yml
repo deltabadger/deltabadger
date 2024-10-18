@@ -6,6 +6,10 @@ vi:
                     attributes:
                         code:
                             invalid_format: 'phải gồm các ký tự chữ viết hoa và số'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
     ads:
         bitwarden_text: '. Đây là nguồn mở và miễn phí.'
         bitwarden_title: 'Thử Bitwarden'
@@ -95,10 +99,10 @@ vi:
             template_html: "<p>Xin chào 👋,</p>\n<p>Bạn đã sử dụng Deltabadger được gần một tháng!</p>\n<p>Thời hạn dùng thử miễn phí không giới hạn của bạn đã sắp hết. Hãy đảm bảo nâng cấp gói để giữ cho tài khoản của bạn tiếp tục hoạt động!</p>"
         limit_almost_reached:
             subject: 'Gần đạt hạn mức giao dịch ⌛'
-            template_html: "<p>Xin chào 👋,</p>\n<p>Bạn đã gần đạt <br>hạn mức giao dịch gói</p> <b style=\"color: #0a45a4;\">Saver</b>.\n<p>Hãy cập nhật lên gói <b style=\"color: #0a45a4;\">Investor</b><br> hoặc <b style=\"color: #0a45a4;\">Hodler</b> để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
+            template_html: "<p>Xin chào 👋,</p>\n<p>Bạn đã gần đạt <br>hạn mức giao dịch gói</p> <b style=\"color: #0a45a4;\">Saver</b>.\n<p>Hãy cập nhật lên gói <b style=\"color: #0a45a4;\">Investor</b><br> hoặc <b style=\"color: #0a45a4;\">Pro</b> để đảm bảo bot của bạn</br>tiếp tục làm việc.</p>"
         limit_reached:
             subject: 'Bạn đã đạt hạn mức giao dịch 🥳'
-            template_html: "<p>Xin chào 👋,</p>\n<p>Ồ, tốt lắm! Bạn đã đạt đến hạn mức gói <b style=\"color: #0a45a4;\">Saver</b><br>.</p>\n<p>Có vẻ như bạn đã thực hiện trung bình giá<br>được một thời gian.</p>\n<p>Chúng tôi hy vọng bạn hài lòng với<br>kết quả thu được.</p>\n<p>Nâng cấp gói của bạn lên <b style=\"color: #0a45a4;\">Investor</b><br>hoặc <b style=\"color: #0a45a4;\">Hodler</b> để gỡ bỏ tất cả hạn mức và<br>giúp bot của bạn hoạt động trở lại.</p>"
+            template_html: "<p>Xin chào 👋,</p>\n<p>Ồ, tốt lắm! Bạn đã đạt đến hạn mức gói <b style=\"color: #0a45a4;\">Saver</b><br>.</p>\n<p>Có vẻ như bạn đã thực hiện trung bình giá<br>được một thời gian.</p>\n<p>Chúng tôi hy vọng bạn hài lòng với<br>kết quả thu được.</p>\n<p>Nâng cấp gói của bạn lên <b style=\"color: #0a45a4;\">Investor</b><br>hoặc <b style=\"color: #0a45a4;\">Pro</b> để gỡ bỏ tất cả hạn mức và<br>giúp bot của bạn hoạt động trở lại.</p>"
         notify_about_error:
             subject: 'Đã xảy ra lỗi 😵'
             template_html: "<p>Ồ… 😵</p>\n<p>Đã có lỗi xảy ra khi<br>xử lý giao dịch gần nhất.</p>\n<p>Bạn có thể xem lỗi trong<br>nhật ký bot. Đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -106,18 +110,19 @@ vi:
             subject: 'Ồ! Bạn hãy thử lại nhé... 🧐'
             template_html: "<p>Ôi trời 🧐,</p>\n<p>Bot đã không thể thực hiện lệnh của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử lại lần nữa trong %{delay}.</p>\n<p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui lòng đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: 'Chỉ Hodler và Legendary Badger'
         above: 'trên đây'
         add_new_bot: 'Thêm bot mới'
         below: 'dưới đây'
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: 'Rút tiền tự động'
+            request_exchange: 'Hỏi để thêm sàn giao dịch'
+            move_existing_bot: 'Di chuyển bot hiện tại sang sàn giao dịch khác'
             delete:
                 cancel: 'Hủy bỏ'
                 ok: 'Xóa toàn bộ'
                 text: Xóa
                 warning_html: 'Thao tác này sẽ xóa bot cùng với tất cả<br> dữ liệu lịch sử. Bạn có chắc muốn xóa không?'
-            dollar_cost_averaging: ''
+            dollar_cost_averaging: 'Trung bình chi phí đô la'
             pending:
                 info_html: 'Đang xử lý'
                 text: 'Đang chờ'
@@ -171,7 +176,8 @@ vi:
                 title: 'Thống kê'
                 total_invested: 'Tổng giá trị đầu tư'
         for: cho
-        force_smart_intervals_html: 'Sử dụng <em>thời khoảng thông minh</em> để đặt lệnh với giá trị <split>$100</split> %{currency} mỗi lệnh.'
+        force_smart_intervals_html: '<b>Khoảng Thời Gian Thông Minh<sup>®</sup></b> · Mua với các đơn hàng trị giá <split>100$</split> %{currency} mỗi đơn.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Giảm phí với lệnh giới hạn'
         hour: Giờ
         limit_buy: 'Lệnh chờ mua'
         limit_sell: 'Lệnh chờ bán'
@@ -192,10 +198,9 @@ vi:
         month: Tháng
         next_buy: 'Lần mua tiếp theo trong %{countdown}'
         next_sell: 'Lần bán tiếp theo trong %{countdown}'
-        next_withdrawal: ''
+        next_withdrawal: 'Bài viết tiếp theo'
         price: giá
         price_range_buy_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
-        price_range_html: 'Chỉ mua trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Chỉ bán trong khoảng giá từ <split>$100</split> đến <split>$1000</split> %{currency}.'
         sell: Bán
         setup:
@@ -309,7 +314,7 @@ vi:
                 passphrase: 'Cụm mật khẩu'
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-            limit_warning: 'Bot lệnh giới hạn là tính năng thử nghiệm. Hiện giờ bot chưa thể thực hiện tất cả các lệnh. Để đạt kết quả tốt nhất, bạn cần tăng số tiền đầu tư lên một cách tương xứng. Hiện tại, Deltabadger vẫn chưa cung cấp công cụ nào để ước tính số tiền điều chỉnh, vì vậy bạn cần tự mình thử nghiệm. Chỉ sử dụng nếu bạn biết mình đang làm gì.'
+            limit_warning: 'Đặt lệnh với mức phí tương ứng sẽ giảm phí của bạn xuống bằng không. Mặc dù lệnh giới hạn có thể mất nhiều thời gian hơn để thực hiện, chúng thường là một ý tưởng tốt. Cài đặt mặc định thực hiện điều này cho bạn, vì vậy tốt nhất nên giữ nguyên nếu bạn không chắc chắn.'
             next: 'Tiếp theo'
             no_wallet_found: ''
             probit:
@@ -376,10 +381,6 @@ vi:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Tôi đồng ý'
-        description: 'Chúng tôi sử dụng cookie để giúp mọi thứ đơn giản hơn.'
-        read_more: 'Tìm hiểu thêm'
     days_left:
         other: ''
     deltabadger: Deltabadger
@@ -408,20 +409,20 @@ vi:
             unconfirmed: 'Bạn phải xác nhận địa chỉ email trước khi tiếp tục.'
         mailer:
             confirmation_instructions:
-                subject: 'Chào mừng bạn đến với Deltabadger 🎉'
-                template_html: "<p>Chào mừng bạn đến với Deltabadger 🎉,</p>\n<p>Để tự động trung bình giá<br>Bitcoin, bạn chỉ cần nhấp vào liên kết sau:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Xác nhận tài khoản của tôi</a>\n</p>\n<p>Bạn không nhớ đã đăng ký?<br>Đừng lo lắng. Nếu vậy bạn không cần để ý.</p>"
+                subject: 'Xác nhận địa chỉ email'
+                template_html: '<p>Địa chỉ email của bạn chỉ còn một cú nhấp chuột để tham gia A-Team của sự tuyệt vời! Xác nhận ngay bây giờ và để những khoảnh khắc vui vẻ diễn ra tự động.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Xác nhận email này</a>'
             email_changed:
-                subject: 'Địa chỉ email mới 📨'
-                template_html: "<p>Xin chào 👋,</p>\n<p>Chúng tôi gửi email này để thông báo rằng địa chỉ email được liên kết với tài khoản của bạn tại Deltabadger đã được thay đổi thành:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+                subject: 'Email đã xác nhận'
+                template_html: '<p>Xong rồi! Đây là địa chỉ Deltabadger mới và sáng bóng của bạn:</p><p><b>%{email}</b></p>'
             password_change:
-                subject: 'Mật khẩu mới 🔑'
-                template_html: "<p>Đã xong 🎉!</p>\n<p>Mật khẩu của bạn 🔑 đã được thay đổi.</p>"
+                subject: 'Mật khẩu đã thay đổi'
+                template_html: '<p>Đã xong!</p><p>Mật khẩu của bạn đã được thay đổi.</p><p>Bí mật của bạn an toàn hơn bao giờ hết!</p>'
             reset_password_instructions:
-                subject: 'Đặt lại mật khẩu 🔑'
-                template_html: "<p>Xin chào 👋,</p>\n<p>Có vẻ như bạn muốn thay đổi<br/>mật khẩu của bạn 🔑. Tốt lắm!</p>\n<p>Hãy bắt đầu nhé:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Thay đổi mật khẩu của tôi</a>\n  </p>\n<p>Bạn không gửi yêu cầu này?<br/>Đừng lo! Nếu vậy bạn không cần để ý.</p>"
+                subject: 'Khôi phục mật khẩu'
+                template_html: '<p>Khôi phục mật khẩu đã bắt đầu! Chờ chút, chúng tôi sẽ đưa bạn trở lại trò chơi trong thời gian ngắn.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Thay đổi mật khẩu của tôi</a>'
             unlock_instructions:
-                subject: 'Mở khóa hướng dẫn 🔓'
-                template_html: "<p>Xin chào 👋,</p>\n<p>Chúng tôi đã khóa tài khoản của bạn do<br>bạn đã vượt quá số lần đăng nhập không thành công.</p>\n<p>Hãy nhấp vào liên kết dưới đây để mở khóa tài khoản:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Mở khóa tài khoản của tôi</a>\n</p>"
+                subject: 'Hướng dẫn mở khóa'
+                template_html: '<p>Chúng tôi đã khóa tài khoản của bạn do có nhiều lần đăng nhập không thành công.</p><p>Nhấp vào liên kết dưới đây để mở khóa nó:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mở khóa tài khoản của tôi</a>'
         omniauth_callbacks:
             failure: 'Không thể xác thực bạn từ %{kind} do "%{reason}".'
             success: 'Xác thực thành công từ tài khoản %{kind}'
@@ -546,7 +547,7 @@ vi:
                 first_name: Tên
                 last_name: Họ
                 other: Khác
-                submit_hodler_order: 'Gói đặt lệnh Hodler'
+                submit_hodler_order: 'Gói đặt lệnh Pro'
                 submit_investor_order: 'Gói đặt lệnh Investor'
             settings:
                 current_status: 'Trạng thái hiện tại:'
@@ -564,7 +565,7 @@ vi:
                 password: 'Mật khẩu'
                 password_confirmation: 'Xác nhận mật khẩu'
                 remember_me: 'Nhớ tôi'
-                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy} của Deltabadger.'
+                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Lưu ý quan trọng!</b><br><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'
@@ -577,6 +578,7 @@ vi:
     links:
         about: Về
         about_html: 'Về <span class="d-none d-xl-inline">dự án</span>'
+        community: 'Cộng đồng Fireheads'
         contact: 'Liên hệ'
         cookies_policy: 'Chính sách Cookie'
         create_account: 'Tạo tài khoản miễn phí'
@@ -586,6 +588,7 @@ vi:
         log_out: 'Đăng xuất'
         menu: Menu
         privacy_policy: 'Chính sách Quyền riêng tư'
+        earn: Kiếm
         referral_program: 'Chương trình giới thiệu'
         resend_link: 'Gửi lại liên kết'
         settings: 'Cài đặt'
@@ -597,7 +600,7 @@ vi:
     mailer:
         signature_html: 'Đội ngũ Deltabadger 🧑‍🚀'
     meta:
-        desc: 'Bắt đầu áp dụng miễn phí chiến lược tốt nhất hiệu quả với cả Binance, FTX, Coinbase, Kraken, Kucoin và các sàn giao dịch khác. Không cần KYC.'
+        desc: 'Bắt đầu áp dụng miễn phí chiến lược tốt nhất hiệu quả với cả Binance, Coinbase, Kraken, Kucoin và các sàn giao dịch khác. Không cần KYC.'
         title: 'Deltabadger • Tự động trung bình giá bất kỳ loại tiền điện tử nào'
         title_short: 'Deltabadger • Tự động trung bình giá Bitcoin và các tài sản khác'
         twitter_image_alt: 'Tự động trung bình giá Bitcoin, Ethereum, Polkadot, Cardano, Solana và các tài sản kỹ thuật số khác.'
@@ -631,16 +634,20 @@ vi:
             template_html: "<p>Tuyệt quá 💙,</p>\n<p>Cảm ơn bạn đã mua gói</p>\n<p>\n  <b>\n    %{years} năm %{plan_name} của chúng tôi\n  </b>\n</p>\n<p>Bạn thật tuyệt! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bot DCA không giới hạn</b>, phí thấp hơn với <b>lệnh giới hạn</b>, <b>rút tiền tự động</b>, <b>điều kiện giá</b>, <b>điều kiện thời gian</b>(sắp có).</p>'
-        investor: Investor
-        investor_description_html: 'Một năm <b>giao dịch không giới hạn</b>, <b>tất cả các loại tiền</b>, và <b>rút tiền tự động</b>.'
-        legendary_badger: Legendary Badger
-        legendary_badger_description_html: '<p><b>Không bao giờ phải trả phí sử dụng dịch vụ nữa.</b></p><p>Mọi thứ mà gói Hodler cung cấp, nhưng là suốt đời.</p><p>Đăng ký đi kèm với một <b>NFT</b>, do đó trong tương lai bạn có thể bán nó cho người dùng khác.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật quy trình. Bạn có thể tìm thấy tất cả 21 "trứng phục sinh" ẩn trong <a href="https://deltabadger.com/legendary/" class="nobreak">bộ sưu tập</a> không?</p><p>Suốt đời. Giới hạn. Huyền thoại.</p><p>Legendary Badgers là duy nhất trên thị trường.</p><p>Chỉ có 1000 chỗ ngồi trên tàu vũ trụ của Legendary Badgers. Hãy củng cố vị thế của bạn như một người suy nghĩ dài hạn và trở thành huyền thoại.</p>'
+            one: 'Còn 1 ngày'
+            other: 'Còn %{count} ngày'
+        basic_info: 'Không phức tạp, chỉ làm việc hiệu quả.'
+        pro_info: 'Có cái nhìn tổng quát, phân tích sâu và các tính năng Pro.'
+        legendary_badger_info_html: '<p>Nhận tất cả các tính năng hiện tại và tương lai của gói Pro trọn đời.</p><p>Bạn có thích trả tiền một lần và có được tất cả? Tham gia câu lạc bộ giới hạn 1.000 người suy nghĩ dài hạn với “tay kim cương” và tầm nhìn của chúng tôi, và tạo ra huyền thoại của riêng bạn.</p><p>NFT bạn nhận được biến đăng ký của bạn thành một tài sản mà bạn có thể chuyển nhượng hoặc bán. Mỗi mã thông báo đi kèm với tác phẩm nghệ thuật theo thủ tục độc đáo, với 21 <i>trứng phục sinh</i> ẩn trong <a href="https://legendarybadgers.com/" class="nobreak">bộ sưu tập</a>.</p>'
+        features:
+            analyzer_html: 'Prism — công cụ phân tích danh mục đầu tư'
+            dca: 'Bot DCA'
+            price_limit: 'Giới hạn giá'
+            fee_cutter: 'Cắt giảm phí'
+            withdrawals: 'Tự động rút tiền'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
         analyzer_html: 'Tăng cường danh mục đầu tư của bạn với sức mạnh không giới hạn của <b>Trình phân tích Danh mục đầu tư</b>.'
-        expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Hodler: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
+        expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Pro: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
         payment:
             account_holder: 'Chủ tài khoản'
             account_number: 'Số tài khoản'
@@ -686,23 +693,19 @@ vi:
         upgrade_plan: 'Nâng cấp gói'
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger sẽ được gửi đến:'
-        invalid_address: '"%{eth_address}" là một địa chỉ Ethereum không hợp lệ. Vui lòng thử lại.'
         update_success: '"%{eth_address}" đã được gửi thành công. NFT sẽ được gửi đến địa chỉ này.'
-        confirm: 'Xác nhận'
-        update: 'Cập nhật'
+        confirm_info: 'Tôi xác nhận địa chỉ là chính xác và hiểu rằng NFT sẽ được gửi đến địa chỉ này. Khi tôi nhấp vào "Nhận", nếu địa chỉ sai, không ai có thể khôi phục lại NFT.'
+        claim: 'Nhận NFT'
     welcome:
         banner_html: |
-            <p>Chào %{name}, Deltabadger làm hai việc:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Phân tích danh mục đầu tư</li>
-            </ul>
-            <p>Rất đơn giản:</p>
-            <p>Đầu tiên, bạn mua tài sản, và không có cách nào tốt hơn để làm điều đó ngoài DCA tự động.</p>
-            <p><b>Bot đầu tiên hiện hoàn toàn miễn phí</b>.</p>
-            <p>Sau đó, Bộ phân tích của chúng tôi giúp bạn tìm ra phân bổ tối ưu cho tài sản của mình với <b>Phân bổ thông minh</b> và cung cấp các gợi ý khác về cách cải thiện danh mục đầu tư của bạn.</p>
-            <p>Nếu bạn có tư duy dài hạn và bạn thích những gì bạn thấy, hãy cân nhắc tham gia Legendary Badgers — một <b>cộng đồng độc quyền gồm 1.000 người đăng ký trọn đời</b>. Đây là một lời đề nghị độc đáo không chỉ hỗ trợ dự án mà còn mang đến cho bạn cơ hội trở thành người thụ hưởng trọn đời của tất cả các siêu năng lực của Deltabadger.</p>
-            <p style="margin-bottom:0">Trân trọng, Jan</p>
+            <p>Chào mừng lên tàu, %{name}! Đây là vài bước đi chiến thắng dành cho bạn:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Bắt đầu bot <b>DCA</b> đầu tiên của bạn và hét lên: <i>“Mẹ ơi, nhìn này, không cần tay!”</i></li>
+                <li>Cải thiện danh mục đầu tư của bạn với công cụ phân tích <b>🌈⃤ Prism</b> và bỏ lại thị trường phía sau.<sur>*</sur><br><small><sur>*</sur>Không cần quả cầu pha lê.</small></li>
+                <li>Tham gia cộng đồng <b>Fireheads</b> và nghỉ hưu sớm—vì làm việc đến 65 tuổi? Không, cảm ơn.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Tham gia cộng đồng">Bắt đầu trong cộng đồng</a>. Tham gia cuộc gọi Bonfire vào thứ Tư để gặp gỡ nhóm các kẻ nổi loạn tài chính, đồng sáng lập của tôi Guillem, và tôi. Cuộc đời quá ngắn để đợi đến cuối tuần. (Chờ đợi đến thứ Tư thì tuyệt hơn nhiều).</p>
+            <p style="margin-bottom:0">Hẹn gặp bạn, Jan</p>
     metrics:
         exp_return:
             short_name: 'Lợi nhuận kỳ vọng'
@@ -771,6 +774,7 @@ vi:
     analyzer:
         default_portfolio: 'Danh mục đầu tư mặc định'
         change_portfolio_name: 'Đổi tên'
+        compare: 'So sánh'
         new_portfolio: 'Danh mục đầu tư mới'
         total_value: 'Tổng giá trị'
         no_assets: 'Bắt đầu bằng cách thêm tài sản mới.'
@@ -807,6 +811,7 @@ vi:
         soon: 'sắp ra mắt'
     alert:
         portfolio:
+            invalid_name: 'Tên danh mục không hợp lệ.'
             invalid_benchmark: "Giá trị tiêu chuẩn không hợp lệ."
             invalid_strategy: "Giá trị chiến lược không hợp lệ."
             invalid_start_date: "Giá trị ngày bắt đầu không hợp lệ."

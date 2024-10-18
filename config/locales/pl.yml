@@ -6,6 +6,10 @@ pl:
                     attributes:
                         code:
                             invalid_format: 'musi składać się z dużych liter i cyfr'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
     ads:
         bitwarden_text: '. Jest darmowy i open-source.'
         bitwarden_title: 'Spróbuj Bitwarden'
@@ -18,13 +22,13 @@ pl:
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Potwierdź nowy adres bitcoinowy'
-            template_html: '<p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p><p><b>%{new_btc_address}</b></p><p>Ten adres będzie używany do Twoich wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p><a class="mail-button" href="%{confirmation_url}">Tak, zmieńmy go!</a>'
+            template_html: '<p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p><p><b>%{new_btc_address}</b></p><p>Ten adres będzie używany do Twoich wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Tak, zmieńmy go!</a>'
         referrals_payout_notification:
             subject: 'Nadszedł dzień wypłaty!'
             template_html: '<p>Twój link polecający zyskuje na popularności! Nieźle!!!</p><p>Wysłaliśmy prowizję w wysokości</p><p> <b>%{amount} BTC</b></p><p>na Twój portfel Bitcoin.</p><p>Dziękujemy za powiększanie gangu borsuka!</p>'
         registration_reminder:
             subject: 'Wow! Zarobiłeś %{amount} BTC!'
-            template_html: '<p>Czeka na Ciebie nowa prowizja z programu poleceń! Zakończ rejestrację, aby otrzymać swoje bitcoiny.</p><a class="email-button" href=%{link}>Dokończ rejestrację.</a>'
+            template_html: '<p>Czeka na Ciebie nowa prowizja z programu poleceń! Zakończ rejestrację, aby otrzymać swoje bitcoiny.</p><a class="email-button" style="color: #fff" href=%{link}>Dokończ rejestrację.</a>'
     affiliates:
         add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
         apply_code:
@@ -47,7 +51,7 @@ pl:
             valid_for: 'Ważny przy pierwszym zakupie na platformie.'
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
-        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>\n <ol>\n <li> Dla uproszczenia cena Bitcoina wynosi ~10000$, rabat 10%, a Twoja marża 20%. </li>\n <li> Osoba korzystająca z linku kupuje roczny plan za 49,99 USD, płacąc po rabacie 44,99 USD, co równa się 0,0045 BTC. Zarabiasz 0,001 BTC (20% z 49,99 $). </li>\n <li> Nie ma znaczenia, czy cena Bitcoina w międzyczasie się zmieni. Twój zysk w BTC zostaje ustalony w momencie transakcji. </li>\n <li> Następnym razem ten sam użytkownik kupuje abonament Hodler za 149,99 USD i płaci 0,015 BTC. Nie otrzymuje już zniżki, ale ty nadal dostajesz swoje 20%, czyli 0,003 BTC. </li>\n <li> Będziesz zarabiać, dopóki masz aktywny plan<sup> 2 </sup> , a całkowity zysk z transakcji danego użytkownika nie osiągnie 50 USD. </li>\n </ol>\n\n <p> <em> Zarabianie w bitcoinach to najlepszy sposób na uśrednianie! </em> </p>\n <small class=\"mb-2\"><sup> 1 </sup> Limit wynosi 50 USD lub 50 EUR, w zależności od waluty, którą korzystający z linku widzi przy zakupie. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Dla użytkownika link polecający działa nawet po wygaśnięciu twojej subskrypcji. </small>\n </div>"
+        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\"> Nasz program poleceń <b> wypłaca do 50 $ </b><sup> 1 </sup> za użytkownika w BTC (przy użyciu kursu wymiany z momentu transakcji). Przykład: </p>\n <ol>\n <li> Dla uproszczenia cena Bitcoina wynosi ~10000$, rabat 10%, a Twoja marża 20%. </li>\n <li> Osoba korzystająca z linku kupuje roczny plan za 49,99 USD, płacąc po rabacie 44,99 USD, co równa się 0,0045 BTC. Zarabiasz 0,001 BTC (20% z 49,99 $). </li>\n <li> Nie ma znaczenia, czy cena Bitcoina w międzyczasie się zmieni. Twój zysk w BTC zostaje ustalony w momencie transakcji. </li>\n <li> Następnym razem ten sam użytkownik kupuje abonament Pro za 149,99 USD i płaci 0,015 BTC. Nie otrzymuje już zniżki, ale ty nadal dostajesz swoje 20%, czyli 0,003 BTC. </li>\n <li> Będziesz zarabiać, dopóki masz aktywny plan<sup> 2 </sup> , a całkowity zysk z transakcji danego użytkownika nie osiągnie 50 USD. </li>\n </ol>\n\n <p> <em> Zarabianie w bitcoinach to najlepszy sposób na uśrednianie! </em> </p>\n <small class=\"mb-2\"><sup> 1 </sup> Limit wynosi 50 USD lub 50 EUR, w zależności od waluty, którą korzystający z linku widzi przy zakupie. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Dla użytkownika link polecający działa nawet po wygaśnięciu twojej subskrypcji. </small>\n </div>"
         new:
             checked: 'Sprawdziłem wszystko dokładnie.'
             discount_info_html: '<b> Zarobisz <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, a korzystający z linku otrzyma <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu</b>.'
@@ -95,10 +99,10 @@ pl:
             template_html: '<p>Wygląda na to, że Twojemu botowi wkrótce skończy się %{quote}.</p><p>Dokonaj przelewu do %{exchange_name}, aby mieć pewność, że bot działa nieprzerwanie.</p>'
         first_month_ending_soon:
             subject: 'Miesiąc próbny wkrótce się kończy!'
-            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby utrzymać swoje cięższe borsuki!</p>'
+            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
         limit_almost_reached:
             subject: 'Limit prawie wyczerpany'
-            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Investor</b> lub <b>Hodler</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
+            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Investor</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
         limit_reached:
             subject: 'Wyczerpałeś darmowy limit'
             template_html: '<p>No to się udało! Osiagnąłeś limit planu <b>Oszczędny</b>.</p><p>Wygląda na to, że od jakiegoś czasu uśredniasz cenę z naszymi botami.</p><p>Mamy nadzieję, że jesteś zadowolony z wyników.</p><p>Zrób upgrade, aby usunąć wszystkie limity i przywrócić swoje boty do pracy.</p>'
@@ -109,12 +113,13 @@ pl:
             subject: 'Ups! Następna próba...'
             template_html: '<p>Bot nie mógł wykonać twojego zamówienia. Wygląda to na problem z wymianą walut. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logu bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        hodler_only: 'Tylko Hodler i Legendary Badger'
         above: powyżej
         add_new_bot: 'Dodaj nowego bota'
         below: poniżej
         buttons:
             automatic_withdrawal: 'Automatyczna wypłata'
+            request_exchange: 'Poproś o dodanie giełdy'
+            move_existing_bot: 'Przenieś istniejącego bota na inną giełdę'
             delete:
                 cancel: Anuluj
                 ok: 'Usuń całkowicie'
@@ -174,7 +179,8 @@ pl:
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
         for: za
-        force_smart_intervals_html: 'Użyj <em>smart interwałów</em> i zleceń o wielkości <split>100</split> %{currency}.'
+        force_smart_intervals_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Zmniejsz opłaty za pomocą zleceń z limitem'
         hour: Godzina
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'
@@ -328,7 +334,7 @@ pl:
                 passphrase: Hasło
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
-            limit_warning: 'Bot zleceń limitowanych jest funkcją eksperymentalną. Nie wszystkie zlecenia zostaną zrealizowane. Aby osiągnąć dobre wyniki, należy proporcjonalnie zwiększyć inwestowaną kwotę. W tej chwili Deltabadger nie oferuje jeszcze żadnej pomocy w oszacowaniu tego dostosowania, dlatego konieczne są własne eksperymenty. Używaj, tylko jeśli wiesz co robisz.'
+            limit_warning: 'Ustawienie zleceń na kwotę opłaty efektywnie obniża opłatę do zera. Chociaż realizacja zleceń z limitem może potrwać dłużej, zazwyczaj jest to dobry pomysł. Domyślne ustawienie robi to za Ciebie, więc najlepiej się go trzymać, jeśli nie jesteś pewien.'
             next: Dalej
             no_wallet_found: 'Nie znaleziono portfela. Przejdź do %{exchangeName} i dodaj portfel do wypłaty.'
             probit:
@@ -396,10 +402,6 @@ pl:
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
         withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
         withdrawal_percentage: '%{percentage}% do następnej wypłaty'
-    cookie:
-        agree: 'Zgadzam się'
-        description: 'Używamy ciasteczek, aby upraszczać rzeczy.'
-        read_more: 'Czytaj więcej'
     days_left:
         one: 'Pozostał 1 dzień'
         few: 'Pozostały %{count} dni'
@@ -432,7 +434,7 @@ pl:
         mailer:
             confirmation_instructions:
                 subject: 'Potwierdź adres e-mail'
-                template_html: '<p>Twój adres e-mail jest o jedno kliknięcie od dołączenia do Drużyny A niesamowitości! Potwierdź go i niech zapanuje doskonałość.</p> <a class="mail-button" href="%{confirmation_url}">Potwierdź ten email</a>'
+                template_html: '<p>Twój adres e-mail jest o jedno kliknięcie od dołączenia do Drużyny A niesamowitości! Potwierdź go i niech zapanuje doskonałość.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Potwierdź ten email</a>'
             email_changed:
                 subject: 'E-mail potwierdzony'
                 template_html: '<p>Gotowe! To jest twój nowy i lśniący adres na Deltabadger:</p><p><b>%{email}</b></p>'
@@ -441,10 +443,10 @@ pl:
                 template_html: '<p>Udało się!</p><p>Hasło zostało zmienione.</p><p>Twoje tajemnice są bezpieczniejsze niż kiedykolwiek!</p>'
             reset_password_instructions:
                 subject: 'Odzyskiwanie hasła'
-                template_html: '<p>Odzyskiwanie hasła rozpoczęte! Jeszcze chwila, zaraz wrócisz do gry.</p><a class="mail-button" href="%{edit_password_url}">Zmień moje hasło</a>'
+                template_html: '<p>Odzyskiwanie hasła rozpoczęte! Jeszcze chwila, zaraz wrócisz do gry.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Zmień moje hasło</a>'
             unlock_instructions:
                 subject: 'Instrukcja odblokowania'
-                template_html: '<p>Zablokowaliśmy Twoje konto z powodu dużej liczby nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:</p><a class="mail-button" href="%{unlock_url}">Odblokuj moje konto</a>'
+                template_html: '<p>Zablokowaliśmy Twoje konto z powodu dużej liczby nieudanych prób logowania.</p><p>Kliknij poniższy link, aby je odblokować:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Odblokuj moje konto</a>'
         omniauth_callbacks:
             failure: 'Nie można uwierzytelnić %{kind} ponieważ „ %{reason} ”.'
             success: 'Pomyślne uwierzytelnienie z konta %{kind}.'
@@ -594,7 +596,7 @@ pl:
                 password: Hasło
                 password_confirmation: 'Potwierdź hasło'
                 remember_me: 'Zapamiętaj mnie'
-                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy} firmy Deltabadger.'
+                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>To ważne! </b><br><br> Jeśli nie otrzymałeś e-maila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
@@ -607,6 +609,7 @@ pl:
     links:
         about: 'O nas'
         about_html: 'O projekcie<span class="d-none d-xl-inline"></span>'
+        community: 'Społeczność Fireheads'
         contact: Kontakt
         cookies_policy: 'Polityka ciasteczek'
         create_account: 'Stwórz darmowe konto'
@@ -616,6 +619,7 @@ pl:
         log_out: Wyloguj
         menu: Menu
         privacy_policy: 'Polityka prywatności'
+        earn: 'Zarabiaj'
         referral_program: 'Program referencyjny'
         resend_link: 'Wyślij ponownie link'
         settings: Ustawienia
@@ -671,15 +675,18 @@ pl:
             few: 'Pozostały %{count} dni'
             many: 'Pozostało %{count} dni'
             other: 'Pozostało %{count} dni'
-        hodler: Hodler
-        hodler_description_html: '<p><b>Nieograniczone boty DCA</b>, niższe opłaty przy <b>zleceniach z limitem</b>, <b>automatyczne wypłaty</b>, <b>ustawienie progu ceny</b>, <b>ustawienie limitu daty</b>(wkrótce).</p>'
-        investor: Inwestor
-        investor_description_html: 'Jeden rok <b>bez limitu transakcji</b>, <b>wszystkie waluty</b> i <b>automatyczne wypłaty</b>.'
-        legendary_badger: Legendarny Borsuk
-        legendary_badger_description_html: '<p><b>Koniec z opłatami za korzystanie z serwisu.</b></p><p>Wszystko, co oferuje plan Hodler, ale na całe życie.</p><p>Subskrypcja jest połączona z <b>NFT</b>, więc w przyszłości możesz ją sprzedać innemu użytkownikowi.</p><p>Każdy token powiązany jest z proceduralną grafiką. Czy uda ci się odnaleźć wszystkie 21 "easter eggs" ukrytych w <a href="https://deltabadger.com/legendary/" class="nobreak">kolekcji</a>?</p><p>Dożywotnie. Limitowane. Legendarne.</p><p>Legendarne Borsuki są jedyne w swoim rodzaju.</p><p>Tylko 1000 miejsc na statku kosmicznym Borsuków. Ugruntuj swój status inwestora długoterminowego i stań się Legendarny.</p>'
+        basic_info: 'Bez szmerów bajerów, ale konkret.'
+        pro_info: 'Zyskaj szeroki obraz, dogłębną analizę i funkcje Pro.'
+        legendary_badger_info_html: '<p>Uzyskaj wszystkie aktualne i przyszłe funkcje planu Pro na całe życie.</p><p>Lubisz płacić raz i mieć wszystko? Dołącz do naszego ekskluzywnego klubu 1000 długoterminowych myślicieli z diamentowymi rękoma i wizją, i stwórz własną legendę.</p><p>Otrzymany NFT zamienia twoją subskrypcję w aktywo, które możesz przekazać lub sprzedać. Każdy token jest wyposażony w unikalną sztukę proceduralną, z 21 ukrytymi <i>easter eggami</i> w <a href="https://legendarybadgers.com/" class="nobreak">kolekcji</a>.</p>'
+        features:
+            analyzer_html: 'Prism — analityk portfela'
+            dca: 'Boty DCA'
+            price_limit: 'Limit cenowy'
+            fee_cutter: 'Obniżka opłat'
+            withdrawals: 'Automatyczne wypłaty'
         limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200 $/rok. Aby kontynuować, wykup płatną subskrypcję.'
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
-        expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Hodler: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
+        expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Pro: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
         payment:
             account_holder: Odbiorca
             account_number: 'Numer konta'
@@ -691,18 +698,18 @@ pl:
             bitcoin: Bitcoin
             stripe_payment_succeeded: 'Płatność się powiodła, powinieneś zostać przekierowany w ciągu kilku sekund.'
             compensation_hodler:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Hodler.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Hodler.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Hodler.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Hodler.'
+                one: 'Wyrównanie za 1 niewykorzystany dzień planu Pro.'
+                few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'
+                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
+                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
             compensation_investor:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Inwestor.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Inwestor.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Inwestor.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Inwestor.'
+                one: 'Wyrównanie za 1 niewykorzystany dzień planu Basic.'
+                few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
+                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
+                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
             discount: '%{discount_percent}% rabatu'
             legendary_badger_discount: 'Zniżka Early Bird'
-            legendary_badger_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 1 USD. Nie czekaj!'
+            legendary_badger_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
@@ -730,24 +737,20 @@ pl:
         upgrade_plan: 'Zrób upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
-        invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
         update_success: '"%{eth_address}" został pomyślnie zgłoszony. NFT zostanie wysłane na ten adres.'
         ethereum_address: 'Adres Ethereum'
-        confirm: 'Potwierdź'
-        update: 'Aktualizuj'
+        confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
+        claim: 'Odbierz NFT'
     welcome:
         banner_html: |
-            <p>Hej %{name}, Deltabadger robi dwie rzeczy:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Analiza portfela</li>
-            </ul>
-            <p>To proste:</p>
-            <p>Najpierw nabywasz aktywa, a nie ma lepszego sposobu na to niż zautomatyzowane DCA.</p>
-            <p><b>Pierwszy bot jest teraz całkowicie darmowy</b>.</p>
-            <p>Następnie nasz Analizator pomaga znaleźć optymalny podział twoich aktywów za pomocą <b>Inteligentnej Alokacji</b> i daje inne wskazówki, jak poprawić twój portfel.</p>
-            <p>Jeśli masz długoterminowe podejście i podoba ci się to, co widzisz, rozważ dołączenie do Legendary Badgers — <b>ekskluzywnej społeczności 1,000 subskrybentów na całe życie</b>. To oferta jak żadna inna, która wspiera projekt i daje wyjątkową okazję, by stać się dożywotnim beneficjentem wszystkich supermocy Deltabadger.</p>
-            <p style="margin-bottom:0">Pozdrawiam, Jan</p>
+            <p>Witamy na pokładzie, %{name}! Parę zwycięskich ruchów, na dobry początek:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Wystartuj darmowego <b>bota DCA</b> i krzyknij, <i>„Mamo, patrz, jadę bez trzymanki!”</i></li>
+                <li>Popraw swój portfel za pomocą analizatora <b>🌈⃤  Prism</b> i zostaw rynek w tyle.<sur>*</sur><br><small><sur>*</sur>Nie potrzebujesz szklanej kuli.</small></li>
+                <li>Dołącz do społeczności <b>Fireheads</b> i przejdź na wcześniejszą emeryturę—bo tyrać do 65 roku życia? Nah, obejdzie się.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Przejdź do społeczności">Zacznij od społeczności</a>. Wpadnij do nas na środowy Bonfire Meetup, aby spotać grupę dążących do wolności finansowej rebeliantów, mojego cofoundera Guillema i mnie. Życie jest zbyt krótkie, by czekać na weekend. (Czekanie na środę jest mniej boomerskie).</p>
+            <p style="margin-bottom:0">Do zobaczenia, Jan</p>
         default: 'Cześć, witamy w Deltabadger'
         legendary: 'NFT już wkrótce!'
         saver: 'Zrób upgrade i pozbądź się limitów!'
@@ -819,6 +822,7 @@ pl:
     analyzer:
         default_portfolio: 'Domyślne portfolio'
         change_portfolio_name: 'Zmień nazwę'
+        compare: 'Porównaj'
         new_portfolio: 'Nowe portfolio'
         total_value: 'Całkowita wartość'
         no_assets: 'Zacznij od dodania nowego aktywa.'
@@ -855,21 +859,22 @@ pl:
         soon: 'wkrótce'
     alert:
         portfolio:
-        invalid_benchmark: 'Nieprawidłowa wartość benchmarku.'
-        invalid_strategy: 'Nieprawidłowa wartość strategii.'
-        invalid_start_date: 'Nieprawidłowa wartość daty początkowej.'
-        invalid_risk_free_rate: 'Nieprawidłowa wartość stopy wolnej od ryzyka.'
-        invalid_smart_allocation: 'Nieprawidłowa wartość inteligentnej alokacji.'
-        invalid_risk_level: 'Nieprawidłowa wartość poziomu ryzyka.'
-        unable_to_calculate: 'Nie można obliczyć inteligentnych alokacji dla tych parametrów.'
-        portfolio_normalized: 'Alokacje portfela zostały znormalizowane.'
-        risk_level_updated: 'Poziom ryzyka został zaktualizowany.'
-        smart_allocation_updated: 'Inteligentne alokacje zostały zaktualizowane.'
-        unable_to_set_risk_rate: 'Nie można ustawić stopy wolnej od ryzyka na %{risk_free_rate_name}.'
-        api_unreachable: 'Serwer API danych jest niedostępny.'
-        portfolio_created: 'Portfel został pomyślnie utworzony.'
-        portfolio_updated: 'Portfel został pomyślnie zaktualizowany.'
-        portfolio_destroyed: 'Portfel został pomyślnie usunięty.'
-        portfolio_duplicated: 'Portfel został pomyślnie zduplikowany.'
-        unable_to_duplicate_portfolio: 'Nie można zduplikować portfela.'
+            invalid_name: 'Nieprawidłowa nazwa portfela.'
+            invalid_benchmark: 'Nieprawidłowa wartość benchmarku.'
+            invalid_strategy: 'Nieprawidłowa wartość strategii.'
+            invalid_start_date: 'Nieprawidłowa wartość daty początkowej.'
+            invalid_risk_free_rate: 'Nieprawidłowa wartość stopy wolnej od ryzyka.'
+            invalid_smart_allocation: 'Nieprawidłowa wartość inteligentnej alokacji.'
+            invalid_risk_level: 'Nieprawidłowa wartość poziomu ryzyka.'
+            unable_to_calculate: 'Nie można obliczyć inteligentnych alokacji dla tych parametrów.'
+            portfolio_normalized: 'Alokacje portfela zostały znormalizowane.'
+            risk_level_updated: 'Poziom ryzyka został zaktualizowany.'
+            smart_allocation_updated: 'Inteligentne alokacje zostały zaktualizowane.'
+            unable_to_set_risk_rate: 'Nie można ustawić stopy wolnej od ryzyka na %{risk_free_rate_name}.'
+            api_unreachable: 'Serwer API danych jest niedostępny.'
+            portfolio_created: 'Portfel został pomyślnie utworzony.'
+            portfolio_updated: 'Portfel został pomyślnie zaktualizowany.'
+            portfolio_destroyed: 'Portfel został pomyślnie usunięty.'
+            portfolio_duplicated: 'Portfel został pomyślnie zduplikowany.'
+            unable_to_duplicate_portfolio: 'Nie można zduplikować portfela.'
 

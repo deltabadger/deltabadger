@@ -25,7 +25,10 @@ export const PickExchange = ({ handleSubmit, exchanges, type }) => {
             <ExchangeButton key={e.id} handleClick={handleSubmit} exchange={e} type={type}/>
           )
         }
+        <a href="mailto:jan@deltabadger.com?subject=Exchange%20request" className="db-bot__exchanges__item db-bot__exchanges__item--link">{I18n.t('bots.buttons.request_exchange')}</a>
       </div>
+      
     </div>
+    
   )
 }

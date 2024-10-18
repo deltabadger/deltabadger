@@ -92,12 +92,14 @@ Rails.application.routes.draw do
 
     namespace :upgrade do
       get '/', action: :index
+      get :success
       post :btcpay_payment
       get :btcpay_payment_success
       post :btcpay_payment_ipn
       post :wire_transfer_payment
       post :zen_payment
-      get :zen_payment_finished
+      get :zen_payment_failure
+      get :zen_payment_success
       post :zen_payment_ipn
     end
 
@@ -138,9 +140,11 @@ Rails.application.routes.draw do
       patch :update_strategy
       patch :update_backtest_start_date
       patch :update_risk_free_rate
+      patch :update_compare_to
       post :normalize_allocations
       post :duplicate
       get :openai_insights
+      get :compare
     end
   end
 

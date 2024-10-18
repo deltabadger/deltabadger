@@ -6,7 +6,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   def new
-    @profit = DcaProfitGetter.call(2.year.ago, Time.current)
+    # @profit = DcaProfitGetter.call('btc', 2.years.ago).data * 100
     @code_present = code.present?
 
     if @code_present

@@ -1,0 +1,28 @@
+<% select_options = portfolio.compare_to_select_options.map { |label, id| [fill_default_portfolio_label(label), id] } %>
+<% selected_options = portfolio.compare_to_selected_options.map.with_index { |(label, id), i| [fill_default_portfolio_label(label), fill_default_portfolio_color(i), id] } %>
+<% if (select_options + selected_options).any? %>
+  <div class="multiselect mt-5">
+    <% if selected_options.any? %>
+      <% selected_options.each do |label, color, id| %>
+        <%= tag.div class: "tag", style: "background: #{color}" do %>
+          <%= label %>
+          <%= button_to portfolio_update_compare_to_path(portfolio), method: :patch, data: { turbo_frame: "backtest-results" }, class: "tag__remove", params: {compare_to_id: id} do %>
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#fff" stroke-width="1.5" stroke-linecap="square"></path>
+            </svg>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% end %>
+    <% if select_options.any? %>
+      <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
+        <%= t('analyzer.compare') + " +" %>
+        <div class="dropdown">
+          <% select_options.each do |label, id| %>
+            <%= button_to label, portfolio_update_compare_to_path(portfolio), method: :patch, data: { turbo_frame: "backtest-results" }, class: "dropdown__item", params: {compare_to_id: id} %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>

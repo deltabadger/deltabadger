@@ -17,28 +17,31 @@
         = t('links.dashboard')
 
     = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_analyzer'
-      .xsbadge= t('utils.new')
+      = render 'svg/24x24_prism_c'
       .tooltip
-        = t('links.analyzer')
+        = "Prism"
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_referral_program'
+      = render 'svg/24x24_bitcoin'
       .tooltip
-        = t('links.referral_program')
+        = t('links.earn')
 
     = link_to settings_path, class: 'menu__item menu__item--settings', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_account'
+      = render 'svg/24x24_sliders'
       .tooltip
         = t('links.settings')
 
+    = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+      = render 'svg/24x24_fire'
+      //.xsbadge= t('utils.new')
+      .tooltip
+        = t('links.community')
+
     - if current_user.subscription_name == 'legendary_badger'
       = link_to legendary_badger_path, class: 'menu__item menu__item--legendary-badger', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-        = render 'svg/24x24_heart'
+        = render 'svg/24x24_legendary'
         .tooltip
           = t('links.legendary_badger')
-          = t('subscriptions.plan_life_time')
-
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'

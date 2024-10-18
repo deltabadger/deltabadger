@@ -4,8 +4,6 @@ class ApplicationMailer < ActionMailer::Base
 
   def initialize
     super()
-    @dca_profit = DcaProfitGetter.call(1.year.ago, Time.current)
-  rescue StandardError
-    @dca_profit = Result::Failure.new
+    @dca_profit = DcaProfitGetter.call('btc', 1.year.ago)
   end
 end

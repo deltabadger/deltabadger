@@ -32,8 +32,17 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def zen_payment_finished
-    redirect_to dashboard_path
+  def zen_payment_failure
+    redirect_to action: 'index'
+  end
+
+  def success
+    @payment = current_user.payments.where(status: 'paid', gads_tracked: false).last
+    @payment.update(gads_tracked: true) if @payment.present?
+  end
+
+  def zen_payment_success
+    redirect_to action: :success
   end
 
   def zen_payment_ipn
@@ -61,7 +70,7 @@ class UpgradeController < ApplicationController
 
   def btcpay_payment_success
     flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
-    redirect_to dashboard_path
+    redirect_to action: :success
   end
 
   def btcpay_payment_ipn

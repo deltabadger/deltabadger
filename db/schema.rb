@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_07_23_235549) do
+ActiveRecord::Schema.define(version: 2024_10_11_145252) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -171,6 +171,7 @@ ActiveRecord::Schema.define(version: 2024_07_23_235549) do
     t.bigint "subscription_plan_id", null: false
     t.string "country", null: false
     t.integer "payment_type", default: 0, null: false
+    t.boolean "gads_tracked", default: false
     t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
@@ -186,6 +187,7 @@ ActiveRecord::Schema.define(version: 2024_07_23_235549) do
     t.datetime "updated_at", precision: 6, null: false
     t.float "risk_free_rate", default: 0.0, null: false
     t.string "label"
+    t.json "compare_to", default: []
     t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
@@ -221,8 +223,9 @@ ActiveRecord::Schema.define(version: 2024_07_23_235549) do
     t.decimal "credits"
     t.boolean "limit_almost_reached_sent", default: false
     t.datetime "first_month_ending_sent_at"
-    t.integer "sequence_number"
+    t.integer "nft_id"
     t.string "eth_address"
+    t.index ["end_time"], name: "index_subscriptions_on_end_time"
     t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end

@@ -39,7 +39,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const [quote, setQuote] = useState(QUOTES[0]);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [interval, setInterval] = useState("hour");
-  const [percentage, setPercentage] = useState("0.0");
+  const [percentage, setPercentage] = useState("0.1");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [useSubaccount,setUseSubaccounts] = useState(false)
   const [selectedSubaccount, setSelectedSubaccount] = useState('')
@@ -470,7 +470,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
-                  <sup>*</sup>{getSmartIntervalsDisclaimer()}
+                  {getSmartIntervalsDisclaimer()}
                 </div>
               </small>
             </div>
@@ -487,18 +487,19 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               disabled={!showLimitOrders}
             />
             <div>
-              { isSellOffer() ? I18n.t('bots.sell') : I18n.t('bots.buy') } <input
+              <RawHTML tag="span">{ I18n.t('bots.feecutter_html')}</RawHTML> <input
                 type="text"
-                size={(percentage.length > 0) ? percentage.length : 3 }
+                value={percentage}
+                size={(percentage.length > 0) ? percentage.length : 3}
                 value={percentage}
                 className="bot-input bot-input--sizable"
                 onChange={e => setPercentage(e.target.value)}
                 onBlur={validatePercentage}
                 disabled={!showLimitOrders || !isLimitOrder()}
-                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.<sup>*</sup>
+                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
-              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
+              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >Pro</a></div> }
             </div>
           </label>
 
@@ -533,7 +534,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 size={ Math.max(priceRange.high.length, 1) }
               />
               <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[2]}</RawHTML>
-              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >{I18n.t('bots.hodler_only')}</a></div> }
+              { !showLimitOrders && <div className="bot input bot-input--hodler-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >Pro</a></div> }
             </div>
           </label>
 

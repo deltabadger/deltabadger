@@ -6,6 +6,10 @@ id:
                     attributes:
                         code:
                             invalid_format: 'harus berisi karakter alfabet numerik kapital'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" adalah alamat Ethereum yang tidak valid. Silakan coba lagi.'
     ads:
         bitwarden_text: '. Gratis dan sumber terbuka.'
         bitwarden_title: 'Coba Bitwarden'
@@ -95,10 +99,10 @@ id:
             template_html: "<p>Halo 👋,</p>\n<p>Anda telah menggunakan Deltabadger selama hampir satu bulan sekarang!</p>\n<p>Uji coba gratis tanpa batas Anda akan segera berakhir. Pastikan untuk meningkatkan paket agar badger Anda yang lebih besar tetap bekerja!</p>"
         limit_almost_reached:
             subject: 'Limit hampir tercapai ⌛'
-            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br> atau <b style=\"color: #0a45a4;\">Hodler</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
+            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br> atau <b style=\"color: #0a45a4;\">Pro</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
         limit_reached:
             subject: 'Anda telah mencapai limit 🥳'
-            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br>atau <b style=\"color: #0a45a4;\">Hodler</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
+            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Investor</b><br>atau <b style=\"color: #0a45a4;\">Pro</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
         notify_about_error:
             subject: 'Ada yang salah 😵'
             template_html: "<p>Ups… 😵</p>\n<p>Ada yang salah saat<br>memproses transaksi terakhir.</p>\n<p>Anda bisa melihat kesalahan itu di<br>log bot. Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -106,18 +110,19 @@ id:
             subject: 'Ups! Percobaan berikutnya… 🧐'
             template_html: "<p>Oh tidak 🧐,</p>\n<p>Bot tidak dapat melakukan order Anda.<br>Tampaknya ada masalah dengan pertukaran.<br>Kami akan mencobanya lagi dalam %{delay}.</p>\n<p>Semua kesalahan dapat dilihat di log bot.<br>Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: 'Hanya Hodler dan Legendary Badger'
         above: 'di atas'
         add_new_bot: 'Tambah bot baru'
         below: 'di bawah'
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: 'Penarikan otomatis'
+            request_exchange: 'Minta untuk menambahkan pertukaran'
+            move_existing_bot: 'Pindahkan bot yang ada ke pertukaran lain'
             delete:
                 cancel: Batal
                 ok: 'Hapus semuanya'
                 text: Hapus
                 warning_html: 'Tindakan ini akan menghapus bot dengan semua<br>data riwayatnya. Apakah Anda yakin?'
-            dollar_cost_averaging: ''
+            dollar_cost_averaging: 'Rata-rata Biaya Dolar'
             pending:
                 info_html: Memproses...
                 text: Tertunda
@@ -171,7 +176,8 @@ id:
                 title: Statistik
                 total_invested: 'Total investasi'
         for: seharga
-        force_smart_intervals_html: 'Gunakan <em>smart interval</em> dengan order masing-masing senilai <split>$100</split> %{currency}.'
+        force_smart_intervals_html: '<b>Interval Cerdas<sup>®</sup></b> · Beli dengan pesanan senilai <split>$100</split> %{currency} masing-masing.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Kurangi biaya dengan pesanan batas'
         hour: Jam
         limit_buy: 'Beli limit'
         limit_sell: 'Jual limit'
@@ -195,7 +201,6 @@ id:
         next_withdrawal: ''
         price: harga
         price_range_buy_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
-        price_range_html: 'Hanya beli dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
         price_range_sell_html: 'Hanya jual dalam rentang harga mulai <split>$100</split> hingga <split>$1000</split> %{currency}.'
         sell: Jual
         setup:
@@ -309,7 +314,7 @@ id:
                 passphrase: 'Frasa Sandi'
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-            limit_warning: 'Bot order limit adalah fitur eksperimental. Tidak semua order akan diselesaikan. Untuk mencapai hasil yang bagus, Anda perlu meningkatkan nilai investasi secara proporsional. Saat ini, Deltabadger belum menawarkan bantuan untuk mengestimasikan pengaturan ini, jadi Anda perlu melakukan prosedur backtesting sendiri. Gunakan prosedur tersebut hanya jika Anda memahaminya.'
+            limit_warning: 'Menetapkan pesanan Anda pada jumlah biaya secara efektif mengurangi biaya menjadi nol. Meskipun pesanan limit mungkin membutuhkan waktu lebih lama untuk dieksekusi, ini umumnya merupakan ide yang baik. Pengaturan default melakukan ini untuk Anda, jadi sebaiknya tetap menggunakannya jika Anda ragu.'
             next: Berikutnya
             no_wallet_found: ''
             probit:
@@ -376,10 +381,6 @@ id:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 'Saya setuju'
-        description: 'Kami menggunakan kuki agar segalanya lebih mudah.'
-        read_more: 'Baca selengkapnya'
     days_left:
         other: ''
     deltabadger: Deltabadger
@@ -409,20 +410,20 @@ id:
             unconfirmed: 'Anda harus mengonfirmasi alamat email Anda sebelum melanjutkan.'
         mailer:
             confirmation_instructions:
-                subject: 'Selamat datang di Deltabadger 🎉'
-                template_html: "<p>Selamat Datang di Deltabadger 🎉,</p>\n<p>Dollar-cost averaging otomatis<br>untuk Bitcoin hanya dengan satu klik:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">Konfirmasikan akun saya</a>\n</p>\n<p>Anda tidak ingat bahwa mendaftar?<br>Jangan khawatir. Abaikan saja.</p>"
+                subject: 'Konfirmasi alamat email'
+                template_html: '<p>Alamat email Anda hanya satu klik lagi untuk bergabung dengan A-Team kehebatan! Konfirmasikan sekarang dan biarkan waktu bersenang-senang berjalan otomatis.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Konfirmasi email ini</a>'
             email_changed:
-                subject: 'Alamat email baru 📨'
-                template_html: "<p>Halo 👋,</p>\n<p>Kami mengirim email ini untuk memberi tahu Anda bahwa alamat email yang terkait dengan akun Anda di Deltabadger telah diubah menjadi:</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+                subject: 'Email dikonfirmasi'
+                template_html: '<p>Selesai! Ini adalah alamat Deltabadger baru dan bersinar Anda:</p><p><b>%{email}</b></p>'
             password_change:
-                subject: 'Kata sandi baru 🔑'
-                template_html: "<p>Selesai 🎉!</p>\n<p>Kata sandi Anda 🔑 telah diubah.</p>"
+                subject: 'Kata sandi diubah'
+                template_html: '<p>Sudah selesai!</p><p>Kata sandi Anda telah diubah.</p><p>Rahasia Anda lebih aman dari sebelumnya!</p>'
             reset_password_instructions:
-                subject: 'Reset kata sandi 🔑'
-                template_html: "<p>Halo 👋,</p>\n<p>Tampaknya Anda ingin mengubah<br/>kata sandi 🔑. Langkah bagus!</p>\n<p>Mari mulai:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">Ubah kata sandi</a>\n  </p>\n<p>Anda tidak mengirim permintaan ini?<br/>Jangan khawatir! Abaikan saja.</p>"
+                subject: 'Pemulihan kata sandi'
+                template_html: '<p>Pemulihan kata sandi dimulai! Tunggu sebentar, kami akan mengembalikan Anda ke permainan dalam waktu singkat.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Ubah kata sandi saya</a>'
             unlock_instructions:
-                subject: 'Buka petunjuk 🔓'
-                template_html: "<p>Halo 👋,</p>\n<p>Kami mengunci akun Anda karena<br>banyaknya percobaan masuk yang gagal.</p>\n<p>Klik tautan di bawah ini untuk membukanya:</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">Buka kunci akun saya</a>\n</p>"
+                subject: 'Instruksi membuka kunci'
+                template_html: '<p>Kami mengunci akun Anda karena sejumlah besar percobaan login yang gagal.</p><p>Klik tautan di bawah ini untuk membukanya:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Buka kunci akun saya</a>'
         omniauth_callbacks:
             failure: 'Tidak dapat mengautentikasi Anda dari %{kind} karena "%{reason}".'
             success: 'Berhasil diautentikasi dari %{kind} akun.'
@@ -547,8 +548,8 @@ id:
                 first_name: Nama
                 last_name: 'Nama Belakang'
                 other: Lainnya
-                submit_hodler_order: 'Paket Hodler Order'
-                submit_investor_order: 'Paket Investor Order'
+                submit_hodler_order: 'Paket Pro Order'
+                submit_investor_order: 'Paket Basic Order'
             settings:
                 current_status: 'Status saat ini:'
                 disable_two_fa: 'Nonaktifkan 2FA'
@@ -565,7 +566,7 @@ id:
                 password: 'Kata sandi'
                 password_confirmation: 'Konfirmasi kata sandi'
                 remember_me: 'Ingat saya'
-                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
+                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Penting sekali!</b><br><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
@@ -578,6 +579,7 @@ id:
     links:
         about: Tentang
         about_html: 'Tentang <span class="d-none d-xl-inline">proyek</span>'
+        community: 'Komunitas Fireheads'
         contact: Kontak
         cookies_policy: 'Kebijakan Kuki'
         create_account: 'Buat akun gratis'
@@ -587,6 +589,7 @@ id:
         log_out: Keluar
         menu: Menu
         privacy_policy: 'Kebijakan Privasi'
+        earn: 'Dapatkan'
         referral_program: 'Program referral'
         resend_link: 'Kirim ulang tautan'
         settings: Pengaturan
@@ -598,7 +601,7 @@ id:
     mailer:
         signature_html: 'Tim Deltabadger 🧑‍🚀'
     meta:
-        desc: 'Mulailah secara gratis strategi yang terbukti efektif untuk Binance, FTX, Coinbase, Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.'
+        desc: 'Mulailah secara gratis strategi yang terbukti efektif untuk Binance, Coinbase, Kraken, Kukoin, dan pertukaran lainnya. Bebas KYC.'
         title: 'Deltabadger • Automasikan Dollar-Cost Averaging untuk Kripto Apa Saja'
         title_short: 'Deltabadger • DCA Otomatis untuk Bitcoin dan Aset Lainnya'
         twitter_image_alt: 'Dollar-cost averaging otomatis untuk Bitcoin, Ethereum, Polkadot, Cardano, Solana, dan aset digital lainnya.'
@@ -632,16 +635,20 @@ id:
             template_html: "<p>Wow 💙,</p>\n<p>Terima kasih sudah membeli</p>\n<p>\n  <b>\n    paket %{plan_name} %{years}-tahun kami\n  </b>\n</p>\n<p>Keren! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
-        hodler: Hodler
-        hodler_description_html: '<p><b>Bot DCA tanpa batas</b>, biaya lebih rendah dengan <b>limit order</b>, <b>penarikan otomatis</b>, <b>kondisi harga</b>, <b>kondisi waktu</b>(segera).</p>'
-        investor: Investor
-        investor_description_html: 'Satu tahun <b>transaksi tak terbatas</b>, <b>semua mata uang</b>, dan <b>penarikan otomatis</b>.'
-        legendary_badger: 'Legendary Badger'
-        legendary_badger_description_html: '<p><b>Jangan pernah lagi membayar untuk menggunakan layanan ini.</b></p><p>Segala yang ditawarkan oleh paket Hodler, tetapi seumur hidup.</p><p>Langganan ini dilengkapi dengan <b>NFT</b>, sehingga di masa depan Anda dapat menjualnya kepada pengguna lain.</p><p>Setiap token terkait dengan karya seni prosedural. Bisakah Anda menemukan 21 "telur Paskah" yang tersembunyi dalam <a href="https://deltabadger.com/legendary/" class="nobreak">koleksi</a>?</p><p>Seumur hidup. Terbatas. Legendaris.</p><p>Legendary Badgers tidak seperti apa pun yang ada di pasar.</p><p>Hanya 1000 tempat di pesawat luar angkasa Legendary Badgers. Semen status pemikir jangka panjang Anda, dan jadilah Legendaris.</p>'
+            one: '1 hari tersisa'
+            other: '%{count} hari tersisa'
+        basic_info: 'Tanpa embel-embel, langsung bekerja.'
+        pro_info: 'Dapatkan gambaran besar, wawasan mendalam, dan fitur Pro.'
+        legendary_badger_info_html: '<p>Dapatkan semua fitur Pro saat ini dan masa depan seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub eksklusif kami yang terdiri dari 1.000 pemikir jangka panjang dengan tangan berlian dan visi, dan ciptakan legenda Anda sendiri.</p><p>NFT yang Anda terima mengubah langganan Anda menjadi aset yang dapat Anda alihkan atau jual. Setiap token dilengkapi dengan karya seni prosedural unik, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
+        features:
+            analyzer_html: 'Prism — penganalisis portofolio'
+            dca: 'Bot DCA'
+            price_limit: 'Batas harga'
+            fee_cutter: 'Pemotong biaya'
+            withdrawals: 'Penarikan otomatis'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
         analyzer_html: 'Tingkatkan portofolio Anda dengan kekuatan tak terbatas dari <b>Portfolio Analyzer</b>.'
-        expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Hodler: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
+        expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Pro: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
         payment:
             account_holder: 'Pemilik rekening'
             account_number: 'Nomor rekening'
@@ -687,24 +694,20 @@ id:
         upgrade_plan: 'Tingkatkan paket'
     legendary_badger:
         will_be_sent: 'NFT Badger Legendaris akan dikirim ke:'
-        invalid_address: '"%{eth_address}" adalah alamat Ethereum yang tidak valid. Silakan coba lagi.'
         update_success: '"%{eth_address}" telah berhasil dikirimkan. NFT akan dikirim ke alamat ini.'
         ethereum_address: 'Alamat Ethereum'
-        confirm: Konfirmasi
-        update: Perbarui
+        confirm_info: 'Saya mengonfirmasi alamatnya benar dan memahami bahwa NFT akan dikirim ke alamat ini. Setelah saya mengklik "Klaim", jika alamat salah, tidak ada yang dapat memulihkan NFT.'
+        claim: 'Klaim NFT'
     welcome:
         banner_html: |
-            <p>Hai %{name}, Deltabadger melakukan dua hal:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Analisis Portofolio</li>
-            </ul>
-            <p>Sangat sederhana:</p>
-            <p>Pertama, Anda memperoleh aset, dan tidak ada cara yang lebih baik untuk melakukannya selain dengan DCA otomatis.</p>
-            <p><b>Bot pertama sekarang sepenuhnya gratis</b>.</p>
-            <p>Kemudian, Analyzer kami membantu Anda menemukan alokasi optimal dari aset Anda dengan <b>Alokasi Cerdas</b> dan memberikan petunjuk lainnya tentang cara meningkatkan portofolio Anda.</p>
-            <p>Jika Anda memiliki pola pikir jangka panjang dan Anda menyukai apa yang Anda lihat, pertimbangkan untuk bergabung dengan Legendary Badgers — <b>komunitas eksklusif dari 1.000 pelanggan seumur hidup</b>. Ini adalah tawaran unik yang mendukung proyek dan memberi Anda kesempatan unik untuk menjadi penerima manfaat seumur hidup dari semua kekuatan super Deltabadger.</p>
-            <p style="margin-bottom:0">Salam, Jan</p>
+            <p>Selamat datang di kapal, %{name}! Berikut beberapa langkah kemenangan untukmu:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Mulai <b>bot DCA</b> gratis dan teriak, <i>“Lihat, Bu, tanpa tangan!”</i></li>
+                <li>Tingkatkan portofoliomu dengan <b>🌈⃤ Prism</b> analyzer dan tinggalkan pasar di kaca spion.<sur>*</sur><br><small><sur>*</sur>Tidak perlu bola kristal.</small></li>
+                <li>Bergabunglah dengan komunitas <b>Fireheads</b> dan pensiun dini—karena bekerja hingga usia 65? Tidak, terima kasih.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Masuk ke komunitas">Mulai di komunitas</a>. Ikutlah pada panggilan Bonfire hari Rabu untuk bertemu sekelompok pemberontak kebebasan finansial, cofounder saya Guillem, dan saya. Hidup terlalu singkat untuk menunggu akhir pekan. (Menunggu hari Rabu jauh lebih keren).</p>
+            <p style="margin-bottom:0">Sampai jumpa di sana, Jan</p>
         default: 'Hai, selamat datang di Deltabadger'
         saver: 'Hapus limit dan tingkatkan paket!'
     metrics:
@@ -775,6 +778,7 @@ id:
     analyzer:
         default_portfolio: 'Portofolio default'
         change_portfolio_name: 'Ganti nama'
+        compare: 'Bandingkan'
         new_portfolio: 'Portofolio baru'
         total_value: 'Nilai total'
         no_assets: 'Mulailah dengan menambahkan aset baru.'
@@ -811,6 +815,7 @@ id:
         soon: 'segera'
     alert:
         portfolio:
+            invalid_name: 'Nama portofolio tidak valid.'
             invalid_benchmark: "Nilai benchmark tidak valid."
             invalid_strategy: "Nilai strategi tidak valid."
             invalid_start_date: "Nilai tanggal mulai tidak valid."

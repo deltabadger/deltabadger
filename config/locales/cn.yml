@@ -6,6 +6,10 @@ cn:
                     attributes:
                         code:
                             invalid_format: 必须由大写字母数字字符构成
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}"是一个无效的以太坊地址。请重试。'
     ads:
         bitwarden_text: 。这是免费、开源的。
         bitwarden_title: '试试 Bitwarden'
@@ -95,10 +99,10 @@ cn:
             template_html: "<p>您好 👋，</p>\n<p>您现在使用 Deltabadger 快一个月了！</p>\n<p>您的免费无限试用即将结束。请确保升级，以便让您更沉重的獾继续奔跑！</p>"
         limit_almost_reached:
             subject: '几乎已达到限制 ⌛'
-            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b>，以确保您的</br>机器人将继续工作。</p>"
+            template_html: "<p>您好 👋，</p>\n<p>您几乎已达到<b style=\"color: #0a45a4;\">储蓄者</b><br>套餐交易限制。</p>\n<p>请将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Pro</b>，以确保您的</br>机器人将继续工作。</p>"
         limit_reached:
             subject: '您已达到限制 🥳'
-            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Hodler</b> 以移除所有限制并<br>让机器人重新工作。</p>"
+            template_html: "<p>您好 👋，</p>\n<p>干得不错！已达到您的<b style=\"color: #0a45a4;\">储蓄者</b>套餐<br>限制。</p>\n<p>似乎您已经定投<br>有一段时间了。</p>\n<p>我们希望您对结果<br>感到满意。</p>\n<p>将套餐升级为<b style=\"color: #0a45a4;\">投资者</b><br>或 <b style=\"color: #0a45a4;\">Pro</b> 以移除所有限制并<br>让机器人重新工作。</p>"
         notify_about_error:
             subject: '发生问题 😵'
             template_html: "<p>糟糕… 😵</p>\n<p>处理上次交易时<br>发生问题。</p>\n<p>您可以在 <br>机器人日志中查看错误。登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -106,18 +110,19 @@ cn:
             subject: '糟糕！再试一次… 🧐'
             template_html: "<p>天哪 🧐，</p>\n<p>机器人无法执行您的订单。<br>似乎发生了交易所问题。<br>我们将在 %{delay} 后重试。</p>\n<p>所有错误可在机器人日志中查看。<br>登录以查看。</p>\n<p>错误：</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        hodler_only: '仅 Hodler 和 Legendary Badger'
         above: 高于
         add_new_bot: 添加新的机器人
         below: 低于
         buttons:
-            automatic_withdrawal: ''
+            automatic_withdrawal: '自动提款'
+            request_exchange: '请求添加一个交易所'
+            move_existing_bot: '将现有机器人移动到另一个交易所'
             delete:
                 cancel: 取消
                 ok: 完全移除
                 text: 删除
                 warning_html: 这将移除机器人及其所有<br>历史数据。确定吗？
-            dollar_cost_averaging: ''
+            dollar_cost_averaging: '平均成本法'
             pending:
                 info_html: 正在处理...
                 text: 待处理
@@ -143,7 +148,7 @@ cn:
         day: 日
         details:
             info:
-                exchanges_html: "<p class=\"mt-2\"><b>交易所</b></p>\n<p>Deltabadger 适用于加密货币交易所。目前，我们支持 <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>、<a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>、<a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zondacrypto\">Zondacrypto</a>、<a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>、<a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>、<a href=\"https://ftx.com\" target=\"_blank\" rel=\"nofollow\">FTX</a> 和 <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>。我们推荐 Kraken，这是值得信赖的交易所，从未被黑客入侵。</p>\n<p>要使机器人发挥作用，首先需要验证您的交易所账号，并转入一些资金。</p>\n<p>但是，不要将您的币在任何交易所保留太久。请登录账号，定期提款，每月至少一次。</p>\n<p>我们将来会添加更多交易所。如果您对某个特定交易所感兴趣，请告诉我们。</p>"
+                exchanges_html: "<p class=\"mt-2\"><b>交易所</b></p>\n<p>Deltabadger 适用于加密货币交易所。目前，我们支持 <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>、<a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>、<a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zondacrypto\">Zondacrypto</a>、<a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>、<a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a> 和 <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>。我们推荐 Kraken，这是值得信赖的交易所，从未被黑客入侵。</p>\n<p>要使机器人发挥作用，首先需要验证您的交易所账号，并转入一些资金。</p>\n<p>但是，不要将您的币在任何交易所保留太久。请登录账号，定期提款，每月至少一次。</p>\n<p>我们将来会添加更多交易所。如果您对某个特定交易所感兴趣，请告诉我们。</p>"
                 new_to_dca_html: "<p class=\"mt-2\"><b>还不熟悉定期定额投资？</b></p>\n<p>以下链接可提供帮助：</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">定投入门（视频）</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">定投比特币的威力</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">定投模拟器</a></li>\n</ul>"
                 smart_intervals_html: "<p class=\"mt-2\"><b>“智能间隔”</b></p>\n<p>开启智能间隔后，Deltabadger 会按交易所允许的最小交易执行您所需的安排。否则，仅在必要时才使用。</p>\n<p class=\"mt-2\"><b>为什么？</b></p>\n<p>有两项好处：</p>\n<p>安排越频繁，您就能够越快体验到定投的好处，越好地平滑成本。</p>\n<p>此外，有时智能间隔是必要的。每个交易所都有最低交易大小限制。一些交易所按比特币定义限制，因此限制的美元价值会发生波动。如果您想购买的金额更小，Deltabadger 会使用最低允许的大小，但调整时间间隔，以保持您所需的比例。这可保护机器人，防止在定义的金额低于阈值时停止机器人。</p>\n<p class=\"mt-2\"><b>例如：</b></p>\n<p>假定当前交易所限制是 20 美元。如果您将交易大小设置为每天 24 美元，机器人就会严格按该设置执行。但是，如果定义为每小时 1 美元，机器人会使用允许的大小模仿该比例，相当于每 20 小时 20 美元。平均下来，最终的比例是一样的（24 美元/天 = 1 美元/天 = 20 美元/20 小时）。</p>"
                 title: 信息
@@ -171,7 +176,8 @@ cn:
                 title: 统计数据
                 total_invested: 总投资
         for: 适用于
-        force_smart_intervals_html: '使用<em>智能间隔</em>，每个订单各为 <split>100</split>%{currency}。'
+        force_smart_intervals_html: '<b>智能区间<sup>®</sup></b> · 使用每笔订单金额为 <split>$100</split> %{currency} 的订单购买。'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · 通过限价单减少费用'
         hour: 小时
         limit_buy: 限价购买
         limit_sell: 限价出售
@@ -195,7 +201,6 @@ cn:
         next_withdrawal: ''
         price: 价格
         price_range_buy_html: '仅在 <split>100</split> 到 <split>1000</split> %{{currency}}的价格范围内买入。'
-        price_range_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内买入。'
         price_range_sell_html: '仅在 <split>100</split> 到 <split>1000</split> %{currency}的价格范围内卖出。'
         sell: 出售
         setup:
@@ -309,7 +314,7 @@ cn:
                 passphrase: 密码
                 private_key: 'API 私钥'
                 public_key: 'API 密钥'
-            limit_warning: '限价订单机器人是试验功能。尚无法填入所有订单。为了获得良好的结果，您需要按比例增加投资的金额。目前，Deltabadger 尚无法就此次调整的估计提供任何帮助，因此，您需要自己进行回测。请仅在您清楚自己的行为时使用。'
+            limit_warning: '将订单设置为手续费金额可有效将费用降低为零。虽然限价单可能需要更长时间执行，但通常是一个不错的选择。默认设置为您处理此问题，所以如果您不确定，最好坚持使用它。'
             next: 下一步
             no_wallet_found: ''
             probit:
@@ -376,10 +381,6 @@ cn:
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
         withdrawal_percentage: ''
-    cookie:
-        agree: 我同意
-        description: '我们会使用 cookie 让事情更简单。'
-        read_more: 阅读更多
     days_left:
         other: '剩余 %{{count}} 天'
     deltabadger: Deltabadger
@@ -408,20 +409,20 @@ cn:
             unconfirmed: 您必须确认您的电子邮件地址，才能继续。
         mailer:
             confirmation_instructions:
-                subject: '欢迎来到 Deltabadger 🎉'
-                template_html: "<p>欢迎来到 Deltabadger 🎉，</p>\n<p>一键即可自动定期定额投资<br>比特币：</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{confirmation_url}\" style=\"color: #0a45a4;\">确认我的账号</a>\n</p>\n<p>您没有注册过？<br>不用担心。直接忽略即可。</p>"
+                subject: '确认电子邮件地址'
+                template_html: '<p>您的电子邮件地址距离加入伟大的A-Team仅一步之遥！立即确认，让美好时光自动进行。</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">确认此电子邮件</a>'
             email_changed:
-                subject: '新电子邮件地址 📨'
-                template_html: "<p>您好 👋，</p>\n<p>我们发送此电子邮件以通知您，与您在 Deltabadger 的账号关联的电子邮件地址已更改为：</p>\n<p><b style=\"color: #0a45a4;\">%{email}</b></p>"
+                subject: '电子邮件已确认'
+                template_html: '<p>完成了！这是您的全新闪亮的Deltabadger地址：</p><p><b>%{email}</b></p>'
             password_change:
-                subject: '新密码 🔑'
-                template_html: "<p>已完成 🎉！</p>\n<p>您的密码 🔑 已更改。</p>"
+                subject: '密码已更改'
+                template_html: '<p>已完成！</p><p>您的密码已更改。</p><p>您的秘密比以往任何时候都更安全！</p>'
             reset_password_instructions:
-                subject: '密码已重置 🔑'
-                template_html: "<p>您好 👋，</p>\n<p>您似乎想要更改<br/>密码 🔑。非常明智之举！</p>\n<p>开始吧：</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{edit_password_url}\" style=\"color: #0a45a4;\">更改我的密码</a>\n  </p>\n<p>您没有发送此请求？<br/>不用担心！直接忽略即可。</p>"
+                subject: '密码恢复'
+                template_html: '<p>密码恢复已启动！请稍等，我们会尽快让您回到游戏中。</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">更改我的密码</a>'
             unlock_instructions:
-                subject: '解锁说明 🔓'
-                template_html: "<p>您好 👋，</p>\n<p>您的账号由于<br>不成功登录次数太多，已被我们锁定。</p>\n<p>单击下面的链接以解锁：</p>\n<p style=\"margin: 1em 0 1.2em;\">\n  <a href=\"%{unlock_url}\" style=\"color: #0a45a4;\">解锁我的账号</a>\n</p>"
+                subject: '解锁说明'
+                template_html: '<p>由于多次登录失败，我们已锁定您的帐户。</p><p>点击下面的链接解锁：</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">解锁我的帐户</a>'
         omniauth_callbacks:
             failure: '无法从 %{kind} 对您进行身份验证，因为“%{reason}”。'
             success: '已成功从 %{kind} 账号进行身份验证。'
@@ -546,7 +547,7 @@ cn:
                 first_name: 名字
                 last_name: 姓氏
                 other: 其他
-                submit_hodler_order: '订购 Hodler 套餐'
+                submit_hodler_order: '订购 Pro 套餐'
                 submit_investor_order: 订购投资者套餐
             settings:
                 current_status: 当前状态：
@@ -586,6 +587,7 @@ cn:
         log_out: 注销
         menu: 菜单
         privacy_policy: 隐私政策
+        earn: 赚钱
         referral_program: 转介绍程序
         resend_link: 重新发送链接
         settings: 设置
@@ -597,7 +599,7 @@ cn:
     mailer:
         signature_html: 'Deltabadger 团队 🧑‍🚀'
     meta:
-        desc: '免费开始最为久经考验的策略，该策略适用于 Binance、FTX、Coinbase、Kraken、Kucoin 及其他交易所。没有 KYC。'
+        desc: '免费开始最为久经考验的策略，该策略适用于 Binance、Coinbase、Kraken、Kucoin 及其他交易所。没有 KYC。'
         title: 'Deltabadger • 自动定期定额投资任何加密货币'
         title_short: 'Deltabadger • 自动定期定额投资比特币和其他资产'
         twitter_image_alt: 自动定期定额投资比特币、以太坊、波卡、卡尔达诺、索拉纳和其他数字资产。
@@ -631,9 +633,20 @@ cn:
             template_html: "<p>哇 💙，</p>\n<p>感谢购买我们的</p>\n<p>\n  <b>\n    %{years} 年 %{plan_name} 套餐\n  </b>\n</p>\n<p>您真棒！🔥</p>"
     subscriptions:
         days_left:
-            other: '剩余 %{{count}} 天'
-        hodler: Hodler
-        hodler_description_html: '<p><b>无限的 DCA 机器人</b>，<b>限价单</b> 费用更低，<b>自动取款</b>，<b>价格条件</b>，<b>时间条件</b>（很快）。</p>'
+            one: '剩余1天'
+            other: '剩余%{count}天'
+        basic_info: '没有花哨的功能，但能完成任务。'
+        pro_info: '掌握全局，深入洞察，并享受Pro功能。'
+        legendary_badger_info_html: '<p>获取 Pro 计划的所有当前和未来功能，终身享有。</p><p>你喜欢一次付费，终身享受吗？加入我们由 1000 名长期思考者组成的限量俱乐部，他们拥有钻石般的坚定和远见，并书写你自己的传奇。</p><p>你收到的 NFT 将使你的订阅变成可以转让或出售的资产。每个代币都配有独特的程序生成艺术作品，藏有 21 个隐藏的<i>彩蛋</i>，可以在<a href="https://legendarybadgers.com/" class="nobreak">收藏</a>中找到。</p>'
+        features:
+            analyzer_html: 'Prism — 投资组合分析器'
+            dca: 'DCA 机器人'
+            price_limit: '价格上限'
+            fee_cutter: '费率切割器'
+            withdrawals: '自动提现'
+        limit_reached_html: '<b>恭喜！</b> 你已达到我们每年1200美元的免费交易限额。想继续使用？请升级到无限计划。'
+        analyzer_html: '利用<b>🌈⃤ Prism</b>投资组合分析器的无限力量提升你的投资组合。'
+        expires_soon_html: '我们正在快速建设中，以下是即将加入Pro计划的最重要功能：<b>市场监控</b>，<b>投资组合再平衡</b>（由分析器驱动），以及<b>现有账户同步</b>。</b>'
         payment:
             account_holder: 账号持有人
             account_number: 账号
@@ -679,23 +692,19 @@ cn:
         upgrade_plan: 升级套餐
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT将发送至：'
-        invalid_address: '"%{eth_address}"是一个无效的以太坊地址。请重试。'
         update_success: '"%{eth_address}" 已成功提交。NFT 将发送到此地址。'
         confirm: '确认'
         update: '更新'
     welcome:
         banner_html: |
-            <p>您好，%{name}，Deltabadger 做两件事：</p>
-            <ul>
-                <li>DCA (Dollar-Cost Averaging)</li>
-                <li>投资组合分析</li>
-            </ul>
-            <p>这很简单：</p>
-            <p>首先，您获得资产，而自动DCA是实现这一目标的最佳方式。</p>
-            <p><b>第一个机器人现在完全免费</b>。</p>
-            <p>然后，我们的分析器帮助您通过<b>智能分配</b>找到资产的最佳配置，并提供其他建议，以改进您的投资组合。</p>
-            <p>如果您有长期思维，并且喜欢您所看到的，请考虑加入 Legendary Badgers ——一个<b>由 1,000 名终身订阅者组成的独家社区</b>。这是一个无与伦比的机会，既能支持项目，又能成为 Deltabadger 所有超能力的终身受益者。</p>
-            <p style="margin-bottom:0">此致，Jan</p>
+            <p>欢迎登船，%{name}！以下是一些为你准备的获胜之道：</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> 启动你的第一个 <b>DCA 机器人</b>，然后大喊：<i>“妈妈，看，我不用手！”</i></li>
+                <li>用 <b>🌈⃤ Prism</b> 分析器改进你的投资组合，把市场甩在身后。<sur>*</sur><br><small><sur>*</sur>无需水晶球。</small></li>
+                <li>加入 <b>Fireheads</b> 社区，提前退休——工作到65岁？不，谢谢。</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="进入社区">进入社区</a>。加入我们每周三的篝火通话，认识一群追求财务自由的叛逆者，我的联合创始人 Guillem 和我。生命太短，不能只等周末。（等周三更酷）。</p>
+            <p style="margin-bottom:0">到时候见, Jan</p>
     metrics:
         exp_return:
             short_name: '预期回报'
@@ -764,6 +773,7 @@ cn:
     analyzer:
         default_portfolio: '默认投资组合'
         change_portfolio_name: '更改名称'
+        compare: '比较'
         new_portfolio: '新投资组合'
         total_value: '总价值'
         no_assets: '通过添加新资产开始。'
@@ -800,6 +810,7 @@ cn:
         soon: '即将推出'
     alert:
         portfolio:
+            invalid_name: '无效的投资组合名称。'
             invalid_benchmark: "无效的基准值。"
             invalid_strategy: "无效的策略值。"
             invalid_start_date: "无效的开始日期值。"

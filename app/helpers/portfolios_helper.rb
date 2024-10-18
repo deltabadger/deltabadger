@@ -1,4 +1,13 @@
 module PortfoliosHelper
+  def fill_default_portfolio_label(label)
+    label || t('analyzer.default_portfolio')
+  end
+
+  def fill_default_portfolio_color(index)
+    colors = ['#fd7f6f', '#7eb0d5', '#b2e061', '#bd7ebe', '#ffb55a', '#ffee65', '#beb9db', '#fdcce5', '#8bd3c7']
+    colors[index % colors.size]
+  end
+
   def render_turbo_stream_backtest_results(backtest, portfolio)
     turbo_stream.replace 'backtest-results', partial: 'portfolios/backtest_results', locals: {
       backtest: backtest,

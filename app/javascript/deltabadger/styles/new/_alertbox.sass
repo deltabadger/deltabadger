@@ -23,7 +23,7 @@
         background: var(--alertbox-news-background)
         color: var(--alertbox-news-color)
     &--primary
-        background: linear-gradient(150deg, rgb(41 72 161) 0%, #1e3985 100%)
+        background: #17295c
         color: white
         .close
             *
@@ -31,16 +31,25 @@
     &--welcome
         .db-art__elem--basic
             fill: white
+        .sbutton
+            display: inline-block
+            line-height: 5.8rem
+            position: relative
+            top: 0.5rem
+            margin-top: -2rem
+        a
+            color: white
+            font-weight: bold
     &--success
         background: var(--success-semitransparent)
     ul,ol
-        margin-left: 3rem
-        font-weight: 600
-    p,ul,ol
+        margin-left: 2.5rem
+    p,ul,ol,li
         margin-bottom: 2rem
-    .art--legendary-badger
-        position: absolute
-        bottom: -5rem
-        right: 0rem
-        width: 40rem
-        height: 40rem
+
+.art--legendary-badger
+    position: absolute
+    bottom: -5rem
+    right: -6rem
+    width: 40rem
+    height: 40rem

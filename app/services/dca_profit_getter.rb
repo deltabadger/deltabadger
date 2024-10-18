@@ -1,52 +1,53 @@
+require 'utilities/time'
+
 class DcaProfitGetter < BaseService
-  CACHE_KEY = 'dca_profit'.freeze
+  API_ID_MAP = {
+    'btc' => 1713, # Bitcoin
+    'gspc' => 65_951,  # S&P 500 Index
+    'vti' => 61_914,   # Vanguard Total Stock Market Index Fund ETF Shares
+    'vt' => 61_885,    # Vanguard Total World Stock Index Fund ETF Shares
+    'qqq' => 51_788,   # Invesco QQQ Trust
+    'gld' => 65_437,   # XAUUSD - Gold Spot US Dollar
+    'ita' => 37_549    # iShares U.S. Aerospace & Defense ETF
+  }.freeze
 
   def initialize
-    @client = CoinpaprikaClient.new
+    @client = FinancialDataApiClient.new
   end
 
-  def call(start_date = 1.year.ago, end_date = Time.current)
-    return Rails.cache.read(CACHE_KEY) if Rails.cache.exist?(CACHE_KEY)
+  def call(asset = 'btc', start_date = 4.years.ago)
+    Rails.cache.fetch(cache_key(asset, start_date), expires_in: 1.hour) do
+      profit_result = query_profit_pcnt_dca(asset, start_date)
+      return profit_result if profit_result.failure?
 
-    profit_result = query_profit_dca(start_date, end_date)
-    return profit_result if profit_result.failure?
-
-    Rails.cache.write(CACHE_KEY, profit_result, expires_in: 1.day) if profit_result.success?
-    profit
+      profit_result
+    end
   rescue StandardError
     Result::Failure.new
   end
 
   private
 
-  def query_profit_dca(start_date, end_date)
-    ohlc_result = @client.get_ohlcv('btc-bitcoin', start_date: start_date.to_i, end_date: end_date.to_i)
-    return ohlc_result if ohlc_result.failure?
-
-    price_index = ohlc_result.data.map { |x| x.fetch('close') }
-    Result::Success.new(calculate_profit(price_index))
+  def cache_key(asset, start_date)
+    days_since_start_date = (Time.current.to_date - start_date.to_date).to_i
+    "dca_profit_#{asset}_#{days_since_start_date}"
   end
 
-  def calculate_profit(prices)
-    number_of_days = prices.length
+  def query_profit_pcnt_dca(asset, start_date)
+    time_series_result = @client.time_series(symbol: API_ID_MAP[asset], timeframe: '1d', start: (start_date - 1.day).iso8601)
+    return time_series_result if time_series_result.failure?
+
+    close_prices = time_series_result.data.map { |x| x[4] }
+    Result::Success.new(calculate_profit_pcnt(close_prices))
+  end
+
+  def calculate_profit_pcnt(prices)
     # Assuming 10$ per day - amount doesn't affect the percentage
     dollars_per_day = 10
-    total_purchased_btc = calculate_purchased_btc(prices, dollars_per_day)
-    current_rate = prices.last
-    current_value = calculate_current_crypto_value(current_rate, total_purchased_btc)
-    total_expenses = number_of_days * dollars_per_day
+    asset_amount_purchased = prices.sum { |price| dollars_per_day / price }
+    investment_current_value_usd = prices.last * asset_amount_purchased
+    invested_amount_usd = prices.size * dollars_per_day
 
-    increase = current_value - total_expenses
-    increase / total_expenses * 100
-  end
-
-  def calculate_purchased_btc(prices, amount)
-    prices.inject(0) do |sum, price|
-      sum + amount / price
-    end
-  end
-
-  def calculate_current_crypto_value(rate, number_of_btc)
-    rate * number_of_btc
+    (investment_current_value_usd - invested_amount_usd) / invested_amount_usd.to_f
   end
 end
