@@ -608,6 +608,7 @@ fr:
         log_out: 'Se déconnecter'
         menu: 'Menu'
         privacy_policy: 'Politique de confidentialité'
+        earn: 'Gagner'
         referral_program: 'Programme de parrainage'
         resend_link: 'Renvoyer le lien'
         settings: 'Paramètres'
@@ -663,7 +664,7 @@ fr:
             other: "%{count} jours restants"
         basic_info: 'Pas de fioritures, juste de l’efficacité.'
         pro_info: 'Vue d’ensemble, analyses approfondies et fonctionnalités Pro.'
-        legendary_badger_info_html: '<p>Toutes les fonctionnalités Pro à vie.</p><p>Vous aimez payer une fois et tout obtenir ? Rejoignez notre club limité de 1000 abonnés à vie et écrivez votre propre légende.</p><p>Nous sommes des penseurs à long terme avec une vision et des mains de diamant.</p><p>Le NFT transforme l’abonnement en un actif que vous pouvez transférer ou vendre.</p><p>Chaque token est associé à une œuvre d’art procédurale, avec 21 <i>easter eggs</i> cachés dans <a href="https://legendarybadgers.com/" class="nobreak">la collection</a>.</p>'
+        legendary_badger_info_html: '<p>Obtenez toutes les fonctionnalités actuelles et futures du plan Pro à vie.</p><p>Aimez-vous payer une seule fois et tout obtenir ? Rejoignez notre club exclusif de 1 000 penseurs à long terme avec des mains de diamant et une vision, et créez votre propre légende.</p><p>Le NFT que vous recevez transforme votre abonnement en un actif que vous pouvez transférer ou vendre. Chaque token est associé à une œuvre d''art procédurale unique, avec 21 <i>œufs de Pâques</i> cachés dans <a href="https://legendarybadgers.com/" class="nobreak">la collection</a>.</p>'
         features:
             analyzer_html: 'Prism — analyseur de portefeuille'
             dca: 'Bots DCA'
@@ -727,11 +728,11 @@ fr:
         banner_html: |
             <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Lance ton premier <b>bot DCA</b> et crie, <i>« Regarde maman, sans les mains ! »</i></li>
-                <li>Améliore ton portefeuille avec l'analyseur <b>🌈⃤ Prism</b> et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
-                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non merci.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
+                <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
+                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre mercredi est bien plus cool).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
             <p style="margin-bottom:0">À bientôt, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
