@@ -314,7 +314,7 @@ id:
                 passphrase: 'Frasa Sandi'
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-            limit_warning: 'Biaya untuk pesanan batas sudah lebih rendah, tetapi dengan menetapkannya di bawah harga saat ini sebesar biaya tersebut, Anda dapat secara efektif menguranginya menjadi nol. Pesanan semacam itu mungkin dieksekusi jauh kemudian, atau kadang-kadang tidak sama sekali. Namun, jika Anda menjaga nilainya rendah, risikonya minimal. Bereksperimen dengan nilai yang lebih tinggi adalah risiko Anda sendiri. Beberapa orang bahkan menggunakan fitur ini dengan nilai yang diatur menjadi nol yang hampir menjamin eksekusi, tetapi Anda tetap mendapat manfaat dari biaya pembuat yang lebih rendah.'
+            limit_warning: 'Menetapkan pesanan Anda pada jumlah biaya secara efektif mengurangi biaya menjadi nol. Meskipun pesanan limit mungkin membutuhkan waktu lebih lama untuk dieksekusi, ini umumnya merupakan ide yang baik. Pengaturan default melakukan ini untuk Anda, jadi sebaiknya tetap menggunakannya jika Anda ragu.'
             next: Berikutnya
             no_wallet_found: ''
             probit:
@@ -566,7 +566,7 @@ id:
                 password: 'Kata sandi'
                 password_confirmation: 'Konfirmasi kata sandi'
                 remember_me: 'Ingat saya'
-                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
+                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Penting sekali!</b><br><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
@@ -589,6 +589,7 @@ id:
         log_out: Keluar
         menu: Menu
         privacy_policy: 'Kebijakan Privasi'
+        earn: 'Dapatkan'
         referral_program: 'Program referral'
         resend_link: 'Kirim ulang tautan'
         settings: Pengaturan
@@ -638,7 +639,7 @@ id:
             other: '%{count} hari tersisa'
         basic_info: 'Tanpa embel-embel, langsung bekerja.'
         pro_info: 'Dapatkan gambaran besar, wawasan mendalam, dan fitur Pro.'
-        legendary_badger_info_html: '<p>Semua fitur Pro seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub terbatas kami yang terdiri dari 1000 pelanggan seumur hidup dan tulis legenda Anda sendiri.</p><p>Kami adalah pemikir jangka panjang dengan tangan berlian dan visi.</p><p>NFT membuat langganan menjadi aset yang dapat Anda transfer atau jual.</p><p>Setiap token terkait dengan karya seni prosedural, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
+        legendary_badger_info_html: '<p>Dapatkan semua fitur Pro saat ini dan masa depan seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub eksklusif kami yang terdiri dari 1.000 pemikir jangka panjang dengan tangan berlian dan visi, dan ciptakan legenda Anda sendiri.</p><p>NFT yang Anda terima mengubah langganan Anda menjadi aset yang dapat Anda alihkan atau jual. Setiap token dilengkapi dengan karya seni prosedural unik, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
         features:
             analyzer_html: 'Prism — penganalisis portofolio'
             dca: 'Bot DCA'
@@ -701,12 +702,12 @@ id:
         banner_html: |
             <p>Selamat datang di kapal, %{name}! Berikut beberapa langkah kemenangan untukmu:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Mulai bot <b>DCA</b> pertamamu dan teriak: <i>“Lihat, Bu, tanpa tangan!”</i></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Mulai <b>bot DCA</b> gratis dan teriak, <i>“Lihat, Bu, tanpa tangan!”</i></li>
                 <li>Tingkatkan portofoliomu dengan <b>🌈⃤ Prism</b> analyzer dan tinggalkan pasar di kaca spion.<sur>*</sur><br><small><sur>*</sur>Tidak perlu bola kristal.</small></li>
-                <li>Bergabunglah dengan komunitas <b>Fireheads</b> dan pensiun dini—karena bekerja sampai usia 65? Tidak, terima kasih.</li>
+                <li>Bergabunglah dengan komunitas <b>Fireheads</b> dan pensiun dini—karena bekerja hingga usia 65? Tidak, terima kasih.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Masuk ke komunitas">Mulai di komunitas</a>. Bergabunglah dengan kami dalam panggilan Wednesday Bonfire untuk bertemu dengan sekelompok pemberontak kebebasan finansial, cofounder saya Guillem, dan saya. Hidup terlalu singkat untuk menunggu akhir pekan. (Menunggu hari Rabu jauh lebih keren).</p>
-            <p style="margin-bottom:0">Sampai jumpa, Jan</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Masuk ke komunitas">Mulai di komunitas</a>. Ikutlah pada panggilan Bonfire hari Rabu untuk bertemu sekelompok pemberontak kebebasan finansial, cofounder saya Guillem, dan saya. Hidup terlalu singkat untuk menunggu akhir pekan. (Menunggu hari Rabu jauh lebih keren).</p>
+            <p style="margin-bottom:0">Sampai jumpa di sana, Jan</p>
         default: 'Hai, selamat datang di Deltabadger'
         saver: 'Hapus limit dan tingkatkan paket!'
     metrics:
