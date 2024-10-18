@@ -314,7 +314,7 @@ vi:
                 passphrase: 'Cụm mật khẩu'
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-            limit_warning: 'Phí cho các lệnh giới hạn đã thấp hơn, nhưng bằng cách đặt chúng thấp hơn giá hiện tại với số tiền phí, bạn có thể giảm chúng về 0. Lệnh như vậy có thể được thực hiện muộn hơn nhiều hoặc thỉnh thoảng không được thực hiện. Tuy nhiên, nếu bạn giữ giá trị thấp, rủi ro là tối thiểu. Thử nghiệm với các giá trị cao hơn là do bạn tự chịu trách nhiệm. Một số người thậm chí sử dụng tính năng này với giá trị đặt về 0, điều này gần như đảm bảo việc thực hiện, nhưng bạn vẫn hưởng lợi từ mức phí nhà tạo lập thấp hơn.'
+            limit_warning: 'Đặt lệnh với mức phí tương ứng sẽ giảm phí của bạn xuống bằng không. Mặc dù lệnh giới hạn có thể mất nhiều thời gian hơn để thực hiện, chúng thường là một ý tưởng tốt. Cài đặt mặc định thực hiện điều này cho bạn, vì vậy tốt nhất nên giữ nguyên nếu bạn không chắc chắn.'
             next: 'Tiếp theo'
             no_wallet_found: ''
             probit:
@@ -565,7 +565,7 @@ vi:
                 password: 'Mật khẩu'
                 password_confirmation: 'Xác nhận mật khẩu'
                 remember_me: 'Nhớ tôi'
-                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy} của Deltabadger.'
+                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Lưu ý quan trọng!</b><br><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'

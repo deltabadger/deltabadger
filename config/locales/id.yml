@@ -314,7 +314,7 @@ id:
                 passphrase: 'Frasa Sandi'
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-            limit_warning: 'Biaya untuk pesanan batas sudah lebih rendah, tetapi dengan menetapkannya di bawah harga saat ini sebesar biaya tersebut, Anda dapat secara efektif menguranginya menjadi nol. Pesanan semacam itu mungkin dieksekusi jauh kemudian, atau kadang-kadang tidak sama sekali. Namun, jika Anda menjaga nilainya rendah, risikonya minimal. Bereksperimen dengan nilai yang lebih tinggi adalah risiko Anda sendiri. Beberapa orang bahkan menggunakan fitur ini dengan nilai yang diatur menjadi nol yang hampir menjamin eksekusi, tetapi Anda tetap mendapat manfaat dari biaya pembuat yang lebih rendah.'
+            limit_warning: 'Menetapkan pesanan Anda pada jumlah biaya secara efektif mengurangi biaya menjadi nol. Meskipun pesanan limit mungkin membutuhkan waktu lebih lama untuk dieksekusi, ini umumnya merupakan ide yang baik. Pengaturan default melakukan ini untuk Anda, jadi sebaiknya tetap menggunakannya jika Anda ragu.'
             next: Berikutnya
             no_wallet_found: ''
             probit:
@@ -566,7 +566,7 @@ id:
                 password: 'Kata sandi'
                 password_confirmation: 'Konfirmasi kata sandi'
                 remember_me: 'Ingat saya'
-                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
+                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Penting sekali!</b><br><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'

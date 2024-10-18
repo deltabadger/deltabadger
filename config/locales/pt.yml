@@ -300,7 +300,7 @@ pt:
                 passphrase: 'Frase de acesso'
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-            limit_warning: 'As taxas para ordens limite já são mais baixas, mas ao defini-las abaixo do preço atual no valor da taxa, você pode reduzi-las efetivamente a zero. Tal ordem pode ser executada muito mais tarde ou, ocasionalmente, não ser executada de forma alguma. No entanto, se você mantiver o valor baixo, o risco é mínimo. Experimentar com valores mais altos é por sua conta e risco. Algumas pessoas até usam esse recurso com o valor definido como zero, o que quase garante a execução, mas você ainda se beneficia de uma taxa de criador mais baixa.'
+            limit_warning: 'Definir suas ordens no valor da taxa reduz efetivamente sua taxa a zero. Embora as ordens limitadas possam demorar mais para serem executadas, geralmente são uma boa ideia. A configuração padrão faz isso por você, então é melhor mantê-la se você estiver em dúvida.'
             next: Próximo
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
@@ -520,7 +520,7 @@ pt:
                 password: Palavra-passe
                 password_confirmation: 'Confirmação de senha'
                 remember_me: Lembrar-me
-                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy} da Deltabadger.'
+                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Isto é muito importante!</b><br><br> Se não recebeu o e-mail de confirmação, verifique a sua <b>pasta de e-mail de lixo</b>. Se, ainda assim, não o encontrar, envie-me um e-mail para %{email}. <br><br>Obrigado, Jan'
