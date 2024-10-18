@@ -562,6 +562,7 @@ de:
         log_out: Ausloggen
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
+        earn: Verdienen
         referral_program: Empfehlungsprogramm
         resend_link: 'Link erneut zuschicken'
         settings: Einstellungen
@@ -670,13 +671,13 @@ de:
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
-            <p>Willkommen an Bord, %{name}! Hier sind ein paar gewinnende Schritte für dich:</p>
+            <p>Willkommen an Bord, %{name}! Hier sind einige Gewinnzüge für dich:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Starte deinen ersten <b>DCA-Bot</b> und rufe: <i>„Guck mal, Mama, keine Hände!”</i></li>
-                <li>Verbessere dein Portfolio mit dem <b>🌈⃤ Prism</b> Analyzer und lass den Markt im Rückspiegel. <sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
-                <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – denn bis 65 arbeiten? Nein, danke.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Starte den kostenlosen <b>DCA-Bot</b> und rufe, <i>„Guck mal, Mama, keine Hände!“</i></li>
+                <li>Verbessere dein Portfolio mit dem <b>🌈⃤  Prism</b> Analyzer und lass den Markt im Rückspiegel.<sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
+                <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – bis 65 arbeiten? Ganz bestimmt nicht.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Zur Community">Starte in der Community</a>. Nimm an unserem Wednesday Bonfire Call teil, um eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich kennenzulernen. Das Leben ist zu kurz, um auf das Wochenende zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Zur Community gehen">Starte in der Community</a>. Schließe dich uns beim Wednesday Bonfire Call an, um eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich kennenzulernen. Das Leben ist zu kurz, um auf das Wochenende zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
             <p style="margin-bottom:0">Bis dann, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
