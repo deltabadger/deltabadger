@@ -300,7 +300,7 @@ pt:
                 passphrase: 'Frase de acesso'
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-            limit_warning: 'As taxas para ordens limite já são mais baixas, mas ao defini-las abaixo do preço atual no valor da taxa, você pode reduzi-las efetivamente a zero. Tal ordem pode ser executada muito mais tarde ou, ocasionalmente, não ser executada de forma alguma. No entanto, se você mantiver o valor baixo, o risco é mínimo. Experimentar com valores mais altos é por sua conta e risco. Algumas pessoas até usam esse recurso com o valor definido como zero, o que quase garante a execução, mas você ainda se beneficia de uma taxa de criador mais baixa.'
+            limit_warning: 'Definir suas ordens no valor da taxa reduz efetivamente sua taxa a zero. Embora as ordens limitadas possam demorar mais para serem executadas, geralmente são uma boa ideia. A configuração padrão faz isso por você, então é melhor mantê-la se você estiver em dúvida.'
             next: Próximo
             probit:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
@@ -520,7 +520,7 @@ pt:
                 password: Palavra-passe
                 password_confirmation: 'Confirmação de senha'
                 remember_me: Lembrar-me
-                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy} da Deltabadger.'
+                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Isto é muito importante!</b><br><br> Se não recebeu o e-mail de confirmação, verifique a sua <b>pasta de e-mail de lixo</b>. Se, ainda assim, não o encontrar, envie-me um e-mail para %{email}. <br><br>Obrigado, Jan'
@@ -543,7 +543,8 @@ pt:
         log_out: 'Terminar sessão'
         menu: Menu
         privacy_policy: 'Política de Privacidade'
-        referral_program: 'Programa de referência'
+        earn: 'Ganhar'
+        referral_program: 'Compartilhe e ganhe'
         resend_link: 'Reenviar ligação'
         settings: Definições
         sign_up: Registar
@@ -585,7 +586,7 @@ pt:
             other: '%{count} dias restantes'
         basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
         pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
-        legendary_badger_info_html: '<p>Todos os recursos Pro para a vida toda.</p><p>Você gosta de pagar uma vez e ter tudo? Junte-se ao nosso clube exclusivo de 1000 assinantes vitalícios e escreva sua própria lenda.</p><p>Somos pensadores de longo prazo com mãos de diamante e visão.</p><p>O NFT torna a assinatura um ativo que você pode transferir ou vender.</p><p>Cada token é associado a uma obra de arte procedural, com 21 <i>ovos de páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
+        legendary_badger_info_html: '<p>Obtenha todos os recursos atuais e futuros do plano Pro para a vida toda.</p><p>Gosta de pagar uma vez e obter tudo? Junte-se ao nosso clube exclusivo de 1.000 pensadores de longo prazo com mãos de diamante e visão, e crie sua própria lenda.</p><p>O NFT que você recebe transforma sua assinatura em um ativo que você pode transferir ou vender. Cada token vem com uma arte processual única, com 21 <i>ovos de Páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
         features:
             analyzer_html: 'Prism — Analisador de portfólio'
             dca: 'Bots de DCA'
@@ -637,12 +638,12 @@ pt:
         banner_html: |
             <p>Bem-vindo a bordo, %{name}! Aqui estão alguns movimentos vencedores para você:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Comece o primeiro <b>bot DCA</b> e grite, <i>“Olha mãe, sem mãos!”</i></li>
-                <li>Melhore seu portfólio com o <b>🌈⃤ Prism</b> analyzer e deixe o mercado no retrovisor.<sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
-                <li>Junte-se à comunidade <b>Fireheads</b> e aposente-se cedo—porque trabalhar até os 65? Não, obrigado.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Inicie o <b>bot DCA</b> grátis e grite, <i>“Olha mãe, sem as mãos!”</i></li>
+                <li>Melhore seu portfólio com o <b>🌈⃤  Prism</b> analyzer e deixe o mercado no retrovisor.<sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
+                <li>Junte-se à comunidade <b>Fireheads</b> e se aposente cedo—porque trabalhar até os 65 anos? Não, obrigado.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Ir para a comunidade">Comece na comunidade</a>. Participe da chamada Bonfire de quarta-feira para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem, e eu. A vida é muito curta para esperar pelos fins de semana. (Esperar até quarta-feira é muito mais legal).</p>
-            <p style="margin-bottom:0">Te vejo lá, Jan</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Ir para a comunidade">Comece na comunidade</a>. Participe da nossa chamada Bonfire de quarta-feira para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem e eu. A vida é muito curta para esperar pelo fim de semana. (Esperar até quarta-feira é muito mais legal).</p>
+            <p style="margin-bottom:0">Nos vemos lá, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         saver: 'Livra-te dos limites e faz um upgrade!'
