@@ -587,6 +587,7 @@ cn:
         log_out: 注销
         menu: 菜单
         privacy_policy: 隐私政策
+        earn: 赚钱
         referral_program: 转介绍程序
         resend_link: 重新发送链接
         settings: 设置
@@ -636,7 +637,7 @@ cn:
             other: '剩余%{count}天'
         basic_info: '没有花哨的功能，但能完成任务。'
         pro_info: '掌握全局，深入洞察，并享受Pro功能。'
-        legendary_badger_info_html: '<p>终身享受所有Pro功能。</p><p>只想支付一次并得到一切？加入我们限量的1000名终身订阅者俱乐部，书写属于你的传奇。</p><p>我们是长期思考者，手握钻石般的决心与远见。</p><p>NFT让订阅成为一个你可以转让或出售的资产。</p><p>每个代币都与程序生成的艺术作品关联，藏有21个隐藏的<i>彩蛋</i>，就在<a href="https://legendarybadgers.com/" class="nobreak">收藏品</a>中。</p>'
+        legendary_badger_info_html: '<p>获取 Pro 计划的所有当前和未来功能，终身享有。</p><p>你喜欢一次付费，终身享受吗？加入我们由 1000 名长期思考者组成的限量俱乐部，他们拥有钻石般的坚定和远见，并书写你自己的传奇。</p><p>你收到的 NFT 将使你的订阅变成可以转让或出售的资产。每个代币都配有独特的程序生成艺术作品，藏有 21 个隐藏的<i>彩蛋</i>，可以在<a href="https://legendarybadgers.com/" class="nobreak">收藏</a>中找到。</p>'
         features:
             analyzer_html: 'Prism — 投资组合分析器'
             dca: 'DCA 机器人'
@@ -702,7 +703,7 @@ cn:
                 <li>用 <b>🌈⃤ Prism</b> 分析器改进你的投资组合，把市场甩在身后。<sur>*</sur><br><small><sur>*</sur>无需水晶球。</small></li>
                 <li>加入 <b>Fireheads</b> 社区，提前退休——工作到65岁？不，谢谢。</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="进入社区">进入社区</a>。加入我们每周三的篝火通话，认识一群追求财务自由的叛逆者，我的联合创始人 Guillem 和我。生命太短，不能只等周末。（等周三更酷）。</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="进入社区">进入社区</a>。加入我们每周三的篝火通话，认识一群追求财务自由的叛逆者，我的联合创始人 Guillem 和我。生命太短，不能只等周末。（等周三更酷）。</p>
             <p style="margin-bottom:0">到时候见, Jan</p>
     metrics:
         exp_return:
