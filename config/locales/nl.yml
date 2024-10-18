@@ -608,6 +608,7 @@ nl:
         log_out: Afmelden
         menu: Menu
         privacy_policy: Privacybeleid
+        earn: Verdien
         referral_program: Verwijzingsprogramma
         resend_link: 'Link opnieuw verzenden'
         settings: Instellingen
@@ -663,7 +664,7 @@ nl:
             other: '%{count} dagen over'
         basic_info: 'Geen franje, alleen spanning, maar doet het werk.'
         pro_info: 'Krijg een overzicht, diepgaande inzichten en Pro-functies.'
-        legendary_badger_info_html: '<p>Alle Pro-functies voor het leven.</p><p>Houd je van een keer betalen en alles krijgen? Word lid van onze exclusieve club van 1000 levenslange abonnees en schrijf je eigen legende.</p><p>Wij zijn langetermijndenker met diamant handen en visie.</p><p>Het NFT maakt het abonnement een verhandelbaar actief dat je kunt overdragen of verkopen.</p><p>Elke token is gekoppeld aan procedurele kunst met 21 <i>easter eggs</i> verborgen in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
+        legendary_badger_info_html: '<p>Krijg alle huidige en toekomstige functies van het Pro-plan voor altijd.</p><p>Betaal je graag één keer en krijg je alles? Sluit je aan bij onze exclusieve club van 1.000 langetermijndenkers met diamanten handen en visie, en creëer je eigen legende.</p><p>De NFT die je ontvangt, verandert je abonnement in een actief dat je kunt overdragen of verkopen. Elke token wordt geleverd met unieke procedurele kunst, met 21 verborgen <i>paaseieren</i> in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
         features:
             analyzer_html: 'Prism — portfoliobeheerder'
             dca: 'DCA-bots'
@@ -725,14 +726,14 @@ nl:
         claim: 'Claim NFT'
     welcome:
         banner_html: |
-            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende stappen voor jou:</p>
+            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende zetten voor jou:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je eerste <b>DCA-bot</b> en roep: <i>“Kijk mam, zonder handen!”</i></li>
-                <li>Verbeter je portfolio met de <b>🌈⃤ Prism</b> analyzer en laat de markt achter in je achteruitkijkspiegel. <sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je gratis <b>DCA-bot</b> en roep, <i>“Kijk mam, zonder handen!”</i></li>
+                <li>Verbeter je portfolio met de <b>🌈⃤  Prism</b> analyzer en laat de markt in je achteruitkijkspiegel.<sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
                 <li>Sluit je aan bij de <b>Fireheads</b> community en ga vroeg met pensioen—want werken tot je 65e? Nee, bedankt.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire Call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem, en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
-            <p style="margin-bottom:0">Tot ziens, Jan</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
+            <p style="margin-bottom:0">Tot dan, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
         saver: 'Weg met limieten, en doe een upgrade!'

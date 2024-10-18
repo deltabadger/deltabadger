@@ -624,7 +624,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
-        community: 'Fireheads Community'
+        community: 'Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -634,7 +634,8 @@ en:
         log_out: Logout
         menu: Menu
         privacy_policy: 'Privacy Policy'
-        referral_program: 'Referral program'
+        earn: 'Earn'
+        referral_program: 'Share & Earn'
         resend_link: 'Resend link'
         settings: Settings
         sign_up: 'Sign up'
@@ -690,9 +691,9 @@ en:
             other: '%{count} days left'
         basic_info: 'No frills, just thrills, but gets the job done.'
         pro_info: 'Get a big picture, deep insights, and Pro features.'
-        legendary_badger_info_html: '<p>All Pro features for life.</p><p>You like paying once and getting it all? Join our limited club of 1000 lifetime subscribers and write your own legend.</p><p>We''re long-term thinkers with diamond hands and vision.</p><p>The NFT makes the subscription an asset you can transfer or sell.</p><p>Each token is associated with procedural artwork, with 21 <i>easter eggs</i> hidden in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
+        legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
         features: 
-            analyzer_html: 'Prism — portfolio analyzer'
+            analyzer_html: '🌈⃤  Prism analyzer'
             dca: 'DCA bots'
             price_limit: 'Price limit'
             fee_cutter: 'FeeCutter'
@@ -745,7 +746,7 @@ en:
         prolong_upgrade: 'Upgrade your plan'
         saver: Saver
         upgrade: Upgrade
-        upgrade_plan: 'Upgrade plan'
+        upgrade_plan: 'Upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
         update_success: '"%{eth_address}" has been successfully submitted. The NFT will be sent to this address.'
@@ -756,11 +757,11 @@ en:
         banner_html: |
             <p>Welcome aboard, %{name}! Here are some winning moves for you:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start first <b>DCA bot</b> and shout, <i>“Look mom, no hands!”</i></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start free <b>DCA bot</b> and shout, <i>“Look mom, no hands!”</i></li>
                 <li>Improve your portfolio with <b>🌈⃤  Prism</b> analyzer and leave the market in your rearview.<sur>*</sur><br><small><sur>*</sur>No crystal ball required.</small></li>
                 <li>Join the <b>Fireheads</b> community and retire early—because working 'til 65? Yeah, hard pass.</li>
             </ol>
-            <p><a href="https://skool.com/fire" title="Go to the community">Start in the community</a>. Join us at the Wednesday Bonfire call to meet a gang of financial freedom rebels, my cofounder Guillem, and me. Life's too short to wait for weekends. (Waiting for Wednesday is way cooler).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Go to the community">Start in the community</a>. Join us at the Wednesday Bonfire call to meet a gang of financial freedom rebels, my cofounder Guillem, and me. Life's too short to wait for weekends. (Waiting for Wednesday is way cooler).</p>
             <p style="margin-bottom:0">Catch you there, Jan</p>
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
