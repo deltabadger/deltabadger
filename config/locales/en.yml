@@ -359,7 +359,7 @@ en:
                 passphrase: Passphrase
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            limit_warning: 'Fees for limit orders are already lower, but by setting them below the current price by the amount of the fee, you can effectively reduce them to zero. Such an order may be executed much later, or occasionally not at all. However, if you keep the value low, the risk is minimal. Experimenting with higher values is at your own risk. Some people even use this feature with the value set to zero, which almost guarantees execution, but you still benefit from a lower maker fee.'
+            limit_warning: 'Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it''s best to stick with it if you''re unsure.'
             next: Next
             no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
             probit:
@@ -611,7 +611,7 @@ en:
                 password: Password
                 password_confirmation: 'Password confirmation'
                 remember_me: 'Remember me'
-                terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.'
+                terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>This is very important!</b><br><br> If you didn''t get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, email me at %{email}. <br><br>Thanks, Jan'

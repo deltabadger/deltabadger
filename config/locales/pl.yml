@@ -334,7 +334,7 @@ pl:
                 passphrase: Hasło
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
-            limit_warning: 'Opłaty za zlecenia z limitem są już niższe, ale ustawiając je poniżej aktualnej ceny o kwotę równą opłacie, możesz je skutecznie zredukować do zera. Takie zlecenie może zostać zrealizowane znacznie później lub czasami wcale. Jednakże, jeśli utrzymasz niską wartość, ryzyko jest minimalne. Eksperymentowanie z wyższymi wartościami jest na własne ryzyko. Niektórzy ludzie używają tej funkcji z wartością ustawioną na zero, co prawie gwarantuje realizację, ale nadal korzystasz z niższej opłaty dla makera.'
+            limit_warning: 'Ustawienie zleceń na kwotę opłaty efektywnie obniża opłatę do zera. Chociaż realizacja zleceń z limitem może potrwać dłużej, zazwyczaj jest to dobry pomysł. Domyślne ustawienie robi to za Ciebie, więc najlepiej się go trzymać, jeśli nie jesteś pewien.'
             next: Dalej
             no_wallet_found: 'Nie znaleziono portfela. Przejdź do %{exchangeName} i dodaj portfel do wypłaty.'
             probit:
@@ -596,7 +596,7 @@ pl:
                 password: Hasło
                 password_confirmation: 'Potwierdź hasło'
                 remember_me: 'Zapamiętaj mnie'
-                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy} firmy Deltabadger.'
+                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>To ważne! </b><br><br> Jeśli nie otrzymałeś e-maila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
