@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_10_12_232928) do
+ActiveRecord::Schema.define(version: 2024_10_17_232547) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -203,13 +203,21 @@ ActiveRecord::Schema.define(version: 2024_10_12_232928) do
     t.index ["email"], name: "index_subscribers_on_email", unique: true
   end
 
+  create_table "subscription_plan_variants", force: :cascade do |t|
+    t.integer "subscription_plan_id", null: false
+    t.integer "years"
+    t.decimal "cost_eur", precision: 10, scale: 2
+    t.decimal "cost_usd", precision: 10, scale: 2
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+  end
+
   create_table "subscription_plans", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "credits", default: 1200, null: false
     t.boolean "unlimited", default: false, null: false
-    t.json "variants", default: []
   end
 
   create_table "subscriptions", force: :cascade do |t|
@@ -298,6 +306,7 @@ ActiveRecord::Schema.define(version: 2024_10_12_232928) do
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plans"
   add_foreign_key "portfolios", "users"
+  add_foreign_key "subscription_plan_variants", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plans"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
