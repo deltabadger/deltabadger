@@ -333,7 +333,7 @@ fr:
                 passphrase: 'Phrase secrète'
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-            limit_warning: 'Les frais pour les ordres à cours limité sont déjà plus bas, mais en les plaçant en dessous du prix actuel du montant des frais, vous pouvez les réduire efficacement à zéro. Un tel ordre peut être exécuté beaucoup plus tard, ou parfois pas du tout. Cependant, si vous gardez la valeur basse, le risque est minimal. Expérimenter avec des valeurs plus élevées est à vos propres risques. Certaines personnes utilisent même cette fonctionnalité avec la valeur fixée à zéro, ce qui garantit presque l''exécution, mais vous bénéficiez toujours d''un frais de créateur plus bas.'
+            limit_warning: 'Définir vos ordres au montant des frais réduit effectivement vos frais à zéro. Bien que les ordres à cours limité puissent prendre plus de temps à s''exécuter, ils sont généralement une bonne idée. Le paramètre par défaut le fait pour vous, donc mieux vaut s''y tenir si vous n''êtes pas sûr.'
             next: 'Suivant'
             no_wallet_found: 'Aucun portefeuille trouvé. Allez sur %{exchangeName} et ajoutez un portefeuille de retrait.'
             probit:
@@ -585,7 +585,7 @@ fr:
                 password: 'Mot de passe'
                 password_confirmation: 'Confirmation du mot de passe'
                 remember_me: 'Se souvenir de moi'
-                terms_and_conditions_tooltip: 'En continuant, j''accepte les %{terms_and_conditions} et %{privacy_policy} de Deltabadger.'
+                terms_and_conditions_tooltip: 'En continuant, j''accepte les %{terms_and_conditions} et %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b> C''est très important ! </b><br><br> Si vous n''avez pas reçu l''e-mail de confirmation, vérifiez votre <b> dossier indésirable </b>. Si vous ne le trouvez toujours pas, envoyez-moi un e-mail à %{email}. <br> <br> Merci, Jan'
