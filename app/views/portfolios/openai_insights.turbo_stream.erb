@@ -1,2 +1,3 @@
-<%= turbo_stream.append "portfolio", partial: "insights", locals: { insights: @insights } %>
+<%= turbo_stream.prepend "backtest-results", partial: "insights", locals: { insights: @insights } %>
 <%= render_turbo_stream_flash_messages %>
+<%= turbo_stream.remove "openai-insights-button" %>
