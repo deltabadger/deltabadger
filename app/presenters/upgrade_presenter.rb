@@ -140,7 +140,7 @@ class UpgradePresenter
       plans = available_plans_for_free_plan
       plans_hash = plans.map { |plan| [plan.to_sym, send("#{plan}_plan")] }.to_h
 
-      VatRate.all_countries_in_display_order.map do |vat_rate|
+      VatRate.all_in_display_order.map do |vat_rate|
         [vat_rate.country,
          plans_hash.transform_values do |plan|
            PaymentsManager::CostDataCalculator.call(
