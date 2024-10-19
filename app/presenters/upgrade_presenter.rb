@@ -4,6 +4,13 @@ class UpgradePresenter
   def initialize(current_user)
     @current_user = current_user
     @payment = crate_new_default_payment
+
+  def allowed_payment_methods
+    methods = []
+    methods << 'zen' if SettingFlag.show_zen_payment?
+    methods << 'btcpay' if SettingFlag.show_bitcoin_payment?
+    methods << 'wire_transfer' if SettingFlag.show_wire_payment?
+    methods
   end
 
   def selected_payment_type
