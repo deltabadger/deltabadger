@@ -860,7 +860,7 @@ en:
                 adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
-        assets: "Assets"
+        assets: Assets
         are_you_sure: 'Are you sure?'
         change_name: 'Change name'
         delete: 'Delete'
