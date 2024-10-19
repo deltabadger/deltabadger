@@ -832,6 +832,7 @@ es:
                 adjusted_start_html: "La fecha de inicio del backtest se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
                 adjusted_end_html: "La fecha de finalización del backtest se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
     utils:
+        assets: Activos
         are_you_sure: '¿Estás seguro?'
         change_name: 'Cambiar nombre'
         delete: 'Eliminar'
@@ -863,8 +864,7 @@ es:
             unable_to_duplicate_portfolio: 'No se puede duplicar la cartera.'
     ai:
         insights:
-            intro: "Evalúa mi cartera en el estilo de los tweets de Naval. Encuentra la tesis geopolítica o técnica detrás y los eventos macro relevantes de los últimos años. Observa si la cartera te recuerda a algún estilo de inversión o idea popular como la cartera de 3 fondos, etc. Señala los activos superpuestos, como los ETFs con las mismas acciones (solo si los hay)."
-            pros_cons: "Muestra hasta 5 pros y/o contras. Organízalos: primero los pros. Presta más atención a métricas como volatilidad y beta, luego a aquellas que reflejan principalmente el pasado, como el ratio de Sharpe. Usa la escala Malo/Neutral/Bueno/Excepcional."
+            intro: "Evalúa mi cartera en el estilo de los tweets de Naval. Encuentra la tesis geopolítica o técnica detrás y los eventos macro relevantes de los últimos años. Observa si la cartera te recuerda a algún estilo de inversión o idea popular como la cartera de 3 fondos, etc. Señala los activos superpuestos, como los ETFs con las mismas acciones (solo si los hay). Muestra hasta 5 pros y/o contras. Organízalos: primero los pros. Presta más atención a métricas como volatilidad y beta, luego a aquellas que reflejan principalmente el pasado, como el ratio de Sharpe. Usa la escala Malo/Neutral/Bueno/Excepcional."
             response_format: |
                 Responde en el siguiente formato HTML (todos los textos en la plantilla son solo ejemplos). Inserto tu respuesta directamente en mi plantilla HTML, así que NO la devuelvas como un fragmento de código: <div class="insight insight--summary"><span class="insight__name">Título atrevido</span>. Breve narración sobre la cartera en 5 oraciones.</div><div class="insight insight--pro"><span class="insight__name">Métrica <b>2.22</b> &middot; Excepcional</span>. Evaluación en una oración</div><div class="insight insight--con"><span class="insight__name">Métrica <b>-1.36%</b> &middot; Malo</span>. Evaluación en una oración.</div>
             past_performance: "Rendimiento pasado"

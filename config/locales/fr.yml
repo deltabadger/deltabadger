@@ -831,6 +831,7 @@ fr:
                 adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
                 adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
+        assets: 'Actifs'
         are_you_sure: 'Es-tu sûr ?'
         change_name: 'Changer de nom'
         delete: 'Supprimer'
@@ -860,4 +861,11 @@ fr:
             portfolio_destroyed: 'Le portefeuille a été supprimé avec succès.'
             portfolio_duplicated: 'Le portefeuille a été dupliqué avec succès.'
             unable_to_duplicate_portfolio: 'Impossible de dupliquer le portefeuille.'
-
+    ai:
+        insights:
+            intro: "Évaluez mon portefeuille dans le style des tweets de Naval. Trouvez la thèse géopolitique ou technique sous-jacente et les événements macroéconomiques pertinents des dernières années. Remarquez si le portefeuille vous rappelle un style d'investissement ou une idée populaire, comme le portefeuille à 3 fonds, etc. Identifiez les actifs se chevauchant comme les ETF avec les mêmes actions (seulement s'il y en a). Indiquez jusqu'à 5 avantages et/ou inconvénients. Organisez-les : avantages en premier. Accordez plus d'importance aux métriques comme la volatilité et le bêta, puis à celles reflétant principalement le passé, comme le ratio de Sharpe. Utilisez l'échelle Mauvais/Neutre/Bon/Exceptionnel."
+            response_format_html: |
+                Répondez dans le format HTML suivant (tous les textes dans le modèle ne sont que des exemples). J'injecte directement votre réponse dans mon modèle HTML, donc NE la renvoyez PAS sous forme d'extrait de code : <div class="insight insight--summary"><span class="insight__name">Titre percutant</span>. Bref récit sur le portefeuille en 5 phrases.</div><div class="insight insight--pro"><span class="insight__name">Métrique <b>2.22</b> &middot; Exceptionnel</span>. Évaluation en une phrase</div><div class="insight insight--con"><span class="insight__name">Métrique <b>-1.36%</b> &middot; Mauvais</span>. Évaluation en une phrase.</div>
+            past_performance: "Performance passée"
+            benchmark_performance: "Performance passée du benchmark"
+            metrics_since: "Métriques depuis %{start_date} jusqu'à %{end_date} :"
