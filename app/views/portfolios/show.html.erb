@@ -108,7 +108,6 @@
             <% render "svg/24x24_plus" %>
         <% end %>
         <%= render "normalize", portfolio: @portfolio %>
-
       </div>
     </div>
 
@@ -119,8 +118,8 @@
           <span class="label"><%= t('utils.since') %></span>
           <%= render "start_date", portfolio: @portfolio %>
         </div>
-        <%= link_to portfolio_openai_insights_path(@portfolio), id: "openai-insights-button", class: "sbutton sbutton--success", style: "position: relative", data: {turbo_stream: true} do %>
-          <%= t('utils.get_ai_insights') %>
+        <%= link_to portfolio_openai_insights_path(@portfolio), id: "openai-insights-button", class: "sbutton sbutton--link sbutton--ai", style: "position: relative", data: {turbo_stream: true} do %>
+          <%= t('analyzer.get_ai_insights') %>
           <%= render "svg/24x24_magic" %>
         <% end %>
       </div>

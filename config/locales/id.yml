@@ -792,7 +792,7 @@ id:
         us_bonds: 'Obligasi AS'
         benchmark: 'Benchmark'
         benchmark_info: 'Semakin baik pilihan benchmark, semakin andal perhitungan Exp. Return. Pilih benchmark yang sesuai dengan strategi investasi dan segmen pasar portofolio Anda. Metrik lain yang dipengaruhi oleh benchmark termasuk Alpha, Beta, R², dan Rasio Info.'
-        get_ai_insights: 'Dapatkan Wawasan AI'
+        get_ai_insights: 'Wawasan'
         pnl: 'Profit/Loss'
         strategy:
             fixed: 'Tetap'

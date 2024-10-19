@@ -10,7 +10,7 @@ module PortfolioAnalyzerManager
         messages << { role: 'user', content: prompt(portfolio) }
         response = client.chat(
           parameters: {
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             messages: messages,
             temperature: 0.7
           }

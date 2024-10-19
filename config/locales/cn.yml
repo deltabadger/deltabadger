@@ -787,7 +787,7 @@ cn:
         us_bonds: '美国债券'
         benchmark: '基准'
         benchmark_info: '选择越好的基准，预期回报计算越可靠。选择与您的投资组合投资策略和市场板块紧密匹配的基准。受基准影响的其他指标包括阿尔法、贝塔、R²和信息比率。'
-        get_ai_insights: '获取AI洞察'
+        get_ai_insights: '深度分析'
         pnl: '盈亏'
         strategy:
             fixed: '固定'

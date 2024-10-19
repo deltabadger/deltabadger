@@ -788,7 +788,7 @@ vi:
         us_bonds: 'Trái phiếu Mỹ'
         benchmark: 'Tiêu chuẩn'
         benchmark_info: 'Lựa chọn tiêu chuẩn càng tốt, tính toán lợi nhuận kỳ vọng càng đáng tin cậy. Chọn tiêu chuẩn phù hợp với chiến lược đầu tư và phân khúc thị trường của danh mục đầu tư của bạn. Các chỉ số khác bị ảnh hưởng bởi tiêu chuẩn bao gồm Alpha, Beta, R², và Tỷ số Thông tin.'
-        get_ai_insights: 'Nhận thông tin chi tiết AI'
+        get_ai_insights: 'Thông tin chi tiết'
         pnl: 'Lợi nhuận/Lỗ'
         strategy:
             fixed: 'Cố định'
