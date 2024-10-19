@@ -6,4 +6,11 @@ class VatRate < ApplicationRecord
   def eu?
     country != NOT_EU
   end
+
+  def self.all_countries_in_display_order
+    all_countries_in_alphabetical_order = all.order(country: :asc)
+    eu_countries_in_alphabetical_order = all_countries_in_alphabetical_order.select(&:eu?)
+    other_countries_in_alphabetical_order = all_countries_in_alphabetical_order.reject(&:eu?)
+    other_countries_in_alphabetical_order + eu_countries_in_alphabetical_order
+  end
 end
