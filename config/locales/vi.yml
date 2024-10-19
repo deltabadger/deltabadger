@@ -800,6 +800,7 @@ vi:
                 adjusted_start_html: "Ngày bắt đầu kiểm tra lại đã được điều chỉnh thành <strong>%{start_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
                 adjusted_end_html: "Ngày kết thúc kiểm tra lại đã được điều chỉnh thành <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
     utils:
+        assets: 'Tài sản'
         are_you_sure: 'Bạn có chắc không?'
         change_name: 'Đổi tên'
         delete: 'Xóa'
@@ -829,4 +830,13 @@ vi:
             portfolio_destroyed: 'Danh mục đầu tư đã được xóa thành công.'
             portfolio_duplicated: 'Danh mục đầu tư đã được nhân bản thành công.'
             unable_to_duplicate_portfolio: 'Không thể nhân bản danh mục đầu tư.'
+    ai:
+        insights:
+            intro: "Đánh giá danh mục đầu tư của tôi theo phong cách các tweet của Naval. Tìm ra luận điểm địa chính trị hoặc kỹ thuật đằng sau, và các sự kiện vĩ mô liên quan trong những năm gần đây. Lưu ý nếu danh mục đầu tư gợi nhớ cho bạn về một phong cách đầu tư hoặc ý tưởng phổ biến nào đó như danh mục đầu tư 3 quỹ, v.v. Chỉ ra các tài sản trùng lặp như các ETF có cùng cổ phiếu (chỉ nếu có)."
+            pros_cons: "Sau đó hiển thị tối đa 5 ưu và/hoặc nhược điểm. Sắp xếp chúng: ưu điểm trước. Chú ý nhiều hơn đến các chỉ số như độ biến động và beta, sau đó là các chỉ số chủ yếu phản ánh quá khứ như Sharpe. Sử dụng thang đánh giá Kém/Trung lập/Tốt/Xuất sắc."
+            response_format_html: |
+                Trả lời theo định dạng HTML sau (tất cả văn bản trong mẫu chỉ là ví dụ). Tôi sẽ chèn phản hồi của bạn trực tiếp vào mẫu HTML của mình nên đừng trả lại nó dưới dạng một đoạn mã: <div class="insight insight--summary"><span class="insight__name">Tiêu đề hấp dẫn</span>. Mô tả ngắn gọn về danh mục đầu tư trong 5 câu.</div><div class="insight insight--pro"><span class="insight__name">Chỉ số <b>2.22</b> &middot; Xuất sắc</span>. Đánh giá trong một câu</div><div class="insight insight--con"><span class="insight__name">Chỉ số <b>-1.36%</b> &middot; Kém</span>. Đánh giá trong một câu.</div>
+            past_performance: "Hiệu suất trong quá khứ"
+            benchmark_performance: "Hiệu suất tiêu chuẩn trong quá khứ"
+            metrics_since: "Chỉ số từ %{start_date} đến %{end_date}:"
 

@@ -799,6 +799,7 @@ cn:
             adjusted_start_html: "回测开始日期已调整为<strong>%{start_date}</strong>，以适应所有资产的可用历史记录。"
             adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
     utils:
+        assets: 资产
         are_you_sure: '你确定吗？'
         change_name: '更改名称'
         delete: '删除'
@@ -828,5 +829,14 @@ cn:
             portfolio_destroyed: '投资组合已成功删除。'
             portfolio_duplicated: '投资组合已成功复制。'
             unable_to_duplicate_portfolio: '无法复制投资组合。'
+    ai:
+        insights:
+            intro: "以Naval推文的风格评价我的投资组合。找出背后的地缘政治或技术论点，以及近年来的相关宏观事件。注意投资组合是否让你想起某种投资风格或流行理念，比如三基金投资组合等。指出重叠的资产，例如拥有相同股票的ETF（如果有的话）。"
+            pros_cons: "最多列出5个优点和/或缺点。先列出优点。更多关注波动率和贝塔等指标，而不是主要反映过去的指标，比如Sharpe。使用差/中立/好/卓越的等级。"
+            response_format_html: |
+                以以下HTML格式回复（模板中的所有文本仅为示例）。我将直接把你的回复注入到我的HTML模板中，所以不要以代码片段形式返回它：<div class="insight insight--summary"><span class="insight__name">引人注目的标题</span>。关于投资组合的简短叙述，用5句话概括。</div><div class="insight insight--pro"><span class="insight__name">指标 <b>2.22</b> &middot; 卓越</span>。一句话评估</div><div class="insight insight--con"><span class="insight__name">指标 <b>-1.36%</b> &middot; 差</span>。一句话评估。</div>
+            past_performance: "过去的表现"
+            benchmark_performance: "基准的过去表现"
+            metrics_since: "自 %{start_date} 至 %{end_date} 的指标："
 
 

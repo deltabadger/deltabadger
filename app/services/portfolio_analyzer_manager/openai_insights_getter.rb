@@ -10,7 +10,7 @@ module PortfolioAnalyzerManager
         messages << { role: 'user', content: prompt(portfolio) }
         response = client.chat(
           parameters: {
-            model: 'gpt-4o-mini',
+            model: 'gpt-4o',
             messages: messages,
             temperature: 0.7
           }
@@ -35,33 +35,35 @@ module PortfolioAnalyzerManager
     end
 
     def prompt(portfolio)
-      text = 'Evaluate my portfolio like Naval. Show up to 5 pros and/or cons. Organize them: pros first. Put more attention to metrics like volatility and beta, then those mostly reflecting past like Sharpe. Find geopolitical or technical thesis behind. Notice relevant macro events in the recent years. Point out overlapping assets like ETFs with the same stocks. Use Poor/Neutral/Good/Exeptional scale. Reply in the following HTML format (all texts are examples). I inject your reply directly into my HTML template so do NOT return it as a code snippet: <div class="insight insight--summary"><span class="insight__name">Edgy title</span>. Short narrative about the portfolio in 5 sentences.</div><div class="insight insight--pro"><span class="insight__name">Sharpe Ratio <b>2.22</b> &middot; Exceptional</span>. Excellent risk-adjusted returns.</div><div class="insight insight--con"><span class="insight__name">CVaR <b>-1.36%</b> &middot; Poor</span>. The conditional value at risk is… not small.</div>'
+      text = I18n.t('ai.insights.intro') + ' '
+      text = I18n.t('ai.insights.response_format') + ' '
       text += ' '
-      text += 'Assets:'
+      text += I18n.t('utils.assets') + ':'
       portfolio.assets.each do |asset|
         text += " #{asset.ticker} #{(asset.effective_allocation * 100).round(1)}%"
       end
       text += '. '
-      text += "Benchmark: #{portfolio.benchmark_name}. "
-      text += "Risk-free rate: #{(portfolio.risk_free_rate * 100).round(1)}%. "
-      text += "Metrics for time since #{portfolio.backtest_start_date} to #{1.day.ago.to_date}: "
-      text += "Past performance +#{(portfolio.backtest['metrics']['totalReturn'] * 100).round(0)}%, "
-      text += "Benchmark past performance +#{(portfolio.backtest['metrics']['benchmarkTotalReturn'] * 100).round(0)}%, "
-      text += "Expected Return #{(portfolio.backtest['metrics']['expectedReturn'] * 100).round(1)}%, "
-      text += "CAGR #{(portfolio.backtest['metrics']['cagr'] * 100).round(1)}%, "
-      text += "Volatility #{(portfolio.backtest['metrics']['volatility'] * 100).round(1)}%, "
-      text += "Max. Drawdown #{(portfolio.backtest['metrics']['maxDrawdown'] * 100).round(1)}%, "
-      text += "Calmar Ratio #{portfolio.backtest['metrics']['calmarRatio'].round(2)}, "
-      text += "VaR #{(portfolio.backtest['metrics']['valueAtRisk'] * 100).round(1)}%, "
-      text += "CVaR #{(portfolio.backtest['metrics']['conditionalValueAtRisk'] * 100).round(1)}%, "
-      text += "Sharpe Ratio #{portfolio.backtest['metrics']['sharpeRatio'].round(2)}, "
-      text += "Sortino Ratio #{portfolio.backtest['metrics']['sortinoRatio'].round(2)}, "
-      text += "Treynor Ratio #{portfolio.backtest['metrics']['treynorRatio'].round(2)}, "
-      text += "Omega Ratio #{portfolio.backtest['metrics']['omegaRatio'].round(2)}, "
-      text += "Alpha #{portfolio.backtest['metrics']['alpha'].round(2)}, "
-      text += "Beta #{portfolio.backtest['metrics']['beta'].round(2)}, "
-      text += "R-squared #{portfolio.backtest['metrics']['rSquared'].round(2)}, "
-      text += "Information Ratio #{portfolio.backtest['metrics']['informationRatio'].round(2)}"
+      text += "#{I18n.t('analyzer.benchmark')} #{portfolio.benchmark_name}. "
+      text += "#{I18n.t('analyzer.risk_free_rate')} #{(portfolio.risk_free_rate * 100).round(1)}%. "
+      text += "#{I18n.t('ai.insights.metrics_since', start_date: portfolio.backtest_start_date,
+                                                     end_date: 1.day.ago.to_date)} "
+      text += "#{I18n.t('ai.insights.past_performance')} +#{(portfolio.backtest['metrics']['totalReturn'] * 100).round(0)}%, "
+      text += "#{I18n.t('ai.insights.benchmark_performance')} +#{(portfolio.backtest['metrics']['benchmarkTotalReturn'] * 100).round(0)}%, "
+      text += I18n.t('metrics.exp_return.short_name') + ": #{(portfolio.backtest['metrics']['expectedReturn'] * 100).round(1)}%, "
+      text += I18n.t('metrics.cagr.short_name') + ": #{(portfolio.backtest['metrics']['cagr'] * 100).round(1)}%, "
+      text += I18n.t('metrics.volatility.short_name') + ": #{(portfolio.backtest['metrics']['volatility'] * 100).round(1)}%, "
+      text += I18n.t('metrics.max_drawdown.short_name') + ": #{(portfolio.backtest['metrics']['maxDrawdown'] * 100).round(1)}%, "
+      text += I18n.t('metrics.calmar_ratio.short_name') + ": #{portfolio.backtest['metrics']['calmarRatio'].round(2)}, "
+      text += I18n.t('metrics.var.short_name') + ": #{(portfolio.backtest['metrics']['valueAtRisk'] * 100).round(1)}%, "
+      text += I18n.t('metrics.cvar.short_name') + ": #{(portfolio.backtest['metrics']['conditionalValueAtRisk'] * 100).round(1)}%, "
+      text += I18n.t('metrics.sharpe_ratio.short_name') + ": #{portfolio.backtest['metrics']['sharpeRatio'].round(2)}, "
+      text += I18n.t('metrics.sortino_ratio.short_name') + ": #{portfolio.backtest['metrics']['sortinoRatio'].round(2)}, "
+      text += I18n.t('metrics.treynor_ratio.short_name') + ": #{portfolio.backtest['metrics']['treynorRatio'].round(2)}, "
+      text += I18n.t('metrics.omega_ratio.short_name') + ": #{portfolio.backtest['metrics']['omegaRatio'].round(2)}, "
+      text += I18n.t('metrics.alpha.short_name') + ": #{portfolio.backtest['metrics']['alpha'].round(2)}, "
+      text += I18n.t('metrics.beta.short_name') + ": #{portfolio.backtest['metrics']['beta'].round(2)}, "
+      text += I18n.t('metrics.r_squared.short_name') + ": #{portfolio.backtest['metrics']['rSquared'].round(2)}, "
+      text += I18n.t('metrics.info_ratio.short_name') + ": #{portfolio.backtest['metrics']['informationRatio'].round(2)}"
       text
     end
   end
