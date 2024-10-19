@@ -1,4 +1,3 @@
-- settings_repository = SettingFlagsRepository.new
 %h1 Dashboard
 
 %hr
@@ -18,13 +17,13 @@
 %p
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_zen_payment, :onChange => "change('show_zen_payment', checked)"} Card Payments (Zen)
+    %input{:type => 'checkbox', :checked => SettingFlag.show_zen_payment, :onChange => "change('show_zen_payment', checked)"} Card Payments (Zen)
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
+    %input{:type => 'checkbox', :checked => SettingFlag.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
+    %input{:type => 'checkbox', :checked => SettingFlag.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
 :javascript
   const element = document.getElementsByName('csrf-token')[0];
   const token = element && element.getAttribute('content');
