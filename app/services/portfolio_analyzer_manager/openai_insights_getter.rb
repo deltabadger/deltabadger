@@ -7,7 +7,12 @@ module PortfolioAnalyzerManager
       cache_key = 'openai_insights_' + portfolio.backtest_cache_key
       Rails.cache.fetch(cache_key, expires_in: expires_in) do
         messages = training_prompts.map { |prompt| { role: 'system', content: prompt } }
+        final_prompt = prompt(portfolio)
         messages << { role: 'user', content: prompt(portfolio) }
+
+        # Log the final prompt to Rails log
+        Rails.logger.info "Final OpenAI prompt: #{final_prompt}"
+
         response = client.chat(
           parameters: {
             model: 'gpt-4o',
