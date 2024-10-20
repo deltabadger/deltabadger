@@ -1,30 +1,5 @@
-<div class="flex-column" style="gap: 2px">
+<div class="flex-column" style="gap: 2px; margin-bottom: 2px">
 
-   <div class="insight insight--summary">
-      <span class="insight__name">High-Performing and Diversified</span>. This portfolio combines impressive growth with solid diversification, balancing high returns with manageable risks.
-   </div>
-
-   <div class="insight insight--pro">
-      <span class="insight__name">Sharpe Ratio <b>2.22</b> &middot; Exceptional</span>. This indicates the portfolio has an excellent risk-adjusted return, performing very well for the amount of risk taken.
-   </div>
-   <div class="insight insight--pro">
-      <span class="insight__name">Sortino Ratio <b>3.88</b> &middot; Exceptional</span>. This shows the portfolio's downside risk is well-managed, achieving high returns with minimal negative volatility.
-   </div>
-   <div class="insight insight--pro">
-      <span class="insight__name">Calmar Ratio <b>4.81</b> &middot; Exceptional</span>. The high Calmar Ratio reflects the portfolio's strong performance relative to its maximum drawdown, indicating excellent risk management.
-   </div>
-   <div class="insight insight--pro">
-      <span class="insight__name">CAGR <b>35.74%</b> &middot; Very Good</span>. This demonstrates strong annual growth, significantly outpacing typical market returns.
-   </div>
-
-   <div class="insight insight--con">
-      <span class="insight__name">Max. Drawdown <b>-7.42%</b> &middot; Poor</span>. This measures the largest single drop from peak to trough, indicating the portfolio has experienced significant dips. <span class="insight__hint">Consider reviewing the portfolio's asset allocation to reduce drawdown risks.</span>
-   </div>
-   <div class="insight insight--con">
-      <span class="insight__name">VaR <b>-0.96%</b> &middot; Poor</span>. This value at risk suggests a higher potential for portfolio loss under extreme conditions. <span class="insight__hint">Enhance risk management strategies to better protect against market downturns.</span>
-   </div>
-   <div class="insight insight--con">
-      <span class="insight__name">CVaR <b>-1.36%</b> &middot; Poor</span>. The conditional value at risk indicates potential losses in the worst-case scenarios are notable. <span class="insight__hint">Improve diversification and hedge against extreme market movements.</span>
-   </div>
+   <%= insights.html_safe %>
 
 </div>

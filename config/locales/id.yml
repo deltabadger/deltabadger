@@ -792,7 +792,7 @@ id:
         us_bonds: 'Obligasi AS'
         benchmark: 'Benchmark'
         benchmark_info: 'Semakin baik pilihan benchmark, semakin andal perhitungan Exp. Return. Pilih benchmark yang sesuai dengan strategi investasi dan segmen pasar portofolio Anda. Metrik lain yang dipengaruhi oleh benchmark termasuk Alpha, Beta, R², dan Rasio Info.'
-        get_ai_insights: 'Dapatkan Wawasan AI'
+        get_ai_insights: 'Wawasan'
         pnl: 'Profit/Loss'
         strategy:
             fixed: 'Tetap'
@@ -804,6 +804,7 @@ id:
                 adjusted_start_html: "Tanggal mulai backtest telah disesuaikan menjadi <strong>%{start_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
                 adjusted_end_html: "Tanggal berakhirnya backtest telah disesuaikan menjadi <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
     utils:
+        assets: Aset
         are_you_sure: 'Apakah Anda yakin?'
         change_name: 'Ganti nama'
         delete: 'Hapus'
@@ -833,4 +834,11 @@ id:
             portfolio_destroyed: 'Portofolio berhasil dihapus.'
             portfolio_duplicated: 'Portofolio berhasil diduplikasi.'
             unable_to_duplicate_portfolio: 'Tidak dapat menduplikasi portofolio.'
-
+    ai:
+        insights:
+            intro: "Evaluasi portofolio saya dalam gaya tweet Naval. Temukan tesis geopolitik atau teknis di baliknya, dan peristiwa makroekonomi yang relevan dalam beberapa tahun terakhir. Perhatikan jika portofolio mengingatkan Anda pada beberapa gaya investasi atau ide populer seperti portofolio 3 dana, dll. Tunjukkan aset yang tumpang tindih seperti ETF dengan saham yang sama (hanya jika ada). Tunjukkan hingga 5 kelebihan dan/atau kekurangan. Susun mereka: kelebihan dulu. Berikan perhatian lebih pada metrik seperti volatilitas dan beta, kemudian pada metrik yang sebagian besar mencerminkan masa lalu seperti Sharpe. Gunakan skala Buruk/Netral/Baik/Luar Biasa."
+            response_format: |
+                Balas dalam format HTML berikut (semua teks dalam template hanyalah contoh). Saya menyisipkan jawaban Anda langsung ke dalam template HTML saya, jadi JANGAN mengembalikannya sebagai cuplikan kode: <div class="insight insight--summary"><span class="insight__name">Judul yang Berani</span>. Narasi singkat tentang portofolio dalam 5 kalimat.</div><div class="insight insight--pro"><span class="insight__name">Nama metrik <b>2.22</b> &middot; Luar Biasa</span>. Evaluasi dalam satu kalimat</div><div class="insight insight--con"><span class="insight__name">Nama metrik <b>-1.36%</b> &middot; Buruk</span>. Evaluasi dalam satu kalimat.</div>
+            past_performance: "Kinerja masa lalu"
+            benchmark_performance: "Kinerja patokan masa lalu"
+            metrics_since: "Metrik dari %{start_date} hingga %{end_date}:"
