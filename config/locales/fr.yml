@@ -811,10 +811,11 @@ fr:
         no_assets: 'Commencez par ajouter un nouvel actif.'
         assets_dont_coexist: 'Impossible de backtester ce portefeuille. Les actifs que vous avez sélectionnés n''ont jamais coexisté depuis %{backtest_start_date}!'
         api_unreachable: 'Impossible de backtester ce portefeuille en ce moment. Le serveur de données API est inaccessible.'
+        these_assets: 'Ces actifs ne réduisent ni la volatilité ni n''augmentent le ratio de Sharpe de votre portefeuille:'
         smart_allocation:
             name: 'Allocation Intelligente'
             short_info_html: '<p>L''Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
-        since: 'depuis'
+        
         risk_free_rate: 'Taux Sans Risque'
         us_bonds: 'Obligations US'
         benchmark: 'Indice de Référence'
@@ -840,6 +841,7 @@ fr:
         new: 'Nouveau'
         save: 'Enregistrer'
         see_at_coingecko: 'Voir sur CoinGecko'
+        since: 'depuis'
         soon: 'bientôt'
     alert:
         portfolio:

@@ -784,10 +784,10 @@ id:
         no_assets: 'Mulailah dengan menambahkan aset baru.'
         assets_dont_coexist: 'Tidak dapat melakukan backtest portofolio ini. Aset yang Anda pilih tidak pernah ada bersama sejak %{backtest_start_date}!'
         api_unreachable: 'Tidak dapat melakukan backtest portofolio ini sekarang. Server API data tidak dapat dijangkau.'
+        these_assets: 'Aset-aset ini tidak mengurangi volatilitas maupun meningkatkan Rasio Sharpe portofolio Anda:'
         smart_allocation:
             name: 'Allocasi Cerdas'
             short_info_html: '<p>Allocasi Cerdas menerapkan algoritma <b>Modern Portfolio Theory (MPT)</b> untuk menemukan alokasi aset terbaik untuk portofolio Anda.</p>Anda dapat mengoptimalkan untuk dua metrik yang berbeda dan bahkan memilih posisi yang diinginkan di antara dua optimasi tersebut.'
-        since: 'sejak'
         risk_free_rate: 'Tingkat Bebas Risiko'
         us_bonds: 'Obligasi AS'
         benchmark: 'Benchmark'
@@ -813,6 +813,7 @@ id:
         new: 'Baru'
         save: 'Simpan'
         see_at_coingecko: 'Lihat di CoinGecko'
+        since: 'sejak'
         soon: 'segera'
     alert:
         portfolio:

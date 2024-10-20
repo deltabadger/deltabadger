@@ -812,10 +812,10 @@ es:
         no_assets: 'Comience añadiendo un nuevo activo.'
         assets_dont_coexist: 'No se puede backtestear esta cartera. ¡Los activos seleccionados nunca han coexistido desde %{backtest_start_date}!'
         api_unreachable: 'No se puede backtestear esta cartera en este momento. El servidor de la API de datos no está disponible.'
+        these_assets: 'Estos activos no reducen la volatilidad ni aumentan el índice de Sharpe de tu cartera:'
         smart_allocation:
             name: 'Asignación Inteligente'
             short_info_html: '<p>La Asignación Inteligente aplica algoritmos de <b>Teoría Moderna de Carteras (MPT)</b> para encontrar la mejor asignación de activos para su cartera.</p>Puede optimizar para dos métricas diferentes e incluso elegir un punto deseado entre esas dos optimizaciones.'
-        since: 'desde'
         risk_free_rate: 'Tasa Libre de Riesgo'
         us_bonds: 'Bonos de EE.UU.'
         benchmark: 'Benchmark'
@@ -841,6 +841,7 @@ es:
         new: 'Nuevo'
         save: 'Guardar'
         see_at_coingecko: 'Ver en CoinGecko'
+        since: 'desde'
         soon: 'pronto'
     alert:
         portfolio:

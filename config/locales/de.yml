@@ -756,10 +756,10 @@ de:
         no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
         assets_dont_coexist: 'Dieses Portfolio kann nicht backgetestet werden. Die von Ihnen ausgewählten Assets haben seit %{backtest_start_date} nie gleichzeitig existiert!'
         api_unreachable: 'Dieses Portfolio kann derzeit nicht backgetestet werden. Der Daten-API-Server ist nicht erreichbar.'
+        these_assets: 'Diese Vermögenswerte senken weder die Volatilität noch erhöhen sie das Sharpe Ratio Ihres Portfolios:'
         smart_allocation:
             name: 'Intelligente Allokation'
             short_info_html: '<p>Intelligente Allokation wendet <b>Moderne Portfoliotheorie (MPT)</b> Algorithmen an, um die beste Asset-Allokation für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'
-        since: 'seit'
         risk_free_rate: 'Risikofreier Zinssatz'
         us_bonds: 'US-Anleihen'
         benchmark: 'Benchmark'
@@ -785,6 +785,7 @@ de:
         new: 'neu'
         save: 'Speichern'
         see_at_coingecko: 'Siehe bei CoinGecko'
+        since: 'seit'
         soon: 'bald'
     alert:
         portfolio:
@@ -810,7 +811,7 @@ de:
         insights:
             intro: "Bewerte mein Portfolio im Stil von Naval-Tweets. Finde geopolitische oder technische Thesen dahinter und relevante makroökonomische Ereignisse der letzten Jahre. Beachte, ob das Portfolio dich an eine bestimmte Anlagestrategie oder bekannte Idee wie das 3-Fonds-Portfolio erinnert. Weisen Sie auf überschneidende Vermögenswerte hin, wie ETFs mit denselben Aktien (nur wenn vorhanden). Zeigen Sie bis zu 5 Vor- und/oder Nachteile auf. Organisieren Sie sie: Vorteile zuerst. Legen Sie mehr Wert auf Metriken wie Volatilität und Beta, dann auf solche, die hauptsächlich die Vergangenheit widerspiegeln, wie den Sharpe-Quotienten. Verwenden Sie die Skala Schlecht/Neutral/Gut/Ausgezeichnet."
             response_format: |
-                Antworten Sie im folgenden HTML-Format (alle Texte im Template sind nur Beispiele). Ich füge Ihre Antwort direkt in meine HTML-Vorlage ein, also geben Sie sie NICHT als Code-Snippet zurück: <div class="insight insight--summary"><span class="insight__name">Edgy-Titel</span>. Kurze Erzählung über das Portfolio in 5 Sätzen.</div><div class="insight insight--pro"><span class="insight__name">Metrikname <b>2.22</b> &middot; Ausgezeichnet</span>. Ein Satz Bewertung</div><div class="insight insight--con"><span class="insight__name">Metrikname <b>-1.36%</b> &middot; Schlecht</span>. Ein Satz Bewertung.</div>
+                Antworten Sie im folgenden HTML-Format (alle Texte im Template sind nur Beispiele). Ich füge Ihre Antwort direkt in meine HTML-Vorlage ein, also geben Sie sie NICHT als Code-Snippet zurück: <div class="insight insight--summary"><span class="insight__name">Einprägsamer Titel</span>. Kurze Erzählung über das Portfolio in 5 Sätzen.</div><div class="insight insight--pro"><span class="insight__name">Metrikname <b>2.22</b> &middot; Ausgezeichnet</span>. Ein Satz Bewertung</div><div class="insight insight--con"><span class="insight__name">Metrikname <b>-1.36%</b> &middot; Schlecht</span>. Ein Satz Bewertung.</div>
             past_performance: "Vergangene Performance"
             benchmark_performance: "Benchmark vergangene Performance"
             metrics_since: "Metriken seit %{start_date} bis %{end_date}:"
