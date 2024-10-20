@@ -756,6 +756,7 @@ de:
         no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
         assets_dont_coexist: 'Dieses Portfolio kann nicht backgetestet werden. Die von Ihnen ausgewählten Assets haben seit %{backtest_start_date} nie gleichzeitig existiert!'
         api_unreachable: 'Dieses Portfolio kann derzeit nicht backgetestet werden. Der Daten-API-Server ist nicht erreichbar.'
+        these_assets: 'Diese Vermögenswerte senken weder die Volatilität noch erhöhen sie das Sharpe Ratio Ihres Portfolios:'
         smart_allocation:
             name: 'Intelligente Allokation'
             short_info_html: '<p>Intelligente Allokation wendet <b>Moderne Portfoliotheorie (MPT)</b> Algorithmen an, um die beste Asset-Allokation für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'

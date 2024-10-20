@@ -780,6 +780,7 @@ vi:
         no_assets: 'Bắt đầu bằng cách thêm tài sản mới.'
         assets_dont_coexist: 'Không thể kiểm tra lại danh mục đầu tư này. Các tài sản bạn đã chọn chưa bao giờ cùng tồn tại kể từ %{backtest_start_date}!'
         api_unreachable: 'Không thể kiểm tra lại danh mục đầu tư này ngay bây giờ. Máy chủ dữ liệu API không thể truy cập.'
+        these_assets: 'Những tài sản này không làm giảm biến động cũng không tăng tỷ lệ Sharpe của danh mục đầu tư của bạn:'
         smart_allocation:
             name: 'Phân bổ thông minh'
             short_info_html: '<p>Phân bổ thông minh áp dụng các thuật toán <b>Lý thuyết danh mục hiện đại (MPT)</b> để tìm phân bổ tài sản tốt nhất cho danh mục đầu tư của bạn.</p>Bạn có thể tối ưu hóa cho hai chỉ số khác nhau và thậm chí chọn một vị trí mong muốn giữa hai tối ưu hóa đó.'

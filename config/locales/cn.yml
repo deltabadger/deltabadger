@@ -779,6 +779,7 @@ cn:
         no_assets: '通过添加新资产开始。'
         assets_dont_coexist: '无法对该投资组合进行回测。自%{backtest_start_date}以来，您选择的资产从未共存过！'
         api_unreachable: '目前无法对该投资组合进行回测。数据API服务器无法访问。'
+        these_assets: '这些资产既不会降低波动性，也不会提高您的投资组合的夏普比率:'
         smart_allocation:
             name: '智能分配'
             short_info_html: '<p>智能分配应用<b>现代投资组合理论（MPT）</b>算法，为您的投资组合寻找最佳资产分配。</p>您可以优化两个不同的指标，甚至可以选择这两个优化之间的期望位置。'
@@ -794,9 +795,9 @@ cn:
             rebalancing: '再平衡'
         backtest:
             time_window:
-            adjusted_both_html: "回测时间窗口已调整为<strong>%{start_date}</strong>到<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
-            adjusted_start_html: "回测开始日期已调整为<strong>%{start_date}</strong>，以适应所有资产的可用历史记录。"
-            adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
+                adjusted_both_html: "回测时间窗口已调整为<strong>%{start_date}</strong>到<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
+                adjusted_start_html: "回测开始日期已调整为<strong>%{start_date}</strong>，以适应所有资产的可用历史记录。"
+                adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
     utils:
         assets: 资产
         are_you_sure: '你确定吗？'
