@@ -41,7 +41,7 @@ module PortfolioAnalyzerManager
 
     def prompt(portfolio)
       text = I18n.t('ai.insights.intro') + ' '
-      text = I18n.t('ai.insights.response_format') + ' '
+      text += I18n.t('ai.insights.response_format') + ' '
       text += ' '
       text += I18n.t('utils.assets') + ':'
       portfolio.assets.each do |asset|
