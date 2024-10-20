@@ -724,7 +724,6 @@ pt:
         smart_allocation:
             name: 'Alocação Inteligente'
             short_info_html: '<p>A Alocação Inteligente aplica algoritmos da <b>Teoria Moderna do Portfólio (MPT)</b> para encontrar a melhor alocação de ativos para o seu portfólio.</p>Você pode otimizar para duas métricas diferentes e até escolher um ponto desejado entre essas duas otimizações.'
-        since: 'desde'
         risk_free_rate: 'Taxa Livre de Risco'
         us_bonds: 'Títulos dos EUA'
         benchmark: 'Benchmark'
@@ -750,6 +749,7 @@ pt:
         new: 'Novo'
         save: 'Salvar'
         see_at_coingecko: 'Ver no CoinGecko'
+        since: 'desde'
         soon: 'em breve'
     alert:
         portfolio:
