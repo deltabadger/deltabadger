@@ -767,7 +767,7 @@ de:
         get_ai_insights: 'Einblicke'
         pnl: 'Gewinn/Verlust'
         strategy:
-            fixed: 'Fest'
+            fixed: 'Einmalige Investition'
             dca: 'DCA'
             rebalancing: 'Neugewichtung'
         backtest:
