@@ -790,7 +790,7 @@ cn:
         get_ai_insights: '深度分析'
         pnl: '盈亏'
         strategy:
-            fixed: '固定'
+            fixed: '次性投资'
             dca: '定期定额投资'
             rebalancing: '再平衡'
         backtest:

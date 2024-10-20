@@ -795,7 +795,7 @@ id:
         get_ai_insights: 'Wawasan'
         pnl: 'Profit/Loss'
         strategy:
-            fixed: 'Tetap'
+            fixed: 'Investasi sekali'
             dca: 'DCA'
             rebalancing: 'Rebalancing'
         backtest:
