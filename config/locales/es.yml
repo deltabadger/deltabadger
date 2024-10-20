@@ -823,7 +823,7 @@ es:
         get_ai_insights: 'Perspectivas'
         pnl: 'Ganancia/Pérdida'
         strategy:
-            fixed: 'Fijo'
+            fixed: 'Inversión única'
             dca: 'DCA'
             rebalancing: 'Rebalanceo'
         backtest:
