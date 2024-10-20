@@ -817,7 +817,7 @@ ru:
         get_ai_insights: 'Анализ'
         pnl: 'Прибыль/Убыток'
         strategy:
-            fixed: 'Фиксированная'
+            fixed: 'Единовременная инвестиция'
             dca: 'DCA'
             rebalancing: 'Ребалансировка'
         backtest:
