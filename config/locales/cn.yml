@@ -782,7 +782,6 @@ cn:
         smart_allocation:
             name: '智能分配'
             short_info_html: '<p>智能分配应用<b>现代投资组合理论（MPT）</b>算法，为您的投资组合寻找最佳资产分配。</p>您可以优化两个不同的指标，甚至可以选择这两个优化之间的期望位置。'
-        since: '自'
         risk_free_rate: '无风险利率'
         us_bonds: '美国债券'
         benchmark: '基准'
@@ -808,6 +807,7 @@ cn:
         new: '新'
         save: '保存'
         see_at_coingecko: '查看 CoinGecko'
+        since: '自'
         soon: '即将推出'
     alert:
         portfolio:

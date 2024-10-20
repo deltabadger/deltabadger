@@ -783,7 +783,6 @@ vi:
         smart_allocation:
             name: 'Phân bổ thông minh'
             short_info_html: '<p>Phân bổ thông minh áp dụng các thuật toán <b>Lý thuyết danh mục hiện đại (MPT)</b> để tìm phân bổ tài sản tốt nhất cho danh mục đầu tư của bạn.</p>Bạn có thể tối ưu hóa cho hai chỉ số khác nhau và thậm chí chọn một vị trí mong muốn giữa hai tối ưu hóa đó.'
-        since: 'kể từ'
         risk_free_rate: 'Lãi suất phi rủi ro'
         us_bonds: 'Trái phiếu Mỹ'
         benchmark: 'Tiêu chuẩn'
@@ -809,6 +808,7 @@ vi:
         new: 'Mới'
         save: 'Lưu'
         see_at_coingecko: 'Xem trên CoinGecko'
+        since: 'kể từ'
         soon: 'sắp ra mắt'
     alert:
         portfolio:
