@@ -828,18 +828,18 @@ pl:
         no_assets: 'Zacznij od dodania nowego aktywa.'
         assets_dont_coexist: 'Nie można przetestować tego portfela. Wybrane aktywa nigdy nie współistniały od %{backtest_start_date}!'
         api_unreachable: 'Nie można teraz przetestować tego portfela. Serwer API danych jest niedostępny.'
+        these_assets: 'Te aktywa nie zmniejszają zmienności ani nie zwiększają wskaźnika Sharpe''a w twoim portfelu:'
         smart_allocation:
             name: 'Inteligentna Alokacja'
             short_info_html: '<p>Inteligentna Alokacja stosuje algorytmy <b>Współczesnej Teorii Portfelowej (MPT)</b> w celu znalezienia najlepszej alokacji aktywów w portfelu.</p>Możesz optymalizować pod kątem dwóch różnych metryk i wybrać pożądany punkt między tymi dwiema optymalizacjami.'
-        since: 'od'
-        risk_free_rate: 'Stopa Wolna od Ryzyka'
+        risk_free_rate: 'Stopa wolna od ryzyka'
         us_bonds: 'Obligacje USA'
         benchmark: 'Benchmark'
         benchmark_info: 'Im lepszy wybór benchmarku, tym bardziej wiarygodne są obliczenia oczekiwanego zwrotu. Wybierz benchmark, który ściśle odpowiada strategii inwestycyjnej i segmentowi rynku Twojego portfela. Inne metryki wpływające na benchmark to Alpha, Beta, R² i wskaźnik informacyjny.'
         get_ai_insights: 'Analiza'
         pnl: 'Zysk/Strata'
         strategy:
-            fixed: 'Stała'
+            fixed: 'Stały'
             dca: 'DCA'
             rebalancing: 'Rebalansowanie'
         backtest:
@@ -857,6 +857,7 @@ pl:
         new: 'Nowość'
         save: 'Zapisz'
         see_at_coingecko: 'Zobacz na CoinGecko'
+        since: 'od'
         soon: 'wkrótce'
     alert:
         portfolio:
