@@ -831,7 +831,6 @@ pl:
         smart_allocation:
             name: 'Inteligentna Alokacja'
             short_info_html: '<p>Inteligentna Alokacja stosuje algorytmy <b>Współczesnej Teorii Portfelowej (MPT)</b> w celu znalezienia najlepszej alokacji aktywów w portfelu.</p>Możesz optymalizować pod kątem dwóch różnych metryk i wybrać pożądany punkt między tymi dwiema optymalizacjami.'
-        since: 'od'
         risk_free_rate: 'Stopa Wolna od Ryzyka'
         us_bonds: 'Obligacje USA'
         benchmark: 'Benchmark'
@@ -839,7 +838,7 @@ pl:
         get_ai_insights: 'Analiza'
         pnl: 'Zysk/Strata'
         strategy:
-            fixed: 'Stała'
+            fixed: 'Niezmienny'
             dca: 'DCA'
             rebalancing: 'Rebalansowanie'
         backtest:
@@ -857,6 +856,7 @@ pl:
         new: 'Nowość'
         save: 'Zapisz'
         see_at_coingecko: 'Zobacz na CoinGecko'
+        since: 'od'
         soon: 'wkrótce'
     alert:
         portfolio:
