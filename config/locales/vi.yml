@@ -791,7 +791,7 @@ vi:
         get_ai_insights: 'Thông tin chi tiết'
         pnl: 'Lợi nhuận/Lỗ'
         strategy:
-            fixed: 'Cố định'
+            fixed: 'Khoản đầu tư một lần'
             dca: 'DCA'
             rebalancing: 'Tái cân bằng'
         backtest:

@@ -822,7 +822,7 @@ nl:
         get_ai_insights: 'Inzichten'
         pnl: 'Winst/Verlies'
         strategy:
-            fixed: 'Vast'
+            fixed: 'Eenmalige investering'
             dca: 'DCA'
             rebalancing: 'Herbalancering'
         backtest:
