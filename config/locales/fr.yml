@@ -823,7 +823,7 @@ fr:
         get_ai_insights: 'Aperçus'
         pnl: 'Profit/Perte'
         strategy:
-            fixed: 'Fixe'
+            fixed: 'Investissement unique'
             dca: 'DCA'
             rebalancing: 'Rééquilibrage'
         backtest:
