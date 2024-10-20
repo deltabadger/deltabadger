@@ -815,7 +815,6 @@ es:
         smart_allocation:
             name: 'Asignación Inteligente'
             short_info_html: '<p>La Asignación Inteligente aplica algoritmos de <b>Teoría Moderna de Carteras (MPT)</b> para encontrar la mejor asignación de activos para su cartera.</p>Puede optimizar para dos métricas diferentes e incluso elegir un punto deseado entre esas dos optimizaciones.'
-        since: 'desde'
         risk_free_rate: 'Tasa Libre de Riesgo'
         us_bonds: 'Bonos de EE.UU.'
         benchmark: 'Benchmark'
@@ -841,6 +840,7 @@ es:
         new: 'Nuevo'
         save: 'Guardar'
         see_at_coingecko: 'Ver en CoinGecko'
+        since: 'desde'
         soon: 'pronto'
     alert:
         portfolio:

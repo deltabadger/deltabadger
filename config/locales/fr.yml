@@ -814,7 +814,7 @@ fr:
         smart_allocation:
             name: 'Allocation Intelligente'
             short_info_html: '<p>L''Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
-        since: 'depuis'
+        
         risk_free_rate: 'Taux Sans Risque'
         us_bonds: 'Obligations US'
         benchmark: 'Indice de Référence'
@@ -840,6 +840,7 @@ fr:
         new: 'Nouveau'
         save: 'Enregistrer'
         see_at_coingecko: 'Voir sur CoinGecko'
+        since: 'depuis'
         soon: 'bientôt'
     alert:
         portfolio:
