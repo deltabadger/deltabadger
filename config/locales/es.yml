@@ -820,7 +820,7 @@ es:
         us_bonds: 'Bonos de EE.UU.'
         benchmark: 'Benchmark'
         benchmark_info: 'Cuanto mejor sea la elección del benchmark, más fiable será el cálculo de Rend. Esp. Elija un benchmark que coincida estrechamente con la estrategia de inversión y el segmento de mercado de su cartera. Otras métricas afectadas por el benchmark incluyen Alfa, Beta, R² y Ratio de Info.'
-        get_ai_insights: 'Obtener Información AI'
+        get_ai_insights: 'Perspectivas'
         pnl: 'Ganancia/Pérdida'
         strategy:
             fixed: 'Fijo'
@@ -832,6 +832,7 @@ es:
                 adjusted_start_html: "La fecha de inicio del backtest se ha ajustado al <strong>%{start_date}</strong> para ajustarse a la historia disponible de todos los activos."
                 adjusted_end_html: "La fecha de finalización del backtest se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
     utils:
+        assets: Activos
         are_you_sure: '¿Estás seguro?'
         change_name: 'Cambiar nombre'
         delete: 'Eliminar'
@@ -861,3 +862,11 @@ es:
             portfolio_destroyed: 'La cartera se ha eliminado con éxito.'
             portfolio_duplicated: 'La cartera se ha duplicado con éxito.'
             unable_to_duplicate_portfolio: 'No se puede duplicar la cartera.'
+    ai:
+        insights:
+            intro: "Evalúa mi cartera en el estilo de los tweets de Naval. Encuentra la tesis geopolítica o técnica detrás y los eventos macro relevantes de los últimos años. Observa si la cartera te recuerda a algún estilo de inversión o idea popular como la cartera de 3 fondos, etc. Señala los activos superpuestos, como los ETFs con las mismas acciones (solo si los hay). Muestra hasta 5 pros y/o contras. Organízalos: primero los pros. Presta más atención a métricas como volatilidad y beta, luego a aquellas que reflejan principalmente el pasado, como el ratio de Sharpe. Usa la escala Malo/Neutral/Bueno/Excepcional."
+            response_format: |
+                Responde en el siguiente formato HTML (todos los textos en la plantilla son solo ejemplos). Inserto tu respuesta directamente en mi plantilla HTML, así que NO la devuelvas como un fragmento de código: <div class="insight insight--summary"><span class="insight__name">Título atrevido</span>. Breve narración sobre la cartera en 5 oraciones.</div><div class="insight insight--pro"><span class="insight__name">Nombre de la métrica <b>2.22</b> &middot; Excepcional</span>. Evaluación en una oración</div><div class="insight insight--con"><span class="insight__name">Nombre de la métrica <b>-1.36%</b> &middot; Malo</span>. Evaluación en una oración.</div>
+            past_performance: "Rendimiento pasado"
+            benchmark_performance: "Rendimiento pasado del benchmark"
+            metrics_since: "Métricas desde %{start_date} hasta %{end_date}:"

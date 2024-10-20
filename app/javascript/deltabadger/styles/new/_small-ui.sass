@@ -103,7 +103,7 @@ select
     padding: 0 2rem
     gap: 1rem 
     text-decoration: none !important
-    &:focus, &:active, &[disabled="disabled"],&[disabled]
+    &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
         color: #fff
         outline: none
     svg
@@ -123,8 +123,8 @@ select
             fill: var(--link)
         &[disabled="disabled"]
             color: var(--label)
-        &:focus, &:active, &[disabled="disabled"],&[disabled]
-            color: inherit
+        &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
+            color: var(--link)
         &.sbutton--success
             color: var(--success)
             path
@@ -154,8 +154,12 @@ select
     &--link
         padding-left: 0
         padding-right: 0 
-        svg
+        path
             fill: var(--link)
+        &.sbutton--ai
+            color: var(--ai)
+            path
+                fill: var(--ai)
     &--add-asset  
         width: 20rem
         background: var(--sbutton-add-asset)
