@@ -839,7 +839,7 @@ pl:
         get_ai_insights: 'Analiza'
         pnl: 'Zysk/Strata'
         strategy:
-            fixed: 'Stały'
+            fixed: 'Jednorazowa inwestycja'
             dca: 'DCA'
             rebalancing: 'Rebalansowanie'
         backtest:
