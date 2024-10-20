@@ -721,6 +721,7 @@ pt:
         no_assets: 'Comece adicionando um novo ativo.'
         assets_dont_coexist: 'Não é possível fazer o backtest deste portfólio. Os ativos que você selecionou nunca coexistiram desde %{backtest_start_date}!'
         api_unreachable: 'Não é possível fazer o backtest deste portfólio agora. O servidor de API de dados está inacessível.'
+        these_assets: 'Esses ativos não reduzem a volatilidade nem aumentam o Índice de Sharpe da sua carteira:'
         smart_allocation:
             name: 'Alocação Inteligente'
             short_info_html: '<p>A Alocação Inteligente aplica algoritmos da <b>Teoria Moderna do Portfólio (MPT)</b> para encontrar a melhor alocação de ativos para o seu portfólio.</p>Você pode otimizar para duas métricas diferentes e até escolher um ponto desejado entre essas duas otimizações.'

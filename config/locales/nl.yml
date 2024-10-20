@@ -811,6 +811,7 @@ nl:
         no_assets: 'Begin met het toevoegen van een nieuwe asset.'
         assets_dont_coexist: 'Het is niet mogelijk om deze portefeuille te backtesten. De door u geselecteerde assets hebben nooit samen bestaan sinds %{backtest_start_date}!'
         api_unreachable: 'Het is momenteel niet mogelijk om deze portefeuille te backtesten. De data API-server is niet bereikbaar.'
+        these_assets: 'Deze activa verlagen noch de volatiliteit, noch verhogen ze de Sharpe Ratio van uw portefeuille:'
         smart_allocation:
             name: 'Slimme Allocatie'
             short_info_html: '<p>Slimme Allocatie past <b>Moderne Portefeuille Theorie (MPT)</b>-algoritmen toe om de beste activaspreiding voor uw portefeuille te vinden.</p>U kunt optimaliseren voor twee verschillende metrics en zelfs een gewenste plek kiezen tussen deze twee optimalisaties.'
