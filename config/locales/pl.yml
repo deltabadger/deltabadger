@@ -836,7 +836,7 @@ pl:
         us_bonds: 'Obligacje USA'
         benchmark: 'Benchmark'
         benchmark_info: 'Im lepszy wybór benchmarku, tym bardziej wiarygodne są obliczenia oczekiwanego zwrotu. Wybierz benchmark, który ściśle odpowiada strategii inwestycyjnej i segmentowi rynku Twojego portfela. Inne metryki wpływające na benchmark to Alpha, Beta, R² i wskaźnik informacyjny.'
-        get_ai_insights: 'Uzyskaj Wgląd AI'
+        get_ai_insights: 'Analiza'
         pnl: 'Zysk/Strata'
         strategy:
             fixed: 'Stała'
@@ -848,6 +848,7 @@ pl:
                 adjusted_start_html: 'Data rozpoczęcia testu wstecznego została dostosowana do <strong>%{start_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów.'
                 adjusted_end_html: 'Data zakończenia testu wstecznego została dostosowana do <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów.'
     utils:
+        assets: Aktywa
         are_you_sure: 'Czy jesteś pewny?'
         change_name: 'Zmień nazwę'
         delete: 'Usuń'
@@ -877,4 +878,12 @@ pl:
             portfolio_destroyed: 'Portfel został pomyślnie usunięty.'
             portfolio_duplicated: 'Portfel został pomyślnie zduplikowany.'
             unable_to_duplicate_portfolio: 'Nie można zduplikować portfela.'
+    ai:
+        insights:
+            intro: "Oceń mój portfel w stylu tweetów Navala. Znajdź stojącą za nim tezę geopolityczną lub techniczną oraz istotne wydarzenia makroekonomiczne z ostatnich lat. Zauważ, czy portfel przypomina ci jakiś styl inwestycyjny lub popularną ideę, jak portfel trzyfunduszowy, itd. Wskaż pokrywające się aktywa, takie jak ETF-y z tymi samymi akcjami (jeśli takie istnieją). Następnie pokaż do 5 zalet i/lub wad. Zorganizuj je pokazując zalety pierwsze. Zwróć większą uwagę na takie wskaźniki jak zmienność i beta, a dopiero w drugiej kolejności na te, które odzwierciedlają głównie przeszłość, jak Sharpe. Używaj skali Słaby/Neutralny/Dobry/Wyjątkowy."
+            response_format: |
+                Odpowiedz w następującym formacie HTML (wszystkie teksty w szablonie są tylko przykładami więc zastąp je właściwymi). Wstawiam twoją odpowiedź bezpośrednio do mojego szablonu HTML, więc NIE zwracaj jej jako fragmentu kodu: <div class="insight insight--summary"><span class="insight__name">Chwytliwy tytuł</span>. Krótka narracja o portfelu w 5 zdaniach.</div><div class="insight insight--pro"><span class="insight__name">Nazwa wskaźnika <b>2.22</b> &middot; Wyjątkowy</span>. Ocena w jednym zdaniu</div><div class="insight insight--con"><span class="insight__name">Nazwa wskaźnika <b>-1.36%</b> &middot; Słaby</span>. Ocena w jednym zdaniu.</div>
+            past_performance: "Wynik historyczny"
+            benchmark_performance: "Wynik historyczny benchmarku"
+            metrics_since: "Wskaźniki od %{start_date} do %{end_date}:"
 
