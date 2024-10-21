@@ -33,6 +33,11 @@ class SubscriptionPlan < ApplicationRecord
     find_by_name!(LEGENDARY_PLAN)
   end
 
+  def legendary_plan_available?
+    @number_of_legendary_plans_sold ||= 0 || legendary&.subscriptions&.count.to_i
+    @number_of_legendary_plans_sold >= 0 && (@number_of_legendary_plans_sold < 1000)
+  end
+
   private
 
   def plan_cache
