@@ -3,11 +3,9 @@ module Notifications
     RESTART_THRESHOLD = 4
 
     def initialize(
-      subscriptions_repository: SubscriptionsRepository.new,
       calculate_restart_delay: CalculateRestartDelay.new,
       format_readable_duration: FormatReadableDuration.new
     )
-      @subscriptions_repository = subscriptions_repository
       @calculate_restart_delay = calculate_restart_delay
       @format_readable_duration = format_readable_duration
     end
@@ -43,7 +41,7 @@ module Notifications
 
       return nil if subscription.limit_almost_reached_sent
 
-      subscriptions_repository.update(subscription.id, limit_almost_reached_sent: true)
+      Subscription.update(subscription.id, limit_almost_reached_sent: true)
 
       BotAlertsMailer.with(
         bot: bot,
@@ -56,7 +54,7 @@ module Notifications
 
       return nil unless was_sent_more_than_day_ago?(subscription.first_month_ending_sent_at)
 
-      subscriptions_repository.update(subscription.id, first_month_ending_sent_at: Date.current)
+      Subscription.update(subscription.id, first_month_ending_sent_at: Date.current)
 
       BotAlertsMailer.with(
         bot: bot,
@@ -94,6 +92,6 @@ module Notifications
       notification_sent_at.nil? || notification_sent_at < (Date.current - 1.days)
     end
 
-    attr_reader :subscriptions_repository, :calculate_restart_delay, :format_readable_duration
+    attr_reader :calculate_restart_delay, :format_readable_duration
   end
 end

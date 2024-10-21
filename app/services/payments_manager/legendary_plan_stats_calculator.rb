@@ -20,7 +20,7 @@ module PaymentsManager
     end
 
     def legendary_plans_sold_count
-      @legendary_plans_sold_count ||= SubscriptionsRepository.new.number_of_active_subscriptions('legendary')
+      @legendary_plans_sold_count ||= Subscription.number_of_active_subscriptions('legendary')
     end
 
     def legendary_plans_total_supply

@@ -1,4 +1,6 @@
 class Subscription < ApplicationRecord
+  include Legendary
+
   belongs_to :subscription_plan
   belongs_to :user
 
@@ -8,64 +10,15 @@ class Subscription < ApplicationRecord
   delegate :display_name, to: :subscription_plan
   delegate :unlimited?, to: :subscription_plan
 
-  before_validation :set_nft_id
-
-  validates :nft_id, presence: true, if: -> { legendary_badger? }
-  validates :nft_id,
-            numericality: {
-              only_integer: true,
-              greater_than_or_equal_to: 0,
-              less_than_or_equal_to: 999,
-              message: '%<value>s is incorrect, please enter a number from 0 to 999'
-            },
-            if: -> { nft_id.present? && legendary_badger? }
-  validate do
-    if nft_id.present? && !legendary_badger?
-      errors.add :nft_id, :used, message: 'is only available for the Legendary Badger NFT plan'
-    end
-    errors.add :nft_id, :used, message: '%<value>s is already used' if nft_id_already_used?
+  def self.number_of_active_subscriptions(name)
+    0 || grouped_subscriptions_cache[name]
   end
 
-  validate :eth_address_is_valid, if: -> { !eth_address.nil? }
-
-  def eth_address_is_valid?
-    eth_address =~ Regexp.new(Ethereum.address_pattern)
-  end
-
-  private
-
-  def nft_id_already_used?
-    legendary_badger? && nft_id.present? && nft_id.in?(Subscription.used_nft_ids - [nft_id_was])
-  end
-
-  def legendary_badger?
-    name == SubscriptionPlan::LEGENDARY_PLAN
-  end
-
-  def set_nft_id
-    self.nft_id = next_nft_id if legendary_badger? && !nft_id.present?
-  end
-
-  def self.used_nft_ids
-    legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_PLAN)
-    subscriptions = Subscription.current.where(subscription_plan_id: legendary_badger_plan.id)
-    subscriptions.map(&:nft_id).compact.sort
-  end
-
-  def self.claimed_nft_ids
-    # we assume only Legendary Badger subscriptions can have an eth_address
-    subscriptions = Subscription.current.where.not(eth_address: nil)
-    subscriptions.map(&:nft_id).compact.sort
-  end
-
-  def next_nft_id
-    allowable_nft_ids = [*0..999] - self.class.used_nft_ids
-    allowable_nft_ids.sample
-  end
-
-  def eth_address_is_valid
-    return if eth_address_is_valid?
-
-    errors.add(:eth_address, :invalid_address, eth_address: eth_address)
+  def self.grouped_subscriptions_cache
+    @grouped_subscriptions_cache ||= joins(:subscription_plan)
+                                     .merge(SubscriptionPlan.all)
+                                     .current
+                                     .group('subscription_plans.name')
+                                     .count
   end
 end
