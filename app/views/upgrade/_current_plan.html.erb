@@ -1,9 +1,9 @@
 <% if current_user.unlimited? %>
-  <% if upgrade_presenter.current_plan_name == 'standard' %>
+  <% if current_user.subscription_name == 'standard' %>
     <div class="db-plans__item db-plans__item--standard-plan db-plans__item--current">
       <%= render partial: 'standard_plan_card' %>
     </div>
-  <% elsif upgrade_presenter.current_plan_name == 'pro' %>
+  <% elsif current_user.subscription_name == 'pro' %>
     <div class="db-plans__item db-plans__item--pro-plan db-plans__item--current">
       <%= render partial: 'pro_plan_card' %>
     </div>

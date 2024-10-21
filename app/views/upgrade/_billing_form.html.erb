@@ -1,9 +1,8 @@
 <% cost_presenters = upgrade_presenter.all_cost_presenters %>
 <% pending_wire_transfer = !current_user.pending_wire_transfer.nil? %>
-<% settings_repository = SettingFlagsRepository.new %>
-<% show_zen_payment = settings_repository.show_zen_payment? %>
-<% show_bitcoin_payment = settings_repository.show_bitcoin_payment? %>
-<% show_wire_payment = settings_repository.show_wire_payment? %>
+<% show_zen_payment = SettingFlag.show_zen_payment? %>
+<% show_bitcoin_payment = SettingFlag.show_bitcoin_payment? %>
+<% show_wire_payment = SettingFlag.show_wire_payment? %>
 <% active_zen_tab = !!show_zen_payment %>
 <% active_bitcoin_tab = !show_zen_payment && show_bitcoin_payment %>
 <% active_wire_tab = !show_zen_payment && !show_bitcoin_payment %>
@@ -37,15 +36,15 @@
 
         <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
           <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |f| %>
-            <% if 'standard'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'standard'.in?(current_user.available_plans) %>
               <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.standard_plan.id %>" <%= "checked" if standard_selected %>>
             <% end %>
-            <% if 'pro'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'pro'.in?(current_user.available_plans) %>
               <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.pro_plan.id %>" <%= "checked" if pro_selected %>>
             <% end %>
-            <% if 'legendary'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'legendary'.in?(current_user.available_plans) %>
               <% legendary_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_plan.id %>" <%= "checked" if legendary_selected %>>
             <% end %>
@@ -74,15 +73,15 @@
 
         <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
           <%= form_with model: Payment, url: upgrade_btcpay_payment_path, local: true do |f| %>
-            <% if 'standard'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'standard'.in?(current_user.available_plans) %>
               <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.standard_plan.id %>" <%= "checked" if standard_selected %>>
             <% end %>
-            <% if 'pro'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'pro'.in?(current_user.available_plans) %>
               <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.pro_plan.id %>" <%= "checked" if pro_selected %>>
             <% end %>
-            <% if 'legendary'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'legendary'.in?(current_user.available_plans) %>
               <% legendary_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
               <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_plan.id %>" <%= "checked" if legendary_selected %>>
             <% end %>
@@ -122,15 +121,15 @@
 
         <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
           <form id="new_payment" class="new_payment" accept-charset="UTF-8" action="/en/upgrade/wire_transfer_payment" method="post">
-            <% if 'standard'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'standard'.in?(current_user.available_plans) %>
               <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
               <input type="radio" class="db-plan-radio" id="payment_plan_standard_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.standard_plan.id %>" <%= "checked" if standard_selected %>>
             <% end %>
-            <% if 'pro'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'pro'.in?(current_user.available_plans) %>
               <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
               <input type="radio" class="db-plan-radio" id="payment_plan_pro_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.pro_plan.id %>" <%= "checked" if pro_selected %>>
             <% end %>
-            <% if 'legendary'.in?(upgrade_presenter.available_plans_for_current_user) %>
+            <% if 'legendary'.in?(current_user.available_plans) %>
               <% legendary_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
               <input type="radio" class="db-plan-radio" id="payment_plan_legendary_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_plan.id %>" <%= "checked" if legendary_selected %>>
             <% end %>
@@ -168,13 +167,13 @@
               </div>
             <% else %>
               <div id="wire_costs" class="db-form__row--hidden">
-                <% if 'standard'.in?(upgrade_presenter.available_plans_for_current_user) %>
+                <% if 'standard'.in?(current_user.available_plans) %>
                   <span class="db-show--standard"><%= t('subscriptions.payment.wire_cost_standard_html', price: cost_presenters[upgrade_presenter.payment.country][:standard].total_price) %></span>
                 <% end %>
-                <% if 'pro'.in?(upgrade_presenter.available_plans_for_current_user) %>
+                <% if 'pro'.in?(current_user.available_plans) %>
                   <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_pro_html', price: cost_presenters[upgrade_presenter.payment.country][:pro].total_price) %></span>
                 <% end %>
-                <% if 'legendary'.in?(upgrade_presenter.available_plans_for_current_user) %>
+                <% if 'legendary'.in?(current_user.available_plans) %>
                   <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_legendary_html', price: cost_presenters[upgrade_presenter.payment.country][:legendary].total_price) %></span>
                 <% end %>
               </div>
