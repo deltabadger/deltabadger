@@ -1,20 +1,20 @@
 <% content_for :body_class, ".view--dashboard" %>
 
-<div class="isection">
-  <nav class="isection__head">
-    <h2 class="isection__header">How long you had to DCA $<input class="hinput" value="1000" placeholder="0" style="width: 4ch; min-width: 1ch" oninput="this.style.width = (this.value.length) + 'ch';">/month to become a millionaire?</h2>
-    <div class="infoicon">i</div>
+<div class="infoheader">
+  <nav class="infoheader__head">
+    <div>
+      <h2 class="infoheader__h" id="infoheader-title">
+        How long you had to DCA $<input class="hinput" value="1000" placeholder="0" style="width: 4ch; min-width: 1ch" oninput="this.style.width = (this.value.length) + 'ch';">/month to become a millionaire?
+      </h2>
+    </div>
+    <div class="infoheader__icon active"  id="infoheader-icon">i</div>
   </nav>
 
-  <div class="itiles">
+  <div class="itiles" id="tiles">
     <div class="itile itile--bitcoin">
       <h3 class="itile__title">Bitcoin</h3>
       <div class="itile__value">8 years 6 months 19&nbsp;days</div>
     </div>
-    <%# <div class="itile itile--ethereum">
-      <h3 class="itile__title">Ethereum</h3>
-      <div class="itile__value">7 years 3 months 11&nbsp;days</div>
-    </div> %>
     <div class="itile itile--qqq">
       <h3 class="itile__title">QQQ</h3>
       <div class="itile__value">13 years 4 months 22&nbsp;days</div>
@@ -44,3 +44,13 @@
 <%= render 'layouts/limit_reached' %>
 
 <div id="dashboard"></div>
+
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('infoheader-icon').addEventListener('click', function() {
+      document.getElementById('infoheader-title').classList.toggle('hidden');
+      document.getElementById('tiles').classList.toggle('hidden');
+      this.classList.toggle('active');  // Toggle the .active class on the clicked .infoheader__icon
+    });
+  });
+</script>
