@@ -45,15 +45,20 @@ dialog
 #backtest-results
     overflow: hidden
     border-radius: 2rem
+
 .isection
     display: flex
     flex-direction: column
     gap: 2rem
     margin-bottom: 4rem
+    &__head
+        display: flex
+        justify-content: space-between
+        gap: 2rem
     &__header
         margin-bottom: 2rem
-        font-size: 3rem
-            
+        font-size: 3rem  
+        text-align: left          
 .itiles
     display: grid
     grid-template-columns: repeat(auto-fill, minmax(40rem, 1fr))
@@ -105,3 +110,13 @@ dialog
         border-bottom-color: var(--link)
         color: var(--link)
         outline: none
+.infoicon
+    width: 3rem
+    min-width: 3rem
+    height: 3rem
+    border: 2px solid var(--text)
+    line-height: 2.8rem
+    text-align: center
+    border-radius: 50%
+    font-weight: 700
+    margin: 0.75rem 0

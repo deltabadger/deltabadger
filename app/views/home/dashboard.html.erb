@@ -1,18 +1,10 @@
 <% content_for :body_class, ".view--dashboard" %>
 
-<!--<div class="page-head">
-  <div class="stitle">
-    <%# t('links.dashboard') %>
-  </div>
-</div>-->
-  
-<%= render 'layouts/banners/welcome_message' %>
-<%= render 'layouts/banners/news_message' %>
-<%= render 'layouts/banners/referral_message' %>
-<%= render 'layouts/limit_reached' %>
-
 <div class="isection">
-  <h2 class="isection__header">How long you had to DCA $<input class="hinput" value="1000" placeholder="0" style="width: 4ch; min-width: 1ch" oninput="this.style.width = (this.value.length) + 'ch';">/month to become a millionaire?</h2>
+  <nav class="isection__head">
+    <h2 class="isection__header">How long you had to DCA $<input class="hinput" value="1000" placeholder="0" style="width: 4ch; min-width: 1ch" oninput="this.style.width = (this.value.length) + 'ch';">/month to become a millionaire?</h2>
+    <div class="infoicon">i</div>
+  </nav>
 
   <div class="itiles">
     <div class="itile itile--bitcoin">
@@ -45,5 +37,10 @@
     </div>
   </div>
 </div>
+
+<%= render 'layouts/banners/welcome_message' %>
+<%= render 'layouts/banners/news_message' %>
+<%= render 'layouts/banners/referral_message' %>
+<%= render 'layouts/limit_reached' %>
 
 <div id="dashboard"></div>
