@@ -73,14 +73,15 @@ dialog
     background-size: cover
     // styles for light mode
     @media (prefers-color-scheme: light)
-        opacity: 0.88  
+        opacity: 0.9
+        filter: saturate(1.1)
     &__title
         font-weight: 700
         margin-bottom: 2rem
     &__value
         font-size: 2rem
     &--bitcoin
-        background-image: linear-gradient(#ff480088,#ff4800dd), url('~images/bg-bitcoin.jpg')
+        background-image: linear-gradient(#ee480099,#ee4800ee), url('~images/bg-bitcoin.jpg')
     &--ethereum
         background-image: linear-gradient(#361757bb,#361757ee), url('~images/bg-ethereum.jpg')
     &--voo
@@ -90,7 +91,9 @@ dialog
     &--gold
         background-image: linear-gradient(#530c,#530e), url('~images/bg-gold.jpg')
     &--bonds
-        background-image: linear-gradient(#033c,#033e), url('~images/bg-bonds1.jpg')
+        background-image: linear-gradient(#032c,#032e), url('~images/bg-bonds1.jpg')
+    &--cash
+        background-image: linear-gradient(#044c,#044e), url('~images/bg-bonds.jpg')
 .hinput
     background: none
     border: none
