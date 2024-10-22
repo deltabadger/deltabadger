@@ -5,7 +5,6 @@
         // font-size: 7.5px
     &.view--portfolios-show
         background: var(--background-new)
-
 body
     font-size:   2rem
     font-weight: 450
@@ -22,7 +21,6 @@ dialog
       padding-left: 4rem
     @media only screen and (max-width: 767px)
       padding: 14rem 1rem 2rem
-
 .columns
     display: grid
     gap: 4rem
@@ -32,13 +30,11 @@ dialog
     @media only screen and (max-width: 1023px)
         grid-template-columns: 1fr
         gap: 7rem
-
 .column
     display: flex
     flex-direction: column
     width: 100%
     container-type: inline-size
-
 .page-head
     display: flex
     margin-bottom: 5rem
@@ -46,12 +42,9 @@ dialog
     gap: 6rem
     font-weight: bold
     justify-content: space-between
-
 #backtest-results
     overflow: hidden
     border-radius: 2rem
-
-
 .isection
     display: flex
     flex-direction: column
@@ -61,8 +54,12 @@ dialog
         margin-bottom: 2rem
 .itiles
     display: grid
-    grid-template-columns: repeat(auto-fill, minmax(50rem, 1fr))
+    grid-template-columns: repeat(auto-fill, minmax(40rem, 1fr))
     gap: 2rem
+    @media only screen and (min-width: 1520px)
+        grid-template-columns: repeat(3, 1fr)
+    @media only screen and (min-width: 1920px)
+        grid-template-columns: repeat(6, 1fr)
 .itile
     padding: 3rem 4rem 4rem
     border-radius: 2rem
@@ -72,7 +69,6 @@ dialog
     display: flex
     flex-direction: column
     background-size: cover
-    min-height: 24rem
     &__title
         font-weight: 700
         margin-bottom: 2rem
@@ -90,8 +86,6 @@ dialog
         background-image: linear-gradient(#530c,#530e), url('~images/bg-gold.jpg')
     &--bonds
         background-image: linear-gradient(#033c,#033e), url('~images/bg-bonds1.jpg')
-
-
 .hinput
     background: none
     border: none
