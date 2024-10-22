@@ -76,7 +76,7 @@ dialog
             color: var(--background) 
 .itiles
     display: grid
-    grid-template-columns: repeat(auto-fill, minmax(40rem, 1fr))
+    grid-template-columns: repeat(auto-fill, minmax(42rem, 1fr))
     gap: 1.5rem
     @media only screen and (min-width: 1520px)
         grid-template-columns: repeat(3, 1fr)
@@ -85,7 +85,7 @@ dialog
 .itile
     padding: 3rem 4rem 4rem
     border-radius: 2rem
-    background: var(--primary) no-repeat top center
+    background: var(--primary) no-repeat center center
     color: #fff
     font-weight: 700
     display: flex
@@ -94,7 +94,7 @@ dialog
     // styles for light mode
     @media (prefers-color-scheme: light)
         opacity: 0.9
-        filter: saturate(1.1)
+        filter: saturate(1.5)
     &__title
         font-weight: 700
         margin-bottom: 2rem
