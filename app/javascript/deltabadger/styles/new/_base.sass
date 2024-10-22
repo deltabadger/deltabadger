@@ -57,7 +57,7 @@ dialog
 .itiles
     display: grid
     grid-template-columns: repeat(auto-fill, minmax(40rem, 1fr))
-    gap: 2rem
+    gap: 1.5rem
     @media only screen and (min-width: 1520px)
         grid-template-columns: repeat(3, 1fr)
     @media only screen and (min-width: 1920px)
@@ -71,6 +71,9 @@ dialog
     display: flex
     flex-direction: column
     background-size: cover
+    // styles for light mode
+    @media (prefers-color-scheme: light)
+        opacity: 0.88  
     &__title
         font-weight: 700
         margin-bottom: 2rem
