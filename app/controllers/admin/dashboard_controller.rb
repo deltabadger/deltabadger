@@ -1,12 +1,12 @@
 class Admin::DashboardController < Admin::ApplicationController
   def index
-    legendary_plan_stats = PaymentsManager::LegendaryPlanStatsCalculator.call.data
+    legendary_plan = SubscriptionPlan.legendary
     render :index, locals: {
       number_of_all_users: User.count,
-      number_of_standard_plans: Subscription.number_of_active_subscriptions('standard'),
-      number_of_pro_plans: Subscription.number_of_active_subscriptions('pro'),
-      number_of_legendary_plans_sold: legendary_plan_stats[:legendary_plans_sold_count],
-      number_of_legendary_plans_available: legendary_plan_stats[:legendary_plans_for_sale_count],
+      number_of_standard_plans: SubscriptionPlan.standard.active_subscriptions_count,
+      number_of_pro_plans: SubscriptionPlan.pro.active_subscriptions_count,
+      number_of_legendary_plans_sold: legendary_plan.active_subscriptions_count,
+      number_of_legendary_plans_available: legendary_plan.for_sale_count,
       number_of_all_bots: Bot.count,
       number_of_working_bots: BotsRepository.new.count_with_status('working')
     }
