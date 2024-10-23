@@ -833,6 +833,9 @@ fr:
                 adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
         assets: 'Actifs'
+        cash: Argent liquide
+        bonds: Obligations
+        gold: Or
         are_you_sure: 'Es-tu sûr ?'
         change_name: 'Changer de nom'
         delete: 'Supprimer'
@@ -843,6 +846,18 @@ fr:
         see_at_coingecko: 'Voir sur CoinGecko'
         since: 'depuis'
         soon: 'bientôt'
+        years:
+            one: "%{count} an"
+            other: "%{count} ans"
+        months:
+            one: "%{count} mois"
+            other: "%{count} mois"
+        days:
+            one: "%{count} jour"
+            other: "%{count} jours"
+    dca_calculator:
+        title: "Combien de temps fallait-il épargner $%{amount}/mois pour %{goal} ?"
+        goal_millionaire: "devenir millionnaire"
     alert:
         portfolio:
             invalid_name: 'Nom de portefeuille invalide.'
