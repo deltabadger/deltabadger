@@ -9,7 +9,7 @@
     </div>
   <% else %>
     <div class="db-plans__item db-plans__item--legendary-plan db-plans__item--current">
-      <%= render partial: 'legendary_plan_card', locals: { legendary_plan_stats: upgrade_presenter.legendary_plan_stats } %>
+      <%= render partial: 'legendary_plan_card', locals: { legendary_plan: legendary_plan } %>
     </div>
   <% end %>
 <% end %>

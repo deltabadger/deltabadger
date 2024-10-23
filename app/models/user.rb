@@ -1,6 +1,4 @@
 class User < ApplicationRecord
-  include Upgradeable
-
   attr_accessor :otp_code_token
 
   after_create :active_subscription, :set_affiliate
@@ -27,6 +25,8 @@ class User < ApplicationRecord
   validate :password_complexity, if: -> { password.present? }
 
   delegate :unlimited?, to: :subscription
+
+  include Upgradeable
 
   def subscription
     @subscription ||= active_subscription
@@ -85,7 +85,7 @@ class User < ApplicationRecord
   def active_subscription
     now = Time.current
     subscriptions.where('end_time > ?', now).order(created_at: :desc).first_or_create do |sub|
-      free_plan = SubscriptionPlan.new.free
+      free_plan = SubscriptionPlan.free
       sub.subscription_plan = free_plan
       sub.end_time = now + free_plan.duration
       sub.credits = free_plan.credits

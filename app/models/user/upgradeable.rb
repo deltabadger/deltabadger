@@ -15,25 +15,29 @@ module User::Upgradeable
 
     def available_plans_for_free_plan
       available_plans = %w[standard pro]
-      available_plans << 'legendary' if SubscriptionPlan.legendary_plan_available?
+      available_plans << 'legendary' if legendary_plan_available?
       available_plans
     end
 
     def available_plans_for_standard_plan
       available_plans = %w[pro]
       available_plans << 'standard' if standard_plan_eligibility?
-      available_plans << 'legendary' if SubscriptionPlan.legendary_plan_available?
+      available_plans << 'legendary' if legendary_plan_available?
       available_plans
     end
 
     def available_plans_for_pro_plan
       available_plans = []
-      available_plans << 'legendary' if SubscriptionPlan.legendary_plan_available?
+      available_plans << 'legendary' if legendary_plan_available?
       available_plans
     end
 
     def standard_plan_eligibility?
       subscription.end_time > Time.current + 1.years
+    end
+
+    def legendary_plan_available?
+      @legendary_plan_available ||= SubscriptionPlan.legendary.available?
     end
   end
 end

@@ -4,21 +4,21 @@
 <% end %>
 
 <% if 'standard'.in?(current_user.available_plans) %>
-  <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
+  <% standard_selected = payment.subscription_plan.name == 'standard' %>
   <div class="db-plans__item db-plans__item--standard-plan db-plan-standard db-plan--<%= standard_selected ? 'selected' : 'other' %>">
     <%= render partial: 'standard_plan_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:standard] } %>
   </div>
 <% end %>
 
 <% if 'pro'.in?(current_user.available_plans) %>
-  <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
+  <% pro_selected = payment.subscription_plan.name == 'pro' %>
   <div class="db-plans__item db-plans__item--pro-plan db-plan-pro db-plan--<%= pro_selected ? 'selected' : 'other' %>">
     <%= render partial: 'pro_plan_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:pro] } %>
   </div>
 <% end %>
 
 <% if 'legendary'.in?(current_user.available_plans) %>
-  <% legendary_plan_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
+  <% legendary_plan_selected = payment.subscription_plan.name == 'legendary' %>
   <div class="db-plans__item db-plans__item--legendary-plan db-plan-legendary db-plan--<%= legendary_plan_selected ? 'selected' : 'other' %>">
     <%= render partial: 'legendary_plan_card', locals: {
       days_left: nil,
@@ -34,7 +34,7 @@
     </div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-plan-legendary-discount'><%= upgrade_presenter.legendary_plan_stats[:legendary_plans_for_sale_count] %></span>
+        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-plan-legendary-discount'><%= legendary_plan.for_sale_count %></span>
       </div>
     </div>
     <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
@@ -61,7 +61,7 @@
   </div>
 <% end %>
 
-<% if current_user.subscription_name == 'pro' && SubscriptionPlan.legendary_plan_available? %>
+<% if current_user.subscription_name == 'pro' && legendary_plan.available? %>
   <div class="db-plans__item db-plans__item--discount db-plan-active-discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="db-plans__item__amount">

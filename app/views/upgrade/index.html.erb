@@ -1,6 +1,6 @@
-<div class="db-country db-checkout--<%= @upgrade_presenter.selected_payment_type %>">
+<div class="db-country <%= checkout_class_for(@payment) %>">
   <%= render partial: "layouts/navbar/signed_in" %>
-  <div class="row db-checkout db-checkout--<%= @upgrade_presenter.selected_plan_name %>-plan">
+  <div class="row db-checkout db-checkout--<%= @payment.subscription_plan.name %>-plan">
     <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
       <%= render partial: "current_plan", locals: {
                    upgrade_presenter: @upgrade_presenter,

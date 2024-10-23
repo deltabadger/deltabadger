@@ -1,17 +1,17 @@
-module Subscription::Legendary
+module Subscription::Nftable
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
     before_validation :set_nft_id
 
-    validates :nft_id, presence: true, if: :legendary_badger?
+    validates :nft_id, presence: true, if: :legendary?
     validates :nft_id,
               numericality: {
                 only_integer: true,
                 in: 0..999,
                 message: '%<value>s is incorrect, please enter a number from 0 to 999'
               },
-              if: -> { nft_id.present? && legendary_badger? }
+              if: -> { nft_id.present? && legendary? }
     validate :nft_id_valid_for_legendary_badger
     validate :nft_id_uniqueness
     validate :eth_address_is_valid, if: -> { eth_address.present? }
@@ -22,8 +22,12 @@ module Subscription::Legendary
 
     private
 
+    def legendary?
+      name == SubscriptionPlan::LEGENDARY_PLAN
+    end
+
     def nft_id_valid_for_legendary_badger
-      errors.add(:nft_id, :used, message: 'is only available for the Legendary Badger NFT plan') if nft_id.present? && !legendary_badger? # rubocop:disable Layout/LineLength
+      errors.add(:nft_id, :used, message: 'is only available for the Legendary Badger NFT plan') if nft_id.present? && !legendary?
     end
 
     def nft_id_uniqueness
@@ -35,15 +39,11 @@ module Subscription::Legendary
     end
 
     def nft_id_already_used?
-      legendary_badger? && nft_id.present? && nft_id.in?(self.class.used_nft_ids - [nft_id_was])
-    end
-
-    def legendary_badger?
-      name == SubscriptionPlan::LEGENDARY_PLAN
+      legendary? && nft_id.present? && nft_id.in?(self.class.used_nft_ids - [nft_id_was])
     end
 
     def set_nft_id
-      self.class.nft_id = next_nft_id if legendary_badger? && !nft_id.present?
+      self.class.nft_id = next_nft_id if legendary? && !nft_id.present?
     end
 
     def next_nft_id
@@ -53,8 +53,7 @@ module Subscription::Legendary
 
   class_methods do
     def used_nft_ids
-      legendary_badger_plan = SubscriptionPlan.find_by_name(SubscriptionPlan::LEGENDARY_PLAN)
-      subscriptions = current.where(subscription_plan_id: legendary_badger_plan.id)
+      subscriptions = current.where(subscription_plan_id: SubscriptionPlan.legendary.id)
       subscriptions.map(&:nft_id).compact.sort
     end
 

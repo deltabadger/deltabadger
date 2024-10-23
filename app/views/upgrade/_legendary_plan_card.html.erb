@@ -10,12 +10,12 @@
   <%#   <%= t('cookie.read_more') %>
   <%# </a> %>
   <div class="db-plans__item__legendary-plans-left">
-    <%= upgrade_presenter.legendary_plan_stats[:legendary_plans_for_sale_count] %>
+    <%= legendary_plan.for_sale_count %>
     of
-    <%= upgrade_presenter.legendary_plan_stats[:legendary_plans_total_supply] %>
+    <%= legendary_plan.total_supply %>
     left.
     <div class="progress">
-      <div class="progress-bar" role="progressbar" style="width: <%= upgrade_presenter.legendary_plan_stats[:legendary_plans_sold_percent] %>%" aria-valuenow="<%= upgrade_presenter.legendary_plan_stats[:legendary_plans_sold_percent] %>" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="progress-bar" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
   </div>
 </div>

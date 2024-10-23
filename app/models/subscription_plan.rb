@@ -3,11 +3,30 @@ class SubscriptionPlan < ApplicationRecord
   STANDARD_PLAN = 'standard'.freeze
   PRO_PLAN = 'pro'.freeze
   LEGENDARY_PLAN = 'legendary'.freeze
+  LEGENDARY_PLAN_TOTAL_SUPPLY = 1000
 
   has_many :subscriptions
   has_many :subscription_plan_variants, dependent: :destroy
 
   validates :credits, numericality: { only_integer: true, greater_than: 0 }
+
+  include PlanStats
+
+  def self.free
+    find_by!(name: FREE_PLAN)
+  end
+
+  def self.standard
+    find_by!(name: STANDARD_PLAN)
+  end
+
+  def self.pro
+    find_by!(name: PRO_PLAN)
+  end
+
+  def self.legendary
+    find_by!(name: LEGENDARY_PLAN)
+  end
 
   def duration
     years.years
@@ -15,36 +34,5 @@ class SubscriptionPlan < ApplicationRecord
 
   def display_name
     I18n.t("subscriptions.#{name}")
-  end
-
-  def free
-    find_by_name!(FREE_PLAN)
-  end
-
-  def standard
-    find_by_name!(STANDARD_PLAN)
-  end
-
-  def pro
-    find_by_name!(PRO_PLAN)
-  end
-
-  def legendary
-    find_by_name!(LEGENDARY_PLAN)
-  end
-
-  def legendary_plan_available?
-    @number_of_legendary_plans_sold ||= 0 || legendary&.subscriptions&.count.to_i
-    @number_of_legendary_plans_sold >= 0 && (@number_of_legendary_plans_sold < 1000)
-  end
-
-  private
-
-  def plan_cache
-    @plan_cache ||= self.class.all.map { |sp| [sp.name, sp] }.to_h
-  end
-
-  def find_by_name!(name)
-    plan_cache.fetch(name)
   end
 end

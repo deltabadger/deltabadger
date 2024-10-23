@@ -37,16 +37,16 @@
         <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
           <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |f| %>
             <% if 'standard'.in?(current_user.available_plans) %>
-              <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.standard_plan.id %>" <%= "checked" if standard_selected %>>
+              <% standard_selected = payment.subscription_plan.name == 'standard' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard_zen" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.standard.id %>" <%= "checked" if standard_selected %>>
             <% end %>
             <% if 'pro'.in?(current_user.available_plans) %>
-              <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.pro_plan.id %>" <%= "checked" if pro_selected %>>
+              <% pro_selected = payment.subscription_plan.name == 'pro' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro_zen" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.pro.id %>" <%= "checked" if pro_selected %>>
             <% end %>
             <% if 'legendary'.in?(current_user.available_plans) %>
-              <% legendary_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_zen" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_plan.id %>" <%= "checked" if legendary_selected %>>
+              <% legendary_selected = payment.subscription_plan.name == 'legendary' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_zen" name="payment[subscription_plan_id]" value="<%= legendary_plan.id %>" <%= "checked" if legendary_selected %>>
             <% end %>
             <div class="db-form__row">
               <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
@@ -74,16 +74,16 @@
         <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
           <%= form_with model: Payment, url: upgrade_btcpay_payment_path, local: true do |f| %>
             <% if 'standard'.in?(current_user.available_plans) %>
-              <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.standard_plan.id %>" <%= "checked" if standard_selected %>>
+              <% standard_selected = payment.subscription_plan.name == 'standard' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.standard.id %>" <%= "checked" if standard_selected %>>
             <% end %>
             <% if 'pro'.in?(current_user.available_plans) %>
-              <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.pro_plan.id %>" <%= "checked" if pro_selected %>>
+              <% pro_selected = payment.subscription_plan.name == 'pro' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.pro.id %>" <%= "checked" if pro_selected %>>
             <% end %>
             <% if 'legendary'.in?(current_user.available_plans) %>
-              <% legendary_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_plan.id %>" <%= "checked" if legendary_selected %>>
+              <% legendary_selected = payment.subscription_plan.name == 'legendary' %>
+              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary" name="payment[subscription_plan_id]" value="<%= legendary_plan.id %>" <%= "checked" if legendary_selected %>>
             <% end %>
             <div class="db-form__row">
               <%= f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", onchange: 'this.setAttribute("value", this.value);' %>
@@ -122,16 +122,16 @@
         <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
           <form id="new_payment" class="new_payment" accept-charset="UTF-8" action="/en/upgrade/wire_transfer_payment" method="post">
             <% if 'standard'.in?(current_user.available_plans) %>
-              <% standard_selected = upgrade_presenter.selected_plan_name == 'standard' %>
-              <input type="radio" class="db-plan-radio" id="payment_plan_standard_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.standard_plan.id %>" <%= "checked" if standard_selected %>>
+              <% standard_selected = payment.subscription_plan.name == 'standard' %>
+              <input type="radio" class="db-plan-radio" id="payment_plan_standard_wire" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.standard.id %>" <%= "checked" if standard_selected %>>
             <% end %>
             <% if 'pro'.in?(current_user.available_plans) %>
-              <% pro_selected = upgrade_presenter.selected_plan_name == 'pro' %>
-              <input type="radio" class="db-plan-radio" id="payment_plan_pro_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.pro_plan.id %>" <%= "checked" if pro_selected %>>
+              <% pro_selected = payment.subscription_plan.name == 'pro' %>
+              <input type="radio" class="db-plan-radio" id="payment_plan_pro_wire" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.pro.id %>" <%= "checked" if pro_selected %>>
             <% end %>
             <% if 'legendary'.in?(current_user.available_plans) %>
-              <% legendary_selected = upgrade_presenter.selected_plan_name == 'legendary' %>
-              <input type="radio" class="db-plan-radio" id="payment_plan_legendary_wire" name="payment[subscription_plan_id]" value="<%= upgrade_presenter.legendary_plan.id %>" <%= "checked" if legendary_selected %>>
+              <% legendary_selected = payment.subscription_plan.name == 'legendary' %>
+              <input type="radio" class="db-plan-radio" id="payment_plan_legendary_wire" name="payment[subscription_plan_id]" value="<%= legendary_plan.id %>" <%= "checked" if legendary_selected %>>
             <% end %>
             <div class="db-form__row">
               <input id="payment_first_name_wire" class="db-form__input" type="text" name="payment[first_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="given-name" <%= "disabled" if pending_wire_transfer %>>

@@ -84,11 +84,7 @@ module PaymentsManager
     def legendary_plan_discount
       return 0 unless @subscription_plan.name == 'legendary'
 
-      @legendary_plan_discount ||= legendary_plan_stats[:legendary_plan_discount]
-    end
-
-    def legendary_plan_stats
-      @legendary_plan_stats ||= PaymentsManager::LegendaryPlanStatsCalculator.call.data
+      @legendary_plan_discount ||= SubscriptionPlan.legendary.current_discount
     end
   end
 end
