@@ -859,6 +859,27 @@ pl:
         see_at_coingecko: 'Zobacz na CoinGecko'
         since: 'od'
         soon: 'wkrótce'
+        years:
+            one: "%{count} rok"
+            few: "%{count} lata"
+            many: "%{count} lat"
+            other: "%{count} lat"
+        months:
+            one: "%{count} miesiąc"
+            few: "%{count} miesiące"
+            many: "%{count} miesięcy"
+            other: "%{count} miesięcy"
+        days:
+            one: "%{count} dzień"
+            few: "%{count} dni"
+            many: "%{count} dni"
+            other: "%{count} dni"
+        cash: Gotówka
+        bonds: Obligacje
+        gold: Złoto
+    dca_calculator:
+        title: "Jak długo musiałbyś oszczędzać $%{amount}/miesięcznie, aby %{goal}?"
+        goal_millionaire: "zostać milionerem"
     alert:
         portfolio:
             invalid_name: 'Nieprawidłowa nazwa portfela.'

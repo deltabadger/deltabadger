@@ -832,6 +832,9 @@ nl:
                 adjusted_end_html: 'De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
     utils:
         assets: 'Activas'
+        cash: Contant geld
+        bonds: Obligaties
+        gold: Goud
         are_you_sure: 'Weet je het zeker?'
         change_name: 'Naam wijzigen'
         delete: 'Verwijderen'
@@ -842,6 +845,18 @@ nl:
         see_at_coingecko: 'Zie op CoinGecko'
         since: 'sinds'
         soon: 'binnenkort'
+        years:
+            one: "%{count} jaar"
+            other: "%{count} jaar"
+        months:
+            one: "%{count} maand"
+            other: "%{count} maanden"
+        days:
+            one: "%{count} dag"
+            other: "%{count} dagen"
+    dca_calculator:
+        title: "Hoe lang moest je $%{amount}/maand sparen om %{goal}?"
+        goal_millionaire: "miljonair te worden"
     alert:
         portfolio:
             invalid_name: 'Ongeldige portfolionaam.'
