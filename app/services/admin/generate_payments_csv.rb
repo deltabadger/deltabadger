@@ -41,7 +41,7 @@ module Admin
         last_name: payment.last_name,
         birth_date: payment.birth_date&.strftime('%F'),
         country: payment.country,
-        crypto_paid: payment.crypto_paid,
+        btc_paid: payment.btc_paid,
         paid_at: payment.paid_at,
         user: payment.user.nil? ? 'User deleted' : payment.user.email,
         payment_id: payment.payment_id

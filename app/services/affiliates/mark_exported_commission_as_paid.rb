@@ -22,7 +22,7 @@ module Affiliates
       affiliates.each do |affiliate|
         affiliate_mailer.with(
           user: affiliate.user,
-          amount: affiliate.exported_crypto_commission
+          amount: affiliate.exported_btc_commission
         ).referrals_payout_notification.deliver_later
       end
     end

@@ -22,16 +22,16 @@ class PaymentDashboard < Administrate::BaseDashboard
     external_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
     currency: Field::String.with_options(searchable: false),
-    crypto_total: Field::String.with_options(searchable: false),
+    btc_total: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     first_name: Field::String,
     last_name: Field::String,
     birth_date: Field::DateTime.with_options(format: '%F'),
     country: Field::String,
-    crypto_paid: Field::String.with_options(searchable: false),
+    btc_paid: Field::String.with_options(searchable: false),
     commission: Field::Number.with_options(searchable: false),
-    crypto_commission: Field::Number.with_options(searchable: false),
+    btc_commission: Field::Number.with_options(searchable: false),
     paid_at: Field::DateTime.with_options(format: '%F %r')
   }.freeze
 
@@ -51,7 +51,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     country
-    crypto_paid
+    btc_paid
     paid_at
     user
     payment_id
@@ -70,13 +70,13 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     country
-    crypto_total
-    crypto_paid
+    btc_total
+    btc_paid
     paid_at
     user
     payment_id
     commission
-    crypto_commission
+    btc_commission
     external_statuses
     created_at
     updated_at
@@ -95,8 +95,8 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     country
-    crypto_total
-    crypto_paid
+    btc_total
+    btc_paid
     paid_at
     user
     payment_id

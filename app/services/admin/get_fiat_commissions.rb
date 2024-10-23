@@ -24,8 +24,11 @@ module Admin
 
     # get paid fiat payments without the granted commission
     def get_referred_fiat_payments
-      fiat_payments_list = Payment.where(status: 'paid', payment_type: %w[stripe zen wire]).where.not(external_statuses: 'Commission granted')
-      fiat_payments_with_referrers = fiat_payments_list.to_a.filter { |payment| !User.find(payment['user_id'])['referrer_id'].nil? }
+      fiat_payments_list = Payment.where(status: 'paid', payment_type: %w[stripe zen wire])
+                                  .where.not(external_statuses: 'Commission granted')
+      fiat_payments_with_referrers = fiat_payments_list.to_a.filter do |payment|
+        !User.find(payment['user_id'])['referrer_id'].nil?
+      end
       Result::Success.new(fiat_payments_with_referrers)
     rescue StandardError
       Result::Failure.new("Couldn\\'t fetch the payments' data")
@@ -47,8 +50,8 @@ module Admin
     end
 
     def update_commission(affiliate, commission)
-      previous_crypto_commission = affiliate.unexported_crypto_commission
-      affiliate.update(unexported_crypto_commission: previous_crypto_commission + commission)
+      previous_btc_commission = affiliate.unexported_btc_commission
+      affiliate.update(unexported_btc_commission: previous_btc_commission + commission)
     end
   end
 end

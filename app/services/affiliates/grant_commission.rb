@@ -14,14 +14,14 @@ module Affiliates
 
         commission_granted = [commission_available, payment_commission].min
         commission_granted_percent = commission_granted / payment_commission
-        crypto_commission_granted = payment.crypto_commission * commission_granted_percent
-        new_unexported_crypto_commission =
-          referrer.unexported_crypto_commission + crypto_commission_granted
+        btc_commission_granted = payment.btc_commission * commission_granted_percent
+        new_unexported_btc_commission =
+          referrer.unexported_btc_commission + btc_commission_granted
         new_current_profit = current_profit + commission_granted
 
-        send_registration_reminder(referrer, crypto_commission_granted) if referrer.btc_address.blank?
+        send_registration_reminder(referrer, btc_commission_granted) if referrer.btc_address.blank?
         referee.update!(current_referrer_profit: new_current_profit)
-        referee.referrer.update!(unexported_crypto_commission: new_unexported_crypto_commission)
+        referee.referrer.update!(unexported_btc_commission: new_unexported_btc_commission)
       end
     end
 

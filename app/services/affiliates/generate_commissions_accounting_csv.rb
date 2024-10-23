@@ -2,13 +2,13 @@ require 'csv'
 
 module Affiliates
   class GenerateCommissionsAccountingCsv < BaseService
-    FIELDS = %i[type name address vat_number btc_address exported_crypto_commission].freeze
+    FIELDS = %i[type name address vat_number btc_address exported_btc_commission].freeze
     HEADERS =
       ['Date', 'Type', 'Name', 'Address', 'Vat number', 'Bitcoin address', 'Bitcoin amount'].freeze
 
     def call
       data = Affiliate
-             .where('exported_crypto_commission > 0')
+             .where('exported_btc_commission > 0')
              .pluck(*FIELDS)
              .map { |row| row.map { |field| field unless field.blank? } }
 

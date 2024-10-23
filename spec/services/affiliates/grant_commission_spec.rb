@@ -20,9 +20,9 @@ RSpec.describe Affiliates::GrantCommission do
       create(:affiliate,
              user: referrer,
              max_profit: max_profit,
-             unexported_crypto_commission: unexported_crypto_commission,
-             exported_crypto_commission: exported_crypto_commission,
-             paid_crypto_commission: paid_crypto_commission)
+             unexported_btc_commission: unexported_btc_commission,
+             exported_btc_commission: exported_btc_commission,
+             paid_btc_commission: paid_btc_commission)
     end
 
     let!(:referee) do
@@ -35,17 +35,17 @@ RSpec.describe Affiliates::GrantCommission do
       create(:payment,
              user: referee,
              commission: commission,
-             crypto_commission: crypto_commission)
+             btc_commission: btc_commission)
     end
 
     context 'when referrer has no active subscription' do
       let(:max_profit) { 20 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 0 }
       let(:commission) { 2 }
-      let(:crypto_commission) { 0.2 }
+      let(:btc_commission) { 0.2 }
 
       before do
         saver = SubscriptionPlan.find_by!(name: 'saver')
@@ -60,20 +60,20 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(0)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.1)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.1)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
 
     context 'when referrer is inactive' do
       let(:max_profit) { 20 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 0 }
       let(:commission) { 2 }
-      let(:crypto_commission) { 0.2 }
+      let(:btc_commission) { 0.2 }
 
       before do
         affiliate.update(active: false)
@@ -87,20 +87,20 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(0)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.1)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.1)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
 
     context 'when there is no commission' do
       let(:max_profit) { 20 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 0 }
       let(:commission) { 0 }
-      let(:crypto_commission) { 0 }
+      let(:btc_commission) { 0 }
 
       it "does not modifiy referrer's commissions" do
         subject
@@ -110,20 +110,20 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(0)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.1)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.1)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
 
     context 'when added commission is below max profit' do
       let(:max_profit) { 20 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 6 }
       let(:commission) { 2 }
-      let(:crypto_commission) { 0.2 }
+      let(:btc_commission) { 0.2 }
 
       it 'grants referrer the commission' do
         subject
@@ -133,20 +133,20 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(8)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.3)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.3)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
 
     context 'when added commission does not fit in max profit' do
       let(:max_profit) { 7 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 6 }
       let(:commission) { 2 }
-      let(:crypto_commission) { 0.2 }
+      let(:btc_commission) { 0.2 }
 
       it 'grants referrer part of the commission' do
         subject
@@ -156,20 +156,20 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(7)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.2)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.2)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
 
     context 'when current_referrer_profit is equal to max profit' do
       let(:max_profit) { 6 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 6 }
       let(:commission) { 2 }
-      let(:crypto_commission) { 0.2 }
+      let(:btc_commission) { 0.2 }
 
       it "does not modifiy referrer's commissions" do
         subject
@@ -179,20 +179,20 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(6)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.1)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.1)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
 
     context 'when current_referrer_profit is greater than max profit' do
       let(:max_profit) { 3 }
-      let(:unexported_crypto_commission) { 0.1 }
-      let(:exported_crypto_commission) { 0.2 }
-      let(:paid_crypto_commission) { 0.3 }
+      let(:unexported_btc_commission) { 0.1 }
+      let(:exported_btc_commission) { 0.2 }
+      let(:paid_btc_commission) { 0.3 }
       let(:current_referrer_profit) { 6 }
       let(:commission) { 2 }
-      let(:crypto_commission) { 0.2 }
+      let(:btc_commission) { 0.2 }
 
       it "does not modifiy referrer's commissions" do
         subject
@@ -202,9 +202,9 @@ RSpec.describe Affiliates::GrantCommission do
 
         expect(referee.current_referrer_profit).to eq(6)
 
-        expect(affiliate.unexported_crypto_commission).to eq(0.1)
-        expect(affiliate.exported_crypto_commission).to eq(0.2)
-        expect(affiliate.paid_crypto_commission).to eq(0.3)
+        expect(affiliate.unexported_btc_commission).to eq(0.1)
+        expect(affiliate.exported_btc_commission).to eq(0.2)
+        expect(affiliate.paid_btc_commission).to eq(0.3)
       end
     end
   end
