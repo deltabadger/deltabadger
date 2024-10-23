@@ -827,6 +827,9 @@ ru:
                 adjusted_end_html: "Дата окончания бэктеста была скорректирована на <strong>%{end_date}</strong>, чтобы соответствовать доступной истории всех активов."
     utils:
         assets: Активы
+        cash: Наличные
+        bonds: Облигации
+        gold: Золото
         are_you_sure: 'Вы уверены?'
         change_name: 'Изменить имя'
         delete: 'Удалить'
@@ -837,6 +840,24 @@ ru:
         see_at_coingecko: 'Смотреть на CoinGecko'
         since: 'с'
         soon: 'скоро'
+        years:
+            one: "%{count} год"
+            few: "%{count} года"
+            many: "%{count} лет"
+            other: "%{count} лет"
+        months:
+            one: "%{count} месяц"
+            few: "%{count} месяца"
+            many: "%{count} месяцев"
+            other: "%{count} месяцев"
+        days:
+            one: "%{count} день"
+            few: "%{count} дня"
+            many: "%{count} дней"
+            other: "%{count} дней"
+    dca_calculator:
+        title: "Сколько времени нужно было откладывать $%{amount}/месяц, чтобы %{goal}?"
+        goal_millionaire: "стать миллионером"
     alert:
         portfolio:
             invalid_name: 'Недопустимое название портфеля.'

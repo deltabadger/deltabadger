@@ -801,6 +801,9 @@ vi:
                 adjusted_end_html: "Ngày kết thúc kiểm tra lại đã được điều chỉnh thành <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
     utils:
         assets: 'Tài sản'
+        cash: Tiền mặt
+        bonds: Trái phiếu
+        gold: Vàng
         are_you_sure: 'Bạn có chắc không?'
         change_name: 'Đổi tên'
         delete: 'Xóa'
@@ -811,6 +814,15 @@ vi:
         see_at_coingecko: 'Xem trên CoinGecko'
         since: 'kể từ'
         soon: 'sắp ra mắt'
+        years:
+            other: "%{count} năm"
+        months:
+            other: "%{count} tháng"
+        days:
+            other: "%{count} ngày"
+    dca_calculator:
+        title: "Bạn đã phải tiết kiệm $%{amount}/tháng trong bao lâu để %{goal}?"
+        goal_millionaire: "trở thành triệu phú"
     alert:
         portfolio:
             invalid_name: 'Tên danh mục không hợp lệ.'

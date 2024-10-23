@@ -800,6 +800,9 @@ cn:
                 adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
     utils:
         assets: 资产
+        cash: 现金
+        bonds: 债券
+        gold: 黄金
         are_you_sure: '你确定吗？'
         change_name: '更改名称'
         delete: '删除'
@@ -810,6 +813,15 @@ cn:
         see_at_coingecko: '查看 CoinGecko'
         since: '自'
         soon: '即将推出'
+        years:
+            other: "%{count}年"
+        months:
+            other: "%{count}个月"
+        days:
+            other: "%{count}天"
+    dca_calculator:
+        title: "每月存$%{amount}需要多长时间才能%{goal}？"
+        goal_millionaire: "成为百万富翁"
     alert:
         portfolio:
             invalid_name: '无效的投资组合名称。'

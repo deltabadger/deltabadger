@@ -805,6 +805,9 @@ id:
                 adjusted_end_html: "Tanggal berakhirnya backtest telah disesuaikan menjadi <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
     utils:
         assets: Aset
+        cash: Uang tunai
+        bonds: Obligasi
+        gold: Emas
         are_you_sure: 'Apakah Anda yakin?'
         change_name: 'Ganti nama'
         delete: 'Hapus'
@@ -815,6 +818,15 @@ id:
         see_at_coingecko: 'Lihat di CoinGecko'
         since: 'sejak'
         soon: 'segera'
+        years:
+            other: "%{count} tahun"
+        months:
+            other: "%{count} bulan"
+        days:
+            other: "%{count} hari"
+    dca_calculator:
+        title: "Berapa lama Anda harus menabung $%{amount}/bulan untuk %{goal}?"
+        goal_millionaire: "menjadi jutawan"
     alert:
         portfolio:
             invalid_name: 'Nama portofolio tidak valid.'
