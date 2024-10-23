@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :asset do
     portfolio { nil }
-    ticker { "MyString" }
+    ticker { 'MyString' }
     allocation { 1.5 }
   end
 
@@ -10,7 +10,7 @@ FactoryBot.define do
     strategy { 1 }
     smart_allocation { 1 }
     benchmark { 1 }
-    backtest_start { "MyString" }
+    backtest_start { 'MyString' }
   end
 
   factory :affiliate do
@@ -29,8 +29,8 @@ FactoryBot.define do
     subscription_plan { SubscriptionPlansRepository.new.saver }
     status { :paid }
     total { 12 }
-    crypto_total { 0.001 }
-    crypto_paid { 0.001 }
+    btc_total { 0.001 }
+    btc_paid { 0.001 }
     currency { :EUR }
     first_name { Faker::Name.first_name }
     last_name { Faker::Name.last_name }
