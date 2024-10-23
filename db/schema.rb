@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_10_17_232547) do
+ActiveRecord::Schema.define(version: 2024_10_23_184350) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -34,9 +34,9 @@ ActiveRecord::Schema.define(version: 2024_10_17_232547) do
     t.string "new_btc_address_token"
     t.datetime "new_btc_address_send_at"
     t.boolean "active", default: true, null: false
-    t.decimal "unexported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "exported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "paid_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "unexported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "exported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "paid_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
     t.string "visible_link_scheme", default: "https", null: false
     t.string "old_code"
     t.index ["code"], name: "index_affiliates_on_code", unique: true
@@ -163,16 +163,18 @@ ActiveRecord::Schema.define(version: 2024_10_17_232547) do
     t.date "birth_date"
     t.datetime "paid_at"
     t.string "external_statuses", default: "", null: false
-    t.decimal "crypto_total", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "crypto_paid", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "commission", default: "0.0", null: false
-    t.decimal "crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
     t.boolean "discounted", default: false, null: false
     t.bigint "subscription_plan_id", null: false
     t.string "country", null: false
     t.integer "payment_type", default: 0, null: false
     t.boolean "gads_tracked", default: false
+    t.bigint "subscription_plan_variant_id"
     t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
+    t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
@@ -304,7 +306,9 @@ ActiveRecord::Schema.define(version: 2024_10_17_232547) do
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "fee_api_keys", "exchanges"
+  add_foreign_key "payments", "subscription_plan_variants"
   add_foreign_key "payments", "subscription_plans"
+  add_foreign_key "payments", "users"
   add_foreign_key "portfolios", "users"
   add_foreign_key "subscription_plan_variants", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plans"
