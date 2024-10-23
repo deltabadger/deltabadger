@@ -861,6 +861,9 @@ en:
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
         assets: Assets
+        cash: Cash
+        bonds: Bonds
+        gold: Gold
         are_you_sure: 'Are you sure?'
         change_name: 'Change name'
         delete: 'Delete'
@@ -871,6 +874,18 @@ en:
         see_at_coingecko: 'See at CoinGecko'
         since: 'since'
         soon: 'soon'
+        years:
+            one: "%{count} year"
+            other: "%{count} years"
+        months:
+            one: "%{count} month"
+            other: "%{count} months"
+        days:
+            one: "%{count} day"
+            other: "%{count} days"
+    dca_calculator:
+        title: "How long you had to save $%{amount}/month to %{goal}?"
+        goal_millionaire: "become a millionaire"
     alert:
         portfolio:
             invalid_name: 'Invalid portfolio name.'
