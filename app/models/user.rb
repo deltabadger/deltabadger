@@ -1,7 +1,7 @@
 class User < ApplicationRecord
   attr_accessor :otp_code_token
 
-  after_create :active_subscription, :set_affiliate
+  after_create :set_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
@@ -29,11 +29,7 @@ class User < ApplicationRecord
   include Upgradeable
 
   def subscription
-    @subscription ||= active_subscription
-  end
-
-  def subscription_name
-    subscription.name
+    subscriptions.where('end_time > ?', Time.current).order(created_at: :desc).first
   end
 
   def credits
@@ -82,17 +78,16 @@ class User < ApplicationRecord
     webhook_bots_transactions.where('transactions.created_at > ? ', time)
   end
 
-  def active_subscription
-    now = Time.current
-    subscriptions.where('end_time > ?', now).order(created_at: :desc).first_or_create do |sub|
-      free_plan = SubscriptionPlan.free
-      sub.subscription_plan = free_plan
-      sub.end_time = now + free_plan.duration
-      sub.credits = free_plan.credits
-    end
+  def pending_plan_variant
+    SubscriptionPlanVariant.find_by(id: pending_plan_variant_id)
   end
 
   private
+
+  def set_subscription
+    Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free,
+                         credits: SubscriptionPlanVariant.free.credits)
+  end
 
   def set_affiliate
     affiliate_params = ActionController::Parameters.new(

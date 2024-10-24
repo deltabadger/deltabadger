@@ -34,6 +34,7 @@ Rails.application.routes.draw do
     resources :transactions
     resources :subscriptions
     resources :subscription_plans
+    resources :subscription_plan_variants
     resources :payments do
       get :csv, on: :collection
       get :csv_wire, on: :collection

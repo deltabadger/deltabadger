@@ -168,12 +168,10 @@ ActiveRecord::Schema.define(version: 2024_10_23_225401) do
     t.decimal "commission", precision: 10, scale: 2, default: "0.0", null: false
     t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
     t.boolean "discounted", default: false, null: false
-    t.bigint "subscription_plan_id", null: false
+    t.bigint "subscription_plan_variant_id", null: false
     t.string "country", null: false
     t.integer "payment_type", default: 0, null: false
     t.boolean "gads_tracked", default: false
-    t.bigint "subscription_plan_variant_id"
-    t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
@@ -279,7 +277,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_225401) do
     t.decimal "current_referrer_profit", default: "0.0", null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "pending_wire_transfer"
-    t.integer "pending_plan_id"
+    t.integer "pending_plan_variant_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
     t.boolean "referral_banner_dismissed", default: false
@@ -307,7 +305,6 @@ ActiveRecord::Schema.define(version: 2024_10_23_225401) do
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plan_variants"
-  add_foreign_key "payments", "subscription_plans"
   add_foreign_key "payments", "users"
   add_foreign_key "portfolios", "users"
   add_foreign_key "subscription_plan_variants", "subscription_plans"
@@ -315,6 +312,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_225401) do
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
   add_foreign_key "users", "affiliates", column: "referrer_id"
+  add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 
   create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
       SELECT transactions.bot_id,
