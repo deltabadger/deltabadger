@@ -4,7 +4,7 @@ class SubscriptionMailer < ApplicationMailer
 
     mail(
       to: @payment.user.email,
-      subject: I18n.t(
+      subject: t(
         'subscription_mailer.subscription_granted.subject',
         plan_name: localized_plan_name(@payment.subscription_plan_variant.name)
       )

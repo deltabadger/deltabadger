@@ -47,11 +47,11 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def set_email_in_use
-    @email_in_use = I18n.t('devise.registrations.new.email_used') if User.where(email: @user.email).exists?
+    @email_in_use = t('devise.registrations.new.email_used') if User.where(email: @user.email).exists?
   end
 
   def check_name_format
-    @name_invalid = I18n.t('devise.registrations.new.name_invalid') if name_invalid?
+    @name_invalid = t('devise.registrations.new.name_invalid') if name_invalid?
   end
 
   def name_invalid?

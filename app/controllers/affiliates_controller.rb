@@ -24,7 +24,7 @@ class AffiliatesController < ApplicationController
     )
 
     if result.success?
-      redirect_to affiliate_path, flash: { notice: I18n.t('affiliates.program_joined') }
+      redirect_to affiliate_path, flash: { notice: t('affiliates.program_joined') }
     else
       render :new, locals: {
         affiliate: result.data || Affiliate.new(affiliate_params.permit(ALL_PERMITTED_PARAMS)),
@@ -44,7 +44,7 @@ class AffiliatesController < ApplicationController
     result = Affiliates::UpdateBtcAddress.call(affiliate: affiliate, new_btc_address: btc_address)
 
     if result.success?
-      flash[:notice] = I18n.t('affiliates.btc_address_confirmation_sent')
+      flash[:notice] = t('affiliates.btc_address_confirmation_sent')
       render :show, locals: default_show_locals.merge(affiliate: affiliate)
     else
       render :show, locals: default_show_locals.merge(
@@ -57,7 +57,7 @@ class AffiliatesController < ApplicationController
     result = Affiliates::ConfirmBtcAddress.call(affiliate: affiliate, token: params[:token])
 
     if result.success?
-      redirect_to affiliate_path, flash: { notice: I18n.t('affiliates.btc_address_changed') }
+      redirect_to affiliate_path, flash: { notice: t('affiliates.btc_address_changed') }
     else
       redirect_to affiliate_path, flash: { alert: result.errors.first }
     end

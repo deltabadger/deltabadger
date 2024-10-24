@@ -29,13 +29,13 @@ class UpgradeController < ApplicationController
       redirect_to initiator_result.data[:payment_url]
     else
       Raven.capture_exception(Exception.new(initiator_result.errors[0]))
-      flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      flash[:alert] = t('subscriptions.payment.server_error')
       redirect_to action: 'index'
     end
   end
 
   def zen_payment_failure
-    flash[:alert] = I18n.t('subscriptions.payment.server_error')
+    flash[:alert] = t('subscriptions.payment.server_error')
     redirect_to action: 'index'
   end
 
@@ -64,13 +64,13 @@ class UpgradeController < ApplicationController
       redirect_to initiator_result.data[:payment_url]
     else
       Raven.capture_exception(Exception.new(initiator_result.errors[0]))
-      flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      flash[:alert] = t('subscriptions.payment.server_error')
       redirect_to action: 'index'
     end
   end
 
   def btcpay_payment_success
-    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
+    flash[:notice] = t('subscriptions.payment.payment_ordered')
     redirect_to action: :success
   end
 
@@ -89,7 +89,7 @@ class UpgradeController < ApplicationController
     initiator_result = PaymentsManager::WireManager::PaymentFinalizer.call(payment)
     if initiator_result.failure?
       Raven.capture_exception(Exception.new(initiator_result.errors[0]))
-      flash[:alert] = I18n.t('subscriptions.payment.server_error')
+      flash[:alert] = t('subscriptions.payment.server_error')
     end
     redirect_to action: 'index'
   end
