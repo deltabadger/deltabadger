@@ -35,7 +35,7 @@ module PaymentsManager
         return Result::Failure.new('Still not paid') unless just_paid
 
         @notifications.invoice(payment: payment)
-        @grant_commission.call(referee: payment.user, payment: payment)
+        @grant_commission.call(referral: payment.user, payment: payment)
 
         PaymentsManager::SubscriptionUpgrader.call(payment.id)
       end

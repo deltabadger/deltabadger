@@ -1,14 +1,14 @@
 module Affiliates
   class GrantCommission
-    def call(referee:, payment:)
+    def call(referral:, payment:)
       payment_commission = payment.commission
-      return if not_eligible_for_commission?(referee, payment_commission)
+      return if not_eligible_for_commission?(referral, payment_commission)
 
       User.transaction do
-        referee.reload
-        referrer = referee.referrer
+        referral.reload
+        referrer = referral.referrer
         max_profit = referrer.max_profit
-        current_profit = referee.current_referrer_profit
+        current_profit = referral.current_referrer_profit
         commission_available = max_profit - current_profit
         return unless commission_available.positive?
 
@@ -20,31 +20,31 @@ module Affiliates
         new_current_profit = current_profit + commission_granted
 
         send_registration_reminder(referrer, btc_commission_granted) if referrer.btc_address.blank?
-        referee.update!(current_referrer_profit: new_current_profit)
-        referee.referrer.update!(unexported_btc_commission: new_unexported_btc_commission)
+        referral.update!(current_referrer_profit: new_current_profit)
+        referral.referrer.update!(unexported_btc_commission: new_unexported_btc_commission)
       end
     end
 
     private
 
-    def not_eligible_for_commission?(referee, commission)
-      no_commission?(commission) || no_referrer?(referee) || referrer_invalid?(referee)
+    def not_eligible_for_commission?(referral, commission)
+      no_commission?(commission) || no_referrer?(referral) || referrer_invalid?(referral)
     end
 
     def no_commission?(payment_commission)
       !payment_commission.positive?
     end
 
-    def no_referrer?(referee)
-      referee.referrer_id.nil?
+    def no_referrer?(referral)
+      referral.referrer_id.nil?
     end
 
-    def referrer_invalid?(referee)
-      !referee.referrer.active?
+    def referrer_invalid?(referral)
+      !referral.referrer.active?
     end
 
-    def total_commission(referee)
-      referee.unexported_commission + referee.exported_commission + referee.paid_commission
+    def total_commission(referral)
+      referral.unexported_commission + referral.exported_commission + referral.paid_commission
     end
 
     def send_registration_reminder(referrer, amount)

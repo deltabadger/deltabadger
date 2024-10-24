@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe Affiliates::GrantCommission do
   describe '#call' do
-    subject { described_class.new.call(referee: referee, payment: payment) }
+    subject { described_class.new.call(referral: referral, payment: payment) }
 
     let!(:referrer) { create(:user) }
 
@@ -25,7 +25,7 @@ RSpec.describe Affiliates::GrantCommission do
              paid_btc_commission: paid_btc_commission)
     end
 
-    let!(:referee) do
+    let!(:referral) do
       create(:user,
              referrer: affiliate,
              current_referrer_profit: current_referrer_profit)
@@ -33,7 +33,7 @@ RSpec.describe Affiliates::GrantCommission do
 
     let!(:payment) do
       create(:payment,
-             user: referee,
+             user: referral,
              commission: commission,
              btc_commission: btc_commission)
     end
@@ -55,10 +55,10 @@ RSpec.describe Affiliates::GrantCommission do
       it "does not modifiy referrer's commissions" do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(0)
+        expect(referral.current_referrer_profit).to eq(0)
 
         expect(affiliate.unexported_btc_commission).to eq(0.1)
         expect(affiliate.exported_btc_commission).to eq(0.2)
@@ -82,10 +82,10 @@ RSpec.describe Affiliates::GrantCommission do
       it "does not modifiy referrer's commissions" do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(0)
+        expect(referral.current_referrer_profit).to eq(0)
 
         expect(affiliate.unexported_btc_commission).to eq(0.1)
         expect(affiliate.exported_btc_commission).to eq(0.2)
@@ -105,10 +105,10 @@ RSpec.describe Affiliates::GrantCommission do
       it "does not modifiy referrer's commissions" do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(0)
+        expect(referral.current_referrer_profit).to eq(0)
 
         expect(affiliate.unexported_btc_commission).to eq(0.1)
         expect(affiliate.exported_btc_commission).to eq(0.2)
@@ -128,10 +128,10 @@ RSpec.describe Affiliates::GrantCommission do
       it 'grants referrer the commission' do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(8)
+        expect(referral.current_referrer_profit).to eq(8)
 
         expect(affiliate.unexported_btc_commission).to eq(0.3)
         expect(affiliate.exported_btc_commission).to eq(0.2)
@@ -151,10 +151,10 @@ RSpec.describe Affiliates::GrantCommission do
       it 'grants referrer part of the commission' do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(7)
+        expect(referral.current_referrer_profit).to eq(7)
 
         expect(affiliate.unexported_btc_commission).to eq(0.2)
         expect(affiliate.exported_btc_commission).to eq(0.2)
@@ -174,10 +174,10 @@ RSpec.describe Affiliates::GrantCommission do
       it "does not modifiy referrer's commissions" do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(6)
+        expect(referral.current_referrer_profit).to eq(6)
 
         expect(affiliate.unexported_btc_commission).to eq(0.1)
         expect(affiliate.exported_btc_commission).to eq(0.2)
@@ -197,10 +197,10 @@ RSpec.describe Affiliates::GrantCommission do
       it "does not modifiy referrer's commissions" do
         subject
 
-        referee.reload
+        referral.reload
         affiliate.reload
 
-        expect(referee.current_referrer_profit).to eq(6)
+        expect(referral.current_referrer_profit).to eq(6)
 
         expect(affiliate.unexported_btc_commission).to eq(0.1)
         expect(affiliate.exported_btc_commission).to eq(0.2)

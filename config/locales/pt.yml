@@ -71,7 +71,7 @@ pt:
             manual_title: 'Como funciona?'
             paid_commission: 'Pago (BTC)'
             paid_so_far: 'Pago até agora (BTC)'
-            referees: 'Pessoas referidas'
+            referrals: 'Pessoas referidas'
             stats: Estatísticas
             submit: Atualizar
             submit_bitcoin_address: 'Atualizar endereço Bitcoin'

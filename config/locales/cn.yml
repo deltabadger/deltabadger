@@ -81,7 +81,7 @@ cn:
             manual_title: 工作原理如何？
             paid_commission: 已支付（比特币）
             paid_so_far: 目前已支付（比特币）
-            referees: 被介绍者
+            referrals: 被介绍者
             stats: 统计数据
             submit: 更新
             submit_bitcoin_address: 更新比特币地址

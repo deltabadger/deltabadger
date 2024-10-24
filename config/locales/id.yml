@@ -81,7 +81,7 @@ id:
             manual_title: 'Bagaimana cara kerjanya?'
             paid_commission: 'Dibayar (BTC)'
             paid_so_far: 'Yang sudah dibayar (BTC)'
-            referees: 'Penerima referral'
+            referrals: 'Penerima referral'
             stats: Statistik
             submit: Perbarui
             submit_bitcoin_address: 'Perbarui alamat Bitcoin'

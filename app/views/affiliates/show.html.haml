@@ -10,14 +10,14 @@
   .stitle= t('.title')
 .row
   .col-sm-12.col-lg-6
-    
+
     .db-referral-stats
       - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
       .db-referral-stats__item
         .db-referral-stats__item__title
-          = t('.referees')
+          = t('.referrals')
         .db-referral-stats__item__number
-          = stats.referee_count
+          = stats.referral_count
       .db-referral-stats__item
         .db-referral-stats__item__title
           = t('.unpaid_commission')

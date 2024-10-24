@@ -7,8 +7,8 @@ module Presenters
         @referrer = referrer
       end
 
-      def referee_count
-        @referee_count ||= referrer.referees.size
+      def referral_count
+        @referral_count ||= referrer.referrals.size
       end
 
       def paid_commission

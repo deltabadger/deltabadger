@@ -81,7 +81,7 @@ pl:
             manual_title: 'Jak to działa?'
             paid_commission: 'Wypłacone (BTC)'
             paid_so_far: 'Wpłacono (BTC)'
-            referees: Użytkownicy
+            referrals: Użytkownicy
             stats: Statystyki
             submit: Zaktualizuj
             submit_bitcoin_address: 'Zaktualizuj adres Bitcoin'
