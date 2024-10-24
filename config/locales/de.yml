@@ -645,9 +645,9 @@ de:
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt
-            wire_cost_pro_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_standard_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_legendary_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_pro_html: 'Bitte überweise <b><span class="pro-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_standard_html: 'Bitte überweise <b><span class="standard-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_legendary_html: 'Bitte überweise <b><span class="legendary-total-price">%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
             wire_transfer: Banküberweisung
             wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
