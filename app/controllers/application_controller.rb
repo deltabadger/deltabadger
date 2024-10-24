@@ -34,7 +34,7 @@ class ApplicationController < ActionController::Base
   end
 
   def handle_unverified_request
-    flash[:alert] = I18n.t('errors.unverified_request')
+    flash[:alert] = t('errors.unverified_request')
     redirect_back fallback_location: root_path
   end
 
