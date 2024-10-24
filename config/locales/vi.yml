@@ -15,7 +15,6 @@ vi:
         bitwarden_title: 'Thử Bitwarden'
         dca_2y_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Saver dài hạn.'
         dont_trade_automate_html: '<div>Đừng&nbsp;lướt sóng.</div> <div>Hãy tự động hóa.</div>'
         features: "tự động trung bình giá trên tài khoản giao dịch của bạn;\n<i>Thời khoảng thông minh</i> chỉ mất 5 phút để thiết lập;\ncập nhật các tính năng mới hàng tháng;\nhỗ trợ cộng đồng Telegram"
         password_managers_html: 'Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.'
@@ -194,7 +193,7 @@ vi:
                 title: 'Thống kê'
                 total_invested: 'Tổng giá trị đầu tư'
         for: cho
-        force_daily_weekly_monthly_html: '<b>Khoảng Thời Gian Thông Minh<sup>®</sup></b> · Mua với các đơn hàng trị giá <split>100$</split> %{currency} mỗi đơn.'
+        force_smart_intervals_html: '<b>Khoảng Thời Gian Thông Minh<sup>®</sup></b> · Mua với các đơn hàng trị giá <split>100$</split> %{currency} mỗi đơn.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Giảm phí với lệnh giới hạn'
         hour: Giờ
         limit_buy: 'Lệnh chờ mua'

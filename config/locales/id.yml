@@ -15,7 +15,6 @@ id:
         bitwarden_title: 'Coba Bitwarden'
         dca_2y_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Dollar-cost averaging untuk<br>Bitcoin adalah standar baru bagi<br>penabung jangka panjang.'
         dont_trade_automate_html: '<div>Jangan&nbsp;hanya trading.</div> <div>Automasikan.</div>'
         features: "DCA otomatis di akun pertukaran Anda;\n<i>Smart interval</i> dan pengaturan hanya lima menit;\npembaruan dan fitur baru setiap bulan;\ndukungan dan komunitas Telegram"
         password_managers_html: 'Pengelola kata sandi<br>membuat keamanan lebih mudah.'
@@ -194,7 +193,7 @@ id:
                 title: Statistik
                 total_invested: 'Total investasi'
         for: seharga
-        force_daily_weekly_monthly_html: '<b>Interval Cerdas<sup>®</sup></b> · Beli dengan pesanan senilai <split>$100</split> %{currency} masing-masing.'
+        force_smart_intervals_html: '<b>Interval Cerdas<sup>®</sup></b> · Beli dengan pesanan senilai <split>$100</split> %{currency} masing-masing.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Kurangi biaya dengan pesanan batas'
         hour: Jam
         limit_buy: 'Beli limit'

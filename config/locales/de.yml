@@ -15,7 +15,6 @@ de:
         bitwarden_title: 'Probiere Bitwarden'
         dca_2y_profit_html: 'Wenn du im letzten zwei Jahren Dollar-Cost-Averaging zu Bitcoin betrieben hättest, hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
         dca_profit_html: 'Wenn du im letzten Jahr Dollar-Cost-Averaging zu Bitcoin betrieben hättest, hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
-        dca_standard_html: 'Dollar-Cost-Averaging zu Bitcoin ist der neue Standard für langfristige Sparer.'
         dont_trade_automate_html: '<div>Handle nicht.</div> <div>Automatisiere.</div>'
         features: "Auto-DCA auf deinem Börsenkonto;\n<i>Smart-Intervalle</i> und eine Einrichtung, die nur 5 Minuten dauert;\nUpdates und neue Funktionen jeden Monat;\nSupport und Telegram-Community"
         password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
@@ -170,7 +169,7 @@ de:
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
         for: für
-        force_daily_weekly_monthly_html: '<b>Smart-Intervalle<sup>®</sup></b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
+        force_smart_intervals_html: '<b>Smart-Intervalle<sup>®</sup></b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
 
         hour: Stunde

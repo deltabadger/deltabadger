@@ -15,7 +15,6 @@ pl:
         bitwarden_title: 'Spróbuj Bitwarden'
         dca_2y_profit_html: 'Jeśli inwestowałeś w Bitcoina uśredniając przez ostatnie dwa lata, jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Jeśli inwestowałeś w Bitcoina uśredniając przez ostatni rok, jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Inwestowanie w Bitcoina przez uśrednianie to nowy standard oszczędzania.'
         dont_trade_automate_html: '<div>Nie spekuluj.</div> <div>Automatyzuj.</div>'
         features: "automatyczne uśrednianie wprost na twoim obecnym koncie;\n<i>smart interwały</i> i pięciominutowa konfiguracja;\naktualizacje i nowe funkcje co miesiąc;\nsupport i grupa na Telegramie"
         password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
@@ -197,7 +196,7 @@ pl:
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
         for: za
-        force_daily_weekly_monthly_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
+        force_smart_intervals_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Zmniejsz opłaty za pomocą zleceń z limitem'
         hour: Godzina
         limit_buy: 'Kup z limitem'

@@ -15,7 +15,6 @@ cn:
         bitwarden_title: '试试 Bitwarden'
         dca_2y_profit_html: '如果您在去年定期定额投资<br>比特币，现在您将获利 <span class="text-success">+%{profit}%</span>'
         dca_profit_html: '如果您在去年定期定额投资<br>比特币，现在您将获利 <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 定期定额投资<br>比特币是长期储蓄者的<br>新标准。
         dont_trade_automate_html: '<div>不必交易。</div> <div>自动完成。</div>'
         features: "自动定投交易所账号；\n<i>智能间隔</i>，五分钟快速设置；\n每月更新并推出新功能；\n支持和 Telegram 社区"
         password_managers_html: 通过密码管理器<br>，可以轻松保障安全。
@@ -194,7 +193,7 @@ cn:
                 title: 统计数据
                 total_invested: 总投资
         for: 适用于
-        force_daily_weekly_monthly_html: '<b>智能区间<sup>®</sup></b> · 使用每笔订单金额为 <split>$100</split> %{currency} 的订单购买。'
+        force_smart_intervals_html: '<b>智能区间<sup>®</sup></b> · 使用每笔订单金额为 <split>$100</split> %{currency} 的订单购买。'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · 通过限价单减少费用'
         hour: 小时
         limit_buy: 限价购买
