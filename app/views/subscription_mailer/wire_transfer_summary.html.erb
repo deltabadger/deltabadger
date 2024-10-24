@@ -1,0 +1,17 @@
+<h1 class="mail-header"><%= t('.subject') %></h1>
+
+Wire transfer summary:
+<br>
+<br>
+First Name: <%= @payment.first_name %>
+<br>
+Last Name: <%= @payment.last_name %>
+<br>
+Email: <%= @payment.user.email %>
+<br>
+Country: <%= @payment.country %>
+<br>
+Plan: <%= @payment.subscription_plan_variant.subscription_plan.name %>
+<br>
+Amount: <%= format_price(@payment.total, @payment.currency) %>
+<br>

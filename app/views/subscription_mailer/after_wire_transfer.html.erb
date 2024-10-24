@@ -1,0 +1,85 @@
+<p>
+  Hi <%= @payment.first_name %>,
+</p>
+<p>
+  Thanks! I booked your <%= localized_plan_name(@payment.subscription_plan_variant.name) %> plan, and will wait for the payment.
+  <br>
+  I will appreciate if you could send me the transfer confirmation.
+</p>
+<p>
+  Let me know if you have any questions.
+</p>
+<p>
+  Best,
+  <br>
+  Jan
+</p>
+
+<p style="color:#9d9d9d; margin-top: 20px; margin-bottom: 8px">Deltabadger Team</p>
+<img alt="Logo" src="https://deltabadger.com/logo_plus_legendary50.png" style="margin-bottom: 24px">
+
+<p>
+  PS If you didn’t pay yet, please, send <%= format_price(@payment.total, @payment.currency) %> to
+</p>
+<p>
+  <% if @payment.from_eu? %>
+    <p>
+      <b>Account holder</b>
+      <br>
+      Deltabadger OÜ
+    </p>
+    <p>
+      <b>BIC</b>
+      <br>
+      TRWIBEB1XXX
+    </p>
+    <p>
+      <b>IBAN (Belgium)</b>
+      <br>
+      BE83 9670 6500 4615
+    </p>
+    <p>
+      <b>Bank address</b>
+      <br>
+      Avenue Louise 54, Room S52
+      <br>
+      Brussels
+      <br>
+      1050
+      <br>
+      Belgium
+    </p>
+  <% else %>
+    <p>
+      <b>Account holder</b>
+      <br>
+      Deltabadger OÜ
+    </p>
+    <p>
+      <b>Routing number</b>
+      <br>
+      084009519
+    </p>
+    <p>
+      <b>Account number</b>
+      <br>
+      9600 0000 0051 1836
+    </p>
+    <p>
+      <b>Account type</b>
+      <br>
+      Checking
+    </p>
+    <p>
+      <b>Bank address</b>
+      <br>
+      TransferWise
+      <br>
+      19 W 24th Street
+      <br>
+      New York NY 10010
+      <br>
+      United States
+    </p>
+  <% end %>
+</p>
