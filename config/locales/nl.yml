@@ -700,9 +700,9 @@ nl:
             routing_number: 'Routing nummer'
             server_error: 'Betalingen server error. Probeer het later opnieuw.'
             vat: BTW
-            wire_cost_pro_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_standard_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_legendary_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_pro_html: 'Stuur alstublieft <b><span class="pro-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_standard_html: 'Stuur alstublieft <b><span class="standard-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_legendary_html: 'Stuur alstublieft <b><span class="legendary-total-price">%{price}</span></b> naar de volgende bankrekening:'
             wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{sign}%{price}</b> naar volgende bankrekening:'
             wire_transfer: Bankoverschrijving
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
