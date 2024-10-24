@@ -166,6 +166,7 @@ GEM
       i18n
     encryptor (3.0.0)
     erubi (1.12.0)
+    event_stream_parser (1.0.0)
     eventmachine (1.2.7)
     execjs (2.8.1)
     factory_bot (6.2.1)
@@ -402,6 +403,10 @@ GEM
       unicode-display_width (>= 2.4.0, < 3.0)
     rubocop-ast (1.29.0)
       parser (>= 3.2.1.0)
+    ruby-openai (7.1.0)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
     rubyzip (2.3.2)
@@ -546,6 +551,7 @@ DEPENDENCIES
   rqrcode
   rspec-rails (~> 5.1)
   rubocop (~> 1.48.0)
+  ruby-openai (~> 7.1)
   sass-rails (>= 6)
   scenic
   securerandom
