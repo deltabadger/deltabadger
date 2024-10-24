@@ -1,5 +1,5 @@
 <div class="db-plans__item__name">
-  <%= t('subscriptions.standard') %>
+  <%= t('subscriptions.basic') %>
   <div class="db-years">
     <% if current_user.subscription.days_left %>
       <div class="text-success"><%= t('subscriptions.days_left', count: current_user.subscription.days_left) %></div>
@@ -12,20 +12,20 @@
   <% unless current_user.subscription.days_left %>
     <% if payment.base_price != payment.adjusted_base_price %>
       <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
-        <span class='standard-base-price'><%= format_price(payment.base_price, currency) %></span>
+        <span class='basic-base-price'><%= format_price(payment.base_price, currency) %></span>
       </div>
       <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
-        <span class='standard-discounted-price'><%= format_price(payment.adjusted_base_price, currency) %></span>
+        <span class='basic-discounted-price'><%= format_price(payment.adjusted_base_price, currency) %></span>
       </div>
     <% else %>
       <div class="db-plans__item__amount__t">
-        <span class='standard-base-price'><%= format_price(payment.base_price, currency) %></span>
+        <span class='basic-base-price'><%= format_price(payment.base_price, currency) %></span>
       </div>
     <% end %>
   <% end %>
 </div>
 <div class="db-plans__item__info">
-  <p><%= t('subscriptions.standard_info') %></p>
+  <p><%= t('subscriptions.basic_info') %></p>
   <ul>
     <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.dca') %></li>
     <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.withdrawals') %></li>

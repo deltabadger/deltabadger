@@ -244,7 +244,7 @@ de:
                 instructions_6_1_html: 'Erweitern Sie im Popup-Dialogfeld <b>API-Einschränkungen</b> und konfigurieren Sie:'
                 instructions_6_2_html: '<b>API-Schlüssel-Spitzname</b>: Geben Sie Ihren bevorzugten Namen ein, <b>Deltabadger</b> ist gut, um es später wiederzuerkennen.'
                 instructions_6_3_html: '<b>IP-Whitelist</b>: <b>3.18.70.231</b>.'
-                instructions_6_4_html: '<b>Portfolio</b>: Wählen Sie das Portfolio aus, auf das Deltabadger zugreifen soll, <b>Standard</b>, wenn Sie keine Coinbase-Portfolios verwenden.'
+                instructions_6_4_html: '<b>Portfolio</b>: Wählen Sie das Portfolio aus, auf das Deltabadger zugreifen soll, <b>Basic</b>, wenn Sie keine Coinbase-Portfolios verwenden.'
                 instructions_6_5_html: '<b>Berechtigungen</b>:<br>&middot; <b>Anzeigen</b> (nur lesen)<br>&middot; <b>Handel</b> (Ausführen von Trades in Ihrem Namen)'
                 instructions_7_html: 'Klicken Sie auf <b>Erstellen & herunterladen</b> und vervollständigen Sie die 2-Schritt-Verifizierung.'
                 instructions_8_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
@@ -305,7 +305,7 @@ de:
                 passphrase: Passphrase
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
-            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Standardeinstellung übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
+            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Basic übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
             next: Weiter
             no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
             probit:
@@ -607,7 +607,7 @@ de:
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
-        standard_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
+        basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
         pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
         legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
         features:
@@ -631,9 +631,9 @@ de:
             compensation_pro:
                 one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
-            compensation_standard:
-                one: 'Entschädigung für 1 ungenutzten Tag des Standard-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Standard-Plans.'
+            compensation_basic:
+                one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
             legendary_plan_discount: 'Early Bird-Rabatt'
             legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
@@ -649,7 +649,7 @@ de:
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt
             wire_cost_pro_html: 'Bitte überweise <b><span class="pro-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_standard_html: 'Bitte überweise <b><span class="standard-total-price">%{price}</span></b> auf das folgende Bankkonto:'
+            wire_cost_basic_html: 'Bitte überweise <b><span class="basic-total-price">%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_legendary_html: 'Bitte überweise <b><span class="legendary-total-price">%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
             wire_transfer: Banküberweisung

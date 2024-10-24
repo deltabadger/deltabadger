@@ -99,10 +99,10 @@ id:
             template_html: "<p>Halo 👋,</p>\n<p>Anda telah menggunakan Deltabadger selama hampir satu bulan sekarang!</p>\n<p>Uji coba gratis tanpa batas Anda akan segera berakhir. Pastikan untuk meningkatkan paket agar badger Anda yang lebih besar tetap bekerja!</p>"
         limit_almost_reached:
             subject: 'Limit hampir tercapai ⌛'
-            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Standard</b><br> atau <b style=\"color: #0a45a4;\">Pro</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
+            template_html: "<p>Halo 👋,</p>\n<p>Anda hampir mencapai <br>limit transaksi paket <b style=\"color: #0a45a4;\">Penabung</b>.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Basic</b><br> atau <b style=\"color: #0a45a4;\">Pro</b> untuk memastikan</br>bot Anda akan terus bekerja.</p>"
         limit_reached:
             subject: 'Anda telah mencapai limit 🥳'
-            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Standard</b><br>atau <b style=\"color: #0a45a4;\">Pro</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
+            template_html: "<p>Halo 👋,</p>\n<p>Oh, bagus! Limit<br>paket <b style=\"color: #0a45a4;\">Penabung</b> Anda telah tercapai.</p>\n<p>Tampaknya, untuk saat ini Anda melakukan dollar-cost<br>averaging.</p>\n<p>Kami harap Anda senang dengan<br>hasilnya.</p>\n<p>Tingkatkan paket Anda ke <b style=\"color: #0a45a4;\">Basic</b><br>atau <b style=\"color: #0a45a4;\">Pro</b> untuk menghapus semua limit dan<br>membuat bot Anda kembali bekerja.</p>"
         notify_about_error:
             subject: 'Ada yang salah 😵'
             template_html: "<p>Ups… 😵</p>\n<p>Ada yang salah saat<br>memproses transaksi terakhir.</p>\n<p>Anda bisa melihat kesalahan itu di<br>log bot. Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
@@ -549,7 +549,7 @@ id:
                 last_name: 'Nama Belakang'
                 other: Lainnya
                 submit_pro_order: 'Paket Pro Order'
-                submit_standard_order: 'Paket Standard Order'
+                submit_basic_order: 'Paket Basic Order'
             settings:
                 current_status: 'Status saat ini:'
                 disable_two_fa: 'Nonaktifkan 2FA'
@@ -637,7 +637,7 @@ id:
         days_left:
             one: '1 hari tersisa'
             other: '%{count} hari tersisa'
-        standard_info: 'Tanpa embel-embel, langsung bekerja.'
+        basic_info: 'Tanpa embel-embel, langsung bekerja.'
         pro_info: 'Dapatkan gambaran besar, wawasan mendalam, dan fitur Pro.'
         legendary_badger_info_html: '<p>Dapatkan semua fitur Pro saat ini dan masa depan seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub eksklusif kami yang terdiri dari 1.000 pemikir jangka panjang dengan tangan berlian dan visi, dan ciptakan legenda Anda sendiri.</p><p>NFT yang Anda terima mengubah langganan Anda menjadi aset yang dapat Anda alihkan atau jual. Setiap token dilengkapi dengan karya seni prosedural unik, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
         features:
@@ -660,8 +660,8 @@ id:
             bitcoin: Bitcoin
             compensation_pro:
                 other: ''
-            compensation_standard:
-                other: 'Kompensasi atas %{{count}} hari yang tidak digunakan dari paket Standard.'
+            compensation_basic:
+                other: 'Kompensasi atas %{{count}} hari yang tidak digunakan dari paket Basic.'
             discount: 'Diskon %{discount_percent}%'
             legendary_plan_discount: ''
             legendary_plan_discount_info: ''
@@ -676,8 +676,8 @@ id:
             routing_number: 'Nomor routing'
             server_error: ''
             vat: VAT
-            wire_cost_pro_html: 'Harap kirimkan <b><span class=''standard-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_standard_html: 'Harap kirimkan <b><span class=''pro-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_pro_html: 'Harap kirimkan <b><span class=''basic-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_basic_html: 'Harap kirimkan <b><span class=''pro-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_legendary_html: 'Harap kirimkan <b><span class=''legendary-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_pending_html: 'Jika Anda belum melakukan pembayaran, kirimkan <b>%{sign}%{price}</b> ke rekening bank berikut:'
             wire_transfer: 'Transfer Bank'

@@ -34,7 +34,7 @@ module Bots::Withdrawal::Validators
         @interval_enabled = params['interval_enabled']
         @pro = user.subscription_name == 'pro'
         @legendary = user.subscription_name == 'legendary'
-        @paid_plan = %w[standard pro legendary].include?(user.subscription_name)
+        @paid_plan = %w[basic pro legendary].include?(user.subscription_name)
         @minimums = GetWithdrawalMinimums.call({ exchange_id: bot.exchange_id }, user)
         @withdrawal_info_processor = get_withdrawal_info_processor(user.api_keys, bot.exchange_id)
         @exchange_id = bot.exchange_id

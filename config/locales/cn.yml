@@ -548,7 +548,7 @@ cn:
                 last_name: 姓氏
                 other: 其他
                 submit_pro_order: '订购 Pro 套餐'
-                submit_standard_order: 订购投资者套餐
+                submit_basic_order: 订购投资者套餐
             settings:
                 current_status: 当前状态：
                 disable_two_fa: '禁用 2FA'
@@ -635,7 +635,7 @@ cn:
         days_left:
             one: '剩余1天'
             other: '剩余%{count}天'
-        standard_info: '没有花哨的功能，但能完成任务。'
+        basic_info: '没有花哨的功能，但能完成任务。'
         pro_info: '掌握全局，深入洞察，并享受Pro功能。'
         legendary_badger_info_html: '<p>获取 Pro 计划的所有当前和未来功能，终身享有。</p><p>你喜欢一次付费，终身享受吗？加入我们由 1000 名长期思考者组成的限量俱乐部，他们拥有钻石般的坚定和远见，并书写你自己的传奇。</p><p>你收到的 NFT 将使你的订阅变成可以转让或出售的资产。每个代币都配有独特的程序生成艺术作品，藏有 21 个隐藏的<i>彩蛋</i>，可以在<a href="https://legendarybadgers.com/" class="nobreak">收藏</a>中找到。</p>'
         features:
@@ -658,7 +658,7 @@ cn:
             bitcoin: 比特币
             compensation_pro:
                 other: ''
-            compensation_standard:
+            compensation_basic:
                 other: '对投资者套餐中未使用的 %{{count}} 天的补偿。'
             discount: '%{discount_percent}% 的折扣'
             legendary_plan_discount: ''
@@ -675,7 +675,7 @@ cn:
             server_error: ''
             vat: VAT
             wire_cost_pro_html: '请将 <b><span class=''pro-total-price''>%{price}</span></b> 转账到以下银行账号：'
-            wire_cost_standard_html: '请将 <b><span class=''standard-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_basic_html: '请将 <b><span class=''basic-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_legendary_html: '请将 <b><span class=''legendary-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_pending_html: '如果尚未付款，请将 <b>%{sign}%{price}</b> 转账到以下银行账号：'
             wire_transfer: 电汇

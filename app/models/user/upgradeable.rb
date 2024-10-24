@@ -5,7 +5,7 @@ module User::Upgradeable
     def available_plans
       case subscription_name
       when SubscriptionPlan::FREE_PLAN then available_plans_for_free_plan
-      when SubscriptionPlan::STANDARD_PLAN then available_plans_for_standard_plan
+      when SubscriptionPlan::BASIC_PLAN then available_plans_for_basic_plan
       when SubscriptionPlan::PRO_PLAN then available_plans_for_pro_plan
       else []
       end
@@ -14,14 +14,14 @@ module User::Upgradeable
     private
 
     def available_plans_for_free_plan
-      available_plans = [SubscriptionPlan::STANDARD_PLAN, SubscriptionPlan::PRO_PLAN]
+      available_plans = [SubscriptionPlan::BASIC_PLAN, SubscriptionPlan::PRO_PLAN]
       available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
       available_plans
     end
 
-    def available_plans_for_standard_plan
+    def available_plans_for_basic_plan
       available_plans = [SubscriptionPlan::PRO_PLAN]
-      available_plans << SubscriptionPlan::STANDARD_PLAN if standard_plan_eligibility?
+      available_plans << SubscriptionPlan::BASIC_PLAN if basic_plan_eligibility?
       available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
       available_plans
     end
@@ -32,7 +32,7 @@ module User::Upgradeable
       available_plans
     end
 
-    def standard_plan_eligibility?
+    def basic_plan_eligibility?
       subscription.end_time > Time.current + 1.years
     end
 

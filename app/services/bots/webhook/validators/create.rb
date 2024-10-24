@@ -68,7 +68,7 @@ module Bots::Webhook::Validators
         @exchange_name = exchange_name
         @pro = user.subscription_name == 'pro'
         @legendary = user.subscription_name == 'legendary'
-        @paid_plan = %w[standard pro legendary].include?(user.subscription_name)
+        @paid_plan = %w[basic pro legendary].include?(user.subscription_name)
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
 
         @exchange_id = exchange_id

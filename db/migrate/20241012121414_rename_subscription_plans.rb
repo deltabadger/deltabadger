@@ -7,7 +7,7 @@ class RenameSubscriptionPlans < ActiveRecord::Migration[6.0]
     SQL
     execute <<~SQL
       UPDATE subscription_plans
-        SET name = 'standard'
+        SET name = 'basic'
         WHERE name = 'investor'
     SQL
     execute <<~SQL
@@ -31,7 +31,7 @@ class RenameSubscriptionPlans < ActiveRecord::Migration[6.0]
     execute <<~SQL
       UPDATE subscription_plans
         SET name = 'investor'
-        WHERE name = 'standard'
+        WHERE name = 'basic'
     SQL
     execute <<~SQL
       UPDATE subscription_plans

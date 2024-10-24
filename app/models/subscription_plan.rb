@@ -1,6 +1,6 @@
 class SubscriptionPlan < ApplicationRecord
   FREE_PLAN = 'free'.freeze
-  STANDARD_PLAN = 'standard'.freeze
+  BASIC_PLAN = 'basic'.freeze
   PRO_PLAN = 'pro'.freeze
   LEGENDARY_PLAN = 'legendary'.freeze
   LEGENDARY_PLAN_TOTAL_SUPPLY = 1000
@@ -16,8 +16,8 @@ class SubscriptionPlan < ApplicationRecord
     find_by!(name: FREE_PLAN)
   end
 
-  def self.standard
-    find_by!(name: STANDARD_PLAN)
+  def self.basic
+    find_by!(name: BASIC_PLAN)
   end
 
   def self.pro

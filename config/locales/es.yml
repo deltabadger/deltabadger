@@ -102,10 +102,10 @@ es:
             template_html: '<p>Llevas casi un mes utilizando Deltabadger.</p><p>Tu prueba gratuita e ilimitada terminará pronto. Asegúrate de actualizar para que tus tejones más pesados sigan funcionando.</p>'
         limit_almost_reached:
             subject: 'Límite casi alcanzado'
-            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Standard</b> o <b>Pro</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
+            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Basic</b> o <b>Pro</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
         limit_reached:
             subject: 'Has llegado al límite'
-            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Standard</b> o <b>Pro</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
+            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Basic</b> o <b>Pro</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
         notify_about_error:
             subject: 'Algo salió mal'
             template_html: '<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Error:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -663,7 +663,7 @@ es:
         days_left:
             one: '1 día menos'
             other: '%{count} días disponibles'
-        standard_info: 'Sin adornos, solo emociones, pero hace el trabajo.'
+        basic_info: 'Sin adornos, solo emociones, pero hace el trabajo.'
         pro_info: 'Obtén una vista general, información detallada y características Pro.'
         legendary_badger_info_html: '<p>Obtén todas las funciones actuales y futuras del plan Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro exclusivo club de 1,000 pensadores a largo plazo con manos de diamante y visión, y crea tu propia leyenda.</p><p>El NFT que recibes convierte tu suscripción en un activo que puedes transferir o vender. Cada token viene con una obra de arte procedural única, con 21 <i>easter eggs</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
         features:
@@ -687,9 +687,9 @@ es:
             compensation_pro:
                 one: 'Compensación por un día sin usar el plan Pro'
                 other: 'Compensación por %{count} días sin usar el plan Pro.'
-            compensation_standard:
-                one: 'Compensación por un día sin usar el plan Standard'
-                other: 'Compensación por %{count} días sin usar el plan Standard.'
+            compensation_basic:
+                one: 'Compensación por un día sin usar el plan Basic'
+                other: 'Compensación por %{count} días sin usar el plan Basic.'
             discount: '%{discount_percent} % de descuento'
             legendary_plan_discount: 'Descuento por venta anticipada'
             legendary_plan_discount_info: 'Con cada venta el descuento disminuye 10$. ¡No esperes!'
@@ -705,7 +705,7 @@ es:
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
             vat: IVA
             wire_cost_pro_html: 'Envía <b><span class="pro-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
-            wire_cost_standard_html: 'Envía <b><span class="standard-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
+            wire_cost_basic_html: 'Envía <b><span class="basic-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
             wire_cost_legendary_html: 'Envía  <b><span class="legendary-total-price">%{price}</span></b> a la siguiente cuenta bancaria:'
             wire_cost_pending_html: 'Si no hiciste un pago aún, envía <b>%{sign}%{price}</b> a la siguiente cuenta bancaria:'
             wire_transfer: 'Transferencia bancaria'

@@ -3,7 +3,7 @@ class SendgridMailToList < BaseService
   CONTACTS_URL = 'https://api.sendgrid.com/v3/marketing/contacts'.freeze
   API_KEY = ENV.fetch('SENDGRID_VALIDATION_API_KEY').freeze
   LIST_NAME = ENV.fetch('SENDGRID_NEW_USERS_LIST').freeze
-  STANDARD_USERS_LIST_NAME = ENV.fetch('SENDGRID_STANDARD_USERS_LIST').freeze
+  BASIC_USERS_LIST_NAME = ENV.fetch('SENDGRID_BASIC_USERS_LIST').freeze
   PRO_USERS_LIST_NAME = ENV.fetch('SENDGRID_PRO_USERS_LIST').freeze
   LEGENDARY_USERS_LIST_NAME = ENV.fetch('SENDGRID_LEGENDARY_USERS_LIST').freeze
   KRAKEN_STARTED = ENV.fetch('SENDGRID_KRAKEN_STARTED').freeze

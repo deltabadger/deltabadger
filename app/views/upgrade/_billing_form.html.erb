@@ -119,8 +119,8 @@
                 </div>
               <% else %>
                 <div id="wire_costs" class="db-form__row--hidden">
-                  <% if 'standard'.in?(current_user.available_plans) %>
-                    <span class="db-show--standard"><%= t('subscriptions.payment.wire_cost_standard_html', price: payments['standard'].price_with_vat) %></span>
+                  <% if 'basic'.in?(current_user.available_plans) %>
+                    <span class="db-show--basic"><%= t('subscriptions.payment.wire_cost_basic_html', price: payments['basic'].price_with_vat) %></span>
                   <% end %>
                   <% if 'pro'.in?(current_user.available_plans) %>
                     <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_pro_html', price: payments['pro'].price_with_vat) %></span>

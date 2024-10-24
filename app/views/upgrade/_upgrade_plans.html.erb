@@ -28,13 +28,13 @@
   <% end %>
 <% end %>
 
-<% if current_user.subscription_name == 'standard' %>
+<% if current_user.subscription_name == 'basic' %>
   <div class="db-plans__item db-plans__item--discount db-plan-active-discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <div class="db-show--standard">
-          </span><span class='standard-flat-discount-with-vat'>-<%= format_price(payments['standard'].flat_discount, currency) %></span>
+        <div class="db-show--basic">
+          </span><span class='basic-flat-discount-with-vat'>-<%= format_price(payments['basic'].flat_discount, currency) %></span>
         </div>
         <div class="db-show--pro">
           </span><span class='pro-flat-discount-with-vat'>-<%= format_price(payments['pro'].flat_discount, currency) %></span>
@@ -44,7 +44,7 @@
         </div>
       </div>
     </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_standard', count: current_user.subscription.days_left) %></div>
+    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_basic', count: current_user.subscription.days_left) %></div>
   </div>
 <% end %>
 
@@ -74,7 +74,7 @@
         <% current_user.available_plans.each do |available_plan_name| %>
           <%= tag.div class: "db-show--#{available_plan_name}" do %>
             <%= tag.span class: "#{available_plan_name}-discount-percent-amount" do %>
-              -<%= format_price(payments['standard'].referral_discount_amount, currency) %>
+              -<%= format_price(payments['basic'].referral_discount_amount, currency) %>
             <% end %>
           <% end %>
         <% end %>
