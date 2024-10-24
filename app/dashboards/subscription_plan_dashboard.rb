@@ -60,6 +60,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(subscription_plan)
-    subscription_plan.display_name
+    subscription_plan.name
   end
 end

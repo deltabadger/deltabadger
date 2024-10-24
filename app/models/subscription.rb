@@ -5,7 +5,6 @@ class Subscription < ApplicationRecord
   validates :user, :subscription_plan_variant, :end_time, presence: true
 
   delegate :name, to: :subscription_plan_variant
-  delegate :display_name, to: :subscription_plan_variant
   delegate :unlimited?, to: :subscription_plan_variant
 
   scope :active, -> { where('end_time > ?', Time.current) }

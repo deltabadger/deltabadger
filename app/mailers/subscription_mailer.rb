@@ -6,7 +6,7 @@ class SubscriptionMailer < ApplicationMailer
       to: @payment.user.email,
       subject: I18n.t(
         'subscription_mailer.subscription_granted.subject',
-        plan_name: @payment.subscription_plan_variant.subscription_plan.display_name
+        plan_name: localized_plan_name(@payment.subscription_plan_variant.name)
       )
     )
   end
@@ -17,7 +17,7 @@ class SubscriptionMailer < ApplicationMailer
     mail(
       to: @payment.user.email,
       from: 'jan@deltabadger.com',
-      subject: "#{@payment.subscription_plan_variant.subscription_plan.display_name} plan granted!"
+      subject: "#{localized_plan_name(@payment.subscription_plan_variant.name)} plan granted!"
     ) do |format|
       format.html { render layout: 'plain_mail' }
     end
