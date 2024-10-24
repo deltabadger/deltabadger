@@ -19,12 +19,12 @@
     = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_prism_c'
       .tooltip
-        = t('links.analyzer')
+        = "Prism"
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_bitcoin'
       .tooltip
-        = t('links.referral_program')
+        = t('links.earn')
 
     = link_to settings_path, class: 'menu__item menu__item--settings', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_sliders'
@@ -33,7 +33,7 @@
 
     = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
       = render 'svg/24x24_fire'
-      .xsbadge= t('utils.new')
+      //.xsbadge= t('utils.new')
       .tooltip
         = t('links.community')
 
