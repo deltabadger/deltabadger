@@ -607,7 +607,7 @@ de:
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
-        basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
+        standard_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
         pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
         legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
         features:
@@ -632,8 +632,8 @@ de:
                 one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
             compensation_standard:
-                one: 'Entschädigung für 1 ungenutzten Tag des Investorenplans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Investorenplans.'
+                one: 'Entschädigung für 1 ungenutzten Tag des Standard-Plans.'
+                other: 'Entschädigung für %{count} ungenutzte Tage des Standard-Plans.'
             discount: 'Rabatt in Höhe von %{discount_percent} %'
             legendary_plan_discount: 'Early Bird-Rabatt'
             legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
