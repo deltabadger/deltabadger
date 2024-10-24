@@ -15,7 +15,6 @@ pt:
         bitwarden_title: 'Experimente a Bitwarden'
         dca_2y_profit_html: 'Se fez investimentos pelo preço médio em Bitcoin nos últimos dois anos, está agora a <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Se fez investimentos pelo preço médio em Bitcoin no último ano, está agora a <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'O investimento pelo preço médio em Bitcoin é a nova norma para poupadores a longo prazo.'
         dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
         features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
         password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
@@ -168,7 +167,7 @@ pt:
                 title: Estatísticas
                 total_invested: 'Total investido'
         for: para
-        force_daily_weekly_monthly_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre com ordens de <split>$100</split> %{currency} cada uma.'
+        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre com ordens de <split>$100</split> %{currency} cada uma.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Corte taxas com ordens limitadas'
         hour: Hora
         limit_buy: 'Limitar compra'

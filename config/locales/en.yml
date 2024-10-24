@@ -15,7 +15,6 @@ en:
         bitwarden_title: 'Try Bitwarden'
         dca_2y_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last two years, you''re now up <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last year, you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Dollar-cost averaging into Bitcoin is the new standard for long-term savers.'
         dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
         features: 'auto-DCA on your exchange account; <i>Smart intervals</i> and five-minute setup; updates and new features every month; support and Telegram community'
         password_managers_html: 'Password managers make security easier.'
@@ -208,7 +207,7 @@ en:
                 title: Statistics
                 total_invested: 'Total invested'
         for: for
-        force_daily_weekly_monthly_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
+        force_smart_intervals_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders'
         hour: Hour
         limit_buy: 'Limit buy'

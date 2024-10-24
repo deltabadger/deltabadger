@@ -15,7 +15,6 @@ fr:
         bitwarden_title: 'Essayez Bitwarden'
         dca_2y_profit_html: 'Si vous avez investi en DCA dans le bitcoin ces deux dernières années, vous auriez gagné <span class="text-success">+%{profit}%</span>.'
         dca_profit_html: 'Si vous avez investi en DCA dans le bitcoin au cours de l''année écoulée, vous auriez gagné <span class="text-success">+%{profit}%</span>.'
-        dca_standard_html: 'Le DCA en Bitcoin est la nouvelle norme pour les épargnants à long terme.'
         dont_trade_automate_html: '<div>Ne tradez pas.</div> <div>Automatisez.</div>'
         features: "auto-DCA sur votre compte d''exchange;\n<i> Intervalles intelligents </i> et configuration en cinq minutes; mises à jour et nouvelles fonctionnalités chaque mois; support et communauté Telegram"
         password_managers_html: 'Les gestionnaires de mots de passe facilitent la sécurité.'
@@ -197,7 +196,7 @@ fr:
                 title: 'Statistiques'
                 total_invested: 'Total investi'
         for: 'pour'
-        force_daily_weekly_monthly_html: '<b>Intervalles Intelligents<sup>®</sup></b> · Achetez avec des ordres de <split>100$</split> %{currency} chacun.'
+        force_smart_intervals_html: '<b>Intervalles Intelligents<sup>®</sup></b> · Achetez avec des ordres de <split>100$</split> %{currency} chacun.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Réduisez les frais avec des ordres à cours limité'
         hour: 'Heure'
         limit_buy: 'Achat limité'
