@@ -3,14 +3,12 @@ class VatRate < ApplicationRecord
 
   validates :vat, numericality: { greater_than_or_equal_to: 0, less_than: 1 }
 
-  def eu?
-    country != NOT_EU
-  end
+  scope :eu_countries, -> { where.not(country: NOT_EU) }
+  scope :non_eu_countries, -> { where(country: NOT_EU) }
 
   def self.all_in_display_order
-    all_in_alphabetical_order = all.order(country: :asc)
-    eu_in_alphabetical_order = all_in_alphabetical_order.select(&:eu?)
-    other_in_alphabetical_order = all_in_alphabetical_order.reject(&:eu?)
+    eu_in_alphabetical_order = eu_countries.order(country: :asc)
+    other_in_alphabetical_order = non_eu_countries.order(country: :asc)
     other_in_alphabetical_order + eu_in_alphabetical_order
   end
 end

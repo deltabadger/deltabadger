@@ -1,3 +1,9 @@
+// hide radio buttons for the tabs, guillem workaround
+.hide_radio_buttons > input
+  visibility: hidden
+  position: absolute
+// hide radio buttons for the tabs, guillem workaround
+
 .db--upgrade
   .modal-body
     padding: 3rem
@@ -15,6 +21,9 @@
   display: flex
   gap: 1rem
   flex-direction: column
+  &__item > input // hide radio buttons
+    visibility: hidden
+    position: absolute
   &__item
     padding: 2.4rem 3rem
     background: var(--white)
@@ -193,30 +202,6 @@
       margin-right: 0.125rem
   @include media-breakpoint-down(sm)
     display: block
-
-.db-checkout--standard-plan
-  .db-show--pro, .db-show--legendary
-    display: none
-
-.db-checkout--pro-plan
-  .db-show--standard, .db-show--legendary
-    display: none
-
-.db-checkout--legendary-plan
-  .db-show--standard, .db-show--pro
-    display: none
-
-.db-checkout--eu
-  .db-show--eu
-    display: inline
-  .db-show--other
-    display: none
-
-.db-checkout--other
-  .db-show--eu
-    display: none
-  .db-show--other
-    display: inline
 
 .db-checkout-summary
   background: var(--paper) !important

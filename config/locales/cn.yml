@@ -663,9 +663,9 @@ cn:
             routing_number: 汇款路线号码
             server_error: ''
             vat: VAT
-            wire_cost_pro_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''pro-total-price''>%{price}</span></b> 转账到以下银行账号：'
-            wire_cost_standard_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''standard-total-price''>%{price}</span></b> 转账到以下银行账号：'
-            wire_cost_legendary_html: '请将 <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''legendary-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_pro_html: '请将 <b><span class=''pro-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_standard_html: '请将 <b><span class=''standard-total-price''>%{price}</span></b> 转账到以下银行账号：'
+            wire_cost_legendary_html: '请将 <b><span class=''legendary-total-price''>%{price}</span></b> 转账到以下银行账号：'
             wire_cost_pending_html: '如果尚未付款，请将 <b>%{sign}%{price}</b> 转账到以下银行账号：'
             wire_transfer: 电汇
             wire_transfer_description_html: '要电汇支付，请发送发票的基本信息：<b>名字</b>、<b>姓氏</b>、<b>物理地址</b>、在 Deltabadger 使用的<b>电子邮件</b>，以及您想购买的套餐：<a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>。'

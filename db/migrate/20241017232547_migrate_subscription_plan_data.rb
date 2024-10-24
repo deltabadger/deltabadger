@@ -12,9 +12,17 @@ class MigrateSubscriptionPlanData < ActiveRecord::Migration[6.0]
     remove_column :subscription_plans, :years
     remove_column :subscription_plans, :cost_eu
     remove_column :subscription_plans, :cost_other
+
+    remove_foreign_key :subscriptions, :subscription_plans
+    rename_column :subscriptions, :subscription_plan_id, :subscription_plan_variant_id
+    add_foreign_key :subscriptions, :subscription_plan_variants
   end
 
   def down
+    remove_foreign_key :subscriptions, :subscription_plan_variants
+    rename_column :subscriptions, :subscription_plan_variant_id, :subscription_plan_id
+    add_foreign_key :subscriptions, :subscription_plans
+
     add_column :subscription_plans, :years, :integer, default: 1, null: false
     add_column :subscription_plans, :cost_eu, :decimal, default: 0.0, null: false
     add_column :subscription_plans, :cost_other, :decimal, default: 0.0, null: false

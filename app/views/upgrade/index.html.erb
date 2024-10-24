@@ -1,22 +1,41 @@
-<div class="db-country <%= checkout_class_for(@payment) %>">
-  <%= render partial: "layouts/navbar/signed_in" %>
-  <div class="row db-checkout db-checkout--<%= @payment.subscription_plan.name %>-plan">
-    <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
-      <%= render partial: "current_plan", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                 } %>
-      <%= render partial: "upgrade_plans", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                 } %>
-    </div>
-    <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
-      <%= render partial: "upgrade_summary", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                 } %>
-      <%= render partial: "billing_form", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                   errors: @errors,
-                 } %>
-    </div>
+<%= turbo_frame_tag "upgrade-frame" do %>
+  <div class="db-country">
+    <%= tag.div class: "row db-checkout db-checkout--#{@selected_plan}-plan" do %>
+      <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
+
+        <% if current_user.unlimited? %>
+          <%= tag.div class: "db-plans__item db-plans__item--#{current_user.subscription_name}-plan db-plans__item--current" do %>
+            <%# legendary users will never land here %>
+            <%= render partial: "#{current_user.subscription_name}_plan_card" %>
+          <% end %>
+        <% end %>
+
+        <h4 class="mb-4 mt-5 pb-4"><%= t('subscriptions.prolong_upgrade') %></h4>
+        <%= render partial: "upgrade_plans", locals: {
+                    selected_plan: @selected_plan,
+                    selected_country: @selected_country,
+                    selected_payment_type: @selected_payment_type,
+                    payments: @payments,
+                    legendary_plan: @legendary_plan,
+                    currency: @currency,
+                  } %>
+      </div>
+      <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
+        <%= render partial: "upgrade_summary", locals: {
+                    selected_plan: @selected_plan,
+                    payments: @payments,
+                    currency: @currency,
+                  } %>
+        <%= render partial: "billing_form", locals: {
+                    selected_plan: @selected_plan,
+                    selected_country: @selected_country,
+                    selected_payment_type: @selected_payment_type,
+                    # errors: @errors,
+                    currency: @currency,
+                    countries: @countries,
+                    payments: @payments,
+                  } %>
+      </div>
+    <% end %>
   </div>
-</div>
+<% end %>

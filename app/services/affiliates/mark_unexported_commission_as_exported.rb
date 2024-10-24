@@ -2,8 +2,8 @@ module Affiliates
   class MarkUnexportedCommissionAsExported < BaseService
     def call
       Affiliate.where.not(btc_address: [nil, '']).update_all(
-        'exported_crypto_commission = exported_crypto_commission + unexported_crypto_commission, '\
-        'unexported_crypto_commission = 0'
+        'exported_btc_commission = exported_btc_commission + unexported_btc_commission, '\
+        'unexported_btc_commission = 0'
       )
     end
   end

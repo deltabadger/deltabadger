@@ -20,13 +20,13 @@ module PaymentsManager
 
         update_params = {
           external_statuses: new_external_statuses(payment, external_status),
-          crypto_paid: params['btcPaid']
+          btc_paid: params['btcPaid']
         }
         update_params.merge!(status: status) unless payment.paid?
         if just_paid
           update_params.merge!(paid_at: paid_at(params),
                                commission: recalculate_commission(params, payment),
-                               crypto_commission: recalculate_crypto_commission(params, payment))
+                               btc_commission: recalculate_btc_commission(params, payment))
         end
         unless payment.update(update_params)
           return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
@@ -68,16 +68,16 @@ module PaymentsManager
         Time.at(params['currentTime'] / 1000)
       end
 
-      def recalculate_crypto_commission(params, payment)
-        return 0 if Utilities::Number.to_bigdecimal(payment.crypto_total, precision: 8).zero?
+      def recalculate_btc_commission(params, payment)
+        return 0 if Utilities::Number.to_bigdecimal(payment.btc_total, precision: 8).zero?
 
-        params['btcPaid'].to_f / payment.crypto_total * payment.crypto_commission
+        params['btcPaid'].to_f / payment.btc_total * payment.btc_commission
       end
 
       def recalculate_commission(params, payment)
-        return 0 if Utilities::Number.to_bigdecimal(payment.crypto_total, precision: 8).zero?
+        return 0 if Utilities::Number.to_bigdecimal(payment.btc_total, precision: 8).zero?
 
-        (params['btcPaid'].to_f / payment.crypto_total * payment.commission.to_f).round(2)
+        (params['btcPaid'].to_f / payment.btc_total * payment.commission.to_f).round(2)
       end
     end
   end

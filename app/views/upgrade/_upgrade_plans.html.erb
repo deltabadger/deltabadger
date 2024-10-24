@@ -1,44 +1,31 @@
-<% cost_presenter = upgrade_presenter.selected_cost_presenter %>
-<% unless current_user.subscription_name.in?(['free', 'legendary']) %>
-  <h4 class="mb-4 mt-5 pb-4"><%= t('subscriptions.prolong_upgrade') %></h4>
-<% end %>
-
-<% if 'standard'.in?(current_user.available_plans) %>
-  <% standard_selected = payment.subscription_plan.name == 'standard' %>
-  <div class="db-plans__item db-plans__item--standard-plan db-plan-standard db-plan--<%= standard_selected ? 'selected' : 'other' %>">
-    <%= render partial: 'standard_plan_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:standard] } %>
-  </div>
-<% end %>
-
-<% if 'pro'.in?(current_user.available_plans) %>
-  <% pro_selected = payment.subscription_plan.name == 'pro' %>
-  <div class="db-plans__item db-plans__item--pro-plan db-plan-pro db-plan--<%= pro_selected ? 'selected' : 'other' %>">
-    <%= render partial: 'pro_plan_card', locals: { days_left: nil, upgrade_presenter: upgrade_presenter, cost_presenter: cost_presenter[:pro] } %>
-  </div>
-<% end %>
-
-<% if 'legendary'.in?(current_user.available_plans) %>
-  <% legendary_plan_selected = payment.subscription_plan.name == 'legendary' %>
-  <div class="db-plans__item db-plans__item--legendary-plan db-plan-legendary db-plan--<%= legendary_plan_selected ? 'selected' : 'other' %>">
-    <%= render partial: 'legendary_plan_card', locals: {
-      days_left: nil,
-      upgrade_presenter: upgrade_presenter,
-      cost_presenter: cost_presenter[:legendary]
-    } %>
-    <%= render partial: 'layouts/svg_bubbleart_01' %>
-  </div>
-
-  <div class="db-plans__item db-plans__item--discount db-plan-legendary-discount">
-    <div class="db-plans__item__name">
-      <%= t('subscriptions.payment.legendary_plan_discount') %>
-    </div>
-    <div class="db-plans__item__amount">
-      <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='db-plan-legendary-discount'><%= legendary_plan.for_sale_count %></span>
+<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, local: true do |form| %>
+  <% current_user.available_plans.each do |available_plan_name| %>
+    <% selected = selected_plan == available_plan_name %>
+    <%= tag.label class: "db-plans__item db-plans__item--#{available_plan_name}-plan db-plan-#{available_plan_name} db-plan--#{selected ? 'selected' : 'other'}" do %>
+      <%= form.radio_button :plan, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+      <%= render partial: "#{available_plan_name}_plan_card", locals: {
+        payment: payments[available_plan_name],
+        currency: currency,
+        legendary_plan: available_plan_name == 'legendary' ? legendary_plan : nil,
+      } %>
+      <% if available_plan_name == 'legendary' %>
+        <%= render partial: 'layouts/svg_bubbleart_01' %>
+      <% end %>
+    <% end %>
+    <% if available_plan_name == 'legendary' %>
+      <div class="db-plans__item db-plans__item--discount db-plan-legendary-discount">
+        <div class="db-plans__item__name">
+          <%= t('subscriptions.payment.legendary_plan_discount') %>
+        </div>
+        <div class="db-plans__item__amount">
+          <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
+            <span class='db-plan-legendary-discount'>-<%= format_price(legendary_plan.current_discount, currency) %></span>
+          </div>
+        </div>
+        <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
       </div>
-    </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
-  </div>
+    <% end %>
+  <% end %>
 <% end %>
 
 <% if current_user.subscription_name == 'standard' %>
@@ -47,17 +34,17 @@
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
         <div class="db-show--standard">
-          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='standard-flat-discount-with-vat'><%= cost_presenter[:standard].flat_discount %></span>
+          </span><span class='standard-flat-discount-with-vat'>-<%= format_price(payments['standard'].flat_discount, currency) %></span>
         </div>
         <div class="db-show--pro">
-          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='pro-flat-discount-with-vat'><%= cost_presenter[:pro].flat_discount %></span>
+          </span><span class='pro-flat-discount-with-vat'>-<%= format_price(payments['pro'].flat_discount, currency) %></span>
         </div>
         <div class="db-show--legendary">
-          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary-flat-discount-with-vat'><%= cost_presenter[:legendary].flat_discount %></span>
+          </span><span class='legendary-flat-discount-with-vat'>-<%= format_price(payments['legendary'].flat_discount, currency) %></span>
         </div>
       </div>
     </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_standard', count: subscribed_plan_days_left) %></div>
+    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_standard', count: current_user.subscription.days_left) %></div>
   </div>
 <% end %>
 
@@ -67,37 +54,29 @@
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
         <div class="db-show--pro">
-          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='pro-flat-discount-with-vat'><%= cost_presenter[:pro].flat_discount %></span>
+          <span class='pro-flat-discount-with-vat'>-<%= format_price(payments['pro'].flat_discount, currency) %></span>
         </div>
         <div class="db-show--legendary">
-          <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary-flat-discount-with-vat'><%= cost_presenter[:legendary].flat_discount %></span>
+          <span class='legendary-flat-discount-with-vat'>-<%= format_price(payments['legendary'].flat_discount, currency) %></span>
         </div>
       </div>
     </div>
-    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_pro', count: subscribed_plan_days_left) %></div>
+    <div class="db-plans__item__info"><%= t('subscriptions.payment.compensation_pro', count: current_user.subscription.days_left) %></div>
   </div>
 <% end %>
 
-<% if upgrade_presenter.referrer_discount? %>
-  <% discount_presenter = RefCodesPresenter.new(upgrade_presenter.referrer) %>
+<% if current_user.eligible_referrer.present? %>
+  <% discount_presenter = RefCodesPresenter.new(current_user.eligible_referrer) %>
   <div class="db-plans__item db-plans__item--discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent) %></div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        <% if 'standard'.in?(current_user.available_plans) %>
-          <div class="db-show--standard">
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='standard-discount-percent-amount'><%= cost_presenter[:standard].discount_percent_amount %></span>
-          </div>
-        <% end %>
-        <% if 'pro'.in?(current_user.available_plans) %>
-          <div class="db-show--pro">
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='pro-discount-percent-amount'><%= cost_presenter[:pro].discount_percent_amount %></span>
-          </div>
-        <% end %>
-        <% if 'legendary'.in?(current_user.available_plans) %>
-          <div class="db-show--legendary">
-            <span class='db-show--eu'>-€</span><span class='db-show--other'>-$</span><span class='legendary-discount-percent-amount'><%= cost_presenter[:legendary].discount_percent_amount %></span>
-          </div>
+        <% current_user.available_plans.each do |available_plan_name| %>
+          <%= tag.div class: "db-show--#{available_plan_name}" do %>
+            <%= tag.span class: "#{available_plan_name}-discount-percent-amount" do %>
+              -<%= format_price(payments['standard'].referral_discount_amount, currency) %>
+            <% end %>
+          <% end %>
         <% end %>
       </div>
     </div>

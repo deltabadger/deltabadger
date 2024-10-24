@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_10_23_184350) do
+ActiveRecord::Schema.define(version: 2024_10_23_225401) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -153,7 +153,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_184350) do
   create_table "payments", force: :cascade do |t|
     t.string "payment_id"
     t.integer "status"
-    t.decimal "total"
+    t.decimal "total", precision: 10, scale: 2
     t.integer "currency"
     t.bigint "user_id"
     t.datetime "created_at", null: false
@@ -165,7 +165,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_184350) do
     t.string "external_statuses", default: "", null: false
     t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "commission", default: "0.0", null: false
+    t.decimal "commission", precision: 10, scale: 2, default: "0.0", null: false
     t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
     t.boolean "discounted", default: false, null: false
     t.bigint "subscription_plan_id", null: false
@@ -223,7 +223,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_184350) do
   end
 
   create_table "subscriptions", force: :cascade do |t|
-    t.bigint "subscription_plan_id"
+    t.bigint "subscription_plan_variant_id"
     t.bigint "user_id"
     t.datetime "end_time"
     t.datetime "created_at", null: false
@@ -233,7 +233,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_184350) do
     t.datetime "first_month_ending_sent_at"
     t.integer "nft_id"
     t.string "eth_address"
-    t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
+    t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
@@ -311,7 +311,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_184350) do
   add_foreign_key "payments", "users"
   add_foreign_key "portfolios", "users"
   add_foreign_key "subscription_plan_variants", "subscription_plans"
-  add_foreign_key "subscriptions", "subscription_plans"
+  add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
   add_foreign_key "users", "affiliates", column: "referrer_id"

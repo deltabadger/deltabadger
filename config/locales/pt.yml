@@ -612,9 +612,9 @@ pt:
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             routing_number: 'Número de encaminhamento'
             vat: IVA
-            wire_cost_pro_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_standard_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_legendary_html: 'Por favor, envie  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_pro_html: 'Por favor, envie <b><span class="pro-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_standard_html: 'Por favor, envie <b><span class="standard-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_legendary_html: 'Por favor, envie  <b><span class="legendary-total-price">%{price}</span></b> para a seguinte conta bancária:'
             wire_transfer: 'Transferência bancária'
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'

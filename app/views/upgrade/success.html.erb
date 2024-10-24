@@ -1,12 +1,11 @@
 <% if @payment.present? %>
   <%= tag.div data: {
-    controller: "zaraz",
-    zaraz_is_purchase_value: true,
-    zaraz_currency_value: @payment.currency,
-    zaraz_name_value: current_user.subscription_name,
-    zaraz_price_value: @payment.total
+    controller: "data-layer",
+    data_layer_is_purchase_value: true,
+    data_layer_currency_value: @payment.currency,
+    data_layer_name_value: current_user.subscription_name,
+    data_layer_price_value: @payment.total
   } %>
 <% end %>
 
-<%= render partial: "layouts/navbar/signed_in" %>
 <h1>Your account has been successfully upgraded!</h1>

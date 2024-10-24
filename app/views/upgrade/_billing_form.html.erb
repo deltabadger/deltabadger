@@ -1,232 +1,185 @@
-<% cost_presenters = upgrade_presenter.all_cost_presenters %>
 <% pending_wire_transfer = !current_user.pending_wire_transfer.nil? %>
-<% show_zen_payment = SettingFlag.show_zen_payment? %>
-<% show_bitcoin_payment = SettingFlag.show_bitcoin_payment? %>
-<% show_wire_payment = SettingFlag.show_wire_payment? %>
-<% active_zen_tab = !!show_zen_payment %>
-<% active_bitcoin_tab = !show_zen_payment && show_bitcoin_payment %>
-<% active_wire_tab = !show_zen_payment && !show_bitcoin_payment %>
-<% keys = %w[standard pro legendary] %>
+<% active_zen_tab = selected_payment_type == 'zen' %>
+<% active_bitcoin_tab = selected_payment_type == 'btcpay' %>
+<% active_wire_tab = selected_payment_type == 'wire_transfer' %>
+
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
     <div class="modal-body">
-      <ul id="payTab" class="nav nav-tabs" role="tablist">
-        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_zen_payment %>">
-          <a href="#payZen" id="log-tab" class="nav-link show <%= pending_wire_transfer ? 'disabled' : ('active' if active_zen_tab) %>" aria-controls="payZen" <%= "aria-selected" if active_zen_tab %> data-toggle="tab" role = "tab">
-          <div class="db-card-providers">
-            <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
-            <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
-          </div>
-          </a>
-        </li>
-        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_bitcoin_payment %>">
-          <a href="#payBitcoin" id="log-tab" class="nav-link <%= pending_wire_transfer ? 'disabled' : ('active' if active_bitcoin_tab) %>" aria-controls="payBitcoin" <%= "aria-selected" if active_bitcoin_tab %> data-toggle="tab" role = "tab">
+      <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "billing-form-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
+        <% if SettingFlag.show_zen_payment? %>
+          <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
+            <%= form.radio_button :payment_type, 'zen', checked: active_zen_tab %>
+            <div class="db-card-providers">
+              <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
+              <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
+            </div>
+          <% end %>
+        <% end %>
+        <% if SettingFlag.show_bitcoin_payment? %>
+          <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
+            <%= form.radio_button :payment_type, 'btcpay', checked: active_bitcoin_tab %>
             <div class="db-card-providers">
               <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
             </div>
-          </a>
-        </li>
-        <li class="nav-item <%= 'disabled' if pending_wire_transfer %> <%= 'hidden' unless show_wire_payment %>">
-          <a href="#payWire" id="log-tab" class="nav-link <%= 'active disabled' if pending_wire_transfer %> <%= 'active' if active_wire_tab %>" aria-controls="payWire" <%= "aria-selected" if active_wire_tab %> data-toggle="tab" role = "tab">
+          <% end %>
+        <% end %>
+        <% if SettingFlag.show_wire_payment? %>
+          <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
+            <%= form.radio_button :payment_type, 'wire_transfer', checked: active_wire_tab %>
             <%= t('subscriptions.payment.wire_transfer') %>
-          </a>
-        </li>
-      </ul>
-      <div id="payTabContent" class="tab-content" data-controller="zaraz">
-
-        <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
-          <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |f| %>
-            <% if 'standard'.in?(current_user.available_plans) %>
-              <% standard_selected = payment.subscription_plan.name == 'standard' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard_zen" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.standard.id %>" <%= "checked" if standard_selected %>>
-            <% end %>
-            <% if 'pro'.in?(current_user.available_plans) %>
-              <% pro_selected = payment.subscription_plan.name == 'pro' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro_zen" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.pro.id %>" <%= "checked" if pro_selected %>>
-            <% end %>
-            <% if 'legendary'.in?(current_user.available_plans) %>
-              <% legendary_selected = payment.subscription_plan.name == 'legendary' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary_zen" name="payment[subscription_plan_id]" value="<%= legendary_plan.id %>" <%= "checked" if legendary_selected %>>
-            <% end %>
-            <div class="db-form__row">
-              <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
-                <% cost_presenters.each do |country, presenter| %>
-                  <% selected = country == upgrade_presenter.payment.country %>
-                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
-                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:standard].base_price, hbp: presenter[:pro].base_price, lbbp: presenter[:legendary].base_price, ifd: presenter[:standard].flat_discount, hfd: presenter[:pro].flat_discount, lbfd: presenter[:legendary].flat_discount, idp:presenter[:standard].flat_discounted_price, hdp:presenter[:pro].flat_discounted_price, lbdp:presenter[:legendary].flat_discounted_price, idpa: presenter[:standard].discount_percent_amount, hdpa: presenter[:pro].discount_percent_amount, lbdpa: presenter[:legendary].discount_percent_amount, vp: presenter[:standard].vat_integer, itv: presenter[:standard].total_vat, htv: presenter[:pro].total_vat, lbtv: presenter[:legendary].total_vat, itp: presenter[:standard].total_price, htp: presenter[:pro].total_price , lbtp: presenter[:legendary].total_price } %>
-                <% end %>
-              <% end %>
-              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :country, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row db-form__row--final-button">
-              <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
-                <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
-                <% keys.each do |key| %>
-                  <%= render partial: 'upgrade_summary_plan', locals: { upgrade_presenter: upgrade_presenter, cost_presenter: upgrade_presenter.selected_cost_presenter, method: 'total_price', key: key } %>
-                  </span>
-                <% end %>
-              <% end %>
-            </div>
           <% end %>
-        </div>
+        <% end %>
+      <% end %>
 
-        <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
-          <%= form_with model: Payment, url: upgrade_btcpay_payment_path, local: true do |f| %>
-            <% if 'standard'.in?(current_user.available_plans) %>
-              <% standard_selected = payment.subscription_plan.name == 'standard' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_standard" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.standard.id %>" <%= "checked" if standard_selected %>>
-            <% end %>
-            <% if 'pro'.in?(current_user.available_plans) %>
-              <% pro_selected = payment.subscription_plan.name == 'pro' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_pro" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.pro.id %>" <%= "checked" if pro_selected %>>
-            <% end %>
-            <% if 'legendary'.in?(current_user.available_plans) %>
-              <% legendary_selected = payment.subscription_plan.name == 'legendary' %>
-              <input type="radio" class="db-plan-radio <%= 'disabled' if pending_wire_transfer %>" id="payment_plan_legendary" name="payment[subscription_plan_id]" value="<%= legendary_plan.id %>" <%= "checked" if legendary_selected %>>
-            <% end %>
-            <div class="db-form__row">
-              <%= f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", onchange: 'this.setAttribute("value", this.value);' %>
-              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :first_name, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row">
-              <%= f.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", onchange: 'this.setAttribute("value", this.value);' %>
-              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :last_name, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row">
-              <%= f.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date', onchange: 'this.setAttribute("value", this.value);' %>
-              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.birth_date') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :birth_date, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row">
-              <%= f.select :country, nil, {}, value: "", autocomplete: "country-name", class: 'db-form__input db-form__input--select', onchange: 'this.setAttribute("value", this.value);', onfocus: 'this.setAttribute("value", this.value);' do %>
-                <% cost_presenters.each do |country, presenter| %>
-                  <% selected = country == upgrade_presenter.payment.country %>
-                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
-                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:standard].base_price, hbp: presenter[:pro].base_price, lbbp: presenter[:legendary].base_price, ifd: presenter[:standard].flat_discount, hfd: presenter[:pro].flat_discount, lbfd: presenter[:legendary].flat_discount, idp:presenter[:standard].flat_discounted_price, hdp:presenter[:pro].flat_discounted_price, lbdp:presenter[:legendary].flat_discounted_price, idpa: presenter[:standard].discount_percent_amount, hdpa: presenter[:pro].discount_percent_amount, lbdpa: presenter[:legendary].discount_percent_amount, vp: presenter[:standard].vat_integer, itv: presenter[:standard].total_vat, htv: presenter[:pro].total_vat, lbtv: presenter[:legendary].total_vat, itp: presenter[:standard].total_price, htp: presenter[:pro].total_price , lbtp: presenter[:legendary].total_price } %>
-                <% end %>
-              <% end %>
-              <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
-              <%= f.label :country, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row db-form__row--final-button">
-              <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100 px-1" do %>
-                <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
-              <% end %>
-            </div>
-          <% end %>
-        </div>
+      <%= turbo_frame_tag "billing-form-frame" do %>
+        <div id="payTabContent" class="tab-content" data-controller="data-layer">
 
-        <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
-          <form id="new_payment" class="new_payment" accept-charset="UTF-8" action="/en/upgrade/wire_transfer_payment" method="post">
-            <% if 'standard'.in?(current_user.available_plans) %>
-              <% standard_selected = payment.subscription_plan.name == 'standard' %>
-              <input type="radio" class="db-plan-radio" id="payment_plan_standard_wire" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.standard.id %>" <%= "checked" if standard_selected %>>
-            <% end %>
-            <% if 'pro'.in?(current_user.available_plans) %>
-              <% pro_selected = payment.subscription_plan.name == 'pro' %>
-              <input type="radio" class="db-plan-radio" id="payment_plan_pro_wire" name="payment[subscription_plan_id]" value="<%= SubscriptionPlan.pro.id %>" <%= "checked" if pro_selected %>>
-            <% end %>
-            <% if 'legendary'.in?(current_user.available_plans) %>
-              <% legendary_selected = payment.subscription_plan.name == 'legendary' %>
-              <input type="radio" class="db-plan-radio" id="payment_plan_legendary_wire" name="payment[subscription_plan_id]" value="<%= legendary_plan.id %>" <%= "checked" if legendary_selected %>>
-            <% end %>
-            <div class="db-form__row">
-              <input id="payment_first_name_wire" class="db-form__input" type="text" name="payment[first_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="given-name" <%= "disabled" if pending_wire_transfer %>>
-              <label class="db-form__label" for="payment_first_name"><%= t('helpers.label.payment.first_name') %></label>
-            </div>
-            <div class="db-form__row">
-              <input id="payment_last_name_wire" class="db-form__input" type="text" name="payment[last_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="family-name"<%= "disabled" if pending_wire_transfer %>>
-              <label class="db-form__label" for="payment_last_name"><%= t('helpers.label.payment.last_name') %></label>
-            </div>
-            <div class="db-form__row">
-              <select id="payment_country_wire" class="db-form__input db-form__input--select" autocomplete="country-name" name="payment[country]" onchange="this.setAttribute('value', this.value);" onfocus="this.setAttribute('value', this.value);" value="" <%= "disabled" if pending_wire_transfer %>>
-                <% cost_presenters.each do |country, presenter| %>
-                  <% selected = country == upgrade_presenter.payment.country %>
-                  <% translated_name = country == 'Other' ? t('helpers.label.payment.other') : country %>
-                  <%= content_tag :option, translated_name, value: country, selected: selected, data: { ibp: presenter[:standard].base_price, hbp: presenter[:pro].base_price, lbbp: presenter[:legendary].base_price, ifd: presenter[:standard].flat_discount, hfd: presenter[:pro].flat_discount, lbfd: presenter[:legendary].flat_discount, idp:presenter[:standard].flat_discounted_price, hdp:presenter[:pro].flat_discounted_price, lbdp:presenter[:legendary].flat_discounted_price, idpa: presenter[:standard].discount_percent_amount, hdpa: presenter[:pro].discount_percent_amount, lbdpa: presenter[:legendary].discount_percent_amount, vp: presenter[:standard].vat_integer, itv: presenter[:standard].total_vat, htv: presenter[:pro].total_vat, lbtv: presenter[:legendary].total_vat, itp: presenter[:standard].total_price, htp: presenter[:pro].total_price , lbtp: presenter[:legendary].total_price } %>
-                <% end %>
-              </select>
-              <label class="db-form__label" for="payment_country"><%= t('helpers.label.payment.country') %></label>
-            </div>
-            <div id="please_fill_wire_form" class="db-form__row--visible"><%= t('subscriptions.payment.wire_transfer_fill_form') %></div>
-            <% if pending_wire_transfer %>
-              <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
+          <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
+            <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "upgrade-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
               <div class="db-form__row">
-                <% name = upgrade_presenter.subscription_plan_repository.find(current_user.pending_plan_id).name %>
-                <% if name == 'pro' %>
-                  <% price = cost_presenters[current_user.pending_wire_transfer][:pro].total_price %>
-                <% elsif name == 'legendary' %>
-                  <% price = cost_presenters[current_user.pending_wire_transfer][:legendary].total_price %>
-                <% else %>
-                  <% price = cost_presenters[current_user.pending_wire_transfer][:standard].total_price %>
-                <% end %>
-                <%= t('subscriptions.payment.wire_cost_pending_html', sign: current_user.pending_wire_transfer.downcase == 'other' ? '$' : '€', price: price) %>
+                <%= form.select :country, countries, { selected: selected_country }, autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select' %>
+                <%= form.label :country, class: 'db-form__label' %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
               </div>
-            <% else %>
-              <div id="wire_costs" class="db-form__row--hidden">
-                <% if 'standard'.in?(current_user.available_plans) %>
-                  <span class="db-show--standard"><%= t('subscriptions.payment.wire_cost_standard_html', price: cost_presenters[upgrade_presenter.payment.country][:standard].total_price) %></span>
-                <% end %>
-                <% if 'pro'.in?(current_user.available_plans) %>
-                  <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_pro_html', price: cost_presenters[upgrade_presenter.payment.country][:pro].total_price) %></span>
-                <% end %>
-                <% if 'legendary'.in?(current_user.available_plans) %>
-                  <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_legendary_html', price: cost_presenters[upgrade_presenter.payment.country][:legendary].total_price) %></span>
+            <% end %>
+            <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |form| %>
+              <%= form.hidden_field :country, value: selected_country %>
+              <div class="db-form__row db-form__row--final-button">
+                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->data-layer#sendBeginCheckoutEvent", data_layer_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
+                  <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
+                  <%= tag.span class: "db-show--#{selected_plan}" do %>
+                    <%= tag.span class: "#{selected_plan}-total-price" do %>
+                      <%= payments[selected_plan].price_with_vat %>
+                    <% end %>
+                  <% end %>
                 <% end %>
               </div>
             <% end %>
-            <div id="wire_form_eu" class="db-form__row--hidden">
-              <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
-              <p>Deltabadger OU</p>
-              <h5>BIC</h5>
-              <p>TRWIBEB1XXX</p>
-              <h5><%= "IBAN (" + t('subscriptions.payment.eu_bank_country') + ")" %></h5>
-              <p>BE83 9670 6500 4615</p>
-              <h5><%= t('subscriptions.payment.bank_address') %></h5>
-              <p>
-                Avenue Louise 54, Room S52<br>
-                Brussels<br>
-                1050<br>
-                Belgium
-              </p>
-              <% unless pending_wire_transfer %>
-                <div class="db-form__row db-form__row--final-button">
-                  <button class="btn btn-success btn-lg w-100 px-1" type="submit">
-                    <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer') %></span>
-                  </button>
+          </div>
+
+          <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
+            <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "upgrade-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
+              <div class="db-form__row">
+                <%= form.select :country, countries, { selected: selected_country }, autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select' %>
+                <%= form.label :country, class: 'db-form__label' %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
+              </div>
+            <% end %>
+            <%= form_with model: Payment, url: upgrade_btcpay_payment_path, local: true do |form| %>
+              <%= form.hidden_field :country, value: selected_country %>
+              <div class="db-form__row">
+                <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name" %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
+                <%= form.label :first_name, class: 'db-form__label' %>
+              </div>
+              <div class="db-form__row">
+                <%= form.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name" %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank') %></div>
+                <%= form.label :last_name, class: 'db-form__label' %>
+              </div>
+              <div class="db-form__row">
+                <%= form.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date' %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.birth_date') + ' ' + t('errors.messages.blank') %></div>
+                <%= form.label :birth_date, class: 'db-form__label' %>
+              </div>
+              <div class="db-form__row db-form__row--final-button">
+                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->data-layer#sendBeginCheckoutEvent", data_layer_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
+                  <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
+            <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, local: true do |form| %>
+              <div class="db-form__row">
+                <%= form.select :country, countries, { selected: selected_country }, autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select', data: { action: "change->form--submit#submit" } %>
+                <%= form.label :country, class: 'db-form__label' %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
+              </div>
+            <% end %>
+            <%= form_with model: Payment, url: upgrade_wire_transfer_payment_path, local: true, id: "new_payment", class: "new_payment" do |form| %>
+              <%= form.hidden_field :country, value: selected_country %>
+              <div class="db-form__row">
+                <input id="payment_first_name_wire" class="db-form__input" type="text" name="payment[first_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="given-name" <%= "disabled" if pending_wire_transfer %>>
+                <label class="db-form__label" for="payment_first_name"><%= t('helpers.label.payment.first_name') %></label>
+              </div>
+              <div class="db-form__row">
+                <input id="payment_last_name_wire" class="db-form__input" type="text" name="payment[last_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="family-name"<%= "disabled" if pending_wire_transfer %>>
+                <label class="db-form__label" for="payment_last_name"><%= t('helpers.label.payment.last_name') %></label>
+              </div>
+              <div id="please_fill_wire_form" class="db-form__row--visible"><%= t('subscriptions.payment.wire_transfer_fill_form') %></div>
+              <% if pending_wire_transfer %>
+                <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
+                <div class="db-form__row">
+                  <% name = SubscriptionPlan.find(current_user.pending_plan_id).name %>
+                  <% price = payments[name].price_with_vat %>
+                  <%= t('subscriptions.payment.wire_cost_pending_html', sign: current_user.pending_wire_transfer == VatRate::NOT_EU ? '$' : '€', price: price) %>
+                </div>
+              <% else %>
+                <div id="wire_costs" class="db-form__row--hidden">
+                  <% if 'standard'.in?(current_user.available_plans) %>
+                    <span class="db-show--standard"><%= t('subscriptions.payment.wire_cost_standard_html', price: payments['standard'].price_with_vat) %></span>
+                  <% end %>
+                  <% if 'pro'.in?(current_user.available_plans) %>
+                    <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_pro_html', price: payments['pro'].price_with_vat) %></span>
+                  <% end %>
+                  <% if 'legendary'.in?(current_user.available_plans) %>
+                    <span class="db-show--legendary"><%= t('subscriptions.payment.wire_cost_legendary_html', price: payments['legendary'].price_with_vat) %></span>
+                  <% end %>
                 </div>
               <% end %>
-            </div>
-            <div id="wire_form_other" class="db-form__row--hidden">
-              <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
-              <p>Deltabadger OU</p>
-              <h5>Routing number</h5>
-              <p>084009519</p>
-              <h5>Account number</h5>
-              <p>9600 0000 0051 1836</p>
-              <h5>Account type</h5>
-              <p>Checking</p>
-              <h5><%= t('subscriptions.payment.bank_address') %></h5>
-              <p>
-                TransferWise<br>
-                19 W 24th Street<br>
-                New York NY 10010<br>
-                United States
-              </p>
-              <% unless pending_wire_transfer %>
-                <div class="db-form__row db-form__row--final-button">
-                  <button class="btn btn-success btn-lg w-100 px-1" type="submit">
-                    <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer_other') %></span>
-                  </button>
-                </div>
-              <% end %>
-            </div>
-          </form>
+              <div id="wire_form_eu" class="db-form__row--hidden">
+                <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+                <p>Deltabadger OU</p>
+                <h5>BIC</h5>
+                <p>TRWIBEB1XXX</p>
+                <h5><%= "IBAN (" + t('subscriptions.payment.eu_bank_country') + ")" %></h5>
+                <p>BE83 9670 6500 4615</p>
+                <h5><%= t('subscriptions.payment.bank_address') %></h5>
+                <p>
+                  Avenue Louise 54, Room S52<br>
+                  Brussels<br>
+                  1050<br>
+                  Belgium
+                </p>
+                <% unless pending_wire_transfer %>
+                  <div class="db-form__row db-form__row--final-button">
+                    <button class="btn btn-success btn-lg w-100 px-1" type="submit">
+                      <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer') %></span>
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+              <div id="wire_form_other" class="db-form__row--hidden">
+                <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+                <p>Deltabadger OU</p>
+                <h5>Routing number</h5>
+                <p>084009519</p>
+                <h5>Account number</h5>
+                <p>9600 0000 0051 1836</p>
+                <h5>Account type</h5>
+                <p>Checking</p>
+                <h5><%= t('subscriptions.payment.bank_address') %></h5>
+                <p>
+                  TransferWise<br>
+                  19 W 24th Street<br>
+                  New York NY 10010<br>
+                  United States
+                </p>
+                <% unless pending_wire_transfer %>
+                  <div class="db-form__row db-form__row--final-button">
+                    <button class="btn btn-success btn-lg w-100 px-1" type="submit">
+                      <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer_other') %></span>
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
         </div>
-      </div>
+      <% end %>
     </div>
   </div>
 </div>

@@ -44,7 +44,7 @@ module PaymentsManager
           status: 'unpaid',
           external_statuses: data.fetch('status'),
           total: data.fetch('price'),
-          crypto_total: data.fetch('btcPrice'),
+          btc_total: data.fetch('btcPrice'),
           payment_url: data.fetch('url')
         }
       end

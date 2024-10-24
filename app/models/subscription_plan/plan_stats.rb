@@ -8,7 +8,7 @@ module SubscriptionPlan::PlanStats
 
     def current_discount
       ensure_legendary!
-      [0, plans_for_sale_count * 10].max
+      [0, for_sale_count * 10].max
     end
 
     def total_supply
@@ -18,14 +18,14 @@ module SubscriptionPlan::PlanStats
 
     def sold_percent
       ensure_legendary!
-      return 0 if plans_total_supply.zero?
+      return 0 if total_supply.zero?
 
-      @sold_percent ||= active_subscriptions_count * 100 / plans_total_supply
+      @sold_percent ||= active_subscriptions_count * 100 / total_supply
     end
 
     def for_sale_count
       ensure_legendary!
-      @for_sale_count ||= plans_total_supply - active_subscriptions_count
+      @for_sale_count ||= total_supply - active_subscriptions_count
     end
 
     def available?

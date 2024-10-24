@@ -15,9 +15,9 @@
 %img{alt: "Logo", src: "https://deltabadger.com/logo_plus_legendary50.png", style: "margin-bottom: 24px"}
 
 %p
-  PS If you didn’t pay yet, please, send #{@amount}#{@type == 'Other' ? '$' : '€'}  to
+  PS If you didn’t pay yet, please, send #{@amount}#{@type == VatRate::NOT_EU ? '$' : '€'}  to
 %p
-  - if @type == 'Other'
+  - if @type == VatRate::NOT_EU
     %p
       %b
         Account holder

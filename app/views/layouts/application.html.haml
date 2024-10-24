@@ -30,42 +30,6 @@
         bonjoro('identify', "#{current_user.email}", { userHash: "#{escape_javascript bonjoro_user_hash(current_user.email)}" });
 
     :javascript
-      // payments plan
-      $(document).ready(function(){
-        $(".db-plan-standard").click(function(){
-          $("#payment_plan_standard").click()
-          $(".db-plan-standard").addClass("db-plan--selected")
-          $(".db-plan-standard").removeClass("db-plan--other")
-          $(".db-plan-pro").addClass("db-plan--other")
-          $(".db-plan-pro").removeClass("db-plan--selected")
-          $(".db-plan-legendary").addClass("db-plan--other")
-          $(".db-plan-legendary").removeClass("db-plan--selected")
-          $(".db-checkout").addClass("db-checkout--standard-plan");
-          $(".db-checkout").removeClass("db-checkout--pro-plan db-checkout--legendary-plan");
-        })
-        $(".db-plan-pro").click(function(){
-          $("#payment_plan_pro").click()
-          $(".db-plan-pro").addClass("db-plan--selected")
-          $(".db-plan-pro").removeClass("db-plan--other")
-          $(".db-plan-standard").addClass("db-plan--other")
-          $(".db-plan-standard").removeClass("db-plan--selected")
-          $(".db-plan-legendary").addClass("db-plan--other")
-          $(".db-plan-legendary").removeClass("db-plan--selected")
-          $(".db-checkout").addClass("db-checkout--pro-plan");
-          $(".db-checkout").removeClass("db-checkout--standard-plan db-checkout--legendary-plan");
-        })
-        $(".db-plan-legendary").click(function(){
-          $("#payment_plan_legendary").click()
-          $(".db-plan-pro").addClass("db-plan--other")
-          $(".db-plan-pro").removeClass("db-plan--selected")
-          $(".db-plan-standard").addClass("db-plan--other")
-          $(".db-plan-standard").removeClass("db-plan--selected")
-          $(".db-plan-legendary").addClass("db-plan--selected")
-          $(".db-plan-legendary").removeClass("db-plan--other")
-          $(".db-checkout").addClass("db-checkout--legendary-plan");
-          $(".db-checkout").removeClass("db-checkout--standard-plan db-checkout--pro-plan");
-        })
-      })
 
       // input labels
 
@@ -76,52 +40,6 @@
             this.classList.toggle('db-form__input--empty', this.value === '');
           });
         });
-      });
-
-      // payments eu/non-eu
-
-      $(document).ready(function(){
-        function setPrices(select) {
-          if (!select) return;
-
-          if (select.value.toLowerCase() === 'other') {
-            $(".db-checkout").addClass("db-checkout--other");
-            $(".db-checkout").removeClass("db-checkout--eu");
-          } else {
-            $(".db-checkout").addClass("db-checkout--eu");
-            $(".db-checkout").removeClass("db-checkout--other");
-          }
-          var dataset = select.options[select.selectedIndex].dataset;
-
-          $(".vat-percent").text(dataset.vp);
-
-          $(".standard-total-price").text(dataset.itp);
-          $(".standard-base-price").text(dataset.ibp);
-          $(".standard-discounted-price").text(dataset.idp);
-          $(".standard-flat-discount").text(dataset.ifd);
-          $(".standard-discount-percent-amount").text(dataset.idpa);
-          $(".standard-total-vat").text(dataset.itv);
-
-          $(".pro-total-price").text(dataset.htp);
-          $(".pro-base-price").text(dataset.hbp);
-          $(".pro-discounted-price").text(dataset.hdp);
-          $(".pro-flat-discount").text(dataset.hfd);
-          $(".pro-discount-percent-amount").text(dataset.hdpa);
-          $(".pro-total-vat").text(dataset.htv);
-
-          $(".legendary-total-price").text(dataset.lbtp);
-          $(".legendary-base-price").text(dataset.lbbp);
-          $(".legendary-discounted-price").text(dataset.lbdp);
-          $(".legendary-flat-discount").text(dataset.lbfd);
-          $(".legendary-discount-percent-amount").text(dataset.lbdpa);
-          $(".legendary-total-vat").text(dataset.lbtv);
-        }
-
-        $("#payment_country").change(function(event) {
-          setPrices(event.target);
-        });
-
-        setPrices(document.getElementById("payment_country"));
       });
 
       // referral program registration

@@ -1,25 +1,25 @@
 <div class="db-plans__item__name">
   <%= t('subscriptions.pro') %>
   <div class="db-years">
-    <% if subscribed_plan_days_left %>
-      <div class="text-success"><%= t('subscriptions.days_left', count: subscribed_plan_days_left) %></div>
+    <% if current_user.subscription.days_left %>
+      <div class="text-success"><%= t('subscriptions.days_left', count: current_user.subscription.days_left) %></div>
     <% else %>
       <%= t('subscriptions.plan_1_year') %>
     <% end %>
   </div>
 </div>
 <div class="db-plans__item__amount">
-  <% unless subscribed_plan_days_left %>
-    <% if cost_presenter.base_price != cost_presenter.flat_discounted_price %>
+  <% unless current_user.subscription.days_left %>
+    <% if payment.base_price != payment.adjusted_base_price %>
       <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
-        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='pro-base-price'><%= cost_presenter.base_price %></span>
+        <span class='pro-base-price'><%= format_price(payment.base_price, currency) %></span>
       </div>
       <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
-        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='pro-discounted-price'><%= cost_presenter.flat_discounted_price %></span>
+        <span class='pro-discounted-price'><%= format_price(payment.adjusted_base_price, currency) %></span>
       </div>
     <% else %>
       <div class="db-plans__item__amount__t">
-        <span class='db-show--eu'>€</span><span class='db-show--other'>$</span><span class='pro-base-price'><%= cost_presenter.base_price %></span>
+        <span class='pro-base-price'><%= format_price(payment.base_price, currency) %></span>
       </div>
     <% end %>
   <% end %>

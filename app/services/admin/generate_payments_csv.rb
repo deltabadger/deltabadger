@@ -16,16 +16,14 @@ module Admin
     end
 
     def initialize(
-      payments_repository: PaymentsRepository.new,
       generate_csv: GenerateCsv.new
     )
 
-      @payments_repository = payments_repository
       @generate_csv = generate_csv
     end
 
     def call(from:, to:, fiat:)
-      payments = @payments_repository.paid_between(from: from, to: to, fiat: fiat)
+      payments = Payment.paid_between(from: from, to: to, fiat: fiat)
       formatted_data = payments.map { |p| format_payment(p) }
       @generate_csv.call(formatted_data)
     end

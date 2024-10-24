@@ -1,19 +1,104 @@
 class Payment < ApplicationRecord
   belongs_to :user
   belongs_to :subscription_plan
+  belongs_to :subscription_plan_variant
 
-  enum currency: %i[USD EUR PLN]
-  # we only use unpaid, cancelled, paid
-  enum status: %i[unpaid pending paid confirmed failure cancelled]
+  enum currency: %i[USD EUR]
+  enum status: %i[unpaid pending paid confirmed failure cancelled] # we only use unpaid, cancelled, paid
   enum payment_type: %i[bitcoin wire stripe zen]
-  validates :user, presence: true
-  validates :birth_date, presence: true, if: :bitcoin?
+  validates :user,
+            :subscription_plan,
+            :subscription_plan_variant,
+            :status,
+            :payment_type,
+            :country,
+            :currency, presence: true
+  validates :birth_date, presence: true, if: :with_bitcoin?
 
-  def bitcoin?
+  scope :paid, -> { where(status: :paid) }
+
+  def self.paid_between(from:, to:, fiat:)
+    # Returns payments paid between from and to (UTC, inclusive)
+    from = from.blank? ? Date.new(0) : Date.parse(from)
+    to = to.blank? ? Date.tomorrow : Date.parse(to) + 1.day
+    paid.where(paid_at: from..to, payment_type: fiat ? %w[stripe zen wire] : 'bitcoin')
+  end
+
+  def initialize(attributes = {}) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    super
+    self.status ||= 'unpaid'
+    self.currency ||= from_eu? ? 'EUR' : 'USD'
+    self.subscription_plan ||= subscription_plan_variant&.subscription_plan
+    self.total ||= price_with_vat
+    self.discounted ||= referral_discount_percent.positive?
+    self.commission ||= referrer_commission_amount
+  end
+
+  def from_eu?
+    country != VatRate::NOT_EU
+  end
+
+  def vat_percent
+    VatRate.find_by!(country: country).vat
+  end
+
+  def vat_amount
+    referral_discounted_price * vat_percent
+  end
+
+  def price_with_vat
+    referral_discounted_price * (1 + vat_percent)
+  end
+
+  def base_price
+    puts "subscription_plan_variant.cost_eur: #{subscription_plan_variant.cost_eur}"
+    from_eu? ? subscription_plan_variant.cost_eur : subscription_plan_variant.cost_usd
+  end
+
+  def current_plan_discount_amount
+    current_subscription = user.subscription
+    return 0 if subscription_plan.name == current_subscription.name
+
+    plan_years_left = current_subscription.days_left.to_f / 365
+    discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
+    base_price * discount_multiplier
+  end
+
+  def adjusted_base_price
+    # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
+    # TODO: allow prices of 0 and let the controller upgrade the plan without payment in this case
+    [1, base_price - current_plan_discount_amount - legendary_plan_discount].max
+  end
+
+  def referral_discount_percent
+    user.eligible_referrer&.discount_percent || 0
+  end
+
+  def referral_discount_amount
+    adjusted_base_price * referal_discount_percent
+  end
+
+  def referrer_commission_percent
+    user.eligible_referrer&.commission_percent || 0
+  end
+
+  def referrer_commission_amount
+    adjusted_base_price * referrer_commission_percent
+  end
+
+  private
+
+  def with_bitcoin?
     payment_type == 'bitcoin'
   end
 
-  def eu?
-    country != VatRate::NOT_EU
+  def referral_discounted_price
+    adjusted_base_price * (1 - referral_discount_percent)
+  end
+
+  def legendary_plan_discount
+    return 0 if subscription_plan.name != SubscriptionPlan::LEGENDARY_PLAN
+
+    SubscriptionPlan.legendary.current_discount
   end
 end

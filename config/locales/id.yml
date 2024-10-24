@@ -672,9 +672,9 @@ id:
             routing_number: 'Nomor routing'
             server_error: ''
             vat: VAT
-            wire_cost_pro_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''standard-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_standard_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''pro-total-price''>%{price}</span></b> ke rekening bank berikut:'
-            wire_cost_legendary_html: 'Harap kirimkan <b><span class=''db-show--eu''>€</span><span class=''db-show--other''>$</span><span class=''legendary-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_pro_html: 'Harap kirimkan <b><span class=''standard-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_standard_html: 'Harap kirimkan <b><span class=''pro-total-price''>%{price}</span></b> ke rekening bank berikut:'
+            wire_cost_legendary_html: 'Harap kirimkan <b><span class=''legendary-total-price''>%{price}</span></b> ke rekening bank berikut:'
             wire_cost_pending_html: 'Jika Anda belum melakukan pembayaran, kirimkan <b>%{sign}%{price}</b> ke rekening bank berikut:'
             wire_transfer: 'Transfer Bank'
             wire_transfer_description_html: 'Untuk membayar dengan transfer bank, kirim info utama untuk invois: <b>nama</b>, <b>nama belakang</b>, <b>alamat rumah</b>, <b>email</b> yang digunakan di Deltabadger, dan paket yang ingin Anda beli ke: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
