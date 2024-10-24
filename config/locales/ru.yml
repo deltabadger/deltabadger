@@ -81,7 +81,7 @@ ru:
             manual_title: 'Как это работает?'
             paid_commission: 'Оплачено (BTC)'
             paid_so_far: 'Оплачено на данный момент (BTC)'
-            referees: Рефералы
+            referrals: Рефералы
             stats: Статистика
             submit: Обновить
             submit_bitcoin_address: 'Обновить биткоин-адрес'

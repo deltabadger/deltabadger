@@ -22,19 +22,19 @@ es:
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirmar nueva dirección Bitcoin'
-            template_html: '<p>Parece que quieres cambiar tu dirección Bitcoin a:</p><p><b>%{new_btc_address}</b></p><p>Esta dirección se utilizará para sus pagos de nuestro programa de referencia.</p><p>¿Está seguro?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Sí, ¡cambiémosla!</a>'
+            template_html: '<p>Parece que quieres cambiar tu dirección Bitcoin a:</p><p><b>%{new_btc_address}</b></p><p>Esta dirección se utilizará para sus pagos de nuestro programa de referidos.</p><p>¿Está seguro?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Sí, ¡cambiémosla!</a>'
         referrals_payout_notification:
             subject: '¡Es el día de cobrar!'
-            template_html: '<p>Tu enlace de referencia está ganando afiliados. ¡Genial!</p><p>Transferimos una comisión de</p><p> <b>%{amount} BTC</b></p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la banda de tejones!</p>'
+            template_html: '<p>Tu enlace de referidos está ganando afiliados. ¡Genial!</p><p>Transferimos una comisión de</p><p> <b>%{amount} BTC</b></p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la banda de tejones!</p>'
         registration_reminder:
             subject: '¡Enhorabuena! ¡Has ganado %{amount} BTC!'
             template_html: '<p>¡Te espera una nueva comisión del programa de afiliados! Finaliza el registro para recibir tus bitcoins:</p><a class="email-button" style="color: #fff" href=%{link}>Completa el registro.</a>'
     affiliates:
-        add_link_info: 'Puedes añadir tu nombre y un enlace a tu sitio web para que el árbitro sepa de dónde procede el descuento. También puedes dejarlo en blanco:'
+        add_link_info: 'Puedes añadir tu nombre y un enlace a tu sitio web para que el referido sepa de dónde procede el descuento. También puedes dejarlo en blanco:'
         apply_code:
             accept: Aceptar
             reject: Volver
-            title: 'Enlace de referencia'
+            title: 'Enlace de referidos'
         btc_address_changed: 'Dirección bitcoin cambiada'
         btc_address_confirmation_sent: 'Correo electrónico de confirmación enviado'
         create:
@@ -42,29 +42,29 @@ es:
             free_plan_error: 'Tienes que actualizar para registrarte'
         current_bitcoin_address: 'Dirección de Bitcoin actual'
         discount:
-            accepted: 'Has aceptado el enlace de referencia'
-            already_used: 'Ya has utilizado un enlace de referencia'
+            accepted: 'Has aceptado el enlace de referidos'
+            already_used: 'Ya has utilizado un enlace de referidos'
             congrats_html: '¡Felicidades! El <span class="db-form-label-range--discount-percent">%{discount_percent}</span> % de descuento está activo.'
             flash_html: '¡Hola! disfruta del %{discount_percent} % de descuento en <span class="text-success text-success--lighter">%{visible_name}</span>'
-            invalid: 'El enlace de referencia parece no válido u obsoleto.'
-            referrer_html: "Gracias al enlace de referencia de\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
+            invalid: 'El enlace de referidos parece no válido u obsoleto.'
+            referrer_html: "Gracias al enlace de referidos de\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
             valid_for: 'Válido para la primera compra en la plataforma.'
-        info_preview: 'Esta es una vista previa de lo que los árbitros verán durante el registro:'
+        info_preview: 'Esta es una vista previa de lo que los referidos verán durante el registro:'
         invalid_bitcoin_address: 'Dirección de Bitcoin no válida'
-        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\">Nuestro programa de referidos <b>paga hasta 50</b><sup>1</sup> dólares por usuario en BTC (usando una tasa de cambio de la transacción). Ejemplo:</p>\n  <ol>\n    <li>Para simplificar, el precio de Bitcoin es ~10 000 dólares, el descuento es del 10 % y tu margen es del 20 %.</li>\n <li>El árbitro compra un plan de 1 año por 49,99 dólares, pagando después del descuento 44,99 dólares, lo que equivale a 0,0045 BTC. Ganas \n    0,001 BTC (20 % de 49,99 dólares).</li>\n    <li>No importa si el precio de Bitcoin cambia mientras tanto. Tu beneficio está bloqueado en BTC.</li>\n    <li>La siguiente vez, el árbitro compra un plan de 4 años por 149,99 dólares y paga 0,015 BTC. Él o ella ya no obtiene un descuento, pero tú sigues obteniendo tu 20 %, lo que equivale a 0,003 BTC.</li>\n <li>Sigues ganando mientras tengas un plan <sup>2</sup> activo y tu beneficio total por árbitro no llegue a 50 dólares.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoins es la mejor forma de promediar los costes en dólares!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> El límite es de 50 USD o 50 EUR, dependiendo de la moneda de la tarificación.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para el árbitro, el enlace de referencia funciona incluso si su suscripción ha caducado.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\">Nuestro programa de referidos <b>paga hasta 50</b><sup>1</sup> dólares por usuario en BTC (usando una tasa de cambio de la transacción). Ejemplo:</p>\n  <ol>\n    <li>Para simplificar, el precio de Bitcoin es ~10 000 dólares, el descuento es del 10 % y tu margen es del 20 %.</li>\n <li>El referido compra un plan de 1 año por 49,99 dólares, pagando después del descuento 44,99 dólares, lo que equivale a 0,0045 BTC. Ganas \n    0,001 BTC (20 % de 49,99 dólares).</li>\n    <li>No importa si el precio de Bitcoin cambia mientras tanto. Tu beneficio está bloqueado en BTC.</li>\n    <li>La siguiente vez, el referido compra un plan de 4 años por 149,99 dólares y paga 0,015 BTC. Él o ella ya no obtiene un descuento, pero tú sigues obteniendo tu 20 %, lo que equivale a 0,003 BTC.</li>\n <li>Sigues ganando mientras tengas un plan <sup>2</sup> activo y tu beneficio total por referido no llegue a 50 dólares.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoins es la mejor forma de promediar los costes en dólares!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> El límite es de 50 USD o 50 EUR, dependiendo de la moneda de la tarificación.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para el referido, el enlace de referidos funciona incluso si su suscripción ha caducado.</small>\n</div>"
         new:
             checked: 'He comprobado todo cuidadosamente.'
-            discount_info_html: "<b> Ganarás <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>,\ny el árbitro obtendrá un <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> % de descuento</b>."
+            discount_info_html: "<b> Ganarás <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>,\ny el referido obtendrá un <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> % de descuento</b>."
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> % de descuento para la primera compra.<br>'
             eu_company: 'Empresa de la UE'
             payout_address: 'Dirección de pago'
-            pick_referral_code: 'Elige tu código de referencia'
+            pick_referral_code: 'Elige tu código de referidos'
             private: Privado
             program_settings_html: 'Enlace <span class="text-danger">(no se puede cambiar)</span>'
             referrer_info: 'Información del referente'
             share_html: 'Comparte este enlace y <span class="text-success">gana bitcoins</span>'
             submit: ¡Empecemos!
-            thanks_referral: 'Gracias al enlace de referencia de'
+            thanks_referral: 'Gracias al enlace de referidos de'
             title: 'Registro del programa de referidos'
             title_info: 'Puedes empezar a compartir tu enlace de inmediato, pero para recibir pagos de bitcoins necesitas primero completar tu registro.'
             unchangable_warning: 'La configuración de esta sección no se puede cambiar más adelante.'
@@ -76,12 +76,12 @@ es:
                 contact: 'Contacta con nosotros'
                 notice: 'Parece que se ha desactivado este programa. Ponte en contacto con nosotros si no estás seguro de por qué ha pasado.'
             expired: 'Oh no... tu suscripción ha caducado. Renueva tu plan para seguir beneficiándote de tu programa de referidos.'
-            info_preview: 'Vista previa de la información visible para el árbitro:'
+            info_preview: 'Vista previa de la información visible para el referido:'
             link_title: 'Tu enlace'
             manual_title: '¿Cómo funciona?'
             paid_commission: 'Pagado (BTC)'
             paid_so_far: 'Pagado hasta ahora (BTC)'
-            referees: Árbitros
+            referrals: Referidos
             stats: Estadísticas
             submit: Actualizar
             submit_bitcoin_address: 'Actualizar la dirección de Bitcoin'
@@ -91,7 +91,7 @@ es:
             unpaid_commission: 'Para pagar (BTC)'
             update_bitcoin_address: 'Actualizar la dirección de Bitcoin'
             update_info: 'Actualizar la información visible'
-            your_link: 'Tu enlace de referencia'
+            your_link: 'Tu enlace de referidos'
         your_bitcoin_address: 'Tu dirección de Bitcoin'
     bot_alerts_mailer:
         end_of_funds:
@@ -558,7 +558,7 @@ es:
                 btc_address: 'Dirección de BTC'
                 btc_address_tooltip: 'Dirección de BTC en la que deseas recibir tus pagos.'
                 check: Comprobar
-                code_tooltip: 'Elige el código de referencia que desees.'
+                code_tooltip: 'Elige el código de referidos que desees.'
                 name: 'Nombre de la empresa:'
                 vat_number: 'Número de IVA (opcional):'
                 visible_link: Enlace
@@ -615,7 +615,7 @@ es:
         settings: Configuración
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
-    mail: '<p>¡Genial! ¡Tu enlace de referencia está ganando tracción en<br>!</p><p>Transferimos una comisión de</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la comunidad Badger!</p>'
+    mail: '<p>¡Genial! ¡Tu enlace de referidos está ganando tracción en<br>!</p><p>Transferimos una comisión de</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la comunidad Badger!</p>'
     mailer:
         all_rights_reserved: 'Todos los derechos hiperbitcoinizados.'
         email_or_telegram: '¿Tienes preguntas? Responde a este correo electrónico o únete a nuestra comunidad en'
@@ -700,7 +700,7 @@ es:
             pay: Pagar
             pay_with_bitcoin: 'Pagar con Bitcoin'
             payment_ordered: '¡Pago ordenado!'
-            referral_discount_html: 'Gracias al enlace de referencia de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
+            referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
             routing_number: 'Número de ruta bancaria'
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
             vat: IVA

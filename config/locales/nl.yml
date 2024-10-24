@@ -81,7 +81,7 @@ nl:
             manual_title: 'Hoe werkt het?'
             paid_commission: 'Betaald (BTC)'
             paid_so_far: 'Reeds uitbetaald (BTC)'
-            referees: 'Aantal personen doorverwezen'
+            referrals: 'Aantal personen doorverwezen'
             stats: Stats
             submit: Update
             submit_bitcoin_address: 'Bitcoin-adres wijzigen'
