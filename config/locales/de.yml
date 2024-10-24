@@ -87,7 +87,6 @@ de:
         first_month_ending_soon:
             subject: 'Dein Probemonat endet bald!'
     bots:
-        pro_only: 'Nur Pro und Legendary'
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'
         below: unter
@@ -306,7 +305,7 @@ de:
                 passphrase: Passphrase
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
-            limit_warning: 'Die Gebühren für Limitaufträge sind bereits niedriger, aber indem Sie sie unter dem aktuellen Preis in Höhe der Gebühr festlegen, können Sie sie effektiv auf null reduzieren. Ein solcher Auftrag kann viel später ausgeführt werden oder gelegentlich gar nicht. Wenn Sie den Wert jedoch niedrig halten, ist das Risiko minimal. Das Experimentieren mit höheren Werten erfolgt auf eigenes Risiko. Einige Leute nutzen diese Funktion sogar mit einem auf null gesetzten Wert, was die Ausführung fast garantiert, aber Sie profitieren dennoch von einer niedrigeren Maker-Gebühr.'
+            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Standardeinstellung übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
             next: Weiter
             no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
             probit:
@@ -540,7 +539,7 @@ de:
                 password: Passwort
                 password_confirmation: 'Passwort bestätigen'
                 remember_me: 'Daten speichern'
-                terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy} von Deltabadger.'
+                terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Das ist sehr wichtig!</b><br><br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
@@ -563,6 +562,7 @@ de:
         log_out: Ausloggen
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
+        earn: Verdienen
         referral_program: Empfehlungsprogramm
         resend_link: 'Link erneut zuschicken'
         settings: Einstellungen
@@ -607,12 +607,15 @@ de:
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
-        pro: Pro
-        pro_description_html: '<p><b>Unbegrenzte DCA-Bots</b>, niedrigere Gebühren mit <b>Limit-Orders</b>, <b>automatische Abhebungen</b>, <b>Preisbedingung</b>, <b>Zeitbedingung</b>(bald).</p>'
-        standard: Standard
-        standard_description_html: 'Ein Jahr lang <b>unbegrenzte Transaktionen</b>, <b>alle Währungen</b> und <b>automatische Abhebungen</b>.'
-        legendary: Legendary
-        legendary_description_html: '<p><b>Bezahle nie wieder für die Nutzung des Dienstes.</b></p><p>Alles, was der Pro-Plan zu bieten hat, aber ein Leben lang.</p><p>Das Abonnement kommt mit einem <b>NFT</b>, sodass du es in Zukunft an einen anderen Nutzer verkaufen kannst.</p><p>Jeder Token ist mit einem prozeduralen Kunstwerk verbunden. Kannst du alle 21 "Ostereier" finden, die in <a href="https://deltabadger.com/legendary/" class="nobreak">der Sammlung</a> versteckt sind?</p><p>Lebenslang. Limitiert. Legendär.</p><p>Legendary Badgers sind wie nichts anderes auf dem Markt.</p><p>Nur 1000 sitzen im Raumschiff der Legendary Badgers. Zementiere deinen langfristigen Denkstatus und werde legendär.</p>'
+        basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
+        pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
+        legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
+        features:
+            analyzer_html: 'Prism — Portfolio-Analysator'
+            dca: 'DCA-Bots'
+            price_limit: 'Preislimit'
+            fee_cutter: 'Gebührenschneider'
+            withdrawals: 'Automatische Auszahlungen'
         limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Transaktionslimit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
         expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
@@ -666,17 +669,14 @@ de:
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
-            <p>Hi %{name}, Deltabadger macht zwei Dinge:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Portfolioanalyse</li>
-            </ul>
-            <p>Es ist einfach:</p>
-            <p>Zuerst erwerben Sie Vermögenswerte, und es gibt keinen besseren Weg, dies zu tun, als mit automatisiertem DCA.</p>
-            <p><b>Der erste Bot ist jetzt komplett kostenlos</b>.</p>
-            <p>Dann hilft Ihnen unser Analyzer, die optimale Verteilung Ihrer Vermögenswerte mit <b>Smart Allocation</b> zu finden, und gibt Ihnen weitere Hinweise, wie Sie Ihr Portfolio verbessern können.</p>
-            <p>Wenn Sie eine langfristige Denkweise haben und Ihnen gefällt, was Sie sehen, ziehen Sie in Erwägung, den Legendary Badgers beizutreten — einer <b>exklusiven Gemeinschaft von 1.000 lebenslangen Abonnenten</b>. Dies ist ein einzigartiges Angebot, das das Projekt unterstützt und Ihnen eine einmalige Gelegenheit bietet, lebenslanger Nutznießer aller Superkräfte von Deltabadger zu werden.</p>
-            <p style="margin-bottom:0">Beste Grüße, Jan</p>
+            <p>Willkommen an Bord, %{name}! Hier sind einige Gewinnzüge für dich:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Starte den kostenlosen <b>DCA-Bot</b> und rufe, <i>„Guck mal, Mama, keine Hände!“</i></li>
+                <li>Verbessere dein Portfolio mit dem <b>🌈⃤  Prism</b> Analyzer und lass den Markt im Rückspiegel.<sur>*</sur><br><small><sur>*</sur>Keine Kristallkugel erforderlich.</small></li>
+                <li>Tritt der <b>Fireheads</b> Community bei und geh früh in Rente – bis 65 arbeiten? Ganz bestimmt nicht.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Zur Community gehen">Starte in der Community</a>. Schließe dich uns beim Wednesday Bonfire Call an, um eine Gruppe von finanziellen Freiheitsrebellen, meinen Mitgründer Guillem und mich kennenzulernen. Das Leben ist zu kurz, um auf das Wochenende zu warten. (Auf Mittwoch zu warten ist viel cooler).</p>
+            <p style="margin-bottom:0">Bis dann, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
         free: 'Befreie dich von den Limits und mach ein Upgrade!'
@@ -754,18 +754,18 @@ de:
         no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
         assets_dont_coexist: 'Dieses Portfolio kann nicht backgetestet werden. Die von Ihnen ausgewählten Assets haben seit %{backtest_start_date} nie gleichzeitig existiert!'
         api_unreachable: 'Dieses Portfolio kann derzeit nicht backgetestet werden. Der Daten-API-Server ist nicht erreichbar.'
+        these_assets: 'Diese Vermögenswerte senken weder die Volatilität noch erhöhen sie das Sharpe Ratio Ihres Portfolios:'
         smart_allocation:
             name: 'Intelligente Allokation'
             short_info_html: '<p>Intelligente Allokation wendet <b>Moderne Portfoliotheorie (MPT)</b> Algorithmen an, um die beste Asset-Allokation für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'
-        since: 'seit'
         risk_free_rate: 'Risikofreier Zinssatz'
         us_bonds: 'US-Anleihen'
         benchmark: 'Benchmark'
         benchmark_info: 'Je besser die Benchmark-Auswahl, desto zuverlässiger die Berechnung der Erw. Rendite. Wählen Sie eine Benchmark, die eng mit der Anlagestrategie und dem Marktsegment Ihres Portfolios übereinstimmt. Andere durch die Benchmark beeinflusste Metriken sind Alpha, Beta, R² und Info Ratio.'
-        get_ai_insights: 'KI-Einblicke erhalten'
+        get_ai_insights: 'Einblicke'
         pnl: 'Gewinn/Verlust'
         strategy:
-            fixed: 'Fest'
+            fixed: 'Einmalige Investition'
             dca: 'DCA'
             rebalancing: 'Neugewichtung'
         backtest:
@@ -774,6 +774,7 @@ de:
                 adjusted_start_html: "Das Startdatum des Backtests wurde auf <strong>%{start_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
                 adjusted_end_html: "Das Enddatum des Backtests wurde auf <strong>%{end_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
     utils:
+        assets: Assets
         are_you_sure: 'Bist du sicher?'
         change_name: 'Namen ändern'
         delete: 'Löschen'
@@ -782,6 +783,7 @@ de:
         new: 'neu'
         save: 'Speichern'
         see_at_coingecko: 'Siehe bei CoinGecko'
+        since: 'seit'
         soon: 'bald'
     alert:
         portfolio:
@@ -803,4 +805,13 @@ de:
             portfolio_destroyed: 'Portfolio wurde erfolgreich gelöscht.'
             portfolio_duplicated: 'Portfolio wurde erfolgreich dupliziert.'
             unable_to_duplicate_portfolio: 'Portfolio konnte nicht dupliziert werden.'
+    ai:
+        insights:
+            intro: "Bewerte mein Portfolio im Stil von Naval-Tweets. Finde geopolitische oder technische Thesen dahinter und relevante makroökonomische Ereignisse der letzten Jahre. Beachte, ob das Portfolio dich an eine bestimmte Anlagestrategie oder bekannte Idee wie das 3-Fonds-Portfolio erinnert. Weisen Sie auf überschneidende Vermögenswerte hin, wie ETFs mit denselben Aktien (nur wenn vorhanden). Zeigen Sie bis zu 5 Vor- und/oder Nachteile auf. Organisieren Sie sie: Vorteile zuerst. Legen Sie mehr Wert auf Metriken wie Volatilität und Beta, dann auf solche, die hauptsächlich die Vergangenheit widerspiegeln, wie den Sharpe-Quotienten. Verwenden Sie die Skala Schlecht/Neutral/Gut/Ausgezeichnet."
+            response_format: |
+                Antworten Sie im folgenden HTML-Format (alle Texte im Template sind nur Beispiele). Ich füge Ihre Antwort direkt in meine HTML-Vorlage ein, also geben Sie sie NICHT als Code-Snippet zurück: <div class="insight insight--summary"><span class="insight__name">Einprägsamer Titel</span>. Kurze Erzählung über das Portfolio in 5 Sätzen.</div><div class="insight insight--pro"><span class="insight__name">Metrikname <b>2.22</b> &middot; Ausgezeichnet</span>. Ein Satz Bewertung</div><div class="insight insight--con"><span class="insight__name">Metrikname <b>-1.36%</b> &middot; Schlecht</span>. Ein Satz Bewertung.</div>
+            past_performance: "Vergangene Performance"
+            benchmark_performance: "Benchmark vergangene Performance"
+            metrics_since: "Metriken seit %{start_date} bis %{end_date}:"
+
 

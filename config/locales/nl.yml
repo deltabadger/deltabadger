@@ -113,7 +113,6 @@ nl:
             subject: 'Oeps! Volgende poging...'
             template_html: '<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem bij de exchange. We proberen het opnieuw in %{delay}.</p><p>Alle errors zijn zichtbaar in het logboek van de bot. Log in om dit te controleren.</p><p>Errors:</p><blockquote><b>%{exchange}:%{base}%{quote}</b> <b> %{errors}</b></blockquote>'
     bots:
-        pro_only: 'Alleen Pro en Legendary Badger'
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
         below: onder
@@ -334,7 +333,7 @@ nl:
                 passphrase: Wachtwoordzin
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            limit_warning: 'De kosten voor limietorders zijn al lager, maar door ze onder de huidige prijs in de hoogte van de kosten in te stellen, kunt u ze effectief tot nul reduceren. Een dergelijke order kan veel later worden uitgevoerd, of soms helemaal niet. Als u de waarde echter laag houdt, is het risico minimaal. Experimenteren met hogere waarden is op eigen risico. Sommige mensen gebruiken deze functie zelfs met de waarde op nul, wat de uitvoering bijna garandeert, maar u profiteert nog steeds van een lagere maker fee.'
+            limit_warning: 'Door je orders op het bedrag van de vergoeding in te stellen, verlaag je de vergoeding effectief tot nul. Hoewel limietorders langer kunnen duren om uitgevoerd te worden, zijn ze over het algemeen een goed idee. De standaardinstelling regelt dit voor je, dus blijf daarbij als je niet zeker bent.'
             next: Volgende
             no_wallet_found: 'Geen wallet gevonden. Ga naar %{exchangeName} en voeg een opname wallet toe.'
             probit:
@@ -586,7 +585,7 @@ nl:
                 password: Wachtwoord
                 password_confirmation: 'Wachtwoord bevestiging'
                 remember_me: 'Onthoud mij'
-                terms_and_conditions_tooltip: 'Door verder te gaan, ga ik akkoord met de %{terms_and_conditions} en het %{privacy_policy} van Deltabadger.'
+                terms_and_conditions_tooltip: 'Door verder te gaan, ga ik akkoord met de %{terms_and_conditions} en het %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Dit is heel belangrijk!</b><br><br> Als je de bevestigingsmail niet hebt ontvangen, controleer dan je <b>junk folder</b>. Als je de mail nog steeds niet kunt vinden, stuur dan een email naar %{email}. <br><br>Bedankt, Jan'
@@ -609,6 +608,7 @@ nl:
         log_out: Afmelden
         menu: Menu
         privacy_policy: Privacybeleid
+        earn: Verdien
         referral_program: Verwijzingsprogramma
         resend_link: 'Link opnieuw verzenden'
         settings: Instellingen
@@ -662,12 +662,15 @@ nl:
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'
-        pro: Pro
-        pro_description_html: '<p><b>Onbeperkte DCA-bots</b>, lagere handelskosten door <b>limietorders</b>, <b>automatische opnames</b>, <b>eigen prijsvoorwaarde</b>, <b>eigen tijdvoorwaarde</b> (binnenkort).</p>'
-        standard: Standard
-        standard_description_html: 'Een jaar lang <b>onbeperkte transacties</b>, <b>alle cryptomunten</b>, en <b>automatische opnames</b>.'
-        legendary: Legendary Badger
-        legendary_description_html: '<p><b>Nooit meer betalen om deze dienst te gebruiken.</b></p><p>Alles wat het Pro-plan biedt, maar dan voor het leven.</p><p>Het abonnement bevat een <b>NFT</b>, zodat je het in de toekomst aan een andere gebruiker kunt verkopen.</p><p>Elk token is geassocieerd met een kunstwerk. Kun jij alle 21 verborgen "easter eggs" vinden in <a href="https://deltabadger.com/legendary/" class="nobreak">de collectie</a>?</p><p>Levenslang. Gelimiteerd. Legendarisch.</p><p>Legendary Badgers zijn als niets anders op de markt.</p><p>Slechts 1000 tokens zitten op het ruimteschip van de Legendary Badgers. Verstevig je status als langetermijndenker en wees legendarisch.</p>'
+        basic_info: 'Geen franje, alleen spanning, maar doet het werk.'
+        pro_info: 'Krijg een overzicht, diepgaande inzichten en Pro-functies.'
+        legendary_badger_info_html: '<p>Krijg alle huidige en toekomstige functies van het Pro-plan voor altijd.</p><p>Betaal je graag één keer en krijg je alles? Sluit je aan bij onze exclusieve club van 1.000 langetermijndenkers met diamanten handen en visie, en creëer je eigen legende.</p><p>De NFT die je ontvangt, verandert je abonnement in een actief dat je kunt overdragen of verkopen. Elke token wordt geleverd met unieke procedurele kunst, met 21 verborgen <i>paaseieren</i> in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
+        features:
+            analyzer_html: 'Prism — portfoliobeheerder'
+            dca: 'DCA-bots'
+            price_limit: 'Prijsgrens'
+            fee_cutter: 'FeeCutter'
+            withdrawals: 'Automatische opnames'
         limit_reached_html: '<b>Gefeliciteerd!</b> Je hebt onze gratis transactielimiet van $1200/jaar bereikt. Om door te gaan, upgrade naar het unlimited plan.'
         analyzer_html: 'Versterk je portfolio met de onbeperkte kracht van de <b>Portfolio Analyzer</b>.'
         expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Pro-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
@@ -721,17 +724,14 @@ nl:
         claim: 'Claim NFT'
     welcome:
         banner_html: |
-            <p>Hallo %{name}, Deltabadger doet twee dingen:</p>
-            <ul>
-                <li>Dollar-Cost Averaging</li>
-                <li>Portefeuille-analyse</li>
-            </ul>
-            <p>Het is simpel:</p>
-            <p>Ten eerste, je verwerft activa, en er is geen betere manier om dit te doen dan met geautomatiseerde DCA.</p>
-            <p><b>De eerste bot is nu volledig gratis</b>.</p>
-            <p>Vervolgens helpt onze Analyzer je de optimale verdeling van je activa te vinden met <b>Smart Allocation</b> en geeft andere aanwijzingen hoe je je portefeuille kunt verbeteren.</p>
-            <p>Als je een lange-termijn visie hebt en je houdt van wat je ziet, overweeg dan om lid te worden van de Legendary Badgers — een <b>exclusieve gemeenschap van 1.000 levenslange abonnees</b>. Dit is een aanbod als geen ander dat zowel het project ondersteunt als een unieke kans biedt om een levenslange begunstigde te worden van alle superkrachten van Deltabadger.</p>
-            <p style="margin-bottom:0">Met vriendelijke groet, Jan</p>
+            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende zetten voor jou:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je gratis <b>DCA-bot</b> en roep, <i>“Kijk mam, zonder handen!”</i></li>
+                <li>Verbeter je portfolio met de <b>🌈⃤  Prism</b> analyzer en laat de markt in je achteruitkijkspiegel.<sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
+                <li>Sluit je aan bij de <b>Fireheads</b> community en ga vroeg met pensioen—want werken tot je 65e? Nee, bedankt.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
+            <p style="margin-bottom:0">Tot dan, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
         free: 'Weg met limieten, en doe een upgrade!'
@@ -809,18 +809,18 @@ nl:
         no_assets: 'Begin met het toevoegen van een nieuwe asset.'
         assets_dont_coexist: 'Het is niet mogelijk om deze portefeuille te backtesten. De door u geselecteerde assets hebben nooit samen bestaan sinds %{backtest_start_date}!'
         api_unreachable: 'Het is momenteel niet mogelijk om deze portefeuille te backtesten. De data API-server is niet bereikbaar.'
+        these_assets: 'Deze activa verlagen noch de volatiliteit, noch verhogen ze de Sharpe Ratio van uw portefeuille:'
         smart_allocation:
             name: 'Slimme Allocatie'
             short_info_html: '<p>Slimme Allocatie past <b>Moderne Portefeuille Theorie (MPT)</b>-algoritmen toe om de beste activaspreiding voor uw portefeuille te vinden.</p>U kunt optimaliseren voor twee verschillende metrics en zelfs een gewenste plek kiezen tussen deze twee optimalisaties.'
-        since: 'sinds'
         risk_free_rate: 'Risicovrije Rente'
         us_bonds: 'Amerikaanse Obligaties'
         benchmark: 'Benchmark'
         benchmark_info: 'Hoe beter de keuze van de benchmark, hoe betrouwbaarder de berekening van het Verwachte Rendement. Kies een benchmark die nauw aansluit bij de beleggingsstrategie en het marktsegment van uw portefeuille. Andere door de benchmark beïnvloede metrics zijn onder meer Alpha, Beta, R² en de Info Ratio.'
-        get_ai_insights: 'Krijg AI Inzichten'
+        get_ai_insights: 'Inzichten'
         pnl: 'Winst/Verlies'
         strategy:
-            fixed: 'Vast'
+            fixed: 'Eenmalige investering'
             dca: 'DCA'
             rebalancing: 'Herbalancering'
         backtest:
@@ -829,6 +829,7 @@ nl:
                 adjusted_start_html: 'De startdatum van de backtest is aangepast naar <strong>%{start_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
                 adjusted_end_html: 'De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
     utils:
+        assets: 'Activas'
         are_you_sure: 'Weet je het zeker?'
         change_name: 'Naam wijzigen'
         delete: 'Verwijderen'
@@ -837,6 +838,7 @@ nl:
         new: 'Nieuw'
         save: 'Opslaan'
         see_at_coingecko: 'Zie op CoinGecko'
+        since: 'sinds'
         soon: 'binnenkort'
     alert:
         portfolio:
@@ -858,4 +860,11 @@ nl:
             portfolio_destroyed: 'Portefeuille is succesvol verwijderd.'
             portfolio_duplicated: 'Portefeuille is succesvol gedupliceerd.'
             unable_to_duplicate_portfolio: 'Niet in staat om portefeuille te dupliceren.'
-
+    ai:
+        insights:
+            intro: "Evalueer mijn portefeuille in de stijl van Naval-tweets. Vind de geopolitieke of technische thesis erachter, en relevante macro-economische gebeurtenissen van de afgelopen jaren. Merk op of de portefeuille je doet denken aan een bepaalde beleggingsstijl of populair idee, zoals een 3-fondsen portefeuille, enz. Wijs op overlappende activa, zoals ETF's met dezelfde aandelen (alleen als die er zijn). Geef maximaal 5 voor- en/of nadelen weer. Organiseer ze: eerst de voordelen. Besteed meer aandacht aan statistieken zoals volatiliteit en beta, en daarna aan die welke voornamelijk het verleden weerspiegelen, zoals de Sharpe-ratio. Gebruik de schaal Slecht/Neutraal/Goed/Uitmuntend."
+            response_format: |
+                Beantwoord in het volgende HTML-formaat (alle teksten in de template zijn slechts voorbeelden). Ik voeg je antwoord rechtstreeks in mijn HTML-template in, dus retourneer het NIET als een codefragment: <div class="insight insight--summary"><span class="insight__name">Gedurfde titel</span>. Korte beschrijving van de portefeuille in 5 zinnen.</div><div class="insight insight--pro"><span class="insight__name">Metrische naam <b>2.22</b> &middot; Uitmuntend</span>. Evaluatie in één zin</div><div class="insight insight--con"><span class="insight__name">Metrische naam <b>-1.36%</b> &middot; Slecht</span>. Evaluatie in één zin.</div>
+            past_performance: "Historische prestatie"
+            benchmark_performance: "Historische prestatie benchmark"
+            metrics_since: "Statistieken vanaf %{start_date} tot %{end_date}:"

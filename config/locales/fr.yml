@@ -113,7 +113,6 @@ fr:
             subject: 'Oups ! Prochain essai...'
             template_html: '<p>Le robot n''a pas pu exécuter votre ordre. On dirait qu''il s''agit d''un problème d''exchange. Nous réessayerons dans %{delay}.</p><p>Toutes les erreurs sont visibles dans le journal du robot. Connectez-vous pour vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        pro_only: 'Seulement Pro et Legendary Badger'
         above: 'au dessus'
         add_new_bot: 'Ajouter un nouveau bot'
         below: 'en dessous'
@@ -334,7 +333,7 @@ fr:
                 passphrase: 'Phrase secrète'
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-            limit_warning: 'Les frais pour les ordres à cours limité sont déjà plus bas, mais en les plaçant en dessous du prix actuel du montant des frais, vous pouvez les réduire efficacement à zéro. Un tel ordre peut être exécuté beaucoup plus tard, ou parfois pas du tout. Cependant, si vous gardez la valeur basse, le risque est minimal. Expérimenter avec des valeurs plus élevées est à vos propres risques. Certaines personnes utilisent même cette fonctionnalité avec la valeur fixée à zéro, ce qui garantit presque l''exécution, mais vous bénéficiez toujours d''un frais de créateur plus bas.'
+            limit_warning: 'Définir vos ordres au montant des frais réduit effectivement vos frais à zéro. Bien que les ordres à cours limité puissent prendre plus de temps à s''exécuter, ils sont généralement une bonne idée. Le paramètre par défaut le fait pour vous, donc mieux vaut s''y tenir si vous n''êtes pas sûr.'
             next: 'Suivant'
             no_wallet_found: 'Aucun portefeuille trouvé. Allez sur %{exchangeName} et ajoutez un portefeuille de retrait.'
             probit:
@@ -586,7 +585,7 @@ fr:
                 password: 'Mot de passe'
                 password_confirmation: 'Confirmation du mot de passe'
                 remember_me: 'Se souvenir de moi'
-                terms_and_conditions_tooltip: 'En continuant, j''accepte les %{terms_and_conditions} et %{privacy_policy} de Deltabadger.'
+                terms_and_conditions_tooltip: 'En continuant, j''accepte les %{terms_and_conditions} et %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b> C''est très important ! </b><br><br> Si vous n''avez pas reçu l''e-mail de confirmation, vérifiez votre <b> dossier indésirable </b>. Si vous ne le trouvez toujours pas, envoyez-moi un e-mail à %{email}. <br> <br> Merci, Jan'
@@ -609,6 +608,7 @@ fr:
         log_out: 'Se déconnecter'
         menu: 'Menu'
         privacy_policy: 'Politique de confidentialité'
+        earn: 'Gagner'
         referral_program: 'Programme de parrainage'
         resend_link: 'Renvoyer le lien'
         settings: 'Paramètres'
@@ -662,12 +662,15 @@ fr:
         days_left:
             one: "1 jour restant"
             other: "%{count} jours restants"
-        pro: Pro
-        pro_description_html: '<p><b>Bots DCA illimités</b>, des frais plus bas avec des <b>ordres limités</b>, des <b>retraits automatiques</b>, une <b>condition de prix</b>, une <b>condition de temps</b>(bientôt).</p>'
-        standard: Investisseur
-        standard_description_html: 'Un an de <b>transactions illimitées</b>, <b>toutes les devises</b> et <b>retraits automatiques</b>.'
-        legendary: "Legendary Badger"
-        legendary_description_html: '<p><b>Ne payez plus jamais pour utiliser le service.</b></p><p>Tout ce que le plan Pro offre, mais à vie.</p><p>L''abonnement comprend un <b>NFT</b>, ce qui vous permet de le vendre à un autre utilisateur à l''avenir.</p><p>Chaque jeton est associé à une œuvre d''art procédurale. Pouvez-vous trouver les 21 "œufs de Pâques" cachés dans <a href="https://deltabadger.com/legendary/" class="nobreak">la collection</a>?</p><p>À vie. Limité. Légendaire.</p><p>Les Legendary Badgers sont comme rien d''autre sur le marché.</p><p>Seulement 1000 places sur le vaisseau spatial des Legendary Badgers. Cimentez votre statut de penseur à long terme et devenez légendaire.</p>'
+        basic_info: 'Pas de fioritures, juste de l’efficacité.'
+        pro_info: 'Vue d’ensemble, analyses approfondies et fonctionnalités Pro.'
+        legendary_badger_info_html: '<p>Obtenez toutes les fonctionnalités actuelles et futures du plan Pro à vie.</p><p>Aimez-vous payer une seule fois et tout obtenir ? Rejoignez notre club exclusif de 1 000 penseurs à long terme avec des mains de diamant et une vision, et créez votre propre légende.</p><p>Le NFT que vous recevez transforme votre abonnement en un actif que vous pouvez transférer ou vendre. Chaque token est associé à une œuvre d''art procédurale unique, avec 21 <i>œufs de Pâques</i> cachés dans <a href="https://legendarybadgers.com/" class="nobreak">la collection</a>.</p>'
+        features:
+            analyzer_html: 'Prism — analyseur de portefeuille'
+            dca: 'Bots DCA'
+            price_limit: 'Limite de prix'
+            fee_cutter: 'Réducteur de frais'
+            withdrawals: 'Retraits automatiques'
         limit_reached_html: '<b>Félicitations!</b> Vous avez atteint notre limite de transactions gratuites de 1200 $/an. Pour continuer, passez au plan illimité.'
         analyzer_html: 'Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>.'
         expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Pro : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
@@ -684,8 +687,8 @@ fr:
                 one: 'Compensation pour 1 jour inutilisé du forfait Pro'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Pro'
             compensation_standard:
-                one: 'Compensation pour 1 jour inutilisé du forfait Investisseur'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Investisseur'
+                one: 'Compensation pour 1 jour inutilisé du forfait Standard'
+                other: 'Compensation pour %{count} jours inutilisés du forfait Standard'
             discount: '%{discount_percent}% de réduction'
             legendary_plan_discount: 'Réduction Early Bird'
             legendary_plan_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
@@ -721,17 +724,14 @@ fr:
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
-            <p>Bonjour %{name}, Deltabadger fait deux choses :</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Analyse de portefeuille</li>
-            </ul>
-            <p>C'est simple :</p>
-            <p>Tout d'abord, vous acquérez des actifs, et il n'y a pas de meilleure façon de le faire qu'avec le DCA automatisé.</p>
-            <p><b>Le premier bot est maintenant complètement gratuit</b>.</p>
-            <p>Ensuite, notre Analyseur vous aide à trouver la répartition optimale de vos actifs avec <b>Allocation Intelligente</b> et vous donne d'autres conseils pour améliorer votre portefeuille.</p>
-            <p>Si vous avez une mentalité à long terme et que vous aimez ce que vous voyez, envisagez de rejoindre les Legendary Badgers — une <b>communauté exclusive de 1 000 abonnés à vie</b>. C'est une offre unique qui soutient le projet et offre une occasion unique de devenir bénéficiaire à vie de tous les superpouvoirs de Deltabadger.</p>
-            <p style="margin-bottom:0">Cordialement, Jan</p>
+            <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
+                <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
+                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
+            <p style="margin-bottom:0">À bientôt, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
         free: 'Dites au revoir aux limites et faites une mise à niveau !'
@@ -809,18 +809,19 @@ fr:
         no_assets: 'Commencez par ajouter un nouvel actif.'
         assets_dont_coexist: 'Impossible de backtester ce portefeuille. Les actifs que vous avez sélectionnés n''ont jamais coexisté depuis %{backtest_start_date}!'
         api_unreachable: 'Impossible de backtester ce portefeuille en ce moment. Le serveur de données API est inaccessible.'
+        these_assets: 'Ces actifs ne réduisent ni la volatilité ni n''augmentent le ratio de Sharpe de votre portefeuille:'
         smart_allocation:
             name: 'Allocation Intelligente'
             short_info_html: '<p>L''Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
-        since: 'depuis'
+
         risk_free_rate: 'Taux Sans Risque'
         us_bonds: 'Obligations US'
         benchmark: 'Indice de Référence'
         benchmark_info: 'Plus le choix de l''indice de référence est bon, plus le calcul du Rendement Attendu est fiable. Choisissez un indice de référence qui correspond étroitement à la stratégie d''investissement et au segment de marché de votre portefeuille. D''autres métriques affectées par l''indice de référence incluent Alpha, Beta, R² et le Ratio d''Info.'
-        get_ai_insights: 'Obtenez des informations AI'
+        get_ai_insights: 'Aperçus'
         pnl: 'Profit/Perte'
         strategy:
-            fixed: 'Fixe'
+            fixed: 'Investissement unique'
             dca: 'DCA'
             rebalancing: 'Rééquilibrage'
         backtest:
@@ -829,6 +830,7 @@ fr:
                 adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
                 adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
+        assets: 'Actifs'
         are_you_sure: 'Es-tu sûr ?'
         change_name: 'Changer de nom'
         delete: 'Supprimer'
@@ -837,6 +839,7 @@ fr:
         new: 'Nouveau'
         save: 'Enregistrer'
         see_at_coingecko: 'Voir sur CoinGecko'
+        since: 'depuis'
         soon: 'bientôt'
     alert:
         portfolio:
@@ -858,4 +861,11 @@ fr:
             portfolio_destroyed: 'Le portefeuille a été supprimé avec succès.'
             portfolio_duplicated: 'Le portefeuille a été dupliqué avec succès.'
             unable_to_duplicate_portfolio: 'Impossible de dupliquer le portefeuille.'
-
+    ai:
+        insights:
+            intro: "Évaluez mon portefeuille dans le style des tweets de Naval. Trouvez la thèse géopolitique ou technique sous-jacente et les événements macroéconomiques pertinents des dernières années. Remarquez si le portefeuille vous rappelle un style d'investissement ou une idée populaire, comme le portefeuille à 3 fonds, etc. Identifiez les actifs se chevauchant comme les ETF avec les mêmes actions (seulement s'il y en a). Indiquez jusqu'à 5 avantages et/ou inconvénients. Organisez-les : avantages en premier. Accordez plus d'importance aux métriques comme la volatilité et le bêta, puis à celles reflétant principalement le passé, comme le ratio de Sharpe. Utilisez l'échelle Mauvais/Neutre/Bon/Exceptionnel."
+            response_format: |
+                Répondez dans le format HTML suivant (tous les textes dans le modèle ne sont que des exemples). J'injecte directement votre réponse dans mon modèle HTML, donc NE la renvoyez PAS sous forme d'extrait de code : <div class="insight insight--summary"><span class="insight__name">Titre percutant</span>. Bref récit sur le portefeuille en 5 phrases.</div><div class="insight insight--pro"><span class="insight__name">Nom de la métrique <b>2.22</b> &middot; Exceptionnel</span>. Évaluation en une phrase</div><div class="insight insight--con"><span class="insight__name">Nom de la métrique <b>-1.36%</b> &middot; Mauvais</span>. Évaluation en une phrase.</div>
+            past_performance: "Performance passée"
+            benchmark_performance: "Performance passée du benchmark"
+            metrics_since: "Métriques depuis %{start_date} jusqu'à %{end_date} :"

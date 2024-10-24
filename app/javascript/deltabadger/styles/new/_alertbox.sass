@@ -1,5 +1,5 @@
 .alertbox
-    border-radius: 1rem
+    border-radius: 2rem
     box-shadow: 0 0.5rem 2rem 0 rgba(0,0,0,0.12)
     display: flex
     padding: 3rem
@@ -23,7 +23,7 @@
         background: var(--alertbox-news-background)
         color: var(--alertbox-news-color)
     &--primary
-        background: linear-gradient(150deg, rgb(41 72 161) 0%, #1e3985 100%)
+        background: #17295c
         color: white
         .close
             *
@@ -31,12 +31,20 @@
     &--welcome
         .db-art__elem--basic
             fill: white
+        .sbutton
+            display: inline-block
+            line-height: 5.8rem
+            position: relative
+            top: 0.5rem
+            margin-top: -2rem
+        a
+            color: white
+            font-weight: bold
     &--success
         background: var(--success-semitransparent)
     ul,ol
-        margin-left: 3rem
-        font-weight: 600
-    p,ul,ol
+        margin-left: 2.5rem
+    p,ul,ol,li
         margin-bottom: 2rem
 
 .art--legendary-plan

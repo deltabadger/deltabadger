@@ -110,7 +110,6 @@ vi:
             subject: 'Ồ! Bạn hãy thử lại nhé... 🧐'
             template_html: "<p>Ôi trời 🧐,</p>\n<p>Bot đã không thể thực hiện lệnh của bạn.<br>Có vẻ như là sự cố liên quan đến giao dịch.<br>Chúng tôi sẽ thử lại lần nữa trong %{delay}.</p>\n<p>Tất cả lỗi đều hiển thị trong nhật ký bot.<br>Vui lòng đăng nhập để kiểm tra.</p>\n<p>Lỗi:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        pro_only: 'Chỉ Pro và Legendary Badger'
         above: 'trên đây'
         add_new_bot: 'Thêm bot mới'
         below: 'dưới đây'
@@ -315,7 +314,7 @@ vi:
                 passphrase: 'Cụm mật khẩu'
                 private_key: 'Mã bí mật API'
                 public_key: 'Khóa API'
-            limit_warning: 'Phí cho các lệnh giới hạn đã thấp hơn, nhưng bằng cách đặt chúng thấp hơn giá hiện tại với số tiền phí, bạn có thể giảm chúng về 0. Lệnh như vậy có thể được thực hiện muộn hơn nhiều hoặc thỉnh thoảng không được thực hiện. Tuy nhiên, nếu bạn giữ giá trị thấp, rủi ro là tối thiểu. Thử nghiệm với các giá trị cao hơn là do bạn tự chịu trách nhiệm. Một số người thậm chí sử dụng tính năng này với giá trị đặt về 0, điều này gần như đảm bảo việc thực hiện, nhưng bạn vẫn hưởng lợi từ mức phí nhà tạo lập thấp hơn.'
+            limit_warning: 'Đặt lệnh với mức phí tương ứng sẽ giảm phí của bạn xuống bằng không. Mặc dù lệnh giới hạn có thể mất nhiều thời gian hơn để thực hiện, chúng thường là một ý tưởng tốt. Cài đặt mặc định thực hiện điều này cho bạn, vì vậy tốt nhất nên giữ nguyên nếu bạn không chắc chắn.'
             next: 'Tiếp theo'
             no_wallet_found: ''
             probit:
@@ -566,7 +565,7 @@ vi:
                 password: 'Mật khẩu'
                 password_confirmation: 'Xác nhận mật khẩu'
                 remember_me: 'Nhớ tôi'
-                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy} của Deltabadger.'
+                terms_and_conditions_tooltip: 'Với việc tiếp tục, tôi đồng ý với %{terms_and_conditions} và %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Lưu ý quan trọng!</b><br><br> Nếu bạn không nhận được email xác nhận, vui lòng kiểm tra <b>thư mục thư rác</b>. Nếu vẫn không thấy email, vui lòng gửi email cho tôi tại địa chỉ %{email}. <br><br>Cảm ơn bạn, Jan'
@@ -589,6 +588,7 @@ vi:
         log_out: 'Đăng xuất'
         menu: Menu
         privacy_policy: 'Chính sách Quyền riêng tư'
+        earn: Kiếm
         referral_program: 'Chương trình giới thiệu'
         resend_link: 'Gửi lại liên kết'
         settings: 'Cài đặt'
@@ -634,13 +634,17 @@ vi:
             template_html: "<p>Tuyệt quá 💙,</p>\n<p>Cảm ơn bạn đã mua gói</p>\n<p>\n  <b>\n    %{years} năm %{plan_name} của chúng tôi\n  </b>\n</p>\n<p>Bạn thật tuyệt! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
-        pro: Pro
-        pro_description_html: '<p><b>Bot DCA không giới hạn</b>, phí thấp hơn với <b>lệnh giới hạn</b>, <b>rút tiền tự động</b>, <b>điều kiện giá</b>, <b>điều kiện thời gian</b>(sắp có).</p>'
-        standard: Standard
-        standard_description_html: 'Một năm <b>giao dịch không giới hạn</b>, <b>tất cả các loại tiền</b>, và <b>rút tiền tự động</b>.'
-        legendary: Legendary Badger
-        legendary_description_html: '<p><b>Không bao giờ phải trả phí sử dụng dịch vụ nữa.</b></p><p>Mọi thứ mà gói Pro cung cấp, nhưng là suốt đời.</p><p>Đăng ký đi kèm với một <b>NFT</b>, do đó trong tương lai bạn có thể bán nó cho người dùng khác.</p><p>Mỗi token được liên kết với một tác phẩm nghệ thuật quy trình. Bạn có thể tìm thấy tất cả 21 "trứng phục sinh" ẩn trong <a href="https://deltabadger.com/legendary/" class="nobreak">bộ sưu tập</a> không?</p><p>Suốt đời. Giới hạn. Huyền thoại.</p><p>Legendary Badgers là duy nhất trên thị trường.</p><p>Chỉ có 1000 chỗ ngồi trên tàu vũ trụ của Legendary Badgers. Hãy củng cố vị thế của bạn như một người suy nghĩ dài hạn và trở thành huyền thoại.</p>'
+            one: 'Còn 1 ngày'
+            other: 'Còn %{count} ngày'
+        basic_info: 'Không phức tạp, chỉ làm việc hiệu quả.'
+        pro_info: 'Có cái nhìn tổng quát, phân tích sâu và các tính năng Pro.'
+        legendary_badger_info_html: '<p>Nhận tất cả các tính năng hiện tại và tương lai của gói Pro trọn đời.</p><p>Bạn có thích trả tiền một lần và có được tất cả? Tham gia câu lạc bộ giới hạn 1.000 người suy nghĩ dài hạn với “tay kim cương” và tầm nhìn của chúng tôi, và tạo ra huyền thoại của riêng bạn.</p><p>NFT bạn nhận được biến đăng ký của bạn thành một tài sản mà bạn có thể chuyển nhượng hoặc bán. Mỗi mã thông báo đi kèm với tác phẩm nghệ thuật theo thủ tục độc đáo, với 21 <i>trứng phục sinh</i> ẩn trong <a href="https://legendarybadgers.com/" class="nobreak">bộ sưu tập</a>.</p>'
+        features:
+            analyzer_html: 'Prism — công cụ phân tích danh mục đầu tư'
+            dca: 'Bot DCA'
+            price_limit: 'Giới hạn giá'
+            fee_cutter: 'Cắt giảm phí'
+            withdrawals: 'Tự động rút tiền'
         limit_reached_html: '<b>Xin chúc mừng!</b> Bạn đã đạt hạn mức giao dịch miễn phí của chúng tôi là $1200/năm. Để tiếp tục, hãy nâng cấp lên gói không giới hạn.'
         analyzer_html: 'Tăng cường danh mục đầu tư của bạn với sức mạnh không giới hạn của <b>Trình phân tích Danh mục đầu tư</b>.'
         expires_soon_html: 'Chúng tôi đang phát triển nhanh chóng, vì vậy đây là những điều quan trọng nhất sẽ đến với gói Pro: <b>giám sát danh mục đầu tư</b> trên tất cả các thị trường, <b>cân bằng lại danh mục đầu tư</b> được hỗ trợ bởi Trình phân tích, <b>đồng bộ hóa</b> cho các tài khoản hiện có.</b>'
@@ -692,17 +696,14 @@ vi:
         claim: 'Nhận NFT'
     welcome:
         banner_html: |
-            <p>Chào %{name}, Deltabadger làm hai việc:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Phân tích danh mục đầu tư</li>
-            </ul>
-            <p>Rất đơn giản:</p>
-            <p>Đầu tiên, bạn mua tài sản, và không có cách nào tốt hơn để làm điều đó ngoài DCA tự động.</p>
-            <p><b>Bot đầu tiên hiện hoàn toàn miễn phí</b>.</p>
-            <p>Sau đó, Bộ phân tích của chúng tôi giúp bạn tìm ra phân bổ tối ưu cho tài sản của mình với <b>Phân bổ thông minh</b> và cung cấp các gợi ý khác về cách cải thiện danh mục đầu tư của bạn.</p>
-            <p>Nếu bạn có tư duy dài hạn và bạn thích những gì bạn thấy, hãy cân nhắc tham gia Legendary Badgers — một <b>cộng đồng độc quyền gồm 1.000 người đăng ký trọn đời</b>. Đây là một lời đề nghị độc đáo không chỉ hỗ trợ dự án mà còn mang đến cho bạn cơ hội trở thành người thụ hưởng trọn đời của tất cả các siêu năng lực của Deltabadger.</p>
-            <p style="margin-bottom:0">Trân trọng, Jan</p>
+            <p>Chào mừng lên tàu, %{name}! Đây là vài bước đi chiến thắng dành cho bạn:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Bắt đầu bot <b>DCA</b> đầu tiên của bạn và hét lên: <i>“Mẹ ơi, nhìn này, không cần tay!”</i></li>
+                <li>Cải thiện danh mục đầu tư của bạn với công cụ phân tích <b>🌈⃤ Prism</b> và bỏ lại thị trường phía sau.<sur>*</sur><br><small><sur>*</sur>Không cần quả cầu pha lê.</small></li>
+                <li>Tham gia cộng đồng <b>Fireheads</b> và nghỉ hưu sớm—vì làm việc đến 65 tuổi? Không, cảm ơn.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Tham gia cộng đồng">Bắt đầu trong cộng đồng</a>. Tham gia cuộc gọi Bonfire vào thứ Tư để gặp gỡ nhóm các kẻ nổi loạn tài chính, đồng sáng lập của tôi Guillem, và tôi. Cuộc đời quá ngắn để đợi đến cuối tuần. (Chờ đợi đến thứ Tư thì tuyệt hơn nhiều).</p>
+            <p style="margin-bottom:0">Hẹn gặp bạn, Jan</p>
     metrics:
         exp_return:
             short_name: 'Lợi nhuận kỳ vọng'
@@ -777,18 +778,18 @@ vi:
         no_assets: 'Bắt đầu bằng cách thêm tài sản mới.'
         assets_dont_coexist: 'Không thể kiểm tra lại danh mục đầu tư này. Các tài sản bạn đã chọn chưa bao giờ cùng tồn tại kể từ %{backtest_start_date}!'
         api_unreachable: 'Không thể kiểm tra lại danh mục đầu tư này ngay bây giờ. Máy chủ dữ liệu API không thể truy cập.'
+        these_assets: 'Những tài sản này không làm giảm biến động cũng không tăng tỷ lệ Sharpe của danh mục đầu tư của bạn:'
         smart_allocation:
             name: 'Phân bổ thông minh'
             short_info_html: '<p>Phân bổ thông minh áp dụng các thuật toán <b>Lý thuyết danh mục hiện đại (MPT)</b> để tìm phân bổ tài sản tốt nhất cho danh mục đầu tư của bạn.</p>Bạn có thể tối ưu hóa cho hai chỉ số khác nhau và thậm chí chọn một vị trí mong muốn giữa hai tối ưu hóa đó.'
-        since: 'kể từ'
         risk_free_rate: 'Lãi suất phi rủi ro'
         us_bonds: 'Trái phiếu Mỹ'
         benchmark: 'Tiêu chuẩn'
         benchmark_info: 'Lựa chọn tiêu chuẩn càng tốt, tính toán lợi nhuận kỳ vọng càng đáng tin cậy. Chọn tiêu chuẩn phù hợp với chiến lược đầu tư và phân khúc thị trường của danh mục đầu tư của bạn. Các chỉ số khác bị ảnh hưởng bởi tiêu chuẩn bao gồm Alpha, Beta, R², và Tỷ số Thông tin.'
-        get_ai_insights: 'Nhận thông tin chi tiết AI'
+        get_ai_insights: 'Thông tin chi tiết'
         pnl: 'Lợi nhuận/Lỗ'
         strategy:
-            fixed: 'Cố định'
+            fixed: 'Khoản đầu tư một lần'
             dca: 'DCA'
             rebalancing: 'Tái cân bằng'
         backtest:
@@ -797,6 +798,7 @@ vi:
                 adjusted_start_html: "Ngày bắt đầu kiểm tra lại đã được điều chỉnh thành <strong>%{start_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
                 adjusted_end_html: "Ngày kết thúc kiểm tra lại đã được điều chỉnh thành <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
     utils:
+        assets: 'Tài sản'
         are_you_sure: 'Bạn có chắc không?'
         change_name: 'Đổi tên'
         delete: 'Xóa'
@@ -805,6 +807,7 @@ vi:
         new: 'Mới'
         save: 'Lưu'
         see_at_coingecko: 'Xem trên CoinGecko'
+        since: 'kể từ'
         soon: 'sắp ra mắt'
     alert:
         portfolio:
@@ -826,4 +829,13 @@ vi:
             portfolio_destroyed: 'Danh mục đầu tư đã được xóa thành công.'
             portfolio_duplicated: 'Danh mục đầu tư đã được nhân bản thành công.'
             unable_to_duplicate_portfolio: 'Không thể nhân bản danh mục đầu tư.'
+    ai:
+        insights:
+            intro: "Đánh giá danh mục đầu tư của tôi theo phong cách các tweet của Naval. Tìm ra luận điểm địa chính trị hoặc kỹ thuật đằng sau, và các sự kiện vĩ mô liên quan trong những năm gần đây. Lưu ý nếu danh mục đầu tư gợi nhớ cho bạn về một phong cách đầu tư hoặc ý tưởng phổ biến nào đó như danh mục đầu tư 3 quỹ, v.v. Chỉ ra các tài sản trùng lặp như các ETF có cùng cổ phiếu (chỉ nếu có)."
+            pros_cons: "Sau đó hiển thị tối đa 5 ưu và/hoặc nhược điểm. Sắp xếp chúng: ưu điểm trước. Chú ý nhiều hơn đến các chỉ số như độ biến động và beta, sau đó là các chỉ số chủ yếu phản ánh quá khứ như Sharpe. Sử dụng thang đánh giá Kém/Trung lập/Tốt/Xuất sắc."
+            response_format: |
+                Trả lời theo định dạng HTML sau (tất cả văn bản trong mẫu chỉ là ví dụ). Tôi sẽ chèn phản hồi của bạn trực tiếp vào mẫu HTML của mình nên đừng trả lại nó dưới dạng một đoạn mã: <div class="insight insight--summary"><span class="insight__name">Tiêu đề hấp dẫn</span>. Mô tả ngắn gọn về danh mục đầu tư trong 5 câu.</div><div class="insight insight--pro"><span class="insight__name">Tên chỉ số <b>2.22</b> &middot; Xuất sắc</span>. Đánh giá trong một câu</div><div class="insight insight--con"><span class="insight__name">Tên chỉ số <b>-1.36%</b> &middot; Kém</span>. Đánh giá trong một câu.</div>
+            past_performance: "Hiệu suất trong quá khứ"
+            benchmark_performance: "Hiệu suất tiêu chuẩn trong quá khứ"
+            metrics_since: "Chỉ số từ %{start_date} đến %{end_date}:"
 

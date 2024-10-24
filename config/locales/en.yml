@@ -116,7 +116,6 @@ en:
             subject: 'Oops! Next try…'
             template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
     bots:
-        pro_only: 'Pro and Legendary only'
         above: above
         add_new_bot: 'Add new bot'
         below: below
@@ -360,7 +359,7 @@ en:
                 passphrase: Passphrase
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            limit_warning: 'Fees for limit orders are already lower, but by setting them below the current price by the amount of the fee, you can effectively reduce them to zero. Such an order may be executed much later, or occasionally not at all. However, if you keep the value low, the risk is minimal. Experimenting with higher values is at your own risk. Some people even use this feature with the value set to zero, which almost guarantees execution, but you still benefit from a lower maker fee.'
+            limit_warning: 'Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it''s best to stick with it if you''re unsure.'
             next: Next
             no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
             probit:
@@ -612,7 +611,7 @@ en:
                 password: Password
                 password_confirmation: 'Password confirmation'
                 remember_me: 'Remember me'
-                terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy} of Deltabadger.'
+                terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>This is very important!</b><br><br> If you didn''t get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, email me at %{email}. <br><br>Thanks, Jan'
@@ -625,7 +624,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
-        community: 'Fireheads Community'
+        community: 'Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -635,7 +634,8 @@ en:
         log_out: Logout
         menu: Menu
         privacy_policy: 'Privacy Policy'
-        referral_program: 'Referral program'
+        earn: 'Earn'
+        referral_program: 'Share & Earn'
         resend_link: 'Resend link'
         settings: Settings
         sign_up: 'Sign up'
@@ -689,14 +689,17 @@ en:
         days_left:
             one: '1 day left'
             other: '%{count} days left'
-        pro: Pro
-        pro_description_html: '<p><b>Unlimited DCA bots</b>, lower fees with <b>limit orders</b>, <b>automatic withdrawals</b>, <b>price condition</b>, <b>time condition</b>(soon).</p>'
-        standard: Standard
-        standard_description_html: 'One year of <b>unlimited transactions</b>, <b>all currencies</b>, and <b>automatic withdrawals</b>.'
-        legendary: Legendary
-        legendary_description_html: '<p><b>Never pay to use the service again.</b></p><p>Everything the Pro plan has to offer, but for a lifetime.</p><p>Subscription comes with an <b>NFT</b>, so in the future you can sell it to another user.</p><p>Each token is associated with procedural artwork. Can you find all 21 "easter eggs" hidden in <a href="https://deltabadger.com/legendary/" class="nobreak">the collection</a>?</p><p>Lifetime. Limited. Legendary.</p><p>Legendary Badgers are like nothing else on the market.</p><p>Only 1000 sits on the Legendary Badgers'' spaceship. Cement your long-term thinker status, and be Legendary.</p>'
+        basic_info: 'No frills, just thrills, but gets the job done.'
+        pro_info: 'Get a big picture, deep insights, and Pro features.'
+        legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
+        features:
+            analyzer_html: '🌈⃤  Prism analyzer'
+            dca: 'DCA bots'
+            price_limit: 'Price limit'
+            fee_cutter: 'FeeCutter'
+            withdrawals: 'Auto-withdrawals'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
-        analyzer_html: 'Boost your portfolio with the unlimited power of <b>Portfolio Analyzer</b>.'
+        analyzer_html: 'Boost your portfolio with the unlimited power of <b>🌈⃤ Prism</b> portfolio analyzer.'
         expires_soon_html: 'We''re building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>'
         payment:
             card: 'Card'
@@ -742,7 +745,7 @@ en:
         prolong_upgrade: 'Upgrade your plan'
         free: Free
         upgrade: Upgrade
-        upgrade_plan: 'Upgrade plan'
+        upgrade_plan: 'Upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
         ethereum_address: 'Ethereum address'
@@ -750,17 +753,14 @@ en:
         claim: Claim NFT
     welcome:
         banner_html: |
-            <p>Hi %{name}, Deltabadger does two things:</p>
-            <ul>
-                <li>Dollar-Cost Averaging</li>
-                <li>Portfolio Analysis</li>
-            </ul>
-            <p>It's simple:</p>
-            <p>First, you acquire assets, and there is no better way to do it than with automated DCA.</p>
-            <p><b>The first bot is now completely free</b>.</p>
-            <p>Then, our Analyzer helps you find the optimal allocation of your assets with <b>Smart Allocation</b>, and provides other cues on how to improve your portfolio.</p>
-            <p>If you have a long-term mindset and you like what you see, consider joining Legendary Badgers — an <b>exclusive community of 1,000 lifetime subscribers</b>. This is an offer like no other that both supports the project and gives a unique opportunity to become a lifetime beneficiary of all Deltabadger's superpowers.</p>
-            <p style="margin-bottom:0">Best, Jan</p>
+            <p>Welcome aboard, %{name}! Here are some winning moves for you:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start free <b>DCA bot</b> and shout, <i>“Look mom, no hands!”</i></li>
+                <li>Improve your portfolio with <b>🌈⃤  Prism</b> analyzer and leave the market in your rearview.<sur>*</sur><br><small><sur>*</sur>No crystal ball required.</small></li>
+                <li>Join the <b>Fireheads</b> community and retire early—because working 'til 65? Yeah, hard pass.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Go to the community">Start in the community</a>. Join us at the Wednesday Bonfire call to meet a gang of financial freedom rebels, my cofounder Guillem, and me. Life's too short to wait for weekends. (Waiting for Wednesday is way cooler).</p>
+            <p style="margin-bottom:0">Catch you there, Jan</p>
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
         free: 'Get rid of the limits, and make an upgrade!'
@@ -838,18 +838,18 @@ en:
         no_assets: 'Get started by adding a new asset.'
         assets_dont_coexist: 'Unable to backtest this portfolio. The assets you selected have never coexisted since %{backtest_start_date}!'
         api_unreachable: 'Unable to backtest this portfolio right now. Data API server is unreachable.'
+        these_assets: 'These assets neither lower Volatility nor increase Sharpe Ratio of your portfolio:'
         smart_allocation:
             name: 'Smart Allocation'
             short_info_html: '<p>Smart Allocation applies <b>Modern Portfolio Theory (MPT)</b> algorithms to find the best asset allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
-        since: 'since'
         risk_free_rate: 'Risk-Free Rate'
         us_bonds: 'US Bonds'
         benchmark: 'Benchmark'
         benchmark_info: 'The better the benchmark choice, the more reliable the Exp. Return calculation. Pick a benchmark that closely matches the investment strategy and market segment of your portfolio. Other metrics affected by the benchmark include Alpha, Beta, R², and Info Ratio.'
-        get_ai_insights: 'Get AI Insights'
+        get_ai_insights: 'Insights'
         pnl: 'Profit/Loss'
         strategy:
-            fixed: 'Fixed'
+            fixed: 'One-time investment'
             dca: 'DCA'
             rebalancing: 'Rebalancing'
         backtest:
@@ -858,6 +858,7 @@ en:
                 adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
+        assets: Assets
         are_you_sure: 'Are you sure?'
         change_name: 'Change name'
         delete: 'Delete'
@@ -866,6 +867,7 @@ en:
         new: 'New'
         save: 'Save'
         see_at_coingecko: 'See at CoinGecko'
+        since: 'since'
         soon: 'soon'
     alert:
         portfolio:
@@ -887,3 +889,11 @@ en:
             portfolio_destroyed: 'Portfolio was successfully destroyed.'
             portfolio_duplicated: 'Portfolio was successfully duplicated.'
             unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
+    ai:
+        insights:
+            intro: "Evaluate my portfolio in the style of Naval tweets. Find geopolitical or technical thesis behind, and relevant macro events in the recent years. Notice if portfolio reminds you of some investing style or popular idea like 3-fund portfolio, etc. Point out overlapping assets like ETFs with the same stocks (only if there are any). Then show up to 5 pros and/or cons organized so all pros go first. Put more attention to metrics like volatility and beta, then those mostly reflecting past like Sharpe. Use Poor/Neutral/Good/Exceptional scale."
+            response_format: |
+                Reply in the following HTML format (all texts in the template are only examples). I inject your reply directly into my HTML template so do NOT return it as a code snippet: <div class="insight insight--summary"><span class="insight__name">Edgy title</span>. Short narrative about the portfolio in 5 sentences.</div><div class="insight insight--pro"><span class="insight__name">Metric name <b>2.22</b> &middot; Exceptional</span>. One sentence evaluation</div><div class="insight insight--con"><span class="insight__name">Metric name <b>-1.36%</b> &middot; Poor</span>. One sentence evaluation.</div>
+            past_performance: "Past performance"
+            benchmark_performance: "Benchmark past performance"
+            metrics_since: "Metrics for time since %{start_date} to %{end_date}:"

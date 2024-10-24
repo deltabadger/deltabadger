@@ -110,7 +110,6 @@ id:
             subject: 'Ups! Percobaan berikutnya… 🧐'
             template_html: "<p>Oh tidak 🧐,</p>\n<p>Bot tidak dapat melakukan order Anda.<br>Tampaknya ada masalah dengan pertukaran.<br>Kami akan mencobanya lagi dalam %{delay}.</p>\n<p>Semua kesalahan dapat dilihat di log bot.<br>Silakan masuk untuk memeriksanya.</p>\n<p>Kesalahan:</p>\n<blockquote>\n  <b style=\"color: #0a45a4;\">%{exchange}:%{base}%{quote}</b>\n  <br>\n  <b style=\"color: #0a45a4;\">%{errors}</b>\n</blockquote>"
     bots:
-        pro_only: 'Hanya Pro dan Legendary Badger'
         above: 'di atas'
         add_new_bot: 'Tambah bot baru'
         below: 'di bawah'
@@ -315,7 +314,7 @@ id:
                 passphrase: 'Frasa Sandi'
                 private_key: 'API Rahasia'
                 public_key: 'Kunci API'
-            limit_warning: 'Biaya untuk pesanan batas sudah lebih rendah, tetapi dengan menetapkannya di bawah harga saat ini sebesar biaya tersebut, Anda dapat secara efektif menguranginya menjadi nol. Pesanan semacam itu mungkin dieksekusi jauh kemudian, atau kadang-kadang tidak sama sekali. Namun, jika Anda menjaga nilainya rendah, risikonya minimal. Bereksperimen dengan nilai yang lebih tinggi adalah risiko Anda sendiri. Beberapa orang bahkan menggunakan fitur ini dengan nilai yang diatur menjadi nol yang hampir menjamin eksekusi, tetapi Anda tetap mendapat manfaat dari biaya pembuat yang lebih rendah.'
+            limit_warning: 'Menetapkan pesanan Anda pada jumlah biaya secara efektif mengurangi biaya menjadi nol. Meskipun pesanan limit mungkin membutuhkan waktu lebih lama untuk dieksekusi, ini umumnya merupakan ide yang baik. Pengaturan default melakukan ini untuk Anda, jadi sebaiknya tetap menggunakannya jika Anda ragu.'
             next: Berikutnya
             no_wallet_found: ''
             probit:
@@ -567,7 +566,7 @@ id:
                 password: 'Kata sandi'
                 password_confirmation: 'Konfirmasi kata sandi'
                 remember_me: 'Ingat saya'
-                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy} Deltabadger.'
+                terms_and_conditions_tooltip: 'Dengan melanjutkan, saya menyetujui %{terms_and_conditions} dan %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Penting sekali!</b><br><br> Jika Anda tidak menerima email konfirmasi, periksa <b>folder sampah</b> Anda. Jika Anda masih belum menemukannya, harap kirimkan email ke %{email}. <br><br>Terima kasih, Jan'
@@ -590,6 +589,7 @@ id:
         log_out: Keluar
         menu: Menu
         privacy_policy: 'Kebijakan Privasi'
+        earn: 'Dapatkan'
         referral_program: 'Program referral'
         resend_link: 'Kirim ulang tautan'
         settings: Pengaturan
@@ -635,13 +635,17 @@ id:
             template_html: "<p>Wow 💙,</p>\n<p>Terima kasih sudah membeli</p>\n<p>\n  <b>\n    paket %{plan_name} %{years}-tahun kami\n  </b>\n</p>\n<p>Keren! 🔥</p>"
     subscriptions:
         days_left:
-            other: ''
-        pro: Pro
-        pro_description_html: '<p><b>Bot DCA tanpa batas</b>, biaya lebih rendah dengan <b>limit order</b>, <b>penarikan otomatis</b>, <b>kondisi harga</b>, <b>kondisi waktu</b>(segera).</p>'
-        standard: Standard
-        standard_description_html: 'Satu tahun <b>transaksi tak terbatas</b>, <b>semua mata uang</b>, dan <b>penarikan otomatis</b>.'
-        legendary: 'Legendary Badger'
-        legendary_description_html: '<p><b>Jangan pernah lagi membayar untuk menggunakan layanan ini.</b></p><p>Segala yang ditawarkan oleh paket Pro, tetapi seumur hidup.</p><p>Langganan ini dilengkapi dengan <b>NFT</b>, sehingga di masa depan Anda dapat menjualnya kepada pengguna lain.</p><p>Setiap token terkait dengan karya seni prosedural. Bisakah Anda menemukan 21 "telur Paskah" yang tersembunyi dalam <a href="https://deltabadger.com/legendary/" class="nobreak">koleksi</a>?</p><p>Seumur hidup. Terbatas. Legendaris.</p><p>Legendary Badgers tidak seperti apa pun yang ada di pasar.</p><p>Hanya 1000 tempat di pesawat luar angkasa Legendary Badgers. Semen status pemikir jangka panjang Anda, dan jadilah Legendaris.</p>'
+            one: '1 hari tersisa'
+            other: '%{count} hari tersisa'
+        basic_info: 'Tanpa embel-embel, langsung bekerja.'
+        pro_info: 'Dapatkan gambaran besar, wawasan mendalam, dan fitur Pro.'
+        legendary_badger_info_html: '<p>Dapatkan semua fitur Pro saat ini dan masa depan seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub eksklusif kami yang terdiri dari 1.000 pemikir jangka panjang dengan tangan berlian dan visi, dan ciptakan legenda Anda sendiri.</p><p>NFT yang Anda terima mengubah langganan Anda menjadi aset yang dapat Anda alihkan atau jual. Setiap token dilengkapi dengan karya seni prosedural unik, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
+        features:
+            analyzer_html: 'Prism — penganalisis portofolio'
+            dca: 'Bot DCA'
+            price_limit: 'Batas harga'
+            fee_cutter: 'Pemotong biaya'
+            withdrawals: 'Penarikan otomatis'
         limit_reached_html: '<b>Selamat!</b> Anda telah mencapai limit transaksi gratis kami sebesar $1200/tahun. Untuk melanjutkan, tingkatkan ke paket tanpa batas.'
         analyzer_html: 'Tingkatkan portofolio Anda dengan kekuatan tak terbatas dari <b>Portfolio Analyzer</b>.'
         expires_soon_html: 'Kami berkembang pesat sekarang, jadi ini adalah hal-hal terpenting yang akan datang ke paket Pro: <b>pemantauan portofolio</b> di semua pasar, <b>penyeimbangan ulang portofolio</b> yang didukung oleh Analyzer, <b>sinkronisasi</b> untuk akun yang ada.</b>'
@@ -694,17 +698,14 @@ id:
         claim: 'Klaim NFT'
     welcome:
         banner_html: |
-            <p>Hai %{name}, Deltabadger melakukan dua hal:</p>
-            <ul>
-                <li>Dollar-Cost Averaging (DCA)</li>
-                <li>Analisis Portofolio</li>
-            </ul>
-            <p>Sangat sederhana:</p>
-            <p>Pertama, Anda memperoleh aset, dan tidak ada cara yang lebih baik untuk melakukannya selain dengan DCA otomatis.</p>
-            <p><b>Bot pertama sekarang sepenuhnya gratis</b>.</p>
-            <p>Kemudian, Analyzer kami membantu Anda menemukan alokasi optimal dari aset Anda dengan <b>Alokasi Cerdas</b> dan memberikan petunjuk lainnya tentang cara meningkatkan portofolio Anda.</p>
-            <p>Jika Anda memiliki pola pikir jangka panjang dan Anda menyukai apa yang Anda lihat, pertimbangkan untuk bergabung dengan Legendary Badgers — <b>komunitas eksklusif dari 1.000 pelanggan seumur hidup</b>. Ini adalah tawaran unik yang mendukung proyek dan memberi Anda kesempatan unik untuk menjadi penerima manfaat seumur hidup dari semua kekuatan super Deltabadger.</p>
-            <p style="margin-bottom:0">Salam, Jan</p>
+            <p>Selamat datang di kapal, %{name}! Berikut beberapa langkah kemenangan untukmu:</p>
+            <ol>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Mulai <b>bot DCA</b> gratis dan teriak, <i>“Lihat, Bu, tanpa tangan!”</i></li>
+                <li>Tingkatkan portofoliomu dengan <b>🌈⃤ Prism</b> analyzer dan tinggalkan pasar di kaca spion.<sur>*</sur><br><small><sur>*</sur>Tidak perlu bola kristal.</small></li>
+                <li>Bergabunglah dengan komunitas <b>Fireheads</b> dan pensiun dini—karena bekerja hingga usia 65? Tidak, terima kasih.</li>
+            </ol>
+            <p><a href="https://skool.com/fire" target="_blank" title="Masuk ke komunitas">Mulai di komunitas</a>. Ikutlah pada panggilan Bonfire hari Rabu untuk bertemu sekelompok pemberontak kebebasan finansial, cofounder saya Guillem, dan saya. Hidup terlalu singkat untuk menunggu akhir pekan. (Menunggu hari Rabu jauh lebih keren).</p>
+            <p style="margin-bottom:0">Sampai jumpa di sana, Jan</p>
         default: 'Hai, selamat datang di Deltabadger'
         free: 'Hapus limit dan tingkatkan paket!'
     metrics:
@@ -781,18 +782,18 @@ id:
         no_assets: 'Mulailah dengan menambahkan aset baru.'
         assets_dont_coexist: 'Tidak dapat melakukan backtest portofolio ini. Aset yang Anda pilih tidak pernah ada bersama sejak %{backtest_start_date}!'
         api_unreachable: 'Tidak dapat melakukan backtest portofolio ini sekarang. Server API data tidak dapat dijangkau.'
+        these_assets: 'Aset-aset ini tidak mengurangi volatilitas maupun meningkatkan Rasio Sharpe portofolio Anda:'
         smart_allocation:
             name: 'Allocasi Cerdas'
             short_info_html: '<p>Allocasi Cerdas menerapkan algoritma <b>Modern Portfolio Theory (MPT)</b> untuk menemukan alokasi aset terbaik untuk portofolio Anda.</p>Anda dapat mengoptimalkan untuk dua metrik yang berbeda dan bahkan memilih posisi yang diinginkan di antara dua optimasi tersebut.'
-        since: 'sejak'
         risk_free_rate: 'Tingkat Bebas Risiko'
         us_bonds: 'Obligasi AS'
         benchmark: 'Benchmark'
         benchmark_info: 'Semakin baik pilihan benchmark, semakin andal perhitungan Exp. Return. Pilih benchmark yang sesuai dengan strategi investasi dan segmen pasar portofolio Anda. Metrik lain yang dipengaruhi oleh benchmark termasuk Alpha, Beta, R², dan Rasio Info.'
-        get_ai_insights: 'Dapatkan Wawasan AI'
+        get_ai_insights: 'Wawasan'
         pnl: 'Profit/Loss'
         strategy:
-            fixed: 'Tetap'
+            fixed: 'Investasi sekali'
             dca: 'DCA'
             rebalancing: 'Rebalancing'
         backtest:
@@ -801,6 +802,7 @@ id:
                 adjusted_start_html: "Tanggal mulai backtest telah disesuaikan menjadi <strong>%{start_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
                 adjusted_end_html: "Tanggal berakhirnya backtest telah disesuaikan menjadi <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
     utils:
+        assets: Aset
         are_you_sure: 'Apakah Anda yakin?'
         change_name: 'Ganti nama'
         delete: 'Hapus'
@@ -809,6 +811,7 @@ id:
         new: 'Baru'
         save: 'Simpan'
         see_at_coingecko: 'Lihat di CoinGecko'
+        since: 'sejak'
         soon: 'segera'
     alert:
         portfolio:
@@ -830,4 +833,11 @@ id:
             portfolio_destroyed: 'Portofolio berhasil dihapus.'
             portfolio_duplicated: 'Portofolio berhasil diduplikasi.'
             unable_to_duplicate_portfolio: 'Tidak dapat menduplikasi portofolio.'
-
+    ai:
+        insights:
+            intro: "Evaluasi portofolio saya dalam gaya tweet Naval. Temukan tesis geopolitik atau teknis di baliknya, dan peristiwa makroekonomi yang relevan dalam beberapa tahun terakhir. Perhatikan jika portofolio mengingatkan Anda pada beberapa gaya investasi atau ide populer seperti portofolio 3 dana, dll. Tunjukkan aset yang tumpang tindih seperti ETF dengan saham yang sama (hanya jika ada). Tunjukkan hingga 5 kelebihan dan/atau kekurangan. Susun mereka: kelebihan dulu. Berikan perhatian lebih pada metrik seperti volatilitas dan beta, kemudian pada metrik yang sebagian besar mencerminkan masa lalu seperti Sharpe. Gunakan skala Buruk/Netral/Baik/Luar Biasa."
+            response_format: |
+                Balas dalam format HTML berikut (semua teks dalam template hanyalah contoh). Saya menyisipkan jawaban Anda langsung ke dalam template HTML saya, jadi JANGAN mengembalikannya sebagai cuplikan kode: <div class="insight insight--summary"><span class="insight__name">Judul yang Berani</span>. Narasi singkat tentang portofolio dalam 5 kalimat.</div><div class="insight insight--pro"><span class="insight__name">Nama metrik <b>2.22</b> &middot; Luar Biasa</span>. Evaluasi dalam satu kalimat</div><div class="insight insight--con"><span class="insight__name">Nama metrik <b>-1.36%</b> &middot; Buruk</span>. Evaluasi dalam satu kalimat.</div>
+            past_performance: "Kinerja masa lalu"
+            benchmark_performance: "Kinerja patokan masa lalu"
+            metrics_since: "Metrik dari %{start_date} hingga %{end_date}:"
