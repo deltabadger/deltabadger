@@ -102,10 +102,10 @@ nl:
             template_html: '<p>U gebruikt Deltabadger nu bijna een maand!</p><p>Uw gratis proefperiode eindigt binnenkort. Zorg voor een upgrade om je zwaardere badgers lopende te houden!</p>'
         limit_almost_reached:
             subject: 'Limiet bijna bereikt'
-            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Standard</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
+            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Basic</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
         limit_reached:
             subject: 'U hebt de limiet bereikt'
-            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Standard</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
+            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Basic</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
         notify_about_error:
             subject: 'Er ging iets mis'
             template_html: '<p>Er ging iets mis tijdens het verwerken van de laatste transactie.</p><p>U kan de error zien in het bot logboek. Log in om dit te controleren.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -662,7 +662,7 @@ nl:
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'
-        standard_info: 'Geen franje, alleen spanning, maar doet het werk.'
+        basic_info: 'Geen franje, alleen spanning, maar doet het werk.'
         pro_info: 'Krijg een overzicht, diepgaande inzichten en Pro-functies.'
         legendary_badger_info_html: '<p>Krijg alle huidige en toekomstige functies van het Pro-plan voor altijd.</p><p>Betaal je graag één keer en krijg je alles? Sluit je aan bij onze exclusieve club van 1.000 langetermijndenkers met diamanten handen en visie, en creëer je eigen legende.</p><p>De NFT die je ontvangt, verandert je abonnement in een actief dat je kunt overdragen of verkopen. Elke token wordt geleverd met unieke procedurele kunst, met 21 verborgen <i>paaseieren</i> in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
         features:
@@ -686,9 +686,9 @@ nl:
             compensation_pro:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'
-            compensation_standard:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Standard plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Standard plan.'
+            compensation_basic:
+                one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
+                other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
             discount: '%{discount_percent}% korting'
             legendary_plan_discount: 'Early Bird korting'
             legendary_plan_discount_info: 'Bij elke verkoop daalt de korting met $10. Wacht niet!'
@@ -704,7 +704,7 @@ nl:
             server_error: 'Betalingen server error. Probeer het later opnieuw.'
             vat: BTW
             wire_cost_pro_html: 'Stuur alstublieft <b><span class="pro-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_standard_html: 'Stuur alstublieft <b><span class="standard-total-price">%{price}</span></b> naar de volgende bankrekening:'
+            wire_cost_basic_html: 'Stuur alstublieft <b><span class="basic-total-price">%{price}</span></b> naar de volgende bankrekening:'
             wire_cost_legendary_html: 'Stuur alstublieft <b><span class="legendary-total-price">%{price}</span></b> naar de volgende bankrekening:'
             wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{sign}%{price}</b> naar volgende bankrekening:'
             wire_transfer: Bankoverschrijving

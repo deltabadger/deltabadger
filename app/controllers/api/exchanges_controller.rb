@@ -49,7 +49,7 @@ module Api
     end
 
     def paid_subscription?(subscription_name)
-      %w[standard pro legendary].include?(subscription_name)
+      %w[basic pro legendary].include?(subscription_name)
     end
 
     def get_withdrawal_info_processor(api_keys, exchange)
