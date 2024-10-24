@@ -456,7 +456,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_daily_weekly_monthly_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                   type="text"
                   size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
@@ -466,7 +466,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                   onBlur={validateSmartIntervalsValue}
                   min={minimumOrderParams.value}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_daily_weekly_monthly_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
