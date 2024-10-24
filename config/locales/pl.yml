@@ -717,9 +717,9 @@ pl:
             routing_number: 'Numer routingowy'
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
             vat: VAT
-            wire_cost_pro_html: 'Prześlij <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_standard_html: 'Prześlij <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_legendary_html: 'Prześlij  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> na następujący rachunek bankowy:'
+            wire_cost_pro_html: 'Prześlij <b><span class="pro-total-price">%{price}</span></b> na następujący rachunek bankowy:'
+            wire_cost_standard_html: 'Prześlij <b><span class="standard-total-price">%{price}</span></b> na następujący rachunek bankowy:'
+            wire_cost_legendary_html: 'Prześlij  <b><span class="legendary-total-price">%{price}</span></b> na następujący rachunek bankowy:'
             wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{price}%{sign}</b> na poniższe konto bankowe:'
             wire_transfer: 'Przelew bankowy'
             wire_transfer_fill_form: 'Wypełnij powyższy formularz, aby kontynuować...'

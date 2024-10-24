@@ -42,6 +42,7 @@
         = render 'svg/24x24_legendary'
         .tooltip
           = t('links.legendary')
+          = t('subscriptions.plan_life_time')
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'
@@ -50,7 +51,7 @@
             = t('subscriptions.upgrade_plan')
           - if current_user.subscription_name != 'free'
             .tooltip__counter
-              = t('subscriptions.days_left', count: subscribed_plan_days_left)
+              = t('subscriptions.days_left', count: current_user.subscription.days_left)
 
   .menu__section.menu__section--bottom
     .btn-group

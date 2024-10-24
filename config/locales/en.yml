@@ -729,9 +729,9 @@ en:
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'
             vat: VAT
-            wire_cost_pro_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="pro-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_standard_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="standard-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_legendary_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="legendary-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_pro_html: 'Please, send <b><span class="pro-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_standard_html: 'Please, send <b><span class="standard-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_legendary_html: 'Please, send <b><span class="legendary-total-price">%{price}</span></b> to the following bank account:'
             wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
             wire_transfer: 'Wire Transfer'
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'

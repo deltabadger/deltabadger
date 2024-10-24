@@ -1,4 +1,38 @@
 module ColorsHelper
+  def ensure_contrast(color)
+    return color if color.blank?
+
+    r, g, b = hex_to_rgb(color)
+    luminance = calculate_luminance(r, g, b)
+
+    if luminance > 0.7
+      r, g, b = darken_color(r, g, b, 0.2)
+    elsif luminance < 0.3 && luminance > 0.04
+      r, g, b = lighten_color(r, g, b, 0.1)
+    elsif luminance <= 0.04
+      r, g, b = lighten_color(r, g, b, 0.4)
+    end
+
+    rgb_to_hex(r, g, b)
+  end
+
+  def ensure_contrast_text(bg_color, contrast_ratio)
+    return if bg_color.blank?
+
+    r, g, b = hex_to_rgb(bg_color)
+    luminance = calculate_luminance(r, g, b)
+
+    white_luminance = 1.0
+    # black_luminance = 0.0
+
+    white_contrast = (white_luminance + 0.05) / (luminance + 0.05)
+    # black_contrast = (luminance + 0.05) / (black_luminance + 0.05)
+
+    white_contrast >= contrast_ratio ? '#fff' : 'var(--text-dark)'
+  end
+
+  private
+
   def hex_to_rgb(hex)
     hex = hex.gsub('#', '')
     r = hex[0..1].hex
@@ -30,37 +64,5 @@ module ColorsHelper
 
   def darken_color(r, g, b, percentage) # rubocop:disable Naming/MethodParameterName
     [(r * (1 - percentage)).round, (g * (1 - percentage)).round, (b * (1 - percentage)).round]
-  end
-
-  def ensure_contrast(color)
-    return color if color.blank?
-
-    r, g, b = hex_to_rgb(color)
-    luminance = calculate_luminance(r, g, b)
-
-    if luminance > 0.7
-      r, g, b = darken_color(r, g, b, 0.2)
-    elsif luminance < 0.3 && luminance > 0.04
-      r, g, b = lighten_color(r, g, b, 0.1)
-    elsif luminance <= 0.04
-      r, g, b = lighten_color(r, g, b, 0.4)
-    end
-
-    rgb_to_hex(r, g, b)
-  end
-
-  def ensure_contrast_text(bg_color, contrast_ratio)
-    return if bg_color.blank?
-
-    r, g, b = hex_to_rgb(bg_color)
-    luminance = calculate_luminance(r, g, b)
-
-    white_luminance = 1.0
-    # black_luminance = 0.0
-
-    white_contrast = (white_luminance + 0.05) / (luminance + 0.05)
-    # black_contrast = (luminance + 0.05) / (black_luminance + 0.05)
-
-    white_contrast >= contrast_ratio ? '#fff' : 'var(--text-dark)'
   end
 end
