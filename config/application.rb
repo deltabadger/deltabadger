@@ -32,6 +32,10 @@ module Deltabadger
       config.middleware.use Bullet::Rack
     end
 
+    # explicit app timezone
+    config.time_zone = 'UTC'
+    config.active_record.default_timezone = :utc
+
     # Don't generate system test files.
     config.generators.system_tests = nil
 
