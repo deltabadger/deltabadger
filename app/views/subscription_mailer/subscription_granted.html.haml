@@ -1,4 +1,4 @@
-%h1{class: "mail-header"}= t('.subject', plan_name: @subscription_plan.display_name)
+%h1{class: "mail-header"}= t('.subject', plan_name: @payment.subscription_plan_variant.subscription_plan.display_name)
 
-%p= t('mailer.greeting', name: @user.name)
-= t('.template_html', years: @subscription_plan.years, plan_name: @subscription_plan.display_name)
+%p= t('mailer.greeting', name: @payment.user.name)
+= t('.template_html', years: @payment.subscription_plan_variant.years, plan_name: @payment.subscription_plan_variant.subscription_plan.display_name)

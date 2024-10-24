@@ -3,7 +3,7 @@ module User::Upgradeable
 
   included do # rubocop:disable Metrics/BlockLength
     def available_plans
-      case subscription_name
+      case subscription.name
       when SubscriptionPlan::FREE_PLAN then available_plans_for_free_plan
       when SubscriptionPlan::BASIC_PLAN then available_plans_for_basic_plan
       when SubscriptionPlan::PRO_PLAN then available_plans_for_pro_plan

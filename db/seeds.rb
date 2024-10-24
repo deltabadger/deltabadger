@@ -63,7 +63,7 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: free_plan_variant, end_time: Time.current - 30.days, credits: basic_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: free_plan_variant, credits: free_plan_variant.credits)
 end
 
 User.find_or_create_by(
@@ -72,7 +72,7 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: basic_plan_1_year_variant, end_time: Time.current + basic_plan.duration + 1.day, credits: basic_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: basic_plan_1_year_variant, credits: basic_plan.credits)
 end
 
 
@@ -82,7 +82,7 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: pro_plan_1_year_variant, end_time: Time.current + pro_plan.duration + 1.day, credits: pro_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: pro_plan_1_year_variant, credits: pro_plan.credits)
 end
 
 
@@ -92,5 +92,5 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: legendary_plan_variant, end_time: Time.current + legendary_plan.duration + 1.day, credits: legendary_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: legendary_plan_variant, credits: legendary_plan.credits)
 end

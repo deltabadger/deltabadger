@@ -110,12 +110,11 @@ class UpgradeController < ApplicationController
     default_variant_years = 1
     selected_variant_years = session[:years]&.to_i
     @payments = current_user.available_plans.each_with_object({}) do |plan_name, hash|
-      if plan_name == SubscriptionPlan::LEGENDARY_PLAN
-        subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.send(plan_name))
-      else
-        subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.send(plan_name),
-                                                                    years: selected_variant_years || default_variant_years)
-      end
+      subscription_plan_variant = if plan_name == SubscriptionPlan::LEGENDARY_PLAN
+                                    SubscriptionPlanVariant.legendary
+                                  else
+                                    SubscriptionPlanVariant.send(plan_name, selected_variant_years || default_variant_years)
+                                  end
       hash[plan_name] = Payment.new(
         subscription_plan_variant: subscription_plan_variant,
         country: selected_country || default_country,

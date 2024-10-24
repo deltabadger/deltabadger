@@ -3,7 +3,7 @@
     controller: "data-layer",
     data_layer_is_purchase_value: true,
     data_layer_currency_value: @payment.currency,
-    data_layer_name_value: current_user.subscription_name,
+    data_layer_name_value: current_user.subscription.name,
     data_layer_price_value: @payment.total
   } %>
 <% end %>

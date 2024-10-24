@@ -9,8 +9,8 @@ module PaymentsManager
         @client = BtcpayClient.new
       end
 
-      def call(payment, user)
-        hash = build_request_body(payment, user)
+      def call(payment)
+        hash = build_request_body(payment)
         invoice_result = @client.create_invoice(hash)
         return invoice_result if invoice_result.failure?
         return Result::Failure.new(invoice_result.data['error']) if invoice_result.data['error']
@@ -20,12 +20,12 @@ module PaymentsManager
 
       private
 
-      def build_request_body(payment, user)
+      def build_request_body(payment)
         {
           price: payment.total.to_s,
           currency: payment.currency,
           orderId: payment.id,
-          buyer: { email: user.email,
+          buyer: { email: payment.user.email,
                    name: "#{payment.first_name} #{payment.last_name}",
                    # It is passed as phone because BTCPay server doesn't accept birth date and we don't need a phone anyway
                    phone: payment.birth_date,
@@ -50,7 +50,7 @@ module PaymentsManager
       end
 
       def get_item_description(payment)
-        "#{SubscriptionPlan.find(payment.subscription_plan_id).name.capitalize} Plan Upgrade"
+        "#{payment.subscription_plan_variant.name.capitalize} Plan Upgrade"
       end
     end
   end

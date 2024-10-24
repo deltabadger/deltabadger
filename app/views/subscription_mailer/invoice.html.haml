@@ -4,8 +4,8 @@
     paid_at: @payment.paid_at,
     first_name: @payment.first_name,
     last_name: @payment.last_name,
-    email: @user.email,
-    plan_name: @payment.subscription_plan.display_name,
-    years: @payment.subscription_plan.years,
+    email: @payment.user.email,
+    plan_name: @payment.subscription_plan_variant.subscription_plan.display_name,
+    years: @payment.subscription_plan_variant.years,
     total_paid: @payment.total,
     currency: @payment.currency)

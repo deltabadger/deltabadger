@@ -6,30 +6,26 @@ module PaymentsManager
       @notifications = notifications
     end
 
-    def call(user:, subscription_plan:, email_params: nil)
-      start_time = start_time(user.subscription, subscription_plan.id)
+    def call(payment:)
+      user = payment.user
+      new_subscription_plan_variant = payment.subscription_plan_variant
+      start_time = start_time(user.subscription, new_subscription_plan_variant)
 
       begin
         Subscription.create!(
           user_id: user.id,
-          subscription_plan_id: subscription_plan.id,
-          end_time: start_time + subscription_plan.duration,
-          credits: subscription_plan.credits
+          subscription_plan_variant: new_subscription_plan_variant,
+          end_time: start_time + new_subscription_plan_variant.years,
+          credits: new_subscription_plan_variant.subscription_plan.credits
         )
       rescue ActiveRecord::RecordInvalid => e
         return Result::Failure.new("Subscription could not be created: #{e.message}")
       end
 
-      if wire_transfer?(email_params)
-        @notifications.after_wire_transfer(
-          user: user,
-          subscription_plan: subscription_plan,
-          name: email_params['name'],
-          type: email_params['type'],
-          amount: email_params['amount']
-        )
+      if payment.payment_type == 'wire'
+        @notifications.after_wire_transfer(payment: payment)
       else
-        @notifications.subscription_granted(user: user, subscription_plan: subscription_plan)
+        @notifications.subscription_granted(payment: payment)
       end
 
       Result::Success.new
@@ -37,13 +33,8 @@ module PaymentsManager
 
     private
 
-    def wire_transfer?(params)
-      !params.nil?
-    end
-
-    def start_time(current_subscription, subscription_plan_id)
-      return current_subscription.end_time if current_subscription.subscription_plan.id ==
-                                              subscription_plan_id.to_i
+    def start_time(current_subscription, new_subscription)
+      return current_subscription.end_time if current_subscription.name == new_subscription.name
 
       Time.current
     end

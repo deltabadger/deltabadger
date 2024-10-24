@@ -28,8 +28,8 @@ class SsoController < ApplicationController
     end
 
     # Check the subscription plan ID
-    active_subscription = user.active_subscription
-    unless active_subscription && active_subscription.subscription_plan_id != 1
+    active_subscription = user.subscription
+    unless active_subscription && active_subscription.name != SubscriptionPlan::FREE_PLAN
       Rails.logger.error 'User does not have an eligible subscription plan for SSO'
       return render plain: 'Upgrade your plan to access the community', status: :forbidden
     end
@@ -70,7 +70,7 @@ class SsoController < ApplicationController
     legendary_plan_badge_id = 103 # Replace with the actual badge ID for "Legendary Badger"
 
     # First, remove any badge the user shouldn't have
-    return unless active_subscription.subscription_plan_id == 4
+    return unless active_subscription.name == SubscriptionPlan::LEGENDARY_PLAN
 
     discourse.user_badges.grant(user.id, legendary_plan_badge_id)
   end

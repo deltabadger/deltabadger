@@ -10,4 +10,20 @@ class SubscriptionPlanVariant < ApplicationRecord
   delegate :unlimited?, to: :subscription_plan
 
   scope :years, ->(years) { where(years: years) }
+
+  def self.free
+    find_by!(subscription_plan: SubscriptionPlan.free)
+  end
+
+  def self.basic(variant_years = 1)
+    find_by!(subscription_plan: SubscriptionPlan.basic, years: variant_years)
+  end
+
+  def self.pro(variant_years = 1)
+    find_by!(subscription_plan: SubscriptionPlan.pro, years: variant_years)
+  end
+
+  def self.legendary
+    find_by!(subscription_plan: SubscriptionPlan.legendary)
+  end
 end

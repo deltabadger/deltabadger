@@ -1,19 +1,19 @@
 class Payment < ApplicationRecord
   belongs_to :user
-  belongs_to :subscription_plan
   belongs_to :subscription_plan_variant
 
   enum currency: %i[USD EUR]
   enum status: %i[unpaid pending paid confirmed failure cancelled] # we only use unpaid, cancelled, paid
   enum payment_type: %i[bitcoin wire stripe zen]
   validates :user,
-            :subscription_plan,
             :subscription_plan_variant,
             :status,
             :payment_type,
             :country,
             :currency, presence: true
-  validates :birth_date, presence: true, if: :with_bitcoin?
+  validates :birth_date, presence: true, if: :using_bitcoin?
+
+  delegate :subscription_plan, to: :subscription_plan_variant
 
   scope :paid, -> { where(status: :paid) }
 
@@ -24,11 +24,10 @@ class Payment < ApplicationRecord
     paid.where(paid_at: from..to, payment_type: fiat ? %w[stripe zen wire] : 'bitcoin')
   end
 
-  def initialize(attributes = {}) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def initialize(attributes = {})
     super
     self.status ||= 'unpaid'
     self.currency ||= from_eu? ? 'EUR' : 'USD'
-    self.subscription_plan ||= subscription_plan_variant&.subscription_plan
     self.total ||= price_with_vat
     self.discounted ||= referral_discount_percent.positive?
     self.commission ||= referrer_commission_amount
@@ -51,17 +50,7 @@ class Payment < ApplicationRecord
   end
 
   def base_price
-    puts "subscription_plan_variant.cost_eur: #{subscription_plan_variant.cost_eur}"
     from_eu? ? subscription_plan_variant.cost_eur : subscription_plan_variant.cost_usd
-  end
-
-  def current_plan_discount_amount
-    current_subscription = user.subscription
-    return 0 if subscription_plan.name == current_subscription.name
-
-    plan_years_left = current_subscription.days_left.to_f / 365
-    discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
-    base_price * discount_multiplier
   end
 
   def adjusted_base_price
@@ -88,8 +77,17 @@ class Payment < ApplicationRecord
 
   private
 
-  def with_bitcoin?
+  def using_bitcoin?
     payment_type == 'bitcoin'
+  end
+
+  def current_plan_discount_amount
+    current_subscription = user.subscription
+    return 0 if subscription_plan.name == current_subscription.name
+
+    plan_years_left = current_subscription.days_left.to_f / 365
+    discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
+    base_price * discount_multiplier
   end
 
   def referral_discounted_price

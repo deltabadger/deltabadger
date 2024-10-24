@@ -4,7 +4,7 @@ module PaymentsManager
   module BtcpayManager
     class PaymentInitiator < BaseService
       def call(payment)
-        invoice_result = PaymentsManager::BtcpayManager::InvoiceCreator.call(payment, payment.user)
+        invoice_result = PaymentsManager::BtcpayManager::InvoiceCreator.call(payment)
         return invoice_result if invoice_result.failure?
 
         btc_total = invoice_result.data[:btc_total]
@@ -13,7 +13,7 @@ module PaymentsManager
           status: invoice_result.data[:status],
           external_statuses: invoice_result.data[:external_statuses],
           btc_total: btc_total,
-          btc_commission: get_btc_commission(btc_total, cost_data_result.data)
+          btc_commission: get_btc_commission(btc_total, payment)
         }
         unless payment_result.data.update(update_params)
           return Result::Failure.new(payment_result.errors.full_messages.join(', '), data: update_params)
@@ -24,14 +24,14 @@ module PaymentsManager
 
       private
 
-      def get_btc_commission(btc_total, cost_data)
+      def get_btc_commission(btc_total, payment)
         crypto_price_with_vat = Utilities::Number.to_bigdecimal(btc_total, precision: 8)
         return 0 if crypto_price_with_vat.zero?
 
-        btc_price = cost_data[:price_with_vat] / crypto_price_with_vat
+        btc_price = payment.price_with_vat / crypto_price_with_vat
         return 0 if btc_price.zero?
 
-        (cost_data[:referrer_commission_amount] / btc_price).round(8, BigDecimal::ROUND_DOWN)
+        (payment.referrer_commission_amount / btc_price).round(8, BigDecimal::ROUND_DOWN)
       end
     end
   end

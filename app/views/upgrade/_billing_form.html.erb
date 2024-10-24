@@ -113,7 +113,7 @@
               <% if pending_wire_transfer %>
                 <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
                 <div class="db-form__row">
-                  <% name = SubscriptionPlan.find(current_user.pending_plan_id).name %>
+                  <% name = current_user.pending_plan_variant.subscription_plan.name %>
                   <% price = payments[name].price_with_vat %>
                   <%= t('subscriptions.payment.wire_cost_pending_html', sign: current_user.pending_wire_transfer == VatRate::NOT_EU ? '$' : '€', price: price) %>
                 </div>

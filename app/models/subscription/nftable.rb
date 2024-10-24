@@ -53,13 +53,13 @@ module Subscription::Nftable
 
   class_methods do
     def used_nft_ids
-      subscriptions = current.where(subscription_plan_id: SubscriptionPlan.legendary.id)
+      subscriptions = by_plan_name(SubscriptionPlan::LEGENDARY_PLAN)
       subscriptions.map(&:nft_id).compact.sort
     end
 
     def claimed_nft_ids
       # we assume only Legendary Badger subscriptions can have an eth_address
-      subscriptions = current.where.not(eth_address: nil)
+      subscriptions = by_plan_name(SubscriptionPlan::LEGENDARY_PLAN).where.not(eth_address: nil)
       subscriptions.map(&:nft_id).compact.sort
     end
   end

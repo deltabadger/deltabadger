@@ -3,15 +3,15 @@
 Wire transfer summary:
 %br
 %br
-First Name: #{@first_name}
+First Name: #{@payment.first_name}
 %br
-Last Name: #{@last_name}
+Last Name: #{@payment.last_name}
 %br
-Email: #{@email}
+Email: #{@payment.user.email}
 %br
-Country: #{@country}
+Country: #{@payment.country}
 %br
-Plan: #{@subscription_plan}
+Plan: #{@payment.subscription_plan_variant.subscription_plan.name}
 %br
-Amount: #{@amount}
+Amount: #{format_price(@payment.total, @payment.currency)}
 %br

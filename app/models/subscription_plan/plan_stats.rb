@@ -3,7 +3,7 @@ module SubscriptionPlan::PlanStats
 
   included do # rubocop:disable Metrics/BlockLength
     def active_subscriptions_count
-      @active_subscriptions_count ||= Subscription.active.by_plan_name(name)&.count || 0
+      Subscription.active.by_plan_name(name)&.count || 0
     end
 
     def current_discount
@@ -20,12 +20,12 @@ module SubscriptionPlan::PlanStats
       ensure_legendary!
       return 0 if total_supply.zero?
 
-      @sold_percent ||= active_subscriptions_count * 100 / total_supply
+      active_subscriptions_count * 100 / total_supply
     end
 
     def for_sale_count
       ensure_legendary!
-      @for_sale_count ||= total_supply - active_subscriptions_count
+      total_supply - active_subscriptions_count
     end
 
     def available?
@@ -36,7 +36,7 @@ module SubscriptionPlan::PlanStats
     private
 
     def legendary?
-      @legendary ||= name == self.class::LEGENDARY_PLAN
+      name == self.class::LEGENDARY_PLAN
     end
 
     def ensure_legendary!

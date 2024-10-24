@@ -28,7 +28,7 @@
   <% end %>
 <% end %>
 
-<% if current_user.subscription_name == 'basic' %>
+<% if current_user.subscription.name == 'basic' %>
   <div class="db-plans__item db-plans__item--discount db-plan-active-discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="db-plans__item__amount">
@@ -48,7 +48,7 @@
   </div>
 <% end %>
 
-<% if current_user.subscription_name == 'pro' && legendary_plan.available? %>
+<% if current_user.subscription.name == 'pro' && legendary_plan.available? %>
   <div class="db-plans__item db-plans__item--discount db-plan-active-discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="db-plans__item__amount">

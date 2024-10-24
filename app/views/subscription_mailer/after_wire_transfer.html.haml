@@ -1,7 +1,7 @@
 %p
-  Hi #{@name},
+  Hi #{@payment.first_name},
 %p
-  Thanks! I booked your #{@subscription_plan.display_name} plan, and will wait for the payment.
+  Thanks! I booked your #{@payment.subscription_plan_variant.subscription_plan.display_name} plan, and will wait for the payment.
   %br
   I will appreciate if you could send me the transfer confirmation.
 %p
@@ -15,9 +15,36 @@
 %img{alt: "Logo", src: "https://deltabadger.com/logo_plus_legendary50.png", style: "margin-bottom: 24px"}
 
 %p
-  PS If you didn’t pay yet, please, send #{@amount}#{@type == VatRate::NOT_EU ? '$' : '€'}  to
+  PS If you didn’t pay yet, please, send #{format_price(@payment.total, @payment.currency)}  to
 %p
-  - if @type == VatRate::NOT_EU
+  - if @payment.from_eu?
+    %p
+      %b
+        Account holder
+      %br
+      Deltabadger OÜ
+    %p
+      %b
+        BIC
+      %br
+      TRWIBEB1XXX
+    %p
+      %b
+        IBAN (Belgium)
+      %br
+      BE83 9670 6500 4615
+    %p
+      %b
+        Bank address
+      %br
+      Avenue Louise 54, Room S52
+      %br
+      Brussels
+      %br
+      1050
+      %br
+      Belgium
+  - else
     %p
       %b
         Account holder
@@ -49,30 +76,3 @@
       New York NY 10010
       %br
       United States
-  - else
-    %p
-      %b
-        Account holder
-      %br
-      Deltabadger OÜ
-    %p
-      %b
-        BIC
-      %br
-      TRWIBEB1XXX
-    %p
-      %b
-        IBAN (Belgium)
-      %br
-      BE83 9670 6500 4615
-    %p
-      %b
-        Bank address
-      %br
-      Avenue Louise 54, Room S52
-      %br
-      Brussels
-      %br
-      1050
-      %br
-      Belgium

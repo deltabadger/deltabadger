@@ -1,6 +1,6 @@
 require 'administrate/base_dashboard'
 
-class SubscriptionPlanDashboard < Administrate::BaseDashboard
+class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
   # a hash that describes the type of each of the model's fields.
   #
@@ -9,8 +9,11 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
     id: Field::Number,
-    subscription_plan_id: Field::BelongsTo,
+    name: Field::String,
+    years: Field::Number,
     unlimited: Field::Boolean,
+    cost_eu: Field::Number,
+    cost_other: Field::Number,
     credits: Field::Number,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
@@ -25,7 +28,9 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
     id
     name
     unlimited
-    credits
+    cost_eu
+    cost_other
+    years
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -34,14 +39,18 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
     id
     name
     unlimited
-    credits
+    cost_eu
+    cost_other
+    years
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-    credits
+    cost_eu
+    cost_other
+    years
   ].freeze
 
   # COLLECTION_FILTERS
@@ -59,7 +68,7 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   # Overwrite this method to customize how subscription plans are displayed
   # across all pages of the admin dashboard.
   #
-  def display_resource(subscription_plan)
-    subscription_plan.display_name
+  def display_resource(subscription_plan_variant)
+    "#{subscription_plan_variant.subscription_plan.display_name} #{subscription_plan_variant.years} years"
   end
 end
