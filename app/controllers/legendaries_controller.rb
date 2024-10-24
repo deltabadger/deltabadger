@@ -3,6 +3,7 @@ class LegendariesController < ApplicationController
 
   def show
     @subscription = current_user.subscription
+    @address_pattern = Ethereum.address_pattern
   end
 
   def update
