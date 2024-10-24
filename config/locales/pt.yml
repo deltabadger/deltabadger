@@ -584,7 +584,7 @@ pt:
         days_left:
             one: '1 dia restante'
             other: '%{count} dias restantes'
-        basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
+        standard_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
         pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
         legendary_badger_info_html: '<p>Obtenha todos os recursos atuais e futuros do plano Pro para a vida toda.</p><p>Gosta de pagar uma vez e obter tudo? Junte-se ao nosso clube exclusivo de 1.000 pensadores de longo prazo com mãos de diamante e visão, e crie sua própria lenda.</p><p>O NFT que você recebe transforma sua assinatura em um ativo que você pode transferir ou vender. Cada token vem com uma arte processual única, com 21 <i>ovos de Páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
         features:
