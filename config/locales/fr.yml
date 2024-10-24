@@ -81,7 +81,7 @@ fr:
             manual_title: 'Comment ça marche ?'
             paid_commission: 'Payé (BTC)'
             paid_so_far: 'Payé à ce jour (BTC)'
-            referees: 'Membres parrainés'
+            referrals: 'Membres parrainés'
             stats: 'Statistiques'
             submit: 'Mettre à jour'
             submit_bitcoin_address: 'Mettre à jour l''adresse Bitcoin'

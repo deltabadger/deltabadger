@@ -30,7 +30,7 @@ en:
             subject: 'Wow! You earned %{amount} BTC!'
             template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><a class="email-button" style="color: #fff" href=%{link}>Complete registration.</a>'
     affiliates:
-        add_link_info: 'You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:'
+        add_link_info: 'You can add your name and link to your website to let the referral know where the discount is coming from. You can also leave it blank:'
         apply_code:
             accept: Accept
             reject: Back
@@ -49,12 +49,12 @@ en:
             invalid: 'The referral link seems invalid or obsolete'
             referrer_html: 'Thanks to the referral link from <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: 'Valid for the first purchase on the platform.'
-        info_preview: 'This is a preview of what referees will see during registration:'
+        info_preview: 'This is a preview of what referrals will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referee buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small> </div>'
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referral buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referral buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referral does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referral, the referral link works even if your subscription has expired.</small> </div>'
         new:
             checked: 'I checked everything carefully.'
-            discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
+            discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referral will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.'
             eu_company: 'EU company'
             payout_address: 'Payout address'
@@ -76,12 +76,12 @@ en:
                 contact: 'Contact us'
                 notice: 'It looks like this program got deactivated. Contact us if you''re not sure why it happened.'
             expired: 'Oh, no… your subscription has expired. Renew your plan to continue benefiting from your referral program.'
-            info_preview: 'Preview of the info visible for referee:'
+            info_preview: 'Preview of the info visible for referral:'
             link_title: 'Your link'
             manual_title: 'How does it work?'
             paid_commission: 'Paid (BTC)'
             paid_so_far: 'Paid so far (BTC)'
-            referees: Referees
+            referrals: Referrals
             stats: Stats
             submit: Update
             submit_bitcoin_address: 'Update Bitcoin address'
