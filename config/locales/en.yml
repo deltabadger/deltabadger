@@ -170,7 +170,7 @@ en:
                 daily_weekly_monthly_html: |
                     <h3>Daily? Weekly? Monthly?</h3>
                     <p>Surprisingly, long-term results are so close it doesn't really matter.</p>
-                    <p>But watch out—if your tax reporting system charges per transaction, that's a good reason to buy less often.</p>
+                    <p>But watch out—if your tax reporting software charges per transaction, that's a good reason to buy less often.</p>
                     <p>Otherwise, keep transactions small and frequent, and let the magic of DCA kick in sooner.</p>
                 withdrawal_html: |
                     <h3>Auto-Withdrawals</h3>
