@@ -689,7 +689,7 @@ en:
         days_left:
             one: '1 day left'
             other: '%{count} days left'
-        basic_info: 'No frills, just thrills, but gets the job done.'
+        standard_info: 'No frills, just thrills, but gets the job done.'
         pro_info: 'Get a big picture, deep insights, and Pro features.'
         legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
         features:

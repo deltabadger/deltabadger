@@ -663,7 +663,7 @@ es:
         days_left:
             one: '1 día menos'
             other: '%{count} días disponibles'
-        basic_info: 'Sin adornos, solo emociones, pero hace el trabajo.'
+        standard_info: 'Sin adornos, solo emociones, pero hace el trabajo.'
         pro_info: 'Obtén una vista general, información detallada y características Pro.'
         legendary_badger_info_html: '<p>Obtén todas las funciones actuales y futuras del plan Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro exclusivo club de 1,000 pensadores a largo plazo con manos de diamante y visión, y crea tu propia leyenda.</p><p>El NFT que recibes convierte tu suscripción en un activo que puedes transferir o vender. Cada token viene con una obra de arte procedural única, con 21 <i>easter eggs</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
         features:

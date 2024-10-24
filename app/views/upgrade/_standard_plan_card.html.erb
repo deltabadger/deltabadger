@@ -24,4 +24,10 @@
     <% end %>
   <% end %>
 </div>
-<div class="db-plans__item__info"><%= t('subscriptions.standard_description_html') %></div>
+<div class="db-plans__item__info">
+  <p><%= t('subscriptions.standard_info') %></p>
+  <ul>
+    <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.dca') %></li>
+    <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.withdrawals') %></li>
+  </ul>
+</div>

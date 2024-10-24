@@ -635,7 +635,7 @@ cn:
         days_left:
             one: '剩余1天'
             other: '剩余%{count}天'
-        basic_info: '没有花哨的功能，但能完成任务。'
+        standard_info: '没有花哨的功能，但能完成任务。'
         pro_info: '掌握全局，深入洞察，并享受Pro功能。'
         legendary_badger_info_html: '<p>获取 Pro 计划的所有当前和未来功能，终身享有。</p><p>你喜欢一次付费，终身享受吗？加入我们由 1000 名长期思考者组成的限量俱乐部，他们拥有钻石般的坚定和远见，并书写你自己的传奇。</p><p>你收到的 NFT 将使你的订阅变成可以转让或出售的资产。每个代币都配有独特的程序生成艺术作品，藏有 21 个隐藏的<i>彩蛋</i>，可以在<a href="https://legendarybadgers.com/" class="nobreak">收藏</a>中找到。</p>'
         features:

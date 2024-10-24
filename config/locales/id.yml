@@ -637,7 +637,7 @@ id:
         days_left:
             one: '1 hari tersisa'
             other: '%{count} hari tersisa'
-        basic_info: 'Tanpa embel-embel, langsung bekerja.'
+        standard_info: 'Tanpa embel-embel, langsung bekerja.'
         pro_info: 'Dapatkan gambaran besar, wawasan mendalam, dan fitur Pro.'
         legendary_badger_info_html: '<p>Dapatkan semua fitur Pro saat ini dan masa depan seumur hidup.</p><p>Suka membayar sekali dan mendapatkan semuanya? Bergabunglah dengan klub eksklusif kami yang terdiri dari 1.000 pemikir jangka panjang dengan tangan berlian dan visi, dan ciptakan legenda Anda sendiri.</p><p>NFT yang Anda terima mengubah langganan Anda menjadi aset yang dapat Anda alihkan atau jual. Setiap token dilengkapi dengan karya seni prosedural unik, dengan 21 <i>easter eggs</i> tersembunyi dalam <a href="https://legendarybadgers.com/" class="nobreak">koleksi</a>.</p>'
         features:

@@ -636,7 +636,7 @@ vi:
         days_left:
             one: 'Còn 1 ngày'
             other: 'Còn %{count} ngày'
-        basic_info: 'Không phức tạp, chỉ làm việc hiệu quả.'
+        standard_info: 'Không phức tạp, chỉ làm việc hiệu quả.'
         pro_info: 'Có cái nhìn tổng quát, phân tích sâu và các tính năng Pro.'
         legendary_badger_info_html: '<p>Nhận tất cả các tính năng hiện tại và tương lai của gói Pro trọn đời.</p><p>Bạn có thích trả tiền một lần và có được tất cả? Tham gia câu lạc bộ giới hạn 1.000 người suy nghĩ dài hạn với “tay kim cương” và tầm nhìn của chúng tôi, và tạo ra huyền thoại của riêng bạn.</p><p>NFT bạn nhận được biến đăng ký của bạn thành một tài sản mà bạn có thể chuyển nhượng hoặc bán. Mỗi mã thông báo đi kèm với tác phẩm nghệ thuật theo thủ tục độc đáo, với 21 <i>trứng phục sinh</i> ẩn trong <a href="https://legendarybadgers.com/" class="nobreak">bộ sưu tập</a>.</p>'
         features:
