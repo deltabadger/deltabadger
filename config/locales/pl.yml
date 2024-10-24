@@ -102,7 +102,7 @@ pl:
             template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
         limit_almost_reached:
             subject: 'Limit prawie wyczerpany'
-            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Standard</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
+            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Basic</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
         limit_reached:
             subject: 'Wyczerpałeś darmowy limit'
             template_html: '<p>No to się udało! Osiagnąłeś limit planu <b>Oszczędny</b>.</p><p>Wygląda na to, że od jakiegoś czasu uśredniasz cenę z naszymi botami.</p><p>Mamy nadzieję, że jesteś zadowolony z wyników.</p><p>Zrób upgrade, aby usunąć wszystkie limity i przywrócić swoje boty do pracy.</p>'
@@ -675,7 +675,7 @@ pl:
             few: 'Pozostały %{count} dni'
             many: 'Pozostało %{count} dni'
             other: 'Pozostało %{count} dni'
-        standard_info: 'Bez szmerów bajerów, ale konkret.'
+        basic_info: 'Bez szmerów bajerów, ale konkret.'
         pro_info: 'Zyskaj szeroki obraz, dogłębną analizę i funkcje Pro.'
         legendary_badger_info_html: '<p>Uzyskaj wszystkie aktualne i przyszłe funkcje planu Pro na całe życie.</p><p>Lubisz płacić raz i mieć wszystko? Dołącz do naszego ekskluzywnego klubu 1000 długoterminowych myślicieli z diamentowymi rękoma i wizją, i stwórz własną legendę.</p><p>Otrzymany NFT zamienia twoją subskrypcję w aktywo, które możesz przekazać lub sprzedać. Każdy token jest wyposażony w unikalną sztukę proceduralną, z 21 ukrytymi <i>easter eggami</i> w <a href="https://legendarybadgers.com/" class="nobreak">kolekcji</a>.</p>'
         features:
@@ -701,11 +701,11 @@ pl:
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'
                 many: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
-            compensation_standard:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Standard.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Standard.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Standard.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Standard.'
+            compensation_basic:
+                one: 'Wyrównanie za 1 niewykorzystany dzień planu Basic.'
+                few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
+                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
+                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
             discount: '%{discount_percent}% rabatu'
             legendary_plan_discount: 'Zniżka Early Bird'
             legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
@@ -721,7 +721,7 @@ pl:
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
             vat: VAT
             wire_cost_pro_html: 'Prześlij <b><span class="pro-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_standard_html: 'Prześlij <b><span class="standard-total-price">%{price}</span></b> na następujący rachunek bankowy:'
+            wire_cost_basic_html: 'Prześlij <b><span class="basic-total-price">%{price}</span></b> na następujący rachunek bankowy:'
             wire_cost_legendary_html: 'Prześlij  <b><span class="legendary-total-price">%{price}</span></b> na następujący rachunek bankowy:'
             wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{price}%{sign}</b> na poniższe konto bankowe:'
             wire_transfer: 'Przelew bankowy'

@@ -105,10 +105,10 @@ en:
             template_html: '<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>'
         limit_almost_reached:
             subject: 'Limit almost reached'
-            template_html: '<p>You''ve almost reached the <b>Free</b> plan transaction limit.</p><p>Upgrade your plan to <b>Standard</b> or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>'
+            template_html: '<p>You''ve almost reached the <b>Free</b> plan transaction limit.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>'
         limit_reached:
             subject: 'You''ve reached the limit'
-            template_html: '<p>Oh, well done! Your <b>Free</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Standard</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>'
+            template_html: '<p>Oh, well done! Your <b>Free</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>'
         notify_about_error:
             subject: 'Something went wrong'
             template_html: '<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -689,7 +689,7 @@ en:
         days_left:
             one: '1 day left'
             other: '%{count} days left'
-        standard_info: 'No frills, just thrills, but gets the job done.'
+        basic_info: 'No frills, just thrills, but gets the job done.'
         pro_info: 'Get a big picture, deep insights, and Pro features.'
         legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
         features:
@@ -714,9 +714,9 @@ en:
             compensation_pro:
                 one: 'Compensation for 1 unused day of the Pro plan.'
                 other: 'Compensation for %{count} unused days of the Pro plan.'
-            compensation_standard:
-                one: 'Compensation for 1 unused day of the Standard plan.'
-                other: 'Compensation for %{count} unused days of the Standard plan.'
+            compensation_basic:
+                one: 'Compensation for 1 unused day of the Basic plan.'
+                other: 'Compensation for %{count} unused days of the Basic plan.'
             discount: '%{discount_percent}% discount'
             legendary_plan_discount: 'Early Bird discount'
             legendary_plan_discount_info: 'With every sale the discount decreases $10. Don''t wait!'
@@ -733,7 +733,7 @@ en:
             server_error: 'payments server error. try again later'
             vat: VAT
             wire_cost_pro_html: 'Please, send <b><span class="pro-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_standard_html: 'Please, send <b><span class="standard-total-price">%{price}</span></b> to the following bank account:'
+            wire_cost_basic_html: 'Please, send <b><span class="basic-total-price">%{price}</span></b> to the following bank account:'
             wire_cost_legendary_html: 'Please, send <b><span class="legendary-total-price">%{price}</span></b> to the following bank account:'
             wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
             wire_transfer: 'Wire Transfer'
