@@ -15,7 +15,6 @@ es:
         bitwarden_title: 'Prueba Bitwarden'
         dca_2y_profit_html: 'Si estuviste promediando el coste en dólares en Bitcoin durante los últimos dos años, ahora tienes <span class="text-success">un %{profit} % más</span>'
         dca_profit_html: 'Si estuviste promediando el coste en dólares en Bitcoin durante el último año, ahora tienes <span class="text-success">un %{profit} % más</span>'
-        dca_standard_html: 'El promedio de coste en dólares en Bitcoin es el nuevo estándar para los ahorradores a largo plazo.'
         dont_trade_automate_html: '<div>No operes.</div> <div>Automatiza.</div>'
         features: "DCA automático en tu cuenta de intercambio;\n<i>Intervalos inteligentes</i> y configuración en cinco minutos;\nactualizaciones y nuevas funciones cada mes;\nservicio de asistencia y comunidad de Telegram"
         password_managers_html: 'Los administradores de contraseñas facilitan la seguridad.'
@@ -197,7 +196,7 @@ es:
                 title: Estadísticas
                 total_invested: 'Total invertido'
         for: por
-        force_daily_weekly_monthly_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre con órdenes de <split>$100</split> %{currency} cada una.'
+        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre con órdenes de <split>$100</split> %{currency} cada una.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Reduzca tarifas con órdenes límite'
 
         hour: Hora

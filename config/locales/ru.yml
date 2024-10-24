@@ -15,7 +15,6 @@ ru:
         bitwarden_title: 'Попробуйте Bitwarden'
         dca_2y_profit_html: 'Если в течение последних двух лет, <br>вы использовали усредненную<br>долларовую стоимость для<br>биткоина, то сейчас вы<br>поднялись на <span class="text-success">+%{{profit}}%</span>'
         dca_profit_html: 'Если в прошлом году вы<br>использовали усредненную<br>долларовую стоимость для<br>биткоина, то сейчас вы<br>поднялись на <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Усреднение долларовой<br>стоимости для биткоина<br>– новый стандарт для<br>долгосрочных вкладчиков.'
         dont_trade_automate_html: '<div>Не&nbsp;торгуйте.</div> <div>Автоматизируйте.</div>'
         features: "авто-DCA на вашем биржевом счете;\n<i>Умные интервалы</i> и пятиминутная настройка;\nобновления и новые функции каждый месяц;\nподдержка и сообщество Telegram"
         password_managers_html: 'Менеджеры паролей<br>упрощают безопасность.'
@@ -194,7 +193,7 @@ ru:
                 title: Статистика
                 total_invested: 'Всего инвестировано'
         for: за
-        force_daily_weekly_monthly_html: '<b>Умные интервалы<sup>®</sup></b> · Покупайте с заказами на сумму <split>100$</split> %{currency} каждый.'
+        force_smart_intervals_html: '<b>Умные интервалы<sup>®</sup></b> · Покупайте с заказами на сумму <split>100$</split> %{currency} каждый.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Сократите комиссии с лимитными ордерами'
         hour: Час
         limit_buy: 'Лимитная покупка'
