@@ -15,7 +15,6 @@ pl:
         bitwarden_title: 'Spróbuj Bitwarden'
         dca_2y_profit_html: 'Jeśli inwestowałeś w Bitcoina uśredniając przez ostatnie dwa lata, jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Jeśli inwestowałeś w Bitcoina uśredniając przez ostatni rok, jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Inwestowanie w Bitcoina przez uśrednianie to nowy standard oszczędzania.'
         dont_trade_automate_html: '<div>Nie spekuluj.</div> <div>Automatyzuj.</div>'
         features: "automatyczne uśrednianie wprost na twoim obecnym koncie;\n<i>smart interwały</i> i pięciominutowa konfiguracja;\naktualizacje i nowe funkcje co miesiąc;\nsupport i grupa na Telegramie"
         password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
@@ -151,10 +150,28 @@ pl:
         day: Dzień
         details:
             info:
-                exchanges_html: "<p class=\"mt-2\"><b>Giełdy</b></p>\n<p>Deltabadger współpracuje z giełdami kryptowalut. W tej chwili wspieramy <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zonda\">Zondacrypto</a>, <a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a> i <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Polecamy Kraken jako renomowaną giełdę, która nigdy nie została zhakowana. Użyj Zondacrypto, jeśli chcesz dokonywać zakupów w PLN.</p>\n<p>Aby Twój bot był użyteczny, musisz najpierw zweryfikować swoje konto na giełdzie i przelać tam trochę środków.</p>\n<p>Nie trzymaj jednak swoich monet na żadnej giełdzie zbyt długo. Loguj się na swoje konto i dokonuj regularnych wypłat co najmniej raz w miesiącu.</p>\n<p>W przyszłości będziemy dodawać kolejne giełdy. Daj nam znać, jeśli jesteś zainteresowany którąś z nich.</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>Chcesz wiedzieć więcej o uśrednianiu kosztu dolarowego?</b></p>\n<p>Te linki będą pomocne:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=CdKRjuaUtOc\" target=\"_blank\" rel=\"nofollow\">DCA for Beginners (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">The power of DCA into Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">DCA Simulator</a></li>\n</ul>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>\"Inteligentne interwały\"</b></p>\n<p>Gdy inteligentne interwały są włączone, Deltabadger wykonuje żądany harmonogram w najmniejszych transakcjach dozwolonych przez giełdę. W przeciwnym razie będą one wykorzystywane tylko w razie potrzeby.</p>\n<p class=\"mt-2\"><b>Dlaczego?</b></p>\n<p>Istnieją dwie korzyści:</p>\n<p>Częstszy harmonogram pozwala szybciej doświadczyć korzyści płynących z DCA i jeszcze bardziej je wygładza.</p>\n<p>Poza tym, czasami inteligentne interwały są konieczne. Każda giełda ma minimalną wielkość dozwolonej transakcji. Niektóre giełdy określają limit w BTC, więc wartość w walucie tradycyjnej zmienia się w czasie. Jeśli zdefiniowana kwota mniejsza niż limit, Deltabadger użyje minimalnej dozwolonej wielkości, dostosowując interwał czasowy tak, żeby osiągnąć statystycznie ten sam efekt. Chroni to bota przed zatrzymaniem, gdy zdefiniowana kwota spadnie poniżej dopuszczonego progu.</p>\n<p class=\"mt-2\"><b>Przykład:</b></p>\n<p>Powiedzmy, że aktualny limit wymiany wynosi $20. Jeśli ustawisz harmonogram $24/dzień, bot raz dziennie kupi bitcoiny za $24. Jeśli jednak zdefiniujesz go jako $1/godzinę, będzie on naśladował stosunek przy użyciu dozwolonej wielkości, która równa się $20, kupując raz na 20 godzin. Średnio daje to taki sam stosunek ($24/dzień = $1/godzina = $20/20 godzin).</p>\n"
-                title: Opis
+                title: Info
+                what_is_dca_html: |
+                    <h3>Co to jest DCA?</h3>
+                    <p>Wyobraź sobie rynek jako swoją skarbonkę. Codziennie wrzucasz do niej monetę—niezależnie od tego, czy ceny rosną, spadają, czy stoją w miejscu.</p>
+                    <p>Nazywamy to <i>uśrednianiem</i>, ale uwierz mi, w tym co robisz, nie ma nic przeciętnego.</p>
+                    <p>Przeciętny inwestor? Waha się, wpada w panikę, sprzedaje za wcześnie.</p>
+                    <p>Ale nie ty.</p>
+                    <p>Ty czilujesz jak dziadek Warren, popijając swoją Colę i pozwalając rynkowi działać.</p>
+                    <p>Gra jest długa, ale prosta. Zaczyna się od naciśnięcia ▶️</p>
+                smart_intervals_html: |
+                    <h3>Inteligentne Interwały</h3>
+                    <p>Giełdy mają minimalne kwoty zamówień. Inteligentne interwały to za Ciebie załatwią:</p>
+                    <p>Chcesz kupować za 5$ dziennie, ale minimalna kwota to 10$? Zrealizują zamówienie na 10$ co drugi dzień.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Dziennie? Co tydzień? Co miesiąc?</h3>
+                    <p>Co zaskakujące, wyniki długoterminowe są tak bliskie, że to naprawdę nie ma znaczenia.</p>
+                    <p>Ale uważaj—jeśli twoje oprogramowanie do rozliczeń podatkowych nalicza opłaty za transakcję, to dobry powód, żeby kupować rzadziej.</p>
+                    <p>W przeciwnym razie trzymaj transakcje małe i częste, i pozwól, aby magia DCA zaczęła działać szybciej.</p>
+                withdrawal_html: |
+                    <h3>Automatyczne Wypłaty</h3>
+                    <p><i>Nie Twoje klucze, nie Twój Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Wypłać swoje środki do własnego portfela. To najbezpieczniejszy sposób przechowywania kryptowalut.</p>
             log:
                 date: Data
                 errors: Błędy
@@ -857,6 +874,27 @@ pl:
         see_at_coingecko: 'Zobacz na CoinGecko'
         since: 'od'
         soon: 'wkrótce'
+        years:
+            one: "%{count} rok"
+            few: "%{count} lata"
+            many: "%{count} lat"
+            other: "%{count} lat"
+        months:
+            one: "%{count} miesiąc"
+            few: "%{count} miesiące"
+            many: "%{count} miesięcy"
+            other: "%{count} miesięcy"
+        days:
+            one: "%{count} dzień"
+            few: "%{count} dni"
+            many: "%{count} dni"
+            other: "%{count} dni"
+        cash: Gotówka
+        bonds: Obligacje
+        gold: Złoto
+    dca_calculator:
+        title: "Jak długo musiałbyś oszczędzać $%{amount}/miesięcznie, aby %{goal}?"
+        goal_millionaire: "zostać milionerem"
     alert:
         portfolio:
             invalid_name: 'Nieprawidłowa nazwa portfela.'
