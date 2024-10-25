@@ -15,7 +15,6 @@ vi:
         bitwarden_title: 'Thử Bitwarden'
         dca_2y_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Nếu năm ngoái bạn trung bình<br>giá Bitcoin, thì giờ đây tài khoản<br>của bạn đã tăng <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Trung bình giá<br>Bitcoin là tiêu chuẩn mới<br>dành cho Saver dài hạn.'
         dont_trade_automate_html: '<div>Đừng&nbsp;lướt sóng.</div> <div>Hãy tự động hóa.</div>'
         features: "tự động trung bình giá trên tài khoản giao dịch của bạn;\n<i>Thời khoảng thông minh</i> chỉ mất 5 phút để thiết lập;\ncập nhật các tính năng mới hàng tháng;\nhỗ trợ cộng đồng Telegram"
         password_managers_html: 'Trình quản lý mật khẩu<br>giúp bảo mật dễ dàng hơn.'
@@ -148,10 +147,28 @@ vi:
         day: Ngày
         details:
             info:
-                exchanges_html: "<p class=\"mt-2\"><b>Sàn giao dịch</b></p>\n<p>Deltabadger làm việc với các sàn giao dịch tiền số. Hiện tại, chúng tôi hỗ trợ <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zondacrypto\">Zondacrypto</a>, <a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a> và <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Chúng tôi khuyên bạn sử dụng Kraken vì đây là sàn giao dịch uy tín chưa bao giờ bị hack.</p>\n<p>Để làm cho bot hữu ích, trước tiên, bạn cần xác minh tài khoản giao dịch của mình và chuyển một số tiền vào đó.</p>\n<p>Tuy nhiên, đừng giữ tiền ở sàn giao dịch quá lâu. Hãy đăng nhập vào tài khoản của bạn và thường xuyên rút tiền ít nhất một lần một tháng.</p>\n<p>Chúng tôi sẽ bổ sung thêm nhiều sàn giao dịch trong tương lai. Nếu bạn quan tâm đến một sàn giao dịch cụ thể, hãy cho chúng tôi biết.</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>Bạn chưa quen thuộc với phương pháp trung bình giá?</b></p>\n<p>Hãy tìm hiểu thông tin trên các liên kết dưới đây:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA cho người mới bắt đầu (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Sức mảnh của DCA đối với Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Mô phỏng DCA</a></li>\n</ul>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>\"Thời khoảng thông minh\"</b></p>\n<p>Khi bạn bật tính năng thời khoảng thông minh, Deltabadger sẽ thực hiện lịch trình mong muốn của bạn trong các giao dịch nhỏ nhất mà sàn giao dịch cho phép. Nếu không, thời khoảng thông minh sẽ chỉ được sử dụng khi cần.</p>\n<p class=\"mt-2\"><b>Tại sao?</b></p>\n<p>Có hai lợi ích:</p>\n<p>Lịch trình càng thường xuyên thì bạn càng nhanh nhận được những lợi ích của chiến lược trung bình giá và giao dịch càng thông suốt.</p>\n<p>Ngoài ra, đôi khi thời khoảng thông minh cũng rất cần thiết. Mọi sàn giao dịch đều có giới hạn giá trị giao dịch tối thiểu. Một số sàn giao dịch xác định giá trị này bằng BTC, do đó giá trị USD sẽ thay đổi theo thời gian. Nếu bạn muốn mua số lượng nhỏ hơn, Deltabadger duy trì tỷ lệ mong muốn của bạn bằng cách sử dụng giá trị tối thiểu cho phép nhưng điều chỉnh thời khoảng. Điều này giúp bot không bị dừng hoạt động khi số tiền đã định của bạn giảm xuống dưới ngưỡng.</p>\n<p class=\"mt-2\"><b>Ví dụ:</b></p>\n<p>Ví dụ như giới hạn giao dịch hiện tại là $20. Nếu bạn đặt giá trị giao dịch là $24/ngày, bot sẽ thực hiện chính xác như vậy. Tuy nhiên, nếu bạn đặt giá trị là $1/giờ, bot sẽ bắt chước tỷ lệ này bằng cách sử dụng giá trị cho phép, tương đương $20 mỗi 20 giờ. Tính trung bình, điều này mang lại tỷ lệ như nhau ($24/ngày = $1/giờ = $20/20 giờ).</p>"
-                title: 'Thông tin'
+                title: Thông tin
+                what_is_dca_html: |
+                    <h3>DCA là gì?</h3>
+                    <p>Hãy tưởng tượng Bitcoin như ống heo của bạn. Mỗi ngày bạn bỏ vào một đồng tiền có giá trị tương đương—dù giá tăng, giảm, hay đứng yên.</p>
+                    <p>Chúng ta gọi đó là <i>bình quân giá</i>, nhưng tin tôi đi, chẳng có gì "bình quân" trong việc bạn đang làm.</p>
+                    <p>Nhà đầu tư thông thường? Họ lo lắng, hoảng sợ, bán quá sớm.</p>
+                    <p>Nhưng không phải bạn.</p>
+                    <p>Bạn thoải mái, như ông lão Warren nhâm nhi lon Coke, để thị trường tự do phát triển, và ung dung tiến tới tự do tài chính.</p>
+                    <p>Tất cả chỉ cần một nút bấm xanh để bắt đầu.</p>
+                smart_intervals_html: |
+                    <h3>Khoảng thời gian thông minh</h3>
+                    <p>Sàn giao dịch có mức tối thiểu cho mỗi đơn hàng. Khoảng thời gian thông minh sẽ lo liệu điều này cho bạn:</p>
+                    <p>Muốn mua $5 mỗi ngày, nhưng mức tối thiểu là $10? Họ sẽ thực hiện đơn hàng $10 mỗi hai ngày.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Hằng ngày? Hằng tuần? Hằng tháng?</h3>
+                    <p>Ngạc nhiên chưa, kết quả dài hạn rất gần nhau, hầu như không quan trọng.</p>
+                    <p>Nhưng hãy cẩn thận—nếu phần mềm báo cáo thuế của bạn tính phí theo giao dịch, đó là lý do tốt để mua ít thường xuyên hơn.</p>
+                    <p>Nếu không, hãy giữ cho các giao dịch nhỏ và thường xuyên, và để phép thuật của DCA bắt đầu sớm hơn.</p>
+                withdrawal_html: |
+                    <h3>Tự động rút tiền</h3>
+                    <p><i>Không có khóa của bạn, không phải Bitcoin của bạn.</i> — Andreas Antonopoulos</p>
+                    <p>Rút tiền về ví của bạn. Đó là cách an toàn nhất để lưu trữ tiền điện tử của bạn.</p>
             log:
                 date: Ngày
                 errors: Lỗi
@@ -801,6 +818,9 @@ vi:
                 adjusted_end_html: "Ngày kết thúc kiểm tra lại đã được điều chỉnh thành <strong>%{end_date}</strong> để phù hợp với lịch sử có sẵn của tất cả các tài sản."
     utils:
         assets: 'Tài sản'
+        cash: Tiền mặt
+        bonds: Trái phiếu
+        gold: Vàng
         are_you_sure: 'Bạn có chắc không?'
         change_name: 'Đổi tên'
         delete: 'Xóa'
@@ -811,6 +831,15 @@ vi:
         see_at_coingecko: 'Xem trên CoinGecko'
         since: 'kể từ'
         soon: 'sắp ra mắt'
+        years:
+            other: "%{count} năm"
+        months:
+            other: "%{count} tháng"
+        days:
+            other: "%{count} ngày"
+    dca_calculator:
+        title: "Bạn đã phải tiết kiệm $%{amount}/tháng trong bao lâu để %{goal}?"
+        goal_millionaire: "trở thành triệu phú"
     alert:
         portfolio:
             invalid_name: 'Tên danh mục không hợp lệ.'

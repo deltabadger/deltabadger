@@ -15,7 +15,6 @@ id:
         bitwarden_title: 'Coba Bitwarden'
         dca_2y_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'Jika Anda melakukan<br>dollar-cost averaging<br>untuk Bitcoin selama<br>tahun lalu, sekarang<br>Anda bisa memperoleh<br>keuntungan hingga <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Dollar-cost averaging untuk<br>Bitcoin adalah standar baru bagi<br>penabung jangka panjang.'
         dont_trade_automate_html: '<div>Jangan&nbsp;hanya trading.</div> <div>Automasikan.</div>'
         features: "DCA otomatis di akun pertukaran Anda;\n<i>Smart interval</i> dan pengaturan hanya lima menit;\npembaruan dan fitur baru setiap bulan;\ndukungan dan komunitas Telegram"
         password_managers_html: 'Pengelola kata sandi<br>membuat keamanan lebih mudah.'
@@ -148,10 +147,28 @@ id:
         day: Hari
         details:
             info:
-                exchanges_html: "<p class=\"mt-2\"><b>Pertukaran</b></p>\n<p>Deltabadger cocok untuk berbagai pertukaran mata uang kripto. Saat ini, kami mendukung <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zondacrypto\">Zondacrypto</a>, <a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a>, dan <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Kami merekomendasikan Kraken sebagai pertukaran standar karena belum pernah dibajak.</p>\n<p>Untuk memanfaatkan bot Anda, pertama, Anda perlu memverifikasi akun pertukaran Anda dan mentransfer sejumlah dana ke dalamnya.</p>\n<p>Namun, jangan terlalu lama menyimpan koin Anda di pertukaran mana pun. Masuklah ke akun Anda dan lakukan penarikan secara rutin setidaknya satu bulan sekali.</p>\n<p>Ke depan, kami akan menambahkan lebih banyak jenis pertukaran. Beri tahu kami jika Anda tertarik dengan salah satunya.</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>Asing dengan dollar-cost averaging?</b></p>\n<p>Tautan berikut akan membantu:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA untuk Pemula (video)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">Kemampuan DCA untuk Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Simulator DCA</a></li>\n</ul>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>\"Smart interval\"</b></p>\n<p>Saat smart interval diaktifkan, Deltabadger mengeksekusi jadwal yang Anda inginkan dalam beberapa transaksi paling kecil yang diperbolehkan menurut pertukaran. Jika tidak diaktifkan, fitur ini akan digunakan hanya bila diperlukan.</p>\n<p class=\"mt-2\"><b>Mengapa?</b></p>\n<p>Ada dua manfaat:</p>\n<p>Jadwal yang lebih sering memungkinkan Anda merasakan manfaat DCA lebih cepat dan menjalankannya lebih mudah.</p>\n<p>Selain itu, kadang smart interval juga diperlukan. Setiap pertukaran memiliki limit besaran minimum transaksi. Beberapa pertukaran ditetapkan dalam BTC, sehingga nilai USD berubah seiring waktu. Jika jumlah yang ingin Anda beli lebih kecil, Deltabadger menjaga rasio yang Anda inginkan dengan menggunakan besaran minimum yang diperbolehkan dan mengatur interval waktu. Tindakan ini mencegah bot terhenti saat jumlah yang Anda tetapkan berada di bawah ambang batas.</p>\n<p class=\"mt-2\"><b>Contoh:</b></p>\n<p>Katakanlah limit pertukaran saat ini sebesar $20. Jika Anda menetapkan besaran transaksi $24/hari, bot akan melakukan transaksi dengan nilai tersebut. Namun, jika Anda menetapkan transaksi sebesar $1/jam, bot akan mengadaptasi rasio menggunakan besaran yang diperbolehkan, setara dengan $20 setiap 20 jam. Secara rata-rata, bot menghasilkan rasio yang sama ($24/hari = $1/jam = $20/20jam).</p>"
                 title: Info
+                what_is_dca_html: |
+                    <h3>Apa itu DCA?</h3>
+                    <p>Bayangkan pasar sebagai celengan Anda. Setiap hari Anda memasukkan satu koin—apakah harga naik, turun, atau tetap sama.</p>
+                    <p>Kami menyebutnya <i>rata-rata</i>, tapi percayalah, tidak ada yang rata-rata tentang apa yang Anda lakukan.</p>
+                    <p>Investor rata-rata? Ragu, panik, menjual terlalu cepat.</p>
+                    <p>Tapi bukan Anda.</p>
+                    <p>Anda santai seperti Kakek Warren sambil menyeruput Cola, membiarkan pasar melakukan pekerjaannya.</p>
+                    <p>Permainan ini panjang, tapi sederhana. Dimulai dengan menekan ▶️</p>
+                smart_intervals_html: |
+                    <h3>Interval Cerdas</h3>
+                    <p>Bursa memiliki ukuran pesanan minimum. Interval cerdas mengurusnya untuk Anda:</p>
+                    <p>Ingin membeli seharga $5 sehari, tetapi minimum adalah $10? Mereka akan memesan $10 setiap dua hari.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Harian? Mingguan? Bulanan?</h3>
+                    <p>Mengejutkan, hasil jangka panjangnya sangat mirip sehingga hampir tidak ada bedanya.</p>
+                    <p>Tapi hati-hati—jika perangkat lunak pelaporan pajak Anda mengenakan biaya per transaksi, itu alasan yang baik untuk membeli lebih jarang.</p>
+                    <p>Jika tidak, buatlah transaksi kecil dan sering, dan biarkan keajaiban DCA dimulai lebih cepat.</p>
+                withdrawal_html: |
+                    <h3>Penarikan Otomatis</h3>
+                    <p><i>Bukan kunci Anda, bukan Bitcoin Anda.</i> — Andreas Antonopoulos</p>
+                    <p>Tarik dana Anda ke dompet Anda sendiri. Itu cara paling aman untuk menyimpan kripto Anda.</p>
             log:
                 date: Tanggal
                 errors: Kesalahan
@@ -805,6 +822,9 @@ id:
                 adjusted_end_html: "Tanggal berakhirnya backtest telah disesuaikan menjadi <strong>%{end_date}</strong> untuk menyesuaikan dengan riwayat yang tersedia dari semua aset."
     utils:
         assets: Aset
+        cash: Uang tunai
+        bonds: Obligasi
+        gold: Emas
         are_you_sure: 'Apakah Anda yakin?'
         change_name: 'Ganti nama'
         delete: 'Hapus'
@@ -815,6 +835,15 @@ id:
         see_at_coingecko: 'Lihat di CoinGecko'
         since: 'sejak'
         soon: 'segera'
+        years:
+            other: "%{count} tahun"
+        months:
+            other: "%{count} bulan"
+        days:
+            other: "%{count} hari"
+    dca_calculator:
+        title: "Berapa lama Anda harus menabung $%{amount}/bulan untuk %{goal}?"
+        goal_millionaire: "menjadi jutawan"
     alert:
         portfolio:
             invalid_name: 'Nama portofolio tidak valid.'

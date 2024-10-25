@@ -15,7 +15,6 @@ nl:
         bitwarden_title: 'Probeer Bitwarden.'
         dca_2y_profit_html: 'Als je de afgelopen twee jaar Bitcoin aankocht via dollar-cost averaging, heb je nu <span class="text-success">+%{profit}%</span> winst'
         dca_profit_html: 'Als je het afgelopen jaar BItcoin aankocht via dollar-cost averaging, dan heb je nu <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Aankopen van Bitcoin door middel van dollar-cost averaging, is de nieuwe standaard voor langetermijnspaarders.'
         dont_trade_automate_html: '<div>Niet traden.</div> <div>Wel automatiseren.</div>'
         features: 'automatische DCA op uw exchange account; <i>Slimme intervallen</i> en setup in vijf minuten; elke maand updates en nieuwe functies; ondersteuning en Telegram-gemeenschap'
         password_managers_html: 'Wachtwoordmanagers maken beveiliging eenvoudiger.'
@@ -151,10 +150,28 @@ nl:
         day: Dag
         details:
             info:
-                exchanges_html: '<p class="mt-2"><b>Exchanges</b></p><p>Deltabadger werkt met cryptocurrency exchanges. Op dit moment ondersteunen we <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondacrypto.com" target="_blank" rel="nofollow" title="Zondacrypto">Zondacrypto</a>, <a href="https://bitfinex.com" target="_blank" rel="nofollow" title="Bitfinex">Bitfinex</a>, <a href="https://bitso.com/" target="_blank" rel="nofollow" title="Bitso">Bitso</a>, <a href="https://bitstamp.net/" target="_blank" rel="nofollow" title="Bitstamp">Bitstamp</a>, <a href="https://coinbase.com/" target="_blank" rel="nofollow">Coinbase</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://r.kraken.com/deltabadger" target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>, <a href="https://kucoin.com/" target="_blank" title="KuCoin">KuCoin</a> en <a href="https://www.probit.com/" target="_blank" title="ProBit Global">ProBit Global</a>. Wij raden Kraken aan als een betrouwbare exchange die nog niet gehackt is. Gebruik Zonda als u uw aankopen in PLN wilt doen.</p><p>Om uw bot te gebruiken, moet u eerst uw exchange verifiëren en er wat geld op storten.</p><p>Bewaar uw cryptomunten echter niet te lang op een exchange. Log in op uw account en doe regelmatig opnames, minstens één keer per maand.</p><p>We zullen in de toekomst meer exchanges toevoegen. Laat het ons weten als u in een bepaalde exchange geïnteresseerd bent.</p>'
-                new_to_dca_html: '<p class="mt-2"><b>Nieuw bij het berekenen van dollar-cost averaging?</b></p><p>Deze links zullen helpen:</p><ul class="mb-5"> <li><a href="https://www.youtube.com/watch?v=CdKRjuaUtOc" target="_blank" rel="nofollow">DCA voor Beginners (video)</a></li> <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank" rel="nofollow">De kracht van DCA in Bitcoin</a></li> <li><a href="https://dcabtc.com/" target="_blank" rel="nofollow">DCA Simulator</a></li></ul>'
-                smart_intervals_html: '<p class="mt-2"><b>"Slimme intervallen"</b></p><p>Wanneer slimme intervallen zijn ingeschakeld, voert Deltabadger uw gewenste schema uit in de kleinste transacties die door de centrale zijn toegestaan. Anders worden ze alleen gebruikt als dat nodig is.</p><p class="mt-2"><b>Waarom?</b></p><p>Er zijn twee voordelen:</p><p>Door het frequentere schema kunt u sneller de voordelen van DCA ervaren en wordt het nog soepeler.</p><p>Soms zijn slimme intervallen noodzakelijk. Elke exchange heeft een limiet voor zijn minimale transactiegrootte. Sommige exchanges definiëren het in BTC, waardoor de USD-waarde verandert in de loop van de tijd. Als het bedrag dat u wilt investeren kleiner is, houdt Deltabadger de gewenste ratio aan door het tijdsinterval aan te passen afhankelijk van de minimaal toegestane transactiegrootte. Het beschermt de bot tegen stoppen wanneer uw gedefinieerde bedrag onder de drempel valt.</p><p class="mt-2"><b>Voorbeeld:</b></p><p>Stel dat de huidige exchange limiet $20 is. Als u de transactiegrootte instelt op $24/dag, zal de bot precies dat doen. Als u het echter definieert als $1/uur, zal het de verhouding nabootsen met de toegestane grootte, die gelijk is aan $ 20 elke 20 uur. Gemiddeld resulteert dit in dezelfde verhouding ($24/dag = $1/uur = $20/20 uur). </p>'
                 title: Info
+                what_is_dca_html: |
+                    <h3>Wat is DCA?</h3>
+                    <p>Stel je de markt voor als je spaarvarken. Elke dag gooi je er een muntje in—of de prijzen nu stijgen, dalen of stabiel blijven.</p>
+                    <p>We noemen het <i>gemiddelde</i>, maar geloof me, er is niets gemiddeld aan wat je doet.</p>
+                    <p>De gemiddelde belegger? Twijfelt, raakt in paniek, verkoopt te vroeg.</p>
+                    <p>Jij niet.</p>
+                    <p>Jij chillt zoals opa Warren met zijn Cola, en laat de markt zijn werk doen.</p>
+                    <p>Het spel is lang, maar simpel. Het begint met het indrukken van ▶️</p>
+                smart_intervals_html: |
+                    <h3>Slimme Intervallen</h3>
+                    <p>Beurzen hebben minimale ordergroottes. Slimme intervallen regelen dit voor je:</p>
+                    <p>Wil je $5 per dag kopen, maar het minimum is $10? Ze plaatsen je bestelling van $10 elke tweede dag.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Dagelijks? Wekelijks? Maandelijks?</h3>
+                    <p>Op de lange termijn zijn de resultaten zo vergelijkbaar dat het nauwelijks uitmaakt.</p>
+                    <p>Let op—als je belastingaangifte-software per transactie kosten rekent, is dat een goede reden om minder vaak te kopen.</p>
+                    <p>Anders, hou het klein en vaak, en laat de magie van DCA sneller zijn werk doen.</p>
+                withdrawal_html: |
+                    <h3>Automatische Opnames</h3>
+                    <p><i>Niet jouw sleutels, niet jouw Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Haal je fondsen naar je eigen wallet. Het is de veiligste manier om je crypto op te slaan.</p>
             log:
                 date: Datum
                 errors: Errors
@@ -832,6 +849,9 @@ nl:
                 adjusted_end_html: 'De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
     utils:
         assets: 'Activas'
+        cash: Contant geld
+        bonds: Obligaties
+        gold: Goud
         are_you_sure: 'Weet je het zeker?'
         change_name: 'Naam wijzigen'
         delete: 'Verwijderen'
@@ -842,6 +862,18 @@ nl:
         see_at_coingecko: 'Zie op CoinGecko'
         since: 'sinds'
         soon: 'binnenkort'
+        years:
+            one: "%{count} jaar"
+            other: "%{count} jaar"
+        months:
+            one: "%{count} maand"
+            other: "%{count} maanden"
+        days:
+            one: "%{count} dag"
+            other: "%{count} dagen"
+    dca_calculator:
+        title: "Hoe lang moest je $%{amount}/maand sparen om %{goal}?"
+        goal_millionaire: "miljonair te worden"
     alert:
         portfolio:
             invalid_name: 'Ongeldige portfolionaam.'

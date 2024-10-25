@@ -5,15 +5,18 @@ import { RawHTML } from '../RawHtml'
 export const Info = ({ active }) => (
   <div className={`pb-4 tab-pane ${active ? 'active' : ''}`} id="info" role="tabpanel" aria-labelledby="info-tab">
     <RawHTML className="db-showif db-showif--pick-exchange">
-      {I18n.t('bots.details.info.exchanges_html')}
-    </RawHTML>
-    <RawHTML className="db-showif db-showif--setup db-bot-info--dca">
-      {I18n.t('bots.details.info.smart_intervals_html')}
+      {I18n.t('bots.details.info.what_is_dca_html')}
     </RawHTML>
     <RawHTML className="db-bot-info--dca">
-      {I18n.t('bots.details.info.new_to_dca_html')}
+      {I18n.t('bots.details.info.smart_intervals_html')}
     </RawHTML>
-    <div className="db-bot-info--webhook mt-2">
+    <RawHTML className="db-showif db-showif--setup db-bot-info--dca second-info-title">
+      {I18n.t('bots.details.info.daily_weekly_monthly_html')}
+    </RawHTML>
+    <RawHTML className="db-showif db-showif--setup db-bot-info--withdrawal">
+      {I18n.t('bots.details.info.withdrawal_html')}
+    </RawHTML>
+    <div className="db-bot-info--webhook">
       <RawHTML>
         {I18n.t('bots.details.info.webhook.info_html')}
       </RawHTML>
