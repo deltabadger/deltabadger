@@ -153,12 +153,12 @@ pl:
                 title: Info
                 what_is_dca_html: |
                     <h3>Co to jest DCA?</h3>
-                    <p>Wyobraź sobie Bitcoina jako swoją skarbonkę. Każdego dnia wrzucasz monetę o tej samej wartości — bez względu na to, czy cena rośnie, spada, czy jest stabilna.</p>
-                    <p>Nazywamy to <i>średniowaniem</i>, ale uwierz mi, to, co robisz, nie jest wcale przeciętne.</p>
-                    <p>Przeciętny inwestor? Potyka się, panikuje, sprzedaje za wcześnie.</p>
-                    <p>Ty nie.</p>
-                    <p>Chillujesz, jak dziadek Warren popijający swoją Colę, pozwalając rynkowi robić swoje, spokojnie zmierzając ku wolności finansowej.</p>
-                    <p>Wystarczy jedno kliknięcie zielonego przycisku, by zacząć.</p>
+                    <p>Wyobraź sobie rynek jako swoją skarbonkę. Codziennie wrzucasz do niej monetę—niezależnie od tego, czy ceny rosną, spadają, czy stoją w miejscu.</p>
+                    <p>Nazywamy to <i>uśrednianiem</i>, ale uwierz mi, w tym co robisz, nie ma nic przeciętnego.</p>
+                    <p>Przeciętny inwestor? Waha się, wpada w panikę, sprzedaje za wcześnie.</p>
+                    <p>Ale nie ty.</p>
+                    <p>Ty czilujesz jak dziadek Warren, popijając swoją Colę i pozwalając rynkowi działać.</p>
+                    <p>Gra jest długa, ale prosta. Zaczyna się od naciśnięcia ▶️</p>
                 smart_intervals_html: |
                     <h3>Inteligentne Interwały</h3>
                     <p>Giełdy mają minimalne kwoty zamówień. Inteligentne interwały to za Ciebie załatwią:</p>
