@@ -473,48 +473,8 @@ sup
   justify-content: center
   margin-top: 2rem
 
-// footer
-.db-footer--signed-in
-  padding: 1.5rem .5rem 2rem
-  color: var(--secondary)
-
-.db-footer
-  padding-bottom: 3.4rem
-  a
-    color: var(--link)
-    text-decoration: underline
-    display: block
-    @include media-breakpoint-down(sm)
-      line-height: 4.8rem
-
-    &.db-social-link
-      text-decoration: none
-      svg
-        width: 1.6rem
-        height: 1.6rem
-
-      span
-        text-decoration: underline
-
-  &--signed-in
-    a
-      display: inline
-
-.db-footer__tagline
-  position: relative
-  text-indent: 2rem
-  color: var(--link)
-  &::before
-    content: ""
-    display: block
-    background: var(--link)
-    position: absolute
-    width: .4rem
-    height: 100%
-    border-radius: .2rem
-
 .db--guest--homepage
-  a, .db-footer__tagline
+  a
     color: var(--white) !important
     &::before
       background: var(--white) !important
@@ -909,8 +869,6 @@ sup
     min-height: calc( 100vh - 23rem )
 
 .view--legendary-plan.view--logged-in
-  .db-footer
-    display: none
   .db-content-body
     padding: 0
 .db_legendary-plan

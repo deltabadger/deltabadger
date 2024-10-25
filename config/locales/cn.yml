@@ -15,7 +15,6 @@ cn:
         bitwarden_title: '试试 Bitwarden'
         dca_2y_profit_html: '如果您在去年定期定额投资<br>比特币，现在您将获利 <span class="text-success">+%{profit}%</span>'
         dca_profit_html: '如果您在去年定期定额投资<br>比特币，现在您将获利 <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 定期定额投资<br>比特币是长期储蓄者的<br>新标准。
         dont_trade_automate_html: '<div>不必交易。</div> <div>自动完成。</div>'
         features: "自动定投交易所账号；\n<i>智能间隔</i>，五分钟快速设置；\n每月更新并推出新功能；\n支持和 Telegram 社区"
         password_managers_html: 通过密码管理器<br>，可以轻松保障安全。
@@ -148,10 +147,28 @@ cn:
         day: 日
         details:
             info:
-                exchanges_html: "<p class=\"mt-2\"><b>交易所</b></p>\n<p>Deltabadger 适用于加密货币交易所。目前，我们支持 <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>、<a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>、<a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zondacrypto\">Zondacrypto</a>、<a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>、<a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a> 和 <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>。我们推荐 Kraken，这是值得信赖的交易所，从未被黑客入侵。</p>\n<p>要使机器人发挥作用，首先需要验证您的交易所账号，并转入一些资金。</p>\n<p>但是，不要将您的币在任何交易所保留太久。请登录账号，定期提款，每月至少一次。</p>\n<p>我们将来会添加更多交易所。如果您对某个特定交易所感兴趣，请告诉我们。</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>还不熟悉定期定额投资？</b></p>\n<p>以下链接可提供帮助：</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">定投入门（视频）</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">定投比特币的威力</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">定投模拟器</a></li>\n</ul>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>“智能间隔”</b></p>\n<p>开启智能间隔后，Deltabadger 会按交易所允许的最小交易执行您所需的安排。否则，仅在必要时才使用。</p>\n<p class=\"mt-2\"><b>为什么？</b></p>\n<p>有两项好处：</p>\n<p>安排越频繁，您就能够越快体验到定投的好处，越好地平滑成本。</p>\n<p>此外，有时智能间隔是必要的。每个交易所都有最低交易大小限制。一些交易所按比特币定义限制，因此限制的美元价值会发生波动。如果您想购买的金额更小，Deltabadger 会使用最低允许的大小，但调整时间间隔，以保持您所需的比例。这可保护机器人，防止在定义的金额低于阈值时停止机器人。</p>\n<p class=\"mt-2\"><b>例如：</b></p>\n<p>假定当前交易所限制是 20 美元。如果您将交易大小设置为每天 24 美元，机器人就会严格按该设置执行。但是，如果定义为每小时 1 美元，机器人会使用允许的大小模仿该比例，相当于每 20 小时 20 美元。平均下来，最终的比例是一样的（24 美元/天 = 1 美元/天 = 20 美元/20 小时）。</p>"
                 title: 信息
+                what_is_dca_html: |
+                    <h3>什么是DCA？</h3>
+                    <p>把市场想象成你的存钱罐。每天投一枚硬币—无论价格涨跌还是横盘。</p>
+                    <p>我们称之为<i>平均</i>，但相信我，你所做的远不止平均。</p>
+                    <p>普通投资者？他们犹豫、恐慌，过早卖出。</p>
+                    <p>你不是。</p>
+                    <p>你像老爷爷沃伦一样悠闲地喝着可乐，让市场自行运作。</p>
+                    <p>游戏很长，但很简单。它始于按下 ▶️</p>
+                smart_intervals_html: |
+                    <h3>智能间隔</h3>
+                    <p>交易所设有最低订单金额。智能间隔帮你解决这个问题：</p>
+                    <p>想每天买入5美元，但最低限额是10美元？他们会每隔一天下单10美元。</p>
+                daily_weekly_monthly_html: |
+                    <h3>每日？每周？每月？</h3>
+                    <p>令人惊讶的是，长期结果如此接近，以至于几乎没有区别。</p>
+                    <p>但要注意—如果你的税务申报软件按交易收费，那就是减少购买频率的一个好理由。</p>
+                    <p>否则，保持交易小额且频繁，让DCA的魔力更快显现。</p>
+                withdrawal_html: |
+                    <h3>自动提现</h3>
+                    <p><i>不掌握私钥，就不拥有比特币。</i> — Andreas Antonopoulos</p>
+                    <p>将你的资金提现到你自己的钱包中。这是存储加密货币的最安全方式。</p>
             log:
                 date: 日期
                 errors: 错误
@@ -798,6 +815,9 @@ cn:
                 adjusted_end_html: "回测结束日期已调整为<strong>%{end_date}</strong>，以适应所有资产的可用历史记录。"
     utils:
         assets: 资产
+        cash: 现金
+        bonds: 债券
+        gold: 黄金
         are_you_sure: '你确定吗？'
         change_name: '更改名称'
         delete: '删除'
@@ -808,6 +828,15 @@ cn:
         see_at_coingecko: '查看 CoinGecko'
         since: '自'
         soon: '即将推出'
+        years:
+            other: "%{count}年"
+        months:
+            other: "%{count}个月"
+        days:
+            other: "%{count}天"
+    dca_calculator:
+        title: "每月存$%{amount}需要多长时间才能%{goal}？"
+        goal_millionaire: "成为百万富翁"
     alert:
         portfolio:
             invalid_name: '无效的投资组合名称。'
