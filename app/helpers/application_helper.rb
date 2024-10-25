@@ -17,6 +17,14 @@ module ApplicationHelper
       !action?('affiliates', 'create')
   end
 
+  def legendary_badger_nft_name(subscription)
+    if subscription.nft_rarity.present?
+      "#{subscription.nft_name} · #{subscription.nft_rarity}"
+    else
+      subscription.nft_name
+    end
+  end
+
   private
 
   def action?(controller, action)

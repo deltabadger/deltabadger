@@ -20,6 +20,14 @@ module Subscription::Nftable
       eth_address =~ Regexp.new(Ethereum.address_pattern)
     end
 
+    def nft_name
+      "Legendary Badger ##{nft_id}" if nft_id.present?
+    end
+
+    def nft_rarity
+      LegendaryBadgersCollection::RARITIES[nft_id] if nft_id.present?
+    end
+
     private
 
     def legendary?
@@ -43,11 +51,7 @@ module Subscription::Nftable
     end
 
     def set_nft_id
-      self.class.nft_id = next_nft_id if legendary? && !nft_id.present?
-    end
-
-    def next_nft_id
-      ([*0..999] - self.class.used_nft_ids).sample
+      self.nft_id = self.class.next_nft_id if legendary? && !nft_id.present?
     end
   end
 
@@ -61,6 +65,10 @@ module Subscription::Nftable
       # we assume only Legendary Badger subscriptions can have an eth_address
       subscriptions = by_plan_name(SubscriptionPlan::LEGENDARY_PLAN).where.not(eth_address: nil)
       subscriptions.map(&:nft_id).compact.sort
+    end
+
+    def next_nft_id
+      ([*0..999] - used_nft_ids).sample
     end
   end
 end

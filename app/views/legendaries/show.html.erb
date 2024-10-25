@@ -4,17 +4,7 @@
 <div class="db_legendary-plan">
   <div class="db_legendary-plan__set">
     <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", @subscription.nft_id) + ".svg") %>">
-    <div class="db_legendary-plan__title">
-      <% short_list = { 0 => "Lost wallet", 1 => "Hodler", 21 => "Maximalist", 100 => "Gateway", 111 => "Smart intervals", 200 => "Bull market", 222 => "Failure", 300 => "Singularity is loading", 333 => "Money lego", 400 => "Access denied", 444 => "Things got wild", 500 => "Under construction", 555 => "I'm a human", 600 => "Let's Play", 666 => "Impostor", 700 => "Rebalancing", 777 => "Angel", 800 => "", 888 => "Thank you", 900 => "Market signals", 999 => "Hyperbitcoinization" } %>
-      <% if short_list.key?(@subscription.nft_id) %>
-        <% key = @subscription.nft_id %>
-        <% value = short_list[key] %>
-        <% result = "#" + "#{sprintf("%03d",key)} · #{value}" %>
-      <% else %>
-        <% result = "#" + sprintf("%03d", @subscription.nft_id) %>
-      <% end %>
-      <%= result %>
-    </div>
+    <div class="db_legendary-plan__title"><%= legendary_badger_nft_name(@subscription) %></div>
   </div>
 
   <% if @subscription.eth_address_is_valid? %>

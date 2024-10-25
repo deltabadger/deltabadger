@@ -3,7 +3,6 @@ class SubscriptionPlan < ApplicationRecord
   BASIC_PLAN = 'basic'.freeze
   PRO_PLAN = 'pro'.freeze
   LEGENDARY_PLAN = 'legendary'.freeze
-  LEGENDARY_PLAN_TOTAL_SUPPLY = 1000
 
   has_many :subscriptions
   has_many :subscription_plan_variants, dependent: :destroy

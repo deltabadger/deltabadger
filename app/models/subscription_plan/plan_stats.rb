@@ -13,7 +13,7 @@ module SubscriptionPlan::PlanStats
 
     def total_supply
       ensure_legendary!
-      self.class::LEGENDARY_PLAN_TOTAL_SUPPLY
+      LegendaryBadgersCollection::TOTAL_SUPPLY
     end
 
     def sold_percent
