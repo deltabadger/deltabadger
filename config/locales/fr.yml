@@ -153,12 +153,12 @@ fr:
                 title: Info
                 what_is_dca_html: |
                     <h3>Qu'est-ce que le DCA ?</h3>
-                    <p>Imaginez Bitcoin comme votre tirelire. Chaque jour, vous y déposez une pièce de même valeur—que le prix monte, baisse ou stagne.</p>
-                    <p>On appelle cela <i>lissage du coût</i>, mais croyez-moi, il n'y a rien de banal dans ce que vous faites.</p>
-                    <p>L'investisseur moyen? Il trébuche, panique, vend trop tôt.</p>
+                    <p>Imaginez le marché comme votre tirelire. Chaque jour, vous y déposez une pièce—que les prix montent, baissent ou restent stables.</p>
+                    <p>Nous appelons cela <i>lissage des coûts</i>, mais croyez-moi, ce que vous faites est loin d'être moyen.</p>
+                    <p>L'investisseur moyen ? Il hésite, panique, vend trop tôt.</p>
                     <p>Pas vous.</p>
-                    <p>Vous êtes détendu, comme Papy Warren sirotant son Coca, laissant le marché faire son travail, en route tranquillement vers votre liberté financière.</p>
-                    <p>Tout ce qu'il vous faut, c'est appuyer sur un bouton vert pour commencer.</p>
+                    <p>Vous êtes tranquille, comme le grand-père Warren sirotant son Coca, laissant le marché faire son travail.</p>
+                    <p>Le jeu est long, mais simple. Il commence en appuyant sur ▶️</p>
                 smart_intervals_html: |
                     <h3>Intervalles Intelligents</h3>
                     <p>Les plateformes ont des tailles d'ordre minimales. Les intervalles intelligents gèrent cela pour vous :</p>

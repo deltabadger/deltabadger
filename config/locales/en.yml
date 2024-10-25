@@ -157,12 +157,12 @@ en:
                 title: Info
                 what_is_dca_html: |
                     <h3>What is DCA?</h3>
-                    <p>Imagine Bitcoin as your piggy bank. Every day you drop in one coin of the same value—whether the price is up, down, or sideways.</p>
+                    <p>Imagine market as your piggy bank. Every day you drop in one coin—whether prices are up, down, or sideways.</p>
                     <p>We call it <i>averaging</i>, but trust me, there's nothing average about what you're doing.</p>
-                    <p>The average investor? They fumble, panic, sell too soon.</p>
+                    <p>The average investor? They hesitate, panic, sell too soon.</p>
                     <p>Not you.</p>
-                    <p>You're chilling, like Grandpa Warren sipping his Coke, letting the market do its thing, calmly cruising to your financial freedom.</p>
-                    <p>All it takes is one green button to start.</p>
+                    <p>You're chilling like Grandpa Warren sipping his Coke, letting the market do its thing.</p>
+                    <p>The game is long, but simple. It begins with pressing ▶️</p>
                 smart_intervals_html: |
                     <h3>Smart Intervals</h3>
                     <p>Exchanges have minimum order sizes. Smart intervals handle this for you:</p>

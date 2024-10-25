@@ -125,12 +125,12 @@ pt:
                 title: Informações
                 what_is_dca_html: |
                     <h3>O que é DCA?</h3>
-                    <p>Imagine o Bitcoin como seu cofrinho. Todos os dias você coloca uma moeda do mesmo valor – não importa se o preço sobe, desce ou fica de lado.</p>
-                    <p>Chamamos isso de <i>média</i>, mas acredite, não há nada de mediano no que você está fazendo.</p>
-                    <p>O investidor médio? Ele tropeça, entra em pânico, vende cedo demais.</p>
-                    <p>Mas não você.</p>
-                    <p>Você está tranquilo, como o vovô Warren tomando sua Coca, deixando o mercado fazer seu trabalho, navegando calmamente rumo à sua liberdade financeira.</p>
-                    <p>Tudo o que precisa é apertar um botão verde para começar.</p>
+                    <p>Imagine o mercado como seu cofrinho. Todos os dias, você coloca uma moeda—seja com preços subindo, descendo ou estáveis.</p>
+                    <p>Chamamos isso de <i>média de custo</i>, mas acredite, não há nada de médio no que você está fazendo.</p>
+                    <p>O investidor médio? Hesita, entra em pânico, vende cedo demais.</p>
+                    <p>Não você.</p>
+                    <p>Você está tranquilo, como o vovô Warren saboreando sua Coca-Cola, deixando o mercado seguir seu curso.</p>
+                    <p>O jogo é longo, mas simples. Começa ao apertar ▶️</p>
                 smart_intervals_html: |
                     <h3>Intervalos Inteligentes</h3>
                     <p>As exchanges têm tamanhos mínimos de pedido. Intervalos inteligentes cuidam disso para você:</p>

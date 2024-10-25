@@ -150,12 +150,12 @@ id:
                 title: Info
                 what_is_dca_html: |
                     <h3>Apa itu DCA?</h3>
-                    <p>Bayangkan Bitcoin sebagai celengan Anda. Setiap hari Anda menambahkan satu koin dengan nilai yang sama—apakah harga naik, turun, atau datar.</p>
-                    <p>Kami menyebutnya <i>rata-rata</i>, tapi percayalah, tidak ada yang "rata-rata" tentang apa yang Anda lakukan.</p>
-                    <p>Investor rata-rata? Mereka panik, ketakutan, dan menjual terlalu cepat.</p>
+                    <p>Bayangkan pasar sebagai celengan Anda. Setiap hari Anda memasukkan satu koin—apakah harga naik, turun, atau tetap sama.</p>
+                    <p>Kami menyebutnya <i>rata-rata</i>, tapi percayalah, tidak ada yang rata-rata tentang apa yang Anda lakukan.</p>
+                    <p>Investor rata-rata? Ragu, panik, menjual terlalu cepat.</p>
                     <p>Tapi bukan Anda.</p>
-                    <p>Anda santai, seperti kakek Warren yang menyesap Cola-nya, membiarkan pasar melakukan bagiannya, dengan tenang melaju menuju kebebasan finansial.</p>
-                    <p>Yang dibutuhkan hanyalah satu tombol hijau untuk memulai.</p>
+                    <p>Anda santai seperti Kakek Warren sambil menyeruput Cola, membiarkan pasar melakukan pekerjaannya.</p>
+                    <p>Permainan ini panjang, tapi sederhana. Dimulai dengan menekan ▶️</p>
                 smart_intervals_html: |
                     <h3>Interval Cerdas</h3>
                     <p>Bursa memiliki ukuran pesanan minimum. Interval cerdas mengurusnya untuk Anda:</p>
