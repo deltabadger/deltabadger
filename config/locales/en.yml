@@ -15,7 +15,6 @@ en:
         bitwarden_title: 'Try Bitwarden'
         dca_2y_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last two years, you''re now up <span class="text-success">+%{profit}%</span>'
         dca_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last year, you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_standard_html: 'Dollar-cost averaging into Bitcoin is the new standard for long-term savers.'
         dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
         features: 'auto-DCA on your exchange account; <i>Smart intervals</i> and five-minute setup; updates and new features every month; support and Telegram community'
         password_managers_html: 'Password managers make security easier.'
@@ -155,9 +154,28 @@ en:
         day: Day
         details:
             info:
-                exchanges_html: '<p class="mt-2"><b>Exchanges</b></p><p>Deltabadger works with cryptocurrency exchanges. At the moment, we support <a href="https://www.binance.com/en/register?ref=NUYVIP6R" target="_blank" rel="nofollow">Binance</a>, <a href="https://www.binance.us" target="_blank" rel="nofollow">Binance.US</a>, <a href="https://zondacrypto.com" target="_blank" rel="nofollow" title="Zondacrypto">Zondacrypto</a>, <a href="https://bitfinex.com" target="_blank" rel="nofollow" title="Bitfinex">Bitfinex</a>, <a href="https://bitso.com/" target="_blank" rel="nofollow" title="Bitso">Bitso</a>, <a href="https://bitstamp.net/" target="_blank" rel="nofollow" title="Bitstamp">Bitstamp</a>, <a href=\"https://www.coinbase.com/advanced-trade\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href="https://exchange.gemini.com" target="_blank" rel="nofollow">Gemini</a>, <a href="https://r.kraken.com/deltabadger" target="_blank" style="display: inline !important" rel="nofollow" title="Kraken">Kraken</a>, <a href="https://kucoin.com/" target="_blank" title="KuCoin">KuCoin</a> and <a href="https://www.probit.com/" target="_blank" title="ProBit Global">ProBit Global</a>. We recommend Kraken as a reputable exchange that has never been hacked.</p><p>To make your bot useful, first, you need to verify your exchange account and transfer some funds there.</p><p>However, don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p><p>We will add more exchanges in the future. Let us know if you are interested in a particular one.</p>'
-                new_to_dca_html: '<p class="mt-2"><b>New to dollar-cost averaging?</b></p><p>Those links will help:</p><ul class="mb-5"> <li><a href="https://www.youtube.com/watch?v=CdKRjuaUtOc" target="_blank" rel="nofollow">DCA for Beginners (video)</a></li> <li><a href="https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6" target="_blank" rel="nofollow">The power of DCA into Bitcoin</a></li> <li><a href="https://dcabtc.com/" target="_blank" rel="nofollow">DCA Simulator</a></li></ul>'
-                smart_intervals_html: '<p class="mt-2"><b>"Smart intervals"</b></p><p>When smart intervals are turned on, Deltabadger executes your desired schedule in the smallest transactions allowed by the exchange. Otherwise, they''ll be used only if necessary.</p><p class="mt-2"><b>Why?</b></p><p>There are two benefits:</p><p>The more frequent schedule allows you to experience the benefits of DCA quicker and smooths it out even more.</p><p>Also, sometimes smart intervals are necessary. Every exchange has a minimum transaction size limit. Some exchanges define it in BTC, so the USD value changes over time. If the amount you want to buy is smaller, Deltabadger keeps your desired ratio using the minimum allowed size but adjusting the time interval. It protects bot from being stopped when your defined amount falls below the threshold.</p><p class="mt-2"><b>Example:</b></p><p>Let''s say the current exchange limit is $20. If you set the transaction size for $24/day, the bot will do exactly that. However, if you define it as $1/hour, it will mimic the ratio using the allowed size, which equals $20 every 20 hours. On average, it results in the same ratio ($24/day = $1/hour = $20/20hours).</p>'
+                title: Info
+                what_is_dca_html: |
+                    <h3>What is DCA?</h3>
+                    <p>Imagine market as your piggy bank. Every day you drop in one coin—whether prices are up, down, or sideways.</p>
+                    <p>We call it <i>averaging</i>, but trust me, there's nothing average about what you're doing.</p>
+                    <p>The average investor? They hesitate, panic, sell too soon.</p>
+                    <p>But not you.</p>
+                    <p>You're chilling like Grandpa Warren sipping his Coke, letting the market do its thing.</p>
+                    <p>The game is long, but simple. It begins with pressing ▶️</p>
+                smart_intervals_html: |
+                    <h3>Smart Intervals</h3>
+                    <p>Exchanges have minimum order sizes. Smart intervals handle this for you:</p>
+                    <p>Want to buy $5 a day, but the minimum is $10? They'll place your $10 order every second day.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Daily? Weekly? Monthly?</h3>
+                    <p>Surprisingly, long-term results are so close it doesn't really matter.</p>
+                    <p>But watch out—if your tax reporting software charges per transaction, that's a good reason to buy less often.</p>
+                    <p>Otherwise, keep transactions small and frequent, and let the magic of DCA kick in sooner.</p>
+                withdrawal_html: |
+                    <h3>Auto-Withdrawals</h3>
+                    <p><i>Not your keys not your Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Withdraw your funds to your own wallet. It's the safest way to store your crypto.</p>
                 webhook:
                     info_html: '<p>The Webhook bot buys and sells based on signals from third-party services like TradingView. It''s a great way to create orders based on RSI, moving averages, or other indicators.</p><p>The bot can work one way or two ways:</p><ul><li><em>One way</em> means it will only buy or only sell.</li><li><em>Two ways</em> mean it will both buy and sell using two different signals.</li></ul><p>For each way, you get one webhook URL. This is how to use it with TradingView:</p>'
                     create_alert: Create alert.
@@ -165,8 +183,6 @@ en:
                     set_webhook: Switch to the Notifications tab, and provide Webhook URL that you see in your bot panel on the left.
                     experimental: The webhook bot is still very experimental. One improvement that is coming soon is the ability to buy and sell using all funds available on the account. Please, test it and let us know how can we improve it.
                     working_and_waiting: The bot is working and waiting for a signal.
-                withdraw_info_html: '<p class="mt-2"><b>Withdraw</b></p><p>Don''t keep your coins at any exchange too long. Login to your account and do regularly withdraws at least once a month.</p>'
-                title: Info
             log:
                 date: Date
                 errors: Errors
@@ -859,6 +875,9 @@ en:
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
         assets: Assets
+        cash: Cash
+        bonds: Bonds
+        gold: Gold
         are_you_sure: 'Are you sure?'
         change_name: 'Change name'
         delete: 'Delete'
@@ -869,6 +888,18 @@ en:
         see_at_coingecko: 'See at CoinGecko'
         since: 'since'
         soon: 'soon'
+        years:
+            one: "%{count} year"
+            other: "%{count} years"
+        months:
+            one: "%{count} month"
+            other: "%{count} months"
+        days:
+            one: "%{count} day"
+            other: "%{count} days"
+    dca_calculator:
+        title: "How long you had to save $%{amount}/month to %{goal}?"
+        goal_millionaire: "become a millionaire"
     alert:
         portfolio:
             invalid_name: 'Invalid portfolio name.'
