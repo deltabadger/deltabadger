@@ -110,6 +110,7 @@ input
         background:    var(--paper)
         border-radius: $box-border-radius
         box-shadow:    $boxShadowBot
+        overflow: hidden
         h3,p,img,blockquote
           padding-left: 4rem
           padding-right: 4rem
@@ -460,3 +461,15 @@ input
 .db-input--dca-amount
   max-width: 4.1em
 
+.infotab-image-container
+  width: 100%
+  aspect-ratio: 1024 / 768
+  background-position: center top
+  background-image: linear-gradient(#fff,#fff0,#fff0), url('~images/journey-day02.jpg')
+  margin-bottom: -2rem
+  // night mode
+  @media (prefers-color-scheme: dark)
+    background-image: linear-gradient(var(--paper), #0000, #0000), url('~images/journey-night02.jpg')
+    background-position: center top
+  background-size: cover
+  
