@@ -15,7 +15,6 @@ es:
         bitwarden_title: 'Prueba Bitwarden'
         dca_2y_profit_html: 'Si estuviste promediando el coste en dólares en Bitcoin durante los últimos dos años, ahora tienes <span class="text-success">un %{profit} % más</span>'
         dca_profit_html: 'Si estuviste promediando el coste en dólares en Bitcoin durante el último año, ahora tienes <span class="text-success">un %{profit} % más</span>'
-        dca_standard_html: 'El promedio de coste en dólares en Bitcoin es el nuevo estándar para los ahorradores a largo plazo.'
         dont_trade_automate_html: '<div>No operes.</div> <div>Automatiza.</div>'
         features: "DCA automático en tu cuenta de intercambio;\n<i>Intervalos inteligentes</i> y configuración en cinco minutos;\nactualizaciones y nuevas funciones cada mes;\nservicio de asistencia y comunidad de Telegram"
         password_managers_html: 'Los administradores de contraseñas facilitan la seguridad.'
@@ -151,10 +150,28 @@ es:
         day: Día
         details:
             info:
-                exchanges_html: "<p class=\"mt-2\"><b>Intercambios</b></p>\n<p>Deltabadger trabaja con intercambios de criptomonedas. Por el momento, admitimos <a href=\"https://www.binance.com/en/register?ref=NUYVIP6R\" target=\"_blank\" rel=\"nofollow\">Binance</a>, <a href=\"https://www.binance.us\" target=\"_blank\" rel=\"nofollow\">Binance.US</a>, <a href=\"https://zondacrypto.com\" target=\"_blank\" rel=\"nofollow\" title=\"Zondacrypto\">Zondacrypto</a>, <a href=\"https://coinbase.com/\" target=\"_blank\" rel=\"nofollow\">Coinbase</a>, <a href=\"https://exchange.gemini.com\" target=\"_blank\" rel=\"nofollow\">Gemini</a> y <a href=\"https://r.kraken.com/deltabadger\" target=\"_blank\" style=\"display: inline !important\" rel=\"nofollow\" title=\"Kraken\">Kraken</a>. Recomendamos Kraken como plataforma de intercambio de buena reputación que nunca ha sido hackeada. </p>\n<p>Para que tu bot sea útil, primero, necesitas verificar tu cuenta de intercambio y transferir algunos fondos allí.</p>\n<p>Sin embargo, no guardes tus monedas en ninguna plataforma de intercambio demasiado tiempo. Entra en tu cuenta y retíralas regularmente al menos una vez al mes.</p>\n<p>Añadiremos más intercambios en el futuro. Haznos saber si estás interesado en alguno en particular.</p>"
-                new_to_dca_html: "<p class=\"mt-2\"><b>¿Eres nuevo en esto de promediar el coste en dólares?</b></p>\n<p>Estos enlaces te ayudarán:</p>\n<ul class=\"mb-5\">\n  <li><a href=\"https://www.youtube.com/watch?v=dltaIrhUUvY\" target=\"_blank\" rel=\"nofollow\">DCA para principiantes (vídeo)</a></li>\n  <li><a href=\"https://medium.com/predict/the-power-of-dollar-cost-averaging-into-bitcoin-2fad7fb12ce6\" target=\"_blank\" rel=\"nofollow\">El poder del DCA en Bitcoin</a></li>\n  <li><a href=\"https://dcabtc.com/\" target=\"_blank\" rel=\"nofollow\">Simulador DCA</a></li>\n</ul>"
-                smart_intervals_html: "<p class=\"mt-2\"><b>\"Intervalos inteligentes\"</b></p>\n<p>Cuando los intervalos inteligentes están activados, Deltabadger ejecuta el programa deseado en las transacciones más pequeñas permitidas por el mercado. De lo contrario, solo se utilizarán si es necesario.</p>\n<p class=\"mt-2\"><b>¿Por qué?</b></p>\n<p>Hay dos beneficios:</p>\n<p>El programa más frecuente te permite experimentar los beneficios del DCA más rápidamente y lo suaviza aún más.</p>\n<p>Además, a veces los intervalos inteligentes son necesarios. Cada mercado tiene un límite de tamaño mínimo por transacción. Algunos intercambios lo definen en BTC, por lo que el valor en USD cambia con el tiempo. Si la cantidad que quieres comprar es menor, Deltabadger mantiene tu proporción deseada usando el tamaño mínimo permitido pero ajustando el intervalo de tiempo. Esto protege al bot de ser detenido cuando su cantidad definida cae por debajo del umbral.</p>\n<p class=\"mt-2\"><b>Ejemplo:</b></p>\n<p>Digamos que el límite de intercambio actual es de 20 dólares. Si estableces el tamaño de la transacción con 24 dólares/día, el bot hará exactamente eso. Sin embargo, si lo defines como 1 dólar/hora, imitará la proporción usando el tamaño permitido, que es igual a 20 dólares cada 20 horas. En promedio, resulta la misma proporción (24 dólares/día = 1 dólar/hora = 20 dólares/20 horas).</p>"
                 title: Información
+                what_is_dca_html: |
+                    <h3>¿Qué es DCA?</h3>
+                    <p>Imagina el mercado como tu alcancía. Cada día pones una moneda—ya sea que los precios suban, bajen o se mantengan.</p>
+                    <p>Lo llamamos <i>promediación</i>, pero créeme, no hay nada de promedio en lo que estás haciendo.</p>
+                    <p>¿El inversor promedio? Duda, entra en pánico, vende demasiado pronto.</p>
+                    <p>Tú no.</p>
+                    <p>Estás relajado como el abuelo Warren tomando su Coca-Cola, dejando que el mercado haga lo suyo.</p>
+                    <p>El juego es largo, pero simple. Comienza al presionar ▶️</p>
+                smart_intervals_html: |
+                    <h3>Intervalos Inteligentes</h3>
+                    <p>Las bolsas tienen tamaños mínimos de pedido. Los intervalos inteligentes se encargan de esto por ti:</p>
+                    <p>¿Quieres comprar 5 $ al día, pero el mínimo es 10 $? Colocarán tu orden de 10 $ cada dos días.</p>
+                daily_weekly_monthly_html: |
+                    <h3>¿Diario? ¿Semanal? ¿Mensual?</h3>
+                    <p>Sorprendentemente, los resultados a largo plazo son tan parecidos que realmente no importa.</p>
+                    <p>Pero cuidado: si tu software de declaración de impuestos cobra por transacción, es una buena razón para comprar con menos frecuencia.</p>
+                    <p>De lo contrario, mantén las transacciones pequeñas y frecuentes, y deja que la magia del DCA funcione antes.</p>
+                withdrawal_html: |
+                    <h3>Retiros Automáticos</h3>
+                    <p><i>Si no son tus llaves, no son tus Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Retira tus fondos a tu propia billetera. Es la forma más segura de almacenar tu cripto.</p>
             log:
                 date: Fecha
                 errors: Errores
@@ -833,6 +850,9 @@ es:
                 adjusted_end_html: "La fecha de finalización del backtest se ha ajustado al <strong>%{end_date}</strong> para ajustarse a la historia disponible de todos los activos."
     utils:
         assets: Activos
+        cash: Efectivo
+        bonds: Bonos
+        gold: Oro
         are_you_sure: '¿Estás seguro?'
         change_name: 'Cambiar nombre'
         delete: 'Eliminar'
@@ -843,6 +863,18 @@ es:
         see_at_coingecko: 'Ver en CoinGecko'
         since: 'desde'
         soon: 'pronto'
+        years:
+            one: "%{count} año"
+            other: "%{count} años"
+        months:
+            one: "%{count} mes"
+            other: "%{count} meses"
+        days:
+            one: "%{count} día"
+            other: "%{count} días"
+    dca_calculator:
+        title: "¿Cuánto tiempo necesitabas ahorrar $%{amount}/mes para %{goal}?"
+        goal_millionaire: "convertirte en millonario"
     alert:
         portfolio:
             invalid_name: 'Nombre de cartera no válido.'

@@ -5,7 +5,6 @@
         // font-size: 7.5px
     &.view--portfolios-show
         background: var(--background-new)
-
 body
     font-size:   2rem
     font-weight: 450
@@ -22,7 +21,6 @@ dialog
       padding-left: 4rem
     @media only screen and (max-width: 767px)
       padding: 14rem 1rem 2rem
-
 .columns
     display: grid
     gap: 4rem
@@ -32,13 +30,11 @@ dialog
     @media only screen and (max-width: 1023px)
         grid-template-columns: 1fr
         gap: 7rem
-
 .column
     display: flex
     flex-direction: column
     width: 100%
     container-type: inline-size
-
 .page-head
     display: flex
     margin-bottom: 5rem
@@ -46,8 +42,86 @@ dialog
     gap: 6rem
     font-weight: bold
     justify-content: space-between
-
-
 #backtest-results
     overflow: hidden
     border-radius: 2rem
+
+.infoheader
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    margin-bottom: 4rem
+    &__head
+        display: flex
+        justify-content: space-between
+        
+        gap: 2rem
+    &__h
+        margin-bottom: 2rem
+        font-size: 3rem  
+        text-align: left
+    &__icon
+        width: 3rem
+        min-width: 3rem
+        height: 3rem
+        border: 2px solid var(--text)
+        line-height: 2.8rem
+        text-align: center
+        border-radius: 50%
+        font-weight: 700
+        margin: 0.75rem 0    
+        cursor: pointer
+        &.active
+            background: var(--text)
+            color: var(--background) 
+.itiles
+    display: grid
+    grid-template-columns: repeat(auto-fill, minmax(42rem, 1fr))
+    gap: 2rem
+    @media only screen and (min-width: 1520px)
+        grid-template-columns: repeat(3, 1fr)
+    @media only screen and (min-width: 1920px)
+        grid-template-columns: repeat(6, 1fr)
+.itile
+    padding: 3rem 4rem 4rem
+    border-radius: 2rem
+    background: var(--primary) no-repeat center center
+    color: #fff
+    font-weight: 700
+    display: flex
+    flex-direction: column
+    background-size: cover
+    // styles for light mode
+    @media (prefers-color-scheme: light)
+        opacity: 0.9
+        filter: saturate(1.5)
+    &__title
+        font-weight: 700
+        margin-bottom: 2rem
+    &__value
+        font-size: 2rem
+    &--bitcoin
+        background-image: linear-gradient(#ee480099,#ee4800ee), url('~images/bg-bitcoin.jpg')
+    &--ethereum
+        background-image: linear-gradient(#361757bb,#361757ee), url('~images/bg-ethereum.jpg')
+    &--voo
+        background-image: linear-gradient(#601a,#601c), url('~images/bg-voo.jpg')
+    &--qqq
+        background-image: linear-gradient(#0c2277cc,#0c2277ee), url('~images/bg-qqq.jpg')
+    &--gold
+        background-image: linear-gradient(#530c,#530e), url('~images/bg-gold.jpg')
+    &--bonds
+        background-image: linear-gradient(#032c,#032e), url('~images/bg-bonds1.jpg')
+    &--cash
+        background-image: linear-gradient(#044c,#044e), url('~images/bg-bonds.jpg')
+.hinput
+    background: none
+    border: none
+    border-bottom: 2px solid var(--text)
+    color: var(--text)
+    padding: 0
+    text-align: center
+    &:focus
+        border-bottom-color: var(--link)
+        color: var(--link)
+        outline: none
