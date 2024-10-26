@@ -44,7 +44,7 @@ class MigrateSubscriptionPlanData < ActiveRecord::Migration[6.0]
     end
 
     if plan_ids_map.keys.uniq.length != plan_ids_map.keys.length
-      raise 'Unable to migrate data back, multiple subscription plan variants have the same subscription plan id and payments and subscripitions would be incorrectly associated'
+      raise ActiveRecord::IrreversibleMigration, 'Unable to revert, some subscriptions and payments point to subscription plan variants that have the same subscription plan.'
     end
 
     # Associate payments with the old subscription plans
