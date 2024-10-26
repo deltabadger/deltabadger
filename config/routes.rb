@@ -143,6 +143,7 @@ Rails.application.routes.draw do
       patch :update_compare_to
       post :normalize_allocations
       post :duplicate
+      get :openai_insights
       get :compare
     end
   end

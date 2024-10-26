@@ -1,14 +1,89 @@
 <% content_for :body_class, ".view--dashboard" %>
+<!--
+<div class="infoheader">
+  <nav class="infoheader__head">
+    <div>
+      <h2 class="infoheader__h" id="infoheader-title">
+        <% input_field = content_tag(:input, nil,
+          class: 'hinput',
+          value: '1000',
+          placeholder: '0',
+          style: 'width: 4ch; min-width: 1ch',
+          oninput: "this.style.width = (this.value.length) + 'ch'"
+        ) %>
+        <%= t('dca_calculator.title',
+          amount: input_field,
+          goal: t('dca_calculator.goal_millionaire')
+        ).html_safe %>
+      </h2>
+    </div>
+    <div class="infoheader__icon active"  id="infoheader-icon">i</div>
+  </nav>
 
-<!--<div class="page-head">
-  <div class="stitle">
-    <%# t('links.dashboard') %>
+  <div class="itiles" id="tiles">
+    <div class="itile itile--bitcoin">
+      <h3 class="itile__title">Bitcoin</h3>
+      <div class="itile__value">
+        <%= t('utils.years', count: 8) %>
+        <%= t('utils.months', count: 6) %>
+        <%= t('utils.days', count: 19) %>
+      </div>
+    </div>
+    <div class="itile itile--qqq">
+      <h3 class="itile__title">QQQ</h3>
+      <div class="itile__value">
+        <%= t('utils.years', count: 13) %>
+        <%= t('utils.months', count: 1) %>
+        <%= t('utils.days', count: 19) %>
+      </div>
+    </div>
+    <div class="itile itile--voo">
+      <h3 class="itile__title">S&P 500</h3>
+      <div class="itile__value">
+        <%= t('utils.years', count: 22) %>
+        <%= t('utils.months', count: 6) %>
+        <%= t('utils.days', count: 1) %>
+      </div>
+    </div>
+    <div class="itile itile--gold">
+      <h3 class="itile__title"><%= t('utils.gold') %></h3>
+      <div class="itile__value">
+        <%= t('utils.years', count: 23) %>
+        <%= t('utils.months', count: 5) %>
+        <%= t('utils.days', count: 2) %>
+      </div>
+    </div>
+    <div class="itile itile--bonds">
+      <h3 class="itile__title"><%= t('utils.bonds') %></h3>
+      <div class="itile__value">
+        <%= t('utils.years', count: 39) %>
+        <%= t('utils.months', count: 4) %>
+        <%= t('utils.days', count: 11) %>
+      </div>
+    </div>
+    <div class="itile itile--cash">
+      <h3 class="itile__title"><%= t('utils.cash') %></h3>
+      <div class="itile__value">
+        <%= t('utils.years', count: 83) %>
+      </div>
+    </div>
   </div>
-</div>-->
-  
+</div>
+-->
+
 <%= render 'layouts/banners/welcome_message' %>
 <%= render 'layouts/banners/news_message' %>
 <%= render 'layouts/banners/referral_message' %>
 <%= render 'layouts/limit_reached' %>
 
 <div id="dashboard"></div>
+
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('infoheader-icon').addEventListener('click', function() {
+      document.getElementById('infoheader-title').classList.toggle('hidden');
+      document.getElementById('tiles').classList.toggle('hidden');
+      this.classList.toggle('active');  // Toggle the .active class on the clicked .infoheader__icon
+    });
+  });
+</script>
