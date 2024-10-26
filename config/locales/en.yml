@@ -796,9 +796,9 @@ en:
             short_info: 'The biggest drop in your portfolio’s value from its highest point.'
             best: 'Lowest Max. Drawdown'
         volatility:
-            short_name: 'Volatility'
-            short_info: 'How much the returns of your portfolio fluctuate in a year.'
-            best: 'Lowest Volatility'
+            short_name: 'Risk'
+            short_info: 'Volatility — how much your portfolio value fluctuates in a year.'
+            best: 'Lowest Risk'
         var:
             short_name: 'VaR'
             short_info: 'There is a 95% chance that your portfolio won’t lose more than this amount in a single day.'
