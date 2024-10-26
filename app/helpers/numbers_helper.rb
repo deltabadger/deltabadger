@@ -1,7 +1,10 @@
 module NumbersHelper
   def format_price(price, currency)
-    currency_symbol = currency == 'EUR' ? '€' : '$'
-    format('%0.02f', price) + currency_symbol
+    if currency == 'EUR'
+      "#{format('%0.02f', price)}€"
+    else
+      "$#{format('%0.02f', price)}"
+    end
   end
 
   def format_percent(percent)

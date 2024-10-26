@@ -29,12 +29,12 @@ basic_plan = SubscriptionPlan.find_or_create_by!(name: 'basic', unlimited: true,
 pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro', unlimited: true, credits: 1200)
 legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary', unlimited: true, credits: 1200)
 
-free_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: free_plan, years: 1, cost_eur: 0, cost_usd: 0)
+free_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: free_plan, cost_eur: 0, cost_usd: 0)
 basic_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: basic_plan, years: 1, cost_eur: 87, cost_usd: 97)
 SubscriptionPlanVariant.find_or_create_by!(subscription_plan: basic_plan, years: 4, cost_eur: 267, cost_usd: 297)
 pro_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, years: 1, cost_eur: 267, cost_usd: 297)
 SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, years: 4, cost_eur: 797, cost_usd: 897)
-legendary_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: legendary_plan, years: 10000, cost_eur: 9000, cost_usd: 10000)
+legendary_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: legendary_plan, cost_eur: 9000, cost_usd: 10000)
 
 VatRate.find_or_create_by!(country: 'Other', vat: 0)
 VatRate.find_or_create_by!(country: 'Poland', vat: 0.23)

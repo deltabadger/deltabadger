@@ -14,7 +14,7 @@ class Subscription < ApplicationRecord
 
   def initialize(attributes = {})
     super
-    self.end_time ||= subscription_plan_variant&.years&.years&.from_now
+    self.end_time ||= subscription_plan_variant&.duration&.from_now
   end
 
   def days_left
