@@ -9,11 +9,8 @@
     <%= tag.div class: "row db-checkout db-checkout--#{@selected_plan}-plan" do %>
       <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
 
-        <% if current_user.unlimited? %>
-          <%= tag.div class: "db-plans__item db-plans__item--#{current_user.subscription.name}-plan db-plans__item--current" do %>
-            <%# legendary users will never land here %>
-            <%= render partial: "#{current_user.subscription.name}_plan_card" %>
-          <% end %>
+        <%= tag.div class: "db-plans__item db-plans__item--#{current_user.subscription.name}-plan db-plans__item--current" do %>
+          <%= render partial: "#{current_user.subscription.name}_plan_card" %>
         <% end %>
 
         <h4 class="mb-4 mt-5 pb-4"><%= t('subscriptions.prolong_upgrade') %></h4>

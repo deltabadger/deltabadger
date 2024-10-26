@@ -1,4 +1,4 @@
-<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, local: true, html: { style: "display: flex; grid-gap: 1rem; gap: 1rem; flex-direction: column;" } do |form| %>
+<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { style: "display: flex; grid-gap: 1rem; gap: 1rem; flex-direction: column;" } do |form| %>
   <% current_user.available_plans.each do |available_plan_name| %>
     <% selected = selected_plan == available_plan_name %>
     <%= tag.label class: "db-plans__item db-plans__item--#{available_plan_name}-plan db-plan-#{available_plan_name} db-plan--#{selected ? 'selected' : 'other'}" do %>
@@ -28,7 +28,7 @@
   <% end %>
 <% end %>
 
-<% if ['basic', 'pro'].include?(current_user.subscription.name) %>
+<% if current_user.subscription.paid? %>
   <div class="db-plans__item db-plans__item--discount db-plan-active-discount">
     <div class="db-plans__item__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="db-plans__item__amount">
