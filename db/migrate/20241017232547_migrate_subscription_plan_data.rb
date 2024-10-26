@@ -2,8 +2,9 @@ class MigrateSubscriptionPlanData < ActiveRecord::Migration[6.0]
   def up
     SubscriptionPlan.find_each do |record|
       SubscriptionPlanVariant.create!(
+        id: record.id,
         subscription_plan_id: record.id,
-        years: record.years,
+        years: record.years > 1000 ? nil : record.years,
         cost_eur: record.cost_eu,
         cost_usd: record.cost_other
       )
@@ -18,9 +19,17 @@ class MigrateSubscriptionPlanData < ActiveRecord::Migration[6.0]
       rename_column table, :subscription_plan_id, :subscription_plan_variant_id
       add_foreign_key table, :subscription_plan_variants
     end
+
+    Subscription.find_each do |record|
+      record.update!(end_time: nil) if record.end_time.present? && record.end_time > Time.current + 1000.years
+    end
   end
 
   def down
+    Subscription.find_each do |record|
+      record.update!(end_time: Time.current + 10000.years) if record.end_time.nil?
+    end
+
     [:payments, :subscriptions].each do |table|
       remove_foreign_key table, :subscription_plan_variants
       rename_column table, :subscription_plan_variant_id, :subscription_plan_id
@@ -37,7 +46,7 @@ class MigrateSubscriptionPlanData < ActiveRecord::Migration[6.0]
     grouped_variants.each do |subscription_plan_id, subscription_plan_variants|
       record = SubscriptionPlan.find(subscription_plan_id)
       variant_data = subscription_plan_variants.first
-      record.update_columns(years: variant_data['years'], cost_eu: variant_data['cost_eur'], cost_other: variant_data['cost_usd'])
+      record.update_columns(years: variant_data['years'] || 10000, cost_eu: variant_data['cost_eur'], cost_other: variant_data['cost_usd'])
     end
 
     SubscriptionPlanVariant.delete_all

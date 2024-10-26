@@ -3,14 +3,14 @@ RSpec.describe PaymentsManager::CostCalculator do
     described_class.new(
       base_price: base_price,
       vat: vat,
-      flat_discount: flat_discount,
+      current_plan_discount_amount: current_plan_discount_amount,
       discount_percent: discount_percent,
       commission_percent: commission_percent
     )
   end
 
   let(:vat) { 0 }
-  let(:flat_discount) { 0 }
+  let(:current_plan_discount_amount) { 0 }
   let(:discount_percent) { 0 }
   let(:commission_percent) { 0 }
 
@@ -18,7 +18,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     methods = %i[
       base_price
       vat
-      flat_discount
+      current_plan_discount_amount
       discount_percent
       commission_percent
       base_price_with_vat
@@ -56,7 +56,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('20'),
       vat: BigDecimal('0'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('20'),
@@ -75,7 +75,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0.23'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('12.3'),
@@ -94,7 +94,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('24'),
       vat: BigDecimal('0'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0.33'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('24'),
@@ -108,12 +108,12 @@ RSpec.describe PaymentsManager::CostCalculator do
 
   context 'given base price and flat discount' do
     let(:base_price) { 24 }
-    let(:flat_discount) { 5 }
+    let(:current_plan_discount_amount) { 5 }
 
     expected = {
       base_price: BigDecimal('24'),
       vat: BigDecimal('0'),
-      flat_discount: BigDecimal('5'),
+      current_plan_discount_amount: BigDecimal('5'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('24'),
@@ -133,7 +133,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0.23'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0.15'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('12.3'),
@@ -148,12 +148,12 @@ RSpec.describe PaymentsManager::CostCalculator do
   context 'given base price, vat and flat discount' do
     let(:base_price) { 10 }
     let(:vat) { 0.23 }
-    let(:flat_discount) { 3 }
+    let(:current_plan_discount_amount) { 3 }
 
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0.23'),
-      flat_discount: BigDecimal('3'),
+      current_plan_discount_amount: BigDecimal('3'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('12.3'),
@@ -168,13 +168,13 @@ RSpec.describe PaymentsManager::CostCalculator do
   context 'given base price, vat and flat discount and discount' do
     let(:base_price) { 10 }
     let(:vat) { 0.23 }
-    let(:flat_discount) { 3 }
+    let(:current_plan_discount_amount) { 3 }
     let(:discount_percent) { 0.1 }
 
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0.23'),
-      flat_discount: BigDecimal('3'),
+      current_plan_discount_amount: BigDecimal('3'),
       discount_percent: BigDecimal('0.1'),
       commission_percent: BigDecimal('0'),
       base_price_with_vat: BigDecimal('12.3'),
@@ -193,7 +193,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0.15'),
       base_price_with_vat: BigDecimal('10'),
@@ -215,7 +215,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0.23'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0'),
       commission_percent: BigDecimal('0.15'),
       base_price_with_vat: BigDecimal('12.3'),
@@ -237,7 +237,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0.2'),
       commission_percent: BigDecimal('0.15'),
       base_price_with_vat: BigDecimal('10'),
@@ -253,14 +253,14 @@ RSpec.describe PaymentsManager::CostCalculator do
 
   context 'given base price, flat discount, discount and commission' do
     let(:base_price) { 12 }
-    let(:flat_discount) { 2 }
+    let(:current_plan_discount_amount) { 2 }
     let(:discount_percent) { 0.20 }
     let(:commission_percent) { 0.15 }
 
     expected = {
       base_price: BigDecimal('12'),
       vat: BigDecimal('0'),
-      flat_discount: BigDecimal('2'),
+      current_plan_discount_amount: BigDecimal('2'),
       discount_percent: BigDecimal('0.2'),
       commission_percent: BigDecimal('0.15'),
       base_price_with_vat: BigDecimal('12'),
@@ -283,7 +283,7 @@ RSpec.describe PaymentsManager::CostCalculator do
     expected = {
       base_price: BigDecimal('10'),
       vat: BigDecimal('0.23'),
-      flat_discount: BigDecimal('0'),
+      current_plan_discount_amount: BigDecimal('0'),
       discount_percent: BigDecimal('0.2'),
       commission_percent: BigDecimal('0.15'),
       base_price_with_vat: BigDecimal('12.3'),

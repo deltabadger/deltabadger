@@ -27,6 +27,6 @@ class SubscriptionPlanVariant < ApplicationRecord
   end
 
   def duration
-    years.years
+    years&.years
   end
 end

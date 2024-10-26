@@ -1,3 +1,9 @@
+<% content_for :body_class, ".view--upgrade" %>
+
+<div class="page-head">
+  <div class="stitle"><%= t('upgrade') %></div>
+</div>
+
 <%= turbo_frame_tag "upgrade-frame" do %>
   <div class="db-country">
     <%= tag.div class: "row db-checkout db-checkout--#{@selected_plan}-plan" do %>
@@ -39,3 +45,6 @@
     <% end %>
   </div>
 <% end %>
+
+<%# FIXME: is this needed? %>
+<div id="current_user_subscription" data-current-user-subscription="<%= current_user.subscription.name %>"></div>

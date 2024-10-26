@@ -2,7 +2,7 @@ class Subscription < ApplicationRecord
   belongs_to :user
   belongs_to :subscription_plan_variant
 
-  validates :user, :subscription_plan_variant, :end_time, presence: true
+  validates :user, :subscription_plan_variant, presence: true
 
   delegate :name, to: :subscription_plan_variant
   delegate :unlimited?, to: :subscription_plan_variant

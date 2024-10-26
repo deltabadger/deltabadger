@@ -75,12 +75,6 @@ class Payment < ApplicationRecord
     adjusted_base_price * referrer_commission_percent
   end
 
-  private
-
-  def using_bitcoin?
-    payment_type == 'bitcoin'
-  end
-
   def current_plan_discount_amount
     current_subscription = user.subscription
     return 0 if subscription_plan.name == current_subscription.name || current_subscription.days_left.nil?
@@ -88,6 +82,12 @@ class Payment < ApplicationRecord
     plan_years_left = current_subscription.days_left.to_f / 365
     discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
     base_price * discount_multiplier
+  end
+
+  private
+
+  def using_bitcoin?
+    payment_type == 'bitcoin'
   end
 
   def referral_discounted_price
