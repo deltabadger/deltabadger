@@ -1,4 +1,16 @@
 module ApplicationHelper
+  # app/helpers/application_helper.rb
+  module ApplicationHelper
+    def canonical_url
+      base_url = 'https://app.deltabadger.com' # Use a default base, or determine it dynamically
+
+      # Adjust the locale path if necessary, or use the general structure
+      localized_path = I18n.locale == I18n.default_locale ? request.path : "/#{I18n.locale}#{request.path}"
+
+      "#{base_url}#{localized_path}"
+    end
+  end
+
   def html_class
     classes = []
     classes << 'view--logged-in' if user_signed_in?
