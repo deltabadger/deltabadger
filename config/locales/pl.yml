@@ -785,9 +785,9 @@ pl:
             short_info: 'Największy spadek wartości portfela od najwyższego punktu.'
             best: 'Najniższy Maks. Spadek'
         volatility:
-            short_name: 'Zmienność'
-            short_info: 'Jak bardzo roczne zwroty portfela wahają się w ciągu roku.'
-            best: 'Najniższa Zmienność'
+            short_name: 'Ryzyko'
+            short_info: 'Zmienność — jak bardzo wartość portfela zmienia się w ciągu roku.'
+            best: 'Najniższe ryzyko'
         var:
             short_name: 'VaR'
             short_info: 'Istnieje 95% szans, że portfel nie straci więcej niż tę kwotę w ciągu jednego dnia.'

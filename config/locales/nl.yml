@@ -768,9 +768,9 @@ nl:
             short_info: 'De grootste daling van de waarde van uw portefeuille vanaf het hoogste punt.'
             best: 'Laagste Max. Terugval'
         volatility:
-            short_name: 'Volatiliteit'
-            short_info: 'Hoeveel de rendementen van uw portefeuille in een jaar fluctueren.'
-            best: 'Laagste Volatiliteit'
+            short_name: 'Risico'
+            short_info: 'Volatiliteit — hoe sterk fluctueert de waarde van je portefeuille in een jaar.'
+            best: 'Laagste risico'
         var:
             short_name: 'VaR'
             short_info: 'Er is 95% kans dat uw portefeuille niet meer dan dit bedrag in één dag verliest.'

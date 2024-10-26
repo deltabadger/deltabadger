@@ -40,8 +40,8 @@
       <% metrics = {
         exp_return: sprintf('%.2f%%', (backtest['metrics']['expectedReturn'] * 100)),
         cagr: sprintf('%.2f%%', (backtest['metrics']['cagr'] * 100)),
-        max_drawdown: sprintf('%.2f%%', (backtest['metrics']['maxDrawdown'] * 100)),
         volatility: sprintf('%.2f%%', (backtest['metrics']['volatility'] * 100)),
+        max_drawdown: sprintf('%.2f%%', (backtest['metrics']['maxDrawdown'] * 100)),
         var: backtest['metrics']['valueAtRisk'].nil? ? '-' : sprintf('%.2f%%', (backtest['metrics']['valueAtRisk'] * 100)),
         cvar: backtest['metrics']['conditionalValueAtRisk'].nil? ? '-' : sprintf('%.2f%%', (backtest['metrics']['conditionalValueAtRisk'] * 100)),
         sharpe_ratio: backtest['metrics']['sharpeRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['sharpeRatio']),

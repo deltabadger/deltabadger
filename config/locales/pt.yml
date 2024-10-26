@@ -678,9 +678,9 @@ pt:
             short_info: 'A maior queda no valor do seu portfólio desde o ponto mais alto.'
             best: 'Menor Máx. Redução'
         volatility:
-            short_name: 'Volatilidade'
-            short_info: 'Quanto os retornos do seu portfólio variam em um ano.'
-            best: 'Menor Volatilidade'
+            short_name: 'Risco'
+            short_info: 'Volatilidade — o quanto o valor do seu portfólio flutua em um ano.'
+            best: 'Menor risco'
         var:
             short_name: 'VaR'
             short_info: 'Há uma chance de 95% de que seu portfólio não perca mais do que este valor em um único dia.'

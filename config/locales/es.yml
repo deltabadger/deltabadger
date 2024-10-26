@@ -769,9 +769,9 @@ es:
             short_info: 'La mayor caída en el valor de su cartera desde su punto más alto.'
             best: 'Menor Máx. Pérdida'
         volatility:
-            short_name: 'Volatilidad'
-            short_info: 'Cuánto fluctúan los rendimientos de su cartera en un año.'
-            best: 'Menor Volatilidad'
+            short_name: 'Riesgo'
+            short_info: 'Volatilidad: cuánto fluctúa el valor de tu cartera en un año.'
+            best: 'Menor riesgo'
         var:
             short_name: 'VaR'
             short_info: 'Hay un 95% de probabilidad de que su cartera no pierda más que esta cantidad en un solo día.'

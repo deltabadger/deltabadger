@@ -768,9 +768,9 @@ fr:
             short_info: 'La plus grande chute de la valeur de votre portefeuille depuis son point le plus haut.'
             best: 'Plus Faible Max. Drawdown'
         volatility:
-            short_name: 'Volatilité'
-            short_info: 'L''ampleur des fluctuations des rendements de votre portefeuille sur un an.'
-            best: 'Plus Faible Volatilité'
+            short_name: 'Risque'
+            short_info: 'Volatilité — variation annuelle de la valeur de votre portefeuille.'
+            best: 'Risque le plus faible'
         var:
             short_name: 'VaR'
             short_info: 'Il y a 95% de chance que votre portefeuille ne perde pas plus que ce montant en une journée.'
