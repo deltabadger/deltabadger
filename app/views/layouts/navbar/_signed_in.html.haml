@@ -81,8 +81,6 @@
           = link_to "🇮🇩 Bahasa Indonesia", url_for(lang: 'id'), class: "dropdown-item"
         - unless lang == 'vi'
           = link_to "🇻🇳 Tiếng Việt", url_for(lang: 'vi'), class: "dropdown-item"
-        - unless lang == 'cn'
-          = link_to "🇨🇳 中文", url_for(lang: 'cn'), class: "dropdown-item"
 
     = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button", data: {turbo: false} do
 
