@@ -29,7 +29,7 @@ class User < ApplicationRecord
   include Upgradeable
 
   def subscription
-    subscriptions.where('end_time > ?', Time.current).order(created_at: :desc).first
+    subscriptions.active.order(created_at: :desc).first
   end
 
   def credits

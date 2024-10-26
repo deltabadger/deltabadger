@@ -78,5 +78,6 @@
     .main
       = yield
 
-    #current_user_subscription{ data: current_user.subscription_name }
+    #current_user_subscription{ data: current_user.subscription.name }
 
+    = turbo_frame_tag 'modal'

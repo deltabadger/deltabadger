@@ -17,6 +17,15 @@ module ApplicationHelper
       !action?('affiliates', 'create')
   end
 
+  def plan_variant_name(subscription_plan_variant)
+    years = subscription_plan_variant.years
+    if years.nil?
+      subscription_plan_variant.name
+    else
+      "#{subscription_plan_variant.name} (#{years} #{'year'.pluralize(years)})"
+    end
+  end
+
   def legendary_badger_nft_name(subscription)
     if subscription.nft_rarity.present?
       "#{subscription.nft_name} · #{subscription.nft_rarity}"

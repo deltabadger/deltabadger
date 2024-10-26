@@ -26,8 +26,4 @@ class SubscriptionPlan < ApplicationRecord
   def self.legendary
     find_by!(name: LEGENDARY_PLAN)
   end
-
-  def duration
-    years.years
-  end
 end

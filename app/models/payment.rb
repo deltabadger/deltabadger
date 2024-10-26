@@ -83,7 +83,7 @@ class Payment < ApplicationRecord
 
   def current_plan_discount_amount
     current_subscription = user.subscription
-    return 0 if subscription_plan.name == current_subscription.name
+    return 0 if subscription_plan.name == current_subscription.name || current_subscription.days_left.nil?
 
     plan_years_left = current_subscription.days_left.to_f / 365
     discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min

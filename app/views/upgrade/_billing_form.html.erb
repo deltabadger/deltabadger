@@ -33,8 +33,12 @@
       <% end %>
 
       <%= turbo_frame_tag "billing-form-frame" do %>
-        <div id="payTabContent" class="tab-content" data-controller="data-layer">
-
+        <%= tag.div id: "payTabContent", class: "tab-content", data: {
+          controller: "zaraz",
+          zaraz_currency_value: selected_country,
+          zaraz_name_value: plan_variant_name(payments[selected_plan].subscription_plan_variant),
+          zaraz_price_value: payments[selected_plan].price_with_vat
+        } do %>
           <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
             <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "upgrade-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
               <div class="db-form__row">
@@ -46,12 +50,10 @@
             <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |form| %>
               <%= form.hidden_field :country, value: selected_country %>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->data-layer#sendBeginCheckoutEvent", data_layer_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
+                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
                   <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
-                  <%= tag.span class: "db-show--#{selected_plan}" do %>
-                    <%= tag.span class: "#{selected_plan}-total-price" do %>
-                      <%= payments[selected_plan].price_with_vat %>
-                    <% end %>
+                  <%= tag.span class: "#{selected_plan}-total-price" do %>
+                    <%= format_price(payments[selected_plan].price_with_vat, currency) %>
                   <% end %>
                 <% end %>
               </div>
@@ -84,7 +86,7 @@
                 <%= form.label :birth_date, class: 'db-form__label' %>
               </div>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->data-layer#sendBeginCheckoutEvent", data_layer_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
+                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
                   <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
                 <% end %>
               </div>
@@ -120,13 +122,13 @@
               <% else %>
                 <div id="wire_costs" class="db-form__row--hidden">
                   <% if 'basic'.in?(current_user.available_plans) %>
-                    <span class="db-show--basic"><%= t('subscriptions.payment.wire_cost_basic_html', price: payments['basic'].price_with_vat) %></span>
+                    <span><%= t('subscriptions.payment.wire_cost_basic_html', price: payments['basic'].price_with_vat) %></span>
                   <% end %>
                   <% if 'pro'.in?(current_user.available_plans) %>
-                    <span class="db-show--pro"><%= t('subscriptions.payment.wire_cost_pro_html', price: payments['pro'].price_with_vat) %></span>
+                    <span><%= t('subscriptions.payment.wire_cost_pro_html', price: payments['pro'].price_with_vat) %></span>
                   <% end %>
                   <% if 'legendary'.in?(current_user.available_plans) %>
-                    <span class="db-show--legendary"><%= t('subscriptions.payment.wire_cost_legendary_html', price: payments['legendary'].price_with_vat) %></span>
+                    <span><%= t('subscriptions.payment.wire_cost_legendary_html', price: payments['legendary'].price_with_vat) %></span>
                   <% end %>
                 </div>
               <% end %>
@@ -178,7 +180,7 @@
               </div>
             <% end %>
           </div>
-        </div>
+        <% end %>
       <% end %>
     </div>
   </div>
