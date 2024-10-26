@@ -713,9 +713,9 @@ de:
             short_info: 'Der größte Rückgang im Wert Ihres Portfolios von seinem Höchststand.'
             best: 'Niedrigster Max. Drawdown'
         volatility:
-            short_name: 'Volatilität'
-            short_info: 'Wie stark die Renditen Ihres Portfolios im Laufe eines Jahres schwanken.'
-            best: 'Niedrigste Volatilität'
+            short_name: 'Risiko'
+            short_info: 'Volatilität – wie stark schwankt der Wert Ihres Portfolios im Jahr.'
+            best: 'Niedrigstes Risiko'
         var:
             short_name: 'VaR'
             short_info: 'Es besteht eine 95%ige Wahrscheinlichkeit, dass Ihr Portfolio an einem einzigen Tag nicht mehr als diesen Betrag verliert.'
