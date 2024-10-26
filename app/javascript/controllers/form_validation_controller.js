@@ -75,7 +75,7 @@ export default class extends Controller {
   }
 
   buildFieldErrorHtml(field) {
-    return `<div class="db-form__info--invalid">${field.validationMessage}</div>`
+    return `<div class="db-form__info db-form__info--invalid">${field.validationMessage}</div>`
   }
 
   get formFields() {
