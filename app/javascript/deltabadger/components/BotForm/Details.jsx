@@ -12,14 +12,20 @@ export const Details = () => {
       </ul>
       <div className="tab-content" id="botFormInfo">
         <div className="pb-4 tab-pane show active" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
-          <RawHTML className="db-showif db-showif--pick-exchange">
-            {I18n.t('bots.details.info.exchanges_html')}
-          </RawHTML>
-          <RawHTML className="db-showif db-showif--setup db-bot-info--dca">
+          <div  className="db-showif db-showif--pick-exchange">
+            <RawHTML>
+              {I18n.t('bots.details.info.what_is_dca_html')}
+            </RawHTML>
+            <div className="infotab-image-container"></div>
+          </div>
+          <RawHTML className="db-bot-info--dca">
             {I18n.t('bots.details.info.smart_intervals_html')}
           </RawHTML>
-          <RawHTML className="db-bot-info--dca">
-            {I18n.t('bots.details.info.new_to_dca_html')}
+          <RawHTML className="db-showif db-showif--setup db-bot-info--dca second-info-title">
+            {I18n.t('bots.details.info.daily_weekly_monthly_html')}
+          </RawHTML>
+          <RawHTML className="db-showif db-showif--setup db-bot-info--withdrawal">
+            {I18n.t('bots.details.info.withdrawal_html')}
           </RawHTML>
           <div className="db-bot-info--webhook mt-2">
             <RawHTML>
