@@ -19,12 +19,12 @@ input
 .db-bots
   display:              grid
   grid-auto-rows:       max-content
-  column-gap:           $grid-gutter-width*0.5
+  column-gap:           2rem
   @include media-breakpoint-up(xl)
     grid-template-columns: 50%
   &__item
     grid-column-start:  1
-    margin-bottom:      $grid-gutter-width*0.5
+    margin-bottom:      2rem
     &--homepage
       width:            100%
       height:           fit-content
@@ -110,11 +110,18 @@ input
         background:    var(--paper)
         border-radius: $box-border-radius
         box-shadow:    $boxShadowBot
-        p,img
-          padding-left: 2.4rem
-          padding-right: 2.4rem
-          &.mt-2
-            margin-top: 2.4rem
+        overflow: hidden
+        h3,p,img,blockquote
+          padding-left: 4rem
+          padding-right: 4rem
+        p,img,blockquote
+          margin-bottom: 3rem
+          margin-top: 3rem
+        h3
+          margin-top: 3rem
+          margin-bottom: 4rem
+        .second-info-title
+          margin-top: 4rem
         img
           max-width: 100%
           margin-bottom: 2.4rem
@@ -454,3 +461,15 @@ input
 .db-input--dca-amount
   max-width: 4.1em
 
+.infotab-image-container
+  width: 100%
+  aspect-ratio: 16/10
+  background-image: linear-gradient(#fff,#fff0,#fff0), url('~images/journey-day02.jpg')
+  background-position: center top, center
+  margin-bottom: -2rem
+  // night mode
+  @media (prefers-color-scheme: dark)
+    background-image: linear-gradient(var(--paper),  #0000, #0000), url('~images/journey-night01.jpg')
+    background-position: center top, center bottom
+  background-size: cover
+  
