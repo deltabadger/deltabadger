@@ -1,16 +1,27 @@
 <div class="db-plans__item__name">
   <%= t('subscriptions.legendary') %>
   <div class="db-years">
-    <div class="text-success"><%= t('subscriptions.plan_life_time') %></div>
+    <%= t('subscriptions.plan_life_time') %>
   </div>
+</div>
+<div class="db-plans__item__amount">
+  <% if payment.base_price != payment.adjusted_base_price %>
+      <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
+        <%= format_price(payment.base_price, currency) %>
+      </div>
+      <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
+        <%= format_price(payment.adjusted_base_price, currency) %>
+      </div>
+    <% else %>
+      <div class="db-plans__item__amount__t">
+        <%= format_price(payment.base_price, currency) %>
+      </div>
+    <% end %>
 </div>
 <div class="db-plans__item__info">
   <%= t('subscriptions.legendary_badger_info_html') %>
-  <div class="db-plans__item__legendary-badgers-left">
-    <%= legendary_plan.for_sale_count %>
-    of
-    <%= legendary_plan.total_supply %>
-    left.
+  <div class="db-plans__item__legendary-plans-left">
+    <%= legendary_plan.for_sale_count %> of <%= legendary_plan.total_supply %> left.
     <div class="progress">
       <div class="progress-bar" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
     </div>

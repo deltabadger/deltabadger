@@ -54,9 +54,7 @@ class Payment < ApplicationRecord
   end
 
   def adjusted_base_price
-    # HACK: force a price of at least 1 so a payment can be done to upgrade, even if the price should be 0
-    # TODO: allow prices of 0 and let the controller upgrade the plan without payment in this case
-    [1, base_price - current_plan_discount_amount - legendary_plan_discount].max
+    [0, base_price - current_plan_discount_amount - legendary_plan_discount].max
   end
 
   def referral_discount_percent
@@ -64,7 +62,7 @@ class Payment < ApplicationRecord
   end
 
   def referral_discount_amount
-    adjusted_base_price * referal_discount_percent
+    adjusted_base_price * referral_discount_percent
   end
 
   def referrer_commission_percent
@@ -81,7 +79,12 @@ class Payment < ApplicationRecord
 
     plan_years_left = current_subscription.days_left.to_f / 365
     discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
-    base_price * discount_multiplier
+    current_subscription_base_price = Payment.new(
+      user: user,
+      subscription_plan_variant: current_subscription.subscription_plan_variant,
+      country: country
+    ).base_price
+    current_subscription_base_price * discount_multiplier
   end
 
   private

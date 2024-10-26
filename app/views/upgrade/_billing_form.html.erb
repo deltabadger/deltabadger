@@ -7,29 +7,29 @@
   <div class="modal-content">
     <div class="modal-body">
       <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "billing-form-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
-        <% if SettingFlag.show_zen_payment? %>
-          <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-            <%= form.radio_button :payment_type, 'zen', checked: active_zen_tab %>
-            <div class="db-card-providers">
-              <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
-              <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
-            </div>
+          <% if SettingFlag.show_zen_payment? %>
+            <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
+              <%= form.radio_button :payment_type, 'zen', checked: active_zen_tab %>
+              <div class="db-card-providers">
+                <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
+                <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
+              </div>
+            <% end %>
           <% end %>
-        <% end %>
-        <% if SettingFlag.show_bitcoin_payment? %>
-          <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-            <%= form.radio_button :payment_type, 'btcpay', checked: active_bitcoin_tab %>
-            <div class="db-card-providers">
-              <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
-            </div>
+          <% if SettingFlag.show_bitcoin_payment? %>
+            <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
+              <%= form.radio_button :payment_type, 'btcpay', checked: active_bitcoin_tab %>
+              <div class="db-card-providers">
+                <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
+              </div>
+            <% end %>
           <% end %>
-        <% end %>
-        <% if SettingFlag.show_wire_payment? %>
-          <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-            <%= form.radio_button :payment_type, 'wire_transfer', checked: active_wire_tab %>
-            <%= t('subscriptions.payment.wire_transfer') %>
+          <% if SettingFlag.show_wire_payment? %>
+            <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
+              <%= form.radio_button :payment_type, 'wire_transfer', checked: active_wire_tab %>
+              <%= t('subscriptions.payment.wire_transfer') %>
+            <% end %>
           <% end %>
-        <% end %>
       <% end %>
 
       <%= turbo_frame_tag "billing-form-frame" do %>
@@ -50,7 +50,7 @@
             <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |form| %>
               <%= form.hidden_field :country, value: selected_country %>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
+                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payments[selected_plan].price_with_vat == 0 do %>
                   <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
                   <%= tag.span class: "#{selected_plan}-total-price" do %>
                     <%= format_price(payments[selected_plan].price_with_vat, currency) %>
@@ -86,7 +86,7 @@
                 <%= form.label :birth_date, class: 'db-form__label' %>
               </div>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100" do %>
+                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payments[selected_plan].price_with_vat == 0 do %>
                   <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
                 <% end %>
               </div>
