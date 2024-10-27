@@ -3,7 +3,7 @@ module SubscriptionPlan::PlanStats
 
   included do # rubocop:disable Metrics/BlockLength
     def active_subscriptions_count
-      Subscription.active.by_plan_name(name)&.count || 0
+      @active_subscriptions_count ||= Subscription.active.by_plan_name(name)&.count || 0
     end
 
     def current_discount

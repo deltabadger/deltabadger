@@ -1,7 +1,4 @@
 <% pending_wire_transfer = !current_user.pending_wire_transfer.nil? %>
-<% active_zen_tab = payment.payment_type == 'zen' %>
-<% active_bitcoin_tab = payment.payment_type == 'bitcoin' %>
-<% active_wire_tab = payment.payment_type == 'wire' %>
 
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
@@ -9,7 +6,7 @@
       <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" } do |form| %>
           <% if SettingFlag.show_zen_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'zen', checked: active_zen_tab, data: { action: "change->form--submit#submit" } %>
+              <%= form.radio_button :payment_type, 'zen', checked: payment.zen?, data: { action: "change->form--submit#submit" } %>
               <div class="db-card-providers">
                 <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
                 <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
@@ -18,7 +15,7 @@
           <% end %>
           <% if SettingFlag.show_bitcoin_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'bitcoin', checked: active_bitcoin_tab, data: { action: "change->form--submit#submit" } %>
+              <%= form.radio_button :payment_type, 'bitcoin', checked: payment.bitcoin?, data: { action: "change->form--submit#submit" } %>
               <div class="db-card-providers">
                 <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
               </div>
@@ -26,7 +23,7 @@
           <% end %>
           <% if SettingFlag.show_wire_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'wire', checked: active_wire_tab, data: { action: "change->form--submit#submit" } %>
+              <%= form.radio_button :payment_type, 'wire', checked: payment.wire?, data: { action: "change->form--submit#submit" } %>
               <%= t('subscriptions.payment.wire_transfer') %>
             <% end %>
           <% end %>
@@ -39,7 +36,7 @@
           zaraz_name_value: plan_variant_name(payment.subscription_plan_variant),
           zaraz_price_value: payment.price_with_vat
         } do %>
-          <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
+          <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if payment.zen?) %>" aria-labelledby="log-tab" role="tabpanel">
             <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
               <div class="db-form__row">
                 <%= form.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
@@ -64,7 +61,7 @@
             <% end %>
           </div>
 
-          <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
+          <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if payment.bitcoin?) %>" aria-labelledby="stats-tab" role="tabpanel">
             <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
               <div class="db-form__row">
                 <%= form.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
@@ -101,7 +98,7 @@
             <% end %>
           </div>
 
-          <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
+          <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || payment.wire? %>" aria-labelledby="log-tab" role="tabpanel">
             <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
               <div class="db-form__row">
                 <%= form.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {

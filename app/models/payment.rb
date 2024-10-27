@@ -15,8 +15,6 @@ class Payment < ApplicationRecord
 
   delegate :subscription_plan, to: :subscription_plan_variant
 
-  scope :paid, -> { where(status: :paid) }
-
   def self.paid_between(from:, to:, fiat:)
     # Returns payments paid between from and to (UTC, inclusive)
     from = from.blank? ? Date.new(0) : Date.parse(from)
