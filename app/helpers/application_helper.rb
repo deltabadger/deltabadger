@@ -22,8 +22,12 @@ module ApplicationHelper
     if years.nil?
       subscription_plan_variant.name
     else
-      "#{subscription_plan_variant.name} (#{years} #{'year'.pluralize(years)})"
+      "#{subscription_plan_variant.name} (#{years_amount(years)})"
     end
+  end
+
+  def years_amount(number)
+    "#{number} #{'year'.pluralize(number)}"
   end
 
   def legendary_badger_nft_name(subscription)
