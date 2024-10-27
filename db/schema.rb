@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_10_23_225401) do
+ActiveRecord::Schema.define(version: 2024_10_27_165656) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -172,6 +172,9 @@ ActiveRecord::Schema.define(version: 2024_10_23_225401) do
     t.string "country", null: false
     t.integer "payment_type", default: 0, null: false
     t.boolean "gads_tracked", default: false
+    t.index ["currency"], name: "index_payments_on_currency"
+    t.index ["payment_type"], name: "index_payments_on_payment_type"
+    t.index ["status"], name: "index_payments_on_status"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end

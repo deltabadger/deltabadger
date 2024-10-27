@@ -6,7 +6,7 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable, :confirmable
 
   has_one_time_password
-  enum otp_module: { disabled: 0, enabled: 1 }, _prefix: true
+  enum otp_module: %i[disabled enabled], _prefix: true
   has_one :affiliate
   belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
