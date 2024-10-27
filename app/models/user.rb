@@ -29,7 +29,7 @@ class User < ApplicationRecord
   include Upgradeable
 
   def subscription
-    subscriptions.active.order(created_at: :desc).first
+    @subscription ||= subscriptions.active.order(created_at: :desc).first
   end
 
   def credits
@@ -110,7 +110,7 @@ class User < ApplicationRecord
   end
 
   def eligible_for_discount?
-    !payments.paid.where(discounted: true).exists?
+    @eligible_for_discount ||= !payments.paid.where(discounted: true).exists?
   end
 
   def validate_name
