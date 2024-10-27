@@ -668,7 +668,7 @@ de:
             wire_cost_pro_html: 'Bitte überweise <b><span class="pro-total-price">%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_basic_html: 'Bitte überweise <b><span class="basic-total-price">%{price}</span></b> auf das folgende Bankkonto:'
             wire_cost_legendary_html: 'Bitte überweise <b><span class="legendary-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
+            wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{price}</b> auf das folgende Bankkonto:'
             wire_transfer: Banküberweisung
             wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
             wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'

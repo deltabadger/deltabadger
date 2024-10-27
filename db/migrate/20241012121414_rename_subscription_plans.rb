@@ -51,7 +51,6 @@ class RenameSubscriptionPlans < ActiveRecord::Migration[6.0]
         WHERE name = 'legendary'
     SQL
 
-
     User.find_each do |user|
       user.update_columns(email: 'saver@test.com') if user.email == 'free@test.com'
       user.update_columns(email: 'investor@test.com') if user.email == 'basic@test.com'

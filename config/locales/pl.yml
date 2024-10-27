@@ -740,7 +740,7 @@ pl:
             wire_cost_pro_html: 'Prześlij <b><span class="pro-total-price">%{price}</span></b> na następujący rachunek bankowy:'
             wire_cost_basic_html: 'Prześlij <b><span class="basic-total-price">%{price}</span></b> na następujący rachunek bankowy:'
             wire_cost_legendary_html: 'Prześlij  <b><span class="legendary-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{price}%{sign}</b> na poniższe konto bankowe:'
+            wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{price}</b> na poniższe konto bankowe:'
             wire_transfer: 'Przelew bankowy'
             wire_transfer_fill_form: 'Wypełnij powyższy formularz, aby kontynuować...'
             wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'

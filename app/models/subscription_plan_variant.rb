@@ -11,20 +11,24 @@ class SubscriptionPlanVariant < ApplicationRecord
 
   scope :years, ->(years) { where(years: years) }
 
-  def self.free
+  def self.free(_years_value = 1)
     find_by!(subscription_plan: SubscriptionPlan.free)
   end
 
-  def self.basic(variant_years = 1)
-    find_by!(subscription_plan: SubscriptionPlan.basic, years: variant_years)
+  def self.basic(years_value = 1)
+    find_by!(subscription_plan: SubscriptionPlan.basic, years: years_value)
   end
 
-  def self.pro(variant_years = 1)
-    find_by!(subscription_plan: SubscriptionPlan.pro, years: variant_years)
+  def self.pro(years_value = 1)
+    find_by!(subscription_plan: SubscriptionPlan.pro, years: years_value)
   end
 
-  def self.legendary
+  def self.legendary(_years_value = 1)
     find_by!(subscription_plan: SubscriptionPlan.legendary)
+  end
+
+  def self.variant_years(ignore_nil: true)
+    ignore_nil ? where.not(years: nil).pluck(:years).uniq : pluck(:years).uniq
   end
 
   def duration

@@ -28,9 +28,6 @@
     svg
       width: 2.4rem
       height: 2.4rem
-  &__item > input // hide radio buttons
-    visibility: hidden
-    position: absolute
   &__item
     padding: 2.4rem 3rem
     background: var(--white)
@@ -161,11 +158,6 @@
           column:
             start: 1
             end: 2
-
-.db-plan-legendary-discount
-  display: none
-.db-plan-legendary.db-plan--selected ~ .db-plan-legendary-discount
-  display: grid
 
 .db-special-upgrade-discount
   background: var(--temporaryDiscount)

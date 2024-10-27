@@ -59,7 +59,7 @@ module PaymentsManager
       end
 
       def get_item_description(payment)
-        "#{payment.subscription_plan_variant.name.capitalize} Plan Upgrade"
+        "#{payment.subscription_plan.name.capitalize} Plan Upgrade"
       end
     end
   end

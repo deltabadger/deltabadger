@@ -4,22 +4,22 @@
     <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
       <div class="text-success"><%= t('subscriptions.days_left', count: current_user.subscription.days_left) %></div>
     <% else %>
-      <%= t('subscriptions.plan_1_year') %>
+      <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
     <% end %>
   </div>
 </div>
 <div class="db-plans__item__amount">
   <% unless current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
-    <% if payment.base_price != payment.adjusted_base_price %>
+    <% if payment_option.base_price != payment_option.adjusted_base_price %>
       <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
-        <%= format_price(payment.base_price, currency) %>
+        <%= format_price(payment_option.base_price, payment_option.currency) %>
       </div>
       <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
-        <%= format_price(payment.adjusted_base_price, currency) %>
+        <%= format_price(payment_option.adjusted_base_price, payment_option.currency) %>
       </div>
     <% else %>
       <div class="db-plans__item__amount__t">
-        <%= format_price(payment.base_price, currency) %>
+        <%= format_price(payment_option.base_price, payment_option.currency) %>
       </div>
     <% end %>
   <% end %>

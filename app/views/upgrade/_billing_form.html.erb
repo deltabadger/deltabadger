@@ -1,15 +1,15 @@
 <% pending_wire_transfer = !current_user.pending_wire_transfer.nil? %>
-<% active_zen_tab = selected_payment_type == 'zen' %>
-<% active_bitcoin_tab = selected_payment_type == 'btcpay' %>
-<% active_wire_tab = selected_payment_type == 'wire_transfer' %>
+<% active_zen_tab = payment.payment_type == 'zen' %>
+<% active_bitcoin_tab = payment.payment_type == 'bitcoin' %>
+<% active_wire_tab = payment.payment_type == 'wire' %>
 
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
     <div class="modal-body">
-      <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "billing-form-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
+      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" } do |form| %>
           <% if SettingFlag.show_zen_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'zen', checked: active_zen_tab %>
+              <%= form.radio_button :payment_type, 'zen', checked: active_zen_tab, data: { action: "change->form--submit#submit" } %>
               <div class="db-card-providers">
                 <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
                 <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
@@ -18,7 +18,7 @@
           <% end %>
           <% if SettingFlag.show_bitcoin_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'btcpay', checked: active_bitcoin_tab %>
+              <%= form.radio_button :payment_type, 'bitcoin', checked: active_bitcoin_tab, data: { action: "change->form--submit#submit" } %>
               <div class="db-card-providers">
                 <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
               </div>
@@ -26,7 +26,7 @@
           <% end %>
           <% if SettingFlag.show_wire_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'wire_transfer', checked: active_wire_tab %>
+              <%= form.radio_button :payment_type, 'wire', checked: active_wire_tab, data: { action: "change->form--submit#submit" } %>
               <%= t('subscriptions.payment.wire_transfer') %>
             <% end %>
           <% end %>
@@ -35,25 +35,29 @@
       <%= turbo_frame_tag "billing-form-frame" do %>
         <%= tag.div id: "payTabContent", class: "tab-content", data: {
           controller: "zaraz",
-          zaraz_currency_value: selected_country,
-          zaraz_name_value: plan_variant_name(payments[selected_plan].subscription_plan_variant),
-          zaraz_price_value: payments[selected_plan].price_with_vat
+          zaraz_currency_value: payment.country,
+          zaraz_name_value: plan_variant_name(payment.subscription_plan_variant),
+          zaraz_price_value: payment.price_with_vat
         } do %>
           <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_zen_tab) %>" aria-labelledby="log-tab" role="tabpanel">
-            <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "upgrade-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
+            <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
               <div class="db-form__row">
-                <%= form.select :country, countries, { selected: selected_country }, autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select' %>
+                <%= form.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
+                  autocomplete: "country-name",
+                  class: "db-form__input db-form__input--select",
+                  data: { action: "change->form--submit#submit" }
+                } %>
                 <%= form.label :country, class: 'db-form__label' %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
               </div>
             <% end %>
-            <%= form_with model: Payment, url: upgrade_zen_payment_path, local: true do |form| %>
-              <%= form.hidden_field :country, value: selected_country %>
+            <%= form_with model: payment, url: upgrade_zen_payment_path do |form| %>
+              <%= form.hidden_field :country, value: payment.country %>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payments[selected_plan].price_with_vat == 0 do %>
+                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
                   <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
-                  <%= tag.span class: "#{selected_plan}-total-price" do %>
-                    <%= format_price(payments[selected_plan].price_with_vat, currency) %>
+                  <%= tag.span class: "#{payment.subscription_plan.name}-total-price" do %>
+                    <%= format_price(payment.price_with_vat, payment.currency) %>
                   <% end %>
                 <% end %>
               </div>
@@ -61,15 +65,19 @@
           </div>
 
           <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if active_bitcoin_tab) %>" aria-labelledby="stats-tab" role="tabpanel">
-            <%= form_with url: upgrade_path, method: :get, data: { turbo_frame: "upgrade-frame" }, html: { onchange: "requestSubmit();" }, local: true do |form| %>
+            <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
               <div class="db-form__row">
-                <%= form.select :country, countries, { selected: selected_country }, autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select' %>
+                <%= form.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
+                  autocomplete: "country-name",
+                  class: "db-form__input db-form__input--select",
+                  data: { action: "change->form--submit#submit" }
+                } %>
                 <%= form.label :country, class: 'db-form__label' %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
               </div>
             <% end %>
-            <%= form_with model: Payment, url: upgrade_btcpay_payment_path, local: true do |form| %>
-              <%= form.hidden_field :country, value: selected_country %>
+            <%= form_with model: payment, url: upgrade_btcpay_payment_path do |form| %>
+              <%= form.hidden_field :country, value: payment.country %>
               <div class="db-form__row">
                 <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name" %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
@@ -86,7 +94,7 @@
                 <%= form.label :birth_date, class: 'db-form__label' %>
               </div>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payments[selected_plan].price_with_vat == 0 do %>
+                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
                   <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
                 <% end %>
               </div>
@@ -94,15 +102,19 @@
           </div>
 
           <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || active_wire_tab %>" aria-labelledby="log-tab" role="tabpanel">
-            <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, local: true do |form| %>
+            <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
               <div class="db-form__row">
-                <%= form.select :country, countries, { selected: selected_country }, autocomplete: "country-name", id: "payment_country_zen", class: 'db-form__input db-form__input--select', data: { action: "change->form--submit#submit" } %>
+                <%= form.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
+                  autocomplete: "country-name",
+                  class: "db-form__input db-form__input--select",
+                  data: { action: "change->form--submit#submit" }
+                } %>
                 <%= form.label :country, class: 'db-form__label' %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
               </div>
             <% end %>
-            <%= form_with model: Payment, url: upgrade_wire_transfer_payment_path, local: true, id: "new_payment", class: "new_payment" do |form| %>
-              <%= form.hidden_field :country, value: selected_country %>
+            <%= form_with model: payment, url: upgrade_wire_transfer_payment_path, id: "new_payment", class: "new_payment" do |form| %>
+              <%= form.hidden_field :country, value: payment.country %>
               <div class="db-form__row">
                 <input id="payment_first_name_wire" class="db-form__input" type="text" name="payment[first_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="given-name" <%= "disabled" if pending_wire_transfer %>>
                 <label class="db-form__label" for="payment_first_name"><%= t('helpers.label.payment.first_name') %></label>
@@ -115,19 +127,17 @@
               <% if pending_wire_transfer %>
                 <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
                 <div class="db-form__row">
-                  <% name = current_user.pending_plan_variant.subscription_plan.name %>
-                  <% price = payments[name].price_with_vat %>
-                  <%= t('subscriptions.payment.wire_cost_pending_html', sign: current_user.pending_wire_transfer == VatRate::NOT_EU ? '$' : '€', price: price) %>
+                  <%= t('subscriptions.payment.wire_cost_pending_html', price: format_price(payment.price_with_vat, payment.currency)) %>
                 </div>
               <% else %>
                 <div id="wire_costs" class="db-form__row--hidden">
-                  <% if 'basic'.in?(current_user.available_plans) %>
+                  <% if 'basic'.in?(current_user.available_plan_names) %>
                     <span><%= t('subscriptions.payment.wire_cost_basic_html', price: payments['basic'].price_with_vat) %></span>
                   <% end %>
-                  <% if 'pro'.in?(current_user.available_plans) %>
+                  <% if 'pro'.in?(current_user.available_plan_names) %>
                     <span><%= t('subscriptions.payment.wire_cost_pro_html', price: payments['pro'].price_with_vat) %></span>
                   <% end %>
-                  <% if 'legendary'.in?(current_user.available_plans) %>
+                  <% if 'legendary'.in?(current_user.available_plan_names) %>
                     <span><%= t('subscriptions.payment.wire_cost_legendary_html', price: payments['legendary'].price_with_vat) %></span>
                   <% end %>
                 </div>

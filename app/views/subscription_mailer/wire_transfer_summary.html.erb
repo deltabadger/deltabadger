@@ -11,7 +11,7 @@ Email: <%= @payment.user.email %>
 <br>
 Country: <%= @payment.country %>
 <br>
-Plan: <%= @payment.subscription_plan_variant.subscription_plan.name %>
+Plan: <%= @payment.subscription_plan.name %>
 <br>
 Amount: <%= format_price(@payment.total, @payment.currency) %>
 <br>

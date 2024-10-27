@@ -751,7 +751,7 @@ en:
             wire_cost_pro_html: 'Please, send <b><span class="pro-total-price">%{price}</span></b> to the following bank account:'
             wire_cost_basic_html: 'Please, send <b><span class="basic-total-price">%{price}</span></b> to the following bank account:'
             wire_cost_legendary_html: 'Please, send <b><span class="legendary-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
+            wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{price}</b> to the following bank account:'
             wire_transfer: 'Wire Transfer'
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'
             wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'

@@ -2,7 +2,7 @@ module User::Upgradeable
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
-    def available_plans
+    def available_plan_names
       case subscription.name
       when SubscriptionPlan::FREE_PLAN then available_plans_for_free_plan
       when SubscriptionPlan::BASIC_PLAN then available_plans_for_basic_plan

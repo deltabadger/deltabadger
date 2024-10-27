@@ -2,7 +2,7 @@ module PaymentsManager
   class SubscriptionUpgrader < BaseService
     def call(payment)
       current_plan_name = payment.user.subscription.name
-      new_plan_name = payment.subscription_plan_variant.name
+      new_plan_name = payment.subscription_plan.name
 
       plan_subscriber_result = PaymentsManager::PlanSubscriber.call(payment: payment)
       return plan_subscriber_result if plan_subscriber_result.failure?

@@ -6,7 +6,7 @@
 
 <%= turbo_frame_tag "upgrade-frame" do %>
   <div class="db-country">
-    <%= tag.div class: "row db-checkout db-checkout--#{@selected_plan}-plan" do %>
+    <%= tag.div class: "row db-checkout db-checkout--#{@payment.subscription_plan.name}-plan" do %>
       <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
 
         <%= tag.div class: "db-plans__item db-plans__item--#{current_user.subscription.name}-plan db-plans__item--current" do %>
@@ -15,28 +15,20 @@
 
         <h4 class="mb-4 mt-5 pb-4"><%= t('subscriptions.prolong_upgrade') %></h4>
         <%= render partial: "upgrade_plans", locals: {
-                    selected_plan: @selected_plan,
-                    selected_country: @selected_country,
-                    selected_payment_type: @selected_payment_type,
-                    payments: @payments,
+                    available_variant_years: @available_variant_years,
+                    payment: @payment,
+                    payment_options: @payment_options,
                     legendary_plan: @legendary_plan,
-                    currency: @currency,
                   } %>
       </div>
       <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
         <%= render partial: "upgrade_summary", locals: {
-                    selected_plan: @selected_plan,
-                    payments: @payments,
-                    currency: @currency,
+                    payment: @payment,
                   } %>
         <%= render partial: "billing_form", locals: {
-                    selected_plan: @selected_plan,
-                    selected_country: @selected_country,
-                    selected_payment_type: @selected_payment_type,
+                    payment: @payment,
                     # errors: @errors,
-                    currency: @currency,
-                    countries: @countries,
-                    payments: @payments,
+                    payments: @payment_options,
                   } %>
       </div>
     <% end %>

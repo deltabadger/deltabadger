@@ -723,7 +723,7 @@ fr:
             wire_cost_pro_html: 'Merci d''envoyer <b><span class="pro-total-price">%{price}</span></b> sur le compte bancaire suivant :'
             wire_cost_basic_html: 'Merci d''envoyer <b><span class="basic-total-price">%{price}</span></b> sur le compte bancaire suivant :'
             wire_cost_legendary_html: 'Merci d''envoyer <b><span class="legendary-total-price">%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_pending_html: 'Si vous n''avez pas encore effectué de paiement, envoyez <b>%{sign}%{price}</b> sur le compte bancaire suivant :'
+            wire_cost_pending_html: 'Si vous n''avez pas encore effectué de paiement, envoyez <b>%{price}</b> sur le compte bancaire suivant :'
             wire_transfer: 'Virement bancaire'
             wire_transfer_fill_form: 'Veuillez remplir le formulaire ci-dessus pour continuer'
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
