@@ -11,7 +11,9 @@ class Payment < ApplicationRecord
             :payment_type,
             :country,
             :currency, presence: true
-  validates :birth_date, presence: true, if: :using_bitcoin?
+  validates :birth_date, presence: true, if: :bitcoin?
+  validates :first_name, :last_name, presence: true, if: :bitcoin? || :wire?
+  validate :minimum_age, if: :bitcoin?
 
   delegate :subscription_plan, to: :subscription_plan_variant
 
@@ -87,8 +89,10 @@ class Payment < ApplicationRecord
 
   private
 
-  def using_bitcoin?
-    payment_type == 'bitcoin'
+  def minimum_age
+    return unless birth_date.present? && birth_date > 18.years.ago.to_date
+
+    errors.add(:birth_date, 'You must be at least 18 years old.')
   end
 
   def referral_discounted_price

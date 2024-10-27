@@ -97,10 +97,10 @@ class UpgradeController < ApplicationController
 
   def set_navigation_session # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     params.permit(:plan_name, :payment_type, :country, :years)
-    session[:payment_type] = params[:payment_type] || session[:payment_type] || default_payment_type
     session[:plan_name] = params[:plan_name] || session[:plan_name] || available_plan_names.first
     session[:years] = params[:years]&.to_i || session[:years]&.to_i || available_variant_years.first
     session[:country] = params[:country] || session[:country] || VatRate::NOT_EU
+    session[:payment_type] = params[:payment_type] || session[:payment_type] || default_payment_type
   end
 
   def set_payment_options
@@ -117,22 +117,25 @@ class UpgradeController < ApplicationController
   def zen_payment_params
     params
       .require(:payment)
-      .permit(:subscription_plan_variant_id, :country, :payment_type)
+      .permit(:country, :payment_type)
       .merge(user: current_user)
+      .merge(subscription_plan_variant: SubscriptionPlanVariant.send(session[:plan_name], session[:years]))
   end
 
   def btcpay_payment_params
     params
       .require(:payment)
-      .permit(:subscription_plan_variant_id, :first_name, :last_name, :birth_date, :country, :payment_type)
+      .permit(:first_name, :last_name, :birth_date, :country, :payment_type)
       .merge(user: current_user)
+      .merge(subscription_plan_variant: SubscriptionPlanVariant.send(session[:plan_name], session[:years]))
   end
 
   def wire_payment_params
     params
       .require(:payment)
-      .permit(:subscription_plan_variant_id, :first_name, :last_name, :country, :payment_type)
+      .permit(:first_name, :last_name, :country, :payment_type)
       .merge(user: current_user)
+      .merge(subscription_plan_variant: SubscriptionPlanVariant.send(session[:plan_name], session[:years]))
   end
 
   def default_payment_type

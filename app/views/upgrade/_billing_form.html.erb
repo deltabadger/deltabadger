@@ -73,20 +73,20 @@
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
               </div>
             <% end %>
-            <%= form_with model: payment, url: upgrade_btcpay_payment_path do |form| %>
+            <%= form_with model: payment, url: upgrade_btcpay_payment_path, data: { controller: "form--html5-validations" } do |form| %>
               <%= form.hidden_field :country, value: payment.country %>
               <div class="db-form__row">
-                <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name" %>
+                <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", required: true %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
                 <%= form.label :first_name, class: 'db-form__label' %>
               </div>
               <div class="db-form__row">
-                <%= form.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name" %>
+                <%= form.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", required: true %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank') %></div>
                 <%= form.label :last_name, class: 'db-form__label' %>
               </div>
               <div class="db-form__row">
-                <%= form.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date' %>
+                <%= form.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date', required: true %>
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.birth_date') + ' ' + t('errors.messages.blank') %></div>
                 <%= form.label :birth_date, class: 'db-form__label' %>
               </div>
@@ -110,17 +110,18 @@
                 <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
               </div>
             <% end %>
-            <%= form_with model: payment, url: upgrade_wire_transfer_payment_path, id: "new_payment", class: "new_payment" do |form| %>
+            <%= form_with model: payment, url: upgrade_wire_transfer_payment_path, id: "new_payment", class: "new_payment", data: { controller: "form--html5-validations" } do |form| %>
               <%= form.hidden_field :country, value: payment.country %>
               <div class="db-form__row">
-                <input id="payment_first_name_wire" class="db-form__input" type="text" name="payment[first_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="given-name" <%= "disabled" if pending_wire_transfer %>>
-                <label class="db-form__label" for="payment_first_name"><%= t('helpers.label.payment.first_name') %></label>
+                <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", required: true, disabled: pending_wire_transfer %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.first_name') + ' ' + t('errors.messages.blank') %></div>
+                <%= form.label :first_name, class: 'db-form__label' %>
               </div>
               <div class="db-form__row">
-                <input id="payment_last_name_wire" class="db-form__input" type="text" name="payment[last_name]" onchange="this.setAttribute('value', this.value);" value="" autocomplete="family-name"<%= "disabled" if pending_wire_transfer %>>
-                <label class="db-form__label" for="payment_last_name"><%= t('helpers.label.payment.last_name') %></label>
+                <%= form.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", required: true, disabled: pending_wire_transfer %>
+                <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.last_name') + ' ' + t('errors.messages.blank') %></div>
+                <%= form.label :last_name, class: 'db-form__label' %>
               </div>
-              <div id="please_fill_wire_form" class="db-form__row--visible"><%= t('subscriptions.payment.wire_transfer_fill_form') %></div>
               <% if pending_wire_transfer %>
                 <div class="db-form__row"><%= t('subscriptions.payment.wire_transfer_pending') %></div>
                 <div class="db-form__row">
@@ -128,63 +129,54 @@
                 </div>
               <% else %>
                 <div id="wire_costs" class="db-form__row--hidden">
-                  <% if 'basic'.in?(current_user.available_plan_names) %>
-                    <span><%= t('subscriptions.payment.wire_cost_basic_html', price: payments['basic'].price_with_vat) %></span>
-                  <% end %>
-                  <% if 'pro'.in?(current_user.available_plan_names) %>
-                    <span><%= t('subscriptions.payment.wire_cost_pro_html', price: payments['pro'].price_with_vat) %></span>
-                  <% end %>
-                  <% if 'legendary'.in?(current_user.available_plan_names) %>
-                    <span><%= t('subscriptions.payment.wire_cost_legendary_html', price: payments['legendary'].price_with_vat) %></span>
+                  <%= t('subscriptions.payment.wire_cost_html', price: format_price(payment.price_with_vat, payment.currency)) %>
+                </div>
+                <% if payment.from_eu? %>
+                  <div>
+                    <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+                    <p>Deltabadger OU</p>
+                    <h5>BIC</h5>
+                    <p>TRWIBEB1XXX</p>
+                    <h5><%= "IBAN (" + t('subscriptions.payment.eu_bank_country') + ")" %></h5>
+                    <p>BE83 9670 6500 4615</p>
+                    <h5><%= t('subscriptions.payment.bank_address') %></h5>
+                    <p>
+                      Avenue Louise 54, Room S52<br>
+                      Brussels<br>
+                      1050<br>
+                      Belgium
+                    </p>
+                  </div>
+                <% else %>
+                  <div>
+                    <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+                    <p>Deltabadger OU</p>
+                    <h5>Routing number</h5>
+                    <p>084009519</p>
+                    <h5>Account number</h5>
+                    <p>9600 0000 0051 1836</p>
+                    <h5>Account type</h5>
+                    <p>Checking</p>
+                    <h5><%= t('subscriptions.payment.bank_address') %></h5>
+                    <p>
+                      TransferWise<br>
+                      19 W 24th Street<br>
+                      New York NY 10010<br>
+                      United States
+                    </p>
+                  </div>
+                <% end %>
+                <div class="db-form__row db-form__row--final-button">
+                  <%= button_to upgrade_btcpay_payment_path, method: :post, data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+                    <span class="mr-0">
+                      <%= payment.from_eu? ?
+                        t('subscriptions.payment.paid_with_wire_transfer') :
+                        t('subscriptions.payment.paid_with_wire_transfer_other')
+                      %>
+                    </span>
                   <% end %>
                 </div>
               <% end %>
-              <div id="wire_form_eu" class="db-form__row--hidden">
-                <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
-                <p>Deltabadger OU</p>
-                <h5>BIC</h5>
-                <p>TRWIBEB1XXX</p>
-                <h5><%= "IBAN (" + t('subscriptions.payment.eu_bank_country') + ")" %></h5>
-                <p>BE83 9670 6500 4615</p>
-                <h5><%= t('subscriptions.payment.bank_address') %></h5>
-                <p>
-                  Avenue Louise 54, Room S52<br>
-                  Brussels<br>
-                  1050<br>
-                  Belgium
-                </p>
-                <% unless pending_wire_transfer %>
-                  <div class="db-form__row db-form__row--final-button">
-                    <button class="btn btn-success btn-lg w-100 px-1" type="submit">
-                      <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer') %></span>
-                    </button>
-                  </div>
-                <% end %>
-              </div>
-              <div id="wire_form_other" class="db-form__row--hidden">
-                <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
-                <p>Deltabadger OU</p>
-                <h5>Routing number</h5>
-                <p>084009519</p>
-                <h5>Account number</h5>
-                <p>9600 0000 0051 1836</p>
-                <h5>Account type</h5>
-                <p>Checking</p>
-                <h5><%= t('subscriptions.payment.bank_address') %></h5>
-                <p>
-                  TransferWise<br>
-                  19 W 24th Street<br>
-                  New York NY 10010<br>
-                  United States
-                </p>
-                <% unless pending_wire_transfer %>
-                  <div class="db-form__row db-form__row--final-button">
-                    <button class="btn btn-success btn-lg w-100 px-1" type="submit">
-                      <span class="mr-0"><%= t('subscriptions.payment.paid_with_wire_transfer_other') %></span>
-                    </button>
-                  </div>
-                <% end %>
-              </div>
             <% end %>
           </div>
         <% end %>
