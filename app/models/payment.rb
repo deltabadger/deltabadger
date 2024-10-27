@@ -3,25 +3,27 @@ class Payment < ApplicationRecord
   belongs_to :subscription_plan_variant
 
   enum currency: %i[USD EUR]
-  enum status: %i[unpaid pending paid confirmed failure cancelled] # we only use unpaid, cancelled, paid
-  enum payment_type: %i[bitcoin wire stripe zen]
+  enum status: { unpaid: 0, paid: 2, cancelled: 5 }
+  enum payment_type: %i[bitcoin wire stripe zen], _prefix: 'by'
   validates :user,
             :subscription_plan_variant,
             :status,
             :payment_type,
             :country,
             :currency, presence: true
-  validates :birth_date, presence: true, if: :bitcoin?
-  validates :first_name, :last_name, presence: true, if: :bitcoin? || :wire?
-  validate :minimum_age, if: :bitcoin?
+  validates :birth_date, presence: true, if: :by_bitcoin?
+  validates :first_name, :last_name, presence: true, if: :bitcoin? || :by_wire?
+  validate :minimum_age, if: :by_bitcoin?
 
   delegate :subscription_plan, to: :subscription_plan_variant
+
+  scope :by_fiat, -> { where(payment_type: %w[stripe zen wire]) }
 
   def self.paid_between(from:, to:, fiat:)
     # Returns payments paid between from and to (UTC, inclusive)
     from = from.blank? ? Date.new(0) : Date.parse(from)
     to = to.blank? ? Date.tomorrow : Date.parse(to) + 1.day
-    paid.where(paid_at: from..to, payment_type: fiat ? %w[stripe zen wire] : 'bitcoin')
+    fiat ? paid.by_fiat.where(paid_at: from..to) : paid.by_bitcoin.where(paid_at: from..to)
   end
 
   def initialize(attributes = {})
