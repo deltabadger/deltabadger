@@ -16,7 +16,7 @@
       .tooltip
         = t('links.dashboard')
 
-    = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_prism_c'
       .tooltip
         = "Prism"
@@ -38,13 +38,13 @@
         = t('links.community')
 
     - if current_user.subscription.name == 'legendary'
-      = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_legendary'
         .tooltip
           = t('links.legendary')
           = t('subscriptions.plan_life_time')
     - else
-      = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'
         .tooltip
           .tooltip__title

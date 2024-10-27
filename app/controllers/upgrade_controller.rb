@@ -17,7 +17,6 @@ class UpgradeController < ApplicationController
       subscription_plan_variant: SubscriptionPlanVariant.send(session[:plan_name], session[:years]),
       country: session[:country]
     )
-    puts "Payment type: #{@payment.payment_type}"
     @available_variant_years = available_variant_years
     @legendary_plan = SubscriptionPlan.legendary
   end
