@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_10_27_165656) do
+ActiveRecord::Schema.define(version: 2024_10_23_225401) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -152,25 +152,25 @@ ActiveRecord::Schema.define(version: 2024_10_27_165656) do
 
   create_table "payments", force: :cascade do |t|
     t.string "payment_id"
-    t.integer "status"
+    t.integer "status", null: false
     t.decimal "total", precision: 10, scale: 2
     t.integer "currency"
-    t.bigint "user_id"
+    t.bigint "user_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "first_name"
     t.string "last_name"
     t.date "birth_date"
     t.datetime "paid_at"
-    t.string "external_statuses", default: "", null: false
-    t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "commission", precision: 10, scale: 2, default: "0.0", null: false
-    t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
-    t.boolean "discounted", default: false, null: false
-    t.bigint "subscription_plan_variant_id", null: false
-    t.string "country", null: false
-    t.integer "payment_type", default: 0, null: false
+    t.string "external_statuses", default: ""
+    t.decimal "btc_total", precision: 16, scale: 8, default: "0.0"
+    t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0"
+    t.decimal "commission", precision: 10, scale: 2
+    t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0"
+    t.boolean "discounted"
+    t.bigint "subscription_plan_variant_id"
+    t.string "country"
+    t.integer "payment_type"
     t.boolean "gads_tracked", default: false
     t.index ["currency"], name: "index_payments_on_currency"
     t.index ["payment_type"], name: "index_payments_on_payment_type"

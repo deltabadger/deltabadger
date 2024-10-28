@@ -94,11 +94,11 @@ Rails.application.routes.draw do
     namespace :upgrade do
       get '/', action: :index
       get :success
-      post :btcpay_payment
+      patch :btcpay_payment
       get :btcpay_payment_success
       post :btcpay_payment_ipn
-      post :wire_transfer_payment
-      post :zen_payment
+      patch :wire_transfer_payment
+      patch :zen_payment
       get :zen_payment_failure
       get :zen_payment_success
       post :zen_payment_ipn
