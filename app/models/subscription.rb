@@ -21,6 +21,6 @@ class Subscription < ApplicationRecord
   def days_left
     return if end_time.nil?
 
-    (end_time.to_date - Date.today).to_i
+    [0, (end_time.to_date - Date.today).to_i].max
   end
 end
