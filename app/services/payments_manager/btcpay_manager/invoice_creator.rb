@@ -31,7 +31,7 @@ module PaymentsManager
                    phone: payment.birth_date,
                    country: payment.country },
           itemDesc: get_item_description(payment),
-          redirectUrl: upgrade_btcpay_payment_success_url(host: HOST, lang: I18n.locale),
+          redirectUrl: upgrade_success_url(host: HOST, lang: I18n.locale),
           notificationUrl: upgrade_btcpay_payment_ipn_url(host: HOST, lang: I18n.locale),
           extendedNotifications: true
         }

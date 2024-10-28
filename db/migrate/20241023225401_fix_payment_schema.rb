@@ -7,21 +7,9 @@ class FixPaymentSchema < ActiveRecord::Migration[6.0]
     change_column_default :payments, :discounted, from: false, to: nil
     change_column_default :payments, :commission, from: 0, to: nil
 
-    # change_column_null :payments, :status, false
-    # change_column_null :payments, :user_id, false
-    # change_column_null :payments, :total, false
-
     change_column_null :payments, :status, false
     change_column_null :payments, :user_id, false
-    change_column_null :payments, :external_statuses, true
-    change_column_null :payments, :btc_total, true
-    change_column_null :payments, :btc_paid, true
-    change_column_null :payments, :commission, true
-    change_column_null :payments, :btc_commission, true
-    change_column_null :payments, :discounted, true
-    change_column_null :payments, :subscription_plan_variant_id, true
-    change_column_null :payments, :country, true
-    change_column_null :payments, :payment_type, true
+    change_column_null :payments, :total, false
 
     add_index :payments, :currency
     add_index :payments, :status
@@ -36,21 +24,9 @@ class FixPaymentSchema < ActiveRecord::Migration[6.0]
     change_column_default :payments, :discounted, from: nil, to: false
     change_column_default :payments, :commission, from: nil, to: 0
 
-    # change_column_null :payments, :status, true
-    # change_column_null :payments, :user_id, true
-    # change_column_null :payments, :total, true
-
     change_column_null :payments, :status, true
     change_column_null :payments, :user_id, true
-    change_column_null :payments, :external_statuses, false
-    change_column_null :payments, :btc_total, false
-    change_column_null :payments, :btc_paid, false
-    change_column_null :payments, :commission, false
-    change_column_null :payments, :btc_commission, false
-    change_column_null :payments, :discounted, false
-    change_column_null :payments, :subscription_plan_variant_id, false
-    change_column_null :payments, :country, false
-    change_column_null :payments, :payment_type, false
+    change_column_null :payments, :total, true
 
     remove_index :payments, :currency
     remove_index :payments, :status

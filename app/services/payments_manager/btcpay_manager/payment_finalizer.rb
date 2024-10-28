@@ -27,9 +27,7 @@ module PaymentsManager
           update_params.merge!(paid_at: paid_at(params),
                                btc_commission: recalculate_btc_commission(params, payment))
         end
-        unless payment.update(update_params)
-          return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
-        end
+        return Result::Failure.new('ActiveRecord error', data: update_params) unless payment.update(update_params)
 
         return Result::Failure.new('Still not paid') unless just_paid
 

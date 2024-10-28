@@ -20,7 +20,7 @@ module PaymentsManager
           last_name: params[:customer][:lastName]
         }
         unless payment.update(update_params)
-          return Result::Failure.new(payment.errors.full_messages.join(', '), data: update_params)
+          return Result::Failure.new('ActiveRecord error', data: update_params)
         end
 
         @notifications.invoice(payment: payment)

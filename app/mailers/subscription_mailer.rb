@@ -1,4 +1,6 @@
 class SubscriptionMailer < ApplicationMailer
+  helper NumbersHelper
+
   def subscription_granted
     @payment = params[:payment]
 

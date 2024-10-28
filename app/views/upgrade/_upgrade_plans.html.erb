@@ -1,6 +1,6 @@
 <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
   <% available_variant_years.each do |years| %>
-    <% selected = selected_payment_option.subscription_plan_variant.years == years %>
+    <% selected = payment.subscription_plan_variant.years == years %>
     <%= tag.label class: "hide_radio_buttons" do %>
       <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
       <div>
@@ -12,7 +12,7 @@
 
 <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { style: "display: flex; grid-gap: 1rem; gap: 1rem; flex-direction: column;" } do |f| %>
   <% current_user.available_plan_names.each do |available_plan_name| %>
-    <% selected = selected_payment_option.subscription_plan.name == available_plan_name %>
+    <% selected = payment.subscription_plan.name == available_plan_name %>
     <%= tag.label class: "hide_radio_buttons db-plans__item db-plans__item--#{available_plan_name}-plan db-plan-#{available_plan_name} db-plan--#{selected ? 'selected' : 'other'}" do %>
       <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
       <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
@@ -30,7 +30,7 @@
         </div>
         <div class="db-plans__item__amount">
           <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-            -<%= format_price(legendary_plan.current_discount, selected_payment_option.currency) %>
+            -<%= format_price(legendary_plan.current_discount, payment.currency) %>
           </div>
         </div>
         <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
@@ -44,7 +44,7 @@
     <div class="db-plans__item__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        -<%= format_price(selected_payment_option.current_plan_discount_amount, selected_payment_option.currency) %>
+        -<%= format_price(payment.current_plan_discount_amount, payment.currency) %>
       </div>
     </div>
     <div class="db-plans__item__info"><%= t("subscriptions.payment.compensation_#{current_user.subscription.name}", count: current_user.subscription.days_left) %></div>
@@ -57,7 +57,7 @@
     <div class="db-plans__item__name"><%= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent) %></div>
     <div class="db-plans__item__amount">
       <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-        -<%= format_price(selected_payment_option.referral_discount_amount, selected_payment_option.currency) %>
+        -<%= format_price(payment.referral_discount_amount, payment.currency) %>
       </div>
     </div>
     <div class="db-plans__item__info">

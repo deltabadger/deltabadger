@@ -1,26 +1,28 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_ipn zen_payment_ipn]
-  before_action :redirect_to_legendaries, only: %i[index]
-  before_action :set_navigation_session, only: %i[index]
-  before_action :set_payment, only: %i[
-    index
-    create_zen_payment
-    create_btcpay_payment
-    create_wire_transfer_payment
-  ]
   skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_ipn zen_payment_ipn]
 
   def index
+    redirect_to legendary_path if current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
+
+    set_navigation_session
     set_index_instance_variables
+    @payment = @payment_options[session[:plan_name]]
   end
 
-  def create_zen_payment
-    if payment_update({})
-      initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(@payment)
-      if initiator_result.success?
-        redirect_to initiator_result.data[:payment_url]
-      else
-        handle_server_error(initiator_result)
+  def create_payment
+    @payment = new_payment_for(session[:plan_name])
+    @payment.assign_attributes(payment_params)
+    @payment.assign_attributes({
+                                 total: @payment.price_with_vat,
+                                 commission: @payment.referrer_commission_amount,
+                                 discounted: @payment.referral_discount_percent.positive?
+                               })
+    if @payment.save
+      case session[:payment_type]
+      when 'zen' then handle_zen_payment
+      when 'bitcoin' then handle_btcpay_payment
+      when 'wire' then handle_wire_transfer_payment
       end
     else
       set_index_instance_variables
@@ -28,17 +30,23 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def zen_payment_failure
-    handle_server_error
-  end
-
   def success
-    @payment = current_user.payments.where(status: 'paid', gads_tracked: false).last
+    flash[:notice] = t('subscriptions.payment.payment_ordered') if session[:payment_type] == 'bitcoin'
+    @payment = current_user.payments.paid.where(gads_tracked: false).last
     @payment.update!(gads_tracked: true) if @payment.present?
   end
 
-  def zen_payment_success
-    redirect_to action: :success
+  def handle_zen_payment
+    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(@payment)
+    if initiator_result.success?
+      redirect_to initiator_result.data[:payment_url]
+    else
+      handle_server_error(initiator_result)
+    end
+  end
+
+  def zen_payment_failure
+    handle_server_error
   end
 
   def zen_payment_ipn
@@ -50,25 +58,13 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def create_btcpay_payment
-    puts "btcpay_payment_params: #{btcpay_payment_params}"
-    if payment_update(btcpay_payment_params)
-      initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(@payment)
-      if initiator_result.success?
-        redirect_to initiator_result.data[:payment_url]
-      else
-        handle_server_error(initiator_result)
-      end
+  def handle_btcpay_payment
+    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(@payment)
+    if initiator_result.success?
+      redirect_to initiator_result.data[:payment_url]
     else
-      puts 'we got error'
-      set_index_instance_variables
-      render :index, status: :unprocessable_entity
+      handle_server_error(initiator_result)
     end
-  end
-
-  def btcpay_payment_success
-    flash[:notice] = t('subscriptions.payment.payment_ordered')
-    redirect_to action: :success
   end
 
   def btcpay_payment_ipn
@@ -81,25 +77,17 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def create_wire_transfer_payment
-    if payment_update(wire_payment_params)
-      finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
-      if initiator_result.failure?
-        handle_server_error(finalizer_result)
-      else
-        render :index
-      end
+  def handle_wire_transfer_payment
+    finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
+    if finalizer_result.failure?
+      handle_server_error(finalizer_result)
     else
       set_index_instance_variables
-      render :index, status: :unprocessable_entity
+      render :index
     end
   end
 
   private
-
-  def redirect_to_legendaries
-    redirect_to legendary_path if current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
-  end
 
   def set_navigation_session # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     params.permit(:plan_name, :payment_type, :country, :years)
@@ -109,52 +97,40 @@ class UpgradeController < ApplicationController
     session[:payment_type] = params[:payment_type] || session[:payment_type] || default_payment_type
   end
 
-  def set_payment
-    @payment = current_user.payments.draft.last || draft_payment.tap { |payment| payment.save(validate: false) }
-  end
-
   def draft_payment
     Payment.new(user: current_user, status: 'draft')
   end
 
+  def new_payment_for(plan_name)
+    Payment.new(
+      user: current_user,
+      status: 'unpaid',
+      payment_type: session[:payment_type],
+      subscription_plan_variant: SubscriptionPlanVariant.send(plan_name, session[:years]),
+      country: session[:country],
+      currency: session[:country] != VatRate::NOT_EU ? 'EUR' : 'USD'
+    )
+  end
+
   def set_index_instance_variables
-    @payment_options = available_plan_names.each_with_object({}) do |plan_name, hash|
-      hash[plan_name] = Payment.new(
-        user: current_user,
-        payment_type: session[:payment_type],
-        subscription_plan_variant: SubscriptionPlanVariant.send(plan_name, session[:years]),
-        country: session[:country],
-        currency: session[:country] != VatRate::NOT_EU ? 'EUR' : 'USD'
-      )
-    end
-    @selected_payment_option = @payment_options[session[:plan_name]]
+    @payment_options = available_plan_names.map { |plan_name| [plan_name, new_payment_for(plan_name)] }.to_h
     @available_variant_years = available_variant_years
     @legendary_plan = SubscriptionPlan.legendary
   end
 
-  def payment_update(params)
-    puts "params for payment_update: #{params}"
-    set_index_instance_variables
-    @payment.assign_attributes(@selected_payment_option.attributes.except('id', 'created_at'))
-    @payment.assign_attributes(params)
-    @payment.update({
-                      status: 'unpaid',
-                      total: @payment.price_with_vat,
-                      commission: @payment.referrer_commission_amount,
-                      discounted: @payment.referral_discount_percent.positive?
-                    })
-  end
-
-  def btcpay_payment_params
-    params
-      .require(:payment)
-      .permit(:first_name, :last_name, :birth_date)
-  end
-
-  def wire_payment_params
-    params
-      .require(:payment)
-      .permit(:first_name, :last_name)
+  def payment_params
+    case session[:payment_type]
+    when 'zen'
+      {}
+    when 'bitcoin'
+      params
+        .require(:payment)
+        .permit(:first_name, :last_name, :birth_date)
+    when 'wire'
+      params
+        .require(:payment)
+        .permit(:first_name, :last_name)
+    end
   end
 
   def handle_server_error(service_result)

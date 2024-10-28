@@ -6,7 +6,7 @@
 
 <%= turbo_frame_tag "upgrade-frame" do %>
   <div class="db-country">
-    <%= tag.div class: "row db-checkout db-checkout--#{@selected_payment_option.subscription_plan.name}-plan" do %>
+    <%= tag.div class: "row db-checkout db-checkout--#{@payment.subscription_plan.name}-plan" do %>
       <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
 
         <%= tag.div class: "db-plans__item db-plans__item--#{current_user.subscription.name}-plan db-plans__item--current" do %>
@@ -17,16 +17,16 @@
         <%= render partial: "upgrade_plans", locals: {
           available_variant_years: @available_variant_years,
           payment_options: @payment_options,
-          selected_payment_option: @selected_payment_option,
+          payment: @payment,
           legendary_plan: @legendary_plan,
         } %>
       </div>
       <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
         <%= render partial: "upgrade_summary", locals: {
-          selected_payment_option: @selected_payment_option,
+          payment: @payment,
         } %>
         <%= render partial: "billing_form", locals: {
-          selected_payment_option: @selected_payment_option,
+          payment: @payment,
           payment: @payment,
         } %>
       </div>

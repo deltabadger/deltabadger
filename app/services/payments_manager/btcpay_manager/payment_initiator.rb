@@ -15,8 +15,8 @@ module PaymentsManager
           btc_total: btc_total,
           btc_commission: get_btc_commission(btc_total, payment)
         }
-        unless payment_result.data.update(update_params)
-          return Result::Failure.new(payment_result.errors.full_messages.join(', '), data: update_params)
+        unless payment.update(update_params)
+          return Result::Failure.new('ActiveRecord error', data: update_params)
         end
 
         invoice_result
