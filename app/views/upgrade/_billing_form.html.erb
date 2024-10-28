@@ -3,10 +3,10 @@
 <div class="modal-dialog m-0 <%= 'db-wire-transfer-in-progress' if pending_wire_transfer %>" style="max-width: 100%">
   <div class="modal-content">
     <div class="modal-body">
-      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" } do |form| %>
+      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" } do |f| %>
           <% if SettingFlag.show_zen_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'zen', checked: selected_payment_option.by_zen?, data: { action: "change->form--submit#submit" } %>
+              <%= f.radio_button :payment_type, 'zen', checked: selected_payment_option.by_zen?, data: { action: "change->form--submit#submit" } %>
               <div class="db-card-providers">
                 <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
                 <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
@@ -15,7 +15,7 @@
           <% end %>
           <% if SettingFlag.show_bitcoin_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'bitcoin', checked: selected_payment_option.by_bitcoin?, data: { action: "change->form--submit#submit" } %>
+              <%= f.radio_button :payment_type, 'bitcoin', checked: selected_payment_option.by_bitcoin?, data: { action: "change->form--submit#submit" } %>
               <div class="db-card-providers">
                 <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
               </div>
@@ -23,7 +23,7 @@
           <% end %>
           <% if SettingFlag.show_wire_payment? %>
             <%= tag.label class: "hide_radio_buttons nav-item #{'disabled' if pending_wire_transfer}" do %>
-              <%= form.radio_button :payment_type, 'wire', checked: selected_payment_option.by_wire?, data: { action: "change->form--submit#submit" } %>
+              <%= f.radio_button :payment_type, 'wire', checked: selected_payment_option.by_wire?, data: { action: "change->form--submit#submit" } %>
               <%= t('subscriptions.payment.by_wire_transfer') %>
             <% end %>
           <% end %>
@@ -38,9 +38,9 @@
         } do %>
           <div id="payZen" class="tab-pane show <%= pending_wire_transfer ? 'disabled' : ( 'active' if selected_payment_option.by_zen?) %>" aria-labelledby="log-tab" role="tabpanel">
             <%= render partial: "country_form", locals: { selected_payment_option: selected_payment_option } %>
-            <%= form_with model: payment, method: :patch, url: upgrade_zen_payment_path do |form| %>
+            <%= form_with model: payment, url: upgrade_create_zen_payment_path do |f| %>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_zen_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: selected_payment_option.price_with_vat == 0 do %>
+                <%= f.submit data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: selected_payment_option.price_with_vat == 0 do %>
                   <span class="mr-3"><%= t('subscriptions.payment.pay') %></span>
                   <%= tag.span class: "#{selected_payment_option.subscription_plan.name}-total-price" do %>
                     <%= format_price(selected_payment_option.price_with_vat, selected_payment_option.currency) %>
@@ -52,21 +52,21 @@
 
           <div id="payBitcoin" class="tab-pane <%= pending_wire_transfer ? 'disabled' : ( 'active' if selected_payment_option.by_bitcoin?) %>" aria-labelledby="log-tab" role="tabpanel">
             <%= render partial: "country_form", locals: { selected_payment_option: selected_payment_option } %>
-            <%= form_with model: payment, method: :patch, url: upgrade_btcpay_payment_path, data: { turbo: false, controller: "form--html5-validations" } do |form| %>
+            <%= form_with model: payment, url: upgrade_create_btcpay_payment_path, data: { controller: "form--html5-validations" } do |f| %>
               <div class="db-form__row">
-                <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name" %>
-                <%= form.label :first_name, class: 'db-form__label' %>
+                <%= f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name" %>
+                <%= f.label :first_name, class: 'db-form__label' %>
               </div>
               <div class="db-form__row">
-                <%= form.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name" %>
-                <%= form.label :last_name, class: 'db-form__label' %>
+                <%= f.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name" %>
+                <%= f.label :last_name, class: 'db-form__label' %>
               </div>
               <div class="db-form__row">
-                <%= form.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date' %>
-                <%= form.label :birth_date, class: 'db-form__label' %>
+                <%= f.date_field :birth_date, value: "", autocomplete: "bday", class: 'db-form__input db-form__input--date' %>
+                <%= f.label :birth_date, class: 'db-form__label' %>
               </div>
               <div class="db-form__row db-form__row--final-button">
-                <%= button_to upgrade_btcpay_payment_path, method: :post, data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: selected_payment_option.price_with_vat == 0 do %>
+                <%= f.submit data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: selected_payment_option.price_with_vat == 0 do %>
                   <span class="mr-0"><%= t('subscriptions.payment.pay_with_bitcoin') %></span>
                 <% end %>
               </div>
@@ -75,14 +75,14 @@
 
           <div id="payWire" class="tab-pane <%= 'active' if pending_wire_transfer || selected_payment_option.by_wire? %>" aria-labelledby="log-tab" role="tabpanel">
             <%= render partial: "country_form", locals: { selected_payment_option: selected_payment_option } %>
-            <%= form_with model: payment, method: :patch, url: upgrade_wire_transfer_payment_path, id: "new_payment", class: "new_payment", data: { controller: "form--html5-validations" } do |form| %>
+            <%= form_with model: payment, url: upgrade_create_wire_transfer_payment_path, id: "new_payment", class: "new_payment", data: { controller: "form--html5-validations" } do |f| %>
               <div class="db-form__row">
-                <%= form.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", required: true, disabled: pending_wire_transfer %>
-                <%= form.label :first_name, class: 'db-form__label' %>
+                <%= f.text_field :first_name, class: 'db-form__input', value: "", autocomplete: "given-name", required: true, disabled: pending_wire_transfer %>
+                <%= f.label :first_name, class: 'db-form__label' %>
               </div>
               <div class="db-form__row">
-                <%= form.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", required: true, disabled: pending_wire_transfer %>
-                <%= form.label :last_name, class: 'db-form__label' %>
+                <%= f.text_field :last_name, class: 'db-form__input', value: "", autocomplete: "family-name", required: true, disabled: pending_wire_transfer %>
+                <%= f.label :last_name, class: 'db-form__label' %>
               </div>
               <% if pending_wire_transfer %>
                 <div class="db-form__row"><%= t('subscriptions.payment.by_wire_transfer_pending') %></div>
@@ -129,7 +129,7 @@
                   </div>
                 <% end %>
                 <div class="db-form__row db-form__row--final-button">
-                  <%= button_to upgrade_btcpay_payment_path, method: :post, data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: selected_payment_option.price_with_vat == 0 do %>
+                  <%= f.submit data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: selected_payment_option.price_with_vat == 0 do %>
                     <span class="mr-0">
                       <%= selected_payment_option.from_eu? ?
                         t('subscriptions.payment.paid_with_wire_transfer') :

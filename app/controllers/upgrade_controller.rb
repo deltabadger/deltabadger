@@ -4,9 +4,9 @@ class UpgradeController < ApplicationController
   before_action :set_navigation_session, only: %i[index]
   before_action :set_payment, only: %i[
     index
-    zen_payment
-    btcpay_payment
-    wire_transfer_payment
+    create_zen_payment
+    create_btcpay_payment
+    create_wire_transfer_payment
   ]
   skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_ipn zen_payment_ipn]
 
@@ -14,7 +14,7 @@ class UpgradeController < ApplicationController
     set_index_instance_variables
   end
 
-  def zen_payment
+  def create_zen_payment
     if payment_update({})
       initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(@payment)
       if initiator_result.success?
@@ -50,7 +50,7 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def btcpay_payment
+  def create_btcpay_payment
     puts "btcpay_payment_params: #{btcpay_payment_params}"
     if payment_update(btcpay_payment_params)
       initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(@payment)
@@ -60,6 +60,7 @@ class UpgradeController < ApplicationController
         handle_server_error(initiator_result)
       end
     else
+      puts 'we got error'
       set_index_instance_variables
       render :index, status: :unprocessable_entity
     end
@@ -80,7 +81,7 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def wire_transfer_payment
+  def create_wire_transfer_payment
     if payment_update(wire_payment_params)
       finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
       if initiator_result.failure?
@@ -133,7 +134,8 @@ class UpgradeController < ApplicationController
 
   def payment_update(params)
     puts "params for payment_update: #{params}"
-    # @payment.assign_attributes(@selected_payment_option.attributes.except('id', 'created_at'))
+    set_index_instance_variables
+    @payment.assign_attributes(@selected_payment_option.attributes.except('id', 'created_at'))
     @payment.assign_attributes(params)
     @payment.update({
                       status: 'unpaid',

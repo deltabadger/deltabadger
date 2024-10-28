@@ -1,8 +1,8 @@
-<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
+<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
   <% available_variant_years.each do |years| %>
     <% selected = selected_payment_option.subscription_plan_variant.years == years %>
     <%= tag.label class: "hide_radio_buttons" do %>
-      <%= form.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
+      <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
       <div>
         <%= years_amount(years) %>
       </div>
@@ -10,11 +10,11 @@
   <% end %>
 <% end %>
 
-<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { style: "display: flex; grid-gap: 1rem; gap: 1rem; flex-direction: column;" } do |form| %>
+<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { style: "display: flex; grid-gap: 1rem; gap: 1rem; flex-direction: column;" } do |f| %>
   <% current_user.available_plan_names.each do |available_plan_name| %>
     <% selected = selected_payment_option.subscription_plan.name == available_plan_name %>
     <%= tag.label class: "hide_radio_buttons db-plans__item db-plans__item--#{available_plan_name}-plan db-plan-#{available_plan_name} db-plan--#{selected ? 'selected' : 'other'}" do %>
-      <%= form.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+      <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
       <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
         payment_option: payment_options[available_plan_name],
         legendary_plan: legendary_plan,
