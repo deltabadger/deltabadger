@@ -50,11 +50,11 @@ class UpgradeController < ApplicationController
   end
 
   def zen_payment_ipn
-    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).failure?
-      render json: { error: 'Unauthorized' }, status: :unauthorized
-    else
+    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
       PaymentsManager::ZenManager::PaymentFinalizer.call(params)
       render json: { "status": 'ok' }
+    else
+      render json: { error: 'Unauthorized' }, status: :unauthorized
     end
   end
 
@@ -69,21 +69,20 @@ class UpgradeController < ApplicationController
 
   def btcpay_payment_ipn
     validation_result = PaymentsManager::BtcpayManager::IpnHashVerifier.call(params)
-    if validation_result.failure?
-      render json: { error: 'Unauthorized' }, status: :unauthorized
-    else
+    if validation_result.success?
       PaymentsManager::BtcpayManager::PaymentFinalizer.call(validation_result.data[:invoice])
       render json: {}
+    else
+      render json: { error: 'Unauthorized' }, status: :unauthorized
     end
   end
 
   def handle_wire_transfer_payment
     finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
-    if finalizer_result.failure?
-      handle_server_error(finalizer_result)
+    if finalizer_result.success?
+      redirect_to action: 'index'
     else
-      set_index_instance_variables
-      render :index
+      handle_server_error(finalizer_result)
     end
   end
 
