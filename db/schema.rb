@@ -235,6 +235,7 @@ ActiveRecord::Schema.define(version: 2024_10_29_034943) do
     t.integer "nft_id"
     t.string "eth_address"
     t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
+    t.index ["end_time"], name: "index_subscriptions_on_end_time"
     t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
