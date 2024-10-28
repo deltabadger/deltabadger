@@ -11,7 +11,7 @@ class LegendariesController < ApplicationController
         current_user.subscription.nft_id,
         current_user.subscription.eth_address
       ).deliver_later
-      redirect_to legendary_badger_path
+      redirect_to legendary_path
     else
       render :show, status: :unprocessable_entity
     end

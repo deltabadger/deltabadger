@@ -8,7 +8,7 @@ module PaymentsManager
       def call(payment)
         @notifications.wire_transfer_summary(payment: payment)
 
-        update_params = {
+        user_update_params = {
           pending_wire_transfer: payment.country,
           pending_plan_variant_id: payment.subscription_plan_variant_id
         }

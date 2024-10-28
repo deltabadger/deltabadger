@@ -25,7 +25,6 @@ module PaymentsManager
         update_params.merge!(status: status) unless payment.paid?
         if just_paid
           update_params.merge!(paid_at: paid_at(params),
-                               commission: recalculate_commission(params, payment),
                                btc_commission: recalculate_btc_commission(params, payment))
         end
         unless payment.update(update_params)
@@ -72,12 +71,6 @@ module PaymentsManager
         return 0 if Utilities::Number.to_bigdecimal(payment.btc_total, precision: 8).zero?
 
         params['btcPaid'].to_f / payment.btc_total * payment.btc_commission
-      end
-
-      def recalculate_commission(params, payment)
-        return 0 if Utilities::Number.to_bigdecimal(payment.btc_total, precision: 8).zero?
-
-        (params['btcPaid'].to_f / payment.btc_total * payment.commission.to_f).round(2)
       end
     end
   end

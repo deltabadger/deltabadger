@@ -1,0 +1,11 @@
+<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |form| %>
+  <div class="db-form__row">
+    <%= form.select :country, options_for_select(localized_payment_country_options, selected_payment_option.country), {}, {
+      autocomplete: "country-name",
+      class: "db-form__input db-form__input--select",
+      data: { action: "change->form--submit#submit" }
+    } %>
+    <%= form.label :country, class: 'db-form__label' %>
+    <div class="db-form__info db-form__info--invalid"><%= t('helpers.label.payment.country') + ' ' + t('errors.messages.blank') %></div>
+  </div>
+<% end %>

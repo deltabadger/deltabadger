@@ -3,17 +3,19 @@ class Payment < ApplicationRecord
   belongs_to :subscription_plan_variant
 
   enum currency: %i[USD EUR]
-  enum status: { unpaid: 0, paid: 2, cancelled: 5 }
+  enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5 }
   enum payment_type: %i[bitcoin wire stripe zen], _prefix: 'by'
   validates :user,
-            :subscription_plan_variant,
-            :status,
             :payment_type,
+            :subscription_plan_variant,
             :country,
-            :currency, presence: true
-  validates :birth_date, presence: true, if: :by_bitcoin?
-  validates :first_name, :last_name, presence: true, if: :bitcoin? || :by_wire?
-  validate :minimum_age, if: :by_bitcoin?
+            :status,
+            :currency,
+            :total,
+            :commission,
+            :discounted, presence: true
+  validates :first_name, :last_name, presence: true, if: :requires_full_name?
+  validate :requires_minimum_age, if: :by_bitcoin?
 
   delegate :subscription_plan, to: :subscription_plan_variant
 
@@ -24,15 +26,6 @@ class Payment < ApplicationRecord
     from = from.blank? ? Date.new(0) : Date.parse(from)
     to = to.blank? ? Date.tomorrow : Date.parse(to) + 1.day
     fiat ? paid.by_fiat.where(paid_at: from..to) : paid.by_bitcoin.where(paid_at: from..to)
-  end
-
-  def initialize(attributes = {})
-    super
-    self.status ||= 'unpaid'
-    self.currency ||= from_eu? ? 'EUR' : 'USD'
-    self.total ||= price_with_vat
-    self.discounted ||= referral_discount_percent.positive?
-    self.commission ||= referrer_commission_amount
   end
 
   def from_eu?
@@ -91,10 +84,14 @@ class Payment < ApplicationRecord
 
   private
 
-  def minimum_age
-    return unless birth_date.present? && birth_date > 18.years.ago.to_date
+  def requires_minimum_age
+    return unless birth_date.nil? || birth_date > 18.years.ago.to_date
 
     errors.add(:birth_date, 'You must be at least 18 years old.')
+  end
+
+  def requires_full_name?
+    by_bitcoin? || by_wire?
   end
 
   def referral_discounted_price
