@@ -2,6 +2,19 @@
 
 <div class="page-head">
   <div class="stitle"><%= t('upgrade') %></div>
+
+  <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
+    <% @available_variant_years.each do |years| %>
+      <% selected = @payment.subscription_plan_variant.years == years %>
+      <%= tag.label class: "hide_radio_buttons" do %>
+        <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
+        <div>
+          <%= years_amount(years) %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+
 </div>
 
 <%= turbo_frame_tag "upgrade-frame" do %>
@@ -11,21 +24,33 @@
         <%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
           <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}" %>
         <% end %>
-        <%= render partial: "upgrade_plans", locals: {
-          available_variant_years: @available_variant_years,
-          payment_options: @payment_options,
-          payment: @payment,
-          legendary_plan: @legendary_plan,
-        } %>
+
+        <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { style: "display: flex; grid-gap: 1rem; gap: 1rem; flex-direction: column;" } do |f| %>
+          <% current_user.available_plan_names.each do |available_plan_name| %>
+            <% selected = @payment.subscription_plan.name == available_plan_name %>
+            <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
+              <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+              <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
+                payment_option: @payment_options[available_plan_name],
+                legendary_plan: @legendary_plan, # only used in legendary plan card
+              } %>
+              <% if available_plan_name == @legendary_plan.name %>
+                <%= render partial: 'layouts/svg_bubbleart_01' %>
+              <% end %>
+            <% end %>
+          <% end %>
+        <% end %>
+
       </div>
 
       <div class="pricing__checkout">
-        <%= render partial: "upgrade_summary", locals: {
+        <%= render partial: "discounts", locals: {
           payment: @payment,
+          payment_options: @payment_options,
+          legendary_plan: @legendary_plan
         } %>
-        <%= render partial: "billing_form", locals: {
-          payment: @payment,
-        } %>
+        <%= render partial: "summary", locals: { payment: @payment } %>
+        <%= render partial: "billing_form", locals: { payment: @payment } %>
       </div>
     <% end %>
 <% end %>
