@@ -1,4 +1,4 @@
-<div class="db-plans__item__name">
+<div class="widget--pricing__name">
   <%= t('subscriptions.pro') %>
   <div class="db-years">
     <% if current_user.subscription.name == SubscriptionPlan::PRO_PLAN && current_user.subscription.days_left %>
@@ -8,23 +8,23 @@
     <% end %>
   </div>
 </div>
-<div class="db-plans__item__amount">
+<div class="widget--pricing__amount">
   <% unless current_user.subscription.name == SubscriptionPlan::PRO_PLAN && current_user.subscription.days_left %>
     <% if payment_option.base_price != payment_option.adjusted_base_price %>
-      <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
+      <div class="widget--pricing__amount__t widget--pricing__amount__t--previous">
         <%= format_price(payment_option.base_price, payment_option.currency) %>
       </div>
-      <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
+      <div class="widget--pricing__amount__t widget--pricing__amount__t--new">
         <%= format_price(payment_option.adjusted_base_price, payment_option.currency) %>
       </div>
     <% else %>
-      <div class="db-plans__item__amount__t">
+      <div class="widget--pricing__amount__t">
         <%= format_price(payment_option.base_price, payment_option.currency) %>
       </div>
     <% end %>
   <% end %>
 </div>
-<div class="db-plans__item__info">
+<div class="widget--pricing__info">
   <p><%= t('subscriptions.pro_info') %></p>
   <ul>
     <li><%= render 'svg/24x24_check' %><%= t('subscriptions.features.dca') %></li>

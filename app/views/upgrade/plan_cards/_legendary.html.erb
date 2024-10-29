@@ -1,29 +1,33 @@
-<div class="db-plans__item__name">
+<div class="widget--pricing__name">
   <%= t('subscriptions.legendary') %>
   <div class="db-years">
     <%= t('subscriptions.plan_life_time') %>
   </div>
 </div>
-<div class="db-plans__item__amount">
+<div class="widget--pricing__amount">
   <% if payment_option.base_price != payment_option.adjusted_base_price %>
-      <div class="db-plans__item__amount__t db-plans__item__amount__t--previous">
+      <div class="widget--pricing__amount__t widget--pricing__amount__t--previous">
         <%= format_price(payment_option.base_price, payment_option.currency) %>
       </div>
-      <div class="db-plans__item__amount__t db-plans__item__amount__t--new">
+      <div class="widget--pricing__amount__t widget--pricing__amount__t--new">
         <%= format_price(payment_option.adjusted_base_price, payment_option.currency) %>
       </div>
     <% else %>
-      <div class="db-plans__item__amount__t">
+      <div class="widget--pricing__amount__t">
         <%= format_price(payment_option.base_price, payment_option.currency) %>
       </div>
     <% end %>
 </div>
-<div class="db-plans__item__info">
+<div class="widget--pricing__info">
   <%= t('subscriptions.legendary_badger_info_html') %>
-  <div class="db-plans__item__legendary-plans-left">
+  <div class="widget--pricing__legendary-plans-left">
     <%= legendary_plan.for_sale_count %> of <%= legendary_plan.total_supply %> left.
-    <div class="progress">
-      <div class="progress-bar" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+    <div class="slider">
+      <div class="slider__style">
+        <div class="slider__style__track">
+          <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

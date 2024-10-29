@@ -5,15 +5,12 @@
 </div>
 
 <%= turbo_frame_tag "upgrade-frame" do %>
-  <div class="db-country">
-    <%= tag.div class: "row db-checkout db-checkout--#{@payment.subscription_plan.name}-plan" do %>
-      <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
+    <%= tag.div class: "pricing" do %>
+      <div class="pricing__plans">
 
-        <%= tag.div class: "db-plans__item db-plans__item--#{current_user.subscription.name}-plan db-plans__item--current" do %>
+        <%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
           <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}" %>
         <% end %>
-
-        <h4 class="mb-4 mt-5 pb-4"><%= t('subscriptions.prolong_upgrade') %></h4>
         <%= render partial: "upgrade_plans", locals: {
           available_variant_years: @available_variant_years,
           payment_options: @payment_options,
@@ -21,7 +18,8 @@
           legendary_plan: @legendary_plan,
         } %>
       </div>
-      <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
+
+      <div class="pricing__checkout">
         <%= render partial: "upgrade_summary", locals: {
           payment: @payment,
         } %>
@@ -30,7 +28,6 @@
         } %>
       </div>
     <% end %>
-  </div>
 <% end %>
 
 <%# FIXME: is this needed? %>
