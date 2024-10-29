@@ -5,6 +5,12 @@ class UpgradeController < ApplicationController
   def index
     redirect_to legendary_path if current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
 
+    if current_user.pending_wire_transfer.present?
+      @payment = current_user.payments.last
+      render 'pending_wire_transfer'
+      return
+    end
+
     set_navigation_session
     set_index_instance_variables
     @payment = @payment_options[session[:plan_name]]
@@ -80,7 +86,7 @@ class UpgradeController < ApplicationController
   def handle_wire_transfer_payment
     finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
     if finalizer_result.success?
-      redirect_to action: 'index'
+      redirect_to action: :index
     else
       handle_server_error(finalizer_result)
     end
