@@ -5,6 +5,7 @@ class UpgradeController < ApplicationController
   def index
     redirect_to legendary_path if current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
 
+    # TODO: style the pending_wire_transfer view
     if current_user.pending_wire_transfer.present?
       @payment = current_user.payments.last
       render 'pending_wire_transfer'
