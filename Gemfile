@@ -43,6 +43,7 @@ gem 'bundler', '>= 2.3.5'
 gem 'lol_dba'
 
 group :development, :test do
+  gem 'debug'
   gem 'bullet'
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop', '~> 1.48.0'
