@@ -5,6 +5,7 @@ module Subscription::Nftable
     before_validation :set_nft_id
 
     validates :nft_id, presence: true, if: :legendary?
+    validates :nft_id, uniqueness: true, allow_nil: true
     validates :nft_id,
               numericality: {
                 only_integer: true,
@@ -13,7 +14,6 @@ module Subscription::Nftable
               },
               if: -> { nft_id.present? && legendary? }
     validate :nft_id_valid_for_legendary_badger
-    validate :nft_id_uniqueness
     validate :eth_address_is_valid, if: -> { eth_address.present? }
 
     def eth_address_is_valid?
@@ -38,16 +38,8 @@ module Subscription::Nftable
       errors.add(:nft_id, :used, message: 'is only available for the Legendary Badger NFT plan') if nft_id.present? && !legendary?
     end
 
-    def nft_id_uniqueness
-      errors.add(:nft_id, :used, message: '%<value>s is already used') if nft_id_already_used?
-    end
-
     def eth_address_is_valid
       errors.add(:eth_address, :invalid_address, eth_address: eth_address) unless eth_address_is_valid?
-    end
-
-    def nft_id_already_used?
-      legendary? && nft_id.present? && nft_id.in?(self.class.used_nft_ids - [nft_id_was])
     end
 
     def set_nft_id
