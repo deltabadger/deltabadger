@@ -6,11 +6,6 @@ module SubscriptionPlan::PlanStats
       @active_subscriptions_count ||= Subscription.active.by_plan_name(name)&.count || 0
     end
 
-    def current_discount
-      ensure_legendary!
-      [0, for_sale_count * 10].max
-    end
-
     def total_supply
       ensure_legendary!
       LegendaryBadgersCollection::TOTAL_SUPPLY

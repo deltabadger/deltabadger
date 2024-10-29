@@ -10,12 +10,13 @@ module PaymentsManager
       user = payment.user
       new_subscription_plan_variant = payment.subscription_plan_variant
       start_time = start_time(user.subscription, new_subscription_plan_variant)
+      end_time = new_subscription_plan_variant.years.nil? ? nil : start_time + new_subscription_plan_variant.years
 
       begin
         Subscription.create!(
           user_id: user.id,
           subscription_plan_variant: new_subscription_plan_variant,
-          end_time: start_time + new_subscription_plan_variant.years,
+          end_time: end_time,
           credits: new_subscription_plan_variant.subscription_plan.credits
         )
       rescue ActiveRecord::RecordInvalid => e

@@ -16,7 +16,7 @@ module PaymentsManager
           return Result::Failure.new('ActiveRecord error', data: update_params)
         end
 
-        UpgradeSubscriptionWorker.perform_at(15.minutes.since(Time.current), payment)
+        UpgradeSubscriptionWorker.perform_at(15.minutes.since(Time.current), payment.id)
 
         Result::Success.new
       end

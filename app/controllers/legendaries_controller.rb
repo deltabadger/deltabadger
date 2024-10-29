@@ -1,5 +1,6 @@
 class LegendariesController < ApplicationController
   before_action :authenticate_user!
+  before_action :redirect_to_upgratde_if_not_legendary
   before_action :set_show_instance_variables
 
   def show; end
@@ -26,5 +27,9 @@ class LegendariesController < ApplicationController
 
   def legendary_params
     params.require(:subscription).permit(:eth_address, :eth_address_confirmation)
+  end
+
+  def redirect_to_upgratde_if_not_legendary
+    redirect_to upgrade_path unless current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
   end
 end

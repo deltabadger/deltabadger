@@ -30,7 +30,7 @@
         </div>
         <div class="db-plans__item__amount">
           <div class="db-plans__item__amount__t db-plans__item__amount__t--discount">
-            -<%= format_price(legendary_plan.current_discount, payment.currency) %>
+            -<%= format_price(payment_options['legendary'].legendary_plan_discount, payment.currency) %>
           </div>
         </div>
         <div class="db-plans__item__info"><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>

@@ -154,7 +154,7 @@ ActiveRecord::Schema.define(version: 2024_10_23_225401) do
     t.string "payment_id"
     t.integer "status", null: false
     t.decimal "total", precision: 10, scale: 2, null: false
-    t.integer "currency"
+    t.integer "currency", null: false
     t.bigint "user_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

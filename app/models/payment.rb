@@ -5,15 +5,6 @@ class Payment < ApplicationRecord
   enum currency: %i[USD EUR]
   enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5 }
   enum payment_type: %i[bitcoin wire stripe zen], _prefix: 'by'
-  validates :user,
-            :payment_type,
-            :subscription_plan_variant,
-            :country,
-            :status,
-            :currency,
-            :total,
-            :commission,
-            :discounted, presence: true
   validates :first_name, :last_name, presence: true, if: :requires_full_name?
   validate :requires_minimum_age, if: :by_bitcoin?
 
@@ -82,6 +73,17 @@ class Payment < ApplicationRecord
     current_subscription_base_price * discount_multiplier
   end
 
+  def legendary_plan_discount
+    return 0 if subscription_plan.name != SubscriptionPlan::LEGENDARY_PLAN
+
+    legendary_plan = SubscriptionPlan.legendary
+    if from_eu?
+      legendary_plan.for_sale_count * (subscription_plan_variant.cost_eur / legendary_plan.total_supply)
+    else
+      legendary_plan.for_sale_count * (subscription_plan_variant.cost_usd / legendary_plan.total_supply)
+    end
+  end
+
   private
 
   def requires_minimum_age
@@ -96,11 +98,5 @@ class Payment < ApplicationRecord
 
   def referral_discounted_price
     adjusted_base_price * (1 - referral_discount_percent)
-  end
-
-  def legendary_plan_discount
-    return 0 if subscription_plan.name != SubscriptionPlan::LEGENDARY_PLAN
-
-    SubscriptionPlan.legendary.current_discount
   end
 end

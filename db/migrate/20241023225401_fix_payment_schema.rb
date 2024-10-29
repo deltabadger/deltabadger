@@ -10,6 +10,7 @@ class FixPaymentSchema < ActiveRecord::Migration[6.0]
     change_column_null :payments, :status, false
     change_column_null :payments, :user_id, false
     change_column_null :payments, :total, false
+    change_column_null :payments, :currency, false
 
     add_index :payments, :currency
     add_index :payments, :status
@@ -27,6 +28,7 @@ class FixPaymentSchema < ActiveRecord::Migration[6.0]
     change_column_null :payments, :status, true
     change_column_null :payments, :user_id, true
     change_column_null :payments, :total, true
+    change_column_null :payments, :currency, true
 
     remove_index :payments, :currency
     remove_index :payments, :status
