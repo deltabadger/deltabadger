@@ -702,6 +702,11 @@ en:
             subject: '%{plan_name} plan granted'
             template_html: '<p>Wow,</p><p>Thanks for buying our <b>%{plan_name} plan</b></p><p>You rock!</p>'
     subscriptions:
+        per_month_html: "%{count_html}/mo"
+        per_year_html: "%{count_html}/yr"
+        billed: "billed once"
+        billed1: "billed yearly"
+        billed4: "billed every 4 years"
         days_left:
             one: '1 day left'
             other: '%{count} days left'
