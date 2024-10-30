@@ -1,4 +1,4 @@
-<% if current_user.available_plan_names.include?(legendary_plan.name) %>
+<% if payment.subscription_plan.name == legendary_plan.name %>
   <div class="widget widget--pricing widget--pricing--discount">
     <div class="widget--pricing__name">
       <%= t('subscriptions.payment.legendary_plan_discount') %>
