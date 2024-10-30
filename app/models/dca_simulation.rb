@@ -36,6 +36,8 @@ class DcaSimulation
   end
 
   def first_investment_date(data_points)
+    return Date.today if @amount >= @target_profit
+
     next_time_check = Date.today.prev_month
     current_price = data_points.last[4]
     bought_amount = 0

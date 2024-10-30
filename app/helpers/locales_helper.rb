@@ -12,25 +12,32 @@ module LocalesHelper
     end
   end
 
-  def localized_time_difference_from_today(date, precision: :days)
+  def localized_time_difference_from_today(date, precision: :days, no_time_message: '')
     duration = Time.current - date.to_datetime
-    result = ''
 
-    years = (duration / 1.year).floor
+    result = []
+    result << time_difference_from_today_time_component(duration, 1.year, 'utils.years')
+    return time_difference_from_today_finalize_result(result, no_time_message) if precision == :years
+
     remaining_after_years = duration % 1.year
-    result += t('utils.years', count: years) if years.positive?
+    result << time_difference_from_today_time_component(remaining_after_years, 1.month, 'utils.months')
+    return time_difference_from_today_finalize_result(result, no_time_message) if precision == :months
 
-    return result if precision == :years
-
-    months = (remaining_after_years / 1.month).floor
     remaining_after_months = remaining_after_years % 1.month
-    result += " #{t('utils.months', count: months)}" if months.positive?
+    result << time_difference_from_today_time_component(remaining_after_months, 1.day, 'utils.days')
 
-    return result.lstrip if precision == :months
+    time_difference_from_today_finalize_result(result, no_time_message)
+  end
 
-    days = (remaining_after_months / 1.day).floor
-    result += " #{t('utils.days', count: days)}" if days.positive?
+  private
 
-    result.lstrip
+  def time_difference_from_today_time_component(duration, unit, translation_key)
+    value = (duration / unit).floor
+    value.positive? ? t(translation_key, count: value) : ''
+  end
+
+  def time_difference_from_today_finalize_result(result, no_time_message)
+    result_string = result.compact.join(' ').strip
+    result_string.blank? ? no_time_message : result_string
   end
 end
