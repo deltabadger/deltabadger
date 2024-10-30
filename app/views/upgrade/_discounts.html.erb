@@ -4,9 +4,7 @@
       <%= t('subscriptions.payment.legendary_plan_discount') %>
     </div>
     <div class="widget--pricing__amount">
-      <div class="widget--pricing__amount__t widget--pricing__amount__t--discount">
-        -<%= format_price(payment_options[legendary_plan.name].legendary_plan_discount, payment.currency) %>
-      </div>
+      -<%= format_price(payment_options[legendary_plan.name].legendary_plan_discount, payment.currency) %>
     </div>
     <div class="widget--pricing__info"><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
   </div>
@@ -16,9 +14,7 @@
   <div class="widget widget--pricing widget--pricing--discount db-plan-active-discount">
     <div class="widget--pricing__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
     <div class="widget--pricing__amount">
-      <div class="widget--pricing__amount__t widget--pricing__amount__t--discount">
-        -<%= format_price(payment.current_plan_discount_amount, payment.currency) %>
-      </div>
+      -<%= format_price(payment.current_plan_discount_amount, payment.currency) %>
     </div>
     <div class="widget--pricing__info"><%= t("subscriptions.payment.compensation_#{current_user.subscription.name}", count: current_user.subscription.days_left) %></div>
   </div>
@@ -29,9 +25,7 @@
   <div class="widget widget--pricing widget--pricing--discount">
     <div class="widget--pricing__name"><%= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent) %></div>
     <div class="widget--pricing__amount">
-      <div class="widget--pricing__amount__t widget--pricing__amount__t--discount">
-        -<%= format_price(payment.referral_discount_amount, payment.currency) %>
-      </div>
+      -<%= format_price(payment.referral_discount_amount, payment.currency) %>
     </div>
     <div class="widget--pricing__info">
       <% if discount_presenter.info? %>
