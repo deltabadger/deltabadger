@@ -20,7 +20,7 @@ class DcaSimulation
   end
 
   def perform
-    Time.current - time_to_profit(time_series)
+    first_investment_date(time_series)
   end
 
   private
@@ -35,14 +35,14 @@ class DcaSimulation
     end
   end
 
-  def time_to_profit(data_points)
+  def first_investment_date(data_points)
     next_time_check = Date.today.prev_month
     current_price = data_points.last[4]
     bought_amount = 0
     amount_of_intervals = 0
     first_buy_price = current_price
     data_points.reverse.each do |datetime, _open, _high, _low, close|
-      date = DateTime.parse(datetime)
+      date = Date.parse(datetime)
       next if date > next_time_check
 
       bought_amount += @amount / close
@@ -59,7 +59,7 @@ class DcaSimulation
     virtual_close = first_buy_price / (1 + avg_monthly_return)
     while bought_amount * current_price < @target_profit
       bought_amount += @amount / virtual_close
-      return next_time_check.to_datetime if bought_amount * current_price >= @target_profit
+      return next_time_check if bought_amount * current_price >= @target_profit
 
       virtual_close /= 1 + avg_monthly_return
       next_time_check = next_time_check.prev_month
