@@ -10,13 +10,3 @@
 <%= render 'layouts/limit_reached' %>
 
 <div id="dashboard"></div>
-
-<script type="text/javascript">
-  document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('infoheader-icon').addEventListener('click', function() {
-      document.getElementById('infoheader-title').classList.toggle('hidden');
-      document.getElementById('tiles').classList.toggle('hidden');
-      this.classList.toggle('active');  // Toggle the .active class on the clicked .infoheader__icon
-    });
-  });
-</script>
