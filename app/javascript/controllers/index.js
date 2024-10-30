@@ -19,14 +19,14 @@ application.register("flatpickr", FlatpickrController)
 import Form__CheckboxEnablesController from "./form/checkbox_enables_controller"
 application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 
+import Form__Html5ValidationsController from "./form/html5_validations_controller"
+application.register("form--html5-validations", Form__Html5ValidationsController)
+
 import Form__SubmitAfterDelayController from "./form/submit_after_delay_controller"
 application.register("form--submit-after-delay", Form__SubmitAfterDelayController)
 
 import Form__SubmitController from "./form/submit_controller"
 application.register("form--submit", Form__SubmitController)
-
-import Form__Html5ValidationsController from "./form/html5_validations_controller"
-application.register("form--html5-validations", Form__Html5ValidationsController)
 
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
@@ -51,6 +51,9 @@ application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnal
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
+
+import ShowHideController from "./show_hide_controller"
+application.register("show-hide", ShowHideController)
 
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
