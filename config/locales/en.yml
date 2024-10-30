@@ -707,6 +707,12 @@ en:
         billed: "billed once"
         billed1: "billed yearly"
         billed4: "billed every 4 years"
+        variant1: "Pay yearly"
+        variant4: "Pay once every 4 years, get 1 year for free"
+        free: Free
+        basic: Basic
+        pro: Pro
+        Legendary: Legendary
         days_left:
             one: '1 day left'
             other: '%{count} days left'
@@ -762,7 +768,6 @@ en:
         plan_1_year: '1-year plan'
         plan_life_time: 'Lifetime plan'
         prolong_upgrade: 'Upgrade your plan'
-        free: Free
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'
     legendary_badger:
