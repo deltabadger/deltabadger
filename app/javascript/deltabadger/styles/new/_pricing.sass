@@ -1,0 +1,66 @@
+.pricing
+    display: flex
+    flow-direction: row
+    gap: 4rem
+    &__plans, &__checkout
+        border-radius: 2rem !important
+        overflow: hidden
+    &__plans
+        display: grid
+        grid-template-columns: repeat(3, 1fr)
+        grid-template-rows: 1fr
+        gap: 2px
+        width: calc(75%)
+    &__checkout
+        width: 25%
+.widget--pricing
+    gap: 5rem
+    &__name
+        font-size: 2.5rem
+        font-weight: 700
+        line-height: 2rem
+        color: var(--text-strong)
+    &__amount
+        min-height: 11rem
+        color: var(--text-strong)
+        &__t
+            font-size: 6rem
+            line-height: 6rem
+            font-weight: 600
+            display: block
+            &--previous
+                color: var(--text-faded)
+                .price-ticker
+                    font-size: 2.5rem
+                    position: relative
+                    top: -2.4rem
+                    margin-right: .25rem
+                .price-amount
+                    text-decoration: line-through
+            &--new
+                margin-top: 1rem
+                font-size: 2.5rem
+                line-height: 2.5rem
+                color: var(--text-strong)
+                font-weight: 700
+                .price-ticker
+                    margin-right: .25rem
+    ul
+        list-style: none
+        li
+            padding-left: 2rem
+    &__info
+        flex: 2
+    &__legendary-plans-left
+        color: var(--success) !important
+        span
+            display: block
+            margin-bottom: 1rem
+        .slider__style__track
+            border-left-color: var(--success) !important
+
+.pricing-period-toggle
+    display: flex
+    gap: 2rem
+    label
+        white-space: nowrap

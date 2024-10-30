@@ -76,7 +76,8 @@
 
     = render 'layouts/navbar'
     .main
-      = yield
+      .main-content
+        = yield
 
     #current_user_subscription{ data: current_user.subscription.name }
 

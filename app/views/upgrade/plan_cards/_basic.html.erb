@@ -1,29 +1,34 @@
 <div class="widget--pricing__name">
   <%= t('subscriptions.basic') %>
-  <div class="db-years">
-    <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
-      <div class="text-success"><%= t('subscriptions.days_left', count: current_user.subscription.days_left) %></div>
-    <% else %>
-      <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
-    <% end %>
-  </div>
 </div>
+
 <div class="widget--pricing__amount">
   <% unless current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
     <% if payment_option.base_price != payment_option.adjusted_base_price %>
-      <div class="widget--pricing__amount__t widget--pricing__amount__t--previous">
-        <%= format_price(payment_option.base_price, payment_option.currency) %>
-      </div>
-      <div class="widget--pricing__amount__t widget--pricing__amount__t--new">
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--previous">
+        <%= format_price(payment_option.base_price, payment_option.currency, 0) %>
+      </span>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--new">
         <%= format_price(payment_option.adjusted_base_price, payment_option.currency) %>
-      </div>
+      </span>
     <% else %>
-      <div class="widget--pricing__amount__t">
-        <%= format_price(payment_option.base_price, payment_option.currency) %>
-      </div>
+      <span class="widget--pricing__amount__t">
+        <%= format_price(payment_option.base_price, payment_option.currency, 0) %>
+      </span>
     <% end %>
   <% end %>
 </div>
+
+<div class="widget--pricing__period">
+  <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
+    <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
+  <% else %>
+    <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
+  <% end %>
+</div>
+
+
+
 <div class="widget--pricing__info">
   <p><%= t('subscriptions.basic_info') %></p>
   <ul>
