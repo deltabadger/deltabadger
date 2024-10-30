@@ -676,6 +676,7 @@ nl:
             subject: '%{plan_name} abonnement geactiveerd'
             template_html: '<p>Wow,</p><p>Bedankt voor het kopen van ons <b>%{plan_name} plan</b></p><p>Je bent geweldig!</p>'
     subscriptions:
+        free: Spaarder
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'
@@ -729,7 +730,6 @@ nl:
         plan_1_year: '1-jarig plan'
         plan_life_time: 'Levenslang plan'
         prolong_upgrade: 'Upgrade je abonnement'
-        free: Spaarder
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
     legendary_badger:

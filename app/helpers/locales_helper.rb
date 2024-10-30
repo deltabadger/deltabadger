@@ -3,6 +3,15 @@ module LocalesHelper
     t("subscriptions.#{name}")
   end
 
+  def localized_plan_variant_name(subscription_plan_variant)
+    years = subscription_plan_variant.years
+    if years.nil?
+      t(subscription_plan_variant.name)
+    else
+      "#{t(subscription_plan_variant.name)} (#{t('utils.years', count: years)})"
+    end
+  end
+
   def localized_payment_country_options
     @localized_payment_country_options ||= VatRate.all_in_display_order.map do |vat_rate|
       [

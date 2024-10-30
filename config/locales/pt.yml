@@ -598,6 +598,7 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
     subscriptions:
+        free: Free
         days_left:
             one: '1 dia restante'
             other: '%{count} dias restantes'
@@ -640,7 +641,6 @@ pt:
         plan_1_year: 'Plano de 1 ano'
         plan_life_time: 'Para a vida'
         prolong_upgrade: 'Atualizar plano'
-        free: Free
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'
     legendary_badger:

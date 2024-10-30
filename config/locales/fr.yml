@@ -676,6 +676,7 @@ fr:
             subject: 'Forfait %{plan_name} accordé'
             template_html: '<p>Wow,</p><p>merci d''avoir acheté notre forfait <b>%{plan_name}</b></p>. <p>Vous déchirez !</p>'
     subscriptions:
+        free: 'Gratuit'
         days_left:
             one: "1 jour restant"
             other: "%{count} jours restants"
@@ -729,7 +730,6 @@ fr:
         plan_1_year: 'Forfait de 1 an'
         plan_life_time: 'Forfait à vie'
         prolong_upgrade: 'Mise à niveau du forfait'
-        free: 'Gratuit'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mise à niveau du forfait'
     legendary_badger:
