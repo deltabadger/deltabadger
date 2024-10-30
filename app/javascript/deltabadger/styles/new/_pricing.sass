@@ -15,6 +15,15 @@
                 border-radius: 0 2rem 2rem 0
     &__checkout
         width: 25%
+        gap: 1rem
+        display: flex
+        flex-direction: column
+        &__calculations
+            .widget
+                &:first-child
+                    border-radius: 2rem 2rem 0 0
+                &:last-child
+                    border-radius: 0 0 2rem 2rem
 .widget--pricing
     gap: 5rem
     &__name
@@ -67,7 +76,9 @@
         .slider__style__track
             border-left-color: var(--success) !important
     &--selected,&--other
-        cursor: pointer        
+        cursor: pointer
+    &--other
+        background: var(--pickExchangeItemBg)        
     &--selected
         background: var(--primary)
         color: #fffc
