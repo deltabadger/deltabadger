@@ -687,6 +687,7 @@ pl:
             subject: 'Plan %{plan_name} został włączony'
             template_html: '<p> Wow, </p> <p> Dziękujemy za zakup naszego planu <b> %{plan_name} </b> </p> <p> Dajesz radę! </p>'
     subscriptions:
+        free: Oszczędny
         days_left:
             one: 'Pozostał 1 dzień'
             few: 'Pozostały %{count} dni'
@@ -746,7 +747,6 @@ pl:
         plan_1_year: 'Plan roczny'
         plan_life_time: 'Plan dożywotni'
         prolong_upgrade: 'Zrób upgrade'
-        free: Oszczędny
         upgrade: Upgrade
         upgrade_plan: 'Zrób upgrade'
     legendary_badger:
