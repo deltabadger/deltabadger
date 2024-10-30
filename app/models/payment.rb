@@ -43,6 +43,11 @@ class Payment < ApplicationRecord
     [0, base_price - current_plan_discount_amount - legendary_plan_discount].max
   end
 
+  def virtual_price(method, split_time)
+    annualized_price = send(method) / subscription_plan_variant.years
+    annualized_price * (split_time.to_f / 1.year)
+  end
+
   def referral_discount_percent
     user.eligible_referrer&.discount_percent || 0
   end
