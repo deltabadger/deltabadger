@@ -621,6 +621,7 @@ de:
             subject: '%{plan_name}-Plan garantiert'
             template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
     subscriptions:
+        free: Sparer
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
@@ -674,7 +675,6 @@ de:
         plan_1_year: 1-Jahr-Plan
         plan_life_time: 'Lebenslanger Plan'
         prolong_upgrade: 'Stufe deinen Plan hoch'
-        free: Sparer
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'
     legendary_badger:

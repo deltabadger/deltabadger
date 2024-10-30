@@ -677,6 +677,7 @@ es:
             subject: '%{plan_name} plan concedido'
             template_html: '<p> Guau, </p> <p> Gracias por comprar nuestro plan <b> %{plan_name} </b> </p> <p> ¡No te arrepentirás! </p>'
     subscriptions:
+        free: Gratis
         days_left:
             one: '1 día menos'
             other: '%{count} días disponibles'
@@ -730,7 +731,6 @@ es:
         plan_1_year: 'Plan de 1 año'
         plan_life_time: 'Plan de por vida'
         prolong_upgrade: 'Actualiza tu plan'
-        free: Gratis
         upgrade: Actualizar
         upgrade_plan: 'Actualizar plan'
     legendary_badger:
