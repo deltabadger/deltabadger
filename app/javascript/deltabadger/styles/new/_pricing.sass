@@ -2,15 +2,17 @@
     display: flex
     flow-direction: row
     gap: 4rem
-    &__plans, &__checkout
-        border-radius: 2rem !important
-        overflow: hidden
     &__plans
         display: grid
         grid-template-columns: repeat(3, 1fr)
         grid-template-rows: 1fr
         gap: 2px
         width: calc(75%)
+        .widget
+            &:first-child
+                border-radius: 2rem 0 0 2rem
+            &:last-child
+                border-radius: 0 2rem 2rem 0
     &__checkout
         width: 25%
 .widget--pricing
@@ -47,10 +49,16 @@
                     margin-right: .25rem
     ul
         list-style: none
+        display: flex
+        flex-direction: column
+        gap: 1rem
         li
             padding-left: 2rem
     &__info
         flex: 2
+        display: flex
+        flex-direction: column
+        gap: 4rem
     &__legendary-plans-left
         color: var(--success) !important
         span
@@ -58,6 +66,15 @@
             margin-bottom: 1rem
         .slider__style__track
             border-left-color: var(--success) !important
+    &--selected,&--other
+        cursor: pointer        
+    &--selected
+        background: var(--primary)
+        color: #fffc
+        --text-strong: #fff
+        --text-faded: #8195cf
+        a
+            color: #fff
 
 .pricing-period-toggle
     display: flex
