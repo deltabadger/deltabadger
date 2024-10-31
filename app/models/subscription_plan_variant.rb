@@ -30,8 +30,9 @@ class SubscriptionPlanVariant < ApplicationRecord
   end
 
   def self.variant_years(ignore_nil: true)
-    all_years = all_subscription_plan_variants.map { |_, v| v.years }.uniq
-    ignore_nil ? all_years.compact : all_years
+    y = all_subscription_plan_variants.map { |_, v| v.years }.uniq.compact.sort
+    y << nil if !ignore_nil && all_subscription_plan_variants.any? { |_, v| v.years.nil? }
+    y
   end
 
   def self.all_subscription_plan_variants

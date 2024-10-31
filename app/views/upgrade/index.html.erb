@@ -4,13 +4,13 @@
 
     <div class="page-head">
       <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
-        <% @available_variant_years.each_with_index do |years, index| %>
+        <% @available_variant_years.each do |years| %>
           <% selected = @payment.subscription_plan_variant.years == years %>
           <%= tag.label class: "hide_radio_buttons" do %>
             <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
             <%= t("subscriptions.variant#{years}") %>
           <% end %>
-          <%= " / " unless index == @available_variant_years.size - 1 %>
+          <%= " / " unless years == @available_variant_years.last %>
         <% end %>
       <% end %>
     </div>
