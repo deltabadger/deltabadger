@@ -616,7 +616,7 @@ pt:
         expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
-            price_eur_html: '<span class=price-amount>%{price}</span><span class=price-ticker>%{symbol}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
             account_type: 'Tipo de conta'
