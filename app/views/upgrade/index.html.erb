@@ -8,7 +8,7 @@
       <%= tag.label class: "hide_radio_buttons" do %>
         <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
         <div>
-          <%= t("subscriptions.variant#{years}") %>
+          / <%= t("subscriptions.variant#{years}") %>
         </div>
       <% end %>
     <% end %>

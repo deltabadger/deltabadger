@@ -1,21 +1,24 @@
-<div class="widget widget--checkout widget--checkout--summary">
-  <div class="widget--checkout--summary__item widget--checkout--summary__item--vat">
-    <div class="widget--checkout--summary__item__info">
+<div class="widget widget--vat-summary">
+
+  <div class="widget--vat-summary__vat">
+    <div class="widget--vat-summary__info">
       <%= '+' + t('subscriptions.payment.vat') %>
       <span class='vat-percent'><%= format_percent(payment.vat_percent) %></span>
     </div>
-    <div class="widget--checkout--summary__item__quote">
+    <div class="widget--vat-summary__quote">
       <%= tag.span class: "#{payment.subscription_plan.name}-total-vat" do %>
         <%= format_price(payment.vat_amount, payment.currency) %>
       <% end %>
     </div>
   </div>
-  <div class="widget--checkout--summary__item widget--checkout--summary__item--sum">
-    <div class="widget--checkout--summary__item__info"><%= t('subscriptions.payment.you_pay') %></div>
-    <div class="widget--checkout--summary__item__quote">
+
+  <div class="widget--vat-summary__sum">
+    <div class="widget--vat-summary__info"><%= t('subscriptions.payment.you_pay') %></div>
+    <div class="widget--vat-summary__quote">
       <%= tag.span class: "#{payment.subscription_plan.name}-total-price" do %>
         <%= format_price(payment.price_with_vat, payment.currency) %>
       <% end %>
     </div>
   </div>
+
 </div>
