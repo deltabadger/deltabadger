@@ -26,7 +26,7 @@
   <% discount_presenter = RefCodesPresenter.new(current_user.eligible_referrer) %>
   <div class="widget widget--discount">
     <div class="widget--discount__col">
-      <div class="widget--discount__name"><%= t('subscriptions.payment.discount', discount_percent: discount_presenter.discount_percent) %></div>
+      <div class="widget--discount__name"><%= t('subscriptions.payment.referral_discount', discount_percent: format_percent(current_user.eligible_referrer.discount_percent)) %></div>
       <div class="">
         <% if discount_presenter.info? %>
           <%= t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name) %>

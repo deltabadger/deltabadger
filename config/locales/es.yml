@@ -710,7 +710,6 @@ es:
             compensation_basic:
                 one: 'Compensación por un día sin usar el plan Basic'
                 other: 'Compensación por %{count} días sin usar el plan Basic.'
-            discount: '%{discount_percent} % de descuento'
             legendary_plan_discount: 'Descuento por venta anticipada'
             legendary_plan_discount_info: 'Con cada venta el descuento disminuye 10$. ¡No esperes!'
             eu_bank_country: Bélgica
@@ -720,6 +719,7 @@ es:
             pay_html: 'Pagar %{amount_html}'
             pay_with_bitcoin: 'Pagar con Bitcoin'
             payment_ordered: '¡Pago ordenado!'
+            referral_discount: '%{discount_percent} de descuento'
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
             routing_number: 'Número de ruta bancaria'
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
