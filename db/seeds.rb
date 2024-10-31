@@ -15,7 +15,6 @@ Exchange.find_or_create_by!(name: 'ProBit Global')
 
 SettingFlag.find_or_create_by!(name: 'show_bitcoin_payment', value: true)
 SettingFlag.find_or_create_by!(name: 'show_wire_payment', value: true)
-SettingFlag.find_or_create_by!(name: 'show_stripe_payment', value: true)
 SettingFlag.find_or_create_by!(name: 'show_zen_payment', value: true)
 
 COINBASE_API_KEY = ENV.fetch('COINBASE_API_KEY').freeze
@@ -25,10 +24,17 @@ FeeApiKey.find_or_create_by!(exchange: Exchange.find_or_create_by!(name: 'Coinba
 FeeApiKey.update(key: COINBASE_API_KEY)
 FeeApiKey.update(secret: COINBASE_API_SECRET)
 
-_saver = SubscriptionPlan.find_or_create_by!(name: 'saver', cost_eu: 0, cost_other: 0, unlimited: false, years: 1, credits: 1200)
-investor = SubscriptionPlan.find_or_create_by!(name: 'investor', cost_eu: 49.99, cost_other: 49.99, unlimited: true, years: 1, credits: 1200)
-hodler = SubscriptionPlan.find_or_create_by!(name: 'hodler', cost_eu: 149.99, cost_other: 149.99, unlimited: true, years: 4, credits: 1200)
-legendary_badger = SubscriptionPlan.find_or_create_by!(name: 'legendary_badger', cost_eu: 249.99, cost_other: 249.99, unlimited: true, years: 10000, credits: 1200)
+free_plan = SubscriptionPlan.find_or_create_by!(name: 'free', unlimited: false, credits: 1200)
+basic_plan = SubscriptionPlan.find_or_create_by!(name: 'basic', unlimited: true, credits: 1200)
+pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro', unlimited: true, credits: 1200)
+legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary', unlimited: true, credits: 1200)
+
+free_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: free_plan, cost_eur: 0, cost_usd: 0)
+basic_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: basic_plan, years: 1, cost_eur: 87, cost_usd: 97)
+SubscriptionPlanVariant.find_or_create_by!(subscription_plan: basic_plan, years: 4, cost_eur: 267, cost_usd: 297)
+pro_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, years: 1, cost_eur: 267, cost_usd: 297)
+SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, years: 4, cost_eur: 797, cost_usd: 897)
+legendary_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: legendary_plan, cost_eur: 9000, cost_usd: 10000)
 
 VatRate.find_or_create_by!(country: 'Other', vat: 0)
 VatRate.find_or_create_by!(country: 'Poland', vat: 0.23)
@@ -57,34 +63,34 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current - 30.days, credits: investor.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: free_plan_variant, credits: free_plan_variant.credits)
 end
 
 User.find_or_create_by(
-  email: "investor@test.com"
+  email: "basic@test.com"
 ) do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: investor, end_time: Time.current + investor.duration + 1.day, credits: investor.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: basic_plan_1_year_variant, credits: basic_plan.credits)
 end
 
 
 User.find_or_create_by(
-  email: "hodler@test.com"
+  email: "pro@test.com"
 ) do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: hodler, end_time: Time.current + hodler.duration + 1.day, credits: hodler.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: pro_plan_1_year_variant, credits: pro_plan.credits)
 end
 
 
 User.find_or_create_by(
-  email: "legendary_badger@test.com"
+  email: "legendary@test.com"
 ) do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan: legendary_badger, end_time: Time.current + legendary_badger.duration + 1.day, credits: legendary_badger.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: legendary_plan_variant, credits: legendary_plan.credits)
 end

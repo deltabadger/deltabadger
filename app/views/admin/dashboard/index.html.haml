@@ -1,13 +1,12 @@
-- settings_repository = SettingFlagsRepository.new
 %h1 Dashboard
 
 %hr
 
 %p= "Number of users: #{number_of_all_users}"
-%p= "Number of investor plans: #{number_of_investor_plans}"
-%p= "Number of hodler plans: #{number_of_hodler_plans}"
-%p= "Number of legendary badger plans: #{number_of_legendary_badger_plans}"
-%p= "Number of available legendary badger plans: #{number_of_available_legendary_badger_plans}"
+%p= "Number of basic plans: #{number_of_basic_plans}"
+%p= "Number of pro plans: #{number_of_pro_plans}"
+%p= "Number of legendary plans: #{number_of_legendary_plans_sold}"
+%p= "Number of available legendary badger plans: #{number_of_legendary_plans_available}"
 %p= "Number of bots: #{number_of_all_bots}"
 %p= "Number of working bots: #{number_of_working_bots}"
 -# %p= "Number of all transactions: #{number_of_all_transactions}"
@@ -18,16 +17,13 @@
 %p
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_stripe_payment, :onChange => "change('show_stripe_payment', checked)"} Card Payments (Stripe)
+    %input{:type => 'checkbox', :checked => SettingFlag.show_zen_payment, :onChange => "change('show_zen_payment', checked)"} Card Payments (Zen)
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_zen_payment, :onChange => "change('show_zen_payment', checked)"} Card Payments (Zen)
+    %input{:type => 'checkbox', :checked => SettingFlag.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
 %div
   %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_bitcoin_payment, :onChange => "change('show_bitcoin_payment', checked)"} BTC Payments
-%div
-  %label
-    %input{:type => 'checkbox', :checked => settings_repository.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
+    %input{:type => 'checkbox', :checked => SettingFlag.show_wire_payment, :onChange => "change('show_wire_payment', checked)"} Wire Transfers
 :javascript
   const element = document.getElementsByName('csrf-token')[0];
   const token = element && element.getAttribute('content');

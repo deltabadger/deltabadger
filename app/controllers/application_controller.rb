@@ -12,11 +12,6 @@ class ApplicationController < ActionController::Base
 
   protected
 
-  def current_user
-    user = super
-    user.present? ? UserDecorator.new(user: user, context: self) : nil
-  end
-
   def configure_permitted_parameters
     devise_parameter_sanitizer
       .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement referrer_id name])
@@ -39,7 +34,7 @@ class ApplicationController < ActionController::Base
   end
 
   def handle_unverified_request
-    flash[:alert] = I18n.t('errors.unverified_request')
+    flash[:alert] = t('errors.unverified_request')
     redirect_back fallback_location: root_path
   end
 

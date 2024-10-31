@@ -38,7 +38,7 @@ pl:
         btc_address_confirmation_sent: 'Wysłano e-mail potwierdzający'
         create:
             error: 'Rejestracja programu referencyjnego nie powiodła się'
-            saver_error: 'Musisz dokonać upgrade''u, aby się zarejestrować'
+            free_plan_error: 'Musisz dokonać upgrade''u, aby się zarejestrować'
         current_bitcoin_address: 'Aktualny adres Bitcoin'
         discount:
             accepted: 'Zaakceptowałeś link polecający'
@@ -80,7 +80,7 @@ pl:
             manual_title: 'Jak to działa?'
             paid_commission: 'Wypłacone (BTC)'
             paid_so_far: 'Wpłacono (BTC)'
-            referees: Użytkownicy
+            referrals: Użytkownicy
             stats: Statystyki
             submit: Zaktualizuj
             submit_bitcoin_address: 'Zaktualizuj adres Bitcoin'
@@ -101,7 +101,7 @@ pl:
             template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
         limit_almost_reached:
             subject: 'Limit prawie wyczerpany'
-            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Investor</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
+            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Basic</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
         limit_reached:
             subject: 'Wyczerpałeś darmowy limit'
             template_html: '<p>No to się udało! Osiagnąłeś limit planu <b>Oszczędny</b>.</p><p>Wygląda na to, że od jakiegoś czasu uśredniasz cenę z naszymi botami.</p><p>Mamy nadzieję, że jesteś zadowolony z wyników.</p><p>Zrób upgrade, aby usunąć wszystkie limity i przywrócić swoje boty do pracy.</p>'
@@ -667,8 +667,8 @@ pl:
             email_section: E-mail
             name_section: Imię
             password_section: Hasło
-            saver_days_left_html: '%{credits}'
-            saver_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
+            free_plan_days_left_html: '%{credits}'
+            free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             submit_email: 'Zaktualizuj e-mail'
             submit_name: 'Aktualizuj nazwę'
             submit_password: 'Zmień hasło'
@@ -687,6 +687,7 @@ pl:
             subject: 'Plan %{plan_name} został włączony'
             template_html: '<p> Wow, </p> <p> Dziękujemy za zakup naszego planu <b> %{plan_name} </b> </p> <p> Dajesz radę! </p>'
     subscriptions:
+        free: Oszczędny
         days_left:
             one: 'Pozostał 1 dzień'
             few: 'Pozostały %{count} dni'
@@ -705,6 +706,8 @@ pl:
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
         expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Pro: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: Odbiorca
             account_number: 'Numer konta'
             account_type: 'Typ konta'
@@ -713,35 +716,32 @@ pl:
             bank_address: 'Adres banku'
             billing_information: 'Informacje rozliczeniowe'
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Płatność się powiodła, powinieneś zostać przekierowany w ciągu kilku sekund.'
-            compensation_hodler:
+            compensation_pro:
                 one: 'Wyrównanie za 1 niewykorzystany dzień planu Pro.'
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'
                 many: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
-            compensation_investor:
+            compensation_basic:
                 one: 'Wyrównanie za 1 niewykorzystany dzień planu Basic.'
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
                 many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
-            discount: '%{discount_percent}% rabatu'
-            legendary_badger_discount: 'Zniżka Early Bird'
-            legendary_badger_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
+            legendary_plan_discount: 'Zniżka Early Bird'
+            legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
             paid_with_wire_transfer_other: 'Zrobiłem przelew'
-            pay: Zapłać
+            pay_html: 'Zapłać %{amount_html}'
             pay_with_bitcoin: 'Płać bitcoinem'
             payment_ordered: 'Płatność zlecona!'
+            referral_discount: '%{discount_percent} rabatu'
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
             routing_number: 'Numer routingowy'
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
             vat: VAT
-            wire_cost_hodler_html: 'Prześlij <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_investor_html: 'Prześlij <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_legendary_badger_html: 'Prześlij  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> na następujący rachunek bankowy:'
-            wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{price}%{sign}</b> na poniższe konto bankowe:'
+            wire_cost_html: 'Prześlij <b>%{price}</b> na następujący rachunek bankowy:'
+            wire_cost_pending_html: 'Jeśli jeszcze nie dokonałeś płatności, wyślij <b>%{price}</b> na poniższe konto bankowe:'
             wire_transfer: 'Przelew bankowy'
             wire_transfer_fill_form: 'Wypełnij powyższy formularz, aby kontynuować...'
             wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'
@@ -749,12 +749,10 @@ pl:
         plan_1_year: 'Plan roczny'
         plan_life_time: 'Plan dożywotni'
         prolong_upgrade: 'Zrób upgrade'
-        saver: Oszczędny
         upgrade: Upgrade
         upgrade_plan: 'Zrób upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
-        update_success: '"%{eth_address}" został pomyślnie zgłoszony. NFT zostanie wysłane na ten adres.'
         ethereum_address: 'Adres Ethereum'
         confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
         claim: 'Odbierz NFT'
@@ -770,7 +768,7 @@ pl:
             <p style="margin-bottom:0">Do zobaczenia, Jan</p>
         default: 'Cześć, witamy w Deltabadger'
         legendary: 'NFT już wkrótce!'
-        saver: 'Zrób upgrade i pozbądź się limitów!'
+        free: 'Zrób upgrade i pozbądź się limitów!'
     metrics:
         exp_return:
             short_name: 'Oczekiwany Zwrot'

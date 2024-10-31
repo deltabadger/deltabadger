@@ -38,7 +38,7 @@ nl:
         btc_address_confirmation_sent: 'Bevestigingsmail verzonden'
         create:
             error: 'Verwijzingsprogramma registratie mislukt'
-            saver_error: 'Je moet upgraden om je te registreren'
+            free_plan_error: 'Je moet upgraden om je te registreren'
         current_bitcoin_address: 'Huidig Bitcoin-adres'
         discount:
             accepted: 'U heeft de referral link geaccepteerd'
@@ -80,7 +80,7 @@ nl:
             manual_title: 'Hoe werkt het?'
             paid_commission: 'Betaald (BTC)'
             paid_so_far: 'Reeds uitbetaald (BTC)'
-            referees: 'Aantal personen doorverwezen'
+            referrals: 'Aantal personen doorverwezen'
             stats: Stats
             submit: Update
             submit_bitcoin_address: 'Bitcoin-adres wijzigen'
@@ -101,10 +101,10 @@ nl:
             template_html: '<p>U gebruikt Deltabadger nu bijna een maand!</p><p>Uw gratis proefperiode eindigt binnenkort. Zorg voor een upgrade om je zwaardere badgers lopende te houden!</p>'
         limit_almost_reached:
             subject: 'Limiet bijna bereikt'
-            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
+            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Basic</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
         limit_reached:
             subject: 'U hebt de limiet bereikt'
-            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Investor</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
+            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Basic</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
         notify_about_error:
             subject: 'Er ging iets mis'
             template_html: '<p>Er ging iets mis tijdens het verwerken van de laatste transactie.</p><p>U kan de error zien in het bot logboek. Log in om dit te controleren.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -656,8 +656,8 @@ nl:
             email_section: Email
             name_section: Voornaam
             password_section: Wachtwoord
-            saver_days_left_html: '<b>$%{credits}</b> van de transactielimiet van het gratis abonnement is nog over.'
-            saver_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
+            free_plan_days_left_html: '<b>$%{credits}</b> van de transactielimiet van het gratis abonnement is nog over.'
+            free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             submit_email: 'Email wijzigen'
             submit_name: 'Naam wijzigen'
             submit_password: 'Wachtwoord wijzigen'
@@ -676,6 +676,7 @@ nl:
             subject: '%{plan_name} abonnement geactiveerd'
             template_html: '<p>Wow,</p><p>Bedankt voor het kopen van ons <b>%{plan_name} plan</b></p><p>Je bent geweldig!</p>'
     subscriptions:
+        free: Spaarder
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'
@@ -692,6 +693,8 @@ nl:
         analyzer_html: 'Versterk je portfolio met de onbeperkte kracht van de <b>Portfolio Analyzer</b>.'
         expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Pro-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: Rekeninghouder
             account_number: Rekeningnummer
             account_type: 'Rekening soort'
@@ -700,31 +703,28 @@ nl:
             bank_address: 'Bank adres'
             billing_information: Factuurgegevens
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Betaling geslaagd, u wordt binnen enkele seconden doorgestuurd.'
-            compensation_hodler:
+            compensation_pro:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'
-            compensation_investor:
+            compensation_basic:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
-            discount: '%{discount_percent}% korting'
-            legendary_badger_discount: 'Early Bird korting'
-            legendary_badger_discount_info: 'Bij elke verkoop daalt de korting met $10. Wacht niet!'
+            legendary_plan_discount: 'Early Bird korting'
+            legendary_plan_discount_info: 'Bij elke verkoop daalt de korting met $10. Wacht niet!'
             eu_bank_country: België
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'
             paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'
             paid_with_wire_transfer_other: 'Ik heb een bankoverschrijving gedaan'
-            pay: Betaal
+            pay_html: 'Betaal %{amount_html}'
             pay_with_bitcoin: 'Betaal met Bitcoin'
             payment_ordered: 'Betaling besteld!'
+            referral_discount: '%{discount_percent} korting'
             referral_discount_html: 'Dankzij de referral link van <b><a href="%{visible_link}">%{visible_name}</a></b>, krijg je een korting voor de eerste aankoop op het platform.'
             routing_number: 'Routing nummer'
             server_error: 'Betalingen server error. Probeer het later opnieuw.'
             vat: BTW
-            wire_cost_hodler_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_investor_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_legendary_badger_html: 'Stuur alstublieft <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> naar de volgende bankrekening:'
-            wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{sign}%{price}</b> naar volgende bankrekening:'
+            wire_cost_html: 'Stuur alstublieft <b>%{price}</b> naar de volgende bankrekening:'
+            wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{price}</b> naar volgende bankrekening:'
             wire_transfer: Bankoverschrijving
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
             wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per email contact met u op.'
@@ -732,12 +732,10 @@ nl:
         plan_1_year: '1-jarig plan'
         plan_life_time: 'Levenslang plan'
         prolong_upgrade: 'Upgrade je abonnement'
-        saver: Spaarder
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
-        update_success: '"%{eth_address}" is succesvol ingediend. Het NFT zal naar dit adres worden verzonden.'
         ethereum_address: 'Adresse Ethereum'
         confirm_info: 'Ik bevestig dat het adres correct is en begrijp dat de NFT naar dit adres zal worden verzonden. Zodra ik op "Claimen" klik, kan niemand de NFT herstellen als het adres onjuist is.'
         claim: 'Claim NFT'
@@ -753,7 +751,7 @@ nl:
             <p style="margin-bottom:0">Tot dan, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
-        saver: 'Weg met limieten, en doe een upgrade!'
+        free: 'Weg met limieten, en doe een upgrade!'
     metrics:
         exp_return:
             short_name: 'Verwachte Rendement'
