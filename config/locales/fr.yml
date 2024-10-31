@@ -714,7 +714,7 @@ fr:
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
             paid_with_wire_transfer_other: 'J''ai effectué un virement bancaire'
-            pay: 'Payer'
+            pay_html: 'Payer %{amount_html}'
             pay_with_bitcoin: 'Payer en Bitcoin'
             payment_ordered: 'Paiement ordonné !'
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'

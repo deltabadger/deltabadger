@@ -659,7 +659,7 @@ de:
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
             paid_with_wire_transfer_other: 'I habe eine Überweisung per Wire Transfer durchgeführt'
-            pay: Bezahlen
+            pay_html: 'Bezahlen %{amount_html}'
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             payment_ordered: 'Zahlung angefordert!'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'

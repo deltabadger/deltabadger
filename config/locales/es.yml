@@ -715,7 +715,7 @@ es:
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
             paid_with_wire_transfer_other: 'He realizado una transferencia bancaria'
-            pay: Pagar
+            pay_html: 'Pagar %{amount_html}'
             pay_with_bitcoin: 'Pagar con Bitcoin'
             payment_ordered: '¡Pago ordenado!'
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
