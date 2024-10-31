@@ -737,7 +737,6 @@ en:
             after_wire_transfer_html: 'Thank you! We''ll be back to you soon! If you need further assistance, let us know: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Bank address'
             billing_information: 'Billing information'
-            bitcoin: Bitcoin
             compensation_pro:
                 one: 'Compensation for 1 unused day of the Pro plan.'
                 other: 'Compensation for %{count} unused days of the Pro plan.'
@@ -745,8 +744,8 @@ en:
                 one: 'Compensation for 1 unused day of the Basic plan.'
                 other: 'Compensation for %{count} unused days of the Basic plan.'
             discount: '%{discount_percent}% discount'
-            legendary_plan_discount: 'Early Bird discount'
-            legendary_plan_discount_info: 'With every sale the discount decreases $10. Don''t wait!'
+            legendary_plan_discount: 'Legendary discount'
+            legendary_plan_discount_info: 'Price goes up $10 with every sale'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I made SEPA transfer'
