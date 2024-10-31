@@ -702,13 +702,13 @@ en:
             subject: '%{plan_name} plan granted'
             template_html: '<p>Wow,</p><p>Thanks for buying our <b>%{plan_name} plan</b></p><p>You rock!</p>'
     subscriptions:
-        per_month_html: "%{count_html}/mo"
-        per_year_html: "%{count_html}/yr"
+        per_month_html: "/mo"
+        per_year_html: "/yr"
         billed: "billed once"
-        billed1: "billed yearly"
+        billed1: "billed annually"
         billed4: "billed every 4 years"
-        variant1: "Pay yearly"
-        variant4: "Pay once every 4 years, get 1 year for free"
+        variant1: "Pay annually"
+        variant4: "Buy 4 years, get one year free"
         free: Free
         basic: Basic
         pro: Pro
