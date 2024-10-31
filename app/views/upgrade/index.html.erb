@@ -3,17 +3,16 @@
 <%= turbo_frame_tag "upgrade-frame" do %>
 
     <div class="page-head">
-
       <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
-        <% @available_variant_years.each do |years| %>
+        <% @available_variant_years.each_with_index do |years, index| %>
           <% selected = @payment.subscription_plan_variant.years == years %>
           <%= tag.label class: "hide_radio_buttons" do %>
             <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
-              <%= t("subscriptions.variant#{years}") %>
+            <%= t("subscriptions.variant#{years}") %>
           <% end %>
+          <%= " / " unless index == @available_variant_years.size - 1 %>
         <% end %>
       <% end %>
-
     </div>
 
     <%= tag.div class: "pricing" do %>
