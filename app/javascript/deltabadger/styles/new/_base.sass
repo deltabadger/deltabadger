@@ -17,7 +17,7 @@ dialog
 .main
     display: flex
     justify-content: center
-    padding: 4rem 4rem 4rem 20rem
+    padding: 4rem 4rem 4rem 16rem
     @media only screen and (min-width: 2480px)
         padding: 4rem
     @media only screen and (max-width: 1359px)
@@ -64,8 +64,9 @@ dialog
         
         gap: 2rem
     &__h
-        margin-bottom: 2rem
+        margin-bottom: 0
         font-size: 3rem  
+        line-height: 3rem
         text-align: left
     &__icon
         width: 3rem
@@ -75,8 +76,7 @@ dialog
         line-height: 2.8rem
         text-align: center
         border-radius: 50%
-        font-weight: 700
-        margin: 0.75rem 0    
+        font-weight: 700 
         cursor: pointer
         &.active
             background: var(--text)
