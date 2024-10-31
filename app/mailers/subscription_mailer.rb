@@ -1,5 +1,7 @@
 class SubscriptionMailer < ApplicationMailer
-  helper NumbersHelper
+  include LocalesHelper
+
+  helper LocalesHelper
 
   def subscription_granted
     @payment = params[:payment]
