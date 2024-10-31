@@ -709,7 +709,6 @@ fr:
             compensation_basic:
                 one: 'Compensation pour 1 jour inutilisé du forfait Basic'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Basic'
-            discount: '%{discount_percent}% de réduction'
             legendary_plan_discount: 'Réduction Early Bird'
             legendary_plan_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
             eu_bank_country: 'Belgique'
@@ -719,6 +718,7 @@ fr:
             pay_html: 'Payer %{amount_html}'
             pay_with_bitcoin: 'Payer en Bitcoin'
             payment_ordered: 'Paiement ordonné !'
+            referral_discount: '%{discount_percent} de réduction'
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
             routing_number: 'Numéro de routage'
             server_error: 'Erreur du serveur de paiement, merci de réessayer plus tard.'

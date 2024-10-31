@@ -726,7 +726,6 @@ pl:
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
                 many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
-            discount: '%{discount_percent}% rabatu'
             legendary_plan_discount: 'Zniżka Early Bird'
             legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
             eu_bank_country: Belgia
@@ -736,6 +735,7 @@ pl:
             pay_html: 'Zapłać %{amount_html}'
             pay_with_bitcoin: 'Płać bitcoinem'
             payment_ordered: 'Płatność zlecona!'
+            referral_discount: '%{discount_percent} rabatu'
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
             routing_number: 'Numer routingowy'
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
