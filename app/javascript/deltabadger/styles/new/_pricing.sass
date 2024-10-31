@@ -24,6 +24,24 @@
                     border-radius: 2rem 2rem 0 0
                 &:last-child
                     border-radius: 0 0 2rem 2rem
+    &__payment-methods
+        display: flex
+    &__payment-method
+        text-align: center
+        flex: 2
+        img
+            height: 4rem
+        &__tab
+            background: var(--widget-background)
+            height: 6rem
+            padding: 1rem
+            display: flex
+            justify-content: center
+            align-items: center
+            border-radius: 2rem 2rem 0 0
+            .db-form__label
+                background: var(--widget-background)
+    
 .widget
     &--pricing
         gap: 5rem
@@ -114,10 +132,14 @@
         &__quote
             font-weight: 700
             color: var(--text-strong)
+    &--checkout
+        border-radius: 0 0 2rem 2rem
 
 .pricing-period-toggle
     display: flex
-    gap: 2rem
+    gap: 1.5rem
+    font-size: 2.5rem
+    line-height: 3rem
     label
         white-space: nowrap
     :not([checked="checked"]) + span
