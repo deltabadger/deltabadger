@@ -706,6 +706,8 @@ pl:
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
         expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Pro: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
         payment:
+            price_usd_html: '<span class=price-amount>%{price}</span><span class=price-ticker>%{symbol}</span>'
+            price_eur_html: '<span class=price-amount>%{price}</span><span class=price-ticker>%{symbol}</span>'
             account_holder: Odbiorca
             account_number: 'Numer konta'
             account_type: 'Typ konta'

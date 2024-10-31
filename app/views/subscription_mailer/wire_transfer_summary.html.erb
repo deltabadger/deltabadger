@@ -13,5 +13,5 @@ Country: <%= @payment.country %>
 <br>
 Plan: <%= @payment.subscription_plan.name %>
 <br>
-Amount: <%= format_price(@payment.total, @payment.currency) %>
+Amount: <%= localized_price(@payment.total, @payment.currency) %>
 <br>

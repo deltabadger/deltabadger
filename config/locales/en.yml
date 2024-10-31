@@ -729,6 +729,8 @@ en:
         analyzer_html: 'Boost your portfolio with the unlimited power of <b>🌈⃤ Prism</b> portfolio tester.'
         expires_soon_html: 'We''re building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             card: 'Card'
             account_holder: 'Account holder'
             account_number: 'Account number'

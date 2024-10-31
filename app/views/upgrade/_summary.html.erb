@@ -7,7 +7,7 @@
     </div>
     <div class="widget--vat-summary__quote">
       <%= tag.span class: "#{payment.subscription_plan.name}-total-vat" do %>
-        <%= format_price(payment.vat_amount, payment.currency) %>
+        <%= localized_price(payment.vat_amount, payment.currency) %>
       <% end %>
     </div>
   </div>
@@ -16,7 +16,7 @@
     <div class="widget--vat-summary__info"><%= t('subscriptions.payment.you_pay') %></div>
     <div class="widget--vat-summary__quote">
       <%= tag.span class: "#{payment.subscription_plan.name}-total-price" do %>
-        <%= format_price(payment.price_with_vat, payment.currency) %>
+        <%= localized_price(payment.price_with_vat, payment.currency) %>
       <% end %>
     </div>
   </div>

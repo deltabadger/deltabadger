@@ -19,7 +19,7 @@
 <img alt="Logo" src="https://deltabadger.com/logo_plus_legendary50.png" style="margin-bottom: 24px">
 
 <p>
-  PS If you didn’t pay yet, please, send <%= format_price(@payment.total, @payment.currency) %> to
+  PS If you didn’t pay yet, please, send <%= localized_price(@payment.total, @payment.currency) %> to
 </p>
 <p>
   <% if @payment.from_eu? %>

@@ -5,14 +5,14 @@
 <div class="widget--pricing__amount">
   <% if payment_option.base_price != payment_option.adjusted_base_price %>
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
-        <%= format_price(payment_option.base_price, payment_option.currency, 0) %>
+        <%= localized_price(payment_option.base_price, payment_option.currency, 0) %>
       </span>
       <span class="widget--pricing__amount__t widget--pricing__amount__t--new">
-        <%= format_price(payment_option.adjusted_base_price, payment_option.currency) %>
+        <%= localized_price(payment_option.adjusted_base_price, payment_option.currency) %>
       </span>
     <% else %>
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= format_price(payment_option.base_price, payment_option.currency, 0) %>
+        <%= localized_price(payment_option.base_price, payment_option.currency, 0) %>
       </span>
     <% end %>
 </div>
