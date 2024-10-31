@@ -38,11 +38,11 @@
       <div id="payZen" class="tab-pane <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path do |f| %>
-          <div class="db-form__row db-form__row--final-button">
-            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-              <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
-            <% end %>
-          </div>
+
+          <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+            <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
+          <% end %>
+
         <% end %>
       </div>
       
@@ -61,11 +61,11 @@
             <%= f.date_field :birth_date, autocomplete: "bday", class: 'db-form__input db-form__input--date', required: true %>
             <%= f.label :birth_date, class: 'db-form__label' %>
           </div>
-          <div class="db-form__row db-form__row--final-button">
-            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-              <%= t('subscriptions.payment.pay_with_bitcoin') %>
-            <% end %>
-          </div>
+
+          <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+            <%= t('subscriptions.payment.pay_with_bitcoin') %>
+          <% end %>
+
         <% end %>
       </div>
 
@@ -84,16 +84,14 @@
             <%= t('subscriptions.payment.wire_cost_html', price: localized_price(payment.price_with_vat, payment.currency)) %>
           </div>
           <%= render partial: "wire_info", locals: { payment: payment } %>
-          <div class="db-form__row db-form__row--final-button">
+
             <%= f.button type: "submit", data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-              <span class="mr-0">
-                <%= payment.from_eu? ?
-                  t('subscriptions.payment.paid_with_wire_transfer') :
-                  t('subscriptions.payment.paid_with_wire_transfer_other')
-                %>
-              </span>
+              <%= payment.from_eu? ?
+                t('subscriptions.payment.paid_with_wire_transfer') :
+                t('subscriptions.payment.paid_with_wire_transfer_other')
+              %>
             <% end %>
-          </div>
+
         <% end %>
       </div>
     <% end %>
