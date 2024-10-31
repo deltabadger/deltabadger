@@ -122,6 +122,7 @@ class UpgradeController < ApplicationController
     @payment_options = available_plan_names.map { |plan_name| [plan_name, new_payment_for(plan_name)] }.to_h
     @available_variant_years = available_variant_years
     @legendary_plan = SubscriptionPlan.legendary
+    @selected_years = session[:years]
   end
 
   def payment_params
