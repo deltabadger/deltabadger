@@ -654,7 +654,6 @@ de:
             compensation_basic:
                 one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
-            discount: 'Rabatt in Höhe von %{discount_percent} %'
             legendary_plan_discount: 'Early Bird-Rabatt'
             legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
             eu_bank_country: Belgien
@@ -664,6 +663,7 @@ de:
             pay_html: 'Bezahlen %{amount_html}'
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             payment_ordered: 'Zahlung angefordert!'
+            referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
