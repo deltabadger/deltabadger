@@ -1,4 +1,13 @@
 module LocalesHelper
+  def localized_price(price, currency, decimal_places = 2)
+    formatted_price = format("%0.0#{decimal_places}f", price)
+    if currency == 'EUR'
+      t('subscriptions.payment.price_eur_html', symbol: '€', price: formatted_price)
+    else
+      t('subscriptions.payment.price_usd_html', symbol: '$', price: formatted_price)
+    end
+  end
+
   def localized_plan_name(name)
     t("subscriptions.#{name}")
   end

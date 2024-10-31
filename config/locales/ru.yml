@@ -684,6 +684,8 @@ ru:
         analyzer_html: 'Усильте свой портфель с неограниченной мощностью <b>Анализатора Портфеля</b>.'
         expires_soon_html: 'Мы сейчас быстро развиваемся, поэтому вот самые важные новшества, которые появятся в плане Pro: <b>мониторинг портфеля</b> на всех рынках, <b>ребалансировка портфеля</b> с помощью Анализатора, <b>синхронизация</b> для существующих аккаунтов.</b>'
         payment:
+            price_usd_html: '<span class=price-amount>%{price}</span><span class=price-ticker>%{symbol}</span>'
+            price_eur_html: '<span class=price-amount>%{price}</span><span class=price-ticker>%{symbol}</span>'
             account_holder: 'Владелец счета'
             account_number: 'Номер счета'
             account_type: 'Тип аккаунта'
