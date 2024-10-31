@@ -28,7 +28,7 @@ de:
         btc_address_confirmation_sent: 'Bestätigungs-E-Mail versendet'
         create:
             error: 'Anmeldung zum Empfehlungsprogramm fehlgeschlagen'
-            saver_error: 'Du musst upgraden, um dich registrieren zu können'
+            free_plan_error: 'Du musst upgraden, um dich registrieren zu können'
         current_bitcoin_address: 'Aktuelle Bitcoin-Adresse'
         discount:
             accepted: 'Du hast den Empfehlungslink akzeptiert'
@@ -70,7 +70,7 @@ de:
             manual_title: 'Wie funktioniert es?'
             paid_commission: 'Bezahlt (BTC)'
             paid_so_far: 'Bis jetzt bezahlt (BTC)'
-            referees: Geworbene
+            referrals: Geworbene
             stats: Statistiken
             submit: Update
             submit_bitcoin_address: 'Bitcoin-Adresse aktualisieren'
@@ -261,7 +261,7 @@ de:
                 instructions_6_1_html: 'Erweitern Sie im Popup-Dialogfeld <b>API-Einschränkungen</b> und konfigurieren Sie:'
                 instructions_6_2_html: '<b>API-Schlüssel-Spitzname</b>: Geben Sie Ihren bevorzugten Namen ein, <b>Deltabadger</b> ist gut, um es später wiederzuerkennen.'
                 instructions_6_3_html: '<b>IP-Whitelist</b>: <b>3.18.70.231</b>.'
-                instructions_6_4_html: '<b>Portfolio</b>: Wählen Sie das Portfolio aus, auf das Deltabadger zugreifen soll, <b>Standard</b>, wenn Sie keine Coinbase-Portfolios verwenden.'
+                instructions_6_4_html: '<b>Portfolio</b>: Wählen Sie das Portfolio aus, auf das Deltabadger zugreifen soll, <b>Basic</b>, wenn Sie keine Coinbase-Portfolios verwenden.'
                 instructions_6_5_html: '<b>Berechtigungen</b>:<br>&middot; <b>Anzeigen</b> (nur lesen)<br>&middot; <b>Handel</b> (Ausführen von Trades in Ihrem Namen)'
                 instructions_7_html: 'Klicken Sie auf <b>Erstellen & herunterladen</b> und vervollständigen Sie die 2-Schritt-Verifizierung.'
                 instructions_8_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
@@ -322,7 +322,7 @@ de:
                 passphrase: Passphrase
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
-            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Standardeinstellung übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
+            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Basic übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
             next: Weiter
             no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
             probit:
@@ -601,8 +601,8 @@ de:
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
-            saver_days_left_html: '<b>$%{credits}</b> vom Limit des kostenlosen Plans übrig.'
-            saver_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
+            free_plan_days_left_html: '<b>$%{credits}</b> vom Limit des kostenlosen Plans übrig.'
+            free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
             submit_password: 'Passwort ändern'
@@ -621,6 +621,7 @@ de:
             subject: '%{plan_name}-Plan garantiert'
             template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
     subscriptions:
+        free: Sparer
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
@@ -637,6 +638,8 @@ de:
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
         expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: Kontoinhaber
             account_number: Kontonummer
             account_type: Kontotyp
@@ -645,31 +648,28 @@ de:
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
             bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Nach erfolgreicher Zahlung solltest du innerhalb weniger Sekunden weitergeleitet werden.'
-            compensation_hodler:
+            compensation_pro:
                 one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
-            compensation_investor:
+            compensation_basic:
                 one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
-            discount: 'Rabatt in Höhe von %{discount_percent} %'
-            legendary_badger_discount: 'Early Bird-Rabatt'
-            legendary_badger_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
+            legendary_plan_discount: 'Early Bird-Rabatt'
+            legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
             paid_with_wire_transfer_other: 'I habe eine Überweisung per Wire Transfer durchgeführt'
-            pay: Bezahlen
+            pay_html: 'Bezahlen %{amount_html}'
             pay_with_bitcoin: 'Zahle mit Bitcoin'
             payment_ordered: 'Zahlung angefordert!'
+            referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt
-            wire_cost_hodler_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_investor_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_legendary_badger_html: 'Bitte überweise <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> auf das folgende Bankkonto:'
-            wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{sign}%{price}</b> auf das folgende Bankkonto:'
+            wire_cost_html: 'Bitte überweise <b>%{price}</b> auf das folgende Bankkonto:'
+            wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{price}</b> auf das folgende Bankkonto:'
             wire_transfer: Banküberweisung
             wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
             wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'
@@ -677,12 +677,10 @@ de:
         plan_1_year: 1-Jahr-Plan
         plan_life_time: 'Lebenslanger Plan'
         prolong_upgrade: 'Stufe deinen Plan hoch'
-        saver: Sparer
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'
     legendary_badger:
         will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
-        update_success: '"%{eth_address}" wurde erfolgreich eingereicht. Das NFT wird an diese Adresse gesendet.'
         ethereum_address: Ethereum-Adresse
         confirm_info: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf "Claim" klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
         claim: 'NFT beanspruchen'
@@ -698,7 +696,7 @@ de:
             <p style="margin-bottom:0">Bis dann, Jan</p>
         default: 'Hallo, willkommen bei Deltabadger'
         legendary: 'Der NFT wird bald hier erscheinen!'
-        saver: 'Befreie dich von den Limits und mach ein Upgrade!'
+        free: 'Befreie dich von den Limits und mach ein Upgrade!'
     metrics:
         exp_return:
             short_name: 'Erw. Rendite'

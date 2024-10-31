@@ -15,12 +15,19 @@ dialog
   display: block // override default display: none, used if js is disabled
 
 .main
-    padding: 4rem 4rem 4rem 20rem
+    display: flex
+    justify-content: center
+    padding: 4rem 4rem 4rem 16rem
+    @media only screen and (min-width: 2480px)
+        padding: 4rem
     @media only screen and (max-width: 1359px)
       padding-top: 14rem
       padding-left: 4rem
     @media only screen and (max-width: 767px)
       padding: 14rem 1rem 2rem
+.main-content
+    max-width: 240rem 
+    flex: 1
 .columns
     display: grid
     gap: 4rem
@@ -49,16 +56,16 @@ dialog
 .infoheader
     display: flex
     flex-direction: column
-    gap: 2rem
-    margin-bottom: 4rem
+    gap: 4rem
+    margin-bottom: 5rem
     &__head
         display: flex
         justify-content: space-between
-        
         gap: 2rem
     &__h
-        margin-bottom: 2rem
-        font-size: 3rem  
+        margin-bottom: 0
+        font-size: 2.5rem  
+        line-height: 3rem
         text-align: left
     &__icon
         width: 3rem
@@ -68,8 +75,7 @@ dialog
         line-height: 2.8rem
         text-align: center
         border-radius: 50%
-        font-weight: 700
-        margin: 0.75rem 0    
+        font-weight: 700 
         cursor: pointer
         &.active
             background: var(--text)

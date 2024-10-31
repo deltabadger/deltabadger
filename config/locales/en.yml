@@ -29,7 +29,7 @@ en:
             subject: 'Wow! You earned %{amount} BTC!'
             template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><a class="email-button" style="color: #fff" href=%{link}>Complete registration.</a>'
     affiliates:
-        add_link_info: 'You can add your name and link to your website to let the referee know where the discount is coming from. You can also leave it blank:'
+        add_link_info: 'You can add your name and link to your website to let the referral know where the discount is coming from. You can also leave it blank:'
         apply_code:
             accept: Accept
             reject: Back
@@ -38,7 +38,7 @@ en:
         btc_address_confirmation_sent: 'Confirmation email sent'
         create:
             error: 'Referral program registration failed'
-            saver_error: 'You have to upgrade to register'
+            free_plan_error: 'You have to upgrade to register'
         current_bitcoin_address: 'Current Bitcoin address'
         discount:
             accepted: 'You have accepted the referral link'
@@ -48,12 +48,12 @@ en:
             invalid: 'The referral link seems invalid or obsolete'
             referrer_html: 'Thanks to the referral link from <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: 'Valid for the first purchase on the platform.'
-        info_preview: 'This is a preview of what referees will see during registration:'
+        info_preview: 'This is a preview of what referrals will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referee buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referee buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referee does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referee, the referral link works even if your subscription has expired.</small> </div>'
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referral buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referral buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referral does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referral, the referral link works even if your subscription has expired.</small> </div>'
         new:
             checked: 'I checked everything carefully.'
-            discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referee will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
+            discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referral will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.'
             eu_company: 'EU company'
             payout_address: 'Payout address'
@@ -75,12 +75,12 @@ en:
                 contact: 'Contact us'
                 notice: 'It looks like this program got deactivated. Contact us if you''re not sure why it happened.'
             expired: 'Oh, no… your subscription has expired. Renew your plan to continue benefiting from your referral program.'
-            info_preview: 'Preview of the info visible for referee:'
+            info_preview: 'Preview of the info visible for referral:'
             link_title: 'Your link'
             manual_title: 'How does it work?'
             paid_commission: 'Paid (BTC)'
             paid_so_far: 'Paid so far (BTC)'
-            referees: Referees
+            referrals: Referrals
             stats: Stats
             submit: Update
             submit_bitcoin_address: 'Update Bitcoin address'
@@ -104,10 +104,10 @@ en:
             template_html: '<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>'
         limit_almost_reached:
             subject: 'Limit almost reached'
-            template_html: '<p>You''ve almost reached the <b>Saver</b> plan transaction limit.</p><p>Upgrade your plan to <b>Investor</b>  or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>'
+            template_html: '<p>You''ve almost reached the <b>Free</b> plan transaction limit.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>'
         limit_reached:
             subject: 'You''ve reached the limit'
-            template_html: '<p>Oh, well done! Your <b>Saver</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Investor</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>'
+            template_html: '<p>Oh, well done! Your <b>Free</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>'
         notify_about_error:
             subject: 'Something went wrong'
             template_html: '<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -682,8 +682,8 @@ en:
             email_section: Email
             name_section: Name
             password_section: Password
-            saver_days_left_html: '<b>$%{credits}</b> of the free  plan transaction limit left.'
-            saver_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
+            free_plan_days_left_html: '<b>$%{credits}</b> of the free  plan transaction limit left.'
+            free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             submit_email: 'Update email'
             submit_name: 'Update name'
             submit_password: 'Change password'
@@ -702,57 +702,66 @@ en:
             subject: '%{plan_name} plan granted'
             template_html: '<p>Wow,</p><p>Thanks for buying our <b>%{plan_name} plan</b></p><p>You rock!</p>'
     subscriptions:
+        per_month_html: "/mo"
+        per_year_html: "/yr"
+        billed: "billed once"
+        billed1: "billed annually"
+        billed4: "billed every 4 years"
+        variant1: "Pay annually"
+        variant4: "Buy 4 years, get one year free"
+        free: Free
+        basic: Basic
+        pro: Pro
+        Legendary: Legendary
         days_left:
             one: '1 day left'
             other: '%{count} days left'
         basic_info: 'No frills, just thrills, but gets the job done.'
         pro_info: 'Get a big picture, deep insights, and Pro features.'
         legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
-        features: 
-            analyzer_html: '🌈⃤  Prism analyzer'
+        features:
+            analyzer_html: '🌈⃤ Prism portfolio tester'
             dca: 'DCA bots'
             price_limit: 'Price limit'
             fee_cutter: 'FeeCutter'
-            withdrawals: 'Auto-withdrawals'  
+            withdrawals: 'Auto-withdrawals'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
-        analyzer_html: 'Boost your portfolio with the unlimited power of <b>🌈⃤ Prism</b> portfolio analyzer.'
+        analyzer_html: 'Boost your portfolio with the unlimited power of <b>🌈⃤ Prism</b> portfolio tester.'
         expires_soon_html: 'We''re building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             card: 'Card'
             account_holder: 'Account holder'
             account_number: 'Account number'
             account_type: 'Account type'
-            active_plan_discount: 'Active plan discount'
             after_wire_transfer_html: 'Thank you! We''ll be back to you soon! If you need further assistance, let us know: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Bank address'
             billing_information: 'Billing information'
-            bitcoin: Bitcoin
-            stripe_payment_succeeded: 'Payment succeeded, you should be redirected within few seconds.'
-            compensation_hodler:
-                one: 'Compensation for 1 unused day of the Pro plan.'
-                other: 'Compensation for %{count} unused days of the Pro plan.'
-            compensation_investor:
-                one: 'Compensation for 1 unused day of the Basic plan.'
-                other: 'Compensation for %{count} unused days of the Basic plan.'
-            discount: '%{discount_percent}% discount'
-            legendary_badger_discount: 'Early Bird discount'
-            legendary_badger_discount_info: 'With every sale the discount decreases $10. Don''t wait!'
+            active_plan_discount: 'Active plan discount'
+            compensation_basic:
+                one: 'for 1 unused day.'
+                other: 'for %{count} unused days.'
+            compensation:
+                one: 'for 1 unused day.'
+                other: 'for %{count} unused days.'
+            legendary_plan_discount: 'Legendary discount'
+            legendary_plan_discount_info: 'goes down $10 with every sale.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
-            paid_with_wire_transfer: 'I made SEPA transfer'
-            paid_with_wire_transfer_other: 'I made wire transfer'
-            pay: Pay
+            paid_with_wire_transfer: 'I have sent the SEPA transfer'
+            paid_with_wire_transfer_other: 'I have sent the wire transfer'
+            pay_html: 'Pay %{amount_html}'
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay_with_card: 'Pay with Card'
             payment_ordered: 'Payment ordered!'
+            referral_discount: '%{discount_percent} discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'
             vat: VAT
-            wire_cost_hodler_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_investor_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_legendary_badger_html: 'Please, send <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> to the following bank account:'
-            wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{sign}%{price}</b> to the following bank account:'
+            wire_cost_html: 'Please, send <b>%{price}</b> to the following bank account:'
+            wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{price}</b> to the following bank account:'
             wire_transfer: 'Wire Transfer'
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'
             wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
@@ -760,12 +769,10 @@ en:
         plan_1_year: '1-year plan'
         plan_life_time: 'Lifetime plan'
         prolong_upgrade: 'Upgrade your plan'
-        saver: Saver
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
-        update_success: '"%{eth_address}" has been successfully submitted. The NFT will be sent to this address.'
         ethereum_address: 'Ethereum address'
         confirm_info: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click "Claim", if the address is wrong, nobody can recover the NFT.'
         claim: Claim NFT
@@ -781,7 +788,7 @@ en:
             <p style="margin-bottom:0">Catch you there, Jan</p>
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
-        saver: 'Get rid of the limits, and make an upgrade!'
+        free: 'Get rid of the limits, and make an upgrade!'
     metrics:
         exp_return:
             short_name: 'Exp. Return'
