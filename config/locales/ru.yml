@@ -709,7 +709,6 @@ ru:
             invalid_vat_number: 'Недействительный номер НДС в ЕС'
             paid_with_wire_transfer: 'Я сделал перевод SEPA'
             paid_with_wire_transfer_other: 'Я сделал(а) банковский перевод'
-            pay: ''
             pay_with_bitcoin: 'Оплатить биткоинами'
             payment_ordered: 'Оплата заказана!'
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'

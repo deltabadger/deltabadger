@@ -714,7 +714,7 @@ nl:
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'
             paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'
             paid_with_wire_transfer_other: 'Ik heb een bankoverschrijving gedaan'
-            pay: Betaal
+            pay_html: 'Betaal %{amount_html}'
             pay_with_bitcoin: 'Betaal met Bitcoin'
             payment_ordered: 'Betaling besteld!'
             referral_discount_html: 'Dankzij de referral link van <b><a href="%{visible_link}">%{visible_name}</a></b>, krijg je een korting voor de eerste aankoop op het platform.'

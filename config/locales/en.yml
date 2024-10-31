@@ -748,9 +748,9 @@ en:
             legendary_plan_discount_info: 'Price goes up $10 with every sale'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
-            paid_with_wire_transfer: 'I made SEPA transfer'
-            paid_with_wire_transfer_other: 'I made wire transfer'
-            pay: Pay
+            paid_with_wire_transfer: 'I have sent the SEPA transfer'
+            paid_with_wire_transfer_other: 'I have sent the wire transfer'
+            pay_html: 'Pay %{amount_html}'
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay_with_card: 'Pay with Card'
             payment_ordered: 'Payment ordered!'

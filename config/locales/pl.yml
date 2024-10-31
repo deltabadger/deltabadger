@@ -731,7 +731,7 @@ pl:
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
             paid_with_wire_transfer_other: 'Zrobiłem przelew'
-            pay: Zapłać
+            pay_html: 'Zapłać %{amount_html}'
             pay_with_bitcoin: 'Płać bitcoinem'
             payment_ordered: 'Płatność zlecona!'
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
