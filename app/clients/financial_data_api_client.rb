@@ -10,7 +10,7 @@ class FinancialDataApiClient < ApplicationClient
       config.request :json
       config.response :json
       config.response :raise_error
-      config.response :logger, Rails.logger, headers: false, bodies: false, log_level: :debug
+      config.response :logger, Rails.logger, headers: false, bodies: false, log_level: :info
       config.adapter :net_http_persistent do |http|
         http.idle_timeout = 100
       end
@@ -36,8 +36,9 @@ class FinancialDataApiClient < ApplicationClient
           start: start,
           strategy: strategy,
           risk_free_rate: risk_free_rate,
-          'start-balance': start_balance
-        }.compact
+          start_balance: start_balance,
+          include_dividends: true
+        }
       end
       Result::Success.new(response.body)
     end
@@ -68,8 +69,9 @@ class FinancialDataApiClient < ApplicationClient
           symbols: symbols,
           start: start,
           strategy: strategy,
-          risk_free_rate: risk_free_rate
-        }.compact
+          risk_free_rate: risk_free_rate,
+          include_dividends: true
+        }
       end
       Result::Success.new(response.body)
     end
@@ -81,6 +83,8 @@ class FinancialDataApiClient < ApplicationClient
     limit: nil,
     start: nil
   )
+    # end
+    # response.body
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'v3/time-series'
@@ -88,8 +92,9 @@ class FinancialDataApiClient < ApplicationClient
           symbol: symbol,
           timeframe: timeframe,
           limit: limit,
-          start: start
-        }.compact
+          start: start,
+          include_dividends: true
+        }
       end
       Result::Success.new(response.body)
     end
