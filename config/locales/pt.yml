@@ -625,13 +625,13 @@ pt:
             bank_address: 'Endereço do banco'
             billing_information: 'Informação de faturação'
             bitcoin: Bitcoin
-            discount: '%{discount_percent}% de desconto'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
             paid_with_wire_transfer_other: 'Fiz transferência bancária'
             pay_with_bitcoin: 'Pagar com Bitcoin'
             payment_ordered: 'Pagamento solicitado!'
+            referral_discount: '%{discount_percent} de desconto'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             routing_number: 'Número de encaminhamento'
             vat: IVA

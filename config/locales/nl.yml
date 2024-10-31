@@ -709,7 +709,6 @@ nl:
             compensation_basic:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
-            discount: '%{discount_percent}% korting'
             legendary_plan_discount: 'Early Bird korting'
             legendary_plan_discount_info: 'Bij elke verkoop daalt de korting met $10. Wacht niet!'
             eu_bank_country: België
@@ -719,6 +718,7 @@ nl:
             pay_html: 'Betaal %{amount_html}'
             pay_with_bitcoin: 'Betaal met Bitcoin'
             payment_ordered: 'Betaling besteld!'
+            referral_discount: '%{discount_percent} korting'
             referral_discount_html: 'Dankzij de referral link van <b><a href="%{visible_link}">%{visible_name}</a></b>, krijg je een korting voor de eerste aankoop op het platform.'
             routing_number: 'Routing nummer'
             server_error: 'Betalingen server error. Probeer het later opnieuw.'

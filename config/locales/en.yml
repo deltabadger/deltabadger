@@ -745,7 +745,6 @@ en:
             compensation:
                 one: 'for 1 unused day.'
                 other: 'for %{count} unused days.'
-            discount: '%{discount_percent}% discount'
             legendary_plan_discount: 'Legendary discount'
             legendary_plan_discount_info: 'goes down $10 with every sale.'
             eu_bank_country: Belgium
@@ -756,6 +755,7 @@ en:
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay_with_card: 'Pay with Card'
             payment_ordered: 'Payment ordered!'
+            referral_discount: '%{discount_percent} discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'

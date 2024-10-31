@@ -704,7 +704,6 @@ ru:
                 few: 'Компенсация за %{{count}}  неиспользованных дня плана Инвестора.'
                 many: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
                 other: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
-            discount: '%{discount_percent}% скидка'
             legendary_plan_discount: ''
             legendary_plan_discount_info: ''
             eu_bank_country: Бельгия
@@ -713,6 +712,7 @@ ru:
             paid_with_wire_transfer_other: 'Я сделал(а) банковский перевод'
             pay_with_bitcoin: 'Оплатить биткоинами'
             payment_ordered: 'Оплата заказана!'
+            referral_discount: '%{discount_percent} скидка'
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
             routing_number: 'Номер маршрута'
             server_error: ''
