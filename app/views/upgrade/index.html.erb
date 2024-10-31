@@ -7,9 +7,7 @@
       <% selected = @payment.subscription_plan_variant.years == years %>
       <%= tag.label class: "hide_radio_buttons" do %>
         <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
-        <div>
-          / <%= t("subscriptions.variant#{years}") %>
-        </div>
+          <%= t("subscriptions.variant#{years}") %>
       <% end %>
     <% end %>
   <% end %>
