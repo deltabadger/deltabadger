@@ -2,7 +2,7 @@
   .menu__section.menu__section--top.menu__section--logo
 
     = link_to root_path, class: 'menu__logo', data: {turbo: false} do
-      -unless current_user.subscription_name == 'legendary_badger'
+      -unless current_user.subscription.name == 'legendary'
         = render 'svg/40x30_logo'
         -# = render 'layouts/devise_messages'
       -else
@@ -31,26 +31,27 @@
       .tooltip
         = t('links.settings')
 
-    = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
       = render 'svg/24x24_fire'
       //.xsbadge= t('utils.new')
       .tooltip
         = t('links.community')
 
-    - if current_user.subscription_name == 'legendary_badger'
-      = link_to legendary_badger_path, class: 'menu__item menu__item--legendary-badger', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    - if current_user.subscription.name == 'legendary'
+      = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_legendary'
         .tooltip
-          = t('links.legendary_badger')
+          = t('links.legendary')
+          = t('subscriptions.plan_life_time')
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'
         .tooltip
           .tooltip__title
             = t('subscriptions.upgrade_plan')
-          - if current_user.subscription_name != 'saver'
+          - unless current_user.subscription.days_left.nil?
             .tooltip__counter
-              = t('subscriptions.days_left', count: current_user.plan_days_left)
+              = t('subscriptions.days_left', count: current_user.subscription.days_left)
 
   .menu__section.menu__section--bottom
     .btn-group

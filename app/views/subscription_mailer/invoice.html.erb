@@ -1,0 +1,11 @@
+<h1 class="mail-header"><%= t('.subject') %></h1>
+
+<%= t('.template_html',
+      paid_at: @payment.paid_at,
+      first_name: @payment.first_name,
+      last_name: @payment.last_name,
+      email: @payment.user.email,
+      plan_name: localized_plan_name(@payment.subscription_plan_variant.name),
+      years: @payment.subscription_plan_variant.years,
+      total_paid: @payment.total,
+      currency: @payment.currency) %>

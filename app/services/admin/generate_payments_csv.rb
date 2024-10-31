@@ -16,16 +16,14 @@ module Admin
     end
 
     def initialize(
-      payments_repository: PaymentsRepository.new,
       generate_csv: GenerateCsv.new
     )
 
-      @payments_repository = payments_repository
       @generate_csv = generate_csv
     end
 
     def call(from:, to:, fiat:)
-      payments = @payments_repository.paid_between(from: from, to: to, fiat: fiat)
+      payments = Payment.paid_between(from: from, to: to, fiat: fiat)
       formatted_data = payments.map { |p| format_payment(p) }
       @generate_csv.call(formatted_data)
     end
@@ -41,7 +39,7 @@ module Admin
         last_name: payment.last_name,
         birth_date: payment.birth_date&.strftime('%F'),
         country: payment.country,
-        crypto_paid: payment.crypto_paid,
+        btc_paid: payment.btc_paid,
         paid_at: payment.paid_at,
         user: payment.user.nil? ? 'User deleted' : payment.user.email,
         payment_id: payment.payment_id

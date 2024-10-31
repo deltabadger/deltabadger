@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_10_11_145252) do
+ActiveRecord::Schema.define(version: 2024_10_29_034943) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -34,9 +34,9 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
     t.string "new_btc_address_token"
     t.datetime "new_btc_address_send_at"
     t.boolean "active", default: true, null: false
-    t.decimal "unexported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "exported_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "paid_crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "unexported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "exported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "paid_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
     t.string "visible_link_scheme", default: "https", null: false
     t.string "old_code"
     t.index ["code"], name: "index_affiliates_on_code", unique: true
@@ -152,10 +152,10 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
 
   create_table "payments", force: :cascade do |t|
     t.string "payment_id"
-    t.integer "status"
-    t.decimal "total"
-    t.integer "currency"
-    t.bigint "user_id"
+    t.integer "status", null: false
+    t.decimal "total", precision: 10, scale: 2, null: false
+    t.integer "currency", null: false
+    t.bigint "user_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "first_name"
@@ -163,16 +163,19 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
     t.date "birth_date"
     t.datetime "paid_at"
     t.string "external_statuses", default: "", null: false
-    t.decimal "crypto_total", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "crypto_paid", precision: 20, scale: 10, default: "0.0", null: false
-    t.decimal "commission", default: "0.0", null: false
-    t.decimal "crypto_commission", precision: 20, scale: 10, default: "0.0", null: false
-    t.boolean "discounted", default: false, null: false
-    t.bigint "subscription_plan_id", null: false
+    t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "commission", precision: 10, scale: 2, null: false
+    t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.boolean "discounted", null: false
+    t.bigint "subscription_plan_variant_id", null: false
     t.string "country", null: false
-    t.integer "payment_type", default: 0, null: false
+    t.integer "payment_type", null: false
     t.boolean "gads_tracked", default: false
-    t.index ["subscription_plan_id"], name: "index_payments_on_subscription_plan_id"
+    t.index ["currency"], name: "index_payments_on_currency"
+    t.index ["payment_type"], name: "index_payments_on_payment_type"
+    t.index ["status"], name: "index_payments_on_status"
+    t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
@@ -203,19 +206,25 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
     t.index ["email"], name: "index_subscribers_on_email", unique: true
   end
 
+  create_table "subscription_plan_variants", force: :cascade do |t|
+    t.integer "subscription_plan_id", null: false
+    t.integer "years"
+    t.decimal "cost_eur", precision: 10, scale: 2
+    t.decimal "cost_usd", precision: 10, scale: 2
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+  end
+
   create_table "subscription_plans", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "credits", default: 1200, null: false
     t.boolean "unlimited", default: false, null: false
-    t.integer "years", default: 1, null: false
-    t.decimal "cost_eu", default: "0.0", null: false
-    t.decimal "cost_other", default: "0.0", null: false
   end
 
   create_table "subscriptions", force: :cascade do |t|
-    t.bigint "subscription_plan_id"
+    t.bigint "subscription_plan_variant_id"
     t.bigint "user_id"
     t.datetime "end_time"
     t.datetime "created_at", null: false
@@ -225,7 +234,9 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
     t.datetime "first_month_ending_sent_at"
     t.integer "nft_id"
     t.string "eth_address"
-    t.index ["subscription_plan_id"], name: "index_subscriptions_on_subscription_plan_id"
+    t.index ["end_time"], name: "index_subscriptions_on_end_time"
+    t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
+    t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
@@ -271,7 +282,7 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
     t.decimal "current_referrer_profit", default: "0.0", null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "pending_wire_transfer"
-    t.integer "pending_plan_id"
+    t.integer "pending_plan_variant_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
     t.boolean "referral_banner_dismissed", default: false
@@ -298,12 +309,15 @@ ActiveRecord::Schema.define(version: 2024_10_11_145252) do
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "fee_api_keys", "exchanges"
-  add_foreign_key "payments", "subscription_plans"
+  add_foreign_key "payments", "subscription_plan_variants"
+  add_foreign_key "payments", "users"
   add_foreign_key "portfolios", "users"
-  add_foreign_key "subscriptions", "subscription_plans"
+  add_foreign_key "subscription_plan_variants", "subscription_plans"
+  add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
   add_foreign_key "users", "affiliates", column: "referrer_id"
+  add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 
   create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
       SELECT transactions.bot_id,

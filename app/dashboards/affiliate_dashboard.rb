@@ -23,9 +23,9 @@ class AffiliateDashboard < Administrate::BaseDashboard
     max_profit: Field::Number,
     discount_percent: Field::Number,
     total_bonus_percent: Field::Number,
-    unexported_crypto_commission: Field::Number,
-    exported_crypto_commission: Field::Number,
-    paid_crypto_commission: Field::Number,
+    unexported_btc_commission: Field::Number,
+    exported_btc_commission: Field::Number,
+    paid_btc_commission: Field::Number,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze
@@ -62,9 +62,9 @@ class AffiliateDashboard < Administrate::BaseDashboard
     max_profit
     discount_percent
     total_bonus_percent
-    unexported_crypto_commission
-    exported_crypto_commission
-    paid_crypto_commission
+    unexported_btc_commission
+    exported_btc_commission
+    paid_btc_commission
     created_at
     updated_at
   ].freeze
@@ -87,9 +87,9 @@ class AffiliateDashboard < Administrate::BaseDashboard
     max_profit
     discount_percent
     total_bonus_percent
-    unexported_crypto_commission
-    exported_crypto_commission
-    paid_crypto_commission
+    unexported_btc_commission
+    exported_btc_commission
+    paid_btc_commission
   ].freeze
 
   # COLLECTION_FILTERS

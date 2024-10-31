@@ -2,14 +2,14 @@
   <%= form_with model: portfolio, url: portfolio_update_risk_free_rate_path(portfolio), method: :patch do |form| %>
     <%= form.label :risk_free_rate, t('analyzer.risk_free_rate') + ":", class: "label" %>
     <div class="sinput sinput--number sinput--rate">
-      <%= form.number_field :risk_free_rate, step: 0.01, value: sprintf('%.2f', (portfolio.risk_free_rate * 100)), onchange: "this.form.requestSubmit();", disabled: !(current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler') %>
+      <%= form.number_field :risk_free_rate, step: 0.01, value: sprintf('%.2f', (portfolio.risk_free_rate * 100)), onchange: "this.form.requestSubmit();", disabled: !(current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro') %>
       <span class="label">%</span>
     </div>
   <% end %>
   <span class="label flex-row gap-1">
     <%= t('analyzer.us_bonds') %>:
     <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
-        <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name], class: "sbutton sbutton--link", disabled: !(current_user.subscription_name == 'legendary_badger' || current_user.subscription_name == 'hodler') %>
+        <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name], class: "sbutton sbutton--link", disabled: !(current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro') %>
     <% end %>
 
   </span>

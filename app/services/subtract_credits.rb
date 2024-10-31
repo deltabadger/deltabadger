@@ -1,9 +1,7 @@
 class SubtractCredits < BaseService
   def initialize(
-    subscriptions_repository: SubscriptionsRepository.new,
     convert_currency_to_credits: ConvertCurrencyToCredits.new
   )
-    @subscriptions_repository = subscriptions_repository
     @convert_currency_to_credits = convert_currency_to_credits
   end
 
@@ -21,7 +19,6 @@ class SubtractCredits < BaseService
     Rails.logger.info("Subtracting credits for subscription #{subscription.id}")
     subtracted_credits = subscription.credits - credits_to_subtract
 
-    @subscriptions_repository
-      .update(subscription.id, credits: subtracted_credits)
+    Subscription.update(subscription.id, credits: subtracted_credits)
   end
 end

@@ -38,7 +38,7 @@ module Admin
       payment.reload
       return unless grant_commission?(status_before_update, payment.status)
 
-      Affiliates::GrantCommission.new.call(referee: payment.user, payment: payment)
+      Affiliates::GrantCommission.new.call(referral: payment.user, payment: payment)
     end
 
     def csv

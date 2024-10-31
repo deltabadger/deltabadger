@@ -1,53 +1,44 @@
 class SubscriptionMailer < ApplicationMailer
+  include LocalesHelper
+
+  helper LocalesHelper
+
   def subscription_granted
-    @user = params[:user]
-    @subscription_plan = params[:subscription_plan]
+    @payment = params[:payment]
 
     mail(
-      to: @user.email,
-      subject: I18n.t(
+      to: @payment.user.email,
+      subject: t(
         'subscription_mailer.subscription_granted.subject',
-        plan_name: @subscription_plan.display_name
+        plan_name: localized_plan_name(@payment.subscription_plan.name)
       )
     )
   end
 
   def after_wire_transfer
-    @user = params[:user]
-    @subscription_plan = params[:subscription_plan]
-    @name = params[:name]
-    @type = params[:type]
-    @amount = params[:amount]
+    @payment = params[:payment]
 
     mail(
-      to: @user.email,
+      to: @payment.user.email,
       from: 'jan@deltabadger.com',
-      subject: "#{@subscription_plan.display_name} plan granted!"
+      subject: "#{localized_plan_name(@payment.subscription_plan.name)} plan granted!"
     ) do |format|
       format.html { render layout: 'plain_mail' }
     end
   end
 
   def invoice
-    @user = params[:user]
     @payment = params[:payment]
 
-    mail(to: @user.email, subject: default_i18n_subject)
+    mail(to: @payment.user.email, subject: default_i18n_subject)
   end
 
   def wire_transfer_summary
-    @email = params[:email]
-    @subscription_plan = params[:subscription_plan]
-    @first_name = params[:first_name]
-    @last_name = params[:last_name]
-    @country = params[:country]
-    @amount = params[:amount]
-
-    id = params[:id]
+    @payment = params[:payment]
 
     mail(
       to: 'jan@deltabadger.com',
-      subject: "New wire transfer, ##{id}"
+      subject: "New wire transfer, ##{@payment.id}"
     )
   end
 end

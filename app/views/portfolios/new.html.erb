@@ -1,7 +1,7 @@
 <%= link_to sanitize("&larr; Back to portfolios"), portfolios_path %>
 
 <%= render 'layouts/turbo_modal' do %>
-  <%= button_tag class: 'modal__close', data: { action: 'modals#animateOutCloseAndCleanUp' } do %>
+  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
     <%= render partial: 'svg/24x24_x' %>
   <% end %>
   <div class="modal__body modal__body--regular">

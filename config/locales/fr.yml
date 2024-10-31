@@ -38,7 +38,7 @@ fr:
         btc_address_confirmation_sent: 'Envoi de l''e-mail de confirmation'
         create:
             error: 'Échec de l''inscription au programme de parrainage'
-            saver_error: 'Vous devez mettre à niveau pour vous inscrire'
+            free_plan_error: 'Vous devez mettre à niveau pour vous inscrire'
         current_bitcoin_address: 'Adresse Bitcoin actuelle'
         discount:
             accepted: 'Vous avez accepté le lien de parrainage'
@@ -80,7 +80,7 @@ fr:
             manual_title: 'Comment ça marche ?'
             paid_commission: 'Payé (BTC)'
             paid_so_far: 'Payé à ce jour (BTC)'
-            referees: 'Membres parrainés'
+            referrals: 'Membres parrainés'
             stats: 'Statistiques'
             submit: 'Mettre à jour'
             submit_bitcoin_address: 'Mettre à jour l''adresse Bitcoin'
@@ -101,10 +101,10 @@ fr:
             template_html: '<p>Vous utilisez Deltabadger depuis près d''un mois !</p><p>Votre essai gratuit et illimité se termine bientôt. N''oubliez pas d''effectuer une mise à niveau pour continuer à faire fonctionner vos blaireaux les plus lourds !</p>'
         limit_almost_reached:
             subject: 'Limite presque atteinte'
-            template_html: '<p>Vous avez presque atteint la limite de transactions du forfait <b>Saver</b>.</p><p>Passez au plan <b>Investor</b> ou <b>Pro</b> pour vous assurer que vos bots</br>continueront à fonctionner.</p>'
+            template_html: '<p>Vous avez presque atteint la limite de transactions du forfait <b>Free</b>.</p><p>Passez au plan <b>Basic</b> ou <b>Pro</b> pour vous assurer que vos bots</br>continueront à fonctionner.</p>'
         limit_reached:
             subject: 'Vous avez atteint la limite'
-            template_html: '<p>Bravo ! La limite de votre forfait <b>Saver</b> est atteinte.</p><p>On dirait que vous faites du DCA depuis un petit moment.</p><p>Nous espérons que vous êtes satisfait des résultats.</p><p>Passez au forfait <b>Investor</b> ou <b>Pro</b> pour supprimer toutes les limites et remettre vos bots au travail.</p>'
+            template_html: '<p>Bravo ! La limite de votre forfait <b>Free</b> est atteinte.</p><p>On dirait que vous faites du DCA depuis un petit moment.</p><p>Nous espérons que vous êtes satisfait des résultats.</p><p>Passez au forfait <b>Basic</b> ou <b>Pro</b> pour supprimer toutes les limites et remettre vos bots au travail.</p>'
         notify_about_error:
             subject: 'Quelque chose s''est mal passé'
             template_html: '<p>Une erreur s''est produite lors du traitement de la dernière transaction.</p><p>Vous pouvez voir l''erreur dans le journal du bot. Connectez-vous pour le vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -656,8 +656,8 @@ fr:
             email_section: 'E-mail'
             name_section: 'Nom'
             password_section: 'Mot de passe'
-            saver_days_left_html: 'Il vous reste <b>$%{credits}</b> sur la limite de transactions du forfait gratuit.'
-            saver_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
+            free_plan_days_left_html: 'Il vous reste <b>$%{credits}</b> sur la limite de transactions du forfait gratuit.'
+            free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             submit_email: 'Mettre à jour l''e-mail'
             submit_name: 'Mettre à jour le nom'
             submit_password: 'Modifier le mot de passe'
@@ -676,6 +676,7 @@ fr:
             subject: 'Forfait %{plan_name} accordé'
             template_html: '<p>Wow,</p><p>merci d''avoir acheté notre forfait <b>%{plan_name}</b></p>. <p>Vous déchirez !</p>'
     subscriptions:
+        free: 'Gratuit'
         days_left:
             one: "1 jour restant"
             other: "%{count} jours restants"
@@ -692,6 +693,8 @@ fr:
         analyzer_html: 'Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>.'
         expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Pro : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: 'Titulaire du compte'
             account_number: 'Numéro de compte'
             account_type: 'Type de compte'
@@ -700,31 +703,28 @@ fr:
             bank_address: 'Adresse de la banque'
             billing_information: 'Détails de facturation'
             bitcoin: 'Bitcoin'
-            stripe_payment_succeeded: 'Paiement réussi, vous devriez être redirigé dans quelques secondes.'
-            compensation_hodler:
+            compensation_pro:
                 one: 'Compensation pour 1 jour inutilisé du forfait Pro'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Pro'
-            compensation_investor:
-                one: 'Compensation pour 1 jour inutilisé du forfait Investisseur'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Investisseur'
-            discount: '%{discount_percent}% de réduction'
-            legendary_badger_discount: 'Réduction Early Bird'
-            legendary_badger_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
+            compensation_basic:
+                one: 'Compensation pour 1 jour inutilisé du forfait Basic'
+                other: 'Compensation pour %{count} jours inutilisés du forfait Basic'
+            legendary_plan_discount: 'Réduction Early Bird'
+            legendary_plan_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
             paid_with_wire_transfer_other: 'J''ai effectué un virement bancaire'
-            pay: 'Payer'
+            pay_html: 'Payer %{amount_html}'
             pay_with_bitcoin: 'Payer en Bitcoin'
             payment_ordered: 'Paiement ordonné !'
+            referral_discount: '%{discount_percent} de réduction'
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
             routing_number: 'Numéro de routage'
             server_error: 'Erreur du serveur de paiement, merci de réessayer plus tard.'
             vat: 'TVA'
-            wire_cost_hodler_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_investor_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_legendary_badger_html: 'Merci d''envoyer <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> sur le compte bancaire suivant :'
-            wire_cost_pending_html: 'Si vous n''avez pas encore effectué de paiement, envoyez <b>%{sign}%{price}</b> sur le compte bancaire suivant :'
+            wire_cost_html: 'Merci d''envoyer <b>%{price}</b> sur le compte bancaire suivant :'
+            wire_cost_pending_html: 'Si vous n''avez pas encore effectué de paiement, envoyez <b>%{price}</b> sur le compte bancaire suivant :'
             wire_transfer: 'Virement bancaire'
             wire_transfer_fill_form: 'Veuillez remplir le formulaire ci-dessus pour continuer'
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
@@ -732,12 +732,10 @@ fr:
         plan_1_year: 'Forfait de 1 an'
         plan_life_time: 'Forfait à vie'
         prolong_upgrade: 'Mise à niveau du forfait'
-        saver: 'Saver'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mise à niveau du forfait'
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
-        update_success: '"%{eth_address}" a été soumis avec succès. Le NFT sera envoyé à cette adresse.'
         ethereum_address: 'Adresse Ethereum'
         confirm_info: 'Je confirme que l''adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur "Réclamer", si l''adresse est incorrecte, personne ne pourra récupérer le NFT.'
         claim: 'Réclamer le NFT'
@@ -753,7 +751,7 @@ fr:
             <p style="margin-bottom:0">À bientôt, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
-        saver: 'Dites au revoir aux limites et faites une mise à niveau !'
+        free: 'Dites au revoir aux limites et faites une mise à niveau !'
     metrics:
         exp_return:
             short_name: 'Rendement Attendu'
@@ -832,7 +830,7 @@ fr:
         smart_allocation:
             name: 'Allocation Intelligente'
             short_info_html: '<p>L''Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
-        
+
         risk_free_rate: 'Taux Sans Risque'
         us_bonds: 'Obligations US'
         benchmark: 'Indice de Référence'

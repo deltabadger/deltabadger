@@ -1,12 +1,12 @@
 class User < ApplicationRecord
   attr_accessor :otp_code_token
 
-  after_create :active_subscription, :set_affiliate
+  after_create :set_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
   has_one_time_password
-  enum otp_module: { disabled: 0, enabled: 1 }, _prefix: true
+  enum otp_module: %i[disabled enabled], _prefix: true
   has_one :affiliate
   belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
@@ -26,12 +26,10 @@ class User < ApplicationRecord
 
   delegate :unlimited?, to: :subscription
 
-  def subscription
-    @subscription ||= active_subscription
-  end
+  include Upgradeable
 
-  def subscription_name
-    subscription.name
+  def subscription
+    @subscription ||= subscriptions.active.order(created_at: :desc).first
   end
 
   def credits
@@ -80,17 +78,16 @@ class User < ApplicationRecord
     webhook_bots_transactions.where('transactions.created_at > ? ', time)
   end
 
-  def active_subscription
-    now = Time.current
-    subscriptions.where('end_time > ?', now).order(created_at: :desc).first_or_create do |sub|
-      saver_plan = SubscriptionPlansRepository.new.saver
-      sub.subscription_plan = saver_plan
-      sub.end_time = now + saver_plan.duration
-      sub.credits = saver_plan.credits
-    end
+  def pending_plan_variant
+    SubscriptionPlanVariant.find_by(id: pending_plan_variant_id)
   end
 
   private
+
+  def set_subscription
+    Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free,
+                         credits: SubscriptionPlanVariant.free.credits)
+  end
 
   def set_affiliate
     affiliate_params = ActionController::Parameters.new(
@@ -113,7 +110,7 @@ class User < ApplicationRecord
   end
 
   def eligible_for_discount?
-    !payments.paid.where(discounted: true).exists?
+    @eligible_for_discount ||= !payments.paid.where(discounted: true).exists?
   end
 
   def validate_name

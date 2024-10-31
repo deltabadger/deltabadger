@@ -1,0 +1,35 @@
+<% if payment.from_eu? %>
+  <div>
+    <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+    <p>Deltabadger OU</p>
+    <h5>BIC</h5>
+    <p>TRWIBEB1XXX</p>
+    <h5><%= "IBAN (" + t('subscriptions.payment.eu_bank_country') + ")" %></h5>
+    <p>BE83 9670 6500 4615</p>
+    <h5><%= t('subscriptions.payment.bank_address') %></h5>
+    <p>
+      Avenue Louise 54, Room S52<br>
+      Brussels<br>
+      1050<br>
+      Belgium
+    </p>
+  </div>
+<% else %>
+  <div>
+    <h5 class="mt-5"><%= t('subscriptions.payment.account_holder') %></h5>
+    <p>Deltabadger OU</p>
+    <h5>Routing number</h5>
+    <p>084009519</p>
+    <h5>Account number</h5>
+    <p>9600 0000 0051 1836</p>
+    <h5>Account type</h5>
+    <p>Checking</p>
+    <h5><%= t('subscriptions.payment.bank_address') %></h5>
+    <p>
+      TransferWise<br>
+      19 W 24th Street<br>
+      New York NY 10010<br>
+      United States
+    </p>
+  </div>
+<% end %>

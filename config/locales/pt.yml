@@ -28,7 +28,7 @@ pt:
         btc_address_confirmation_sent: 'E-mail de confirmação enviado'
         create:
             error: 'Falha ao registar o programa de referência'
-            saver_error: 'Tem de atualizar para registar'
+            free_plan_error: 'Tem de atualizar para registar'
         current_bitcoin_address: 'Endereço Bitcoin atual'
         discount:
             accepted: 'Aceitou a ligação de referência'
@@ -70,7 +70,7 @@ pt:
             manual_title: 'Como funciona?'
             paid_commission: 'Pago (BTC)'
             paid_so_far: 'Pago até agora (BTC)'
-            referees: 'Pessoas referidas'
+            referrals: 'Pessoas referidas'
             stats: Estatísticas
             submit: Atualizar
             submit_bitcoin_address: 'Atualizar endereço Bitcoin'
@@ -598,6 +598,7 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
     subscriptions:
+        free: Free
         days_left:
             one: '1 dia restante'
             other: '%{count} dias restantes'
@@ -614,6 +615,8 @@ pt:
         analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
         expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
             account_type: 'Tipo de conta'
@@ -622,19 +625,17 @@ pt:
             bank_address: 'Endereço do banco'
             billing_information: 'Informação de faturação'
             bitcoin: Bitcoin
-            discount: '%{discount_percent}% de desconto'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
             paid_with_wire_transfer_other: 'Fiz transferência bancária'
             pay_with_bitcoin: 'Pagar com Bitcoin'
             payment_ordered: 'Pagamento solicitado!'
+            referral_discount: '%{discount_percent} de desconto'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             routing_number: 'Número de encaminhamento'
             vat: IVA
-            wire_cost_hodler_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_investor_html: 'Por favor, envie <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="investor-total-price">%{price}</span></b> para a seguinte conta bancária:'
-            wire_cost_legendary_badger_html: 'Por favor, envie  <b><span class="db-show--eu">€</span><span class="db-show--other">$</span><span class="hodler-total-price">%{price}</span></b> para a seguinte conta bancária:'
+            wire_cost_html: 'Por favor, envie <b>%{price}</b> para a seguinte conta bancária:'
             wire_transfer: 'Transferência bancária'
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
@@ -642,12 +643,10 @@ pt:
         plan_1_year: 'Plano de 1 ano'
         plan_life_time: 'Para a vida'
         prolong_upgrade: 'Atualizar plano'
-        saver: Saver
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'
     legendary_badger:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
-        update_success: '"%{eth_address}" foi submetido com sucesso. O NFT será enviado para este endereço.'
         ethereum_address: 'Endereço Ethereum'
         confirm_info: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em "Reivindicar", se o endereço estiver errado, ninguém poderá recuperar o NFT.'
         claim: 'Reivindicar NFT'
@@ -663,7 +662,7 @@ pt:
             <p style="margin-bottom:0">Nos vemos lá, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
-        saver: 'Livra-te dos limites e faz um upgrade!'
+        free: 'Livra-te dos limites e faz um upgrade!'
     metrics:
         exp_return:
             short_name: 'Retorno Esperado'

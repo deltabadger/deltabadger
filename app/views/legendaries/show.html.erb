@@ -1,0 +1,39 @@
+<% content_for :body_class, ".view--legendary-plan" %>
+<%= render partial: "layouts/navbar/signed_in" %>
+
+<div class="db_legendary-plan">
+  <div class="db_legendary-plan__set">
+    <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", @subscription.nft_id) + ".svg") %>">
+    <div class="db_legendary-plan__title"><%= legendary_badger_nft_name(@subscription) %></div>
+  </div>
+
+  <% if @subscription.eth_address_is_valid? %>
+
+    <div class="db_legendary-plan__eth-address">
+      <div class="db_legendary-plan__eth-address__label"><%= t('legendary_badger.will_be_sent') %></div>
+      <%= link_to @subscription.eth_address, "https://etherscan.io/address/#{@subscription.eth_address}", class: "db_legendary-plan__eth-address__value" %>
+    </div>
+
+  <% else %>
+
+    <div class="db_legendary-plan__eth-form">
+      <%= form_with model: @subscription, url: legendary_path, method: :patch, data: { controller: "form--checkbox-enables form--html5-validations" } do |f| %>
+        <div class="db-form__row db-form__row--input db-form__row--input--empty">
+          <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: @address_pattern, required: true %>
+          <%= f.label :eth_address, t('legendary_badger.ethereum_address'), class: "db-form__label" %>
+        </div>
+
+        <div class="db-form__row" style="display: flex; gap: 2rem; align-items: flex-start;">
+          <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { form__checkbox_enables_target: "checkbox", action: "form--checkbox-enables#checkboxChanged" }, required: true %>
+          <%= f.label :eth_address_confirmation, t('legendary_badger.confirm_info') %>
+        </div>
+
+        <div class="db_legendary-plan__submit">
+          <%= f.submit t(('legendary_badger.claim')), class: "btn btn-lg btn-primary", data: { form__checkbox_enables_target: "submit" } %>
+        </div>
+      <% end %>
+    </div>
+
+  <% end %>
+
+</div>

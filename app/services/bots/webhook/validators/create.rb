@@ -25,7 +25,7 @@ module Bots::Webhook::Validators
       include ActiveModel::Validations
 
       attr_reader :base, :quote, :type, :order_type, :price, :allowed_symbols, :free_plan_symbols,
-                  :hodler, :legendary_badger, :exchange_name, :name, :trigger_url, :trigger_possibility,
+                  :pro, :legendary, :exchange_name, :name, :trigger_url, :trigger_possibility,
                   :already_triggered_types, :additional_type, :additional_type_enabled,
                   :additional_trigger_url, :additional_price
 
@@ -66,9 +66,9 @@ module Bots::Webhook::Validators
         @allowed_symbols = allowed_symbols
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
-        @hodler = user.subscription_name == 'hodler'
-        @legendary_badger = user.subscription_name == 'legendary_badger'
-        @paid_plan = %w[hodler investor legendary_badger].include?(user.subscription_name)
+        @pro = user.subscription.name == SubscriptionPlan::PRO_PLAN
+        @legendary = user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
+        @paid_plan = user.subscription.name != SubscriptionPlan::FREE_PLAN
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
 
         @exchange_id = exchange_id
@@ -91,10 +91,10 @@ module Bots::Webhook::Validators
         errors.add(:symbol, "#{symbol} is not supported in your subscription")
       end
 
-      def hodler_or_legendary_badger_if_limit_order
-        return if hodler || legendary_badger || order_type == 'market'
+      def pro_or_legendary_if_limit_order
+        return if pro || legendary || order_type == 'market'
 
-        errors.add(:base, 'Limit orders are an hodler and legendary_badger only functionality')
+        errors.add(:base, 'Limit orders are only available in Pro and Legendary plans')
       end
 
       def allowed_additional_type

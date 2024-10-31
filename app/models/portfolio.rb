@@ -142,8 +142,8 @@ class Portfolio < ApplicationRecord
   end
 
   def max_assets_reached?
-    assets.size >= case user.subscription_name
-                   when 'legendary_badger', 'hodler'
+    assets.size >= case user.subscription.name
+                   when SubscriptionPlan::PRO_PLAN, SubscriptionPlan::LEGENDARY_PLAN
                      100
                    else
                      4

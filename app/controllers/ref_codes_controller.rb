@@ -8,7 +8,7 @@ class RefCodesController < ApplicationController
     affiliate = find_affiliate(code)
 
     if current_user.referrer_id.present?
-      redirect_to dashboard_path, flash: { notice: I18n.t('affiliates.discount.already_used') }
+      redirect_to dashboard_path, flash: { notice: t('affiliates.discount.already_used') }
     elsif current_user.id == affiliate.user_id
       redirect_to referral_program_path
     else
@@ -18,7 +18,7 @@ class RefCodesController < ApplicationController
 
   def accept
     if current_user.referrer_id.present?
-      redirect_to dashboard_path, flash: { notice: I18n.t('affiliates.discount.already_used') }
+      redirect_to dashboard_path, flash: { notice: t('affiliates.discount.already_used') }
       return
     end
 
@@ -26,9 +26,9 @@ class RefCodesController < ApplicationController
 
     if affiliate.present?
       current_user.update(referrer_id: affiliate.id)
-      redirect_to dashboard_path, flash: { notice: I18n.t('affiliates.discount.accepted') }
+      redirect_to dashboard_path, flash: { notice: t('affiliates.discount.accepted') }
     else
-      redirect_to dashboard_path, flash: { alert: I18n.t('affiliates.discount.invalid') }
+      redirect_to dashboard_path, flash: { alert: t('affiliates.discount.invalid') }
     end
   end
 

@@ -8,7 +8,6 @@ class PaymentDashboard < Administrate::BaseDashboard
   # which determines how the attribute is displayed
   # on pages throughout the dashboard.
   WIRE_TYPE = 'wire'.freeze
-  STRIPE_TYPE = 'stripe'.freeze
   ZEN_TYPE = 'zen'.freeze
   ATTRIBUTE_TYPES = {
     id: Field::Number,
@@ -18,21 +17,21 @@ class PaymentDashboard < Administrate::BaseDashboard
     ),
     payment_id: Field::String,
     payment_type: Field::String.with_options(searchable: false),
-    subscription_plan: Field::BelongsTo,
+    subscription_plan_variant_id: Field::BelongsTo,
     status: Field::String.with_options(searchable: false),
     external_statuses: Field::String,
     total: Field::String.with_options(searchable: false),
     currency: Field::String.with_options(searchable: false),
-    crypto_total: Field::String.with_options(searchable: false),
+    btc_total: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     first_name: Field::String,
     last_name: Field::String,
     birth_date: Field::DateTime.with_options(format: '%F'),
     country: Field::String,
-    crypto_paid: Field::String.with_options(searchable: false),
+    btc_paid: Field::String.with_options(searchable: false),
     commission: Field::Number.with_options(searchable: false),
-    crypto_commission: Field::Number.with_options(searchable: false),
+    btc_commission: Field::Number.with_options(searchable: false),
     paid_at: Field::DateTime.with_options(format: '%F %r')
   }.freeze
 
@@ -43,7 +42,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
     id
-    subscription_plan
+    subscription_plan_variant_id
     payment_type
     status
     total
@@ -52,7 +51,7 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     country
-    crypto_paid
+    btc_paid
     paid_at
     user
     payment_id
@@ -62,7 +61,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
     id
-    subscription_plan
+    subscription_plan_variant_id
     payment_type
     status
     total
@@ -71,13 +70,13 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     country
-    crypto_total
-    crypto_paid
+    btc_total
+    btc_paid
     paid_at
     user
     payment_id
     commission
-    crypto_commission
+    btc_commission
     external_statuses
     created_at
     updated_at
@@ -87,7 +86,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-    subscription_plan
+    subscription_plan_variant_id
     status
     payment_type
     total
@@ -96,8 +95,8 @@ class PaymentDashboard < Administrate::BaseDashboard
     last_name
     birth_date
     country
-    crypto_total
-    crypto_paid
+    btc_total
+    btc_paid
     paid_at
     user
     payment_id
@@ -114,7 +113,6 @@ class PaymentDashboard < Administrate::BaseDashboard
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
     wire: ->(resources) { resources.where(payment_type: WIRE_TYPE) },
-    stripe: ->(resources) { resources.where(payment_type: STRIPE_TYPE) },
     zen: ->(resources) { resources.where(payment_type: ZEN_TYPE) }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze

@@ -8,7 +8,7 @@ class Affiliate < ApplicationRecord
   enum type: %i[individual eu_company]
 
   belongs_to :user
-  has_many :referees, foreign_key: 'referrer_id', class_name: 'User'
+  has_many :referrals, foreign_key: 'referrer_id', class_name: 'User'
 
   scope :active, -> { where(active: true) }
   scope :inactive, -> { where(active: false) }

@@ -26,32 +26,32 @@ class AffiliatesRepository < BaseRepository
   end
 
   def all_with_unpaid_commissions
-    model.includes(:user).where('exported_crypto_commission > 0')
+    model.includes(:user).where('exported_btc_commission > 0')
   end
 
   def mark_all_exported_commissions_as_paid
     model.update_all(
-      'paid_crypto_commission = paid_crypto_commission + exported_crypto_commission, '\
-      'exported_crypto_commission = 0'
+      'paid_btc_commission = paid_btc_commission + exported_btc_commission, '\
+      'exported_btc_commission = 0'
     )
   end
 
   def total_waiting
     model.where(btc_address: [nil, ''])
-         .sum(:unexported_crypto_commission)
+         .sum(:unexported_btc_commission)
   end
 
   def total_unexported
     model.where.not(btc_address: [nil, ''])
-         .sum(:unexported_crypto_commission)
+         .sum(:unexported_btc_commission)
   end
 
   def total_exported
-    model.sum(:exported_crypto_commission)
+    model.sum(:exported_btc_commission)
   end
 
   def total_paid
-    model.sum(:paid_crypto_commission)
+    model.sum(:paid_btc_commission)
   end
 
   private

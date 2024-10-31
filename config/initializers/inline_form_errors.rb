@@ -9,15 +9,17 @@ ActionView::Base.field_error_proc = Proc.new do |html_tag, instance|
   fragment = Nokogiri::HTML.fragment(html_tag)
   field = fragment.at('input,select,textarea')
 
-  model = instance.object
-  error_message = model.errors.messages.values.join(', ')  # formatted as <error_message>
-  # error_message = model.errors.full_messages.join(', ')  # formatted as <attribute_name> <error_message>
+  # model = instance.object
+  # error_message = model.errors.messages.values.join(', ')  # formatted as <error_message>
+  # # error_message = model.errors.full_messages.join(', ')  # formatted as <attribute_name> <error_message>
+
+  error_message = instance.error_message.join(', ')
 
   html = if field
            field['class'] = "#{field['class']} is-invalid"
            html = <<-HTML
              #{fragment.to_s}
-             <p class="db-form__info--invalid">#{error_message.upcase_first}</p>
+             <div class="db-form__info db-form__info--invalid">#{error_message.upcase_first}</div>
            HTML
            html
          else

@@ -23,13 +23,13 @@
         <% end %>
       </div>
       <%= tag.div data: {
-        controller: "portfolio-analyzer-chart",
-        portfolio_analyzer_chart_names_value: chart_names,
-        portfolio_analyzer_chart_colors_value: chart_colors,
-        portfolio_analyzer_chart_labels_value: chart_labels,
-        portfolio_analyzer_chart_series_value: chart_series,
+        controller: "portfolio-analyzer--chart",
+        portfolio_analyzer__chart_names_value: chart_names,
+        portfolio_analyzer__chart_colors_value: chart_colors,
+        portfolio_analyzer__chart_labels_value: chart_labels,
+        portfolio_analyzer__chart_series_value: chart_series,
       } do %>
-        <canvas data-portfolio-analyzer-chart-target="analyzerChart" width="200" height="60"></canvas>
+        <canvas data-portfolio-analyzer--chart-target="analyzerChart" width="200" height="60"></canvas>
       <% end %>
 
       <%= render "portfolios/compare_to_select", portfolio: portfolio %>
@@ -61,7 +61,7 @@
             <%= t("metrics.#{key}.short_name") %>
           </div>
           <div class="data-grid__item__value">
-            <% if ["legendary_badger", "hodler"].include?(current_user.subscription_name) || !["cagr", "var", "cvar", "sortino_ratio", "calmar_ratio", "alpha", "beta", "treynor_ratio", "omega_ratio", "r_squared", "info_ratio"].include?(key.to_s) %>
+            <% if ["pro", "legendary"].include?(current_user.subscription.name) || !["cagr", "var", "cvar", "sortino_ratio", "calmar_ratio", "alpha", "beta", "treynor_ratio", "omega_ratio", "r_squared", "info_ratio"].include?(key.to_s) %>
               <%= value %>
             <% else %>
               <%= render 'svg/24x24_lock' %>

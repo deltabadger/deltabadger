@@ -11,8 +11,6 @@
 @import "sidebar";
 @import "bots";
 @import "forms";
-@import "checkout";
-@import "stripe";
 @import "spinner";
 @import "dropdown";
 @import "referral-stats";
@@ -46,6 +44,7 @@
 @import "new/tooltip";
 @import "new/total-value";
 @import "new/widget";
+@import "new/pricing";
 @import "new/multiselect";
 
 @import "new/small-random";

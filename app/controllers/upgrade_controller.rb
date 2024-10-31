@@ -1,171 +1,165 @@
 class UpgradeController < ApplicationController
   before_action :authenticate_user!, except: %i[btcpay_payment_ipn zen_payment_ipn]
-  skip_before_action :verify_authenticity_token, only: %i[
-    btcpay_payment_ipn
-    zen_payment_ipn
-    create_stripe_payment_intent
-    update_stripe_payment_intent
-    confirm_stripe_payment
-    wire_transfer_payment
-  ] # TODO: for wire_transfer_payment, remove from list after fixing the CSRF issue --> use form_with + button_to
+  skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_ipn zen_payment_ipn]
 
   def index
-    current_plan = current_user.subscription.subscription_plan
-    return redirect_to legendary_badger_path if current_plan.name == 'legendary_badger'
+    redirect_to legendary_path if current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
 
-    @upgrade_presenter = UpgradePresenter.new(current_user)
-    @stripe_payment_in_process = check_stripe_payment_in_process
-    @errors = session.delete(:errors) || []
+    # TODO: style the pending_wire_transfer view
+    if current_user.pending_wire_transfer.present?
+      @payment = current_user.payments.last
+      render 'pending_wire_transfer'
+      return
+    end
+
+    set_navigation_session
+    set_index_instance_variables
+    @payment = @payment_options[session[:plan_name]]
   end
 
-  def zen_payment
-    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(zen_payment_params)
+  def create_payment
+    @payment = new_payment_for(session[:plan_name])
+    @payment.assign_attributes(payment_params)
+    @payment.assign_attributes({
+                                 total: @payment.price_with_vat,
+                                 commission: @payment.referrer_commission_amount,
+                                 discounted: @payment.referral_discount_percent.positive?
+                               })
+    if @payment.save
+      case session[:payment_type]
+      when 'zen' then handle_zen_payment
+      when 'bitcoin' then handle_btcpay_payment
+      when 'wire' then handle_wire_transfer_payment
+      end
+    else
+      set_index_instance_variables
+      render :index, status: :unprocessable_entity
+    end
+  end
+
+  def success
+    flash[:notice] = t('subscriptions.payment.payment_ordered') if session[:payment_type] == 'bitcoin'
+    @payment = current_user.payments.paid.where(gads_tracked: false).last
+    @payment.update!(gads_tracked: true) if @payment.present?
+  end
+
+  def handle_zen_payment
+    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(@payment)
     if initiator_result.success?
       redirect_to initiator_result.data[:payment_url]
     else
-      unless initiator_result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
-        flash[:alert] = I18n.t('subscriptions.payment.server_error')
-      end
-      session[:errors] = initiator_result.errors
-      redirect_to action: 'index'
+      handle_server_error(initiator_result)
     end
   end
 
   def zen_payment_failure
-    redirect_to action: 'index'
-  end
-
-  def success
-    @payment = current_user.payments.where(status: 'paid', gads_tracked: false).last
-    @payment.update(gads_tracked: true) if @payment.present?
-  end
-
-  def zen_payment_success
-    redirect_to action: :success
+    handle_server_error
   end
 
   def zen_payment_ipn
-    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).failure?
-      render json: { error: 'Unauthorized' }, status: :unauthorized
-    else
+    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
       PaymentsManager::ZenManager::PaymentFinalizer.call(params)
       render json: { "status": 'ok' }
+    else
+      render json: { error: 'Unauthorized' }, status: :unauthorized
     end
   end
 
-  def btcpay_payment
-    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(btcpay_payment_params)
+  def handle_btcpay_payment
+    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(@payment)
     if initiator_result.success?
       redirect_to initiator_result.data[:payment_url]
     else
-      unless initiator_result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
-        flash[:alert] = I18n.t('subscriptions.payment.server_error')
-      end
-      session[:errors] = initiator_result.errors
-      redirect_to action: 'index'
+      handle_server_error(initiator_result)
     end
-  end
-
-  def btcpay_payment_success
-    flash[:notice] = I18n.t('subscriptions.payment.payment_ordered')
-    redirect_to action: :success
   end
 
   def btcpay_payment_ipn
     validation_result = PaymentsManager::BtcpayManager::IpnHashVerifier.call(params)
-    if validation_result.failure?
-      render json: { error: 'Unauthorized' }, status: :unauthorized
-    else
+    if validation_result.success?
       PaymentsManager::BtcpayManager::PaymentFinalizer.call(validation_result.data[:invoice])
       render json: {}
-    end
-  end
-
-  def wire_transfer_payment
-    initiator_result = PaymentsManager::WireManager::PaymentFinalizer.call(wire_payment_params)
-    if initiator_result.failure?
-      unless initiator_result.errors.include?('User error')
-        Raven.capture_exception(Exception.new(initiator_result.errors[0]))
-        flash[:alert] = I18n.t('subscriptions.payment.server_error')
-      end
-      session[:errors] = initiator_result.errors
-    end
-    redirect_to action: 'index'
-  end
-
-  def create_stripe_payment_intent
-    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentCreator.call(params, current_user)
-    if payment_intent_result.success?
-      puts "payment_intent_result.data['id']: #{payment_intent_result.data['id']}"
-      session[:payment_intent_id] = payment_intent_result.data['id']
-      render json: {
-        clientSecret: payment_intent_result.data['client_secret'],
-        payment_intent_id: payment_intent_result.data['id']
-      }
     else
-      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      session[:errors] = payment_intent_result.errors
-      render json: { error: 'Internal Server Error' }, status: :internal_server_error
+      render json: { error: 'Unauthorized' }, status: :unauthorized
     end
   end
 
-  def update_stripe_payment_intent
-    payment_intent_result = PaymentsManager::StripeManager::PaymentIntentUpdater.call(params, current_user)
-    if payment_intent_result.success?
-      render json: { "status": 'ok' }
+  def handle_wire_transfer_payment
+    finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
+    if finalizer_result.success?
+      redirect_to action: :index
     else
-      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      session[:errors] = payment_intent_result.errors
-      render json: { error: 'Internal Server Error' }, status: :internal_server_error
-    end
-  end
-
-  def confirm_stripe_payment
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
-    if payment_finalizer_result.success?
-      session.delete(:payment_intent_id)
-      render json: { payment_status: 'succeeded' }
-    else
-      Raven.capture_exception(Exception.new(payment_intent_result.errors[0]))
-      render json: { payment_status: 'failed' }
+      handle_server_error(finalizer_result)
     end
   end
 
   private
 
-  def zen_payment_params
-    params
-      .require(:payment)
-      .permit(:subscription_plan_id, :country)
-      .merge(user: current_user)
+  def set_navigation_session # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    params.permit(:plan_name, :payment_type, :country, :years)
+    session[:plan_name] = params[:plan_name] || session[:plan_name] || available_plan_names.first
+    session[:years] = params[:years]&.to_i || session[:years]&.to_i || available_variant_years.first
+    session[:country] = params[:country] || session[:country] || VatRate::NOT_EU
+    session[:payment_type] = params[:payment_type] || session[:payment_type] || default_payment_type
   end
 
-  def btcpay_payment_params
-    params
-      .require(:payment)
-      .permit(:subscription_plan_id, :first_name, :last_name, :birth_date, :country)
-      .merge(user: current_user)
+  def draft_payment
+    Payment.new(user: current_user, status: 'draft')
   end
 
-  def wire_payment_params
-    params
-      .require(:payment)
-      .permit(:subscription_plan_id, :first_name, :last_name, :country)
-      .merge(user: current_user)
+  def new_payment_for(plan_name)
+    Payment.new(
+      user: current_user,
+      status: 'unpaid',
+      payment_type: session[:payment_type],
+      subscription_plan_variant: SubscriptionPlanVariant.send(plan_name, session[:years]),
+      country: session[:country],
+      currency: session[:country] != VatRate::NOT_EU ? 'EUR' : 'USD'
+    )
   end
 
-  def check_stripe_payment_in_process
-    return false unless session[:payment_intent_id]
+  def set_index_instance_variables
+    @payment_options = available_plan_names.map { |plan_name| [plan_name, new_payment_for(plan_name)] }.to_h
+    @available_variant_years = available_variant_years
+    @legendary_plan = SubscriptionPlan.legendary
+  end
 
-    params = { payment_intent_id: session[:payment_intent_id] }
-    payment_finalizer_result = PaymentsManager::StripeManager::PaymentFinalizer.call(params, current_user)
-    if payment_finalizer_result.success?
-      session.delete(:payment_intent_id)
-      redirect_to upgrade_path
-    else
-      true
+  def payment_params
+    case session[:payment_type]
+    when 'zen'
+      {}
+    when 'bitcoin'
+      params
+        .require(:payment)
+        .permit(:first_name, :last_name, :birth_date)
+    when 'wire'
+      params
+        .require(:payment)
+        .permit(:first_name, :last_name)
+    end
+  end
+
+  def handle_server_error(service_result)
+    Raven.capture_exception(Exception.new(service_result.errors[0]))
+    flash[:alert] = t('subscriptions.payment.server_error')
+    redirect_to action: 'index'
+  end
+
+  def available_variant_years
+    @available_variant_years ||= SubscriptionPlanVariant.variant_years
+  end
+
+  def available_plan_names
+    @available_plan_names ||= current_user.available_plan_names
+  end
+
+  def default_payment_type
+    if SettingFlag.show_zen_payment?
+      'zen'
+    elsif SettingFlag.show_bitcoin_payment?
+      'bitcoin'
+    elsif SettingFlag.show_wire_payment?
+      'wire'
     end
   end
 end

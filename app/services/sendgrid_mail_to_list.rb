@@ -3,9 +3,9 @@ class SendgridMailToList < BaseService
   CONTACTS_URL = 'https://api.sendgrid.com/v3/marketing/contacts'.freeze
   API_KEY = ENV.fetch('SENDGRID_VALIDATION_API_KEY').freeze
   LIST_NAME = ENV.fetch('SENDGRID_NEW_USERS_LIST').freeze
-  INVESTOR_LIST_NAME = ENV.fetch('SENDGRID_INVESTORS_LIST').freeze
-  HODLER_LIST_NAME = ENV.fetch('SENDGRID_HODLERS_LIST').freeze
-  LEGENDARY_BADGER_LIST_NAME = ENV.fetch('SENDGRID_LEGENDARY_BADGERS_LIST').freeze
+  BASIC_USERS_LIST_NAME = ENV.fetch('SENDGRID_BASIC_USERS_LIST').freeze
+  PRO_USERS_LIST_NAME = ENV.fetch('SENDGRID_PRO_USERS_LIST').freeze
+  LEGENDARY_USERS_LIST_NAME = ENV.fetch('SENDGRID_LEGENDARY_USERS_LIST').freeze
   KRAKEN_STARTED = ENV.fetch('SENDGRID_KRAKEN_STARTED').freeze
 
   def call(user)
@@ -16,8 +16,8 @@ class SendgridMailToList < BaseService
   end
 
   def change_plan_list(user, current_plan_name, new_plan_name)
-    current_list_name = self.class.const_defined?("#{current_plan_name&.upcase || 'UNANNOUNCED'}_LIST_NAME") ? self.class.const_get("#{current_plan_name.upcase}_LIST_NAME") : false
-    new_list_name = self.class.const_get "#{new_plan_name.upcase}_LIST_NAME"
+    current_list_name = self.class.const_defined?("#{current_plan_name&.upcase || 'UNANNOUNCED'}_USERS_LIST_NAME") ? self.class.const_get("#{current_plan_name.upcase}_USERS_LIST_NAME") : false
+    new_list_name = self.class.const_get "#{new_plan_name.upcase}_USERS_LIST_NAME"
 
     delete_user(user.email, current_list_name) if current_list_name && list_ids(current_list_name).present?
 

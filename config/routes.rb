@@ -34,6 +34,7 @@ Rails.application.routes.draw do
     resources :transactions
     resources :subscriptions
     resources :subscription_plans
+    resources :subscription_plan_variants
     resources :payments do
       get :csv, on: :collection
       get :csv_wire, on: :collection
@@ -92,15 +93,11 @@ Rails.application.routes.draw do
 
     namespace :upgrade do
       get '/', action: :index
-      get :success
-      post :btcpay_payment
-      get :btcpay_payment_success
+      post '/', action: :create_payment
       post :btcpay_payment_ipn
-      post :wire_transfer_payment
-      post :zen_payment
       get :zen_payment_failure
-      get :zen_payment_success
       post :zen_payment_ipn
+      get :success
     end
 
     namespace :settings do
@@ -116,7 +113,7 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resource :legendary_badger, only: [:show, :update], path: '/legendary-badger' do
+    resource :legendary, only: [:show, :update], path: '/legendary-badger' do
       get '/', action: :show
       patch '/', action: :update
     end
@@ -163,10 +160,6 @@ Rails.application.routes.draw do
 
   get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
   post '/ref/accept', to: 'ref_codes#accept'
-
-  post '/create-payment-intent', to: 'upgrade#create_stripe_payment_intent'
-  post '/update-payment-intent', to: 'upgrade#update_stripe_payment_intent'
-  post '/confirm-card-payment', to: 'upgrade#confirm_stripe_payment'
 
   # get '*path', to: redirect("/#{I18n.default_locale}")
 

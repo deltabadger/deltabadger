@@ -1,0 +1,40 @@
+<div class="widget--pricing__name">
+  <%= t('subscriptions.basic') %>
+</div>
+
+<div class="widget--pricing__amount">
+  <% unless current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
+    <% if payment_option.base_price != payment_option.adjusted_base_price %>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
+        <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
+      </span>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--new">
+        <%= localized_price(payment_option.virtual_price('adjusted_base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
+      </span>
+    <% else %>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+        <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency, 0) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
+      </span>
+    <% end %>
+  <% end %>
+</div>
+
+
+<div class="widget--pricing__period">
+  <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
+    <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
+  <% else %>
+    <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
+    <%# t("subscriptions.billed#{payment_option.subscription_plan_variant.years}") %>
+  <% end %>
+</div>
+
+
+
+<div class="widget--pricing__info">
+  <p><%= t('subscriptions.basic_info') %></p>
+  <ul>
+    <li><%= t('subscriptions.features.dca') %></li>
+    <li><%= t('subscriptions.features.withdrawals') %></li>
+  </ul>
+</div>

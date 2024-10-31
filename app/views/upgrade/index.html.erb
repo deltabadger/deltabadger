@@ -1,23 +1,50 @@
-<div class="db-country db-checkout--<%= @upgrade_presenter.selected_payment_type %>">
-  <%= render partial: "layouts/navbar/signed_in" %>
-  <div class="row db-checkout db-checkout--<%= @upgrade_presenter.selected_plan_name %> <%= "stripe_payment_in_process" if @stripe_payment_in_process %>">
-    <div class="db-plans col col-sm-12 col-md-6 col-lg-7 col-xl-7">
-      <%= render partial: "current_plan", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                 } %>
-      <%= render partial: "upgrade_plans", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                 } %>
+<% content_for :body_class, ".view--upgrade" %>
+
+<%= turbo_frame_tag "upgrade-frame" do %>
+
+    <div class="page-head">
+      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
+        <% @available_variant_years.each do |years| %>
+          <% selected = @payment.subscription_plan_variant.years == years %>
+          <%= tag.label class: "hide_radio_buttons" do %>
+            <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
+            <span><%= t("subscriptions.variant#{years}") %></span>
+          <% end %>
+          <%= " / " unless years == @available_variant_years.last %>
+        <% end %>
+      <% end %>
     </div>
-    <div class="db-checkout__bill col col-sm-12 col-md-6 col-lg-5 col-xl-5">
-      <%= render partial: "upgrade_summary", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                 } %>
-      <%= render partial: "billing_form", locals: {
-                   upgrade_presenter: @upgrade_presenter,
-                   stripe_payment_in_process: @stripe_payment_in_process,
-                   errors: @errors,
-                 } %>
-    </div>
-  </div>
-</div>
+
+    <%= tag.div class: "pricing" do %>
+      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
+        <%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
+          <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}" %>
+        <% end %>
+        <% current_user.available_plan_names.each do |available_plan_name| %>
+          <% selected = @payment.subscription_plan.name == available_plan_name %>
+          <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
+            <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+            <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
+              payment_option: @payment_options[available_plan_name],
+              legendary_plan: @legendary_plan, # only used in legendary plan card
+            } %>
+          <% end %>
+        <% end %>
+      <% end %>
+
+      <div class="pricing__checkout">
+        <div class="pricing__checkout__calculations">
+          <%= render partial: "discounts", locals: {
+            payment: @payment,
+            payment_options: @payment_options,
+            legendary_plan: @legendary_plan
+          } %>
+          <%= render partial: "summary", locals: { payment: @payment } %>
+        </div>
+        <%= render partial: "billing_form", locals: { payment: @payment } %>
+      </div>
+    <% end %>
+<% end %>
+
+<%# FIXME: is this needed? %>
+<div id="current_user_subscription" data-current-user-subscription="<%= current_user.subscription.name %>"></div>

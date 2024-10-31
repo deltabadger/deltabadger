@@ -73,7 +73,7 @@ class CalculateSalesStatistics < BaseService
     vat_rate = @vat_rates.fetch(payment.country, 0)
     value /= (1.0 + vat_rate)
     # constant EUR/USD rate
-    value *= 1.2 if payment.currency.downcase == 'eur'
+    value *= 1.1 if payment.currency.downcase == 'eur'
 
     value
   end

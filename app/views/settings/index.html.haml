@@ -3,7 +3,7 @@
   .stitle= t('.title')
 .row
   .col-md-6
-    -# - if user.subscription_name == "saver"
+    -# - if current_user.subscription.name == "free"
     -#   .db-box
     -#     = render partial: 'limit_left', locals: { user: user, credits: user.credits.round(2), end_time: user.subscription.end_time }
     .db-box
