@@ -716,11 +716,9 @@ en:
         days_left:
             one: '1 day left'
             other: '%{count} days left'
-        basic_info: 'No frills, just thrills, but gets the job done.'
-        pro_info: 'Get a big picture, deep insights, and Pro features.'
-        legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
+        legendary_badger_info_html: '<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
         features:
-            analyzer_html: '🌈⃤ Prism portfolio tester'
+            analyzer_html: '🌈⃤ Prism — portfolio tester'
             dca: 'DCA bots'
             price_limit: 'Price limit'
             fee_cutter: 'FeeCutter'
@@ -749,8 +747,8 @@ en:
             legendary_plan_discount_info: 'goes down $10 with every sale.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
-            paid_with_wire_transfer: 'I have sent the SEPA transfer'
-            paid_with_wire_transfer_other: 'I have sent the wire transfer'
+            paid_with_wire_transfer: 'I''ve sent the SEPA transfer'
+            paid_with_wire_transfer_other: 'I''ve sent the wire transfer'
             pay_html: 'Pay %{amount_html}'
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay_with_card: 'Pay with Card'
