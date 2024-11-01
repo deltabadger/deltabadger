@@ -621,6 +621,13 @@ de:
             subject: '%{plan_name}-Plan garantiert'
             template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
     subscriptions:
+        per_month_html: "/Monat"
+        per_year_html: "/Jahr"
+        plan_1_year: '1-Jahres-Plan'
+        plan_4_year: '4-Jahres-Plan'
+        plan_life_time: 'Lebenslanger Plan'
+        variant1: "1 Jahr"
+        variant4: "4 Jahre, eines gratis"
         free: Sparer
         days_left:
             one: '1 Tag übrig'
@@ -674,8 +681,6 @@ de:
             wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
             wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'
             you_pay: 'Du zahlst'
-        plan_1_year: 1-Jahr-Plan
-        plan_life_time: 'Lebenslanger Plan'
         prolong_upgrade: 'Stufe deinen Plan hoch'
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'

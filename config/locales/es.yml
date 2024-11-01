@@ -677,6 +677,13 @@ es:
             subject: '%{plan_name} plan concedido'
             template_html: '<p> Guau, </p> <p> Gracias por comprar nuestro plan <b> %{plan_name} </b> </p> <p> ¡No te arrepentirás! </p>'
     subscriptions:
+        per_month_html: "/mes"
+        per_year_html: "/año"
+        plan_1_year: 'Plan de 1 año'
+        plan_4_year: 'Plan de 4 años'
+        plan_life_time: 'Plan de por vida'
+        variant1: "1 año"
+        variant4: "4 años, uno gratis"
         free: Gratis
         days_left:
             one: '1 día menos'
@@ -730,8 +737,6 @@ es:
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
             you_pay: 'Tu pagas'
-        plan_1_year: 'Plan de 1 año'
-        plan_life_time: 'Plan de por vida'
         prolong_upgrade: 'Actualiza tu plan'
         upgrade: Actualizar
         upgrade_plan: 'Actualizar plan'
