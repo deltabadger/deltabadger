@@ -2,8 +2,8 @@
   <%= t('subscriptions.pro') %>
 </div>
 
-<div class="widget--pricing__amount">
-  <% unless current_user.subscription.name == SubscriptionPlan::PRO_PLAN && current_user.subscription.days_left %>
+<% if payment_option.present? %>
+  <div class="widget--pricing__amount">
     <% if payment_option.base_price != payment_option.adjusted_base_price %>
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
         <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
@@ -16,8 +16,8 @@
         <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency, 0) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
       </span>
     <% end %>
-  <% end %>
-</div>
+  </div>
+<% end %>
 
 <div class="widget--pricing__period">
   <% if current_user.subscription.name == SubscriptionPlan::PRO_PLAN && current_user.subscription.days_left %>

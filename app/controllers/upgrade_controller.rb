@@ -97,7 +97,7 @@ class UpgradeController < ApplicationController
 
   def set_navigation_session # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     params.permit(:plan_name, :payment_type, :country, :years)
-    session[:plan_name] = params[:plan_name] || session[:plan_name] || available_plan_names.first
+    session[:plan_name] = params[:plan_name] || session[:plan_name] || available_plan_names.last
     session[:years] = params[:years]&.to_i || session[:years]&.to_i || available_variant_years.first
     session[:country] = params[:country] || session[:country] || VatRate::NOT_EU
     session[:payment_type] = params[:payment_type] || session[:payment_type] || default_payment_type

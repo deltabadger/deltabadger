@@ -17,9 +17,9 @@
 
     <%= tag.div class: "pricing" do %>
       <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
-        <%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
-          <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}" %>
-        <% end %>
+        <%# <%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
+          <%# <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}" %>
+        <%# <% end %>
         <% current_user.available_plan_names.each do |available_plan_name| %>
           <% selected = @payment.subscription_plan.name == available_plan_name %>
           <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
@@ -44,6 +44,11 @@
         <%= render partial: "billing_form", locals: { payment: @payment } %>
       </div>
     <% end %>
+<% end %>
+
+<h2><%= t("subscriptions.current_subscription") %></h2>
+<%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
+  <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}", locals: { payment_option: nil} %>
 <% end %>
 
 <%# FIXME: is this needed? %>
