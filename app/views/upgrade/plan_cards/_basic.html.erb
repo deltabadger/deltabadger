@@ -1,5 +1,13 @@
 <div class="widget--pricing__name">
   <%= t('subscriptions.basic') %>
+  <div class="widget--pricing__name__period">
+    <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
+      <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
+    <% else %>
+      <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
+      <%# t("subscriptions.billed#{payment_option.subscription_plan_variant.years}") %>
+    <% end %>
+  </div>
 </div>
 
 <% if payment_option.present? %>
@@ -19,19 +27,7 @@
   </div>
 <% end %>
 
-<div class="widget--pricing__period">
-  <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
-    <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
-  <% else %>
-    <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
-    <%# t("subscriptions.billed#{payment_option.subscription_plan_variant.years}") %>
-  <% end %>
-</div>
-
-<div class="widget--pricing__info">
-  <p><%= t('subscriptions.basic_info') %></p>
-  <ul>
-    <li><%= t('subscriptions.features.dca') %></li>
-    <li><%= t('subscriptions.features.withdrawals') %></li>
-  </ul>
-</div>
+<ul>
+  <li><%= t('subscriptions.features.dca') %></li>
+  <li><%= t('subscriptions.features.withdrawals') %></li>
+</ul>
