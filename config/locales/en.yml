@@ -707,8 +707,8 @@ en:
         billed: "billed once"
         billed1: "billed annually"
         billed4: "billed every 4 years"
-        variant1: "Pay annually"
-        variant4: "Buy 4 years, get one year free"
+        variant1: "1-year"
+        variant4: "4-years, one free"
         free: Free
         basic: Basic
         pro: Pro
