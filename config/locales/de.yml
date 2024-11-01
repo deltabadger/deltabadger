@@ -635,6 +635,7 @@ de:
         basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
         pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
         legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
+        legendary_plan_left: "%{for_sale_count} von %{total_supply} übrig"
         features:
             analyzer_html: 'Prism — Portfolio-Analysator'
             dca: 'DCA-Bots'
