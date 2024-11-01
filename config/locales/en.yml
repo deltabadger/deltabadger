@@ -704,9 +704,9 @@ en:
     subscriptions:
         per_month_html: "/mo"
         per_year_html: "/yr"
-        billed: "billed once"
-        billed1: "billed annually"
-        billed4: "billed every 4 years"
+        plan_1_year: '1-year Plan'
+        plan_4_year: '4-year Plan'
+        plan_life_time: 'Lifetime Plan'
         variant1: "1-year"
         variant4: "4-years, one free"
         free: Free
@@ -764,8 +764,6 @@ en:
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'
             wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
             you_pay: 'You pay'
-        plan_1_year: '1-year plan'
-        plan_life_time: 'Lifetime plan'
         prolong_upgrade: 'Upgrade your plan'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'

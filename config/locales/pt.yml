@@ -598,6 +598,13 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
     subscriptions:
+        per_month_html: "/mês"
+        per_year_html: "/ano"
+        plan_1_year: 'Plano de 1 ano'
+        plan_4_year: 'Plano de 4 anos'
+        plan_life_time: 'Plano vitalício'
+        variant1: "1 ano"
+        variant4: "4 anos, um grátis"
         free: Free
         days_left:
             one: '1 dia restante'
@@ -640,8 +647,6 @@ pt:
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
             you_pay: 'Tu pagas'
-        plan_1_year: 'Plano de 1 ano'
-        plan_life_time: 'Para a vida'
         prolong_upgrade: 'Atualizar plano'
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'

@@ -676,6 +676,13 @@ fr:
             subject: 'Forfait %{plan_name} accordé'
             template_html: '<p>Wow,</p><p>merci d''avoir acheté notre forfait <b>%{plan_name}</b></p>. <p>Vous déchirez !</p>'
     subscriptions:
+        per_month_html: "/mois"
+        per_year_html: "/an"
+        plan_1_year: 'Plan de 1 an'
+        plan_4_year: 'Plan de 4 ans'
+        plan_life_time: 'Plan à vie'
+        variant1: "1 an"
+        variant4: "4 ans, un gratuit"
         free: 'Gratuit'
         days_left:
             one: "1 jour restant"
@@ -729,8 +736,6 @@ fr:
             wire_transfer_fill_form: 'Veuillez remplir le formulaire ci-dessus pour continuer'
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
             you_pay: 'Vous payez'
-        plan_1_year: 'Forfait de 1 an'
-        plan_life_time: 'Forfait à vie'
         prolong_upgrade: 'Mise à niveau du forfait'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mise à niveau du forfait'

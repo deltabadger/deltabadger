@@ -676,6 +676,13 @@ nl:
             subject: '%{plan_name} abonnement geactiveerd'
             template_html: '<p>Wow,</p><p>Bedankt voor het kopen van ons <b>%{plan_name} plan</b></p><p>Je bent geweldig!</p>'
     subscriptions:
+        per_month_html: "/maand"
+        per_year_html: "/jaar"
+        plan_1_year: '1-jarig plan'
+        plan_4_year: '4-jarig plan'
+        plan_life_time: 'Levenslang plan'
+        variant1: "1 jaar"
+        variant4: "4 jaar, één gratis"
         free: Spaarder
         days_left:
             one: '1 dag over'
@@ -729,8 +736,6 @@ nl:
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
             wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per email contact met u op.'
             you_pay: 'U betaalt'
-        plan_1_year: '1-jarig plan'
-        plan_life_time: 'Levenslang plan'
         prolong_upgrade: 'Upgrade je abonnement'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'

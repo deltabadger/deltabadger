@@ -688,6 +688,13 @@ pl:
             template_html: '<p> Wow, </p> <p> Dziękujemy za zakup naszego planu <b> %{plan_name} </b> </p> <p> Dajesz radę! </p>'
     subscriptions:
         free: Oszczędny
+        per_month_html: "/miesiąc"
+        per_year_html: "/rok"
+        plan_1_year: 'Plan roczny'
+        plan_4_year: 'Plan 4-letni'
+        plan_life_time: 'Plan dożywotni'
+        variant1: "1 rok"
+        variant4: "4 lata, jeden rok gratis"
         days_left:
             one: 'Pozostał 1 dzień'
             few: 'Pozostały %{count} dni'
@@ -745,9 +752,7 @@ pl:
             wire_transfer: 'Przelew bankowy'
             wire_transfer_fill_form: 'Wypełnij powyższy formularz, aby kontynuować...'
             wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'
-            you_pay: Płacisz
-        plan_1_year: 'Plan roczny'
-        plan_life_time: 'Plan dożywotni'
+            you_pay: Do zapłaty
         prolong_upgrade: 'Zrób upgrade'
         upgrade: Upgrade
         upgrade_plan: 'Zrób upgrade'
