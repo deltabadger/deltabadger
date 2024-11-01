@@ -38,7 +38,7 @@ class FinancialDataApiClient < ApplicationClient
           risk_free_rate: risk_free_rate,
           start_balance: start_balance,
           include_dividends: true
-        }
+        }.compact
       end
       Result::Success.new(response.body)
     end
@@ -50,7 +50,7 @@ class FinancialDataApiClient < ApplicationClient
         req.url 'v3/symbols'
         req.params = {
           source: source
-        }
+        }.compact
       end
       Result::Success.new(response.body)
     end
@@ -71,7 +71,7 @@ class FinancialDataApiClient < ApplicationClient
           strategy: strategy,
           risk_free_rate: risk_free_rate,
           include_dividends: true
-        }
+        }.compact
       end
       Result::Success.new(response.body)
     end
@@ -94,7 +94,7 @@ class FinancialDataApiClient < ApplicationClient
           limit: limit,
           start: start,
           include_dividends: true
-        }
+        }.compact
       end
       Result::Success.new(response.body)
     end
