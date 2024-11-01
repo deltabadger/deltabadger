@@ -4,10 +4,10 @@
     gap: 4rem
     &__plans
         display: grid
-        grid-template-columns: repeat(3, 1fr)
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))
         grid-template-rows: 1fr
         gap: 2px
-        width: calc(75%)
+        width: calc(75% - 4rem)
         .widget
             &:first-child
                 border-radius: 2rem 0 0 2rem
@@ -169,18 +169,33 @@
 // hide radio buttons for the tabs, guillem workaround
 
 @media only screen and (max-width: 1279.9px)
-    .pricing__plans
-        grid-template-columns: 1fr
-        position: relative
-        .widget
-            &:first-child
-                border-radius: 2rem 2rem 0 0 !important
-            &:last-child
-                border-radius: 0 0 2rem 2rem !important
-            &--pricing
-                position: relative
-                &__amount
-                    position: absolute
-                    text-align: right
-                    top: 3rem
-                    right: 3rem
+    .pricing
+        &__plans
+            grid-template-columns: 1fr
+            position: relative
+            width: calc(60% - 4rem)
+            .widget
+                &:first-child
+                    border-radius: 2rem 2rem 0 0 !important
+                &:last-child
+                    border-radius: 0 0 2rem 2rem !important
+                &--pricing
+                    position: relative
+                    &__amount
+                        position: absolute
+                        text-align: right
+                        top: 3rem
+                        right: 3rem
+        &__checkout
+            width: 40%
+@media only screen and (max-width: 767.9px)
+    .pricing
+        gap: 1rem
+        flex-direction: column
+        &__plans, &__checkout
+            width: 100%
+    .widget
+        &--pricing
+            &__amount
+                top: 2rem !important
+                right: 2rem !important
