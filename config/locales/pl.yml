@@ -703,6 +703,7 @@ pl:
         basic_info: 'Bez szmerów bajerów, ale konkret.'
         pro_info: 'Zyskaj szeroki obraz, dogłębną analizę i funkcje Pro.'
         legendary_badger_info_html: '<p>Uzyskaj wszystkie aktualne i przyszłe funkcje planu Pro na całe życie.</p><p>Lubisz płacić raz i mieć wszystko? Dołącz do naszego ekskluzywnego klubu 1000 długoterminowych myślicieli z diamentowymi rękoma i wizją, i stwórz własną legendę.</p><p>Otrzymany NFT zamienia twoją subskrypcję w aktywo, które możesz przekazać lub sprzedać. Każdy token jest wyposażony w unikalną sztukę proceduralną, z 21 ukrytymi <i>easter eggami</i> w <a href="https://legendarybadgers.com/" class="nobreak">kolekcji</a>.</p>'
+        legendary_plan_left: "Pozostało %{for_sale_count} z %{total_supply}"
         features:
             analyzer_html: 'Prism — analityk portfela'
             dca: 'Boty DCA'

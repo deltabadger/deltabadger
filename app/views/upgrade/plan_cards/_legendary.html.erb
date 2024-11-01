@@ -33,7 +33,7 @@
 </div>
 
 <div class="widget--pricing__legendary-plans-left">
-  <span><%= legendary_plan.for_sale_count %> of <%= legendary_plan.total_supply %> left.</span>
+  <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
   <div class="slider">
     <div class="slider__style">
       <div class="slider__style__track">
