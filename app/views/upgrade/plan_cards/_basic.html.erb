@@ -1,7 +1,7 @@
 <div class="widget--pricing__name">
   <%= t('subscriptions.basic') %>
   <div class="widget--pricing__name__period">
-    <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && current_user.subscription.days_left %>
+    <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && payment_option.nil? %>
       <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
     <% else %>
       <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
