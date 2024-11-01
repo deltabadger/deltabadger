@@ -18,15 +18,13 @@
     <%= tag.div class: "pricing" do %>
       <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
 
-        <%# show current subscribed plan along with buyable plans %>
-        <%# <%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
-          <%# <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}", locals: { payment_option: nil} %>
-        <%# <% end %>
-
         <% current_user.available_plan_names.each do |available_plan_name| %>
           <% selected = @payment.subscription_plan.name == available_plan_name %>
           <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
             <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+            <% if available_plan_name == current_user.subscription.name %>
+              <span>Current Plan</span>
+            <% end %>
             <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
               payment_option: @payment_options[available_plan_name],
               legendary_plan: @legendary_plan, # only used in legendary plan card
@@ -47,12 +45,6 @@
         <%= render partial: "billing_form", locals: { payment: @payment } %>
       </div>
     <% end %>
-<% end %>
-
-<%# show current subscribed plan as extra info in the bottom %>
-<h2><%= t("subscriptions.current_subscription") %></h2>
-<%= tag.div class: "widget widget--pricing widget--pricing--#{current_user.subscription.name} widget--pricing--current" do %>
-  <%= render partial: "upgrade/plan_cards/#{current_user.subscription.name}", locals: { payment_option: nil} %>
 <% end %>
 
 <%# FIXME: is this needed? %>
