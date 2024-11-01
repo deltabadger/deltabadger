@@ -709,6 +709,7 @@ en:
         plan_life_time: 'Lifetime Plan'
         variant1: "1-year"
         variant4: "4-years, one free"
+        until: "(until %{end_date})"
         free: Free
         basic: Basic
         pro: Pro
