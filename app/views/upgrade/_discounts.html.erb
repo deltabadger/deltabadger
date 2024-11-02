@@ -1,4 +1,4 @@
-<% if current_user.subscription.paid? %>
+<% if current_user.subscription.days_left.present? %>
   <div class="widget widget--discount db-plan-active-discount">
     <div class="widget--discount__col">
       <div class="widget--discount__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
