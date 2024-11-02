@@ -4,15 +4,17 @@
     gap: 4rem
     &__plans
         display: grid
-        grid-template-columns: repeat(3, 1fr)
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))
         grid-template-rows: 1fr
         gap: 2px
-        width: calc(75%)
+        width: calc(75% - 4rem)
         .widget
             &:first-child
-                border-radius: 2rem 0 0 2rem
+                border-top-left-radius: 2rem
+                border-bottom-left-radius: 2rem
             &:last-child
-                border-radius: 0 2rem 2rem 0
+                border-top-right-radius: 2rem
+                border-bottom-right-radius: 2rem
     &__checkout
         width: 25%
         gap: 1rem
@@ -21,9 +23,11 @@
         &__calculations
             .widget
                 &:first-child
-                    border-radius: 2rem 2rem 0 0
+                    border-top-left-radius: 2rem
+                    border-top-right-radius: 2rem
                 &:last-child
-                    border-radius: 0 0 2rem 2rem
+                    border-bottom-left-radius: 2rem
+                    border-bottom-right-radius: 2rem
     &__payment-methods
         display: flex
         background: var(--pickExchangeItemBg)
@@ -45,12 +49,28 @@
     
 .widget
     &--pricing
-        gap: 5rem
+        gap: 6rem
+        margin-bottom: 0
+        padding-top: 3.25rem
+        padding-bottom: 3.25rem
+        &__badge
+            background: var(--success)
+            padding: 0 1rem
+            color: #fff
+            font-weight: 700
+            border-radius: 2rem
+            font-size: 2rem
         &__name
             font-size: 2.5rem
             font-weight: 700
             line-height: 2rem
             color: var(--text-strong)
+            &__period
+                height: 3rem
+                line-height: 3rem
+                font-weight: 400
+                font-size:  2rem
+                margin-top: 1rem
         &__amount
             min-height: 11rem
             color: var(--text-strong)
@@ -67,14 +87,13 @@
                         margin-right: .25rem
                     .price-period
                         font-size: 2rem
-                        margin-left: 1rem
+                        margin-left: .5rem
                         color: var(--text-faded)
                 &--previous
                     color: var(--text-faded)
                     .price-amount
                         text-decoration: line-through
                 &--new
-                    margin-top: 1rem
                     font-size: 2rem
                     line-height: 2rem
                     color: var(--text-strong)
@@ -85,21 +104,35 @@
             list-style: none
             display: flex
             flex-direction: column
-            gap: 1rem
+            gap: 2rem
             li
-                padding-left: 2rem
+                padding-left: 3.5rem
+                position: relative
+                &::before
+                    content: ""
+                    display: block
+                    width: 3rem
+                    height: 3rem
+                    background: url(~images/check.svg)
+                    position: absolute
+                    left: 0
+                    top: -3px
+        p, ul
+            margin-bottom: 0
         &__info
-            flex: 2
             display: flex
             flex-direction: column
-            gap: 4rem
+            gap: 3rem
         &__legendary-plans-left
+            font-weight: 600
             color: var(--success) !important
             span
                 display: block
                 margin-bottom: 1rem
-            .slider__style__track
-                border-left-color: var(--success) !important
+            .slider__style
+                background: var(--success-semitransparent)
+                &__track
+                    border-left-color: var(--success) !important
         &--selected,&--other
             cursor: pointer
         &--other
@@ -111,6 +144,8 @@
             --text-faded: #8195cf
             a
                 color: #fff
+            li::before
+                filter: brightness(2.75) saturate(0.5)
     &--discount
         display: grid
         grid-template-columns: 1fr 11rem
@@ -147,13 +182,50 @@
         white-space: nowrap
     :not([checked="checked"]) + span
         cursor: pointer
+        color: var(--text-faded)
     [checked="checked"] + span
-        color: var(--primary)
-        border-bottom: 2px solid var(--primary)
+        color: var(--text-strong)
+        border-bottom: 2px solid var(--text-strong)
         cursor: default
-
+    @media (max-width: 767.9px)
+        width: 100%
+        justify-content: center
 // hide radio buttons for the tabs, guillem workaround
 .hide_radio_buttons > input
   visibility: hidden
   position: absolute
 // hide radio buttons for the tabs, guillem workaround
+
+@media only screen and (max-width: 1279.9px)
+    .pricing
+        &__plans
+            grid-template-columns: 1fr
+            position: relative
+            width: calc(60% - 4rem)
+            .widget
+                &:first-child
+                    border-radius: 2rem 2rem 0 0 !important
+                &:last-child
+                    border-radius: 0 0 2rem 2rem !important
+                &--pricing
+                    position: relative
+                    &__amount
+                        position: absolute
+                        text-align: right
+                        top: 2.5rem
+                        right: 3rem
+        &__checkout
+            width: 40%
+@media only screen and (max-width: 767.9px)
+    .pricing
+        gap: 1rem
+        flex-direction: column
+        &__plans, &__checkout
+            width: 100%
+    .widget
+        &--pricing
+            padding-top: 2.5rem
+            padding-bottom: 2.5rem
+            &__amount
+                top: 2rem !important
+                right: 2rem !important

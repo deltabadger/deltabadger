@@ -676,6 +676,13 @@ nl:
             subject: '%{plan_name} abonnement geactiveerd'
             template_html: '<p>Wow,</p><p>Bedankt voor het kopen van ons <b>%{plan_name} plan</b></p><p>Je bent geweldig!</p>'
     subscriptions:
+        per_month_html: "/maand"
+        per_year_html: "/jaar"
+        plan_1_year: "1 jaar"
+        plan_4_year: "4 jaar"
+        plan_life_time: "Levenslang"
+        variant1: "1 jaar"
+        variant4: "4 jaar, één gratis"
         free: Spaarder
         days_left:
             one: '1 dag over'
@@ -683,6 +690,7 @@ nl:
         basic_info: 'Geen franje, alleen spanning, maar doet het werk.'
         pro_info: 'Krijg een overzicht, diepgaande inzichten en Pro-functies.'
         legendary_badger_info_html: '<p>Krijg alle huidige en toekomstige functies van het Pro-plan voor altijd.</p><p>Betaal je graag één keer en krijg je alles? Sluit je aan bij onze exclusieve club van 1.000 langetermijndenkers met diamanten handen en visie, en creëer je eigen legende.</p><p>De NFT die je ontvangt, verandert je abonnement in een actief dat je kunt overdragen of verkopen. Elke token wordt geleverd met unieke procedurele kunst, met 21 verborgen <i>paaseieren</i> in <a href="https://legendarybadgers.com/" class="nobreak">de collectie</a>.</p>'
+        legendary_plan_left: "%{for_sale_count} van %{total_supply} over"
         features:
             analyzer_html: 'Prism — portfoliobeheerder'
             dca: 'DCA-bots'
@@ -729,8 +737,6 @@ nl:
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
             wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per email contact met u op.'
             you_pay: 'U betaalt'
-        plan_1_year: '1-jarig plan'
-        plan_life_time: 'Levenslang plan'
         prolong_upgrade: 'Upgrade je abonnement'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'

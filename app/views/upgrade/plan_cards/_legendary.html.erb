@@ -1,5 +1,8 @@
 <div class="widget--pricing__name">
   <%= t('subscriptions.legendary') %>
+  <div class="widget--pricing__name__period">
+    <%= t('subscriptions.plan_life_time') %>
+  </div>
 </div>
 
 <div class="widget--pricing__amount">
@@ -17,19 +20,20 @@
     <% end %>
 </div>
 
-
-<div class="widget--pricing__period">
-  <%= t('subscriptions.plan_life_time') %>
-  <%# t("subscriptions.billed#{payment_option.subscription_plan_variant.years}") %>
-</div>
-
+<ul>
+  <li><%= t('subscriptions.features.dca') %></li>
+  <li><%= t('subscriptions.features.withdrawals') %></li>
+  <li>FeeCutter</li>
+  <li><%= t('subscriptions.features.price_limit') %></li>
+  <li><%= t('subscriptions.features.analyzer_html') %></li>
+</ul>
 
 <div class="widget--pricing__info">
   <%= t('subscriptions.legendary_badger_info_html') %>
 </div>
 
 <div class="widget--pricing__legendary-plans-left">
-  <span><%= legendary_plan.for_sale_count %> of <%= legendary_plan.total_supply %> left.</span>
+  <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
   <div class="slider">
     <div class="slider__style">
       <div class="slider__style__track">

@@ -598,6 +598,13 @@ pt:
         subscription_granted:
             subject: 'Plano %{plan_name} garantido'
     subscriptions:
+        per_month_html: "/mês"
+        per_year_html: "/ano"
+        plan_1_year: "1 ano"
+        plan_4_year: "4 anos"
+        plan_life_time: "Vitalício"
+        variant1: "1 ano"
+        variant4: "4 anos, um grátis"
         free: Free
         days_left:
             one: '1 dia restante'
@@ -605,6 +612,7 @@ pt:
         basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
         pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
         legendary_badger_info_html: '<p>Obtenha todos os recursos atuais e futuros do plano Pro para a vida toda.</p><p>Gosta de pagar uma vez e obter tudo? Junte-se ao nosso clube exclusivo de 1.000 pensadores de longo prazo com mãos de diamante e visão, e crie sua própria lenda.</p><p>O NFT que você recebe transforma sua assinatura em um ativo que você pode transferir ou vender. Cada token vem com uma arte processual única, com 21 <i>ovos de Páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
+        legendary_plan_left: "%{for_sale_count} de %{total_supply} restantes"
         features:
             analyzer_html: 'Prism — Analisador de portfólio'
             dca: 'Bots de DCA'
@@ -640,8 +648,6 @@ pt:
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
             you_pay: 'Tu pagas'
-        plan_1_year: 'Plano de 1 ano'
-        plan_life_time: 'Para a vida'
         prolong_upgrade: 'Atualizar plano'
         upgrade: Atualizar
         upgrade_plan: 'Atualizar plano'

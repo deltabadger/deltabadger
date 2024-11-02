@@ -1,5 +1,5 @@
-<div class="pricing__checkout__pay">
-  
+<%= turbo_frame_tag "billing-form-frame", class: "pricing__checkout__pay" do %>
+
   <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
       <% if SettingFlag.show_zen_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
@@ -29,76 +29,71 @@
   <% end %>
 
   <div class="widget widget--checkout">
+    <%= tag.div id: "payTabContent", class: "tab-content", data: {
+      controller: "zaraz",
+      zaraz_currency_value: payment.country,
+      zaraz_name_value: plan_variant_name(payment.subscription_plan_variant),
+      zaraz_price_value: payment.price_with_vat
+    } do %>
+      <div id="payZen" class="tab-pane <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
+        <%= render partial: "country_form", locals: { payment: payment } %>
+        <%= form_with model: payment, url: upgrade_path do |f| %>
 
-    <%= turbo_frame_tag "billing-form-frame" do %>
-      <%= tag.div id: "payTabContent", class: "tab-content", data: {
-        controller: "zaraz",
-        zaraz_currency_value: payment.country,
-        zaraz_name_value: plan_variant_name(payment.subscription_plan_variant),
-        zaraz_price_value: payment.price_with_vat
-      } do %>
-        <div id="payZen" class="tab-pane <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
-          <%= render partial: "country_form", locals: { payment: payment } %>
-          <%= form_with model: payment, url: upgrade_path do |f| %>
-            <div class="db-form__row db-form__row--final-button">
-              <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-                <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
-              <% end %>
-            </div>
+          <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+            <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
           <% end %>
-        </div>
 
-        <div id="payBitcoin" class="tab-pane <%= 'active' if payment.by_bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">
-          <%= render partial: "country_form", locals: { payment: payment } %>
-          <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations" } do |f| %>
-            <div class="db-form__row">
-              <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
-              <%= f.label :first_name, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row">
-              <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", required: true %>
-              <%= f.label :last_name, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row">
-              <%= f.date_field :birth_date, autocomplete: "bday", class: 'db-form__input db-form__input--date', required: true %>
-              <%= f.label :birth_date, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row db-form__row--final-button">
-              <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-                <%= t('subscriptions.payment.pay_with_bitcoin') %>
-              <% end %>
-            </div>
-          <% end %>
-        </div>
+        <% end %>
+      </div>
+      
+      <div id="payBitcoin" class="tab-pane <%= 'active' if payment.by_bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">
+        <%= render partial: "country_form", locals: { payment: payment } %>
+        <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations" } do |f| %>
+          <div class="db-form__row">
+            <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
+            <%= f.label :first_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", required: true %>
+            <%= f.label :last_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.date_field :birth_date, autocomplete: "bday", class: 'db-form__input db-form__input--date', required: true %>
+            <%= f.label :birth_date, class: 'db-form__label' %>
+          </div>
 
-        <div id="payWire" class="tab-pane <%= 'active' if payment.by_wire? %>" aria-labelledby="log-tab" role="tabpanel">
-          <%= render partial: "country_form", locals: { payment: payment } %>
-          <%= form_with model: payment, url: upgrade_path, data: { turbo: false, controller: "form--html5-validations" } do |f| %>
-            <div class="db-form__row">
-              <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
-              <%= f.label :first_name, class: 'db-form__label' %>
-            </div>
-            <div class="db-form__row">
-              <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", required: true %>
-              <%= f.label :last_name, class: 'db-form__label' %>
-            </div>
-            <div id="wire_costs" class="db-form__row--hidden">
-              <%= t('subscriptions.payment.wire_cost_html', price: localized_price(payment.price_with_vat, payment.currency)) %>
-            </div>
-            <%= render partial: "wire_info", locals: { payment: payment } %>
-            <div class="db-form__row db-form__row--final-button">
-              <%= f.button type: "submit", data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-                <span class="mr-0">
-                  <%= payment.from_eu? ?
-                    t('subscriptions.payment.paid_with_wire_transfer') :
-                    t('subscriptions.payment.paid_with_wire_transfer_other')
-                  %>
-                </span>
-              <% end %>
-            </div>
+          <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+            <%= t('subscriptions.payment.pay_with_bitcoin') %>
           <% end %>
-        </div>
-      <% end %>
+
+        <% end %>
+      </div>
+
+      <div id="payWire" class="tab-pane <%= 'active' if payment.by_wire? %>" aria-labelledby="log-tab" role="tabpanel">
+        <%= render partial: "country_form", locals: { payment: payment } %>
+        <%= form_with model: payment, url: upgrade_path, data: { turbo: false, controller: "form--html5-validations" } do |f| %>
+          <div class="db-form__row">
+            <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
+            <%= f.label :first_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", required: true %>
+            <%= f.label :last_name, class: 'db-form__label' %>
+          </div>
+          <div id="wire_costs" class="db-form__row--hidden">
+            <%= t('subscriptions.payment.wire_cost_html', price: localized_price(payment.price_with_vat, payment.currency)) %>
+          </div>
+          <%= render partial: "wire_info", locals: { payment: payment } %>
+
+            <%= f.button type: "submit", data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+              <%= payment.from_eu? ?
+                t('subscriptions.payment.paid_with_wire_transfer') :
+                t('subscriptions.payment.paid_with_wire_transfer_other')
+              %>
+            <% end %>
+
+        <% end %>
+      </div>
     <% end %>
   </div>
-</div>
+<% end %>

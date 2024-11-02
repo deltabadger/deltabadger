@@ -24,7 +24,7 @@ dialog
       padding-top: 14rem
       padding-left: 4rem
     @media only screen and (max-width: 767px)
-      padding: 14rem 1rem 2rem
+      padding: 11rem 1rem 1rem
 .main-content
     max-width: 240rem 
     flex: 1
@@ -56,8 +56,10 @@ dialog
 .infoheader
     display: flex
     flex-direction: column
-    gap: 4rem
+    gap: 5rem
     margin-bottom: 5rem
+    @media (max-width: 767.9px)
+        gap: 3rem
     &__head
         display: flex
         justify-content: space-between
