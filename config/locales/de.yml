@@ -621,6 +621,13 @@ de:
             subject: '%{plan_name}-Plan garantiert'
             template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
     subscriptions:
+        per_month_html: "/Monat"
+        per_year_html: "/Jahr"
+        plan_1_year: "1 Jahr"
+        plan_4_year: "4 Jahre"
+        plan_life_time: "Lebenslang"
+        variant1: "1 Jahr"
+        variant4: "4 Jahre, ein Jahr gratis"
         free: Sparer
         days_left:
             one: '1 Tag übrig'
@@ -628,6 +635,7 @@ de:
         basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
         pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
         legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
+        legendary_plan_left: "%{for_sale_count} von %{total_supply} übrig"
         features:
             analyzer_html: 'Prism — Portfolio-Analysator'
             dca: 'DCA-Bots'
@@ -674,8 +682,6 @@ de:
             wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
             wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'
             you_pay: 'Du zahlst'
-        plan_1_year: 1-Jahr-Plan
-        plan_life_time: 'Lebenslanger Plan'
         prolong_upgrade: 'Stufe deinen Plan hoch'
         upgrade: Hochstufung
         upgrade_plan: 'Plan hochstufen'

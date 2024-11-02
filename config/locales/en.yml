@@ -704,11 +704,11 @@ en:
     subscriptions:
         per_month_html: "/mo"
         per_year_html: "/yr"
-        billed: "billed once"
-        billed1: "billed annually"
-        billed4: "billed every 4 years"
-        variant1: "Pay annually"
-        variant4: "Buy 4 years, get one year free"
+        plan_1_year: '1 year'
+        plan_4_year: '4 years'
+        plan_life_time: 'Lifetime'
+        variant1: "1 year"
+        variant4: "4 years, one free"
         free: Free
         basic: Basic
         pro: Pro
@@ -716,11 +716,10 @@ en:
         days_left:
             one: '1 day left'
             other: '%{count} days left'
-        basic_info: 'No frills, just thrills, but gets the job done.'
-        pro_info: 'Get a big picture, deep insights, and Pro features.'
-        legendary_badger_info_html: '<p>All current and future Pro plan features for life.</p><p>Enjoy paying once and gaining it all? Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
+        legendary_badger_info_html: '<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
+        legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
         features:
-            analyzer_html: '🌈⃤ Prism portfolio tester'
+            analyzer_html: '🌈⃤ Prism — portfolio tester'
             dca: 'DCA bots'
             price_limit: 'Price limit'
             fee_cutter: 'FeeCutter'
@@ -749,8 +748,8 @@ en:
             legendary_plan_discount_info: 'goes down $10 with every sale.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
-            paid_with_wire_transfer: 'I have sent the SEPA transfer'
-            paid_with_wire_transfer_other: 'I have sent the wire transfer'
+            paid_with_wire_transfer: 'I''ve sent the SEPA transfer'
+            paid_with_wire_transfer_other: 'I''ve sent the wire transfer'
             pay_html: 'Pay %{amount_html}'
             pay_with_bitcoin: 'Pay with Bitcoin'
             pay_with_card: 'Pay with Card'
@@ -766,8 +765,6 @@ en:
             wire_transfer_fill_form: 'Please, fill the form above to proceed…'
             wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
             you_pay: 'You pay'
-        plan_1_year: '1-year plan'
-        plan_life_time: 'Lifetime plan'
         prolong_upgrade: 'Upgrade your plan'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'
