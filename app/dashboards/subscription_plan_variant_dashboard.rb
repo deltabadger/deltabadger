@@ -9,10 +9,10 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
     id: Field::Number,
+    subscription_plan: Field::BelongsTo,
     years: Field::Number,
     cost_eur: Field::Number,
     cost_usd: Field::Number,
-    credits: Field::Number,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze
@@ -24,8 +24,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
     id
-    name
-    unlimited
+    subscription_plan
     cost_eur
     cost_usd
     years
@@ -35,8 +34,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
     id
-    name
-    unlimited
+    subscription_plan
     cost_eur
     cost_usd
     years
@@ -46,6 +44,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
+    subscription_plan
     cost_eur
     cost_usd
     years
