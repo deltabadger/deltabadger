@@ -690,11 +690,11 @@ pl:
         free: Oszczędny
         per_month_html: "/miesiąc"
         per_year_html: "/rok"
-        plan_1_year: 'Plan roczny'
-        plan_4_year: 'Plan 4-letni'
-        plan_life_time: 'Plan dożywotni'
+        plan_1_year: "1 rok"
+        plan_4_year: "4 lata"
+        plan_life_time: "Dożywotni"
         variant1: "1 rok"
-        variant4: "4 lata, jeden rok gratis"
+        variant4: "4 lata, jeden za darmo"
         days_left:
             one: 'Pozostał 1 dzień'
             few: 'Pozostały %{count} dni'

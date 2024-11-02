@@ -667,9 +667,9 @@ ru:
     subscriptions:
         per_month_html: "/мес"
         per_year_html: "/год"
-        plan_1_year: 'Годовой план'
-        plan_4_year: '4-летний план'
-        plan_life_time: 'Пожизненный план'
+        plan_1_year: "1 год"
+        plan_4_year: "4 года"
+        plan_life_time: "Пожизненный"
         variant1: "1 год"
         variant4: "4 года, один бесплатно"
         free: Вкладчик

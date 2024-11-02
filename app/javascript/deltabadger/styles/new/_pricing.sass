@@ -179,11 +179,14 @@
         white-space: nowrap
     :not([checked="checked"]) + span
         cursor: pointer
+        color: var(--text-faded)
     [checked="checked"] + span
-        color: var(--primary)
-        border-bottom: 2px solid var(--primary)
+        color: var(--text-strong)
+        border-bottom: 2px solid var(--text-strong)
         cursor: default
-
+    @media (max-width: 767.9px)
+        width: 100%
+        justify-content: center
 // hide radio buttons for the tabs, guillem workaround
 .hide_radio_buttons > input
   visibility: hidden

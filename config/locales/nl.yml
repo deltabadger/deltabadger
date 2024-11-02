@@ -678,9 +678,9 @@ nl:
     subscriptions:
         per_month_html: "/maand"
         per_year_html: "/jaar"
-        plan_1_year: '1-jarig plan'
-        plan_4_year: '4-jarig plan'
-        plan_life_time: 'Levenslang plan'
+        plan_1_year: "1 jaar"
+        plan_4_year: "4 jaar"
+        plan_life_time: "Levenslang"
         variant1: "1 jaar"
         variant4: "4 jaar, één gratis"
         free: Spaarder

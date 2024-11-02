@@ -678,9 +678,9 @@ fr:
     subscriptions:
         per_month_html: "/mois"
         per_year_html: "/an"
-        plan_1_year: 'Plan de 1 an'
-        plan_4_year: 'Plan de 4 ans'
-        plan_life_time: 'Plan à vie'
+        plan_1_year: "1 an"
+        plan_4_year: "4 ans"
+        plan_life_time: "À vie"
         variant1: "1 an"
         variant4: "4 ans, un gratuit"
         free: 'Gratuit'

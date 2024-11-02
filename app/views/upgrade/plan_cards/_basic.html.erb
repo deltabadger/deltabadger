@@ -4,8 +4,8 @@
     <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
   <% end %>
   <div class="widget--pricing__name__period">
-    <%# <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
-    <%= t("subscriptions.until", end_date: Date.today + payment_option.subscription_plan_variant.duration) %>
+    <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
+    <%# t("subscriptions.until", end_date: Date.today + payment_option.subscription_plan_variant.duration) %>
   </div>
 </div>
 
