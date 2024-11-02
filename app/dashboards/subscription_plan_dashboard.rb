@@ -9,9 +9,9 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
     id: Field::Number,
-    subscription_plan_id: Field::BelongsTo,
-    unlimited: Field::Boolean,
+    name: Field::String,
     credits: Field::Number,
+    unlimited: Field::Boolean,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze

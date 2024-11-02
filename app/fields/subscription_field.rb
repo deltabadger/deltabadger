@@ -3,10 +3,14 @@ require 'administrate/field/base'
 class SubscriptionField < Administrate::Field::Base
   def to_s
     if data.unlimited?
-      days = (data.end_time.to_date - Date.today).to_i
-      "#{localized_plan_name(data.name)} (#{days} days left)"
+      if data.end_time.nil?
+        "#{data.name} (lifetime)"
+      else
+        days = (data.end_time.to_date - Date.today).to_i
+        "#{data.name} (#{days} days left)"
+      end
     else
-      "#{localized_plan_name(data.name)} (#{data.credits.round(2)})"
+      "#{data.name} (#{data.credits.round(2)})"
     end
   end
 end
