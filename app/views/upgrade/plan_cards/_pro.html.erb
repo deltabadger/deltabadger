@@ -4,9 +4,7 @@
     <% if current_user.subscription.name == SubscriptionPlan::PRO_PLAN && payment_option.nil? %>
       <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
     <% else %>
-      <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
-      <%= t("subscriptions.until", end_date: Date.today + payment_option.subscription_plan_variant.duration) %>
-      <%# t("subscriptions.billed#{payment_option.subscription_plan_variant.years}") %>
+      <%# t("subscriptions.until", end_date: Date.today + payment_option.subscription_plan_variant.duration) %>
     <% end %>
   </div>
 </div>

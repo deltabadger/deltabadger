@@ -22,9 +22,6 @@
           <% selected = @payment.subscription_plan.name == available_plan_name %>
           <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
             <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
-            <% if available_plan_name == current_user.subscription.name %>
-              <span>Current Plan</span>
-            <% end %>
             <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
               payment_option: @payment_options[available_plan_name],
               legendary_plan: @legendary_plan, # only used in legendary plan card

@@ -1,12 +1,10 @@
 <div class="widget--pricing__name">
-  <%= t('subscriptions.basic') %>
+  <%= t('subscriptions.basic') %> <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
   <div class="widget--pricing__name__period">
     <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN && payment_option.nil? %>
       <%= t('subscriptions.days_left', count: current_user.subscription.days_left) %>
     <% else %>
-      <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
       <%= t("subscriptions.until", end_date: Date.today + payment_option.subscription_plan_variant.duration) %>
-      <%# t("subscriptions.billed#{payment_option.subscription_plan_variant.years}") %>
     <% end %>
   </div>
 </div>
