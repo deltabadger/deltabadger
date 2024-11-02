@@ -124,12 +124,15 @@
             flex-direction: column
             gap: 3rem
         &__legendary-plans-left
+            font-weight: 600
             color: var(--success) !important
             span
                 display: block
                 margin-bottom: 1rem
-            .slider__style__track
-                border-left-color: var(--success) !important
+            .slider__style
+                background: var(--success-semitransparent)
+                &__track
+                    border-left-color: var(--success) !important
         &--selected,&--other
             cursor: pointer
         &--other
