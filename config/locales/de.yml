@@ -623,11 +623,11 @@ de:
     subscriptions:
         per_month_html: "/Monat"
         per_year_html: "/Jahr"
-        plan_1_year: '1-Jahres-Plan'
-        plan_4_year: '4-Jahres-Plan'
-        plan_life_time: 'Lebenslanger Plan'
+        plan_1_year: "1 Jahr"
+        plan_4_year: "4 Jahre"
+        plan_life_time: "Lebenslang"
         variant1: "1 Jahr"
-        variant4: "4 Jahre, eines gratis"
+        variant4: "4 Jahre, ein Jahr gratis"
         free: Sparer
         days_left:
             one: '1 Tag übrig'

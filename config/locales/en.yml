@@ -704,12 +704,11 @@ en:
     subscriptions:
         per_month_html: "/mo"
         per_year_html: "/yr"
-        plan_1_year: '1-year Plan'
-        plan_4_year: '4-year Plan'
+        plan_1_year: '1 year'
+        plan_4_year: '4 years'
         plan_life_time: 'Lifetime'
-        variant1: "1-year"
-        variant4: "4-years, one free"
-        until: "until %{end_date}"
+        variant1: "1 year"
+        variant4: "4 years, one free"
         free: Free
         basic: Basic
         pro: Pro
