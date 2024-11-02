@@ -1,15 +1,3 @@
-<% if payment.subscription_plan.name == legendary_plan.name %>
-  <div class="widget widget--discount">
-    <div class="widget--discount__col">
-      <div class="widget--discount__name"><%= t('subscriptions.payment.legendary_plan_discount') %></div>
-      <div class=""><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
-    </div>
-    <div class="widget--discount__col">
-      -<%= localized_price(payment_options[legendary_plan.name].legendary_plan_discount, payment.currency) %>
-    </div>
-  </div>
-<% end %>
-
 <% if current_user.subscription.paid? %>
   <div class="widget widget--discount db-plan-active-discount">
     <div class="widget--discount__col">
@@ -35,6 +23,18 @@
     </div>
     <div class="widget--discount__col">
       -<%= localized_price(payment.referral_discount_amount, payment.currency) %>
+    </div>
+  </div>
+<% end %>
+
+<% if payment.subscription_plan.name == legendary_plan.name %>
+  <div class="widget widget--discount">
+    <div class="widget--discount__col">
+      <div class="widget--discount__name"><%= t('subscriptions.payment.legendary_plan_discount') %></div>
+      <div class=""><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
+    </div>
+    <div class="widget--discount__col">
+      -<%= localized_price(payment_options[legendary_plan.name].legendary_plan_discount, payment.currency) %>
     </div>
   </div>
 <% end %>
