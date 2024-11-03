@@ -9,8 +9,7 @@ module PaymentsManager
     def call(payment:)
       user = payment.user
       new_subscription_plan_variant = payment.subscription_plan_variant
-      start_time = start_time(user.subscription, new_subscription_plan_variant)
-      end_time = new_subscription_plan_variant.years.nil? ? nil : start_time + new_subscription_plan_variant.duration
+      end_time = new_subscription_plan_variant.years.nil? ? nil : Time.current + new_subscription_plan_variant.duration
 
       begin
         Subscription.create!(
@@ -30,14 +29,6 @@ module PaymentsManager
       end
 
       Result::Success.new
-    end
-
-    private
-
-    def start_time(current_subscription, new_subscription)
-      return current_subscription.end_time if current_subscription.name == new_subscription.name
-
-      Time.current
     end
   end
 end
