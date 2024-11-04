@@ -39,8 +39,11 @@ class UpgradeController < ApplicationController
 
   def success
     flash[:notice] = t('subscriptions.payment.payment_ordered') if session[:payment_type] == 'bitcoin'
-    @payment = current_user.payments.paid.where(gads_tracked: false).last
-    @payment.update!(gads_tracked: true) if @payment.present?
+    @paid_payment = current_user.payments.paid.where(gads_tracked: false, created_at: 1.day.ago..Time.current).last
+    @paid_payment.update!(gads_tracked: true) if @paid_payment.present?
+    set_index_instance_variables
+    @payment = @payment_options[session[:plan_name]]
+    render :index
   end
 
   def handle_zen_payment

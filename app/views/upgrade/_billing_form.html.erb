@@ -29,12 +29,7 @@
   <% end %>
 
   <div class="widget widget--checkout">
-    <%= tag.div id: "payTabContent", class: "tab-content", data: {
-      controller: "zaraz",
-      zaraz_currency_value: payment.country,
-      zaraz_name_value: plan_variant_name(payment.subscription_plan_variant),
-      zaraz_price_value: payment.price_with_vat
-    } do %>
+    <div id="payTabContent" class="tab-content">
       <div id="payZen" class="tab-pane <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path do |f| %>
@@ -45,7 +40,7 @@
 
         <% end %>
       </div>
-      
+
       <div id="payBitcoin" class="tab-pane <%= 'active' if payment.by_bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations" } do |f| %>
@@ -71,7 +66,7 @@
 
       <div id="payWire" class="tab-pane <%= 'active' if payment.by_wire? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
-        <%= form_with model: payment, url: upgrade_path, data: { turbo: false, controller: "form--html5-validations" } do |f| %>
+        <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations" } do |f| %>
           <div class="db-form__row">
             <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
             <%= f.label :first_name, class: 'db-form__label' %>
@@ -85,7 +80,7 @@
           </div>
           <%= render partial: "wire_info", locals: { payment: payment } %>
 
-            <%= f.button type: "submit", data: { action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
               <%= payment.from_eu? ?
                 t('subscriptions.payment.paid_with_wire_transfer') :
                 t('subscriptions.payment.paid_with_wire_transfer_other')
@@ -94,6 +89,6 @@
 
         <% end %>
       </div>
-    <% end %>
+    </div>
   </div>
 <% end %>

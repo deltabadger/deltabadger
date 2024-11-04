@@ -8,6 +8,7 @@ export default class extends Controller {
   connect() {
     if (this.isPurchaseValue) {
       this.#trackPurchaseEvent();
+      window.location.reload(); // Reload the page after the purchase event is sent to refresh the @paid_paymnent instance variable.
     }
   }
 
