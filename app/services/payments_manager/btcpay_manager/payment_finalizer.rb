@@ -34,7 +34,7 @@ module PaymentsManager
         @notifications.invoice(payment: payment)
         @grant_commission.call(referral: payment.user, payment: payment)
 
-        PaymentsManager::SubscriptionUpgrader.call(payment.id)
+        PaymentsManager::SubscriptionUpgrader.call(payment)
       end
 
       private

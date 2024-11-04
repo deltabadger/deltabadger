@@ -19,13 +19,11 @@ module PaymentsManager
           first_name: params[:customer][:firstName],
           last_name: params[:customer][:lastName]
         }
-        unless payment.update(update_params)
-          return Result::Failure.new('ActiveRecord error', data: update_params)
-        end
+        return Result::Failure.new('ActiveRecord error', data: update_params) unless payment.update(update_params)
 
         @notifications.invoice(payment: payment)
 
-        PaymentsManager::SubscriptionUpgrader.call(payment.id)
+        PaymentsManager::SubscriptionUpgrader.call(payment)
       end
     end
   end
