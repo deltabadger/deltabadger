@@ -18,12 +18,12 @@
     <%= tag.div class: "pricing" do %>
       <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
 
-        <% current_user.available_plan_names.each do |available_plan_name| %>
+        <% @payment_options.each do |available_plan_name, payment_option| %>
           <% selected = @payment.subscription_plan.name == available_plan_name %>
           <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
             <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
             <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
-              payment_option: @payment_options[available_plan_name],
+              payment_option: payment_option,
               legendary_plan: @legendary_plan, # only used in legendary plan card
             } %>
           <% end %>
@@ -31,7 +31,13 @@
 
       <% end %>
 
-      <div class="pricing__checkout">
+      <%= tag.div class: "pricing__checkout", data: {
+        controller: "zaraz",
+        zaraz_is_purchase_value: @paid_payment.present?,
+        zaraz_currency_value: @paid_payment&.country || @payment.country,
+        zaraz_name_value: plan_variant_name(@paid_payment&.subscription_plan_variant || @payment.subscription_plan_variant),
+        zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
+      } do %>
         <div class="pricing__checkout__calculations">
           <%= render partial: "discounts", locals: {
             payment: @payment,
@@ -41,9 +47,6 @@
           <%= render partial: "summary", locals: { payment: @payment } %>
         </div>
         <%= render partial: "billing_form", locals: { payment: @payment } %>
-      </div>
+      <% end %>
     <% end %>
 <% end %>
-
-<%# FIXME: is this needed? %>
-<div id="current_user_subscription" data-current-user-subscription="<%= current_user.subscription.name %>"></div>

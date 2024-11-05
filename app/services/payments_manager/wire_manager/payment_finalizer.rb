@@ -12,9 +12,7 @@ module PaymentsManager
           pending_wire_transfer: payment.country,
           pending_plan_variant_id: payment.subscription_plan_variant_id
         }
-        unless payment.user.update(update_params)
-          return Result::Failure.new('ActiveRecord error', data: update_params)
-        end
+        return Result::Failure.new('ActiveRecord error', data: update_params) unless payment.user.update(update_params)
 
         UpgradeSubscriptionWorker.perform_at(15.minutes.since(Time.current), payment.id)
 
