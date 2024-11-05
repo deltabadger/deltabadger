@@ -66,6 +66,10 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(subscription_plan_variant)
-    "#{subscription_plan_variant.name} #{subscription_plan_variant.years} years"
+    if subscription_plan_variant.years.nil?
+      subscription_plan_variant.name.to_s
+    else
+      "#{subscription_plan_variant.name} #{subscription_plan_variant.years} years"
+    end
   end
 end
