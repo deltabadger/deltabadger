@@ -723,7 +723,7 @@ en:
         legendary_badger_info_html: '<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
         legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
         features:
-            analyzer_html: '🌈⃤ Prism — portfolio tester'
+            analyzer_html: '🌈⃤ Prism: portfolio tester'
             dca: 'DCA bots'
             price_limit: 'Price limit'
             fee_cutter: 'FeeCutter'
@@ -872,7 +872,7 @@ en:
         us_bonds: 'US Bonds'
         benchmark: 'Benchmark'
         benchmark_info: 'The better the benchmark choice, the more reliable the Exp. Return calculation. Pick a benchmark that closely matches the investment strategy and market segment of your portfolio. Other metrics affected by the benchmark include Alpha, Beta, R², and Info Ratio.'
-        get_ai_insights: 'Insights'
+        insights: 'Insights'
         pnl: 'Profit/Loss'
         strategy:
             fixed: 'One-time investment'

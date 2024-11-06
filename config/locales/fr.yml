@@ -841,7 +841,7 @@ fr:
         us_bonds: 'Obligations US'
         benchmark: 'Indice de Référence'
         benchmark_info: 'Plus le choix de l''indice de référence est bon, plus le calcul du Rendement Attendu est fiable. Choisissez un indice de référence qui correspond étroitement à la stratégie d''investissement et au segment de marché de votre portefeuille. D''autres métriques affectées par l''indice de référence incluent Alpha, Beta, R² et le Ratio d''Info.'
-        get_ai_insights: 'Aperçus'
+        insights: 'Aperçus'
         pnl: 'Profit/Perte'
         strategy:
             fixed: 'Investissement unique'
