@@ -10,6 +10,10 @@ class Portfolio < ApplicationRecord
   enum benchmark: %i[65951 1713 65437 65775 65992 37818 61914 61885 51788 37549]
   enum risk_level: %i[conservative moderate_conservative balanced moderate_aggressive aggressive]
 
+  MAX_ASSETS = {
+    limited: 4,
+    unlimited: 100
+  }.freeze
   BENCHMARK_NAMES = {
     '65951': { name: 'S&P 500 Index' },
     '1713': { name: 'Bitcoin' },
@@ -34,6 +38,10 @@ class Portfolio < ApplicationRecord
 
   def self.benchmark_select_options
     benchmarks.keys.map { |key| [BENCHMARK_NAMES[key.to_sym][:name], key] }
+  end
+
+  def limited?
+    [SubscriptionPlan::FREE_PLAN, SubscriptionPlan::BASIC_PLAN].include?(user.subscription.name)
   end
 
   def compare_to_select_options
@@ -142,6 +150,7 @@ class Portfolio < ApplicationRecord
   end
 
   def max_assets_reached?
+    assets.size
     assets.size >= case user.subscription.name
                    when SubscriptionPlan::PRO_PLAN, SubscriptionPlan::LEGENDARY_PLAN
                      100

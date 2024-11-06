@@ -3,7 +3,7 @@
     <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
     <div class="sinput sinput--select <%= 'sinput--disabled' unless current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro' %>">
       <%= portfolio.benchmark_name %>
-      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, onchange: "this.form.requestSubmit();", disabled: !(current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro') %>
+      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, onchange: "this.form.requestSubmit();", disabled: portfolio.limited? %>
     </div>
   <% end %>
 <% end %>

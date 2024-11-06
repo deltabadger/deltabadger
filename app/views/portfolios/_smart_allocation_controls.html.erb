@@ -1,7 +1,7 @@
 <%= tag.div id: "smart-allocation-controls", class: "smart-allocation" do %>
   <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch do |form| %>
     <div class="toggle">
-      <%= form.check_box :smart_allocation_on, onchange: "this.form.requestSubmit();" %>
+      <%= form.check_box :smart_allocation_on, onchange: "this.form.requestSubmit();", disabled: portfolio.limited? %>
       <div class="toggle__style"></div>
       <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
 

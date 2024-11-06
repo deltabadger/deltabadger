@@ -16,24 +16,15 @@ class AssetsController < ApplicationController
   def create
     # TODO: add condition asset ticker must be valid
 
-    if @portfolio.max_assets_reached?
-      flash.now[:alert] = 'Maximum number of assets reached.'
-      respond_to do |format|
-        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Maximum number of assets reached.' }
-      end
-      return
-    end
-
     @asset = @portfolio.assets.new(asset_params)
-    if !asset_in_portfolio? && @asset.save
+    if @asset.save
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }
       end
     else
-      flash.now[:alert] = 'Invalid asset.'
+      flash.now[:alert] = @asset.errors.messages.values.join(', ')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
         format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid asset.' }
@@ -97,10 +88,6 @@ class AssetsController < ApplicationController
     @portfolio = current_user.portfolios.find(params[:portfolio_id])
   rescue ActiveRecord::RecordNotFound
     redirect_to portfolio_analyzer_path, alert: 'Portfolio not found.'
-  end
-
-  def asset_in_portfolio?
-    @portfolio.assets.find_by(api_id: asset_params[:api_id]).present?
   end
 
   def set_backtest_data

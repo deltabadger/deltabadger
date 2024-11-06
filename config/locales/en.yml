@@ -10,6 +10,10 @@ en:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" is an invalid Ethereum address. Please try again.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: 'Maximum number of assets reached.'
     ads:
         bitwarden_text: '. It''s free and open-source.'
         bitwarden_title: 'Try Bitwarden'
