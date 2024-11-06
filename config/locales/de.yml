@@ -785,7 +785,7 @@ de:
         us_bonds: 'US-Anleihen'
         benchmark: 'Benchmark'
         benchmark_info: 'Je besser die Benchmark-Auswahl, desto zuverlässiger die Berechnung der Erw. Rendite. Wählen Sie eine Benchmark, die eng mit der Anlagestrategie und dem Marktsegment Ihres Portfolios übereinstimmt. Andere durch die Benchmark beeinflusste Metriken sind Alpha, Beta, R² und Info Ratio.'
-        get_ai_insights: 'Einblicke'
+        insights: 'Einblicke'
         pnl: 'Gewinn/Verlust'
         strategy:
             fixed: 'Einmalige Investition'

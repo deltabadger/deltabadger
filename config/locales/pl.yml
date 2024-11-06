@@ -857,7 +857,7 @@ pl:
         us_bonds: 'Obligacje USA'
         benchmark: 'Benchmark'
         benchmark_info: 'Im lepszy wybór benchmarku, tym bardziej wiarygodne są obliczenia oczekiwanego zwrotu. Wybierz benchmark, który ściśle odpowiada strategii inwestycyjnej i segmentowi rynku Twojego portfela. Inne metryki wpływające na benchmark to Alpha, Beta, R² i wskaźnik informacyjny.'
-        get_ai_insights: 'Analiza'
+        insights: 'Analiza'
         pnl: 'Zysk/Strata'
         strategy:
             fixed: 'Jednorazowa inwestycja'

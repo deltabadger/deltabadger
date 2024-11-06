@@ -840,7 +840,7 @@ nl:
         us_bonds: 'Amerikaanse Obligaties'
         benchmark: 'Benchmark'
         benchmark_info: 'Hoe beter de keuze van de benchmark, hoe betrouwbaarder de berekening van het Verwachte Rendement. Kies een benchmark die nauw aansluit bij de beleggingsstrategie en het marktsegment van uw portefeuille. Andere door de benchmark beïnvloede metrics zijn onder meer Alpha, Beta, R² en de Info Ratio.'
-        get_ai_insights: 'Inzichten'
+        insights: 'Inzichten'
         pnl: 'Winst/Verlies'
         strategy:
             fixed: 'Eenmalige investering'
