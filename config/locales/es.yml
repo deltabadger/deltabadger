@@ -841,7 +841,7 @@ es:
         us_bonds: 'Bonos de EE.UU.'
         benchmark: 'Benchmark'
         benchmark_info: 'Cuanto mejor sea la elección del benchmark, más fiable será el cálculo de Rend. Esp. Elija un benchmark que coincida estrechamente con la estrategia de inversión y el segmento de mercado de su cartera. Otras métricas afectadas por el benchmark incluyen Alfa, Beta, R² y Ratio de Info.'
-        get_ai_insights: 'Perspectivas'
+        insights: 'Perspectivas'
         pnl: 'Ganancia/Pérdida'
         strategy:
             fixed: 'Inversión única'

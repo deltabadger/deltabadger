@@ -751,7 +751,7 @@ pt:
         us_bonds: 'Títulos dos EUA'
         benchmark: 'Benchmark'
         benchmark_info: 'Quanto melhor a escolha do benchmark, mais confiável será o cálculo do Retorno Esperado. Escolha um benchmark que corresponda de perto à estratégia de investimento e ao segmento de mercado do seu portfólio. Outras métricas afetadas pelo benchmark incluem Alpha, Beta, R² e Índice de Info.'
-        get_ai_insights: 'Insights'
+        insights: 'Insights'
         pnl: 'Lucro/Perda'
         strategy:
             fixed: 'Investimento único'
