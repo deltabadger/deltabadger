@@ -610,7 +610,7 @@ fr:
             title: 'Merci !'
         contact:
             general_questions_html: 'Pour des questions d''ordre général, merci d''essayer notre <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow"> chaîne Telegram </a>. C''est généralement le moyen le plus rapide d''obtenir une réponse. Aussi : tous les commentaires, idées de produits et demandes d''échange sont les bienvenus.'
-            specific_questions_html: 'Pour des problèmes plus spécifiques, envoyez-nous un e-mail : %{email} , ou un message direct sur Telegram ou <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow"> Twitter </a> .'
+            specific_questions_html: 'Pour des problèmes plus spécifiques, envoyez-nous un e-mail : %{email} , ou un message direct sur Telegram ou <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow"> Twitter </a> .'
             title: 'Contact'
     links:
         about: 'À propos'

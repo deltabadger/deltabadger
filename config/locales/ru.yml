@@ -605,7 +605,7 @@ ru:
             title: Спасибо!
         contact:
             general_questions_html: 'По общим вопросам, пожалуйста, обратитесь на наш <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram канал</a>. Обычно это самый быстрый способ получить ответ. Также: приветствуются все отзывы, идеи продуктов и запросы бирж.'
-            specific_questions_html: 'По более специфическим вопросам напишите нам на: %{email} или личное сообщение в Telegram или <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'По более специфическим вопросам напишите нам на: %{email} или личное сообщение в Telegram или <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
             title: Контакты
     links:
         about: 'О нас'
