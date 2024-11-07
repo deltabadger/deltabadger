@@ -16,7 +16,8 @@ class DcaProfitGetter < BaseService
   end
 
   def call(asset = 'btc', start_date = 4.years.ago)
-    Rails.cache.fetch(cache_key(asset, start_date), expires_in: 1.hour) do
+    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+    Rails.cache.fetch(cache_key(asset, start_date), expires_in: expires_in) do
       profit_result = query_profit_pcnt_dca(asset, start_date)
       return profit_result if profit_result.failure?
 
