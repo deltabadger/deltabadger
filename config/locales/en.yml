@@ -15,13 +15,7 @@ en:
                         portfolio:
                             max_assets_reached: 'Maximum number of assets reached.'
     ads:
-        bitwarden_text: '. It''s free and open-source.'
-        bitwarden_title: 'Try Bitwarden'
-        dca_2y_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last two years, you''re now up <span class="text-success">+%{profit}%</span>'
-        dca_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last year, you''re now up <span class="text-success">+%{profit}%</span>'
-        dont_trade_automate_html: '<div>Don''t&nbsp;trade.</div> <div>Automate.</div>'
-        features: 'auto-DCA on your exchange account; <i>Smart intervals</i> and five-minute setup; updates and new features every month; support and Telegram community'
-        password_managers_html: 'Password managers make security easier.'
+        dca_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last 4&nbsp;years, you''d be now&nbsp;up <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirm new Bitcoin address'
