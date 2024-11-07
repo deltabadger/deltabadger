@@ -3,7 +3,7 @@ class PortfoliosController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_portfolio, except: %i[new create compare]
-  before_action :reject_if_limited, only: %i[toggle_smart_allocation update_risk_free_rate update_benchmark]
+  before_action :reject_if_limited, only: %i[toggle_smart_allocation update_risk_free_rate update_benchmark openai_insights]
   before_action :set_last_assets, except: %i[update_risk_level compare]
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations compare]
 
