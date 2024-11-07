@@ -86,7 +86,7 @@ class User < ApplicationRecord
 
   def set_subscription
     Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free,
-                         credits: SubscriptionPlanVariant.free.credits)
+                         credits: 100000)
   end
 
   def set_affiliate
