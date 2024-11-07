@@ -20,12 +20,13 @@ class DcaSimulation
   end
 
   def perform
-    first_investment_date(time_series)
+    start_date_for_dca_target(time_series)
   end
 
   private
 
   def time_series
+    # TODO: handle API error
     expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
     Rails.cache.fetch("all_time_series_#{@asset}", expires_in: expires_in) do
       time_series_result = @client.time_series(symbol: API_ID_MAP[@asset], timeframe: '1d')
@@ -35,7 +36,7 @@ class DcaSimulation
     end
   end
 
-  def first_investment_date(data_points)
+  def start_date_for_dca_target(data_points)
     return Date.today if @amount >= @target_profit
 
     next_time_check = Date.today.prev_month
