@@ -73,10 +73,10 @@
       = yield
 
       -# %p= t('mailer.signature_html')
-      - if @dca_profit.success?
+      - if @show_dca_profit
         %p{style: "margin-top: 24px;"}
           💡
-          =t('ads.dca_profit_html', profit: (@dca_profit.data * 100).to_i)
+          = localized_dca_profit_recap('btc', 4)
 
       %p{style: "color:#9d9d9d;  margin: 24px 0;"} &mdash;
       %p{style: "color:#9d9d9d;  margin: 24px 0;"}= t('mailer.signature_badgers')

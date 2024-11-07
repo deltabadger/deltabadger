@@ -21,7 +21,7 @@ Devise.setup do |config|
   config.mailer_sender = ENV['NOTIFICATIONS_SENDER']
 
   # Configure the class responsible to send e-mails.
-  # config.mailer = 'Devise::Mailer'
+  config.mailer = 'CustomDeviseMailer'  # 'Devise::Mailer'
 
   # Configure the parent class responsible to send e-mails.
   config.parent_mailer = 'ApplicationMailer'

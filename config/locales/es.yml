@@ -11,7 +11,7 @@ es:
                         eth_address:
                             invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
     ads:
-        dca_profit_html: 'Si hubieses hecho DCA en Bitcoin durante los últimos 4 años, habrías ganado un <span class="text-success">%{profit}%</span>'
+        dca_profit_html: 'Si hubieses hecho DCA en Bitcoin durante los últimos %{years} años, habrías ganado un <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirmar nueva dirección Bitcoin'

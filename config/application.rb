@@ -43,10 +43,6 @@ module Deltabadger
     config.i18n.default_locale = :en
     config.i18n.fallbacks = true
 
-    config.to_prepare do
-      Devise::Mailer.layout "mailer"
-    end
-
     Raven.configure do |config|
       config.dsn = ENV['SENTRY_DSN']
       config.environments = %w[ production ]

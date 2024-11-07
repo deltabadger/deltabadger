@@ -49,6 +49,13 @@ module LocalesHelper
     time_difference_from_today_finalize_result(result, zero_time_message)
   end
 
+  def localized_dca_profit_recap(asset, years)
+    dca_profit_result = DcaProfitGetter.call(asset, years.years.ago)
+    return '' if dca_profit_result.failure?
+
+    t('ads.dca_profit_html', profit: (dca_profit_result.data * 100).to_i, years: years)
+  end
+
   private
 
   def time_difference_from_today_time_component(duration, unit, translation_key)
