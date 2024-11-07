@@ -11,7 +11,7 @@ de:
                         eth_address:
                             invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
     ads:
-        dca_profit_html: 'Wenn Sie in den letzten 4&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, wären Sie jetzt&nbsp;um <span class="text-success">%{profit} %</span> gestiegen'
+        dca_profit_html: 'Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, wären Sie jetzt&nbsp;um <span class="text-success">%{profit} %</span> gestiegen'
     affiliates:
         add_link_info: 'Du kannst deinen Namen und einen Link zu deiner Website hinzufügen, damit der Geworbene weiß, woher der Rabatt stammt. Du kannst dieses Feld auch leer lassen:'
         apply_code:
