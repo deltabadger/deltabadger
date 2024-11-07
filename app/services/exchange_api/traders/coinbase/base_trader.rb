@@ -32,7 +32,7 @@ module ExchangeApi
 
           if response.status.between?(200, 299)
             parsed_response = JSON.parse(response.body)
-            if parsed_response.dig('order', 'order_type') == 'MARKET'
+            if market_order?(parsed_response)
               amount = parsed_response.dig('order', 'filled_size')&.to_f
               rate = parsed_response.dig('order', 'average_filled_price')&.to_f
             else
@@ -96,12 +96,12 @@ module ExchangeApi
           volume_decimals = @market.base_decimals(symbol)
           return volume_decimals unless volume_decimals.success?
 
-          volume = price_in_quote ? (price / rate).ceil(volume_decimals.data) : price.ceil(volume_decimals.data)
+          volume = (price_in_quote ? price / rate : price).ceil(volume_decimals.data)
           min_volume = @market.minimum_base_size(symbol)
           return min_volume unless min_volume.success?
 
           smart_intervals_value = min_volume.data if smart_intervals_value.nil?
-          smart_intervals_value = smart_intervals_value.ceil(volume_decimals.data)
+          smart_intervals_value = (price_in_quote ? smart_intervals_value / rate : smart_intervals_value).ceil(volume_decimals.data)
 
           return Result::Success.new([smart_intervals_value, min_volume.data].max) if force_smart_intervals
 
