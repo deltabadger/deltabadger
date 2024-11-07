@@ -31,6 +31,8 @@ module LocalesHelper
   end
 
   def localized_time_difference_from_today(date, precision: :days, zero_time_message: t('utils.days', count: 0))
+    return '-' if date.nil?
+
     duration = Time.current - date.to_datetime
 
     result = []
