@@ -34,7 +34,12 @@ class FetchOrderResult < BaseService
       bot = @bots_repository.update(bot.id, restarts: 0, fetch_restarts: 0, **success_status(bot))
       result = @order_flow_helper.validate_limit(bot, notify)
       @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
-      @notifications.successful_webhook_bot_transaction(bot: bot, type: called_bot_type(bot, called_bot)) if notify && bot.webhook?
+      if notify && bot.webhook?
+        @notifications.successful_webhook_bot_transaction(bot: bot,
+                                                          type: called_bot_type(
+                                                            bot, called_bot
+                                                          ))
+      end
       @schedule_transaction.call(bot) if result.success? && !bot.webhook?
     elsif !fetched?(result)
       bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
@@ -67,7 +72,7 @@ class FetchOrderResult < BaseService
   private
 
   def success_status(bot)
-    return {status: 'working'} if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
+    return { status: 'working' } if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
 
     { status: 'stopped' }
   end
