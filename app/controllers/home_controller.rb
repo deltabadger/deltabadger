@@ -8,6 +8,7 @@ class HomeController < ApplicationController
     about
     confirm_registration
   ].freeze
+  DCA_SIMULATION_ASSETS = %w[btc gspc gdaxi gld ndx usd].freeze
 
   before_action :authenticate_user!, except: PUBLIC_PAGES
   before_action :set_navigation_session, only: [:dashboard]
@@ -60,7 +61,7 @@ class HomeController < ApplicationController
   end
 
   def get_simulation_results(invest_amount:)
-    %w[btc gspc gdaxi gld ndx usd].map do |asset|
+    DCA_SIMULATION_ASSETS.map do |asset|
       [asset, DcaSimulation.new(
         asset: asset,
         interval: 1.month,
