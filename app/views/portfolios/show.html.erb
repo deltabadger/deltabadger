@@ -118,7 +118,7 @@
           <span class="label"><%= t('utils.since') %></span>
           <%= render "start_date", portfolio: @portfolio %>
         </div>
-        <%= link_to portfolio_openai_insights_path(@portfolio), id: "openai-insights-button", class: "sbutton sbutton--link sbutton--ai", style: "position: relative", data: {turbo_stream: true} do %>
+        <%= button_to portfolio_openai_insights_path(@portfolio), method: :get, id: "openai-insights-button", class: "sbutton sbutton--link sbutton--ai", style: "position: relative", data: { turbo_stream: true, turbo_submits_with: "Thinking..." }, disabled: @portfolio.limited? do %>
           <%= t('analyzer.insights') %>
           <%= render "svg/24x24_magic" %>
         <% end %>
