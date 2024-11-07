@@ -639,7 +639,7 @@ en:
             title: Thanks!
         contact:
             general_questions_html: 'For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.'
-            specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
             title: Contact
     links:
         about: About

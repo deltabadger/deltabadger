@@ -564,7 +564,7 @@ de:
             title: Danke!
         contact:
             general_questions_html: 'Für allgemeine Fragen besuche bitte unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
-            specific_questions_html: 'Solltest du ein Problem haben, schick uns eine eMail %{email} oder sende uns eine Direktnachricht auf Telegram oder <a class="db-social-link" href="https://twitter.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>'
+            specific_questions_html: 'Solltest du ein Problem haben, schick uns eine eMail %{email} oder sende uns eine Direktnachricht auf Telegram oder <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>'
             title: Kontakt
     links:
         about: Über
