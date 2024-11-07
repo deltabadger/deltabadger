@@ -11,13 +11,7 @@ de:
                         eth_address:
                             invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
     ads:
-        bitwarden_text: '. Es ist kostenlos und open-source.'
-        bitwarden_title: 'Probiere Bitwarden'
-        dca_2y_profit_html: 'Wenn du im letzten zwei Jahren Dollar-Cost-Averaging zu Bitcoin betrieben hättest, hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
-        dca_profit_html: 'Wenn du im letzten Jahr Dollar-Cost-Averaging zu Bitcoin betrieben hättest, hättest du jetzt schon einen Profit von <span class="text-success">+%{profit} %</span>'
-        dont_trade_automate_html: '<div>Handle nicht.</div> <div>Automatisiere.</div>'
-        features: "Auto-DCA auf deinem Börsenkonto;\n<i>Smart-Intervalle</i> und eine Einrichtung, die nur 5 Minuten dauert;\nUpdates und neue Funktionen jeden Monat;\nSupport und Telegram-Community"
-        password_managers_html: 'Passwort-Manager<br>machen die Sicherheit leichter.'
+        dca_profit_html: 'Wenn Sie in den letzten 4&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, wären Sie jetzt&nbsp;um <span class="text-success">%{profit} %</span> gestiegen'
     affiliates:
         add_link_info: 'Du kannst deinen Namen und einen Link zu deiner Website hinzufügen, damit der Geworbene weiß, woher der Rabatt stammt. Du kannst dieses Feld auch leer lassen:'
         apply_code:

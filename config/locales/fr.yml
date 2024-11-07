@@ -11,13 +11,7 @@ fr:
                         eth_address:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
-        bitwarden_text: 'C''est gratuit et open-source.'
-        bitwarden_title: 'Essayez Bitwarden'
-        dca_2y_profit_html: 'Si vous avez investi en DCA dans le bitcoin ces deux dernières années, vous auriez gagné <span class="text-success">+%{profit}%</span>.'
-        dca_profit_html: 'Si vous avez investi en DCA dans le bitcoin au cours de l''année écoulée, vous auriez gagné <span class="text-success">+%{profit}%</span>.'
-        dont_trade_automate_html: '<div>Ne tradez pas.</div> <div>Automatisez.</div>'
-        features: "auto-DCA sur votre compte d''exchange;\n<i> Intervalles intelligents </i> et configuration en cinq minutes; mises à jour et nouvelles fonctionnalités chaque mois; support et communauté Telegram"
-        password_managers_html: 'Les gestionnaires de mots de passe facilitent la sécurité.'
+        dca_profit_html: 'Si vous aviez investi régulièrement dans le Bitcoin au cours des 4&nbsp;dernières années, vous seriez maintenant&nbsp;en hausse de <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirmer la nouvelle adresse Bitcoin'
