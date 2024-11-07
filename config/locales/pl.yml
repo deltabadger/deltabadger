@@ -11,13 +11,7 @@ pl:
                         eth_address:
                             invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
     ads:
-        bitwarden_text: '. Jest darmowy i open-source.'
-        bitwarden_title: 'Spróbuj Bitwarden'
-        dca_2y_profit_html: 'Jeśli inwestowałeś w Bitcoina uśredniając przez ostatnie dwa lata, jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
-        dca_profit_html: 'Jeśli inwestowałeś w Bitcoina uśredniając przez ostatni rok, jesteś teraz na plusie <span class="text-success">+%{profit}%</span>'
-        dont_trade_automate_html: '<div>Nie spekuluj.</div> <div>Automatyzuj.</div>'
-        features: "automatyczne uśrednianie wprost na twoim obecnym koncie;\n<i>smart interwały</i> i pięciominutowa konfiguracja;\naktualizacje i nowe funkcje co miesiąc;\nsupport i grupa na Telegramie"
-        password_managers_html: 'Menedżery haseł <br> sprawiają, że bezpieczeństwo jest prostsze.'
+        dca_profit_html: 'Gdybyś inwestował w Bitcoina metodą DCA przez ostatnie 4&nbsp;lata, teraz byłbyś&nbsp;na plusie <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Potwierdź nowy adres bitcoinowy'

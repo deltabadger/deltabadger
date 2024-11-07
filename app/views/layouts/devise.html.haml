@@ -52,9 +52,12 @@
     .container.container--signup
       .row{ style: "min-height: 74rem" }
         .d-none.d-lg-block.col-lg-6
-          %h1
-            = t('devise.risk_down')
-            <br>
-            = t('devise.gains_up')
+          %h3
+            =t('ads.dca_profit_html')
+
+          -# copied from mailer.html.haml
+          -# - if @dca_profit.success?
+          -#   %h3
+          -#     =t('ads.dca_profit_html', profit: (@dca_profit.data * 100).to_i)
         .col-12.col-lg-6
           = yield
