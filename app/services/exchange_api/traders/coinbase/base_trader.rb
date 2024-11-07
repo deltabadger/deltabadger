@@ -32,8 +32,13 @@ module ExchangeApi
 
           if response.status.between?(200, 299)
             parsed_response = JSON.parse(response.body)
-            amount = parsed_response.dig('order', 'filled_size')&.to_f
-            rate = parsed_response.dig('order', 'average_filled_price')&.to_f
+            if parsed_response.dig('order', 'order_type') == 'MARKET'
+              amount = parsed_response.dig('order', 'filled_size')&.to_f
+              rate = parsed_response.dig('order', 'average_filled_price')&.to_f
+            else
+              amount = parsed_response.dig('order', 'order_configuration', 'limit_limit_gtc', 'base_size')&.to_f
+              rate = parsed_response.dig('order', 'order_configuration', 'limit_limit_gtc', 'limit_price')&.to_f
+            end
 
             if amount.nil? || rate.nil? || (market_order?(parsed_response) && !filled?(parsed_response))
               Rails.logger.info 'Waiting for Coinbase response'
