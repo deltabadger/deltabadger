@@ -11,7 +11,7 @@ nl:
                         eth_address:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
-        dca_profit_html: 'Als je de afgelopen 4&nbsp;jaar regelmatig in Bitcoin had geïnvesteerd, zou je nu&nbsp;stijgen met <span class="text-success">%{profit}%</span>'
+        dca_profit_html: 'Als je de afgelopen %{years}&nbsp;jaar regelmatig in Bitcoin had geïnvesteerd, zou je nu&nbsp;stijgen met <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Bevestig nieuw Bitcoin-adres'

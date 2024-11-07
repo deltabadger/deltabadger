@@ -11,7 +11,7 @@ fr:
                         eth_address:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
-        dca_profit_html: 'Si vous aviez investi régulièrement dans le Bitcoin au cours des 4&nbsp;dernières années, vous seriez maintenant&nbsp;en hausse de <span class="text-success">%{profit}%</span>'
+        dca_profit_html: 'Si vous aviez investi régulièrement dans le Bitcoin au cours des %{years}&nbsp;dernières années, vous seriez maintenant&nbsp;en hausse de <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Confirmer la nouvelle adresse Bitcoin'
