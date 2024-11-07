@@ -11,13 +11,7 @@ nl:
                         eth_address:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
-        bitwarden_text: 'Het is gratis en open-source.'
-        bitwarden_title: 'Probeer Bitwarden.'
-        dca_2y_profit_html: 'Als je de afgelopen twee jaar Bitcoin aankocht via dollar-cost averaging, heb je nu <span class="text-success">+%{profit}%</span> winst'
-        dca_profit_html: 'Als je het afgelopen jaar BItcoin aankocht via dollar-cost averaging, dan heb je nu <span class="text-success">+%{profit}%</span>'
-        dont_trade_automate_html: '<div>Niet traden.</div> <div>Wel automatiseren.</div>'
-        features: 'automatische DCA op uw exchange account; <i>Slimme intervallen</i> en setup in vijf minuten; elke maand updates en nieuwe functies; ondersteuning en Telegram-gemeenschap'
-        password_managers_html: 'Wachtwoordmanagers maken beveiliging eenvoudiger.'
+        dca_profit_html: 'Als je de afgelopen 4&nbsp;jaar regelmatig in Bitcoin had geïnvesteerd, zou je nu&nbsp;stijgen met <span class="text-success">%{profit}%</span>'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: 'Bevestig nieuw Bitcoin-adres'

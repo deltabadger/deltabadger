@@ -11,13 +11,8 @@ pt:
                         eth_address:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
-        bitwarden_text: '. É gratuito e de código aberto.'
-        bitwarden_title: 'Experimente a Bitwarden'
-        dca_2y_profit_html: 'Se fez investimentos pelo preço médio em Bitcoin nos últimos dois anos, está agora a <span class="text-success">+%{profit}%</span>'
-        dca_profit_html: 'Se fez investimentos pelo preço médio em Bitcoin no último ano, está agora a <span class="text-success">+%{profit}%</span>'
-        dont_trade_automate_html: '<div>Não&nbsp;faça&nbsp;transações.</div> <div>Automatize.</div>'
-        features: "DCA automático na sua conta de câmbio;\n<i>intervalos inteligentes</i> e configuração em cinco minutos;\natualizações e novas funcionalidades todos os meses;\nsuporte e comunidade no Telegram"
-        password_managers_html: 'Os gestores de palavras-passe<br>facilitam a segurança.'
+
+        dca_profit_html: 'Se você estivesse investindo regularmente em Bitcoin nos últimos 4&nbsp;anos, agora estaria&nbsp;com um ganho de <span class="text-success">%{profit}%</span>'
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
         apply_code:
