@@ -1,5 +1,5 @@
 !!!
-%html{:lang => I18n.locale, :prefix => "og: http://ogp.me/ns#", :class => main_html_classes}
+%html{:prefix => "og: http://ogp.me/ns#"}
   %head
 
     %meta{:charset => "UTF-8"}
@@ -75,7 +75,9 @@
 
       });
 
-  %body{data: {locale: I18n.locale, controller: "hotwire-animations"}, class: yield(:body_class)}
+  // data-locale is only needed for the react dashboard
+  %body{data: { controller: "hotwire-animations", locale: I18n.locale }, class: "#{yield(:body_class)} #{main_body_classes}" }
+
     #flash.flash
       = render 'layouts/flash'
 

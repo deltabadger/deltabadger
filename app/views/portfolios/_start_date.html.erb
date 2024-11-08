@@ -1,5 +1,5 @@
 <%= tag.div id: "start-date", class: "flex-row" do %>
-  <%= form_with model: portfolio, url: portfolio_update_backtest_start_date_path(portfolio), method: :patch, data: { controller: "flatpickr", flatpickr_lang_value: params[:lang], flatpickr_max_date_value: Time.now.utc - 2.days } do |form| %>
+  <%= form_with model: portfolio, url: portfolio_update_backtest_start_date_path(portfolio), method: :patch, data: { controller: "flatpickr", flatpickr_locale_value: I18n.locale, flatpickr_max_date_value: Time.now.utc - 2.days } do |form| %>
     <%= form.text_field :backtest_start_date, class: "fp_date sinput sinput--calendar", onchange: "this.form.requestSubmit();" %>
   <% end %>
   <%= button_to "YTD", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: Date.today.beginning_of_year.strftime('%Y-%m-%d') } }), method: :patch, title: "Beginning of the year", class: "sbutton sbutton--link" %>

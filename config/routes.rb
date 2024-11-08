@@ -6,8 +6,6 @@ Rails.application.routes.draw do
 
   get 'sso', to: 'sso#sso'
 
-  get 'errors/not_found'
-  get 'errors/internal_server_error'
   match "/404", to: "errors#redirect_to_root", via: :all
   match "/422", to: "errors#unprocessable_entity", via: :all
   match "/500", to: "errors#internal_server_error", via: :all
@@ -70,18 +68,10 @@ Rails.application.routes.draw do
     get '/webhook_bots_data', to: 'bots#webhook_bots_data'
   end
 
-  scope "/(:lang)", lang: /#{I18n.available_locales.join("|")}/ do
+  scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
     root to: 'home#index'
 
-    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations' }, skip: [:registrations]
-
-    as :user do
-      scope :users do
-        get '/cancel', to: 'users/registrations#cancel', as: 'cancel_user_registration'
-        get '/sign_up', to: 'users/registrations#new', as: 'new_user_registration'
-        post '/', to: 'users/registrations#create', as: 'user_registration'
-      end
-    end
+    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }
 
     resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
       get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
@@ -114,8 +104,7 @@ Rails.application.routes.draw do
     end
 
     resource :legendary, only: [:show, :update], path: '/legendary-badger' do
-      get '/', action: :show
-      patch '/', action: :update
+      get :show, on: :collection
     end
 
     get '/dashboard', to: 'home#dashboard', as: :dashboard
@@ -128,9 +117,9 @@ Rails.application.routes.draw do
     get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
-    get '/portfolio-analyzer', to: 'portfolios#show' # in the future, use only portfolios which can be automated etc.
     resources :portfolios, except: [:index], path: '/portfolio-analyzer' do
       resources :assets, only: [:new, :create, :destroy, :update]
+      get :show, on: :collection
       patch :toggle_smart_allocation
       patch :update_risk_level
       patch :update_benchmark

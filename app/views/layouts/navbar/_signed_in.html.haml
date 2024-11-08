@@ -1,7 +1,7 @@
 .menu
   .menu__section.menu__section--top.menu__section--logo
 
-    = link_to root_path, class: 'menu__logo', data: {turbo: false} do
+    = link_to root_path, class: 'menu__logo' do
       -unless current_user.subscription.name == 'legendary'
         = render 'svg/40x30_logo'
         -# = render 'layouts/devise_messages'
@@ -11,22 +11,22 @@
 
   .menu__section.menu__section--top.menu__section--main-menu
 
-    = link_to root_path, class: 'menu__item menu__item--dashboard', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to root_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_dashboard'
       .tooltip
         = t('links.dashboard')
 
-    = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_prism_c'
       .tooltip
         = "Prism"
 
-    = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_bitcoin'
       .tooltip
         = t('links.earn')
 
-    = link_to settings_path, class: 'menu__item menu__item--settings', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to settings_path, class: 'menu__item menu__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_sliders'
       .tooltip
         = t('links.settings')
@@ -38,13 +38,13 @@
         = t('links.community')
 
     - if current_user.subscription.name == 'legendary'
-      = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_legendary'
         .tooltip
           = t('links.legendary')
           = t('subscriptions.plan_life_time')
     - else
-      = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { turbo: false, controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'
         .tooltip
           .tooltip__title
@@ -56,29 +56,26 @@
   .menu__section.menu__section--bottom
     .btn-group
       %button.menu__button{"aria-expanded" => "false", "aria-haspopup" => "true", "data-toggle" => "dropdown", :type => "button"}
-        - if params[:lang].blank?
-          = 'EN'
-        - else
-          = params[:lang].to_s.upcase
+        = params[:locale]&.to_s&.upcase || 'EN'
       .dropdown-menu.dropdown-menu-right
-        - lang = params[:lang]
-        - unless lang.blank? || lang == 'en'
-          = link_to "🇬🇧 English", url_for(lang: 'en'), class: "dropdown-item"
-        - unless lang == 'de'
-          = link_to "🇩🇪 Deutsch", url_for(lang: 'de'), class: "dropdown-item"
-        - unless lang == 'nl'
-          = link_to "🇳🇱 Nederlandse", url_for(lang: 'nl'), class: "dropdown-item"
-        - unless lang == 'fr'
-          = link_to "🇫🇷 Français", url_for(lang: 'fr'), class: "dropdown-item"
-        - unless lang == 'es'
-          = link_to "🇪🇸 Español", url_for(lang: 'es'), class: "dropdown-item"
-        - unless lang == 'pt'
-          = link_to "🇵🇹 Português", url_for(lang: 'pt'), class: "dropdown-item"
-        - unless lang == 'pl'
-          = link_to "🇵🇱 Polski", url_for(lang: 'pl'), class: "dropdown-item"
-        - unless lang == 'ru'
-          = link_to "🇷🇺 Русский", url_for(lang: 'ru'), class: "dropdown-item"
+        - locale = params[:locale]
+        - unless locale.blank? || locale == 'en'
+          = link_to "🇬🇧 English", url_for(locale: nil), class: "dropdown-item"
+        - unless locale == 'de'
+          = link_to "🇩🇪 Deutsch", url_for(locale: 'de'), class: "dropdown-item"
+        - unless locale == 'nl'
+          = link_to "🇳🇱 Nederlandse", url_for(locale: 'nl'), class: "dropdown-item"
+        - unless locale == 'fr'
+          = link_to "🇫🇷 Français", url_for(locale: 'fr'), class: "dropdown-item"
+        - unless locale == 'es'
+          = link_to "🇪🇸 Español", url_for(locale: 'es'), class: "dropdown-item"
+        - unless locale == 'pt'
+          = link_to "🇵🇹 Português", url_for(locale: 'pt'), class: "dropdown-item"
+        - unless locale == 'pl'
+          = link_to "🇵🇱 Polski", url_for(locale: 'pl'), class: "dropdown-item"
+        - unless locale == 'ru'
+          = link_to "🇷🇺 Русский", url_for(locale: 'ru'), class: "dropdown-item"
 
-    = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button", data: {turbo: false} do
+    = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button", data: { turbo: false } do
 
       = render 'svg/24x24_logout'
