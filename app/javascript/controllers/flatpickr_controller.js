@@ -17,9 +17,9 @@ require("flatpickr/dist/flatpickr.css");
 
 // Connects to data-controller="flatpickr"
 export default class extends Controller {
-  static values = { lang: String, maxDate: String, minDate: String };
+  static values = { locale: String, maxDate: String, minDate: String };
 
-  languages = {
+  locales = {
     en: english,
     de: German,
     nl: Dutch,
@@ -29,20 +29,17 @@ export default class extends Controller {
     pt: Portuguese,
     pl: Polish,
     ru: Russian,
-    id: Indonesian,
-    vi: Vietnamese,
-    cn: Mandarin,
   };
 
   connect() {
     flatpickr(".fp_date_time", {
-      locale: this.languages[this.langValue],
+      locale: this.locales[this.localeValue],
       enableTime: true,
       dateFormat: "Y-m-d H:i",
     });
 
     flatpickr(".fp_date", {
-      locale: this.languages[this.langValue],
+      locale: this.locales[this.localeValue],
       maxDate: this.maxDateValue,
       position: "auto center",
     });
