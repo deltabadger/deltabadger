@@ -427,6 +427,7 @@ pt:
             new:
                 email_invalid: 'E-mail inválido!'
                 email_suggestion_html: 'E-mail inválido! Queria dizer: <b>%{suggestion}</b>?'
+                name_invalid: 'Não precisa ser real 👻'
                 submit: 'Começar agora'
                 title_html: 'Crie uma conta <span class="text-success">gratuita</span>'
             signed_up: 'Muito prazer!'
