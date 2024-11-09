@@ -1,5 +1,3 @@
 class User::Email
-  def self.address_pattern
-    '^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$'
-  end
+  ADDRESS_PATTERN = '^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$'.freeze
 end

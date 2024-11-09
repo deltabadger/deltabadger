@@ -69,14 +69,14 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def set_new_instance_variables
-    @name_pattern = User::Name.pattern
-    @email_address_pattern = User::Email.address_pattern
-    @password_length_pattern = User::Password.length_pattern
-    @password_uppercase_pattern = User::Password.uppercase_pattern
-    @password_lowercase_pattern = User::Password.lowercase_pattern
-    @password_digit_pattern = User::Password.digit_pattern
-    @password_symbol_pattern = User::Password.symbol_pattern
-    @password_complexity_pattern = User::Password.complexity_pattern
+    @name_pattern = User::Name::PATTERN
+    @email_address_pattern = User::Email::ADDRESS_PATTERN
+    @password_length_pattern = User::Password::LENGTH_PATTERN
+    @password_uppercase_pattern = User::Password::UPPERCASE_PATTERN
+    @password_lowercase_pattern = User::Password::LOWERCASE_PATTERN
+    @password_digit_pattern = User::Password::DIGIT_PATTERN
+    @password_symbol_pattern = User::Password::SYMBOL_PATTERN
+    @password_pattern = User::Password::PATTERN
   end
 
   def handle_turnstile_failure

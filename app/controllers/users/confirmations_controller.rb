@@ -38,7 +38,7 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
 
   def set_new_instance_variables
     @email_value = resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email
-    @email_address_pattern = User::Email.address_pattern
+    @email_address_pattern = User::Email::ADDRESS_PATTERN
   end
 
   def handle_turnstile_failure
