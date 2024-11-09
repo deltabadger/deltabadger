@@ -1,6 +1,5 @@
 class ApplicationController < ActionController::Base
   before_action :set_raven_context
-  before_action :configure_permitted_parameters, if: :devise_controller?
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
   around_action :switch_locale
@@ -8,13 +7,6 @@ class ApplicationController < ActionController::Base
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
     I18n.with_locale(locale, &action)
-  end
-
-  protected
-
-  def configure_permitted_parameters
-    devise_parameter_sanitizer
-      .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement referrer_id name])
   end
 
   private
@@ -34,7 +26,7 @@ class ApplicationController < ActionController::Base
   end
 
   def default_url_options
-    { locale: (I18n.locale unless I18n.locale == I18n.default_locale ) }
+    { locale: (I18n.locale unless I18n.locale == I18n.default_locale) }
   end
 
   def set_no_cache

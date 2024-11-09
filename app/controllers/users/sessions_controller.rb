@@ -1,10 +1,9 @@
 class Users::SessionsController < Devise::SessionsController
-  prepend_before_action :check_turnstile, only: [:create]
+  prepend_before_action :validate_cloudflare_turnstile, only: [:create]
 
   rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
-  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-  def create
+  def create # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     params[:user][:password] = trim_long_password(params[:user][:password])
     self.resource = warden.authenticate!(auth_options)
 
@@ -26,7 +25,6 @@ class Users::SessionsController < Devise::SessionsController
       end
     end
   end
-  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
 
@@ -44,12 +42,9 @@ class Users::SessionsController < Devise::SessionsController
     respond_with resource, location: new_user_session_path
   end
 
-  def check_turnstile
-    validate_cloudflare_turnstile
-  end
-
   def handle_turnstile_failure
-    self.resource = resource_class.new
+    self.resource = resource_class.new(sign_in_params)
+    flash.now[:alert] = t('errors.cloudflare_turnstile')
     respond_with_navigational(resource) { render :new }
   end
 
