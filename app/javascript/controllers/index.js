@@ -22,11 +22,17 @@ application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 import Form__Html5ValidationsController from "./form/html5_validations_controller"
 application.register("form--html5-validations", Form__Html5ValidationsController)
 
+import Form__PasswordStrengthController from "./form/password_strength_controller"
+application.register("form--password-strength", Form__PasswordStrengthController)
+
 import Form__SubmitAfterDelayController from "./form/submit_after_delay_controller"
 application.register("form--submit-after-delay", Form__SubmitAfterDelayController)
 
 import Form__SubmitController from "./form/submit_controller"
 application.register("form--submit", Form__SubmitController)
+
+import Form__UnmaskPasswordController from "./form/unmask_password_controller"
+application.register("form--unmask-password", Form__UnmaskPasswordController)
 
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
