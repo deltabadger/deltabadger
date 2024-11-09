@@ -17,8 +17,8 @@
   <% else %>
 
     <div class="db_legendary-plan__eth-form">
-      <%= form_with model: @subscription, url: legendary_path, method: :patch, data: { controller: "form--checkbox-enables form--html5-validations" } do |f| %>
-        <div class="db-form__row db-form__row--input db-form__row--input--empty">
+      <%= form_with model: @subscription, url: legendary_path, method: :patch, data: { controller: "form--checkbox-enables form--html5-validations form--label-animations" } do |f| %>
+        <div class="db-form__row db-form__row--input">
           <%= f.text_field :eth_address, class: "db-form__input", placeholder: "0x123456789...", pattern: @address_pattern, required: true %>
           <%= f.label :eth_address, t('legendary_badger.ethereum_address'), class: "db-form__label" %>
         </div>
