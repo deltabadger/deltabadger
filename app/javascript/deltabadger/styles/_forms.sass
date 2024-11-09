@@ -165,7 +165,7 @@ $formUnit: 2rem
         color: var(--link)
         font-weight: bold
         @include textAdjust(2)
-    &--select,&:focus,&:not([value=""]),&:not(.db-form__input--empty)
+    &--select,&:focus,&:not([value=""]),&:placeholder-shown
       opacity: 1
       &~.db-form__label
         top: -1.2rem
@@ -174,8 +174,6 @@ $formUnit: 2rem
       &:not(:focus)
         border-color: var(--danger)
         border-width: .2rem
-        padding-left: 1.3rem
-        padding-right: 1.3rem
         &~.db-form__label
           color: var(--danger)
           font-weight: bold
