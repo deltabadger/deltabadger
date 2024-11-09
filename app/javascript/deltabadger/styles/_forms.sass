@@ -178,8 +178,11 @@ $formUnit: 2rem
           color: var(--danger)
           font-weight: bold
           @include textAdjust(2)
+      &~.db-form__info--invalid
+        display: block
+      &:focus
         &~.db-form__info--invalid
-          display: block
+          color: var(--link)
   &__info
     padding-left: .4rem
     font-size: 1.75rem
