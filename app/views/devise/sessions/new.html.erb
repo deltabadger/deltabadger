@@ -1,12 +1,12 @@
 <h3 class="db-modal-title"><%= t('.title') %></h3>
 <%= form_with model: resource, url: session_path(resource_name), data: { controller: "form--html5-validations" } do |f| %>
   <div class="db-form__row">
-    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input", required: true %>
+    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input" %>
     <%= f.label :email, class: "db-form__label" %>
   </div>
 
   <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--unmask-password" } do %>
-    <%= f.password_field :password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__unmask_password_target: "input" }, required: true %>
+    <%= f.password_field :password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__unmask_password_target: "input" } %>
     <%= f.label :password, class: "db-form__label" %>
 
     <div class="db-unmask" data-action="click->form--unmask-password#toggle">
