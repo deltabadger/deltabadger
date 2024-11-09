@@ -170,17 +170,18 @@ $formUnit: 2rem
       &~.db-form__label
         top: -1.2rem
         font-size: 1.75rem
-    &.is-invalid // , &:invalid:not(:focus)
-      border-color: var(--danger)
-      border-width: .2rem
-      padding-left: 1.3rem
-      padding-right: 1.3rem
-      &~.db-form__label
-        color: var(--danger)
-        font-weight: bold
-        @include textAdjust(2)
-      &~.db-form__info--invalid
-        display: block
+    &.is-invalid
+      &:not(:focus)
+        border-color: var(--danger)
+        border-width: .2rem
+        padding-left: 1.3rem
+        padding-right: 1.3rem
+        &~.db-form__label
+          color: var(--danger)
+          font-weight: bold
+          @include textAdjust(2)
+        &~.db-form__info--invalid
+          display: block
   &__info
     padding-left: .4rem
     font-size: 1.75rem
