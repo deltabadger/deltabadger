@@ -1,7 +1,7 @@
-<%= form_with model: portfolio, class: "modal__form", data: { turbo_frame: "portfolio", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+<%= form_with model: portfolio, class: "modal__form", data: { turbo_frame: "portfolio", controller: "form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
   <div class="db-form__row db-form__row--input">
-    <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input db-form__input--empty" %>
-    <%= f.label :label, t('analyzer.portfolio_name') + ":", class: "db-form__label" %>
+    <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input" %>
+    <%= f.label :label, t('analyzer.portfolio_name'), class: "db-form__label" %>
   </div>
   <%= f.submit t('utils.save'), class: "btn btn-success btn-lg" %>
 <% end %>
