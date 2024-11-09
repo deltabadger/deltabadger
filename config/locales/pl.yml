@@ -480,7 +480,7 @@ pl:
                 email_invalid: 'E-mail nieprawidłowy!'
                 email_suggestion_html: 'E-mail nieprawidłowy! Czy chodziło Ci o: <b> %{suggestion} </b>'
                 email_used: 'Ten e-mail jest już używany.'
-                name_invalid: 'Nie musi być prawdziwe :)'
+                name_invalid: 'Nie musi być prawdziwe 👻'
                 submit: 'Zacznij teraz'
                 title_html: 'Załóż <span class="text-success">darmowe</span> konto'
             signed_up: 'Miło cię poznać!'
@@ -533,7 +533,7 @@ pl:
             less_than: 'musi być mniejsza niż %{count}'
             less_than_or_equal_to: 'musi być mniejsza lub równa %{count}'
             model_invalid: 'Weryfikacja nie powiodła się: %{errors}'
-            name_invalid: 'Nie musi być prawdziwe :)'
+            name_invalid: 'Nie musi być prawdziwe 👻'
             not_a_number: 'nie jest liczbą'
             not_an_integer: 'musi być liczbą całkowitą'
             not_found: nieznaleziony.
