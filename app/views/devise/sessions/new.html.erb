@@ -1,5 +1,5 @@
 <h3 class="db-modal-title"><%= t('.title') %></h3>
-<%= form_with model: resource, url: session_path(resource_name), data: { controller: "form--html5-validations" } do |f| %>
+<%= form_with model: resource, url: session_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
   <div class="db-form__row">
     <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input" %>
     <%= f.label :email, class: "db-form__label" %>
@@ -33,7 +33,7 @@
     <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
   </div>
 
-  <div class="db-form__row">
+  <div class="db-form__row" style="min-height: 72px">
     <%= cloudflare_turnstile %>
   </div>
 

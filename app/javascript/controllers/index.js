@@ -22,6 +22,9 @@ application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 import Form__Html5ValidationsController from "./form/html5_validations_controller"
 application.register("form--html5-validations", Form__Html5ValidationsController)
 
+import Form__LabelAnimationsController from "./form/label_animations_controller"
+application.register("form--label-animations", Form__LabelAnimationsController)
+
 import Form__PasswordStrengthController from "./form/password_strength_controller"
 application.register("form--password-strength", Form__PasswordStrengthController)
 
