@@ -18,9 +18,10 @@ class User < ApplicationRecord
   has_many :portfolios, dependent: :destroy
 
   validates :terms_and_conditions, acceptance: true
-  validates :name, presence: true, if: -> { new_record? }
   validate :active_referrer, on: :create
+  validates :name, presence: true, if: -> { new_record? }
   validate :validate_name
+  validate :validate_email
   validate :validate_email_with_sendgrid
   validate :password_complexity, if: -> { password.present? }
 
@@ -59,17 +60,6 @@ class User < ApplicationRecord
     api_keys.where(key_type: 'trading')
   end
 
-  def name_invalid?(params_name = nil)
-    (params_name || name) !~ /^(?<=^|\s)[a-zA-Z ]+(\s+[a-zA-Z ]+)*(?=\s|$)$/
-  end
-
-  def validate_update_name(params)
-    return true unless name_invalid?(params[:name])
-
-    errors.add :name, I18n.t('devise.registrations.new.name_invalid')
-    false
-  end
-
   def webhook_bots_transactions
     transactions.where(bot_id: bots.webhook.pluck(:id))
   end
@@ -86,7 +76,7 @@ class User < ApplicationRecord
 
   def set_subscription
     Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free,
-                         credits: 100000)
+                         credits: 100_000)
   end
 
   def set_affiliate
@@ -114,9 +104,13 @@ class User < ApplicationRecord
   end
 
   def validate_name
-    return unless new_record? && name_invalid?
+    valid_name = name =~ Regexp.new(Name.pattern)
+    errors.add :name, I18n.t('devise.registrations.new.name_invalid') unless valid_name
+  end
 
-    errors.add :name, I18n.t('devise.registrations.new.name_invalid')
+  def validate_email
+    valid_email = email =~ Regexp.new(Email.address_pattern)
+    errors.add :email, I18n.t('devise.registrations.new.email_invalid') unless valid_email
   end
 
   def validate_email_with_sendgrid
@@ -127,10 +121,16 @@ class User < ApplicationRecord
     result.success?
   end
 
-  def password_complexity
-    requirement_regexes = [/[[:upper:]]/, /[[:lower:]]/, /[[:digit:]]/, /[^[[:upper:]][[:lower:]][[:digit:]]]/].freeze
-    return if requirement_regexes.all? { |regex| password =~ regex }
+  # def get_email_suggestion
+  #   return unless devise_mapping.validatable?
 
-    errors.add :password, I18n.t('errors.messages.too_simple_password')
+  #   email_validator = SendgridMailValidator.new
+  #   suggestion = email_validator.get_suggestion(email)
+  #   suggestion.to_s unless suggestion.nil?
+  # end
+
+  def password_complexity
+    complexity_is_valid = password =~ Regexp.new(Password.complexity_pattern)
+    errors.add :password, I18n.t('errors.messages.too_simple_password') unless complexity_is_valid
   end
 end

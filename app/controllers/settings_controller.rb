@@ -54,7 +54,7 @@ class SettingsController < ApplicationController
 
   def update_name
     user = current_user
-    if user.validate_update_name(update_name_params) && user.update(update_name_params)
+    if user.update(update_name_params)
       bypass_sign_in(user)
       redirect_to settings_path
     else
