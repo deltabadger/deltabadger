@@ -10,57 +10,57 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   connect() {
     this.element.setAttribute('novalidate', true)
-    this.element.addEventListener('blur', this.onBlur, true)
-    this.element.addEventListener('submit', this.onSubmit)
-    this.element.addEventListener('ajax:beforeSend', this.onSubmit)
+    this.element.addEventListener('blur', this.#onBlur, true)
+    this.element.addEventListener('submit', this.#onSubmit)
+    this.element.addEventListener('ajax:beforeSend', this.#onSubmit)
   }
 
   disconnect() {
-    this.element.removeEventListener('blur', this.onBlur)
-    this.element.removeEventListener('submit', this.onSubmit)
-    this.element.removeEventListener('ajax:beforeSend', this.onSubmit)
+    this.element.removeEventListener('blur', this.#onBlur)
+    this.element.removeEventListener('submit', this.#onSubmit)
+    this.element.removeEventListener('ajax:beforeSend', this.#onSubmit)
   }
 
-  onBlur = (event) => {
-    this.validateField(event.target)
+  #onBlur = (event) => {
+    this.#validateField(event.target)
   }
 
-  onSubmit = (event) => {
-    if (!this.validateForm()) {
+  #onSubmit = (event) => {
+    if (!this.#validateForm()) {
       event.preventDefault()
-      this.firstInvalidField.focus()
+      this.#firstInvalidField.focus()
     }
   }
 
-  validateForm() {
+  #validateForm() {
     let isValid = true
     // Not using `find` because we want to validate all the fields
-    this.formFields.forEach((field) => {
-      if (this.shouldValidateField(field) && !this.validateField(field)) isValid = false
+    this.#formFields.forEach((field) => {
+      if (this.#shouldValidateField(field) && !this.#validateField(field)) isValid = false
     })
     return isValid
   }
 
-  validateField(field) {
-    if (!this.shouldValidateField(field))
+  #validateField(field) {
+    if (!this.#shouldValidateField(field))
       return true
     const isValid = field.checkValidity()
     field.classList.toggle('is-invalid', !isValid)
-    this.refreshErrorForInvalidField(field, isValid)
+    this.#refreshErrorForInvalidField(field, isValid)
     return isValid
   }
 
-  shouldValidateField(field) {
+  #shouldValidateField(field) {
     return !field.disabled && !['file', 'reset', 'submit', 'button'].includes(field.type)
   }
 
-  refreshErrorForInvalidField(field, isValid) {
-    this.removeExistingErrorMessage(field)
+  #refreshErrorForInvalidField(field, isValid) {
+    this.#removeExistingErrorMessage(field)
     if (!isValid)
-      this.showErrorForInvalidField(field)
+      this.#showErrorForInvalidField(field)
   }
 
-  removeExistingErrorMessage(field) {
+  #removeExistingErrorMessage(field) {
     const fieldContainer = field.closest('.db-form__row')
     if(!fieldContainer) {
       return;
@@ -70,19 +70,19 @@ export default class extends Controller {
       existingErrorMessageElement.parentNode.removeChild(existingErrorMessageElement)
   }
 
-  showErrorForInvalidField(field) {
-    field.insertAdjacentHTML('afterend', this.buildFieldErrorHtml(field))
+  #showErrorForInvalidField(field) {
+    field.insertAdjacentHTML('afterend', this.#buildFieldErrorHtml(field))
   }
 
-  buildFieldErrorHtml(field) {
+  #buildFieldErrorHtml(field) {
     return `<div class="db-form__info db-form__info--invalid">${field.validationMessage}</div>`
   }
 
-  get formFields() {
+  get #formFields() {
     return Array.from(this.element.elements)
   }
 
-  get firstInvalidField() {
-    return this.formFields.find(field => !field.checkValidity())
+  get #firstInvalidField() {
+    return this.#formFields.find(field => !field.checkValidity())
   }
 }
