@@ -26,14 +26,14 @@ export default class extends Controller {
       this.requirementsListTarget.classList.add("hidden")
     }
 
-    this.updateValidation(this.lengthTarget, this.lengthPatternValue)
-    this.updateValidation(this.uppercaseTarget, this.uppercasePatternValue)
-    this.updateValidation(this.lowercaseTarget, this.lowercasePatternValue)
-    this.updateValidation(this.digitTarget, this.digitPatternValue)
-    this.updateValidation(this.symbolTarget, this.symbolPatternValue)
+    this.#updateValidation(this.lengthTarget, this.lengthPatternValue)
+    this.#updateValidation(this.uppercaseTarget, this.uppercasePatternValue)
+    this.#updateValidation(this.lowercaseTarget, this.lowercasePatternValue)
+    this.#updateValidation(this.digitTarget, this.digitPatternValue)
+    this.#updateValidation(this.symbolTarget, this.symbolPatternValue)
   }
 
-  updateValidation(element, regex) {
+  #updateValidation(element, regex) {
     const isValid = new RegExp(regex).test(this.inputTarget.value)
     element.style.color = isValid ? this.successColorValue : this.labelColorValue
   }
