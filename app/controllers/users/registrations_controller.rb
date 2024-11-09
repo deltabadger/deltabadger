@@ -10,7 +10,6 @@ class Users::RegistrationsController < Devise::RegistrationsController
   def new
     set_new_instance_variables
     set_affiliate
-
     super
   end
 
@@ -83,7 +82,6 @@ class Users::RegistrationsController < Devise::RegistrationsController
   def handle_turnstile_failure
     self.resource = resource_class.new(sign_up_params)
     set_new_instance_variables
-    # set_email_suggestion
     flash.now[:alert] = t('errors.cloudflare_turnstile')
     respond_with_navigational(resource) { render :new }
   end
