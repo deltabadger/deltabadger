@@ -1,5 +1,5 @@
 <h3 class="db-modal-title"><%= t('.title_html') %></h3>
-<%= form_with model: resource, url: registration_path(resource_name), data: { controller: "form--html5-validations" } do |f| %>
+<%= form_with model: resource, url: registration_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
   <% if @code.present? %>
     <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
   <% end %>
@@ -28,7 +28,7 @@
       form__unmask_password_target: "input",
       form__password_strength_target: "input",
       action: "input->form--password-strength#checkPasswordStrength"
-    }, required: true, pattern: @password_complexity_pattern %>
+    }, required: true, pattern: @password_pattern %>
     <%= f.label :password, class: "db-form__label" %>
 
     <div class="db-unmask" data-action="click->form--unmask-password#toggle">
@@ -45,8 +45,7 @@
     </ul>
   <% end %>
 
-
-  <div class="db-form__row">
+  <div class="db-form__row" style="min-height: 72px">
     <%= cloudflare_turnstile %>
   </div>
 

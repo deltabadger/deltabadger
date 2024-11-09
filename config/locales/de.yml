@@ -444,7 +444,6 @@ de:
             new:
                 email_invalid: 'E-Mail ungültig!'
                 email_suggestion_html: 'E-Mail ungültig! Meintest du <b>%{suggestion}</b>'
-                email_used: 'Diese E-Mail wird bereits genutzt.'
                 submit: 'Starte jetzt'
                 title_html: 'Erstelle ein <span class="text-success">kostenloses</span> Konto'
             signed_up: 'Schön, dich kennenzulernen!'

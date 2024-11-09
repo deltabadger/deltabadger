@@ -505,7 +505,6 @@ en:
             new:
                 email_invalid: 'Email invalid!'
                 email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
-                email_used: 'This email is already used.'
                 name_invalid: 'It doesn''t have to be real 👻'
                 submit: 'Start now'
                 title_html: 'Create <span class="text-success">free</span> account'
@@ -560,7 +559,6 @@ en:
             less_than: 'must be less than %{count}'
             less_than_or_equal_to: 'must be less than or equal to %{count}'
             model_invalid: 'Validation failed: %{errors}'
-            name_invalid: 'It doesn''t have to be real 👻'
             not_a_number: 'is not a number'
             not_an_integer: 'must be an integer'
             not_found: 'not found.'
