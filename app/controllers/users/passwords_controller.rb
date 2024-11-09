@@ -1,5 +1,5 @@
 class Users::PasswordsController < Devise::PasswordsController
-  prepend_before_action :check_turnstile, only: [:create]
+  prepend_before_action :validate_cloudflare_turnstile, only: [:create]
 
   rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
@@ -9,15 +9,6 @@ class Users::PasswordsController < Devise::PasswordsController
     @disable_third_party_scripts = true
 
     super
-  end
-
-  def check_turnstile
-    validate_cloudflare_turnstile
-  end
-
-  def handle_turnstile_failure
-    self.resource = resource_class.new
-    respond_with_navigational(resource) { render :new }
   end
 
   def update
@@ -40,5 +31,11 @@ class Users::PasswordsController < Devise::PasswordsController
     @error_message = error_message
     resource.reset_password_token = resource_params[:reset_password_token]
     respond_with resource
+  end
+
+  def handle_turnstile_failure
+    self.resource = resource_class.new
+    flash.now[:alert] = t('errors.cloudflare_turnstile')
+    respond_with_navigational(resource) { render :new }
   end
 end
