@@ -1,5 +1,5 @@
 <h3 class="db-modal-title"><%= t('.title_html') %></h3>
-<%= form_with model: resource, url: registration_path(resource_name), data: { controller: "form--html5-validations" } do |f| %>
+<%= form_with model: resource, url: registration_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
   <% if @code.present? %>
     <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
   <% end %>
@@ -44,7 +44,6 @@
       <li data-form--password-strength-target="symbol">Contains a symbol</li>
     </ul>
   <% end %>
-
 
   <div class="db-form__row">
     <%= cloudflare_turnstile %>
