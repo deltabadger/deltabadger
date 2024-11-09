@@ -476,7 +476,6 @@ nl:
             new:
                 email_invalid: 'Email ongeldig!'
                 email_suggestion_html: 'Email ongeldig! Bedoelde u: <b> %{suggestion} </b>'
-                email_used: 'Deze email is reeds in gebruik.'
                 name_invalid: 'Het moet niet de echte zijn 👻'
                 submit: 'Start nu'
                 title_html: '<span class="text-success">Gratis</span> account aanmaken'
@@ -530,7 +529,6 @@ nl:
             less_than: 'moet kleiner zijn dan %{count}'
             less_than_or_equal_to: 'moet kleiner zijn dan of gelijk zijn aan %{count}'
             model_invalid: 'Validatie mislukt: %{errors}'
-            name_invalid: 'Het moet niet de echte zijn 👻'
             not_a_number: 'is geen getal'
             not_an_integer: 'moet een geheel getal zijn'
             not_found: 'niet gevonden.'
