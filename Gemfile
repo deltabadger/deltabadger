@@ -25,7 +25,7 @@ gem 'puma', '~> 6.3'
 gem "rack", "2.2.6.4"
 gem 'rack-cors'
 gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
-gem 'rails_cloudflare_turnstile', '~> 0.2.1'
+gem 'rails_cloudflare_turnstile', git: 'https://github.com/guillemap/rails-cloudflare-turnstile', branch: 'add-turbo-support' # TODO: use the official gem once https://github.com/instrumentl/rails-cloudflare-turnstile/pull/186 is merged
 gem 'rqrcode'
 gem 'sass-rails', '>= 6'
 gem 'webpacker', '~> 5.4'
