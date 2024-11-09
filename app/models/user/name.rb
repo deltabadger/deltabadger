@@ -1,5 +1,3 @@
 class User::Name
-  def self.pattern
-    '^(?<=^|\s)[\p{L} ]+(\s+[\p{L} ]+)*(?=\s|$)$'
-  end
+  PATTERN = '^(?<=^|\s)[\p{L} ]+(\s+[\p{L} ]+)*(?=\s|$)$'.freeze
 end

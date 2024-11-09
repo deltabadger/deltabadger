@@ -28,7 +28,7 @@
       form__unmask_password_target: "input",
       form__password_strength_target: "input",
       action: "input->form--password-strength#checkPasswordStrength"
-    }, required: true, pattern: @password_complexity_pattern %>
+    }, required: true, pattern: @password_pattern %>
     <%= f.label :password, class: "db-form__label" %>
 
     <div class="db-unmask" data-action="click->form--unmask-password#toggle">
