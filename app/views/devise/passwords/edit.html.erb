@@ -1,5 +1,6 @@
 <h3 class="db-modal-title"><%= t('.title') %></h3>
 <%= form_with model: resource, url: password_path(resource_name), method: :patch, data: {
+  turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength form--password-match",
   form__password_match_success_class_value: "db-form__validation--success",
   form__password_strength_success_class_value: "db-form__validation--success",
