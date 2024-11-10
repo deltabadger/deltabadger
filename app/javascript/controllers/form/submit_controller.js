@@ -5,7 +5,6 @@ import { Controller } from "@hotwired/stimulus";
 // Connects to data-controller="form--submit"
 export default class extends Controller {
   submit() {
-    console.log("Submitting", this.element);
     this.element.requestSubmit();
   }
 }
