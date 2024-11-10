@@ -53,7 +53,7 @@
             <%= f.label :last_name, class: 'db-form__label' %>
           </div>
           <div class="db-form__row">
-            <%= f.date_field :birth_date, autocomplete: "bday", class: 'db-form__input db-form__input--date', required: true %>
+            <%= f.date_field :birth_date, autocomplete: "bday", max: 18.years.ago, class: 'db-form__input db-form__input--date', required: true %>
             <%= f.label :birth_date, class: 'db-form__label' %>
           </div>
 
