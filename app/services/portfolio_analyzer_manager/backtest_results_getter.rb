@@ -13,7 +13,7 @@ module PortfolioAnalyzerManager
           symbols: symbols,
           allocations: allocations,
           benchmark: portfolio.benchmark,
-          start: start_date,
+          start: start_date.to_s,
           strategy: portfolio.strategy,
           risk_free_rate: portfolio.risk_free_rate
         )

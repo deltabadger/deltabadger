@@ -9,7 +9,7 @@ module PortfolioAnalyzerManager
         symbols = portfolio.assets.map(&:api_id).join(',')
         allocations_result = client.smart_allocations(
           symbols: symbols,
-          start: portfolio.backtest_start_date,
+          start: portfolio.backtest_start_date.to_s,
           strategy: portfolio.strategy,
           risk_free_rate: portfolio.risk_free_rate
         )

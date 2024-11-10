@@ -122,7 +122,7 @@ class PortfoliosController < ApplicationController
   end
 
   def update_backtest_start_date
-    new_backtest_start_date = portfolio_params[:backtest_start_date]
+    new_backtest_start_date = Date.parse(portfolio_params[:backtest_start_date])
     return head :ok if @portfolio.backtest_start_date == new_backtest_start_date
 
     if @portfolio.update(backtest_start_date: new_backtest_start_date)
@@ -138,6 +138,8 @@ class PortfoliosController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_start_date') }
       end
     end
+  rescue Date::Error
+    head :ok
   end
 
   def update_risk_free_rate
@@ -276,7 +278,7 @@ class PortfoliosController < ApplicationController
   def default_portfolio_params
     {
       user: current_user,
-      backtest_start_date: 1.year.ago.to_date.to_s,
+      backtest_start_date: 1.year.ago.to_date,
       risk_free_rate: 0.0435
     }
   end
