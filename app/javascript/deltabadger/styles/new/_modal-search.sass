@@ -16,6 +16,8 @@
         border: none     // <button>
         path
             fill: var(--label)
+            .flash__message &
+                fill: white
     &__header
         margin-bottom: 7rem
     &__title
@@ -84,7 +86,7 @@
                 width: 100%
     &__cell
         text-align: left
-        padding: 2rem 0 2rem 2.5rem 
+        padding: 2rem 0 2rem 2.5rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
