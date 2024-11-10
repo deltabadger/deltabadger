@@ -16,16 +16,16 @@ class Users::RegistrationsController < Devise::RegistrationsController
   def create
     affiliate = find_affiliate(@code)
 
-    super do |user|
-      if user.persisted?
+    super do
+      if resource.persisted?
         session.delete(:code)
-        user.update(referrer_id: affiliate.id) if affiliate.present?
+        resource.update(referrer_id: affiliate.id) if affiliate.present?
       else
         # for privacy, if the registered email is :taken, just redirect as if registration was successful
-        if user.errors.details[:email].any? { |error| error[:error] == :taken }
+        if resource.errors.details[:email].any? { |error| error[:error] == :taken }
           # if the email is taken, it's actually a valid email, so remove the :taken error
-          user.errors.delete(:email)
-          if user.errors.empty?
+          resource.errors.delete(:email)
+          if resource.errors.empty?
             redirect_to confirm_registration_url
             return
           end
@@ -77,12 +77,13 @@ class Users::RegistrationsController < Devise::RegistrationsController
     @password_digit_pattern = User::Password::DIGIT_PATTERN
     @password_symbol_pattern = User::Password::SYMBOL_PATTERN
     @password_pattern = User::Password::PATTERN
+    @password_minimum_length = Devise.password_length.min
   end
 
   def handle_turnstile_failure
     self.resource = resource_class.new(sign_up_params)
     set_new_instance_variables
     flash.now[:alert] = t('errors.cloudflare_turnstile')
-    respond_with_navigational(resource) { render :new }
+    switch_locale { respond_with_navigational(resource) { render :new } }
   end
 end

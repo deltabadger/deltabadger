@@ -1,0 +1,71 @@
+<h3 class="db-modal-title"><%= t('.title') %></h3>
+<%= form_with model: resource, url: password_path(resource_name), method: :patch, data: {
+  controller: "form--html5-validations form--label-animations form--password-strength form--password-match",
+  form__password_match_success_class_value: "db-form__validation--success",
+  form__password_strength_success_class_value: "db-form__validation--success",
+  form__password_strength_length_pattern_value: @password_length_pattern,
+  form__password_strength_uppercase_pattern_value: @password_uppercase_pattern,
+  form__password_strength_lowercase_pattern_value: @password_lowercase_pattern,
+  form__password_strength_digit_pattern_value: @password_digit_pattern,
+  form__password_strength_symbol_pattern_value: @password_symbol_pattern
+} do |f| %>
+  <%= f.hidden_field :reset_password_token %>
+  <%= tag.div class: "db-form__row db-has-unmask", data: {
+    controller: "form--password-unmask",
+  } do %>
+    <%= f.password_field :password, autofocus: true, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+      form__password_unmask_target: "input",
+      form__password_strength_target: "input",
+      form__password_match_target: "input0",
+      action: "input->form--password-strength#checkPasswordStrength"
+    }, required: true, pattern: @password_pattern %>
+    <%= f.label :password, t('helpers.label.user.new_password'), class: "db-form__label" %>
+
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+      <%= render "layouts/svg_mi_visibility" %>
+      <%= render "layouts/svg_mi_visibility-off" %>
+    </div>
+  <% end %>
+
+  <%= tag.div class: "db-form__row db-has-unmask", data: {
+    controller: "form--password-unmask"
+  } do %>
+    <%= f.password_field :password_confirmation, autocomplete: "off", class: "db-form__input db-form__input--has-icon", data: {
+      form__password_unmask_target: "input",
+      form__password_match_target: "input1",
+      action: "input->form--password-match#checkPasswordMatch"
+    }, required: true %>
+    <%= f.label :password_confirmation, t('helpers.label.user.new_password_confirmation'), class: "db-form__label" %>
+
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+      <%= render "layouts/svg_mi_visibility" %>
+      <%= render "layouts/svg_mi_visibility-off" %>
+    </div>
+  <% end %>
+
+  <div class="db-form__row">
+    <ul data-form--password-strength-target="requirementsList" class="hidden">
+      <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
+      <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
+      <li class="db-form__validation" data-form--password-match-target="match" class="hidden"><%= t('devise.passwords.validations.match') %></li>
+    </ul>
+  </div>
+
+  <% if @two_fa_enabled || resource&.otp_module_enabled? %>
+    <div class="db-form__row">
+      <%= f.text_field :otp_code_token, autocomplete: 'off', class: "db-form__input", required: true %>
+      <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
+    </div>
+  <% end %>
+
+  <div class="db-form__row db-form__row--final-button">
+    <%= f.submit t('.submit'), class: "btn btn-primary btn-lg w-100" %>
+  </div>
+<% end %>
+
+<div class="db-form__other-links">
+  <%= render "devise/shared/links" %>
+</div>

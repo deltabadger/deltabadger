@@ -25,17 +25,20 @@ application.register("form--html5-validations", Form__Html5ValidationsController
 import Form__LabelAnimationsController from "./form/label_animations_controller"
 application.register("form--label-animations", Form__LabelAnimationsController)
 
+import Form__PasswordMatchController from "./form/password_match_controller"
+application.register("form--password-match", Form__PasswordMatchController)
+
 import Form__PasswordStrengthController from "./form/password_strength_controller"
 application.register("form--password-strength", Form__PasswordStrengthController)
+
+import Form__PasswordUnmaskController from "./form/password_unmask_controller"
+application.register("form--password-unmask", Form__PasswordUnmaskController)
 
 import Form__SubmitAfterDelayController from "./form/submit_after_delay_controller"
 application.register("form--submit-after-delay", Form__SubmitAfterDelayController)
 
 import Form__SubmitController from "./form/submit_controller"
 application.register("form--submit", Form__SubmitController)
-
-import Form__UnmaskPasswordController from "./form/unmask_password_controller"
-application.register("form--unmask-password", Form__UnmaskPasswordController)
 
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)

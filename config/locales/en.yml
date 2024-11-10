@@ -457,7 +457,7 @@ en:
                 submit: 'Resend confirmation link'
                 title: 'Resend instructions'
             send_instructions: 'You will receive an email with instructions in a few minutes.'
-            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
+            send_paranoid_instructions: 'If your account exists, you will receive an email with instructions in a few minutes.'
         failure:
             already_authenticated: 'You are already signed in.'
             inactive: 'Your account is not activated yet.'
@@ -499,6 +499,13 @@ en:
             send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
             updated: 'Done! Your password has been changed.'
             updated_not_active: 'Done! Your password has been changed.'
+            validations:
+                length: 'At least %{count} characters'
+                uppercase: 'Contains an uppercase character'
+                lowercase: 'Contains a lowercase character'
+                digit: 'Contains a digit'
+                symbol: 'Contains a symbol'
+                match: 'Passwords match'
         registrations:
             edit:
                 awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'

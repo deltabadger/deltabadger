@@ -1,5 +1,13 @@
 <h3 class="db-modal-title"><%= t('.title_html') %></h3>
-<%= form_with model: resource, url: registration_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+<%= form_with model: resource, url: registration_path(resource_name), data: {
+  controller: "form--html5-validations form--label-animations form--password-strength",
+  form__password_strength_success_class_value: "db-form__validation--success",
+  form__password_strength_length_pattern_value: @password_length_pattern,
+  form__password_strength_uppercase_pattern_value: @password_uppercase_pattern,
+  form__password_strength_lowercase_pattern_value: @password_lowercase_pattern,
+  form__password_strength_digit_pattern_value: @password_digit_pattern,
+  form__password_strength_symbol_pattern_value: @password_symbol_pattern
+} do |f| %>
   <% if @code.present? %>
     <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
   <% end %>
@@ -14,36 +22,29 @@
     <%= f.label :email, class: "db-form__label" %>
   </div>
 
-  <%= tag.div class: "db-form__row db-has-unmask", data: {
-    controller: "form--unmask-password form--password-strength",
-    form__password_strength_success_color_value: "var(--success)",
-    form__password_strength_label_color_value: "var(--label)",
-    form__password_strength_length_pattern_value: @password_length_pattern,
-    form__password_strength_uppercase_pattern_value: @password_uppercase_pattern,
-    form__password_strength_lowercase_pattern_value: @password_lowercase_pattern,
-    form__password_strength_digit_pattern_value: @password_digit_pattern,
-    form__password_strength_symbol_pattern_value: @password_symbol_pattern
-  } do %>
+  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
     <%= f.password_field :password, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
-      form__unmask_password_target: "input",
+      form__password_unmask_target: "input",
       form__password_strength_target: "input",
       action: "input->form--password-strength#checkPasswordStrength"
     }, required: true, pattern: @password_pattern %>
     <%= f.label :password, class: "db-form__label" %>
 
-    <div class="db-unmask" data-action="click->form--unmask-password#toggle">
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
       <%= render "layouts/svg_mi_visibility-off" %>
     </div>
-
-    <ul data-form--password-strength-target="requirementsList" class="hidden">
-      <li data-form--password-strength-target="length">At least 8 characters</li>
-      <li data-form--password-strength-target="uppercase">Contains an uppercase character</li>
-      <li data-form--password-strength-target="lowercase">Contains a lowercase character</li>
-      <li data-form--password-strength-target="digit">Contains a digit</li>
-      <li data-form--password-strength-target="symbol">Contains a symbol</li>
-    </ul>
   <% end %>
+
+  <div class="db-form__row">
+    <ul data-form--password-strength-target="requirementsList" class="hidden">
+      <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
+      <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
+    </ul>
+  </div>
 
   <div class="db-form__row" style="min-height: 72px">
     <%= cloudflare_turnstile %>

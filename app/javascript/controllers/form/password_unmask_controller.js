@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Connects to data-controller="form--unmask-password"
+// Connects to data-controller="form--password-unmask"
 export default class extends Controller {
   static targets = ["input"]
 
