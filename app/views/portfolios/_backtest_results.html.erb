@@ -38,21 +38,21 @@
     <div class="widget data-grid">
 
       <% metrics = {
-        exp_return: sprintf('%.2f%%', (backtest['metrics']['expectedReturn'] * 100)),
-        cagr: sprintf('%.2f%%', (backtest['metrics']['cagr'] * 100)),
-        volatility: sprintf('%.2f%%', (backtest['metrics']['volatility'] * 100)),
-        max_drawdown: sprintf('%.2f%%', (backtest['metrics']['maxDrawdown'] * 100)),
-        var: backtest['metrics']['valueAtRisk'].nil? ? '-' : sprintf('%.2f%%', (backtest['metrics']['valueAtRisk'] * 100)),
-        cvar: backtest['metrics']['conditionalValueAtRisk'].nil? ? '-' : sprintf('%.2f%%', (backtest['metrics']['conditionalValueAtRisk'] * 100)),
-        sharpe_ratio: backtest['metrics']['sharpeRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['sharpeRatio']),
-        sortino_ratio: backtest['metrics']['sortinoRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['sortinoRatio']),
-        calmar_ratio: backtest['metrics']['calmarRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['calmarRatio']),
-        alpha: sprintf('%.2f%%', (backtest['metrics']['alpha'] * 100)),
-        beta: sprintf('%.2f', backtest['metrics']['beta']),
-        treynor_ratio: sprintf('%.2f', backtest['metrics']['treynorRatio']),
-        omega_ratio: backtest['metrics']['omegaRatio'].nil? ? '-' : sprintf('%.2f', backtest['metrics']['omegaRatio']),
-        r_squared: sprintf('%.2f', backtest['metrics']['rSquared']),
-        info_ratio: sprintf('%.2f', backtest['metrics']['informationRatio'])
+        exp_return: backtest_metric_value(backtest['metrics']['expectedReturn'], percentage: true),
+        cagr: backtest_metric_value(backtest['metrics']['cagr'], percentage: true),
+        volatility: backtest_metric_value(backtest['metrics']['volatility'], percentage: true),
+        max_drawdown: backtest_metric_value(backtest['metrics']['maxDrawdown'], percentage: true),
+        var: backtest_metric_value(backtest['metrics']['valueAtRisk'], percentage: true),
+        cvar: backtest_metric_value(backtest['metrics']['conditionalValueAtRisk'], percentage: true),
+        sharpe_ratio: backtest_metric_value(backtest['metrics']['sharpeRatio']),
+        sortino_ratio: backtest_metric_value(backtest['metrics']['sortinoRatio']),
+        calmar_ratio: backtest_metric_value(backtest['metrics']['calmarRatio']),
+        alpha: backtest_metric_value(backtest['metrics']['alpha'], percentage: true),
+        beta: backtest_metric_value(backtest['metrics']['beta']),
+        treynor_ratio: backtest_metric_value(backtest['metrics']['treynorRatio']),
+        omega_ratio: backtest_metric_value(backtest['metrics']['omegaRatio']),
+        r_squared: backtest_metric_value(backtest['metrics']['rSquared']),
+        info_ratio: backtest_metric_value(backtest['metrics']['informationRatio'])
       } %>
 
       <% metrics.each do |key, value| %>

@@ -8,6 +8,16 @@ module PortfoliosHelper
     colors[index % colors.size]
   end
 
+  def backtest_metric_value(metric, percentage: false)
+    return '-' if metric.nil?
+
+    if percentage
+      format('%.2f%%', (metric * 100))
+    else
+      format('%.2f', metric)
+    end
+  end
+
   def render_turbo_stream_backtest_results(backtest, portfolio)
     turbo_stream.replace 'backtest-results', partial: 'portfolios/backtest_results', locals: {
       backtest: backtest,
