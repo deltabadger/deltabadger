@@ -1,4 +1,4 @@
-<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
+<%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit form--label-animations", turbo_frame: "upgrade-frame" } do |f| %>
   <div class="db-form__row">
     <%= f.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
       autocomplete: "country-name",
