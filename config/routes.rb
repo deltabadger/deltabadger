@@ -71,7 +71,11 @@ Rails.application.routes.draw do
   scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
     root to: 'home#index'
 
-    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }
+    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }, skip: [:registrations]
+    devise_scope :user do
+      get  'signup', to: 'users/registrations#new', as: 'new_user_registration'
+      post 'signup', to: 'users/registrations#create', as: 'user_registration'
+    end
 
     resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
       get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address

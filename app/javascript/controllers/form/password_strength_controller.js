@@ -4,8 +4,7 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = ["input", "requirementsList", "length", "uppercase", "lowercase", "digit", "symbol"];
   static values = {
-    successColor: String,
-    labelColor: String,
+    successClass: String,
     lengthPattern: String,
     uppercasePattern: String,
     lowercasePattern: String,
@@ -35,6 +34,6 @@ export default class extends Controller {
 
   #updateValidation(element, regex) {
     const isValid = new RegExp(regex).test(this.inputTarget.value)
-    element.style.color = isValid ? this.successColorValue : this.labelColorValue
+    isValid ? element.classList.add(this.successClassValue) : element.classList.remove(this.successClassValue)
   }
 }

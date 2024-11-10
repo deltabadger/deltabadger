@@ -14,9 +14,7 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
     super do
       # for privacy, always redirect as if confirmation was successfully sent
       flash[:notice] = t('devise.confirmations.send_paranoid_instructions')
-      # flash.now[:notice] = t('devise.confirmations.send_paranoid_instructions')
-      respond_with({}, location: after_resending_confirmation_instructions_path_for(resource_name))
-      return
+      return respond_with({}, location: after_resending_confirmation_instructions_path_for(resource_name))
     end
   end
 
@@ -24,8 +22,8 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
   def show
     super do
       if params[:new_user] == 'true'
-        SendgridMailToList.new.call(@user)
-        ZapierMailToList.new.call(@user)
+        SendgridMailToList.new.call(resource)
+        ZapierMailToList.new.call(resource)
       end
     end
   end
@@ -45,6 +43,6 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
     self.resource = resource_class.new(confirmation_params)
     set_new_instance_variables
     flash.now[:alert] = t('errors.cloudflare_turnstile')
-    respond_with_navigational(resource) { render :new }
+    switch_locale { respond_with_navigational(resource) { render :new } }
   end
 end

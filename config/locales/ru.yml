@@ -470,7 +470,6 @@ ru:
             updated: 'Ваш аккаунт был успешно обновлен.'
             updated_but_not_signed_in: 'Ваш аккаунт успешно обновлен, входите снова.'
         sessions:
-            already_signed_out: 'Ненавижу прощания. До скорой встречи?'
             new:
                 forgot_password: 'Забыли пароль?'
                 submit: Войти
