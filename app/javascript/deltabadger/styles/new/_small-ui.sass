@@ -10,7 +10,7 @@
         font-weight: bold
     &--select
         svg
-            path 
+            path
                 stroke: var(--emphasis)
 
 .sbadge
@@ -39,6 +39,8 @@
     &--calendar
         width: 15rem
         text-align: center
+        &[type="date"]
+            width: 19.5rem
     &--number
         text-align: right
         -moz-appearance: textfield
@@ -85,7 +87,7 @@ select
     width: 100%
     text-align: center
     opacity: 0.5
-    
+
 .sbutton
     padding: 0 0.25rem
     font-weight: 600
@@ -101,7 +103,7 @@ select
     white-space: nowrap
     color: #fff
     padding: 0 2rem
-    gap: 1rem 
+    gap: 1rem
     text-decoration: none !important
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
         color: #fff
@@ -150,17 +152,17 @@ select
             border-color: var(--menulink)
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
-        opacity: 0.5 
+        opacity: 0.5
     &--link
         padding-left: 0
-        padding-right: 0 
+        padding-right: 0
         path
             fill: var(--link)
         &.sbutton--ai
             color: var(--ai)
             path
                 fill: var(--ai)
-    &--add-asset  
+    &--add-asset
         width: 20rem
         background: var(--sbutton-add-asset)
         path
