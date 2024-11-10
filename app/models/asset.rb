@@ -18,7 +18,7 @@ class Asset < ApplicationRecord
   end
 
   def effective_allocation
-    if portfolio.present? && portfolio.smart_allocation_on?
+    if portfolio.smart_allocation_on?
       portfolio.smart_allocations[portfolio.risk_level_int][api_id]
     else
       allocation
