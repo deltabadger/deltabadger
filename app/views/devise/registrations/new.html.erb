@@ -1,5 +1,6 @@
 <h3 class="db-modal-title"><%= t('.title_html') %></h3>
-<%= form_with model: resource, url: registration_path(resource_name), data: {
+<%= form_with model: resource, url: registration_path(resource_name), method: :post, data: {
+  turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength",
   form__password_strength_success_class_value: "db-form__validation--success",
   form__password_strength_length_pattern_value: @password_length_pattern,
