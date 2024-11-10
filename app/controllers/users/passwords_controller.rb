@@ -2,6 +2,7 @@
 
 class Users::PasswordsController < Devise::PasswordsController
   prepend_before_action :validate_cloudflare_turnstile, only: [:create]
+  before_action :ensure_valid_token, only: [:edit]
 
   rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
@@ -40,6 +41,16 @@ class Users::PasswordsController < Devise::PasswordsController
 
   def password_params
     params.require(:user).permit(:email)
+  end
+
+  def ensure_valid_token
+    original_token = params[:reset_password_token]
+    reset_password_token = Devise.token_generator.digest(self, :reset_password_token, original_token)
+    user = User.find_or_initialize_with_errors([:reset_password_token], reset_password_token: reset_password_token)
+    @user_email = user.email
+    return if user.persisted? && user.reset_password_period_valid?
+
+    redirect_to new_user_password_path, alert: t('devise.passwords.token_expired')
   end
 
   def set_edit_instance_variables

@@ -11,6 +11,7 @@
   form__password_strength_symbol_pattern_value: @password_symbol_pattern
 } do |f| %>
   <%= f.hidden_field :reset_password_token %>
+  <%= f.hidden_field :email, autocomplete: "username", value: @user_email %>
   <%= tag.div class: "db-form__row db-has-unmask", data: {
     controller: "form--password-unmask",
   } do %>
