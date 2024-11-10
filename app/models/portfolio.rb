@@ -96,10 +96,10 @@ class Portfolio < ApplicationRecord
   end
 
   def backtest(custom_start_date: nil)
-    return if backtest_start_date.blank? || !allocations_are_normalized?
+    return unless allocations_are_normalized?
 
     backtest_result = PortfolioAnalyzerManager::BacktestResultsGetter.call(self, custom_start_date: custom_start_date)
-    return if backtest_result.failure?
+    return unless backtest_result.success?
 
     backtest_result.data
     # backtest['metrics']['expectedReturn'].round(2)
