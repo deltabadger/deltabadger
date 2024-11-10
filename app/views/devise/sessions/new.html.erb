@@ -1,15 +1,15 @@
 <h3 class="db-modal-title"><%= t('.title') %></h3>
-<%= form_with model: resource, url: session_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+<%= form_with model: resource, url: session_path(resource_name), method: :post, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
   <div class="db-form__row">
-    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input" %>
+    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input", pattern: @email_address_pattern %>
     <%= f.label :email, class: "db-form__label" %>
   </div>
 
-  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--unmask-password" } do %>
-    <%= f.password_field :password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__unmask_password_target: "input" } %>
+  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+    <%= f.password_field :password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__password_unmask_target: "input" } %>
     <%= f.label :password, class: "db-form__label" %>
 
-    <div class="db-unmask" data-action="click->form--unmask-password#toggle">
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
       <%= render "layouts/svg_mi_visibility-off" %>
     </div>
