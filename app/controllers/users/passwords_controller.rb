@@ -11,7 +11,6 @@ class Users::PasswordsController < Devise::PasswordsController
   end
 
   def create
-    puts 'entered create method'
     super do
       # for privacy, always redirect as if password was successfully reset
       flash[:notice] = t('devise.confirmations.send_paranoid_instructions')
@@ -25,7 +24,6 @@ class Users::PasswordsController < Devise::PasswordsController
   end
 
   def update
-    puts 'entered update method'
     super do
       if resource&.otp_module_enabled?
         unless params[:user][:otp_code_token].present?
