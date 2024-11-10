@@ -499,6 +499,7 @@ en:
             send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
             updated: 'Done! Your password has been changed.'
             updated_not_active: 'Done! Your password has been changed.'
+            token_expired: 'Your password reset link has expired. Please request a new link.'
             validations:
                 length: 'At least %{count} characters'
                 uppercase: 'Contains an uppercase character'
