@@ -21,15 +21,8 @@
     } %>
     <div class="db-box">
       <% wrong_code = !wrong_code.nil? %>
-      <%= render partial: 'enable_two_factor_authentication', locals: { wrong_code: wrong_code } %>
+      <%= render partial: 'settings/forms/toggle_two_fa', locals: { wrong_code: wrong_code } %>
     </div>
-    <div class="db-box">
-      <h4 class="db-modal__subtitle"><%= t('.api_keys_section') %></h4>
-      <h5 class="db-modal__subtitle">Trading keys</h5>
-      <%= render partial: 'remove_api_key', collection: current_user.trading_api_keys, as: :api_key %>
-      <br>
-      <h5 class="db-modal__subtitle">Withdrawal keys</h5>
-      <%= render partial: 'remove_api_key', collection: current_user.withdrawal_api_keys, as: :api_key %>
-    </div>
+    <%= render partial: 'settings/forms/update_api_keys' %>
   </div>
 </div>
