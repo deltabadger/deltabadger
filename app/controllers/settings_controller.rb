@@ -32,8 +32,8 @@ class SettingsController < ApplicationController
 
   def update_email
     if current_user.update_with_password(update_email_params)
-      flash.now[:notice] = t('devise.registrations.update_needs_confirmation')
-      render turbo_stream: turbo_stream_prepend_flash
+      # use redirect for password managers to update the password
+      redirect_to settings_path, notice: t('devise.registrations.update_needs_confirmation')
     else
 
       # for privacy, if the new email is :taken, just act as if registration was successful
@@ -41,8 +41,8 @@ class SettingsController < ApplicationController
         # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
         current_user.errors.delete(:email)
         if current_user.errors.empty?
-          flash.now[:notice] = t('devise.registrations.update_needs_confirmation')
-          render turbo_stream: turbo_stream_prepend_flash
+          # use redirect for password managers to update the password
+          redirect_to settings_path, notice: t('devise.registrations.update_needs_confirmation')
           return
         end
       end
@@ -55,8 +55,8 @@ class SettingsController < ApplicationController
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
-      flash.now[:notice] = t('devise.passwords.updated')
-      render turbo_stream: turbo_stream_prepend_flash
+      # use redirect for password managers to update the password
+      redirect_to settings_path, notice: t('devise.registrations.update_needs_confirmation')
     else
       set_index_instance_variables
       render :index, status: :unprocessable_entity
