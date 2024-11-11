@@ -572,7 +572,6 @@ pt:
         index:
             api_key_confirmation: 'Tem a certeza?'
             api_keys_section: 'Chaves de API'
-            current_password: 'Palavra-passe atual (para confirmação)'
             email_section: E-mail
             name_section: 'Primeiro nome'
             password_section: Palavra-passe

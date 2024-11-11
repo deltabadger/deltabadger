@@ -655,7 +655,6 @@ pl:
         index:
             api_key_confirmation: 'Jesteś pewny?'
             api_keys_section: 'Klucze API'
-            current_password: 'Obecne hasło (dla potwierdzenia)'
             email_section: E-mail
             name_section: Imię
             password_section: Hasło
