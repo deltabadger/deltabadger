@@ -1,0 +1,35 @@
+<% content_for :body_class, ".view--settings" %>
+
+<div class="page-head">
+  <div class="stitle"><%= t('.title') %></div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <%= render partial: 'update_name_form', locals: { name_pattern: @name_pattern } %>
+    <%= render partial: 'update_email_form', locals: { email_address_pattern: @email_address_pattern } %>
+  </div>
+
+  <div class="col-md-6">
+    <%= render partial: 'update_password_form', locals: {
+      password_pattern: @password_pattern,
+      password_length_pattern: @password_length_pattern,
+      password_uppercase_pattern: @password_uppercase_pattern,
+      password_lowercase_pattern: @password_lowercase_pattern,
+      password_digit_pattern: @password_digit_pattern,
+      password_symbol_pattern: @password_symbol_pattern,
+    } %>
+    <div class="db-box">
+      <% wrong_code = !wrong_code.nil? %>
+      <%= render partial: 'enable_two_factor_authentication', locals: { wrong_code: wrong_code } %>
+    </div>
+    <div class="db-box">
+      <h4 class="db-modal__subtitle"><%= t('.api_keys_section') %></h4>
+      <h5 class="db-modal__subtitle">Trading keys</h5>
+      <%= render partial: 'remove_api_key', collection: current_user.trading_api_keys, as: :api_key %>
+      <br>
+      <h5 class="db-modal__subtitle">Withdrawal keys</h5>
+      <%= render partial: 'remove_api_key', collection: current_user.withdrawal_api_keys, as: :api_key %>
+    </div>
+  </div>
+</div>

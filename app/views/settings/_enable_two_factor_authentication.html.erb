@@ -1,0 +1,76 @@
+<h4 class="db-modal__subtitle"><%= t('settings.index.two_factor_section') %></h4>
+<% url = current_user.otp_module_enabled? ? settings_disable_two_fa_path : settings_enable_two_fa_path %>
+<%= form_for(current_user, url: url, method: :post) do |f| %>
+  <div class="form-group db-form-group--main-btn">
+    <%= link_to (current_user.otp_module_enabled? ? t('helpers.label.settings.disable_two_fa') : t('helpers.label.settings.enable_two_fa')), '#two_factor', data: { toggle: :modal }, class: "btn btn-lg btn-success" %>
+  </div>
+<% end %>
+
+<div id="two_factor" class="modal fade">
+  <% url = current_user.otp_module_enabled? ? settings_disable_two_fa_path : settings_enable_two_fa_path %>
+  <%= form_for current_user, url: url, html: { class: 'form-inline' }, method: :post do |f| %>
+    <div id="modal-dialog" class="modal-dialog">
+      <div id="modal-content" class="modal-content">
+        <div class="modal-body">
+          <h4 class="db-modal__subtitle">
+            2FA
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+          </h4>
+          <div class="db-form__row text-center pb-4">
+            <%= t('helpers.label.settings.current_status') %>
+            <b class="<%= current_user.otp_module_enabled? ? 'text-success' : 'text-secondary' %>">
+              <%= current_user.otp_module_enabled? ? t('helpers.label.settings.enabled') : t('helpers.label.settings.disabled') %>
+            </b>
+          </div>
+          <div class="db-form__row">
+            <div class="qrcode-wrapper">
+              <div class="qrcode">
+                <% unless current_user.otp_module_enabled? %>
+                  <% qr = RQRCode::QRCode.new(current_user.provisioning_uri(account = nil, options = {issuer: 'deltabadger.com'}), size: 12, level: :h) %>
+                  <table class="qr" align="center">
+                    <% qr.to_s.split("\n").each do |line| %>
+                      <tr>
+                        <% line.split("").each do |sign| %>
+                          <% if sign == 'x' %>
+                            <td class="black"></td>
+                          <% else %>
+                            <td class="white"></td>
+                          <% end %>
+                        <% end %>
+                      </tr>
+                    <% end %>
+                  </table>
+                <% end %>
+              </div>
+            </div>
+          </div>
+          <% unless current_user.otp_module_enabled? %>
+            <div class="mb-4 text-center">
+              <%= t('helpers.label.settings.scan_code_info') %>
+            </div>
+            <div class="mb-5 text-center">
+              <b><%= current_user.otp_secret_key %></b>
+            </div>
+          <% end %>
+          <div class="db-form__row db-form__row--input">
+            <%= f.text_field :otp_code_token, value: "", class: "db-form__input", onchange: 'this.setAttribute("value", this.value);' %>
+            <div class="db-form__info db-form__info--invalid">
+              <%= t('errors.messages.wrong_two_fa_token') %>
+            </div>
+            <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label" %>
+          </div>
+          <%= f.submit (current_user.otp_module_enabled? ? t('helpers.label.settings.disable_two_fa') : t('helpers.label.settings.enable_two_fa')), class: 'btn btn-lg btn-block btn-success' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<script>
+  // settings
+  if ("<%= wrong_code %>" === "true") {
+    document.addEventListener("DOMContentLoaded", function() {
+      $('#two_factor').modal('show');
+    });
+  }
+</script>

@@ -6,14 +6,14 @@
   <%= turbo_stream.before "portfolio-active-assets", partial: "portfolios/empty" %>
 <% end %>
 <% if @portfolio.smart_allocation_on? %>
-  <%= render_turbo_stream_portfolio_assets(@portfolio, @last_active_assets_ids, @last_idle_assets_ids) %>
+  <%= turbo_stream_update_portfolio_assets(@portfolio, @last_active_assets_ids, @last_idle_assets_ids) %>
 <% else %>
   <%= turbo_stream.remove "active_#{dom_id(@asset)}" %>
 <% end %>
 <% if @portfolio.allocations_are_normalized? || @portfolio.assets.empty? %>
-  <%= render_turbo_stream_backtest_results(@backtest, @portfolio) %>
+  <%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
 <% end %>
 <% if (!@portfolio.smart_allocation_on? && @asset.allocation != 0) || @portfolio.assets.empty? %>
   <%= turbo_stream.update "normalize", partial: "portfolios/normalize", locals: { portfolio: @portfolio } %>
 <% end %>
-<%= render_turbo_stream_flash_messages %>
+<%= turbo_stream_prepend_flash %>
