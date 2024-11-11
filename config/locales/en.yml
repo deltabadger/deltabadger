@@ -519,10 +519,10 @@ en:
             signed_up: 'Nice to meet you!'
             signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
             signed_up_but_locked: 'Oops, your account is locked.'
-            signed_up_but_unconfirmed: 'Check your email and click in the confirmation link.'
-            update_needs_confirmation: 'Check your email and follow the confirm link to confirm your new email address.'
+            signed_up_but_unconfirmed: 'Check your email inbox and click in the confirmation link.'
+            update_needs_confirmation: 'Check your email inbox and follow the confirm link to confirm your new email address.'
             updated: 'Your account has been updated successfully.'
-            updated_but_not_signed_in: 'Your account has been updated successfully, sign again.'
+            updated_but_not_signed_in: 'Your account has been updated successfully, sign in again.'
         sessions:
             new:
                 forgot_password: 'Forgot password?'
@@ -680,6 +680,8 @@ en:
         banner_html: 'Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!'
         copied: Copied!
     settings:
+        name:
+            updated: "Your name has been updated."
         index:
             api_key_confirmation: 'Are you sure?'
             api_keys_section: 'API keys'

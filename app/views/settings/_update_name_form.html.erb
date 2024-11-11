@@ -1,0 +1,17 @@
+<%= turbo_frame_tag "update_name_form" do %>
+  <div class="db-box">
+    <h4 class="db-modal__subtitle"><%= t('settings.index.name_section') %></h4>
+    <%= form_with model: current_user, url: settings_update_name_path, data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_name_form" } do |f| %>
+
+      <div class="db-form__row db-form__row--input">
+        <%= f.text_field :name, class: 'db-form__input', pattern: name_pattern %>
+        <%= f.label :name, class: "db-form__label" %>
+      </div>
+
+      <div class="form-group db-form-group--main-btn">
+        <%= f.submit t('settings.index.submit_name'), class: "btn btn-lg btn-primary" %>
+      </div>
+
+    <% end %>
+  </div>
+<% end %>
