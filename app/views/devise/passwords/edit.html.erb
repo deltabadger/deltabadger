@@ -12,9 +12,7 @@
 } do |f| %>
   <%= f.hidden_field :reset_password_token %>
   <%= f.hidden_field :email, autocomplete: "username", value: @user_email %>
-  <%= tag.div class: "db-form__row db-has-unmask", data: {
-    controller: "form--password-unmask",
-  } do %>
+  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
     <%= f.password_field :password, autofocus: true, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
       form__password_unmask_target: "input",
       form__password_strength_target: "input",
@@ -22,23 +20,19 @@
       action: "input->form--password-strength#checkPasswordStrength"
     }, required: true, pattern: @password_pattern %>
     <%= f.label :password, t('helpers.label.user.new_password'), class: "db-form__label" %>
-
     <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
       <%= render "layouts/svg_mi_visibility-off" %>
     </div>
   <% end %>
 
-  <%= tag.div class: "db-form__row db-has-unmask", data: {
-    controller: "form--password-unmask"
-  } do %>
-    <%= f.password_field :password_confirmation, autocomplete: "off", class: "db-form__input db-form__input--has-icon", data: {
+  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+    <%= f.password_field :password_confirmation, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
       form__password_unmask_target: "input",
       form__password_match_target: "input1",
       action: "input->form--password-match#checkPasswordMatch"
     }, required: true %>
     <%= f.label :password_confirmation, t('helpers.label.user.new_password_confirmation'), class: "db-form__label" %>
-
     <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
       <%= render "layouts/svg_mi_visibility-off" %>
