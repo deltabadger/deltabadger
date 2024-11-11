@@ -7,17 +7,17 @@ class SettingsController < ApplicationController
 
   def hide_welcome_banner
     current_user.update!(welcome_banner_dismissed: true)
-    head 200
+    head :no_content
   end
 
   def hide_news_banner
     current_user.update!(news_banner_dismissed: true)
-    head 200
+    head :no_content
   end
 
   def hide_referral_banner
     current_user.update!(referral_banner_dismissed: true)
-    head 200
+    head :no_content
   end
 
   def update_name
@@ -64,11 +64,9 @@ class SettingsController < ApplicationController
   end
 
   def remove_api_key
-    user = current_user
-    api_key = user.api_keys.find(params[:id])
-    stop_working_bots(api_key, user) if api_key
+    api_key = current_user.api_keys.find(params[:id])
+    stop_working_bots(api_key, current_user) if api_key
     api_key.destroy!
-
     redirect_to settings_path
   end
 
@@ -81,9 +79,6 @@ class SettingsController < ApplicationController
       current_user.errors.add(:current_password, :invalid)
       current_user.errors.add(:otp_code_token, :invalid)
       render :index, locals: {
-        user: current_user,
-        trading_api_keys: current_user.trading_api_keys,
-        withdrawal_api_keys: current_user.withdrawal_api_keys,
         wrong_code: true
       }
     end
@@ -96,9 +91,6 @@ class SettingsController < ApplicationController
       redirect_to settings_path
     else
       render :index, locals: {
-        user: current_user,
-        trading_api_keys: current_user.trading_api_keys,
-        withdrawal_api_keys: current_user.withdrawal_api_keys,
         wrong_code: true
       }
     end
