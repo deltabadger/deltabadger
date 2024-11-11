@@ -634,7 +634,6 @@ ru:
         index:
             api_key_confirmation: 'Вы уверены?'
             api_keys_section: 'Ключи API'
-            current_password: 'Текущий пароль (для подтверждения)'
             email_section: 'Электронная почта'
             name_section: 'Обновить имя'
             password_section: Пароль

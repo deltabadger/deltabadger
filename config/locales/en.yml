@@ -627,6 +627,7 @@ en:
             user:
                 current_password: 'Current password'
                 email: Email
+                new_email: 'New email'
                 new_password: 'New password'
                 new_password_confirmation: 'Confirm new password'
                 password: Password
@@ -685,7 +686,6 @@ en:
         index:
             api_key_confirmation: 'Are you sure?'
             api_keys_section: 'API keys'
-            current_password: 'Current password (for confirmation)'
             email_section: Email
             name_section: Name
             password_section: Password
