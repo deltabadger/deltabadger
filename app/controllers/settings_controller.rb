@@ -56,7 +56,7 @@ class SettingsController < ApplicationController
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
       # use redirect for password managers to update the password
-      redirect_to settings_path, notice: t('devise.registrations.update_needs_confirmation')
+      redirect_to settings_path, notice: t('devise.passwords.updated')
     else
       set_index_instance_variables
       render :index, status: :unprocessable_entity
