@@ -591,7 +591,6 @@ de:
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
-            current_password: 'Aktuelles Passwort (zur Bestätigung)'
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
