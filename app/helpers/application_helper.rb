@@ -6,10 +6,6 @@ module ApplicationHelper
     classes.join(' ')
   end
 
-  def render_turbo_stream_flash_messages
-    turbo_stream.prepend 'flash', partial: 'layouts/flash'
-  end
-
   def show_limit_reached_navbar?
     current_user.limit_reached? &&
       !action?('upgrade', 'index') &&
@@ -26,10 +22,6 @@ module ApplicationHelper
     end
   end
 
-  def years_amount(number)
-    "#{number} #{'year'.pluralize(number)}"
-  end
-
   def legendary_badger_nft_name(subscription)
     if subscription.nft_rarity.present?
       "#{subscription.nft_name} · #{subscription.nft_rarity}"
@@ -42,5 +34,9 @@ module ApplicationHelper
 
   def action?(controller, action)
     params[:controller] == controller && params[:action] == action
+  end
+
+  def years_amount(number)
+    "#{number} #{'year'.pluralize(number)}"
   end
 end
