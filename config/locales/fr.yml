@@ -644,7 +644,6 @@ fr:
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
             api_keys_section: 'Clés API'
-            current_password: 'Mot de passe actuel (pour confirmation)'
             email_section: 'E-mail'
             name_section: 'Nom'
             password_section: 'Mot de passe'

@@ -644,7 +644,6 @@ nl:
         index:
             api_key_confirmation: 'Weet je het zeker?'
             api_keys_section: 'API keys'
-            current_password: 'Huidig wachtwoord (ter bevestiging)'
             email_section: Email
             name_section: Voornaam
             password_section: Wachtwoord
