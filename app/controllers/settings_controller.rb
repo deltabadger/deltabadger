@@ -2,11 +2,7 @@ class SettingsController < ApplicationController
   before_action :authenticate_user!
 
   def index
-    render :index, locals: {
-      user: current_user,
-      trading_api_keys: current_user.trading_api_keys,
-      withdrawal_api_keys: current_user.withdrawal_api_keys
-    }
+    set_index_instance_variables
   end
 
   def hide_welcome_banner
@@ -24,45 +20,34 @@ class SettingsController < ApplicationController
     head 200
   end
 
-  def update_password
-    user = current_user
-    if user.update_with_password(update_password_params)
-      bypass_sign_in(user)
-      redirect_to settings_path
+  def update_name
+    if current_user.update(update_name_params)
+      flash.now[:notice] = t('settings.name.updated')
+      render turbo_stream: turbo_stream_prepend_flash
     else
-      render :index, locals: {
-        user: current_user,
-        trading_api_keys: current_user.trading_api_keys,
-        withdrawal_api_keys: current_user.withdrawal_api_keys
-      }
+      set_index_instance_variables
+      render :index, status: :unprocessable_entity
     end
   end
 
   def update_email
-    user = current_user
-    if user.update_with_password(update_email_params)
-      bypass_sign_in(user)
-      redirect_to settings_path
+    if current_user.update_with_password(update_email_params)
+      flash.now[:notice] = t('devise.registrations.update_needs_confirmation')
+      render turbo_stream: turbo_stream_prepend_flash
     else
-      render :index, locals: {
-        user: current_user,
-        trading_api_keys: current_user.trading_api_keys,
-        withdrawal_api_keys: current_user.withdrawal_api_keys
-      }
+      set_index_instance_variables
+      render :index, status: :unprocessable_entity
     end
   end
 
-  def update_name
-    user = current_user
-    if user.update(update_name_params)
-      bypass_sign_in(user)
-      redirect_to settings_path
+  def update_password
+    if current_user.update_with_password(update_password_params)
+      bypass_sign_in(current_user)
+      flash.now[:notice] = t('devise.passwords.updated')
+      render turbo_stream: turbo_stream_prepend_flash
     else
-      render :index, locals: {
-        user: current_user,
-        trading_api_keys: current_user.trading_api_keys,
-        withdrawal_api_keys: current_user.withdrawal_api_keys
-      }
+      set_index_instance_variables
+      render :index, status: :unprocessable_entity
     end
   end
 
@@ -109,6 +94,18 @@ class SettingsController < ApplicationController
 
   private
 
+  def set_index_instance_variables
+    @name_pattern = User::Name::PATTERN
+    @email_address_pattern = User::Email::ADDRESS_PATTERN
+    @password_length_pattern = User::Password::LENGTH_PATTERN
+    @password_uppercase_pattern = User::Password::UPPERCASE_PATTERN
+    @password_lowercase_pattern = User::Password::LOWERCASE_PATTERN
+    @password_digit_pattern = User::Password::DIGIT_PATTERN
+    @password_symbol_pattern = User::Password::SYMBOL_PATTERN
+    @password_pattern = User::Password::PATTERN
+    @password_minimum_length = Devise.password_length.min
+  end
+
   def stop_working_bots(api_key, user)
     user.bots.without_deleted.each do |bot|
       StopBot.call(bot.id) if same_exchange_and_type?(bot, api_key)
@@ -121,9 +118,7 @@ class SettingsController < ApplicationController
   end
 
   def update_password_params
-    params.require(:user).permit(
-      :password, :password_confirmation, :current_password
-    )
+    params.require(:user).permit(:current_password, :password, :password_confirmation)
   end
 
   def update_email_params
