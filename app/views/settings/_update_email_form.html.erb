@@ -1,0 +1,31 @@
+<%= turbo_frame_tag "update_email_form" do %>
+  <div class="db-box">
+    <h4 class="db-modal__subtitle"><%= t('settings.index.email_section') %></h4>
+    <%= form_with model: current_user, url: settings_update_email_path, data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
+
+      <% if current_user.pending_reconfirmation? %>
+        <div class="db-form__row db-form__row--input">
+          <%= t('devise.registrations.edit.awaiting_confirmation', email: current_user.unconfirmed_email) %>
+        </div>
+      <% end %>
+
+      <div class="db-form__row db-form__row--input">
+        <%= f.email_field :email, autocomplete: "username", class: 'db-form__input', pattern: email_address_pattern %>
+        <%= f.label :email, class: "db-form__label" %>
+      </div>
+
+      <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+        <%= f.password_field :password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__password_unmask_target: "input" } %>
+        <%= f.label :current_password, t('settings.index.current_password'), class: "db-form__label" %>
+        <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+          <%= render "layouts/svg_mi_visibility" %>
+          <%= render "layouts/svg_mi_visibility-off" %>
+        </div>
+      <% end %>
+
+      <div class="form-group db-form-group--main-btn">
+        <%= f.submit t('settings.index.submit_email'), class: "btn btn-lg btn-primary" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
