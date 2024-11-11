@@ -18,14 +18,14 @@ module PortfoliosHelper
     end
   end
 
-  def render_turbo_stream_backtest_results(backtest, portfolio)
+  def turbo_stream_replace_backtest_results(backtest, portfolio)
     turbo_stream.replace 'backtest-results', partial: 'portfolios/backtest_results', locals: {
       backtest: backtest,
       portfolio: portfolio
     }
   end
 
-  def render_turbo_stream_portfolio_assets(portfolio, last_active_assets_ids, last_idle_assets_ids)
+  def turbo_stream_update_portfolio_assets(portfolio, last_active_assets_ids, last_idle_assets_ids)
     active_assets = portfolio.active_assets
     idle_assets = portfolio.idle_assets
     active_assets_ids = active_assets.map(&:id)
