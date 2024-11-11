@@ -35,6 +35,18 @@ class SettingsController < ApplicationController
       flash.now[:notice] = t('devise.registrations.update_needs_confirmation')
       render turbo_stream: turbo_stream_prepend_flash
     else
+
+      # for privacy, if the new email is :taken, just act as if registration was successful
+      if current_user.errors.details[:email].any? { |error| error[:error] == :taken }
+        # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
+        current_user.errors.delete(:email)
+        if current_user.errors.empty?
+          flash.now[:notice] = t('devise.registrations.update_needs_confirmation')
+          render turbo_stream: turbo_stream_prepend_flash
+          return
+        end
+      end
+
       set_index_instance_variables
       render :index, status: :unprocessable_entity
     end
