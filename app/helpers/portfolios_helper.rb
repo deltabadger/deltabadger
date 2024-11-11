@@ -19,10 +19,12 @@ module PortfoliosHelper
   end
 
   def turbo_stream_replace_backtest_results(backtest, portfolio)
-    turbo_stream.replace 'backtest-results', partial: 'portfolios/backtest_results', locals: {
-      backtest: backtest,
-      portfolio: portfolio
-    }
+    turbo_stream.replace('backtest-results',
+                         partial: 'portfolios/backtest_results',
+                         locals: {
+                           backtest: backtest,
+                           portfolio: portfolio
+                         })
   end
 
   def turbo_stream_update_portfolio_assets(portfolio, last_active_assets_ids, last_idle_assets_ids)
