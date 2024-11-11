@@ -6,12 +6,12 @@
 
 <div class="row">
   <div class="col-md-6">
-    <%= render partial: 'update_name_form', locals: { name_pattern: @name_pattern } %>
-    <%= render partial: 'update_email_form', locals: { email_address_pattern: @email_address_pattern } %>
+    <%= render partial: 'settings/forms/update_name', locals: { name_pattern: @name_pattern } %>
+    <%= render partial: 'settings/forms/update_email', locals: { email_address_pattern: @email_address_pattern } %>
   </div>
 
   <div class="col-md-6">
-    <%= render partial: 'update_password_form', locals: {
+    <%= render partial: 'settings/forms/update_password', locals: {
       password_pattern: @password_pattern,
       password_length_pattern: @password_length_pattern,
       password_uppercase_pattern: @password_uppercase_pattern,
