@@ -31,7 +31,8 @@ class PortfoliosController < ApplicationController
     params_copy.delete(:id)
     params_copy.delete(:label) if params_copy[:label].blank?
     if @portfolio.update(params_copy)
-      redirect_to portfolio_path(@portfolio), notice: t('alert.portfolio.portfolio_updated')
+      flash[:notice] = t('alert.portfolio.portfolio_updated')
+      render turbo_stream: turbo_stream_page_refresh
     else
       flash.now[:alert] = t('alert.portfolio.invalid_name')
       respond_to do |format|
