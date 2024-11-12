@@ -738,14 +738,15 @@ fr:
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
-            <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
+            <p>Bienvenue à bord, %{name} !</p>
+            <p>Pour t'assurer de tirer le meilleur de Deltabadger, j'envoie des gouttes de savoir en investissement directement dans ta boîte mail :</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
-                <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
-                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
+                <li>Va dans ta boîte mail.</li>
+                <li>Cherche un e-mail de ma part.</li>
+                <li>Réponds avec <b>FIRE</b>.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
-            <p style="margin-bottom:0">À bientôt, Jan</p>
+            <p>Ça éloigne les créatures des marais des banques centrales, pour qu'elles ne capturent pas notre communication.</p>
+            <p>Merci, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
         free: 'Dites au revoir aux limites et faites une mise à niveau !'
