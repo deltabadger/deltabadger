@@ -4,14 +4,14 @@
     <%= form_with model: current_user, url: settings_update_email_path, data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
 
       <% if current_user.pending_reconfirmation? %>
-        <div class="db-form__row db-form__row--input">
+        <div class="db-form__row db-form__row--input" style="text-align: center;">
           <%= t('devise.registrations.edit.awaiting_confirmation', email: current_user.unconfirmed_email) %>
         </div>
       <% end %>
 
       <div class="db-form__row db-form__row--input">
         <%= f.email_field :email, autocomplete: "username", class: 'db-form__input', value: "", placeholder: current_user.email, pattern: email_address_pattern %>
-        <%= f.label :email,  t('helpers.label.user.new_email'), class: "db-form__label" %>
+        <%= f.label :email, t('helpers.label.user.new_email'), class: "db-form__label" %>
       </div>
 
       <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
