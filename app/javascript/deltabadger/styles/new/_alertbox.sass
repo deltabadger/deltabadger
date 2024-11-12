@@ -44,8 +44,11 @@
         background: var(--success-semitransparent)
     ul,ol
         margin-left: 2.5rem
-    p,ul,ol,li
+    p,li
         margin-bottom: 2rem
+    ul,ol
+        margin-top: 4rem
+        margin-bottom: 4rem
 
 .art--legendary-plan
     position: absolute
@@ -53,3 +56,19 @@
     right: -6rem
     width: 40rem
     height: 40rem
+
+.alertbox-modal
+    background: rgba(100,150,200,0.5)
+    position: fixed
+    z-index: 1000000000000
+    top: 0
+    left: 0
+    width: 100vw
+    min-height: 100vh
+    display: flex
+    justify-content: center
+    align-items: center
+    padding: 1rem
+    .alertbox
+        max-width: 80rem
+        max-height: calc(100vh - 2rem)
