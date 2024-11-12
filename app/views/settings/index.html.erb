@@ -19,10 +19,14 @@
       password_digit_pattern: @password_digit_pattern,
       password_symbol_pattern: @password_symbol_pattern,
     } %>
+
     <div class="db-box">
-      <% wrong_code = !wrong_code.nil? %>
-      <%= render partial: 'settings/forms/toggle_two_fa', locals: { wrong_code: wrong_code } %>
+      <h4 class="db-modal__subtitle"><%= t('settings.index.two_factor_section') %></h4>
+      <div class="form-group db-form-group--main-btn">
+        <%= link_to @two_fa_button_text, settings_edit_two_fa_path, class: "btn btn-lg btn-primary btn-success", data: { turbo_frame: "modal" } %>
+      </div>
     </div>
+
     <%= render partial: 'settings/forms/update_api_keys' %>
   </div>
 </div>
