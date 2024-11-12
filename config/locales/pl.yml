@@ -755,17 +755,18 @@ pl:
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |
-            <p>Witamy na pokładzie, %{name}! Parę zwycięskich ruchów, na dobry początek:</p>
+            <p>Witamy na pokładzie, %{name}!</p>
+            <p>Abyś mógł w pełni korzystać z Deltabadger, przesyłam małe krople wiedzy inwestycyjnej prosto do twojej skrzynki:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Wystartuj darmowego <b>bota DCA</b> i krzyknij, <i>„Mamo, patrz, jadę bez trzymanki!”</i></li>
-                <li>Popraw swój portfel za pomocą analizatora <b>🌈⃤  Prism</b> i zostaw rynek w tyle.<sur>*</sur><br><small><sur>*</sur>Nie potrzebujesz szklanej kuli.</small></li>
-                <li>Dołącz do społeczności <b>Fireheads</b> i przejdź na wcześniejszą emeryturę—bo tyrać do 65 roku życia? Nah, obejdzie się.</li>
+                <li>Wejdź do swojej skrzynki pocztowej.</li>
+                <li>Znajdź wiadomość ode mnie.</li>
+                <li>Odpowiedz, wpisując <b>FIRE</b>.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Przejdź do społeczności">Zacznij od społeczności</a>. Wpadnij do nas na środowy Bonfire Meetup, aby spotać grupę dążących do wolności finansowej rebeliantów, mojego cofoundera Guillema i mnie. Życie jest zbyt krótkie, by czekać na weekend. (Czekanie na środę jest mniej boomerskie).</p>
-            <p style="margin-bottom:0">Do zobaczenia, Jan</p>
-        default: 'Cześć, witamy w Deltabadger'
-        legendary: 'NFT już wkrótce!'
-        free: 'Zrób upgrade i pozbądź się limitów!'
+            <p>To trzyma z dala bagienne stwory banku centralnego, by nie przechwyciły naszej komunikacji.</p>
+            <p>Dzięki, Jan</p>
+            default: 'Cześć, witamy w Deltabadger'
+            legendary: 'NFT już wkrótce!'
+            free: 'Zrób upgrade i pozbądź się limitów!'
     metrics:
         exp_return:
             short_name: 'Oczekiwany Zwrot'

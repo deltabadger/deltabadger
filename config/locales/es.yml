@@ -739,14 +739,15 @@ es:
         claim: 'Reclamar NFT'
     welcome:
         banner_html: |
-            <p>¡Bienvenido al equipo, %{name}! 3 movimientos que te harán ganar:</p>
+            <p>¡Bienvenido a bordo, %{name}!</p>
+            <p>Para que aproveches al máximo Deltabadger, envío pequeñas gotas de conocimiento de inversión directamente a tu buzón:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Inicia tu primer <b>bot DCA</b> y grita, <i>“¡Mira mamá, sin manos!”</i></li>
-                <li>Mejora tu portafolio con el <b>🌈⃤ Prism</b> analyzer y deja al mercado en el retrovisor.<sur>*</sur><br><small><sur>*</sur>No necesitas una bola de cristal.</small></li>
-                <li>Únete a la comunidad <b>Fireheads</b> y retírate antes de lo previsto, porque ¿trabajar hasta los 65? Mejor no.</li>
+                <li>Ve a tu buzón de correo.</li>
+                <li>Busca un correo mío.</li>
+                <li>Responde con <b>FIRE</b>.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Ir a la comunidad">Comienza en la comunidad</a>. Súmate a nuestra "Bonfire Call", una llamada que hacemos cada miércoles donde podrás conocer a un grupo de rebeldes de la libertad financiera, a mi cofundador Guillem y a mí. Sabemos que la vida es demasiado corta para esperar el fin de semana, esperar el miércoles es mucho más guay!</p>
-            <p style="margin-bottom:0">Saludos, Jan</p>
+            <p>Eso mantiene alejadas a las criaturas del pantano del banco central para que no capturen nuestra comunicación.</p>
+            <p>Gracias, Jan</p>
         default: 'Hola, bienvenido a Deltabadger'
         legendary: '¡Los NFts llegarán pronto!'
         free: '¡Deshazte de los límites y haz una actualización!'

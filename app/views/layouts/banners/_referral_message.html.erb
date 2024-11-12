@@ -1,6 +1,6 @@
 <% if @show_referral_banner %>
   <% ref_link = ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, locale: nil) %>
-  <div data-controller="removals">
+  <!--<div data-controller="removals">
     <div class="alertbox alertbox--success" style="margin-bottom: 2rem">
       <div style="width: 100%; display: flex; gap: 2rem; flex-wrap: wrap;">
         <div>
@@ -19,5 +19,5 @@
         <%= render partial: 'svg/24x24_x' %>
       <% end %>
     </div>
-  </div>
+  </div>-->
 <% end %>

@@ -786,14 +786,15 @@ en:
         claim: Claim NFT
     welcome:
         banner_html: |
-            <p>Welcome aboard, %{name}! Here are some winning moves for you:</p>
+            <p>Welcome aboard, %{name}!</p>
+            <p>To make sure you get the most out of Deltabadger, I send small droplets of investing knowledge straight to your mailbox:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start free <b>DCA bot</b> and shout, <i>“Look mom, no hands!”</i></li>
-                <li>Improve your portfolio with <b>🌈⃤  Prism</b> analyzer and leave the market in your rearview.<sur>*</sur><br><small><sur>*</sur>No crystal ball required.</small></li>
-                <li>Join the <b>Fireheads</b> community and retire early—because working 'til 65? Yeah, hard pass.</li>
+                <li>Go to your mailbox.</li>
+                <li>Look for an email from me.</li>
+                <li>Reply with <b>FIRE</b>.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Go to the community">Start in the community</a>. Join us at the Wednesday Bonfire call to meet a gang of financial freedom rebels, my cofounder Guillem, and me. Life's too short to wait for weekends. (Waiting for Wednesday is way cooler).</p>
-            <p style="margin-bottom:0">Catch you there, Jan</p>
+            <p>That keeps central bank swamp creatures out, so they won''t capture our communication.</p>
+            <p>Thanks, Jan</p>
         default: 'Hi, welcome to Deltabadger'
         legendary: 'The NFT will arrive here soon!'
         free: 'Get rid of the limits, and make an upgrade!'
