@@ -738,14 +738,15 @@ nl:
         claim: 'Claim NFT'
     welcome:
         banner_html: |
-            <p>Welkom aan boord, %{name}! Hier zijn een paar winnende zetten voor jou:</p>
+            <p>Welkom aan boord, %{name}!</p>
+            <p>Om ervoor te zorgen dat je het meeste uit Deltabadger haalt, stuur ik kleine druppels investeringskennis rechtstreeks naar je mailbox:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Start je gratis <b>DCA-bot</b> en roep, <i>“Kijk mam, zonder handen!”</i></li>
-                <li>Verbeter je portfolio met de <b>🌈⃤  Prism</b> analyzer en laat de markt in je achteruitkijkspiegel.<sur>*</sur><br><small><sur>*</sur>Geen glazen bol nodig.</small></li>
-                <li>Sluit je aan bij de <b>Fireheads</b> community en ga vroeg met pensioen—want werken tot je 65e? Nee, bedankt.</li>
+                <li>Ga naar je mailbox.</li>
+                <li>Zoek naar een e-mail van mij.</li>
+                <li>Antwoord met <b>FIRE</b>.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Ga naar de community">Begin in de community</a>. Doe mee met onze Wednesday Bonfire call om een groep financiële vrijheidrebellen, mijn medeoprichter Guillem en mij te ontmoeten. Het leven is te kort om op het weekend te wachten. (Wachten op woensdag is veel cooler).</p>
-            <p style="margin-bottom:0">Tot dan, Jan</p>
+            <p>Dat houdt de moeraswezens van de centrale bank buiten, zodat ze onze communicatie niet kunnen onderscheppen.</p>
+            <p>Dank je, Jan</p>
         default: 'Hallo, welkom bij Deltabadger'
         legendary: 'De NFT komt hier binnenkort!'
         free: 'Weg met limieten, en doe een upgrade!'

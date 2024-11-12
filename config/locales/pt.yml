@@ -652,14 +652,15 @@ pt:
         claim: 'Reivindicar NFT'
     welcome:
         banner_html: |
-            <p>Bem-vindo a bordo, %{name}! Aqui estão alguns movimentos vencedores para você:</p>
+            <p>Bem-vindo a bordo, %{name}!</p>
+            <p>Para garantir que você aproveite ao máximo o Deltabadger, envio pequenas gotas de conhecimento de investimento diretamente para sua caixa de entrada:</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Inicie o <b>bot DCA</b> grátis e grite, <i>“Olha mãe, sem as mãos!”</i></li>
-                <li>Melhore seu portfólio com o <b>🌈⃤  Prism</b> analyzer e deixe o mercado no retrovisor.<sur>*</sur><br><small><sur>*</sur>Não precisa de bola de cristal.</small></li>
-                <li>Junte-se à comunidade <b>Fireheads</b> e se aposente cedo—porque trabalhar até os 65 anos? Não, obrigado.</li>
+                <li>Vá para sua caixa de entrada.</li>
+                <li>Procure um e-mail meu.</li>
+                <li>Responda com <b>FIRE</b>.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Ir para a comunidade">Comece na comunidade</a>. Participe da nossa chamada Bonfire de quarta-feira para conhecer um grupo de rebeldes da liberdade financeira, meu cofundador Guillem e eu. A vida é muito curta para esperar pelo fim de semana. (Esperar até quarta-feira é muito mais legal).</p>
-            <p style="margin-bottom:0">Nos vemos lá, Jan</p>
+            <p>Isso mantém as criaturas do pântano do banco central longe, para que não capturem nossa comunicação.</p>
+            <p>Obrigado, Jan</p>
         default: 'Olá, damos-te as boas-vindas ao Deltabadger'
         legendary: 'O NFT chegará aqui em breve!'
         free: 'Livra-te dos limites e faz um upgrade!'
