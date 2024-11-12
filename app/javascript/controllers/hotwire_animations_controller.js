@@ -42,12 +42,10 @@ export default class extends Controller {
   }
 
   #handleFrameEvent = (event) => {
-    console.log("handleFrameEvent, lastFormSubmissionSuccessful:", this.lastFormSubmissionSuccessful);
     if (this.lastFormSubmissionSuccessful !== false) {
       this.#animateElementToRemove(event.detail.newFrame.id, "", event);
       this.#animateElementToAdd(event.detail.newFrame, "");
     } else {
-      console.log("handleFrameEvent lastFormSubmissionSuccessful is false, skipping animations");
       this.lastFormSubmissionSuccessful = null;
     }
   }
