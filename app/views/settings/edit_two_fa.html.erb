@@ -1,0 +1,34 @@
+<%= link_to sanitize("&larr; Back to settings"), settings_path %>
+
+<%= render 'layouts/turbo_modal' do %>
+  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= render partial: 'svg/24x24_x' %>
+  <% end %>
+  <div class="modal__body modal__body--regular">
+
+    <div class="modal__header">
+       <h1 class="modal__title">2FA</h1>
+    </div>
+
+    <div class="db-form__row text-center pb-4">
+      <%= t('helpers.label.settings.current_status') %>
+      <b class="<%= current_user.otp_module_enabled? ? 'text-success' : 'text-secondary' %>">
+        <%= @two_fa_status_text %>
+      </b>
+    </div>
+
+    <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, data: { controller: "form--html5-validations form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <div class="db-form__row">
+        <%= render partial: 'qr_code', locals: { qr_code: @qr_code } if @qr_code.present? %>
+      </div>
+      <div class="db-form__row db-form__row--input">
+        <%= f.text_field :otp_code_token, class: "db-form__input", required: true, pattern: "\\d{6}" %>
+        <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label" %>
+      </div>
+
+      <div class="form-group db-form-group--main-btn">
+        <%= f.submit @two_fa_button_text, class: "btn btn-lg btn-primary btn-success" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
