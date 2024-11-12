@@ -69,34 +69,29 @@ class SettingsController < ApplicationController
 
   def remove_api_key
     api_key = current_user.api_keys.find(params[:id])
-    stop_working_bots(api_key, current_user) if api_key
+    stop_working_bots(api_key) if api_key
     api_key.destroy!
     redirect_to settings_path
   end
 
-  def enable_two_fa
-    user = current_user
-    if Users::VerifyOtp.call(user, params[:user][:otp_code_token])
-      user.update(otp_module: 'enabled')
-      redirect_to settings_path
-    else
-      current_user.errors.add(:current_password, :invalid)
-      current_user.errors.add(:otp_code_token, :invalid)
-      render :index, locals: {
-        wrong_code: true
-      }
-    end
+  def edit_two_fa
+    set_edit_two_fa_instance_variables
   end
 
-  def disable_two_fa
-    user = current_user
-    if Users::VerifyOtp.call(user, params[:user][:otp_code_token])
-      user.update(otp_module: 'disabled')
-      redirect_to settings_path
+  def update_two_fa
+    if Users::VerifyOtp.call(current_user, update_two_fa_params[:otp_code_token])
+      update_to = current_user.otp_module_enabled? ? 'disabled' : 'enabled'
+      if current_user.update(otp_module: update_to)
+        flash[:notice] = t("settings.two_fa.#{update_to}")
+        render turbo_stream: turbo_stream_page_refresh
+      else
+        flash.now[:alert] = t('errors.unverified_request')
+        render turbo_stream: turbo_stream_prepend_flash
+      end
     else
-      render :index, locals: {
-        wrong_code: true
-      }
+      current_user.errors.add(:otp_code_token, t('errors.messages.wrong_two_fa_token'))
+      set_edit_two_fa_instance_variables
+      render :edit_two_fa, status: :unprocessable_entity
     end
   end
 
@@ -112,10 +107,30 @@ class SettingsController < ApplicationController
     @password_symbol_pattern = User::Password::SYMBOL_PATTERN
     @password_pattern = User::Password::PATTERN
     @password_minimum_length = Devise.password_length.min
+    @two_fa_button_text = if current_user.otp_module_enabled?
+                            t('helpers.label.settings.disable_two_fa')
+                          else
+                            t('helpers.label.settings.enable_two_fa')
+                          end
   end
 
-  def stop_working_bots(api_key, user)
-    user.bots.without_deleted.each do |bot|
+  def set_edit_two_fa_instance_variables
+    if current_user.otp_module_enabled?
+      @two_fa_button_text = t('helpers.label.settings.disable_two_fa')
+      @two_fa_status_text = t('helpers.label.settings.enabled')
+    else
+      @two_fa_button_text = t('helpers.label.settings.enable_two_fa')
+      @two_fa_status_text = t('helpers.label.settings.disabled')
+      @qr_code = RQRCode::QRCode.new(
+        current_user.provisioning_uri(nil, { issuer: 'Deltabadger' }),
+        size: 12,
+        level: :h
+      )
+    end
+  end
+
+  def stop_working_bots(api_key)
+    current_user.bots.without_deleted.each do |bot|
       StopBot.call(bot.id) if same_exchange_and_type?(bot, api_key)
     end
   end
@@ -135,5 +150,9 @@ class SettingsController < ApplicationController
 
   def update_name_params
     params.require(:user).permit(:name)
+  end
+
+  def update_two_fa_params
+    params.require(:user).permit(:otp_code_token)
   end
 end

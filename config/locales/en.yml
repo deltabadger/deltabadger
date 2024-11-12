@@ -684,6 +684,9 @@ en:
     settings:
         name:
             updated: "Your name has been updated."
+        two_fa:
+            disabled: 'Two-factor authentication has been disabled.'
+            enabled: 'Two-factor authentication has been enabled.'
         index:
             api_key_confirmation: 'Are you sure?'
             api_keys_section: 'API keys'
