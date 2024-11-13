@@ -1,3 +1,53 @@
+%input{ type: "checkbox", id: "hamburger" }
+
+.hamburger.hamburger__a
+.hamburger.hamburger__b
+
+.menu-mobile 
+  = link_to root_path, class: 'menu-mobile__item menu-mobile__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.dashboard')
+
+  = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = "Prism"
+
+  = link_to affiliate_path, class: "menu-mobile__item menu-mobile__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.referral_program')
+
+  = link_to settings_path, class: 'menu-mobile__item menu-mobile__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.settings')
+
+  = link_to 'https://skool.com/fire', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = t('links.community')
+
+  - if current_user.subscription.name == 'legendary'
+    = link_to legendary_path, class: 'menu-mobile__item menu-mobile__item--legendary-plan', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = t('links.legendary')
+  - else
+    = link_to upgrade_path, class: 'menu-mobile__item menu-mobile__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = t('subscriptions.upgrade_plan')
+  .menu-mobile__divider
+  .menu-mobile__item
+    = params[:locale]&.to_s&.upcase || 'EN'
+  - locale = params[:locale]
+  - unless locale.blank? || locale == 'en'
+    = link_to "English", url_for(locale: nil), class: "menu-mobile__item"
+  - unless locale == 'de'
+    = link_to "Deutsch", url_for(locale: 'de'), class: "menu-mobile__item"
+  - unless locale == 'nl'
+    = link_to "Nederlandse", url_for(locale: 'nl'), class: "menu-mobile__item"
+  - unless locale == 'fr'
+    = link_to "Français", url_for(locale: 'fr'), class: "menu-mobile__item"
+  - unless locale == 'es'
+    = link_to "Español", url_for(locale: 'es'), class: "menu-mobile__item"
+  - unless locale == 'pt'
+    = link_to "Português", url_for(locale: 'pt'), class: "menu-mobile__item"
+  - unless locale == 'pl'
+    = link_to "Polski", url_for(locale: 'pl'), class: "menu-mobile__item"
+  - unless locale == 'ru'
+    = link_to "Русский", url_for(locale: 'ru'), class: "menu-mobile__item"
+  .menu-mobile__divider
+  = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
+    = t('links.logout')
 .menu
   .menu__section.menu__section--top.menu__section--logo
 
