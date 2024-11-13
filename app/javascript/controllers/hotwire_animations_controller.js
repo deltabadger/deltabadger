@@ -6,16 +6,31 @@ import { Controller } from "@hotwired/stimulus";
 // The data attributes must be named hw-animate-in OR hw-animate-out.
 // Optional: Add the turbo stream action to the data attribute name, e.g. hw-animate-in-append.
 
+// This is all a bit of a hack. There are some issues with this approach:
+// If unsuccessful forms should be re-rendered with errors, the animations block the correct error rendering.
+// This is why the lastFormSubmissionSuccessful variable is used to skip animations if the last form submission
+// was unsuccessful. However this only works if the form is targets a turbo frame (usually a modal), not turbo
+// streams. The problem with turbo streams is that there can be many, and there's no way to keep the
+// lastFormSubmissionSuccessful variable as false until the last stream is rendered.
+
 // Connects to data-controller="hotwire-animations"
 export default class extends Controller {
+  lastFormSubmissionSuccessful = null;
+
   connect() {
     document.addEventListener("turbo:before-stream-render", this.#handleStreamEvent);
     document.addEventListener("turbo:before-frame-render", this.#handleFrameEvent);
+    document.addEventListener("turbo:submit-end", this.#trackFormSubmission);
   }
 
   disconnect() {
     document.removeEventListener("turbo:before-stream-render", this.#handleStreamEvent);
     document.removeEventListener("turbo:before-frame-render", this.#handleFrameEvent);
+    document.removeEventListener("turbo:submit-end", this.#trackFormSubmission);
+  }
+
+  #trackFormSubmission = (event) => {
+    this.lastFormSubmissionSuccessful = event.detail.success;
   }
 
   #handleStreamEvent = (event) => {
@@ -27,8 +42,12 @@ export default class extends Controller {
   }
 
   #handleFrameEvent = (event) => {
-    this.#animateElementToRemove(event.detail.newFrame.id, "", event);
-    this.#animateElementToAdd(event.detail.newFrame, "");
+    if (this.lastFormSubmissionSuccessful !== false) {
+      this.#animateElementToRemove(event.detail.newFrame.id, "", event);
+      this.#animateElementToAdd(event.detail.newFrame, "");
+    } else {
+      this.lastFormSubmissionSuccessful = null;
+    }
   }
 
   #capitalizeAction(action) {
