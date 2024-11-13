@@ -16,15 +16,17 @@
   = link_to settings_path, class: 'menu-mobile__item menu-mobile__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.settings')
 
-  = link_to 'https://skool.com/fire', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-    = t('links.community')
-
   - if current_user.subscription.name == 'legendary'
     = link_to legendary_path, class: 'menu-mobile__item menu-mobile__item--legendary-plan', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('links.legendary')
   - else
     = link_to upgrade_path, class: 'menu-mobile__item menu-mobile__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('subscriptions.upgrade_plan')
+  .menu-mobile__divider
+  = link_to 'https://skool.com/fire', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = t('links.community')
+    = render "svg/16x16_link"
+    
   .menu-mobile__divider
   .menu-mobile__item
     = params[:locale]&.to_s&.upcase || 'EN'
