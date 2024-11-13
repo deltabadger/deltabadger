@@ -499,6 +499,7 @@ en:
             send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
             updated: 'Done! Your password has been changed.'
             updated_not_active: 'Done! Your password has been changed.'
+            token_expired: 'Your password reset link has expired. Please request a new link.'
             validations:
                 length: 'At least %{count} characters'
                 uppercase: 'Contains an uppercase character'
@@ -518,10 +519,10 @@ en:
             signed_up: 'Nice to meet you!'
             signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
             signed_up_but_locked: 'Oops, your account is locked.'
-            signed_up_but_unconfirmed: 'Check your email and click in the confirmation link.'
-            update_needs_confirmation: 'Check your email and follow the confirm link to confirm your new email address.'
+            signed_up_but_unconfirmed: 'Check your email inbox and click in the confirmation link.'
+            update_needs_confirmation: 'Check your email inbox and follow the confirm link to confirm your new email address.'
             updated: 'Your account has been updated successfully.'
-            updated_but_not_signed_in: 'Your account has been updated successfully, sign again.'
+            updated_but_not_signed_in: 'Your account has been updated successfully, sign in again.'
         sessions:
             new:
                 forgot_password: 'Forgot password?'
@@ -626,6 +627,8 @@ en:
             user:
                 current_password: 'Current password'
                 email: Email
+                new_name: 'New name'
+                new_email: 'New email'
                 new_password: 'New password'
                 new_password_confirmation: 'Confirm new password'
                 password: Password
@@ -679,10 +682,14 @@ en:
         banner_html: 'Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!'
         copied: Copied!
     settings:
+        name:
+            updated: "Your name has been updated."
+        two_fa:
+            disabled: 'Two-factor authentication has been disabled.'
+            enabled: 'Two-factor authentication has been enabled.'
         index:
             api_key_confirmation: 'Are you sure?'
             api_keys_section: 'API keys'
-            current_password: 'Current password (for confirmation)'
             email_section: Email
             name_section: Name
             password_section: Password
