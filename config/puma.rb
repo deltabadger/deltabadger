@@ -1,49 +1,59 @@
+# This configuration file will be evaluated by Puma. The top-level methods that
+# are invoked here are part of Puma's configuration DSL. For more information
+# about methods provided by the DSL, see https://puma.io/puma/Puma/DSL.html.
+
+# Specifies the `environment` that Puma will run in.
+rails_env = ENV.fetch("RAILS_ENV") { "development" }
+environment rails_env
+
 # Puma can serve each request in a thread from an internal thread pool.
 # The `threads` method setting takes two numbers: a minimum and maximum.
 # Any libraries that use thread pools should be configured to match
 # the maximum value specified for Puma. Default is set to 5 threads for minimum
 # and maximum; this matches the default thread size of Active Record.
-#
-threads_count = ENV.fetch("RAILS_MAX_THREADS") { 5 }
-threads threads_count, threads_count
+max_threads_count = ENV.fetch("RAILS_MAX_THREADS") { 5 }
+min_threads_count = ENV.fetch("RAILS_MIN_THREADS") { max_threads_count }
+threads min_threads_count, max_threads_count
 
-# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-#
-port ENV.fetch("PORT") { 3000 }
+# Specifies that the worker count should equal the number of processors in production.
+workers_count = if rails_env == "production"
+                  require "concurrent-ruby"
+                  Integer(ENV.fetch("WEB_CONCURRENCY") { Concurrent.physical_processor_count })
+                else
+                  Integer(ENV.fetch("WEB_CONCURRENCY") { 2 })
+                end
 
-# Specifies the `environment` that Puma will run in.
-#
-environment ENV.fetch("RAILS_ENV") { "development" }
+if workers_count > 1
+  workers workers_count
+  preload_app!
 
-# Specifies the number of `workers` to boot in clustered mode.
-# Workers are forked webserver processes. If using threads and workers together
-# the concurrency of the application would be max `threads` * `workers`.
-# Workers do not work on JRuby or Windows (both of which do not support
-# processes).
-#
-workers ENV.fetch("WEB_CONCURRENCY") { 8 }
+  before_fork do
+    ActiveRecord::Base.connection_pool.disconnect! if defined?(ActiveRecord)
+  end
 
-# Use the `preload_app!` method when specifying a `workers` number.
-# This directive tells Puma to first boot the application and load code
-# before forking the application. This takes advantage of Copy On Write
-# process behavior so workers use less memory.
-#
-preload_app!
-
-before_fork do
-  ActiveRecord::Base.connection_pool.disconnect! if defined?(ActiveRecord)
+  on_worker_boot do
+    ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
+  end
 end
 
-on_worker_boot do
-  ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
+# Specifies the `worker_timeout` threshold that Puma will use to wait before
+# terminating a worker in development environments.
+if rails_env == "development"
+  worker_timeout 3600
+else
+  # Use a more reasonable timeout for general web requests
+  worker_timeout 60 # 52 seconds to recognize which timout is in play
 end
-
-# Use a more reasonable timeout for general web requests
-worker_timeout 60 # 52 seconds to recognize which timout is in play
 
 # For Keep-Alive connections, use a shorter timeout.
 # This is typically enough for most web applications and avoids hogging connections.
-persistent_timeout 59 # 22 seconds to recognize which timout is in play
+persistent_timeout 30 # 22 seconds to recognize which timout is in play
+
+# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
+port ENV.fetch("PORT") { 3000 }
+
+# Specifies the `pidfile` that Puma will use.
+pidfile ENV.fetch("PIDFILE") { "tmp/pids/server.pid" }
 
 # Allow puma to be restarted by `rails restart` command.
 plugin :tmp_restart
