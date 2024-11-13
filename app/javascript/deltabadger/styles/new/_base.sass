@@ -23,8 +23,10 @@ dialog
     @media only screen and (max-width: 1359px)
       padding-top: 14rem
       padding-left: 4rem
-    @media only screen and (max-width: 767px)
-      padding: 11rem 1rem 1rem
+    @media only screen and (max-width: 767.9px)
+      padding: 10rem 2rem 2rem
+    @media only screen and (max-width: 400px)
+      padding: 10rem 1rem 1rem
 .main-content
     max-width: 240rem 
     flex: 1
@@ -82,6 +84,10 @@ dialog
         &.active
             background: var(--text)
             color: var(--background) 
+        @media (max-width: 767.9px)
+            position: absolute
+            top: 3.25rem
+            right: 2rem
 .itiles
     display: grid
     grid-template-columns: repeat(auto-fill, minmax(42rem, 1fr))
