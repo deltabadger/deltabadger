@@ -428,7 +428,7 @@ nl:
                 submit: 'Bevestigingslink opnieuw verzenden'
                 title: 'Instructies opnieuw verzenden'
             send_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
-            send_paranoid_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
+            send_paranoid_instructions: 'Als uw account bestaat, ontvangt u binnen enkele minuten een e-mail met instructies.'
         failure:
             already_authenticated: 'U bent al ingelogd.'
             inactive: 'Uw account is nog niet geactiveerd.'
@@ -468,6 +468,7 @@ nl:
             no_token: 'U hebt geen toegang tot deze pagina als u niet via een wachtwoord reset email komt. Als u van een wachtwoord reset email komt, zorg er dan voor dat u de volledige URL gebruikt.'
             send_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
             send_paranoid_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
+            token_expired: 'Uw link om het wachtwoord opnieuw in te stellen is verlopen. Vraag een nieuwe link aan.'
             updated: 'Klaar! Uw wachtwoord is gewijzigd.'
             updated_not_active: 'Klaar! Uw wachtwoord is gewijzigd.'
         registrations:
@@ -476,7 +477,7 @@ nl:
             new:
                 email_invalid: 'Email ongeldig!'
                 email_suggestion_html: 'Email ongeldig! Bedoelde u: <b> %{suggestion} </b>'
-                name_invalid: 'Het moet niet de echte zijn 👻'
+                name_invalid: 'Mag geen cijfers of symbolen bevatten, maar hoeft niet echt te zijn 👻'
                 submit: 'Start nu'
                 title_html: '<span class="text-success">Gratis</span> account aanmaken'
             signed_up: 'Leuk je te ontmoeten!'
@@ -589,6 +590,8 @@ nl:
             user:
                 current_password: 'Huidig wachtwoord'
                 email: Email
+                new_name: 'Nieuwe naam'
+                new_email: 'Nieuw e-mailadres'
                 new_password: 'Nieuw wachtwoord'
                 new_password_confirmation: 'Bevestig nieuw wachtwoord'
                 password: Wachtwoord
@@ -654,6 +657,11 @@ nl:
             submit_password: 'Wachtwoord wijzigen'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
+        name:
+            updated: 'Uw naam is bijgewerkt.'
+        two_fa:
+            disabled: 'Twee-factor-authenticatie is uitgeschakeld.'
+            enabled: 'Twee-factor-authenticatie is ingeschakeld.'
     social:
         blog: 'Lees onze blog'
         knowledge_base: Kennisbank
