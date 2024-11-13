@@ -647,7 +647,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
-        community: 'Community'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -916,7 +916,7 @@ en:
             one: "%{count} day"
             other: "%{count} days"
     dca_calculator:
-        title: "How long you had to save $%{amount}/month to %{goal}?"
+        title: "How long you had to save <span>$%{amount}/month</span> to %{goal}?"
         goal_millionaire: "become a millionaire"
     alert:
         portfolio:

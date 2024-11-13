@@ -790,7 +790,7 @@ pt:
             one: "%{count} dia"
             other: "%{count} dias"
     dca_calculator:
-        title: "Quanto tempo você precisava poupar $%{amount}/mês para %{goal}?"
+        title: "Quanto tempo você precisava poupar <span>$%{amount}/mês</span> para %{goal}?"
         goal_millionaire: "se tornar milionário"
     alert:
         portfolio:

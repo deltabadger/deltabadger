@@ -875,7 +875,7 @@ ru:
             many: "%{count} дней"
             other: "%{count} дней"
     dca_calculator:
-        title: "Сколько времени нужно было откладывать $%{amount}/месяц, чтобы %{goal}?"
+        title: "Сколько времени нужно было откладывать <span>$%{amount}/месяц,</span> чтобы %{goal}?"
         goal_millionaire: "стать миллионером"
     alert:
         portfolio:

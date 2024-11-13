@@ -877,7 +877,7 @@ es:
             one: "%{count} día"
             other: "%{count} días"
     dca_calculator:
-        title: "¿Cuánto tiempo necesitabas ahorrar $%{amount}/mes para %{goal}?"
+        title: "¿Cuánto tiempo necesitabas ahorrar <span>$%{amount}/mes</span> para %{goal}?"
         goal_millionaire: "convertirte en millonario"
     alert:
         portfolio:

@@ -876,7 +876,7 @@ nl:
             one: "%{count} dag"
             other: "%{count} dagen"
     dca_calculator:
-        title: "Hoe lang moest je $%{amount}/maand sparen om %{goal}?"
+        title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
         goal_millionaire: "miljonair te worden"
     alert:
         portfolio:
