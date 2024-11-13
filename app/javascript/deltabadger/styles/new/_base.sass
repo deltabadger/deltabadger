@@ -55,7 +55,7 @@ dialog
 .infoheader
     display: flex
     flex-direction: column
-    gap: 5rem
+    gap: 4rem
     margin-bottom: 5rem
     @media (max-width: 767.9px)
         gap: 3rem
@@ -63,11 +63,13 @@ dialog
         display: flex
         justify-content: space-between
         gap: 2rem
+        span
+            white-space: nowrap
     &__h
         margin-bottom: 0
         padding-bottom: 0
         font-size: 2.5rem  
-        line-height: 3rem
+        line-height: 3.75rem
         text-align: left
         form
             display: inline-block !important
@@ -75,14 +77,14 @@ dialog
         width: 3rem
         min-width: 3rem
         height: 3rem
-        border: 2px solid var(--text)
+        border: 2px solid var(--link)
         line-height: 2.8rem
         text-align: center
         border-radius: 50%
         font-weight: 700 
         cursor: pointer
         &.active
-            background: var(--text)
+            background: var(--link)
             color: var(--background) 
         @media (max-width: 767.9px)
             position: absolute
@@ -135,7 +137,7 @@ dialog
     display: inline-block
     border-bottom: 2px solid var(--link)
     color: var(--link)
-    padding: 0 0.5rem
+    padding: 0 0.25rem
     text-align: center
     box-sizing: content-box
     &:focus

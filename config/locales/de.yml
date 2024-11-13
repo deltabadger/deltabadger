@@ -823,7 +823,7 @@ de:
             one: "%{count} Tag"
             other: "%{count} Tage"
     dca_calculator:
-        title: "Wie lange musstest du $%{amount}/Monat sparen, um %{goal}?"
+        title: "Wie lange musstest du <span>$%{amount}/Monat</span> sparen, um %{goal}?"
         goal_millionaire: "Millionär zu werden"
     alert:
         portfolio:

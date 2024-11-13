@@ -900,7 +900,7 @@ pl:
         bonds: Obligacje
         gold: Złoto
     dca_calculator:
-        title: "Jak długo musiałbyś oszczędzać $%{amount}/miesięcznie, aby %{goal}?"
+        title: "Jak długo musiałbyś oszczędzać <span>$%{amount}/miesięcznie,</span> aby %{goal}?"
         goal_millionaire: "zostać milionerem"
     alert:
         portfolio:
