@@ -379,7 +379,7 @@ pt:
                 submit: 'Reenviar ligação de confirmação'
                 title: 'Reenviar instruções'
             send_instructions: 'Irá receber um e-mail com instruções dentro de alguns minutos.'
-            send_paranoid_instructions: 'Irá receber um e-mail com instruções dentro de alguns minutos.'
+            send_paranoid_instructions: 'Se sua conta existir, você receberá um e-mail com instruções em alguns minutos.'
         failure:
             already_authenticated: 'Já iniciou sessão.'
             inactive: 'A sua conta ainda não está ativada.'
@@ -419,6 +419,7 @@ pt:
             no_token: 'Não pode aceder a esta página sem que a mesma seja aberta a partir de um e-mail de reposição da palavra-passe. Se for esse o caso, certifique-se de que utilizou o URL fornecido completo.'
             send_instructions: 'Irá receber um e-mail com instruções dentro de alguns minutos.'
             send_paranoid_instructions: 'Irá receber um e-mail com instruções dentro de alguns minutos.'
+            token_expired: 'Seu link de redefinição de senha expirou. Por favor, solicite um novo link.'
             updated: 'Feito! A sua palavra-passe foi alterada.'
             updated_not_active: 'Feito! A sua palavra-passe foi alterada.'
         registrations:
@@ -427,7 +428,7 @@ pt:
             new:
                 email_invalid: 'E-mail inválido!'
                 email_suggestion_html: 'E-mail inválido! Queria dizer: <b>%{suggestion}</b>?'
-                name_invalid: 'Não precisa ser real 👻'
+                name_invalid: 'Não pode conter números ou símbolos, mas não precisa ser real 👻'
                 submit: 'Começar agora'
                 title_html: 'Crie uma conta <span class="text-success">gratuita</span>'
             signed_up: 'Muito prazer!'
@@ -527,6 +528,8 @@ pt:
             user:
                 current_password: 'Palavra-passe atual'
                 email: E-mail
+                new_name: 'Novo nome'
+                new_email: 'Novo e-mail'
                 new_password: 'Nova palavra-passe'
                 new_password_confirmation: 'Confirmar nova palavra-passe'
                 password: Palavra-passe
@@ -580,6 +583,11 @@ pt:
             submit_password: 'Alterar palavra-passe'
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
+        name:
+            updated: 'Seu nome foi atualizado.'
+        two_fa:
+            disabled: 'A autenticação de dois fatores foi desativada.'
+            enabled: 'A autenticação de dois fatores foi ativada.'
     social:
         blog: 'Leia o nosso blog'
         knowledge_base: 'Base de conhecimento'
