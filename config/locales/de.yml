@@ -395,7 +395,7 @@ de:
                 submit: 'Bestätigungslink erneut zuschicken'
                 title: 'Anweisungen erneut senden'
             send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
-            send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            send_paranoid_instructions: 'Falls Ihr Konto existiert, erhalten Sie in wenigen Minuten eine E-Mail mit Anweisungen.'
         failure:
             already_authenticated: 'Du bist bereit angemeldet.'
             inactive: 'Dein Konto wurde noch nicht aktiviert.'
@@ -436,6 +436,7 @@ de:
             no_token: 'Du kannst nicht auf diese Seite zugreifen, wenn du nicht von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest. Wenn du von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest, stelle bitte sicher, dass du die vollständige URL verwendet hast.'
             send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
             send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            token_expired: 'Ihr Link zum Zurücksetzen des Passworts ist abgelaufen. Bitte fordern Sie einen neuen Link an.'
             updated: 'Erledigt! Dein Passwort wurde geändert.'
             updated_not_active: 'Erledigt! Dein Passwort wurde geändert.'
         registrations:
@@ -444,7 +445,7 @@ de:
             new:
                 email_invalid: 'E-Mail ungültig!'
                 email_suggestion_html: 'E-Mail ungültig! Meintest du <b>%{suggestion}</b>'
-                name_invalid: 'Es muss nicht echt sein 👻'
+                name_invalid: 'Darf keine Zahlen oder Symbole enthalten, muss aber nicht real sein 👻'
                 submit: 'Starte jetzt'
                 title_html: 'Erstelle ein <span class="text-success">kostenloses</span> Konto'
             signed_up: 'Schön, dich kennenzulernen!'
@@ -545,6 +546,8 @@ de:
             user:
                 current_password: 'Aktuelles Passwort'
                 email: E-Mail
+                new_name: 'Neuer Name'
+                new_email: 'Neue E-Mail'
                 new_password: 'Neues Passwort'
                 new_password_confirmation: 'Neues Passwort bestätigen'
                 password: Passwort
@@ -591,7 +594,6 @@ de:
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
-            current_password: 'Aktuelles Passwort (zur Bestätigung)'
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
@@ -602,6 +604,11 @@ de:
             submit_password: 'Passwort ändern'
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
+        name:
+            updated: 'Ihr Name wurde aktualisiert.'
+        two_fa:
+            disabled: 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.'
+            enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
     social:
         blog: 'Lies unseren Blog'
         knowledge_base: Wissensdatenbank

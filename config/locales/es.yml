@@ -429,7 +429,7 @@ es:
                 submit: 'Reenviar enlace de confirmación'
                 title: 'Reenviar instrucciones'
             send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
-            send_paranoid_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
+            send_paranoid_instructions: 'Si tu cuenta existe, recibirás un correo con instrucciones en unos minutos.'
         failure:
             already_authenticated: 'Ya has iniciado sesión.'
             inactive: 'Tu cuenta no está activada todavía.'
@@ -469,6 +469,7 @@ es:
             no_token: 'No puedes acceder a esta página si no vienes desde un correo electrónico de restablecimiento de contraseña. Si vienes desde un correo electrónico de restablecimiento de contraseña, asegúrate de que has utilizado la URL proporcionada completa.'
             send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
             send_paranoid_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
+            token_expired: 'El enlace para restablecer tu contraseña ha expirado. Por favor, solicita un nuevo enlace.'
             updated: '¡Hecho! Se ha cambiado tu contraseña'
             updated_not_active: '¡Hecho! Se ha cambiado tu contraseña'
         registrations:
@@ -477,7 +478,7 @@ es:
             new:
                 email_invalid: '¡Correo electrónico no válido!'
                 email_suggestion_html: '¡Correo electrónico no válido! Quizás quisiste decir: <b>%{suggestion}</b>'
-                name_invalid: 'No tiene por qué ser real 👻'
+                name_invalid: 'Darf keine Zahlen oder Symbole enthalten, muss aber nicht real sein 👻'
                 submit: 'Empezar ahora'
                 title_html: 'Crear una cuenta <span class="text-success">gratuita</span>'
             signed_up: '¡Encantado de conocerte!'
@@ -590,6 +591,8 @@ es:
             user:
                 current_password: 'Contraseña actual'
                 email: 'Correo electrónico'
+                new_name: 'Nuevo nombre'
+                new_email: 'Nuevo correo electrónico'
                 new_password: 'Nueva contraseña'
                 new_password_confirmation: 'Confirmar nueva contraseña'
                 password: Contraseña
@@ -645,7 +648,6 @@ es:
         index:
             api_key_confirmation: '¿Estás seguro?'
             api_keys_section: 'Claves API'
-            current_password: 'Contraseña actual (para la confirmación)'
             email_section: 'Correo electrónico'
             name_section: Nombre
             password_section: Contraseña
@@ -656,6 +658,11 @@ es:
             submit_password: 'Cambiar contraseña'
             title: Configuración
             two_factor_section: 'Autenticación de segundo factor'
+        name:
+            updated: 'Tu nombre ha sido actualizado.'
+        two_fa:
+            disabled: 'La autenticación de dos factores ha sido desactivada.'
+            enabled: 'La autenticación de dos factores ha sido activada.'
     social:
         blog: 'Lee nuestro blog'
         knowledge_base: 'Base de conocimientos'

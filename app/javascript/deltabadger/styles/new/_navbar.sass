@@ -10,12 +10,12 @@
       padding-top: 20rem
     @media only screen and (max-width: 549px)
       padding-top: 16rem
+
 .menu
   padding: 4rem
   top: 0
   left: 0
   bottom: 0
-  // border-right: 1px solid var(--widget-line)
   box-sizing: content-box
   position: fixed
   width: 6rem
@@ -36,13 +36,8 @@
     gap: 1rem
     padding-left: 3.75rem
     padding-top: 3.15rem
-  @media only screen and (max-width: 767px)
-    padding-left: 2rem
-    width: calc(100% - 3rem)
-    padding-top: 1.5rem
-  @media only screen and (max-width: 767px)
-    gap: 0
-    justify-content: center
+  @media only screen and (max-width: 767.9px)
+    display: none
   &__section
     display: flex
     flex-direction: column
@@ -50,8 +45,6 @@
     @media only screen and (max-width: 1359px)
       flex-direction: row
       gap: 1rem
-    @media only screen and (max-width: 549px)
-      gap: 0
     &--main-menu
       @media only screen and (min-width: 1360px)
         position: fixed
@@ -59,8 +52,6 @@
     &--logo
       @media only screen and (max-width: 1359px)
         width: 13rem
-      @media only screen and (max-width: 767px)
-        display: none
   &__logo
     width: 5rem
     height: 3rem

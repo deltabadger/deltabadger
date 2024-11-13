@@ -87,7 +87,7 @@
           = f.password_field :current_password, type: 'password', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);'
           .db-form__info.db-form__info--invalid
             Password is invalid
-          = f.label :current_password, t('settings.index.current_password'), class: 'db-form__label'
+          = f.label :current_password, t('helpers.label.user.current_password'), class: 'db-form__label'
 
         .form-group.db-form-group--main-btn
           = f.submit t('.submit'), class: 'btn btn-lg btn-primary'

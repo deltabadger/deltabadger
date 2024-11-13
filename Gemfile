@@ -46,8 +46,8 @@ group :development, :test do
   gem 'debug'
   gem 'bullet'
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
-  gem 'rubocop', '~> 1.48.0'
-  gem 'rspec-rails', '~> 5.1'
+  gem 'rubocop'
+  gem 'rspec-rails'
   gem 'factory_bot_rails'
   gem 'faker'
 end
@@ -61,7 +61,7 @@ group :development do
   gem 'spring-watcher-listen', '~> 2.1.0'
   gem 'guard-rspec', require: false
   gem 'guard-rubocop'
-  gem 'web-console', '>= 3.3.0'
+  gem 'web-console'
 end
 
 group :test do
@@ -74,12 +74,12 @@ end
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
 gem "telegram-bot", "~> 0.15.6"
-gem "faraday-net_http_persistent", "~> 2.1"
+gem "faraday-net_http_persistent", "~> 2.3.0"
 
-gem "turbo-rails", "~> 2.0"
-gem "stimulus-rails", "~> 1.3"
+gem "turbo-rails", "~> 2.0.11"
+gem "stimulus-rails", "~> 1.3.4"
 gem 'redis', '~> 5.0'
-gem "jwt", "~> 2.8"
+gem "jwt", "~> 2.9.3"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
-gem "ruby-openai", "~> 7.1"
+gem "ruby-openai", "~> 7.3.1"
