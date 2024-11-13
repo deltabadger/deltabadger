@@ -395,7 +395,7 @@ de:
                 submit: 'Bestätigungslink erneut zuschicken'
                 title: 'Anweisungen erneut senden'
             send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
-            send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            send_paranoid_instructions: 'Falls Ihr Konto existiert, erhalten Sie in wenigen Minuten eine E-Mail mit Anweisungen.'
         failure:
             already_authenticated: 'Du bist bereit angemeldet.'
             inactive: 'Dein Konto wurde noch nicht aktiviert.'
