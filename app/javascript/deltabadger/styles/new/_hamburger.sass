@@ -1,0 +1,37 @@
+#hamburger,.hamburger
+  z-index: 1000
+  @media only screen and (min-width: 768px)
+    display: none
+
+#hamburger
+  position: absolute
+  width: 8rem
+  height: 8rem
+  background: red
+  opacity: 0
+  top: 0
+  left: 0
+  &:checked
+    position: fixed
+    &~ .menu-mobile
+      left: 0
+    &~ .hamburger
+      position: fixed
+      top: 4.5rem
+      &__a
+        transform: rotate(45deg)
+      &__b
+        transform: rotate(-45deg)
+
+.hamburger
+  pointer-events: none
+  position: absolute
+  width: 3rem
+  height: 0.25rem
+  background: var(--link)
+  left: 3rem
+  transition: transform 0.125s
+  &__a
+    top: 4rem
+  &__b
+    top: 5rem
