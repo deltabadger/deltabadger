@@ -878,7 +878,7 @@ fr:
             one: "%{count} jour"
             other: "%{count} jours"
     dca_calculator:
-        title: "Combien de temps fallait-il épargner $%{amount}/mois pour %{goal} ?"
+        title: "Combien de temps fallait-il épargner <span>$%{amount}/mois</span> pour %{goal} ?"
         goal_millionaire: "devenir millionnaire"
     alert:
         portfolio:
