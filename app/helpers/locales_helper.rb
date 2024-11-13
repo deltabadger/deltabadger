@@ -1,6 +1,13 @@
 module LocalesHelper
   def localized_price(price, currency, decimal_places = 2)
-    formatted_price = format("%0.0#{decimal_places}f", price)
+    # Check if the price is an integer (no decimals needed)
+    formatted_price = if price.to_i == price
+                        price.to_i.to_s # Remove decimal part if it's .00
+                      else
+                        format("%0.0#{decimal_places}f", price) # Format normally
+                      end
+
+    # Format based on the currency
     if currency == 'EUR'
       t('subscriptions.payment.price_eur_html', symbol: '€', price: formatted_price)
     else

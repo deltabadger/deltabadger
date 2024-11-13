@@ -13,7 +13,6 @@ body
     position:    relative
 dialog
   display: block // override default display: none, used if js is disabled
-
 .main
     display: flex
     justify-content: center
@@ -24,9 +23,7 @@ dialog
       padding-top: 14rem
       padding-left: 4rem
     @media only screen and (max-width: 767.9px)
-      padding: 10rem 2rem 2rem
-    @media only screen and (max-width: 400px)
-      padding: 10rem 1rem 1rem
+      padding: 9rem 2rem 2rem
 .main-content
     max-width: 240rem 
     flex: 1
@@ -58,7 +55,7 @@ dialog
 .infoheader
     display: flex
     flex-direction: column
-    gap: 5rem
+    gap: 4rem
     margin-bottom: 5rem
     @media (max-width: 767.9px)
         gap: 3rem
@@ -66,27 +63,32 @@ dialog
         display: flex
         justify-content: space-between
         gap: 2rem
+        span
+            white-space: nowrap
     &__h
         margin-bottom: 0
+        padding-bottom: 0
         font-size: 2.5rem  
-        line-height: 3rem
+        line-height: 3.75rem
         text-align: left
+        form
+            display: inline-block !important
     &__icon
         width: 3rem
         min-width: 3rem
         height: 3rem
-        border: 2px solid var(--text)
+        border: 2px solid var(--link)
         line-height: 2.8rem
         text-align: center
         border-radius: 50%
         font-weight: 700 
         cursor: pointer
         &.active
-            background: var(--text)
+            background: var(--link)
             color: var(--background) 
         @media (max-width: 767.9px)
             position: absolute
-            top: 3.25rem
+            top: 2.25rem
             right: 2rem
 .itiles
     display: grid
@@ -129,12 +131,15 @@ dialog
     &--cash
         background-image: linear-gradient(#044c,#044e), url('~images/bg-bonds.jpg')
 .hinput
-    background: none
+    background:  var(--widget-background) !important
     border: none
-    border-bottom: 2px solid var(--text)
-    color: var(--text)
-    padding: 0
+    border-radius: 0
+    display: inline-block
+    border-bottom: 2px solid var(--link)
+    color: var(--link)
+    padding: 0 0.25rem
     text-align: center
+    box-sizing: content-box
     &:focus
         border-bottom-color: var(--link)
         color: var(--link)
