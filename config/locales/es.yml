@@ -692,7 +692,7 @@ es:
         legendary_badger_info_html: '<p>Obtén todas las funciones actuales y futuras del plan Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro exclusivo club de 1,000 pensadores a largo plazo con manos de diamante y visión, y crea tu propia leyenda.</p><p>El NFT que recibes convierte tu suscripción en un activo que puedes transferir o vender. Cada token viene con una obra de arte procedural única, con 21 <i>easter eggs</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
         legendary_plan_left: "Quedan %{for_sale_count} de %{total_supply}"
         features:
-            analyzer_html: 'Prism — Analizador de cartera'
+            analyzer_html: 'Prism: Analizador de Cartera'
             dca: 'Bots DCA'
             price_limit: 'Límite de precio'
             fee_cutter: 'Cortador de tarifas'

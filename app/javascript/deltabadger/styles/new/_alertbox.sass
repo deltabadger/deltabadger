@@ -58,7 +58,7 @@
     height: 40rem
 
 .alertbox-modal
-    background: rgba(100,150,200,0.5)
+    background: var(--background-new-semitransparent)
     position: fixed
     z-index: 1000000000000
     top: 0
@@ -68,7 +68,8 @@
     display: flex
     justify-content: center
     align-items: center
-    padding: 1rem
+    padding: 2rem
     .alertbox
         max-width: 80rem
-        max-height: calc(100vh - 2rem)
+        max-height: calc(100vh - 4rem)
+        overflow-y: scroll
