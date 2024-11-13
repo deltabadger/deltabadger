@@ -428,7 +428,7 @@ fr:
                 submit: 'Renvoyer le lien de confirmation'
                 title: 'Renvoyer les instructions'
             send_instructions: 'Vous recevrez des instructions par e-mail dans quelques minutes.'
-            send_paranoid_instructions: 'Vous recevrez des instructions par e-mail dans quelques minutes.'
+            send_paranoid_instructions: 'Si votre compte existe, vous recevrez un e-mail avec les instructions dans quelques minutes.'
         failure:
             already_authenticated: 'Vous êtes déjà connecté.'
             inactive: 'Votre compte n''est pas encore activé.'
@@ -468,6 +468,7 @@ fr:
             no_token: 'Vous ne pouvez pas accéder à cette page autrement qu''au travers d''un e-mail de réinitialisation de mot de passe. Si vous venez au travers d''un e-mail de réinitialisation de mot de passe, assurez-vous d''avoir utilisé l''URL complète qui y est fournie.'
             send_instructions: 'Vous recevrez des instructions par e-mail dans quelques minutes'
             send_paranoid_instructions: 'Vous recevrez des instructions par e-mail dans quelques minutes.'
+            token_expired: 'Votre lien de réinitialisation de mot de passe a expiré. Veuillez demander un nouveau lien.'
             updated: 'C''est fait ! Votre mot de passe a été modifié'
             updated_not_active: 'C''est fait ! Votre mot de passe a été modifié'
         registrations:
@@ -476,7 +477,7 @@ fr:
             new:
                 email_invalid: 'E-mail non valide !'
                 email_suggestion_html: 'E-mail non valide ! Vous vouliez dire : <b> %{suggestion} </b> ?'
-                name_invalid: 'N''a pas besoin d''être réel 👻'
+                name_invalid: 'Ne doit pas contenir de chiffres ou de symboles, mais n''a pas besoin d''être réel 👻'
                 submit: 'Commencer maintenant'
                 title_html: 'Créer un compte <span class="text-success"> gratuit </span>'
             signed_up: 'Ravi de vous rencontrer !'
@@ -491,6 +492,12 @@ fr:
                 forgot_password: 'Mot de passe oublié ?'
                 submit: 'Connexion'
                 title: 'S''identifier'
+            name:
+                updated: 'Votre nom a été mis à jour.'
+            two_fa:
+                disabled: 'L''authentification à deux facteurs a été désactivée.'
+                enabled: 'L''authentification à deux facteurs a été activée.'
+
             signed_in: 'Ça faisait longtemps !'
             signed_out: 'À bientôt !'
         unlocks:
@@ -589,6 +596,8 @@ fr:
             user:
                 current_password: 'Mot de passe actuel'
                 email: 'E-mail'
+                new_name: 'Nouveau nom'
+                new_email: 'Nouvel e-mail'
                 new_password: 'Nouveau mot de passe'
                 new_password_confirmation: 'Confirmer le nouveau mot de passe'
                 password: 'Mot de passe'
@@ -644,6 +653,7 @@ fr:
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
             api_keys_section: 'Clés API'
+            current_password: 'Mot de passe actuel (pour confirmation)'
             email_section: 'E-mail'
             name_section: 'Nom'
             password_section: 'Mot de passe'
@@ -678,8 +688,8 @@ fr:
         days_left:
             one: "1 jour restant"
             other: "%{count} jours restants"
-        basic_info: 'Pas de fioritures, juste de l’efficacité.'
-        pro_info: 'Vue d’ensemble, analyses approfondies et fonctionnalités Pro.'
+        basic_info: 'Pas de fioritures, juste de l''efficacité.'
+        pro_info: 'Vue d''ensemble, analyses approfondies et fonctionnalités Pro.'
         legendary_badger_info_html: '<p>Obtenez toutes les fonctionnalités actuelles et futures du plan Pro à vie.</p><p>Aimez-vous payer une seule fois et tout obtenir ? Rejoignez notre club exclusif de 1 000 penseurs à long terme avec des mains de diamant et une vision, et créez votre propre légende.</p><p>Le NFT que vous recevez transforme votre abonnement en un actif que vous pouvez transférer ou vendre. Chaque token est associé à une œuvre d''art procédurale unique, avec 21 <i>œufs de Pâques</i> cachés dans <a href="https://legendarybadgers.com/" class="nobreak">la collection</a>.</p>'
         legendary_plan_left: "Il reste %{for_sale_count} sur %{total_supply}"
         features:
@@ -738,15 +748,14 @@ fr:
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
-            <p>Bienvenue à bord, %{name} !</p>
-            <p>Pour t'assurer de tirer le meilleur de Deltabadger, j'envoie des gouttes de savoir en investissement directement dans ta boîte mail :</p>
+            <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
             <ol>
-                <li>Va dans ta boîte mail.</li>
-                <li>Cherche un e-mail de ma part.</li>
-                <li>Réponds avec <b>FIRE</b>.</li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
+                <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
+                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
             </ol>
-            <p>Ça éloigne les créatures des marais des banques centrales, pour qu'elles ne capturent pas notre communication.</p>
-            <p>Merci, Jan</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
+            <p style="margin-bottom:0">À bientôt, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
         free: 'Dites au revoir aux limites et faites une mise à niveau !'
