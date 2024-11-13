@@ -1,6 +1,4 @@
 class AssetsController < ApplicationController
-  include ApplicationHelper
-
   before_action :authenticate_user!
   before_action :set_portfolio
   before_action :set_asset, only: %i[destroy update]
@@ -26,7 +24,7 @@ class AssetsController < ApplicationController
     else
       flash.now[:alert] = @asset.errors.messages.values.join(', ')
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
         format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid asset.' }
       end
     end
@@ -42,7 +40,7 @@ class AssetsController < ApplicationController
     else
       flash.now[:alert] = 'Invalid asset.'
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
         format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid asset.' }
       end
     end
@@ -58,7 +56,7 @@ class AssetsController < ApplicationController
     else
       flash.now[:alert] = 'Invalid allocation value.'
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: render_turbo_stream_flash_messages, status: :unprocessable_entity }
+        format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
         format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.' }
       end
     end

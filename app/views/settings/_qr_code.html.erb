@@ -1,0 +1,21 @@
+<div class="qrcode">
+  <table class="qr" align="center">
+    <% qr_code.to_s.split("\n").each do |line| %>
+      <tr>
+        <% line.split("").each do |sign| %>
+          <% if sign == 'x' %>
+            <td class="black"></td>
+          <% else %>
+            <td class="white"></td>
+          <% end %>
+        <% end %>
+      </tr>
+    <% end %>
+  </table>
+</div>
+<div class="mb-4 text-center">
+  <%= t('helpers.label.settings.scan_code_info') %>
+</div>
+<div class="mb-5 text-center">
+  <b><%= current_user.otp_secret_key %></b>
+</div>

@@ -4,6 +4,8 @@ class ApplicationController < ActionController::Base
   before_action :set_signed_in_cookie
   around_action :switch_locale
 
+  include SharedHelper
+
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
     I18n.with_locale(locale, &action)

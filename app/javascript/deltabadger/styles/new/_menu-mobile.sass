@@ -1,0 +1,30 @@
+.menu-mobile
+  transition: left 0.25s
+  background: var(--background)
+  position: fixed
+  top: 0
+  left: -150vw
+  width: 100vw
+  height: 100vh
+  z-index: 1
+  padding-top: 6rem
+  overflow: scroll
+  z-index: 999
+  @media (min-width: 768px)
+    display: none
+  &__item
+    text-align: center
+    padding: 2rem
+    text-decoration: none !important
+    font-weight: 700
+    width: 100%
+    display: block
+  &__button
+    background: none
+    border: none
+    color: var(--menulink)
+    width: 100%
+  &__divider
+    width: calc(100% - 8rem)
+    height: 1px
+    margin: 2rem
