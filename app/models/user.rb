@@ -105,12 +105,12 @@ class User < ApplicationRecord
 
   def validate_name
     valid_name = name =~ Regexp.new(Name::PATTERN)
-    errors.add :name, I18n.t('devise.registrations.new.name_invalid') unless valid_name
+    errors.add(:name, I18n.t('devise.registrations.new.name_invalid')) unless valid_name
   end
 
   def validate_email
     valid_email = email =~ Regexp.new(Email::ADDRESS_PATTERN)
-    errors.add :email, I18n.t('devise.registrations.new.email_invalid') unless valid_email
+    errors.add(:email, I18n.t('devise.registrations.new.email_invalid')) unless valid_email
   end
 
   def validate_email_with_sendgrid
@@ -131,6 +131,6 @@ class User < ApplicationRecord
 
   def password_complexity
     complexity_is_valid = password =~ Regexp.new(Password::PATTERN)
-    errors.add :password, I18n.t('errors.messages.too_simple_password') unless complexity_is_valid
+    errors.add(:password, I18n.t('errors.messages.too_simple_password')) unless complexity_is_valid
   end
 end
