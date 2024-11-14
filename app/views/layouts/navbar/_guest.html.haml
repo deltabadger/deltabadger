@@ -27,21 +27,21 @@
           .dropdown-menu.dropdown-menu-right
             - locale = params[:locale]
             - unless locale.blank? || locale == 'en'
-              = link_to "🇬🇧 English", url_for(locale: nil), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇬🇧 English", url_for(request.params.merge(locale: nil)), class: "dropdown-item"
             - unless locale == 'de'
-              = link_to "🇩🇪 Deutsch", url_for(locale: 'de'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇩🇪 Deutsch", url_for(request.params.merge(locale: 'de')), class: "dropdown-item"
             - unless locale == 'nl'
-              = link_to "🇳🇱 Nederlandse", url_for(locale: 'nl'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇳🇱 Nederlandse", url_for(request.params.merge(locale: 'nl')), class: "dropdown-item"
             - unless locale == 'fr'
-              = link_to "🇫🇷 Français", url_for(locale: 'fr'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇫🇷 Français", url_for(request.params.merge(locale: 'fr')), class: "dropdown-item"
             - unless locale == 'es'
-              = link_to "🇪🇸 Español", url_for(locale: 'es'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇪🇸 Español", url_for(request.params.merge(locale: 'es')), class: "dropdown-item"
             - unless locale == 'pt'
-              = link_to "🇵🇹 Português", url_for(locale: 'pt'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇵🇹 Português", url_for(request.params.merge(locale: 'pt')), class: "dropdown-item"
             - unless locale == 'pl'
-              = link_to "🇵🇱 Polski", url_for(locale: 'pl'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇵🇱 Polski", url_for(request.params.merge(locale: 'pl')), class: "dropdown-item"
             - unless locale == 'ru'
-              = link_to "🇷🇺 Русский", url_for(locale: 'ru'), class: "dropdown-item", data: { turbo: false }
+              = link_to "🇷🇺 Русский", url_for(request.params.merge(locale: 'ru')), class: "dropdown-item"
 
         = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-link my-sm-0 mr-4')
         = link_to new_user_registration_path, class: 'btn btn-success my-sm-0' do

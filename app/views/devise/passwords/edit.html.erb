@@ -56,7 +56,7 @@
     </ul>
   </div>
 
-  <% if @two_fa_enabled || resource&.otp_module_enabled? %>
+  <% if @two_fa_enabled %>
     <div class="db-form__row">
       <%= f.text_field :otp_code_token, autocomplete: 'off', class: "db-form__input", required: true %>
       <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
