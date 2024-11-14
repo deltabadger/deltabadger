@@ -4,13 +4,13 @@
   <div class="stitle"><%= t('.title') %></div>
 </div>
 
-<div class="row">
-  <div class="col-md-6">
+<div class="columns">
+  <div class="column gap-2">
     <%= render partial: 'settings/forms/update_name', locals: { name_pattern: @name_pattern } %>
     <%= render partial: 'settings/forms/update_email', locals: { email_address_pattern: @email_address_pattern } %>
   </div>
 
-  <div class="col-md-6">
+  <div class="column gap-2">
     <%= render partial: 'settings/forms/update_password', locals: {
       password_pattern: @password_pattern,
       password_length_pattern: @password_length_pattern,
@@ -20,7 +20,7 @@
       password_symbol_pattern: @password_symbol_pattern,
     } %>
 
-    <div class="db-box">
+    <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('settings.index.two_factor_section') %></h4>
       <div class="form-group db-form-group--main-btn">
         <%= link_to @two_fa_button_text, settings_edit_two_fa_path, class: "btn btn-lg btn-primary btn-success", data: { turbo_frame: "modal" } %>

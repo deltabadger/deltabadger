@@ -1,19 +1,19 @@
 development:
   adapter: postgresql
   encoding: unicode
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }
+  pool: <%= ENV['MAX_DB_CONNECTIONS'] || ENV['RAILS_MAX_THREADS'] || 5 %>
   database: deltabadger_development
 
 test:
   adapter: postgresql
   encoding: unicode
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }
+  pool: <%= ENV['MAX_DB_CONNECTIONS'] || ENV['RAILS_MAX_THREADS'] || 5 %>
   database: deltabadger_test
 
 production:
   adapter: postgresql
   encoding: unicode
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }
+  pool: <%= ENV['MAX_DB_CONNECTIONS'] || ENV['RAILS_MAX_THREADS'] || 5 %>
   database: deltabadger_production
   username: deltabadger
   password: <%= ENV['DELTABADGER_DATABASE_PASSWORD'] %>
