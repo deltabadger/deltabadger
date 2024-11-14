@@ -2,17 +2,18 @@
     width: 1.8rem
     height: 1.8rem
     position: relative
+    transition: transform .2s
     &__a, &__b
         position: absolute
         width: 100%
         height: 100%
         background-color: #fff
-        transition: clip-path 0.3s
+        transition: clip-path .2s
     &--start
         .animicon__a
             clip-path: polygon(13.4% 0, 50% 21%, 50% 79%, 13.5% 100%)
         .animicon__b
-            clip-path: polygon(50% 21%, 100% 50%, 50% 79%)
+            clip-path: polygon(50% 21%, 100% 50%, 100% 50%, 50% 79%)
     &--stop
         .animicon__a
             clip-path: polygon(20% 10%, 40% 10%, 40% 90%, 20% 90%)
