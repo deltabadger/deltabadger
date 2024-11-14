@@ -5,7 +5,7 @@
     <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
       <%= portfolio_label %>
       <%= render "svg/16x16_down" %>
-      <div class="dropdown">
+      <div class="dropdown dropdown--portfolio">
         <%= link_to "#{t('utils.new')} +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
         <% if other_portfolios.any? %>
           <div class="dropdown__item dropdown__item--divider"></div>

@@ -79,6 +79,21 @@ de:
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'Dein Probemonat endet bald!'
+    data_labels:
+        bought_ticker: "Gekauft (%{ticker})"
+        avg_price_ticker: "Durchschn. Preis (%{ticker})"
+        invested_ticker: "Investiert (%{ticker})"
+        value_ticker: "Wert (%{ticker})"
+        date: Datum
+    button:
+        connect: "Verbinden"
+    bot:
+        barbell:
+            invest_html: "Investiere %{input} /Monat"
+        utils:
+            mkt_cap_adjusted: "Nach Marktkapitalisierung"
+            mkt_cap_adjusted_info: |
+                Die Zuweisung erfolgt automatisch basierend auf der Marktkapitalisierung der Münzen in Ihrem Portfolio. Je größer die Marktkapitalisierung, desto größer die Zuweisung.
     bots:
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'

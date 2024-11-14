@@ -112,6 +112,22 @@ en:
         notify_about_restart:
             subject: 'Oops! Next try…'
             template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    button:
+        connect: "Connect"
+    bot:
+        barbell:
+            invest_html:
+                "Invest %{input} /month"
+        utils:
+            mkt_cap_adjusted: "Market Cap adjusted"
+            mkt_cap_adjusted_info: |
+                The allocation is automatically set based on the market cap of the coins in your portfolio. The larger the market cap, the larger the allocation.
+    data_labels:
+        bought_ticker: "Bought (%{ticker})"
+        avg_price_ticker: "Avg. Price (%{ticker})"
+        invested_ticker: "Invested (%{ticker})"
+        value_ticker: "Value (%{ticker})"
+        date: Date
     bots:
         above: above
         add_new_bot: 'Add new bot'

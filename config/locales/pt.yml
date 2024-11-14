@@ -11,7 +11,6 @@ pt:
                         eth_address:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
-
         dca_profit_html: 'Se você estivesse investindo regularmente em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria&nbsp;com um ganho de <span class="text-success">%{profit}%</span>'
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
@@ -80,6 +79,21 @@ pt:
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
+    data_labels:
+        bought_ticker: "Comprado (%{ticker})"
+        avg_price_ticker: "Preço Médio (%{ticker})"
+        invested_ticker: "Investido (%{ticker})"
+        value_ticker: "Valor (%{ticker})"
+        date: Data
+    button:
+        connect: "Conectar"
+    bot:
+        barbell:
+            invest_html: "Investir %{input} /mês"
+        utils:
+            mkt_cap_adjusted: "Ajustado pela capitalização"
+            mkt_cap_adjusted_info: |
+                A alocação é definida automaticamente com base na capitalização de mercado das moedas em sua carteira. Quanto maior a capitalização, maior a alocação.
     bots:
         above: acima
         add_new_bot: 'Adicionar novo bot'
