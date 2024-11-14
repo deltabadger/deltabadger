@@ -64,6 +64,13 @@ $formUnit: 2rem
 
 // forms
 
+.widget
+  .db-form
+    &__label
+      background: var(--background)
+    &__input
+      background: var(--background)
+
 .db-wire-transfer-in-progress
   input
     display: none
@@ -104,6 +111,8 @@ $formUnit: 2rem
           outline: none !important
           background: var(--paper)
           cursor: pointer
+        label
+          top: 0rem
 
       &--referralcode
         input
@@ -134,12 +143,13 @@ $formUnit: 2rem
     background:     var(--paper)
     color:          #678
     position:       absolute
-    top:            2rem
+    top:            3.4rem
     padding-left:   .5rem
     padding-right:  .5rem
     left:           2.2rem
     transition:     all 100ms ease-out
     pointer-events: none
+    line-height: 2px
   &__input
     font-size: 2rem
     color: var(--text)
@@ -168,7 +178,7 @@ $formUnit: 2rem
     &--select,&:focus,&:not([value=""]),&:placeholder-shown,&[type="date"]
       opacity: 1
       &~.db-form__label
-        top: -1.2rem
+        top: 0
         font-size: 1.75rem
     &.is-invalid
       &:not(:focus)

@@ -1,5 +1,5 @@
 <%= turbo_frame_tag "update_api_keys_form" do %>
-  <div class="db-box">
+  <div class="widget widget--single">
     <h4 class="db-modal__subtitle"><%= t('.api_keys_section') %></h4>
     <h5 class="db-modal__subtitle">Trading keys</h5>
     <%= render partial: 'api_key', collection: current_user.trading_api_keys, as: :api_key %>

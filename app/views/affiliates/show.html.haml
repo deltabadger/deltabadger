@@ -8,8 +8,8 @@
 
 .page-head
   .stitle= t('.title')
-.row
-  .col-sm-12.col-lg-6
+.columns
+  .column.gap-2
 
     .db-referral-stats
       - stats = Presenters::Affiliates::ReferrerStats.new(affiliate)
@@ -29,8 +29,8 @@
         .db-referral-stats__item__number
           = stats.paid_commission
 
-  .col-sm-12.col-lg-6
-    .db-box
+  .column.gap-2
+    .widget.widget--single
       %h4.db-modal__subtitle #{t('.link_title')}
       .db-form__row.db-form__row--input.mb-0
         %input.db-form__input{ :id => 'referralLink', :type=>"text", :value=>ENV['HOME_PAGE_URL']+ref_code_path(code: affiliate.code, locale: nil), :readonly=>"readonly" }
@@ -53,7 +53,7 @@
         .db-form__info.db-form__info{:id => 'copyAlert', class: 'text-success', style: 'visibility: hidden', visible: false}
           = t('referral.copied')
 
-    .db-box
+    .widget.widget--single
       %h4.db-modal__subtitle  #{t('.update_info')}
       - presenter = RefCodesPresenter.new(affiliate)
       %p= t('affiliates.info_preview')
@@ -72,7 +72,7 @@
 
         .form-group.db-form-group--main-btn
           = f.submit t('.submit'), class: 'btn btn-lg btn-primary'
-    .db-box
+    .widget.widget--single
       %h4.db-modal__subtitle  #{t('.update_bitcoin_address')}
       = form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f|
         .db-form__row.db-form__row--input

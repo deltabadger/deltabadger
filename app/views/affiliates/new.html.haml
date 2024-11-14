@@ -1,7 +1,7 @@
 - content_for :body_class, ".view--referral-program"
-.row
-  .col-sm-12.col-lg-6
-    .db-box.db-referral-program-registration
+.columns
+  .column.gap-2
+    .widget.widget--single.db-referral-program-registration
       %h4.db-modal__subtitle
         = t('.share_html')
         %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
@@ -31,14 +31,14 @@
 
 
     = t('affiliates.manual_html')
-  .col-sm-12.col-lg-6
+  .column.gap-2
     .db-referral-program-registration
 
       = form_with model: affiliate, local: true, url: affiliate_path do |f|
 
         %h2.mb-4= t('.title')
         %p.mb-5= t('.title_info')
-        .db-box
+        .widget.widget--single
           %h4.mb-4
             %span.db-number 1
             = t('.referrer_info')
@@ -68,7 +68,7 @@
               =t('subscriptions.payment.invalid_vat_number')
             = f.label :vat_number, "VAT number (optional)", class: "db-form__label"
 
-        .db-box
+        .widget.widget--single
           %h4.pb-3
             %span.db-number 2
             = t('.payout_address')
@@ -79,7 +79,7 @@
               #{t('affiliates.invalid_bitcoin_address')}
             = f.label :btc_address, t('affiliates.your_bitcoin_address'), class: "db-form__label"
 
-        .db-box
+        .widget.widget--single
           %h4.pb-3
             %span.db-number 3
             = t('.program_settings_html')
@@ -89,7 +89,7 @@
             .db-referral-prefix= "deltabadger.com/ref/"
             = f.label :code, t('.pick_referral_code'), class: "db-form__label"
 
-        .db-box
+        .widget.widget--single
           %h4.pb-3
             %span.db-number 4
             = t('.visible_info')
