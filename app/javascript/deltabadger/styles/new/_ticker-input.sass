@@ -8,7 +8,6 @@
     line-height:        4rem
     .numeric-input
         background:     none
-        padding:        0
         &:focus
             outline: none
         &[disabled]
@@ -20,13 +19,10 @@
     &--autoscale
         .numeric-input
             min-width: 2rem
-            padding-left: 1rem
             width: 100%
     &--reverse
         flex-direction: row-reverse
         .numeric-input
-            padding-right:  2rem
-            padding-left:   0
             text-align: right
 
 .numeric-input
@@ -36,9 +32,13 @@
     background: var(--widget-background)
     border-radius: 2rem
     border: none
-    padding: 0 2rem
+    padding: 0 1rem
     text-align: right
     &::placeholder
         color: var(--input-text-inactive)
     &:focus
         outline: none
+
+.widget
+    .ticker-input
+        background-color: var(--background)
