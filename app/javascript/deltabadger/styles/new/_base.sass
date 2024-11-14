@@ -31,11 +31,10 @@ dialog
     display: grid
     gap: 4rem
     grid-template-columns: 1fr 1fr
-    @media only screen and (max-width: 1359px)
-        grid-template-columns: 2fr 3fr
-    @media only screen and (max-width: 1023px)
+    @media only screen and (max-width: 1359.9px)
+        gap: 2rem
+    @media only screen and (max-width: 1023.9px)
         grid-template-columns: 1fr
-        gap: 7rem
 .column
     display: flex
     flex-direction: column
