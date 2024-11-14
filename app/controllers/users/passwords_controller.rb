@@ -48,13 +48,13 @@ class Users::PasswordsController < Devise::PasswordsController
     reset_password_token = Devise.token_generator.digest(self, :reset_password_token, original_token)
     user = User.find_or_initialize_with_errors([:reset_password_token], reset_password_token: reset_password_token)
     @user_email = user.email
+    @two_fa_enabled = user.otp_module_enabled?
     return if user.persisted? && user.reset_password_period_valid?
 
     redirect_to new_user_password_path, alert: t('devise.passwords.token_expired')
   end
 
   def set_edit_instance_variables
-    @two_fa_enabled = resource&.otp_module_enabled?
     @disable_third_party_scripts = true
     @email_address_pattern = User::Email::ADDRESS_PATTERN
     @password_length_pattern = User::Password::LENGTH_PATTERN
@@ -67,9 +67,12 @@ class Users::PasswordsController < Devise::PasswordsController
   end
 
   def abort_update(field, error_message)
-    resource.errors.add field, error_message
+    resource.errors.add(field, error_message)
     resource.reset_password_token = resource_params[:reset_password_token]
-    switch_locale { respond_with_navigational(resource) { render :edit } }
+    @user_email = resource.email
+    @two_fa_enabled = resource.otp_module_enabled?
+    set_edit_instance_variables
+    respond_with_navigational(resource) { render :edit }
   end
 
   def handle_turnstile_failure
