@@ -105,6 +105,21 @@ es:
         notify_about_restart:
             subject: 'Oops! Siguiente intento'
             template_html: '<p>El bot no ha podido realizar tu pedido. Parece un problema de intercambio. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    data_labels:
+        bought_ticker: "Comprado (%{ticker})"
+        avg_price_ticker: "Precio Prom. (%{ticker})"
+        invested_ticker: "Invertido (%{ticker})"
+        value_ticker: "Valor (%{ticker})"
+        date: Fecha
+    button:
+        connect: "Conectar"
+    bot:
+        barbell:
+            invest_html: "Invierte %{input} /mes"
+        utils:
+            mkt_cap_adjusted: "Ajustado a la capitalización"
+            mkt_cap_adjusted_info: |
+                La asignación se establece automáticamente según la capitalización de mercado de las monedas en su cartera. Cuanto mayor sea la capitalización de mercado, mayor será la asignación.
     bots:
         above: 'por encima'
         add_new_bot: 'Añadir nuevo bot'

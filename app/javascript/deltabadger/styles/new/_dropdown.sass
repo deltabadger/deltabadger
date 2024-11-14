@@ -1,6 +1,7 @@
 .dropdown-wrapper
     position: relative
     cursor: pointer
+    user-select: none
     &::before
         content: ''
         position: fixed
@@ -36,6 +37,10 @@
     overflow: hidden
     left: 0
     min-width: 24rem
+    &--portfolio
+        @media (max-width: 767.9px)
+            left: auto
+            right: -5rem
     &--ticker
         width: 40rem
     &__search
