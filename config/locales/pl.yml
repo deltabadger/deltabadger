@@ -105,6 +105,21 @@ pl:
         notify_about_restart:
             subject: 'Ups! Następna próba...'
             template_html: '<p>Bot nie mógł wykonać twojego zamówienia. Wygląda to na problem z wymianą walut. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logu bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    data_labels:
+        bought_ticker: "Kupione (%{ticker})"
+        avg_price_ticker: "Średnia Cena (%{ticker})"
+        invested_ticker: "Zainwestowane (%{ticker})"
+        value_ticker: "Wartość (%{ticker})"
+        date: Data
+    button:
+        connect: "Połącz"
+    bot:
+        barbell:
+            invest_html: "Inwestuj %{input} /miesiąc"
+        utils:
+            mkt_cap_adjusted: "Ustaw wg kapitalizacji rynkowej"
+            mkt_cap_adjusted_info: |
+                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w Twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
     bots:
         above: powyżej
         add_new_bot: 'Dodaj nowego bota'
@@ -705,7 +720,7 @@ pl:
         legendary_badger_info_html: '<p>Uzyskaj wszystkie aktualne i przyszłe funkcje planu Pro na całe życie.</p><p>Lubisz płacić raz i mieć wszystko? Dołącz do naszego ekskluzywnego klubu 1000 długoterminowych myślicieli z diamentowymi rękoma i wizją, i stwórz własną legendę.</p><p>Otrzymany NFT zamienia twoją subskrypcję w aktywo, które możesz przekazać lub sprzedać. Każdy token jest wyposażony w unikalną sztukę proceduralną, z 21 ukrytymi <i>easter eggami</i> w <a href="https://legendarybadgers.com/" class="nobreak">kolekcji</a>.</p>'
         legendary_plan_left: "Pozostało %{for_sale_count} z %{total_supply}"
         features:
-            analyzer_html: 'Prism — analityk portfela'
+            analyzer_html: 'Prism: Tester Portfela'
             dca: 'Boty DCA'
             price_limit: 'Limit cenowy'
             fee_cutter: 'Obniżka opłat'
@@ -900,7 +915,7 @@ pl:
         bonds: Obligacje
         gold: Złoto
     dca_calculator:
-        title: "Jak długo musiałbyś oszczędzać $%{amount}/miesięcznie, aby %{goal}?"
+        title: "Jak długo musiałbyś oszczędzać <span>$%{amount}/miesięcznie,</span> aby %{goal}?"
         goal_millionaire: "zostać milionerem"
     alert:
         portfolio:

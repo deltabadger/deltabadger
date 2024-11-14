@@ -34,7 +34,7 @@ de:
             valid_for: 'Gültig für den ersten Kauf auf der Plattform.'
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Pro für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>Bitcoins zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm <b>zahlt bis zu 50 %</b><sup>1</sup> pro Nutzer in BTC (unter Verwendung eines Umtauschverhältnisses aus der Transaktion). Beispiel:</p>\n  <ol>\n <li>Der Einfachheit halber, der Preis von Bitcoin ist ~10000 $, der Rabatt ist 10 %, und deine Marge ist 20 %.</li>\n <li>Der Empfohlene kauft einen 1-Jahres-Plan für 49,99 $ und zahlt nach dem Rabatt 44,99 $, was 0,0045BTC entspricht. Du verdienst 0.001BTC (20 % von 49,99 $).</li>\n <li>Es spielt keine Rolle, ob sich der Preis von Bitcoin in der Zwischenzeit ändert. Dein Gewinn ist in BTC gefestigt.</li>\n <li>Beim nächsten Mal kauft der Empfohlene einen Pro für 149,99 $ und zahlt 0,015BTC. Er oder sie bekommt keinen Rabatt mehr, aber du bekommen immer noch deine 20 %, was 0.003BTC entspricht.</li>\n <li>Du profitierst so lange, wie du einen aktiven Plan<sup>2</sup> hast und dein Gesamtgewinn pro empfohlener Person 50 $ nicht erreicht.</li>\n  </ol>\n\n  <p><em>bitcoin zu verdienen ist die beste Art von Dollar-Cost-Averaging!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> Das Limit ist entweder 50 USD oder 50 EUR, abhängig von der Zahlungswährung.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Für den Empfohlenen funktioniert der Empfehlungslink auch dann, wenn dein Abonnement abgelaufen ist.</small>\n</div>"
         new:
             checked: 'Ich habe mir alles genau angesehen.'
             discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
@@ -45,7 +45,7 @@ de:
             private: Privat
             program_settings_html: 'Link<span class="text-danger">(kann nachträglich nicht mehr geändert werden)</span>'
             referrer_info: 'Info zum Empfehlenden'
-            share_html: 'Teile diesen Link und <span class="text-success">verdiene Bitcoins</span>'
+            share_html: 'Teile diesen Link und <span class="text-success">verdiene bitcoin</span>'
             submit: 'Los geht''s!'
             thanks_referral: 'Mit dem Empfehlungslink von'
             title: 'Registrierung für das Empfehlungsprogramm'
@@ -79,6 +79,21 @@ de:
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'Dein Probemonat endet bald!'
+    data_labels:
+        bought_ticker: "Gekauft (%{ticker})"
+        avg_price_ticker: "Durchschn. Preis (%{ticker})"
+        invested_ticker: "Investiert (%{ticker})"
+        value_ticker: "Wert (%{ticker})"
+        date: Datum
+    button:
+        connect: "Verbinden"
+    bot:
+        barbell:
+            invest_html: "Investiere %{input} /Monat"
+        utils:
+            mkt_cap_adjusted: "Nach Marktkapitalisierung"
+            mkt_cap_adjusted_info: |
+                Die Zuweisung erfolgt automatisch basierend auf der Marktkapitalisierung der Münzen in Ihrem Portfolio. Je größer die Marktkapitalisierung, desto größer die Zuweisung.
     bots:
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'
@@ -588,7 +603,7 @@ de:
         title_short: 'Deltabadger - Auto-DCA in Bitcoin und andere Assets'
         twitter_image_alt: 'Automatisiertes Dollar-Cost-Averaging in Bitcoin, Ethereum, Polkadot, Cardano, Solana und anderen digitalen Assets.'
     referral:
-        banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie bis zu 50$ in BTC</a>. Der beste Weg zum Durchschnittskosteneffekt ist, sich Bitcoins zu verdienen!</b>'
+        banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie bis zu 50$ in BTC</a>. Der beste Weg zum Durchschnittskosteneffekt ist, sich bitcoin zu verdienen!</b>'
         copied: Kopiert!
     settings:
         index:
@@ -638,7 +653,7 @@ de:
         legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
         legendary_plan_left: "%{for_sale_count} von %{total_supply} übrig"
         features:
-            analyzer_html: 'Prism — Portfolio-Analysator'
+            analyzer_html: 'Prism: Portfolio-Analysator'
             dca: 'DCA-Bots'
             price_limit: 'Preislimit'
             fee_cutter: 'Gebührenschneider'
@@ -670,7 +685,7 @@ de:
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
             paid_with_wire_transfer_other: 'I habe eine Überweisung per Wire Transfer durchgeführt'
             pay_html: 'Bezahlen %{amount_html}'
-            pay_with_bitcoin: 'Zahle mit Bitcoin'
+            pay_with_bitcoin: 'Zahle mit bitcoin'
             payment_ordered: 'Zahlung angefordert!'
             referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
@@ -823,7 +838,7 @@ de:
             one: "%{count} Tag"
             other: "%{count} Tage"
     dca_calculator:
-        title: "Wie lange musstest du $%{amount}/Monat sparen, um %{goal}?"
+        title: "Wie lange musstest du <span>$%{amount}/Monat</span> sparen, um %{goal}?"
         goal_millionaire: "Millionär zu werden"
     alert:
         portfolio:

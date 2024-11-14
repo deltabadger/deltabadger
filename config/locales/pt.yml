@@ -11,7 +11,6 @@ pt:
                         eth_address:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
-
         dca_profit_html: 'Se você estivesse investindo regularmente em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria&nbsp;com um ganho de <span class="text-success">%{profit}%</span>'
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
@@ -35,7 +34,7 @@ pt:
             valid_for: 'Válido para a primeira compra na plataforma.'
         info_preview: 'Esta é uma pré-visualização do que as pessoas referidas verão durante o registo:'
         invalid_bitcoin_address: 'Endereço Bitcoin inválido'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">O nosso programa de referência <b>paga até $50</b><sup>1</sup> por utilizador em BTC (utilizado a relação de troca da transação). Exemplo:</p>\n  <ol>\n    <li>Para simplificar, o preço da Bitcoin é ~$10 000, o desconto é de 10% e a sua margem é de 20%.</li>\n    <li>A pessoa referida compra um plano de 1 ano no valor de $49,99, pagando $44,99 após o desconto, o que é igual a 0,0045 BTC. O seu ganho é de 0,001 BTC (20% de $49,99).</li>\n    <li>Não importa se o preço da Bitcoin altera entretanto. O seu lucro está bloqueado em BTC.</li>\n    <li>Na vez seguinte, a pessoa referida compra um plano de 4 anos por $149,99 e paga 0,015 BTC. A pessoa referida já não pode utilizar o desconto, mas você continua a receber os seus 20%, o que é igual a 0,003 BTC.</li>\n    <li>Enquanto o seu plano estiver ativo, continua a lucrar<sup>2</sup>, e o lucro total por pessoa referida não chega a $50.</li>\n  </ol>\n\n  <p><em>Ganhar bitcoins é a melhor forma de investimento pelo preço médio!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> O limite é 50 USD ou 50 EUR, dependendo da moeda em que o preço é apresentado.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para a pessoa referida, a ligação de referência funciona mesmo se a sua subscrição tenha expirado.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">O nosso programa de referência <b>paga até $50</b><sup>1</sup> por utilizador em BTC (utilizado a relação de troca da transação). Exemplo:</p>\n  <ol>\n    <li>Para simplificar, o preço da Bitcoin é ~$10 000, o desconto é de 10% e a sua margem é de 20%.</li>\n    <li>A pessoa referida compra um plano de 1 ano no valor de $49,99, pagando $44,99 após o desconto, o que é igual a 0,0045 BTC. O seu ganho é de 0,001 BTC (20% de $49,99).</li>\n    <li>Não importa se o preço da Bitcoin altera entretanto. O seu lucro está bloqueado em BTC.</li>\n    <li>Na vez seguinte, a pessoa referida compra um plano de 4 anos por $149,99 e paga 0,015 BTC. A pessoa referida já não pode utilizar o desconto, mas você continua a receber os seus 20%, o que é igual a 0,003 BTC.</li>\n    <li>Enquanto o seu plano estiver ativo, continua a lucrar<sup>2</sup>, e o lucro total por pessoa referida não chega a $50.</li>\n  </ol>\n\n  <p><em>Ganhar bitcoin é a melhor forma de investimento pelo preço médio!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> O limite é 50 USD ou 50 EUR, dependendo da moeda em que o preço é apresentado.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para a pessoa referida, a ligação de referência funciona mesmo se a sua subscrição tenha expirado.</small>\n</div>"
         new:
             checked: 'Verifiquei tudo cuidadosamente.'
             discount_info_html: "Irá <b> ganhar <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>,\ne a pessoa referida irá receber <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>% de desconto</b>."
@@ -46,7 +45,7 @@ pt:
             private: Privado
             program_settings_html: 'Ligação <span class="text-danger">(não é possível alterar)</span>'
             referrer_info: 'Informação da pessoa que refere'
-            share_html: 'Partilhe este link e <span class="text-success">ganhe bitcoins</span>'
+            share_html: 'Partilhe este link e <span class="text-success">ganhe bitcoin</span>'
             submit: 'Vamos começar!'
             thanks_referral: 'Graças à ligação de referência de'
             title: 'Registo no programa de referência'
@@ -80,6 +79,21 @@ pt:
     bot_alerts_mailer:
         first_month_ending_soon:
             subject: 'A avaliação do primeiro mês vai terminar em breve!'
+    data_labels:
+        bought_ticker: "Comprado (%{ticker})"
+        avg_price_ticker: "Preço Médio (%{ticker})"
+        invested_ticker: "Investido (%{ticker})"
+        value_ticker: "Valor (%{ticker})"
+        date: Data
+    button:
+        connect: "Conectar"
+    bot:
+        barbell:
+            invest_html: "Investir %{input} /mês"
+        utils:
+            mkt_cap_adjusted: "Ajustado pela capitalização"
+            mkt_cap_adjusted_info: |
+                A alocação é definida automaticamente com base na capitalização de mercado das moedas em sua carteira. Quanto maior a capitalização, maior a alocação.
     bots:
         above: acima
         add_new_bot: 'Adicionar novo bot'
@@ -137,7 +151,7 @@ pt:
                     <p>De outra forma, mantenha as transações pequenas e frequentes e deixe a mágica do DCA acontecer mais rápido.</p>
                 withdrawal_html: |
                     <h3>Saques Automáticos</h3>
-                    <p><i>Se não são suas chaves, não são seus Bitcoins.</i> — Andreas Antonopoulos</p>
+                    <p><i>Se não são suas chaves, não são seus bitcoin.</i> — Andreas Antonopoulos</p>
                     <p>Saque seus fundos para sua própria carteira. É a maneira mais segura de armazenar suas criptomoedas.</p>
             log:
                 date: Data
@@ -616,7 +630,7 @@ pt:
         legendary_badger_info_html: '<p>Obtenha todos os recursos atuais e futuros do plano Pro para a vida toda.</p><p>Gosta de pagar uma vez e obter tudo? Junte-se ao nosso clube exclusivo de 1.000 pensadores de longo prazo com mãos de diamante e visão, e crie sua própria lenda.</p><p>O NFT que você recebe transforma sua assinatura em um ativo que você pode transferir ou vender. Cada token vem com uma arte processual única, com 21 <i>ovos de Páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
         legendary_plan_left: "%{for_sale_count} de %{total_supply} restantes"
         features:
-            analyzer_html: 'Prism — Analisador de portfólio'
+            analyzer_html: 'Prism: Analisador de Portfólio'
             dca: 'Bots de DCA'
             price_limit: 'Limite de preço'
             fee_cutter: 'Corta-Taxas'
@@ -639,7 +653,7 @@ pt:
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
             paid_with_wire_transfer_other: 'Fiz transferência bancária'
-            pay_with_bitcoin: 'Pagar com Bitcoin'
+            pay_with_bitcoin: 'Pagar com bitcoin'
             payment_ordered: 'Pagamento solicitado!'
             referral_discount: '%{discount_percent} de desconto'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
@@ -790,7 +804,7 @@ pt:
             one: "%{count} dia"
             other: "%{count} dias"
     dca_calculator:
-        title: "Quanto tempo você precisava poupar $%{amount}/mês para %{goal}?"
+        title: "Quanto tempo você precisava poupar <span>$%{amount}/mês</span> para %{goal}?"
         goal_millionaire: "se tornar milionário"
     alert:
         portfolio:
