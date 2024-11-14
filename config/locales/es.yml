@@ -21,14 +21,14 @@ es:
             template_html: '<p>Tu enlace de referidos está ganando afiliados. ¡Genial!</p><p>Transferimos una comisión de</p><p> <b>%{amount} BTC</b></p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la banda de tejones!</p>'
         registration_reminder:
             subject: '¡Enhorabuena! ¡Has ganado %{amount} BTC!'
-            template_html: '<p>¡Te espera una nueva comisión del programa de afiliados! Finaliza el registro para recibir tus bitcoins:</p><a class="email-button" style="color: #fff" href=%{link}>Completa el registro.</a>'
+            template_html: '<p>¡Te espera una nueva comisión del programa de afiliados! Finaliza el registro para recibir tus bitcoin:</p><a class="email-button" style="color: #fff" href=%{link}>Completa el registro.</a>'
     affiliates:
         add_link_info: 'Puedes añadir tu nombre y un enlace a tu sitio web para que el referido sepa de dónde procede el descuento. También puedes dejarlo en blanco:'
         apply_code:
             accept: Aceptar
             reject: Volver
             title: 'Enlace de referidos'
-        btc_address_changed: 'Dirección bitcoin cambiada'
+        btc_address_changed: 'Dirección Bitcoin cambiada'
         btc_address_confirmation_sent: 'Correo electrónico de confirmación enviado'
         create:
             error: 'Error en el registro del programa de referidos'
@@ -44,7 +44,7 @@ es:
             valid_for: 'Válido para la primera compra en la plataforma.'
         info_preview: 'Esta es una vista previa de lo que los referidos verán durante el registro:'
         invalid_bitcoin_address: 'Dirección de Bitcoin no válida'
-        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\">Nuestro programa de referidos <b>paga hasta 50</b><sup>1</sup> dólares por usuario en BTC (usando una tasa de cambio de la transacción). Ejemplo:</p>\n  <ol>\n    <li>Para simplificar, el precio de Bitcoin es ~10 000 dólares, el descuento es del 10 % y tu margen es del 20 %.</li>\n <li>El referido compra un plan de 1 año por 49,99 dólares, pagando después del descuento 44,99 dólares, lo que equivale a 0,0045 BTC. Ganas \n    0,001 BTC (20 % de 49,99 dólares).</li>\n    <li>No importa si el precio de Bitcoin cambia mientras tanto. Tu beneficio está bloqueado en BTC.</li>\n    <li>La siguiente vez, el referido compra un plan de 4 años por 149,99 dólares y paga 0,015 BTC. Él o ella ya no obtiene un descuento, pero tú sigues obteniendo tu 20 %, lo que equivale a 0,003 BTC.</li>\n <li>Sigues ganando mientras tengas un plan <sup>2</sup> activo y tu beneficio total por referido no llegue a 50 dólares.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoins es la mejor forma de promediar los costes en dólares!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> El límite es de 50 USD o 50 EUR, dependiendo de la moneda de la tarificación.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para el referido, el enlace de referidos funciona incluso si su suscripción ha caducado.</small>\n</div>"
+        manual_html: "<div class=\"alert alert-success\">\n <p class=\"mt-1\">Nuestro programa de referidos <b>paga hasta 50</b><sup>1</sup> dólares por usuario en BTC (usando una tasa de cambio de la transacción). Ejemplo:</p>\n  <ol>\n    <li>Para simplificar, el precio de Bitcoin es ~10 000 dólares, el descuento es del 10 % y tu margen es del 20 %.</li>\n <li>El referido compra un plan de 1 año por 49,99 dólares, pagando después del descuento 44,99 dólares, lo que equivale a 0,0045 BTC. Ganas \n    0,001 BTC (20 % de 49,99 dólares).</li>\n    <li>No importa si el precio de Bitcoin cambia mientras tanto. Tu beneficio está bloqueado en BTC.</li>\n    <li>La siguiente vez, el referido compra un plan de 4 años por 149,99 dólares y paga 0,015 BTC. Él o ella ya no obtiene un descuento, pero tú sigues obteniendo tu 20 %, lo que equivale a 0,003 BTC.</li>\n <li>Sigues ganando mientras tengas un plan <sup>2</sup> activo y tu beneficio total por referido no llegue a 50 dólares.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoin es la mejor forma de promediar los costes en dólares!</em></p>\n  <small class=\"mb-2\"><sup>1</sup> El límite es de 50 USD o 50 EUR, dependiendo de la moneda de la tarificación.</small>\n  <br>\n  <small class=\"mb-5\"><sup>2</sup> Para el referido, el enlace de referidos funciona incluso si su suscripción ha caducado.</small>\n</div>"
         new:
             checked: 'He comprobado todo cuidadosamente.'
             discount_info_html: "<b> Ganarás <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>,\ny el referido obtendrá un <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> % de descuento</b>."
@@ -55,11 +55,11 @@ es:
             private: Privado
             program_settings_html: 'Enlace <span class="text-danger">(no se puede cambiar)</span>'
             referrer_info: 'Información del referente'
-            share_html: 'Comparte este enlace y <span class="text-success">gana bitcoins</span>'
+            share_html: 'Comparte este enlace y <span class="text-success">gana bitcoin</span>'
             submit: ¡Empecemos!
             thanks_referral: 'Gracias al enlace de referidos de'
             title: 'Registro del programa de referidos'
-            title_info: 'Puedes empezar a compartir tu enlace de inmediato, pero para recibir pagos de bitcoins necesitas primero completar tu registro.'
+            title_info: 'Puedes empezar a compartir tu enlace de inmediato, pero para recibir pagos de bitcoin necesitas primero completar tu registro.'
             unchangable_warning: 'La configuración de esta sección no se puede cambiar más adelante.'
             upgrade: 'Para unirte a nuestro famoso programa de referidos, actualiza a uno de nuestros planes de pago.'
             visible_info: 'Información visible'
@@ -105,6 +105,21 @@ es:
         notify_about_restart:
             subject: 'Oops! Siguiente intento'
             template_html: '<p>El bot no ha podido realizar tu pedido. Parece un problema de intercambio. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    data_labels:
+        bought_ticker: "Comprado (%{ticker})"
+        avg_price_ticker: "Precio Prom. (%{ticker})"
+        invested_ticker: "Invertido (%{ticker})"
+        value_ticker: "Valor (%{ticker})"
+        date: Fecha
+    button:
+        connect: "Conectar"
+    bot:
+        barbell:
+            invest_html: "Invierte %{input} /mes"
+        utils:
+            mkt_cap_adjusted: "Ajustado a la capitalización"
+            mkt_cap_adjusted_info: |
+                La asignación se establece automáticamente según la capitalización de mercado de las monedas en su cartera. Cuanto mayor sea la capitalización de mercado, mayor será la asignación.
     bots:
         above: 'por encima'
         add_new_bot: 'Añadir nuevo bot'
@@ -642,7 +657,7 @@ es:
         title_short: 'Deltabadger • DCA automatizada en Bitcoin y otros activos'
         twitter_image_alt: 'Inversión constante automatizada en Bitcoin, Ethereum, Polkadot, Cardano, Solana y otros activos digitales.'
     referral:
-        banner_html: '<b>Comparte tu enlace para invitar a tus amigos y <a href="/referral-program" alt="Read more">gana hasta 50 dólares en BTC</a>. ¡La mejor manera de seguir la estrategia DCA e invertir en bitcoins es ganándolos!</b>'
+        banner_html: '<b>Comparte tu enlace para invitar a tus amigos y <a href="/referral-program" alt="Read more">gana hasta 50 dólares en BTC</a>. ¡La mejor manera de seguir la estrategia DCA e invertir en Bitcoin es ganándolos!</b>'
         copied: ¡Copiado!
     settings:
         index:
@@ -692,7 +707,7 @@ es:
         legendary_badger_info_html: '<p>Obtén todas las funciones actuales y futuras del plan Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro exclusivo club de 1,000 pensadores a largo plazo con manos de diamante y visión, y crea tu propia leyenda.</p><p>El NFT que recibes convierte tu suscripción en un activo que puedes transferir o vender. Cada token viene con una obra de arte procedural única, con 21 <i>easter eggs</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
         legendary_plan_left: "Quedan %{for_sale_count} de %{total_supply}"
         features:
-            analyzer_html: 'Prism — Analizador de cartera'
+            analyzer_html: 'Prism: Analizador de Cartera'
             dca: 'Bots DCA'
             price_limit: 'Límite de precio'
             fee_cutter: 'Cortador de tarifas'
@@ -724,7 +739,7 @@ es:
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
             paid_with_wire_transfer_other: 'He realizado una transferencia bancaria'
             pay_html: 'Pagar %{amount_html}'
-            pay_with_bitcoin: 'Pagar con Bitcoin'
+            pay_with_bitcoin: 'Pagar con bitcoin'
             payment_ordered: '¡Pago ordenado!'
             referral_discount: '%{discount_percent} de descuento'
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
@@ -877,7 +892,7 @@ es:
             one: "%{count} día"
             other: "%{count} días"
     dca_calculator:
-        title: "¿Cuánto tiempo necesitabas ahorrar $%{amount}/mes para %{goal}?"
+        title: "¿Cuánto tiempo necesitabas ahorrar <span>$%{amount}/mes</span> para %{goal}?"
         goal_millionaire: "convertirte en millonario"
     alert:
         portfolio:

@@ -25,7 +25,7 @@ en:
             template_html: '<p>Your referral link is gaining traction! Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
         registration_reminder:
             subject: 'Wow! You earned %{amount} BTC!'
-            template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoins:</p><a class="email-button" style="color: #fff" href=%{link}>Complete registration.</a>'
+            template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoin:</p><a class="email-button" style="color: #fff" href=%{link}>Complete registration.</a>'
     affiliates:
         add_link_info: 'You can add your name and link to your website to let the referral know where the discount is coming from. You can also leave it blank:'
         apply_code:
@@ -48,7 +48,7 @@ en:
             valid_for: 'Valid for the first purchase on the platform.'
         info_preview: 'This is a preview of what referrals will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referral buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referral buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referral does not reach $50.</li> </ol><p><em>Earning bitcoins is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referral, the referral link works even if your subscription has expired.</small> </div>'
+        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referral buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referral buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referral does not reach $50.</li> </ol><p><em>Earning bitcoin is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referral, the referral link works even if your subscription has expired.</small> </div>'
         new:
             checked: 'I checked everything carefully.'
             discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referral will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
@@ -59,7 +59,7 @@ en:
             private: Private
             program_settings_html: 'Link <span class="text-danger">(can''t be changed)</span>'
             referrer_info: 'Referrer info'
-            share_html: 'Share this link and <span class="text-success">earn bitcoins</span>'
+            share_html: 'Share this link and <span class="text-success">earn bitcoin</span>'
             submit: 'Let''s start!'
             thanks_referral: 'Thanks to the referral link from'
             title: 'Referral program registration'
@@ -112,6 +112,22 @@ en:
         notify_about_restart:
             subject: 'Oops! Next try…'
             template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    button:
+        connect: "Connect"
+    bot:
+        barbell:
+            invest_html:
+                "Invest %{input} /month"
+        utils:
+            mkt_cap_adjusted: "Market Cap adjusted"
+            mkt_cap_adjusted_info: |
+                The allocation is automatically set based on the market cap of the coins in your portfolio. The larger the market cap, the larger the allocation.
+    data_labels:
+        bought_ticker: "Bought (%{ticker})"
+        avg_price_ticker: "Avg. Price (%{ticker})"
+        invested_ticker: "Invested (%{ticker})"
+        value_ticker: "Value (%{ticker})"
+        date: Date
     bots:
         above: above
         add_new_bot: 'Add new bot'
@@ -647,7 +663,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
-        community: 'Community'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -658,7 +674,7 @@ en:
         menu: Menu
         privacy_policy: 'Privacy Policy'
         earn: 'Earn'
-        referral_program: 'Share & Earn'
+        referral_program: 'Affiliate Program'
         resend_link: 'Resend link'
         settings: Settings
         sign_up: 'Sign up'
@@ -730,13 +746,13 @@ en:
         legendary_badger_info_html: '<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
         legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
         features:
-            analyzer_html: '🌈⃤ Prism: portfolio tester'
+            analyzer_html: 'Prism: Portfolio Tester'
             dca: 'DCA bots'
             price_limit: 'Price limit'
             fee_cutter: 'FeeCutter'
             withdrawals: 'Auto-withdrawals'
         limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
-        analyzer_html: 'Boost your portfolio with the unlimited power of <b>🌈⃤ Prism</b> portfolio tester.'
+        analyzer_html: 'Boost your portfolio with the unlimited power of the Prism: Portfolio Tester.'
         expires_soon_html: 'We''re building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -762,7 +778,7 @@ en:
             paid_with_wire_transfer: 'I''ve sent the SEPA transfer'
             paid_with_wire_transfer_other: 'I''ve sent the wire transfer'
             pay_html: 'Pay %{amount_html}'
-            pay_with_bitcoin: 'Pay with Bitcoin'
+            pay_with_bitcoin: 'Pay with bitcoin'
             pay_with_card: 'Pay with Card'
             payment_ordered: 'Payment ordered!'
             referral_discount: '%{discount_percent} discount'
@@ -916,7 +932,7 @@ en:
             one: "%{count} day"
             other: "%{count} days"
     dca_calculator:
-        title: "How long you had to save $%{amount}/month to %{goal}?"
+        title: "How long you had to save <span>$%{amount}/month</span> to %{goal}?"
         goal_millionaire: "become a millionaire"
     alert:
         portfolio:

@@ -1,5 +1,5 @@
 .menu-mobile
-  transition: left 0.25s
+  transition: left .5s, box-shadow .5s
   background: var(--background)
   position: fixed
   top: 0
@@ -19,6 +19,11 @@
     font-weight: 700
     width: 100%
     display: block
+    .icon-16
+      position: relative
+      top: -0.125rem
+    path
+      fill: var(--menulink)
   &__button
     background: none
     border: none

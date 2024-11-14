@@ -2,12 +2,16 @@
     display: flex
     flow-direction: row
     gap: 4rem
+    @media only screen and (max-width: 1359.9px)
+        gap: 2rem
     &__plans
         display: grid
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))
         grid-template-rows: 1fr
         gap: 2px
         width: calc(75% - 4rem)
+        @media only screen and (max-width: 1359.9px)
+            width: calc(75% - 2rem)
         .widget
             &:first-child
                 border-top-left-radius: 2rem
@@ -17,7 +21,7 @@
                 border-bottom-right-radius: 2rem
     &__checkout
         width: 25%
-        gap: 1rem
+        gap: 2rem
         display: flex
         flex-direction: column
         &__calculations
@@ -102,9 +106,7 @@
                         margin-right: .25rem
         ul
             list-style: none
-            display: flex
-            flex-direction: column
-            gap: 2rem
+            padding-left: 0
             li
                 padding-left: 3.5rem
                 position: relative
@@ -220,7 +222,7 @@
             width: 40%
 @media only screen and (max-width: 767.9px)
     .pricing
-        gap: 1rem
+        gap: 2rem
         flex-direction: column
         &__plans, &__checkout
             width: 100%
