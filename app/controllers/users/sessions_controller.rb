@@ -20,11 +20,11 @@ class Users::SessionsController < Devise::SessionsController
         if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
           continue_sign_in(resource_name, resource)
         else
-          resource.errors.add :otp_code_token, t('errors.messages.bad_2fa_code')
+          resource.errors.add(:otp_code_token, t('errors.messages.bad_2fa_code'))
           abort_sign_in
         end
       else
-        resource.errors.add :otp_code_token, t('errors.messages.empty_two_fa_token')
+        resource.errors.add(:otp_code_token, t('errors.messages.empty_two_fa_token'))
         abort_sign_in
       end
     elsif params[:user][:otp_code_token].empty?
