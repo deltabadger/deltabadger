@@ -21,7 +21,7 @@ fr:
             template_html: '<p>Votre lien de parrainage fonctionne à merveille ! Super !</p><p>Nous transférons une commission de</p><p> <b>%{amount} BTC</b></p><p>sur votre portefeuille Bitcoin.</p><p>Merci d''agrandir le Badger gang !</p>'
         registration_reminder:
             subject: 'Wow! Vous avez gagné %{amount} BTC !'
-            template_html: '<p>Une nouvelle commission du programme de parrainage vous attend ! Terminez l''inscription pour recevoir vos bitcoins :</p><a class="email-button" style="color: #fff" href=%{link}>Terminer l''inscription.</a>'
+            template_html: '<p>Une nouvelle commission du programme de parrainage vous attend ! Terminez l''inscription pour recevoir vos bitcoin :</p><a class="email-button" style="color: #fff" href=%{link}>Terminer l''inscription.</a>'
     affiliates:
         add_link_info: 'Vous pouvez ajouter votre nom et un lien vers votre site web pour que le parrainé sache d''où vient la réduction. Vous pouvez également ne rien ajouter :'
         apply_code:
@@ -44,7 +44,7 @@ fr:
             valid_for: 'Valable dès le premier achat sur la plateforme.'
         info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
         invalid_bitcoin_address: 'Adresse Bitcoin invalide'
-        manual_html: "<div class=\"alert alert-success\"> <p class=\"mt-1\"> Notre programme de parrainage <b> offre jusqu''à 50$ </b> <sup> 1 </sup> par utilisateur en BTC (en utilisant le taux d''échange de la transaction). Exemple : </p>\n <ol> <li> Par souci de simplicité, le prix du Bitcoin est d''environ 10000 USD, la remise est de 10% et votre marge est de 20%. </li>\n <li> Le membre parrainé achète un forfait d''un an pour 49,99$, payant après la remise 44,99$, ce qui équivaut à 0,0045 BTC. Vous gagnez 0,001 BTC (20% de 49,99$). </li>\n <li> Peu importe si le prix du Bitcoin change entre-temps. Votre profit est bloqué en BTC. </li>\n <li> Plus tard, le membre parrainé achète un plan de 4 ans pour 149,99$ et paie 0,015 BTC. Il ou elle n''obtient plus de réduction, mais vous obtenez toujours les 20 %, ce qui équivaut à 0,003 BTC. </li>\n <li> Vous continuez à en profiter tant que vous disposez d''un forfait actif <sup> 2 </sup> et que votre bénéfice total par membre parrainé n''atteint pas 50 USD. </li> </ol>\n\n <p> <em> Gagner des bitcoins est le meilleur type de DCA ! </em> </p>\n <small class=\"mb-2\"> <sup> 1 </sup> La limite est de 50 USD ou 50 EUR, selon la devise de la tarification. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Pour le parrain, le lien de parrainage fonctionne même si votre abonnement a expiré. </small>\n </div>"
+        manual_html: "<div class=\"alert alert-success\"> <p class=\"mt-1\"> Notre programme de parrainage <b> offre jusqu''à 50$ </b> <sup> 1 </sup> par utilisateur en BTC (en utilisant le taux d''échange de la transaction). Exemple : </p>\n <ol> <li> Par souci de simplicité, le prix du Bitcoin est d''environ 10000 USD, la remise est de 10% et votre marge est de 20%. </li>\n <li> Le membre parrainé achète un forfait d''un an pour 49,99$, payant après la remise 44,99$, ce qui équivaut à 0,0045 BTC. Vous gagnez 0,001 BTC (20% de 49,99$). </li>\n <li> Peu importe si le prix du Bitcoin change entre-temps. Votre profit est bloqué en BTC. </li>\n <li> Plus tard, le membre parrainé achète un plan de 4 ans pour 149,99$ et paie 0,015 BTC. Il ou elle n''obtient plus de réduction, mais vous obtenez toujours les 20 %, ce qui équivaut à 0,003 BTC. </li>\n <li> Vous continuez à en profiter tant que vous disposez d''un forfait actif <sup> 2 </sup> et que votre bénéfice total par membre parrainé n''atteint pas 50 USD. </li> </ol>\n\n <p> <em> Gagner des bitcoin est le meilleur type de DCA ! </em> </p>\n <small class=\"mb-2\"> <sup> 1 </sup> La limite est de 50 USD ou 50 EUR, selon la devise de la tarification. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Pour le parrain, le lien de parrainage fonctionne même si votre abonnement a expiré. </small>\n </div>"
         new:
             checked: 'J''ai tout vérifié avec soin.'
             discount_info_html: 'Vous <b> gagnerez <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span></b>, et le parrain obtiendra <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}% de</span> réduction</b>.'
@@ -55,7 +55,7 @@ fr:
             private: 'Privé'
             program_settings_html: 'Lien <span class="text-danger"> (ne peut pas être modifié) </span>'
             referrer_info: 'Informations du parrain'
-            share_html: 'Partagez ce lien et <span class="text-success">gagnez des Bitcoins</span>'
+            share_html: 'Partagez ce lien et <span class="text-success">gagnez des bitcoin</span>'
             submit: 'C''est parti !'
             thanks_referral: 'Grâce au lien de parrainage de'
             title: 'Inscription au programme de parrainage'
@@ -725,7 +725,7 @@ fr:
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
             paid_with_wire_transfer_other: 'J''ai effectué un virement bancaire'
             pay_html: 'Payer %{amount_html}'
-            pay_with_bitcoin: 'Payer en Bitcoin'
+            pay_with_bitcoin: 'Payer en bitcoin'
             payment_ordered: 'Paiement ordonné !'
             referral_discount: '%{discount_percent} de réduction'
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
