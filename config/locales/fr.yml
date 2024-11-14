@@ -105,6 +105,21 @@ fr:
         notify_about_restart:
             subject: 'Oups ! Prochain essai...'
             template_html: '<p>Le robot n''a pas pu exécuter votre ordre. On dirait qu''il s''agit d''un problème d''exchange. Nous réessayerons dans %{delay}.</p><p>Toutes les erreurs sont visibles dans le journal du robot. Connectez-vous pour vérifier.</p><p>Erreurs :</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    data_labels:
+        bought_ticker: "Acheté (%{ticker})"
+        avg_price_ticker: "Prix Moy. (%{ticker})"
+        invested_ticker: "Investi (%{ticker})"
+        value_ticker: "Valeur (%{ticker})"
+        date: Date
+    button:
+        connect: "Connecter"
+    bot:
+        barbell:
+            invest_html: "Investir %{input} /mois"
+        utils:
+            mkt_cap_adjusted: "Ajusté à la capitalisation"
+            mkt_cap_adjusted_info: |
+                L'allocation est automatiquement définie en fonction de la capitalisation boursière des pièces dans votre portefeuille. Plus la capitalisation est élevée, plus l'allocation est importante.
     bots:
         above: 'au dessus'
         add_new_bot: 'Ajouter un nouveau bot'
