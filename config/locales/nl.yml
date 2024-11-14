@@ -105,6 +105,21 @@ nl:
         notify_about_restart:
             subject: 'Oeps! Volgende poging...'
             template_html: '<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem bij de exchange. We proberen het opnieuw in %{delay}.</p><p>Alle errors zijn zichtbaar in het logboek van de bot. Log in om dit te controleren.</p><p>Errors:</p><blockquote><b>%{exchange}:%{base}%{quote}</b> <b> %{errors}</b></blockquote>'
+    data_labels:
+        bought_ticker: "Gekocht (%{ticker})"
+        avg_price_ticker: "Gem. Prijs (%{ticker})"
+        invested_ticker: "Geïnvesteerd (%{ticker})"
+        value_ticker: "Waarde (%{ticker})"
+        date: Datum
+    button:
+        connect: "Verbinden"
+    bot:
+        barbell:
+            invest_html: "Investeer %{input} /maand"
+        utils:
+            mkt_cap_adjusted: "Ingesteld op marktkapitalisatie"
+            mkt_cap_adjusted_info: |
+                De toewijzing wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portefeuille. Hoe groter de marktkapitalisatie, hoe groter de toewijzing.    
     bots:
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
