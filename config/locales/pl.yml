@@ -105,6 +105,21 @@ pl:
         notify_about_restart:
             subject: 'Ups! Następna próba...'
             template_html: '<p>Bot nie mógł wykonać twojego zamówienia. Wygląda to na problem z wymianą walut. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logu bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+    data_labels:
+        bought_ticker: "Kupione (%{ticker})"
+        avg_price_ticker: "Średnia Cena (%{ticker})"
+        invested_ticker: "Zainwestowane (%{ticker})"
+        value_ticker: "Wartość (%{ticker})"
+        date: Data
+    button:
+        connect: "Połącz"
+    bot:
+        barbell:
+            invest_html: "Inwestuj %{input} /miesiąc"
+        utils:
+            mkt_cap_adjusted: "Ustaw wg kapitalizacji rynkowej"
+            mkt_cap_adjusted_info: |
+                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w Twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
     bots:
         above: powyżej
         add_new_bot: 'Dodaj nowego bota'
