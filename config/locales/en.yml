@@ -820,9 +820,9 @@ en:
             short_info: 'The expected yearly return based on the CAPM model.'
             best: 'Highest Exp. Return'
         cagr:
-            short_name: 'CAGR'
+            short_name: 'Avg. Return'
             short_info: 'How much your portfolio has grown on average each year.'
-            best: 'Highest CAGR'
+            best: 'Highest Avg. Return'
         max_drawdown:
             short_name: 'Max. Drawdown'
             short_info: 'The biggest drop in your portfolio’s value from its highest point.'

@@ -69,21 +69,9 @@
 
   <div class="columns">
 
-    <div class="column gap-6 mb-6">
+    <div class="column gap-2 mb-6">
 
-      <%= render "smart_allocation_controls", portfolio: @portfolio %>
-
-        <!--<div class="portfolio-value">
-          <div class="label"><%= t('utils.total_value') %> (USD)</div>
-          <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
-          <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
-            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
-            </svg>
-          </div>
-        </div>-->
-
-      <div>
+      <div class="widget widget--single">
         <% if @portfolio.assets.empty? %>
           <%= render "empty", portfolio: @portfolio %>
         <% end %>
@@ -100,29 +88,39 @@
             <%= render 'assets/asset', asset: asset %>
           <% end %>
         <% end %>
+
+        <div class="flex-row space-between" data-controller="modal--open-and-submit-on-key-press">
+
+          <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--primary sbutton--add-asset", data: { turbo_frame: "modal", modal__open_and_submit_on_key_press_target: "button" } do %>
+              <% render "svg/24x24_plus" %>
+          <% end %>
+          <%= render "normalize", portfolio: @portfolio %>
+        </div>
       </div>
 
-      <div class="flex-row space-between" data-controller="modal--open-and-submit-on-key-press">
+      <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
-        <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--add-asset", data: { turbo_frame: "modal", modal__open_and_submit_on_key_press_target: "button" } do %>
-            <% render "svg/24x24_plus" %>
-        <% end %>
-        <%= render "normalize", portfolio: @portfolio %>
-      </div>
+      <!--<div class="portfolio-value">
+        <div class="label"><%= t('utils.total_value') %> (USD)</div>
+        <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
+        <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
+          </svg>
+        </div>
+      </div>-->
+
     </div>
 
     <div class="column gap-1">
       <div class="flex-row space-between wrap gap-1">
-        <div class="flex-row">
-          <%= render "strategy_select", portfolio: @portfolio %>
-          <span class="label"><%= t('utils.since') %></span>
-          <%= render "start_date", portfolio: @portfolio %>
-        </div>
+        <%= render "strategy_select", portfolio: @portfolio %>
         <%= button_to portfolio_openai_insights_path(@portfolio), method: :get, id: "openai-insights-button", class: "sbutton sbutton--link sbutton--ai", style: "position: relative", data: { turbo_stream: true, turbo_submits_with: "Thinking..." }, disabled: @portfolio.limited? do %>
           <%= t('analyzer.insights') %>
           <%= render "svg/24x24_magic" %>
         <% end %>
       </div>
+
       <%= render "backtest_results", backtest: @backtest, portfolio: @portfolio, compare_to_portfolios: @compare_to_portfolios %>
       <div class="flex-row gap-2 wrap space-between">
         <%= render "risk_free_rate", portfolio: @portfolio %>
