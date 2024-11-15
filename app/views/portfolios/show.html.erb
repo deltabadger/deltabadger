@@ -71,18 +71,6 @@
 
     <div class="column gap-2 mb-6">
 
-      <%= render "smart_allocation_controls", portfolio: @portfolio %>
-
-      <!--<div class="portfolio-value">
-        <div class="label"><%= t('utils.total_value') %> (USD)</div>
-        <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
-        <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
-          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
-          </svg>
-        </div>
-      </div>-->
-
       <div class="widget widget--single">
         <% if @portfolio.assets.empty? %>
           <%= render "empty", portfolio: @portfolio %>
@@ -109,6 +97,19 @@
           <%= render "normalize", portfolio: @portfolio %>
         </div>
       </div>
+
+      <%= render "smart_allocation_controls", portfolio: @portfolio %>
+
+      <!--<div class="portfolio-value">
+        <div class="label"><%= t('utils.total_value') %> (USD)</div>
+        <input type="text" class="numeric-input iu-numeric iu-autowidth" size="1" placeholder="0">
+        <div class="basket__remove__icon icon-20" style="background: none; border: none; padding: 0;">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5.5 5.5L10.5 10.5M5.5 10.5L10.5 5.5" stroke="#8894B6" stroke-width="1.5" stroke-linecap="square"></path>
+          </svg>
+        </div>
+      </div>-->
+
     </div>
 
     <div class="column gap-1">
