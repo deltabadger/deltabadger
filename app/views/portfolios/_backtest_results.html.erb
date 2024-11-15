@@ -14,6 +14,11 @@
 
     <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>
 
+    <div class="widget widget--thin flex-row">
+      <span class="label"><%= t('utils.since') %></span>
+      <%= render "start_date", portfolio: @portfolio %>
+    </div>
+
     <div class="widget widget--chart">
       <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
         <div class="label"><%= t('analyzer.pnl') %></div>
@@ -38,8 +43,8 @@
     <div class="widget data-grid">
 
       <% metrics = {
-        exp_return: backtest_metric_value(backtest['metrics']['expectedReturn'], percentage: true),
         cagr: backtest_metric_value(backtest['metrics']['cagr'], percentage: true),
+        exp_return: backtest_metric_value(backtest['metrics']['expectedReturn'], percentage: true),
         volatility: backtest_metric_value(backtest['metrics']['volatility'], percentage: true),
         max_drawdown: backtest_metric_value(backtest['metrics']['maxDrawdown'], percentage: true),
         var: backtest_metric_value(backtest['metrics']['valueAtRisk'], percentage: true),
@@ -61,7 +66,7 @@
             <%= t("metrics.#{key}.short_name") %>
           </div>
           <div class="data-grid__item__value">
-            <% if ["pro", "legendary"].include?(current_user.subscription.name) || !["cagr", "var", "cvar", "sortino_ratio", "calmar_ratio", "alpha", "beta", "treynor_ratio", "omega_ratio", "r_squared", "info_ratio"].include?(key.to_s) %>
+            <% if ["pro", "legendary"].include?(current_user.subscription.name) || !["var", "cvar", "sharpe_ratio", "sortino_ratio", "calmar_ratio", "alpha", "beta", "treynor_ratio", "omega_ratio", "r_squared", "info_ratio"].include?(key.to_s) %>
               <%= value %>
             <% else %>
               <%= render 'svg/24x24_lock' %>
