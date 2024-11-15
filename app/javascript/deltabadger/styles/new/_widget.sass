@@ -14,10 +14,12 @@
         margin-bottom: 0
         &.widget--chart
             padding-bottom: 2rem
+            @media only screen and (max-width: 549.9px)
+                padding-bottom: 1rem
         &.data-grid
             border-radius: 2rem
             overflow: hidden
-    @media only screen and (max-width: 549px)
+    @media only screen and (max-width: 549.9px)
         padding: 2rem
     &.data-grid
         padding: 0
@@ -37,6 +39,8 @@
             margin-bottom: 0
         td, th
             padding: 1.5rem 0 1.5rem 3rem
+            @media only screen and (max-width: 549.9px)
+                padding: 1.5rem 0 1.5rem 2rem
             &:last-child
                 padding-right: 3rem
         .table-striped tbody tr:nth-of-type(odd)
@@ -61,6 +65,8 @@
         display: flex
         flex-direction: column
         background-color: var(--widget-background)
+        @media only screen and (max-width: 549.9px)
+            padding: 2rem 2rem 1rem 2rem
         &:not(.data-grid__item--empty):hover
             // background-color: var(--widget-line)
             // cursor: pointer
