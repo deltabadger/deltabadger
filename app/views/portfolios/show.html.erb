@@ -72,22 +72,33 @@
     <div class="column gap-2 mb-6">
 
       <div class="widget widget--single">
-        <% if @portfolio.assets.empty? %>
-          <%= render "empty", portfolio: @portfolio %>
-        <% end %>
-        <%= tag.div id: "portfolio-active-assets", class: "basket" do %>
-          <% @portfolio.active_assets.each do |asset| %>
-            <%= render 'assets/asset', asset: asset %>
+        <div> <%# we need to wrap child animated content in a div without gap/grid-gap %>
+          <% if @portfolio.assets.empty? %>
+            <%= render "empty", portfolio: @portfolio %>
+          <% else %>
+            <%= render "smart_allocation_toggle", portfolio: @portfolio %>
+            <% if @portfolio.smart_allocation_on? %>
+              <%= render "smart_allocation_slider", portfolio: @portfolio %>
+            <% end %>
           <% end %>
-        <% end %>
-        <% if @portfolio.idle_assets.any? %>
-          <%= render "idle_assets_label", portfolio: @portfolio %>
-        <% end %>
-        <%= tag.div id: "portfolio-idle-assets", class: "basket basket--idle" do %>
-          <% @portfolio.idle_assets.each do |asset| %>
-            <%= render 'assets/asset', asset: asset %>
+
+          <%= tag.div id: "portfolio-active-assets", class: "basket" do %>
+            <% @portfolio.active_assets.each do |asset| %>
+              <%= render 'assets/asset', asset: asset %>
+            <% end %>
           <% end %>
-        <% end %>
+
+          <% if @portfolio.idle_assets.any? %>
+            <%= render "idle_assets_label", portfolio: @portfolio %>
+          <% end %>
+
+          <%= tag.div id: "portfolio-idle-assets", class: "basket basket--idle" do %>
+            <% @portfolio.idle_assets.each do |asset| %>
+              <%= render 'assets/asset', asset: asset %>
+            <% end %>
+          <% end %>
+
+        </div>
 
         <div class="flex-row space-between" data-controller="modal--open-and-submit-on-key-press">
 
@@ -97,8 +108,6 @@
           <%= render "normalize", portfolio: @portfolio %>
         </div>
       </div>
-
-      <%= render "smart_allocation_controls", portfolio: @portfolio %>
 
       <!--<div class="portfolio-value">
         <div class="label"><%= t('utils.total_value') %> (USD)</div>

@@ -1,0 +1,28 @@
+<%= tag.div id: "smart-allocation-toggle" do %>
+  <% if portfolio.assets.present? %>
+    <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, class: "smart-allocation", data: {
+      controller: "form--submit",
+      hw_animate_in_before: "animate-smart-allocation-toggle-in",
+      hw_animate_out_remove: "animate-smart-allocation-toggle-out"
+    } do |form| %>
+      <div class="toggle">
+        <%= form.check_box :smart_allocation_on, data: { action: "change->form--submit#submit" }, disabled: portfolio.limited? %>
+        <div class="toggle__style"></div>
+        <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
+
+        <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+          <div class="tooltip-icon--off">
+            <%= render 'svg/24x24_info' %>
+          </div>
+          <div class="tooltip-icon--on">
+            <%= render 'svg/24x24_info-filled' %>
+          </div>
+          <div class="tooltip tooltip--smart-allocation">
+            <%= t('analyzer.smart_allocation.short_info_html') %>
+          </div>
+        </div>
+
+      </div>
+    <% end %>
+  <% end %>
+<% end %>

@@ -1,3 +1,8 @@
 <%= tag.div id: "portfolio-empty" do %>
-  <p><%= t('analyzer.no_assets') %></p>
+  <%= tag.div class: "label basket__excluded-assets-label", data: {
+      hw_animate_in_before: "animate-label-in",
+      hw_animate_out_remove: "animate-label-out"
+  } do %>
+    <span><%= t('analyzer.no_assets') %></span>
+  <% end %>
 <% end %>

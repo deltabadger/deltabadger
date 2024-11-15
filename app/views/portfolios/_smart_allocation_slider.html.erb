@@ -1,35 +1,16 @@
-<%= tag.div id: "smart-allocation-controls", class: "smart-allocation widget widget--single" do %>
-  <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
-    <div class="toggle">
-      <%= form.check_box :smart_allocation_on, data: { action: "change->form--submit#submit" }, disabled: portfolio.limited? %>
-      <div class="toggle__style"></div>
-      <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
-
-      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
-        <div class="tooltip-icon--off">
-          <%= render 'svg/24x24_info' %>
-        </div>
-        <div class="tooltip-icon--on">
-          <%= render 'svg/24x24_info-filled' %>
-        </div>
-        <div class="tooltip tooltip--smart-allocation">
-          <%= t('analyzer.smart_allocation.short_info_html') %>
-        </div>
-      </div>
-
-    </div>
-  <% end %>
-
+<div id="smart-allocation-slider">
   <%= form_with model: portfolio, url: portfolio_update_risk_level_path(portfolio),
   method: :patch,
   html: {
     onchange: "requestSubmit();"
   },
-  class: "smart-allocation__slider #{'smart-allocation__slider--off' unless portfolio.smart_allocation_on?}",
+  class: "smart-allocation__slider",
   data: {
     controller: "portfolio-analyzer--risk-level-allocations",
     portfolio_analyzer__risk_level_allocations_risk_levels_value: Portfolio.humanized_risk_levels,
     portfolio_analyzer__risk_level_allocations_smart_allocations_value: portfolio.assets.present? && portfolio.smart_allocation_on? ? portfolio.smart_allocations : [],
+    hw_animate_in_after: "animate-smart-allocation-slider-in",
+    hw_animate_out_remove: "animate-smart-allocation-slider-out"
   } do |form| %>
     <div class="flex-row space-between">
       <div class="label label--select ellipsis">
@@ -85,5 +66,4 @@
       </div>
     </div>
   <% end %>
-<% end %>
-
+</div>

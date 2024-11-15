@@ -72,6 +72,7 @@
     padding-bottom: 0
 
 
+
 .animate-label-in
   overflow: hidden
   animation: slide-down-label 0.25s, fade-in 0.25s
@@ -102,4 +103,60 @@
   to
     max-height: 0
     padding-top: 0
+    padding-bottom: 0
+
+
+
+.animate-smart-allocation-toggle-in
+  overflow: hidden
+  animation: slide-down-smart-allocation-toggle 0.25s, fade-in 0.25s
+
+.animate-smart-allocation-toggle-out
+  overflow: hidden
+  animation: slide-up-smart-allocation-toggle 0.25s, fade-out 0.25s
+
+/* "max-height: auto" unfortunately does not work here, so we set
+ * to a fixed height that is greater than the expected height.
+@keyframes slide-down-smart-allocation-toggle
+  from
+    max-height: 0
+    padding-bottom: 0
+
+  to
+    max-height: calc(3.1rem + 4rem) // element height / 16 * 2  + padding-y
+
+@keyframes slide-up-smart-allocation-toggle
+  from
+    max-height: calc(3.1rem + 4rem) // element height / 16 * 2  + padding-y
+
+  to
+    max-height: 0
+    padding-bottom: 0
+
+
+
+.animate-smart-allocation-slider-in
+  overflow: hidden
+  animation: slide-down-smart-allocation-slider 0.25s, fade-in 0.25s
+
+.animate-smart-allocation-slider-out
+  overflow: hidden
+  animation: slide-up-smart-allocation-slider 0.25s, fade-out 0.25s
+
+/* "max-height: auto" unfortunately does not work here, so we set
+ * to a fixed height that is greater than the expected height.
+@keyframes slide-down-smart-allocation-slider
+  from
+    max-height: 0
+    padding-bottom: 0
+
+  to
+    max-height: calc(7rem + 6rem) // element height / 16 * 2  + padding-y
+
+@keyframes slide-up-smart-allocation-slider
+  from
+    max-height: calc(7rem + 6rem) // element height / 16 * 2  + padding-y
+
+  to
+    max-height: 0
     padding-bottom: 0
