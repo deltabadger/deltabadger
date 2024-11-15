@@ -54,10 +54,10 @@ class AssetsController < ApplicationController
         format.html { redirect_to portfolio_analyzer_path, notice: 'Asset allocation was successfully updated.' }
       end
     else
-      flash.now[:alert] = 'Invalid allocation value.'
+      # flash.now[:alert] = 'Invalid allocation value.'
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.' }
+        format.html { redirect_to portfolio_analyzer_path } # , alert: 'Invalid allocation value.' }
       end
     end
   end
