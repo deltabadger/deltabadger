@@ -107,7 +107,7 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resources :bots, only: [:show] do
+    resources :barbell_bots, only: [:show], path: "/barbell-bots" do
       get :show, on: :collection
     end
 
