@@ -68,6 +68,11 @@
       .tooltip
         = t('links.dashboard')
 
+    = link_to bots_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      BB
+      .tooltip
+        = "Barebell Bots"
+
     = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_prism_c'
       .tooltip
