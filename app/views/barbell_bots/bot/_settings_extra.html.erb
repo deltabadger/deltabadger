@@ -1,0 +1,25 @@
+<div class="widget widget--single">
+  <form data-controller="form--submit" action="" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch">
+  <div class="toggle">
+    <input name="" disabled="disabled" type="hidden" value="0"><input data-action="change->form--submit#submit" disabled="disabled" type="checkbox" value="1" name="" id="portfolio_smart_allocation_on">
+    <div class="toggle__style"></div>
+    <label class="label" for="portfolio_smart_allocation_on"><%= t('bot.utils.mkt_cap_adjusted') %></label>
+    <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+      <div class="tooltip-icon--off">
+        <svg class="icon-24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path clip-rule="evenodd" d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm0 2a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" fill-rule="evenodd"></path>
+          <path d="M12 6C10 6 8.6 7.4 8.6 9.5h2.2c0-1 .5-1.5 1.4-1.5.8 0 1.2.4 1.2 1 0 1.4-2.5 2.3-2.5 4.3v.6h2v-.5c0-1.4 2.7-2.1 2.7-4.3 0-1.9-1.3-3.1-3.4-3.1Zm-.2 9.3c-.9 0-1.4.5-1.4 1.3s.5 1.4 1.4 1.4c.8 0 1.4-.6 1.4-1.4 0-.8-.6-1.3-1.4-1.3Z"></path>
+        </svg>
+      </div>
+      <div class="tooltip-icon--on">
+        <svg class="icon-24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path clip-rule="evenodd" d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM8.5 9.47c0-2.1 1.37-3.45 3.56-3.47 2.15-.02 3.49 1.23 3.49 3.1 0 1.2-.83 1.96-1.56 2.64-.6.55-1.13 1.05-1.13 1.68v.48h-2.1v-.62c0-1.08.77-1.83 1.47-2.52.58-.56 1.1-1.08 1.1-1.68 0-.73-.47-1.09-1.23-1.09-.87 0-1.41.5-1.41 1.47l-2.19.01Zm1.86 7.15c0-.8.58-1.35 1.42-1.37.84.02 1.41.6 1.41 1.38 0 .8-.57 1.37-1.43 1.37-.84 0-1.4-.58-1.4-1.38Z" fill-rule="evenodd"></path>
+        </svg>
+      </div>
+      <div class="tooltip tooltip--smart-allocation">
+        <p><%= t('bot.utils.mkt_cap_adjusted_info') %></p>
+      </div>
+      </div>
+    </div>
+  </form>
+</div>
