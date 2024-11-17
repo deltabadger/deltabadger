@@ -1,5 +1,5 @@
 module Bots
-  module Free
+  module Trading
     module FormatParams
       class Create < BaseService
         BOT_SETTING_PARAMS = %i[
@@ -22,7 +22,7 @@ module Bots
           {
             user: params[:user],
             exchange_id: params[:exchange_id],
-            bot_type: 'free',
+            bot_type: 'trading',
             settings: bot_settings,
             settings_changed_at: Time.now
           }

@@ -3,9 +3,9 @@ module Helpers
     def initialize(
       notifications: Notifications::BotAlerts.new,
       bots_repository: BotsRepository.new,
-      validate_limit: Bots::Free::Validators::Limit.new,
-      validate_almost_limit: Bots::Free::Validators::AlmostLimit.new,
-      validate_trial_ending_soon: Bots::Free::Validators::TrialEndingSoon.new
+      validate_limit: Bots::Trading::Validators::Limit.new,
+      validate_almost_limit: Bots::Trading::Validators::AlmostLimit.new,
+      validate_trial_ending_soon: Bots::Trading::Validators::TrialEndingSoon.new
     )
       @notifications = notifications
       @bots_repository = bots_repository

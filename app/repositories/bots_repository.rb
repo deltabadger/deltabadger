@@ -106,7 +106,7 @@ class BotsRepository < BaseRepository
   def most_popular_bots(amount)
     search_hash = {
       status: 'working',
-      bot_type: 'free'
+      bot_type: 'trading'
     }
     all_bots_hash = Bot.group("bots.settings->>'base'")
                        .order(count: :desc)

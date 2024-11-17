@@ -149,7 +149,7 @@ module Api
         newly_transactions = current_user.newly_webhook_bots_transactions(last_updated_at)
         if newly_transactions.present?
           bots = newly_transactions.map(&:bot).uniq
-          bots.each{|bot| sse.write(present_webhook_bot(bot)) }
+          bots.each { |bot| sse.write(present_webhook_bot(bot)) }
           last_updated_at = Time.current
         end
 
@@ -169,7 +169,7 @@ module Api
 
     def bot_create_params
       @bot_create_params ||= case params[:bot][:bot_type]
-                             when 'free' then trading_bot_create_params
+                             when 'trading' then trading_bot_create_params
                              when 'withdrawal' then withdrawal_bot_create_params
                              else webhook_bot_create_params
                              end
@@ -177,7 +177,7 @@ module Api
 
     def bot_update_params
       @bot_update_params ||= case params[:bot][:bot_type]
-                             when 'free' then trading_bot_update_params
+                             when 'trading' then trading_bot_update_params
                              when 'withdrawal' then withdrawal_bot_update_params
                              else webhook_bot_update_params
                              end

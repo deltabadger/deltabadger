@@ -133,7 +133,7 @@ const BotTemplate = ({
     if (disableSubmit) return
 
     const botParams = {
-      botType: 'free',
+      botType: 'trading',
       order_type: type,
       interval,
       id: bot.id,
@@ -194,7 +194,7 @@ const BotTemplate = ({
       forceSmartIntervals,
       smartIntervalsValue,
       price: price.trim(),
-      botType: 'free',
+      botType: 'trading',
     }
   }
 

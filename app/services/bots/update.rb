@@ -39,7 +39,7 @@ module Bots
 
     def get_validator(bot)
       if bot.trading?
-        Bots::Free::Validators::Update.new
+        Bots::Trading::Validators::Update.new
       elsif bot.withdrawal?
         Bots::Withdrawal::Validators::Update.new
       else
@@ -49,7 +49,7 @@ module Bots
 
     def get_formatter(bot)
       if bot.trading?
-        Bots::Free::FormatParams::Update.new
+        Bots::Trading::FormatParams::Update.new
       elsif bot.withdrawal?
         Bots::Withdrawal::FormatParams::Update.new
       else
