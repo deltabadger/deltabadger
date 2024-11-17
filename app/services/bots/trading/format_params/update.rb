@@ -1,5 +1,5 @@
 module Bots
-  module Free
+  module Trading
     module FormatParams
       class Update < BaseService
         BOT_UPDATE_PARAMS = %i[

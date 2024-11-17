@@ -3,7 +3,7 @@ class StartBot < BaseService
     schedule_transaction: ScheduleTransaction.new,
     schedule_withdrawal: ScheduleWithdrawal.new,
     bots_repository: BotsRepository.new,
-    validate_limit: Bots::Free::Validators::Limit.new
+    validate_limit: Bots::Trading::Validators::Limit.new
   )
 
     @schedule_transaction = schedule_transaction

@@ -206,7 +206,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
-      botType: 'free',
+      botType: 'trading',
     }
 
     return botParams
@@ -267,7 +267,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
-      botType: 'free',
+      botType: 'trading',
       priceRangeEnabled,
       priceRange,
       useSubaccount,

@@ -1,4 +1,4 @@
-module Bots::Free::Validators
+module Bots::Trading::Validators
   class AlmostLimit < BaseService
     def call(user)
       return Result::Success.new if user.unlimited? || user.first_month?
