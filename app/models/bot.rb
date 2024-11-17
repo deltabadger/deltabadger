@@ -3,6 +3,7 @@ class Bot < ApplicationRecord
   belongs_to :user
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
+
   scope :without_deleted, -> { where.not(status: 'deleted') }
 
   enum status: %i[created working stopped deleted pending]

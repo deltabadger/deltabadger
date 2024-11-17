@@ -1,0 +1,30 @@
+<div class="widget widget--single">
+  <div class="widget-form">
+    <div class="db-form__row db-form__row--input">
+      <input class="db-form__input" type="text" value="" name="Public key" id="publicKey">
+      <label class="db-form__label"><%= t('bots.setup.kraken.public_key') %></label>
+    </div>
+    <div class="db-form__row db-form__row--input">
+      <input class="db-form__input" type="text" value="" name="Private key" id="privateKey">
+      <label class="db-form__label"><%= t('bots.setup.kraken.private_key') %></label>
+    </div>
+    <div class="form-group db-form-group--main-btn">
+      <input type="submit" name="commit" value="<%= t('button.connect') %>" class="btn btn-lg btn-primary" data-disable-with="Connect">
+    </div>
+  </div>
+  <ol>
+    <li>Log into your <a href="https://www.probit.com/" target="_blank" rel="nofollow">ProBit Global</a> account.</li>
+    <li>In the <b>My Page</b> menu (top right corner) go to <b>API Management</b>.</li>
+    <li>Provide API key label and press <b>Create new key</b>.</li>
+    <li>Confirm creation of API keys.</li>
+    <li>If you want to restrict the access so only Deltabadger can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b> to this IP: <b>3.18.70.231</b></li>
+    <li>
+      Set permissions for:
+      <ul>
+        <li><b>Read</b> </li>
+        <li><b>Trading</b> </li>
+      </ul>
+    </li>
+    <li>Copy and paste your new Client ID and Client's Secret Key into the form above.</li>
+  </ol>
+</div>
