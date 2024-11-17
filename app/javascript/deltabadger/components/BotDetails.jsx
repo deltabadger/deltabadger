@@ -58,7 +58,7 @@ export const BotDetails = ({ bot }) => {
         {tabs.filter(e => e.visible).map(buildTab)}
       </ul>
       <div className="tab-content">
-        { bot.bot_type === 'free' &&
+        { bot.bot_type === 'trading' &&
           <TradingTransactions bot={bot} active={statisticsActive}/>
         }
         { bot.bot_type === 'withdrawal' &&

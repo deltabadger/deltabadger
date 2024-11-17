@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/ClassLength
 class Bot < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
@@ -6,11 +5,8 @@ class Bot < ApplicationRecord
   has_many :daily_transaction_aggregates
   scope :without_deleted, -> { where.not(status: 'deleted') }
 
-  STATES = %i[created working stopped deleted pending].freeze
-  TYPES = %i[free withdrawal webhook].freeze
-
-  enum status: [*STATES]
-  enum bot_type: [*TYPES]
+  enum status: %i[created working stopped deleted pending]
+  enum bot_type: %i[trading withdrawal webhook barbell]
 
   def self.by_webhook(webhook)
     queries = [{ trigger_url: webhook }.to_json, { additional_trigger_url: webhook }.to_json]
@@ -141,18 +137,6 @@ class Bot < ApplicationRecord
     settings['additional_type_enabled']
   end
 
-  def trading?
-    bot_type == 'free'
-  end
-
-  def withdrawal?
-    bot_type == 'withdrawal'
-  end
-
-  def webhook?
-    bot_type == 'webhook'
-  end
-
   def market?
     order_type == 'market'
   end
@@ -205,4 +189,3 @@ class Bot < ApplicationRecord
     update_attribute(:status, 'deleted')
   end
 end
-# rubocop:enable Metrics/ClassLength

@@ -13,10 +13,10 @@ module Bots
       bot_params = params.merge(user: user)
       type = params.fetch(:bot_type)
       case type
-      when 'free'
+      when 'trading'
         Bots::CreateBot.new(
-          bot_validator: Bots::Free::Validators::Create.new,
-          format_params: Bots::Free::FormatParams::Create.new
+          bot_validator: Bots::Trading::Validators::Create.new,
+          format_params: Bots::Trading::FormatParams::Create.new
         ).call(bot_params)
       when 'withdrawal'
         Bots::CreateBot.new(

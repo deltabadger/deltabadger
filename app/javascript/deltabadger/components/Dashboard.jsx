@@ -89,7 +89,7 @@ const DashboardTemplate = ({
   }
 
   const buildBotsList = (botsToRender, b) => {
-    if(b.bot_type === 'free') {
+    if(b.bot_type === 'trading') {
       botsToRender.push(
         <TradingBot
           showLimitOrders={isPro || isLegendary}
