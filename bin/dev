@@ -1,16 +1,8 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
- if ! command -v foreman &> /dev/null
- then
-   echo "Installing foreman..."
-   gem install foreman
- fi
+if ! gem list foreman -i --silent; then
+  echo "Installing foreman..."
+  gem install foreman
+fi
 
- # check if foreman is already installed by asdf, but in other ruby version
- output=$(foreman version 2>&1)
- if [[ $output == *"No preset version installed for command foreman"* ]]; then
-   echo "Installing foreman..."
-   gem install foreman
- fi
-
- foreman start -f Procfile.dev
+exec foreman start -f Procfile.dev "$@"
