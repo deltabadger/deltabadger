@@ -8,13 +8,9 @@
 
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-    <link href="<%= asset_pack_path('media/images/icons/favicon-96x96.png') %>" rel="icon" sizes="96x96" type="image/png">
-    <link href="<%= asset_pack_path('media/images/icons/favicon.svg') %>" rel="icon" type="image/svg+xml">
-    <link href="<%= asset_pack_path('media/images/icons/favicon.ico') %>" rel="shortcut icon">
-    <link href="<%= asset_pack_path('media/images/icons/apple-touch-icon.png') %>" rel="apple-touch-icon" sizes="180x180">
-    <meta content="Deltabadger" name="apple-mobile-web-app-title">
+    <%= render 'application/favicon' %>
 
-    <%= stylesheet_pack_tag 'guest2' %>
+    <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_pack_tag 'guest2' %>
 
     <%= render 'layouts/content_meta_tags' %>

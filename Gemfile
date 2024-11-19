@@ -27,7 +27,6 @@ gem 'rack-cors'
 gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
 gem 'rails_cloudflare_turnstile', git: 'https://github.com/guillemap/rails-cloudflare-turnstile', branch: 'add-turbo-support' # TODO: use the official gem once https://github.com/instrumentl/rails-cloudflare-turnstile/pull/186 is merged
 gem 'rqrcode'
-gem 'sass-rails', '>= 6'
 gem 'webpacker', '~> 5.4'
 gem 'sidekiq', '~> 6.5'
 gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
@@ -83,3 +82,5 @@ gem "jwt", "~> 2.9.3"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
 gem "ruby-openai", "~> 7.3.1"
+
+gem "dartsass-rails", "~> 0.5.1"
