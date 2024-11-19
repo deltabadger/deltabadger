@@ -6,7 +6,6 @@ import I18n from "i18n-js/index.js.erb";
 import * as Sentry from "@sentry/react";
 import { Integrations } from "@sentry/tracing";
 import { Dashboard } from "../deltabadger/components/Dashboard";
-import style from "../deltabadger/styles/main.scss";
 import { Provider } from "react-redux";
 import { configureStore } from "../deltabadger/Store";
 import { reducer } from "../deltabadger/reducer";
@@ -16,8 +15,6 @@ Sentry.init({
   integrations: [new Integrations.BrowserTracing()],
   tracesSampleRate: 1.0,
 });
-
-require.context("../images", true);
 
 const store = configureStore(reducer);
 

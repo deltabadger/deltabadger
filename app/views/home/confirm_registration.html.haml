@@ -7,7 +7,7 @@
 .alert.alert-primary
   = t('.deliverability_html', email: %q{<a class="db-woowoo" href="javascript:linkTo_UnCryptMailto('nbjmup;dpoubduAefmubcbehfs/dpn')"><span>dger</span><span>b</span><span>ct@delt</span><span>cont</span></a>}.html_safe)
   %p.mb-0
-    %img{:src => asset_pack_path("media/images/signature.png"), :alt => "Klosowski", :style => "width: 120px; mix-blend-mode: exclusion; filter: invert(1);"}
+    = image_tag "signature.png", alt: "Klosowski", style: "width: 120px; mix-blend-mode: exclusion; filter: invert(1);"
 
 = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-primary btn-lg w-100 mt-5')
 
