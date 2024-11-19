@@ -3,7 +3,7 @@
 
 <div class="db_legendary-plan">
   <div class="db_legendary-plan__set">
-    <img src="<%= asset_pack_path("media/images/lb/" + sprintf("%03d", @subscription.nft_id) + ".svg") %>">
+    <%= image_tag "legendary_badgers/#{sprintf('%03d', @subscription.nft_id)}.svg" %>
     <div class="db_legendary-plan__title"><%= legendary_badger_nft_name(@subscription) %></div>
   </div>
 
