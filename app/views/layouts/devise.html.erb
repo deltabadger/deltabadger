@@ -24,6 +24,17 @@
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"></script>
     <%= cloudflare_turnstile_script_tag %>
+
+    <script>
+      // service worker registration for PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register("<%= asset_pack_path('service-worker.js') %>").then(function(registration) {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        }).catch(function(error) {
+          console.log('ServiceWorker registration failed: ', error);
+        });
+      }
+    </script>
   </head>
 
   <body data-controller="hotwire-animations">

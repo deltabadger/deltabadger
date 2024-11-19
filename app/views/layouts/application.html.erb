@@ -55,6 +55,16 @@
         });
       });
     </script>
+    <script>
+      // service worker registration for PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register("<%= asset_pack_path('service-worker.js') %>").then(function(registration) {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        }).catch(function(error) {
+          console.log('ServiceWorker registration failed: ', error);
+        });
+      }
+    </script>
   </head>
 
   <%# data-locale & current_user_subscription are only needed for the react dashboard %>
