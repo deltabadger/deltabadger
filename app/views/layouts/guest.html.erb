@@ -1,0 +1,46 @@
+<html class="db--guest db--loggedout <%= yield(:html_class) %>" prefix="og: http://ogp.me/ns#">
+  <head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="ie=edge" http-equiv="X-UA-Compatible">
+
+    <title><%= t('meta.title') %></title>
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <%= render 'application/favicon' %>
+
+    <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
+    <%= javascript_pack_tag 'guest2' %>
+
+    <%= render 'layouts/content_meta_tags' %>
+
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield(:head) %>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"></script>
+
+    <script>
+      let root = document.documentElement;
+
+      window.addEventListener("scroll", function() {
+        const distance = window.scrollY;
+        if (distance > 10) {
+          root.classList.add("has-been-scrolled");
+        }
+      });
+    </script>
+  </head>
+
+  <body data-controller="hotwire-animations">
+    <%= yield(:db_guest_brave) %>
+
+    <div class="db--guest--bg-bottom"></div>
+
+    <%= render 'layouts/navbar' %>
+
+    <%= yield %>
+  </body>
+</html>

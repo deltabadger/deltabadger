@@ -153,6 +153,9 @@ GEM
     connection_pool (2.4.1)
     crass (1.0.6)
     curb (1.0.5)
+    dartsass-rails (0.5.1)
+      railties (>= 6.0.0)
+      sass-embedded (~> 1.63)
     date (3.3.3)
     debug (1.9.2)
       irb (~> 1.10)
@@ -206,6 +209,9 @@ GEM
     formatador (1.1.0)
     globalid (1.1.0)
       activesupport (>= 5.0)
+    google-protobuf (3.25.5-arm64-darwin)
+    google-protobuf (3.25.5-x86_64-darwin)
+    google-protobuf (3.25.5-x86_64-linux)
     guard (2.18.0)
       formatador (>= 0.2.4)
       listen (>= 2.7, < 4.0)
@@ -429,8 +435,9 @@ GEM
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
     rubyzip (2.3.2)
-    sass-rails (6.0.0)
-      sassc-rails (~> 2.1, >= 2.1.1)
+    sass-embedded (1.69.5)
+      google-protobuf (~> 3.23)
+      rake (>= 13.0.0)
     sassc (2.4.0)
       ffi (~> 1.9)
     sassc-rails (2.1.2)
@@ -535,6 +542,7 @@ DEPENDENCIES
   capybara
   capybara-selenium
   chromedriver-helper
+  dartsass-rails (~> 0.5.1)
   date (= 3.3.3)
   debug
   devise
@@ -572,7 +580,6 @@ DEPENDENCIES
   rspec-rails
   rubocop
   ruby-openai (~> 7.3.1)
-  sass-rails (>= 6)
   scenic
   securerandom
   selenium-webdriver
@@ -596,4 +603,4 @@ RUBY VERSION
    ruby 3.0.2p107
 
 BUNDLED WITH
-   2.3.21
+   2.4.22
