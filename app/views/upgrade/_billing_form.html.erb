@@ -5,8 +5,8 @@
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
           <%= f.radio_button :payment_type, 'zen', checked: payment.by_zen?, data: { action: "change->form--submit#submit" } %>
           <div class="pricing__payment-method__tab">
-            <img src="<%= asset_pack_path("media/images/mastercard.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--mastercard">
-            <img src="<%= asset_pack_path("media/images/visa.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--visa">
+            <%= image_tag "mastercard.svg", alt: "", class: "db-card-providers__item db-card-providers__item--mastercard" %>
+            <%= image_tag "visa.svg", alt: "", class: "db-card-providers__item db-card-providers__item--visa" %>
           </div>
         <% end %>
       <% end %>
@@ -14,7 +14,7 @@
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
           <%= f.radio_button :payment_type, 'bitcoin', checked: payment.by_bitcoin?, data: { action: "change->form--submit#submit" } %>
           <div class="pricing__payment-method__tab">
-            <img src="<%= asset_pack_path("media/images/bitcoin.svg") %>" alt="" class="db-card-providers__item db-card-providers__item--bitcoin">
+            <%= image_tag "bitcoin.svg", alt: "", class: "db-card-providers__item db-card-providers__item--lightning" %>
           </div>
         <% end %>
       <% end %>

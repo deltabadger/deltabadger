@@ -6,7 +6,7 @@
     .widget.widget--single.db-referral-program-registration
       %h4.db-modal__subtitle
         = t('.share_html')
-        %img.db-card-providers__item.db-card-providers__item--bitcoin{:src => asset_pack_path("media/images/bitcoin.svg")}
+        = image_tag "bitcoin.svg", alt: "", class: "db-card-providers__item db-card-providers__item--bitcoin"
       .db-form__row.db-form__row--input.mb-0
         %input.db-form__input{ :id=> "referralLink", :type=>"text", :value=>ENV['HOME_PAGE_URL']+ref_code_path(code: current_user.affiliate.code, locale: nil), :readonly=>"readonly" }
         %label.db-form__label
@@ -28,13 +28,13 @@
               }
         .db-form__info.db-form__info{:id => 'copyAlert', class: 'text-success', style: 'visibility: hidden', visible: false}
           = t('referral.copied')
-        
+
       .form-group.mb-4
         %b= t('.discount_info_html', earn_percent_preview: 20, discount_percent_preview: 10)
       %p.mb-0= t('.title_info')
 
     = t('affiliates.manual_html')
-  
+
   = form_with model: affiliate, class: "column gap-2", local: true, url: affiliate_path do |f|
     .widget.widget--single
       %h4.mb-4

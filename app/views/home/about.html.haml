@@ -8,7 +8,7 @@
       %time.db-page__header__time
         Nov 11, 2020
       .db-page__header__author
-        %img{:src => asset_pack_path("media/images/jan.png"), :alt => "Jan"}
+        %img{:src => "jan.png", :alt => "Jan"}
         by Jan Klosowski
 
     .col-md-8.db-page__body
@@ -48,5 +48,5 @@
       %p.mt-5
         Jan Klosowski, CEO
       %p
-        %img.db-darkmode-only{:src => asset_pack_path("media/images/signature-abc.png"), :alt => "Klosowski", :style => "width: 160px;"}
-        %img.db-lightmode-only{:src => asset_pack_path("media/images/signature.png"), :alt => "Klosowski", :style => "width: 160px;"}
+        = image_tag "signature-abc.png", alt: "Klosowski", style: "width: 160px;", class: "db-darkmode-only"
+        = image_tag "signature.png", alt: "Klosowski", style: "width: 160px;", class: "db-lightmode-only"
