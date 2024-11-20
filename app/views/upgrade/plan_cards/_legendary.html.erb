@@ -6,22 +6,12 @@
 </div>
 
 <div class="widget--pricing__amount">
-  <% if payment_option.base_price != payment_option.adjusted_base_price %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
-        <%= localized_price(payment_option.base_price, payment_option.currency, 0) %>
-      </span>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--new">
-        <%= localized_price(payment_option.adjusted_base_price, payment_option.currency) %>
-      </span>
-    <% else %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.base_price, payment_option.currency, 0) %>
-      </span>
-    <% end %>
+    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+      <%= localized_price(payment_option.adjusted_base_price, payment_option.currency, 0) %>
+    </span>
 </div>
 
 <ul>
-  
   <li><%= t('subscriptions.features.dca') %></li>
   <li><%= t('subscriptions.features.withdrawals') %></li>
   <li>FeeCutter</li>
