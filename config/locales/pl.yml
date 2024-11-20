@@ -636,6 +636,7 @@ pl:
     links:
         about: 'O nas'
         about_html: 'O projekcie<span class="d-none d-xl-inline"></span>'
+        calculator: 'Kalkulator'
         community: 'Społeczność Fireheads'
         contact: Kontakt
         cookies_policy: 'Polityka ciasteczek'
@@ -738,7 +739,6 @@ pl:
             after_wire_transfer_html: 'Dziękujemy! Wkrótce do Ciebie wrócimy! Jeśli potrzebujesz dalszej pomocy, daj nam znać: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adres banku'
             billing_information: 'Informacje rozliczeniowe'
-            bitcoin: Bitcoin
             compensation_pro:
                 one: 'Wyrównanie za 1 niewykorzystany dzień planu Pro.'
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'
@@ -749,8 +749,7 @@ pl:
                 few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
                 many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
                 other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
-            legendary_plan_discount: 'Zniżka Early Bird'
-            legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
+            legendary_plan_discount: 'Cena planu Legendarnego wzrasta o %{currency}10 przy każdym zakupie.'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
