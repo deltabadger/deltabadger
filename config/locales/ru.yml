@@ -619,6 +619,7 @@ ru:
     links:
         about: 'О нас'
         about_html: 'О <span class="d-none d-xl-inline">проекте</span>'
+        calculator: 'Калькулятор'
         community: 'Сообщество Fireheads'
         contact: Контакты
         cookies_policy: 'Политика использования файлов cookie'
@@ -725,8 +726,7 @@ ru:
                 few: 'Компенсация за %{{count}}  неиспользованных дня плана Инвестора.'
                 many: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
                 other: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
-            legendary_plan_discount: ''
-            legendary_plan_discount_info: ''
+            legendary_plan_discount: 'Цена легендарного плана увеличивается на %{currency}10 с каждой покупкой.'
             eu_bank_country: Бельгия
             invalid_vat_number: 'Недействительный номер НДС в ЕС'
             paid_with_wire_transfer: 'Я сделал перевод SEPA'
