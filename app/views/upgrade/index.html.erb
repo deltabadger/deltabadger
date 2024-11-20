@@ -38,6 +38,7 @@
         zaraz_name_value: plan_variant_name(@paid_payment&.subscription_plan_variant || @payment.subscription_plan_variant),
         zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
       } do %>
+        
         <div class="pricing__checkout__calculations">
           <%= render partial: "discounts", locals: {
             payment: @payment,
