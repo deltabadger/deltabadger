@@ -663,6 +663,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
+        calculator: Calculator
         community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
@@ -771,8 +772,7 @@ en:
             compensation:
                 one: 'for 1 unused day.'
                 other: 'for %{count} unused days.'
-            legendary_plan_discount: 'Legendary discount'
-            legendary_plan_discount_info: 'goes down $10 with every sale.'
+            legendary_plan_discount: 'Legendary plan price goes up %{currency}10 with every purchase.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I''ve sent the SEPA transfer'
