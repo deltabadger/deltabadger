@@ -1,9 +1,5 @@
 <% content_for :body_class, ".view--dashboard" %>
 
-<%= render partial: "dca_calculator", locals: {
-  simulation_results: @simulation_results,
-  invest_amount: @invest_amount
-} %>
 <%= render 'layouts/banners/welcome_message' %>
 <%= render 'layouts/banners/news_message' %>
 <%= render 'layouts/banners/referral_message' %>
