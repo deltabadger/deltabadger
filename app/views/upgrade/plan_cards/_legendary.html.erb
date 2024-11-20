@@ -24,14 +24,3 @@
 <div class="widget--pricing__info">
   <%= t('subscriptions.legendary_badger_info_html') %>
 </div>
-
-<div class="widget--pricing__legendary-plans-left">
-  <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
-  <div class="slider">
-    <div class="slider__style">
-      <div class="slider__style__track">
-        <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
-      </div>
-    </div>
-  </div>
-</div>
