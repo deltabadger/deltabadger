@@ -111,6 +111,8 @@ Rails.application.routes.draw do
       get :show, on: :collection
     end
 
+    get '/millionaire-calculator', to: 'calculator#show', as: :calculator
+
     resource :legendary, only: [:show, :update], path: '/legendary-badger' do
       get :show, on: :collection
     end
