@@ -783,6 +783,8 @@ en:
             payment_ordered: 'Payment ordered!'
             referral_discount: '%{discount_percent} discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
+            black_friday_discount: 'Black Friday discount'
+            black_friday_discount_info: '%{discount_percent} off'
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'
             vat: VAT
