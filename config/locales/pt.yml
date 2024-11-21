@@ -655,7 +655,7 @@ pt:
             compensation:
                 one: 'por 1 dia não utilizado.'
                 other: 'por %{count} dias não utilizados.'
-            legendary_plan_discount: 'O preço do plano Lendário aumenta %{currency}10 a cada compra.'
+            legendary_plan_discount_html: 'O preço do plano Lendário aumenta %{amount} a cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
