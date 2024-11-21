@@ -734,7 +734,7 @@ fr:
             compensation_basic:
                 one: 'Compensation pour 1 jour inutilisé du forfait Basic'
                 other: 'Compensation pour %{count} jours inutilisés du forfait Basic'
-            legendary_plan_discount: 'Le prix du plan Légendaire augmente de %{currency}10 à chaque achat.'
+            legendary_plan_discount_html: 'Le prix du plan Légendaire augmente de %{amount} à chaque achat.'
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
