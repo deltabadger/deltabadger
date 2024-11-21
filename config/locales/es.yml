@@ -626,6 +626,7 @@ es:
     links:
         about: 'Acerca de'
         about_html: 'Acerca del <span class="d-none d-xl-inline">proyecto</span>'
+        calculator: 'Calculadora'
         community: 'Comunidad Fireheads'
         contact: Contacto
         cookies_policy: 'Política de cookies'
@@ -725,15 +726,13 @@ es:
             after_wire_transfer_html: '¡Gracias! Pronto nos pondremos en contacto contigo. Si necesitas ayuda adicional, envíanos un mensaje a <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
-            bitcoin: Bitcoin
             compensation_pro:
                 one: 'Compensación por un día sin usar el plan Pro'
                 other: 'Compensación por %{count} días sin usar el plan Pro.'
             compensation_basic:
                 one: 'Compensación por un día sin usar el plan Basic'
                 other: 'Compensación por %{count} días sin usar el plan Basic.'
-            legendary_plan_discount: 'Descuento por venta anticipada'
-            legendary_plan_discount_info: 'Con cada venta el descuento disminuye 10$. ¡No esperes!'
+            legendary_plan_discount_html: 'El precio del plan Legendario sube %{amount} con cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
