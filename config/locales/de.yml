@@ -678,7 +678,7 @@ de:
             compensation_basic:
                 one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
-            legendary_plan_discount: 'Der Preis des Legendary-Plans steigt um %{currency}10 mit jedem Kauf.'
+            legendary_plan_discount_html: 'Der Preis des Legendary-Plans steigt um %{amount} mit jedem Kauf.'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
