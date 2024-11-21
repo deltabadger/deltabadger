@@ -6,22 +6,12 @@
 </div>
 
 <div class="widget--pricing__amount">
-  <% if payment_option.base_price != payment_option.adjusted_base_price %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
-        <%= localized_price(payment_option.base_price, payment_option.currency, 0) %>
-      </span>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--new">
-        <%= localized_price(payment_option.adjusted_base_price, payment_option.currency) %>
-      </span>
-    <% else %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.base_price, payment_option.currency, 0) %>
-      </span>
-    <% end %>
+    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+      <%= localized_price(payment_option.adjusted_base_price, payment_option.currency, 0) %>
+    </span>
 </div>
 
 <ul>
-  
   <li><%= t('subscriptions.features.dca') %></li>
   <li><%= t('subscriptions.features.withdrawals') %></li>
   <li>FeeCutter</li>
@@ -33,15 +23,4 @@
 
 <div class="widget--pricing__info">
   <%= t('subscriptions.legendary_badger_info_html') %>
-</div>
-
-<div class="widget--pricing__legendary-plans-left">
-  <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
-  <div class="slider">
-    <div class="slider__style">
-      <div class="slider__style__track">
-        <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
-      </div>
-    </div>
-  </div>
 </div>
