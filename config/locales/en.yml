@@ -772,7 +772,7 @@ en:
             compensation:
                 one: 'for 1 unused day.'
                 other: 'for %{count} unused days.'
-            legendary_plan_discount: 'Legendary plan price goes up %{currency}10 with every purchase.'
+            legendary_plan_discount_html: 'Legendary plan price goes up %{amount} with every purchase.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I''ve sent the SEPA transfer'

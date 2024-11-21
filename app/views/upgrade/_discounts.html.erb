@@ -1,9 +1,9 @@
 <% if payment.subscription_plan.name == legendary_plan.name %>
   <div class="widget">
       <span class="text-success">
-        <%= t('subscriptions.payment.legendary_plan_discount', currency: '$') %>
+        <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency, 0)) %>
       </span>
-    
+
       <div class="widget--pricing__legendary-plans-left">
         <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
         <div class="slider">
