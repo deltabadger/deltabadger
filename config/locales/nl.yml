@@ -119,7 +119,7 @@ nl:
         utils:
             mkt_cap_adjusted: "Ingesteld op marktkapitalisatie"
             mkt_cap_adjusted_info: |
-                De toewijzing wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portefeuille. Hoe groter de marktkapitalisatie, hoe groter de toewijzing.    
+                De toewijzing wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portefeuille. Hoe groter de marktkapitalisatie, hoe groter de toewijzing.
     bots:
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
@@ -731,7 +731,7 @@ nl:
             compensation_basic:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
-            legendary_plan_discount: 'De prijs van het Legendarische plan stijgt met %{currency}10 bij elke aankoop.'
+            legendary_plan_discount_html: 'De prijs van het Legendarische plan stijgt met %{amount} bij elke aankoop.'
             eu_bank_country: België
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'
             paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'
