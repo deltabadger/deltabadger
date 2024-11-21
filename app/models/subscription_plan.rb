@@ -41,6 +41,22 @@ class SubscriptionPlan < ApplicationRecord
     name != FREE_PLAN
   end
 
+  def free?
+    name == FREE_PLAN
+  end
+
+  def basic?
+    name == BASIC_PLAN
+  end
+
+  def pro?
+    name == PRO_PLAN
+  end
+
+  def legendary?
+    name == LEGENDARY_PLAN
+  end
+
   private
 
   def reset_all_subscription_plans_cache

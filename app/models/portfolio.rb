@@ -41,7 +41,7 @@ class Portfolio < ApplicationRecord
   end
 
   def limited?
-    [SubscriptionPlan::FREE_PLAN, SubscriptionPlan::BASIC_PLAN].include?(user.subscription.name)
+    user.subscription.free? || user.subscription.basic?
   end
 
   def compare_to_select_options
@@ -150,9 +150,7 @@ class Portfolio < ApplicationRecord
   end
 
   def max_assets_reached?
-    assets.size
-    assets.size >= case user.subscription.name
-                   when SubscriptionPlan::PRO_PLAN, SubscriptionPlan::LEGENDARY_PLAN
+    assets.size >= if user.subscription.pro? || user.subscription.legendary?
                      100
                    else
                      4

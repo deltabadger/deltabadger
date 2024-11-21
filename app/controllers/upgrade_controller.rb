@@ -3,7 +3,7 @@ class UpgradeController < ApplicationController
   skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_ipn zen_payment_ipn]
 
   def index
-    redirect_to legendary_path if current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
+    redirect_to legendary_path if current_user.subscription.legendary?
 
     # TODO: style the pending_wire_transfer view
     if current_user.pending_wire_transfer.present?

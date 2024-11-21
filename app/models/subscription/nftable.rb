@@ -30,10 +30,6 @@ module Subscription::Nftable
 
     private
 
-    def legendary?
-      name == SubscriptionPlan::LEGENDARY_PLAN
-    end
-
     def nft_id_valid_for_legendary_badger
       errors.add(:nft_id, :used, message: 'is only available for the Legendary Badger NFT plan') if nft_id.present? && !legendary?
     end

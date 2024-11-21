@@ -27,14 +27,33 @@
   </div>
 <% end %>
 
-<% if payment.subscription_plan.name == legendary_plan.name %>
-  <div class="widget widget--discount">
+<% unless payment.black_friday_discount_amount.zero? %>
+  <div class="widget widget--discount db-plan-active-discount">
     <div class="widget--discount__col">
-      <div class="widget--discount__name"><%= t('subscriptions.payment.legendary_plan_discount') %></div>
-      <div class=""><%= t('subscriptions.payment.legendary_plan_discount_info') %></div>
+      <div class="widget--discount__name"><%= t('subscriptions.payment.black_friday_discount') %></div>
+      <div class=""><%= t("subscriptions.payment.black_friday_discount_info", discount_percent: format_percent(payment.black_friday_discount_percent)) %></div>
     </div>
     <div class="widget--discount__col">
-      -<%= localized_price(payment_options[legendary_plan.name].legendary_plan_discount, payment.currency) %>
+      -<%= localized_price(payment.black_friday_discount_amount, payment.currency) %>
+    </div>
+  </div>
+<% end %>
+
+<% if payment.subscription_plan.name == legendary_plan.name %>
+  <div class="widget">
+      <span class="text-success">
+        <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency, 0)) %>
+      </span>
+
+      <div class="widget--pricing__legendary-plans-left">
+        <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
+        <div class="slider">
+          <div class="slider__style">
+            <div class="slider__style__track">
+              <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </div>
+        </div>
     </div>
   </div>
 <% end %>
