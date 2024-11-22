@@ -1,4 +1,6 @@
-INPUT_FILE = 'app/services/exchange_api/withdrawal_info/kraken/table.html'.freeze
+# website table: https://support.kraken.com/hc/en-us/articles/360000767986-Cryptocurrency-withdrawal-fees-and-minimums
+
+INPUT_FILE = 'app/services/exchange_api/withdrawal_info/kraken/website_table.html'.freeze
 OUTPUT_FILE = 'app/services/exchange_api/withdrawal_info/kraken/kraken_minimums_and_fees.csv'.freeze
 # MAIN_CHAIN_FOR_MULTIPLE_CHAINS_ASSETS = {
 #   'XBT' => '',
