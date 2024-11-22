@@ -110,22 +110,23 @@ class UpgradeController < ApplicationController
     Payment.new(user: current_user, status: 'draft')
   end
 
-  def new_payment_for(plan_name)
+  def new_payment_for(plan_name, years)
     Payment.new(
       user: current_user,
       status: 'unpaid',
       payment_type: session[:payment_type],
-      subscription_plan_variant: SubscriptionPlanVariant.send(plan_name, session[:years]),
+      subscription_plan_variant: SubscriptionPlanVariant.send(plan_name, years),
       country: session[:country],
       currency: session[:country] != VatRate::NOT_EU ? 'EUR' : 'USD'
     )
   end
 
   def set_index_instance_variables
-    @payment_options = available_plan_names.map { |plan_name| [plan_name, new_payment_for(plan_name)] }.to_h
+    @selected_years = session[:years]
+    @payment_options_1y = available_plan_names.map { |plan_name| [plan_name, new_payment_for(plan_name, 1)] }.to_h
+    @payment_options = available_plan_names.map { |plan_name| [plan_name, new_payment_for(plan_name, @selected_years)] }.to_h
     @available_variant_years = available_variant_years
     @legendary_plan = SubscriptionPlan.legendary
-    @selected_years = session[:years]
   end
 
   def payment_params
