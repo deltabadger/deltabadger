@@ -581,6 +581,7 @@ de:
     links:
         about: Über
         about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
+        calculator: 'Rechner'
         community: 'Fireheads Community'
         contact: Kontakt
         cookies_policy: Cookie-Richtlinien
@@ -671,15 +672,13 @@ de:
             after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
-            bitcoin: Bitcoin
             compensation_pro:
                 one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
             compensation_basic:
                 one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
                 other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
-            legendary_plan_discount: 'Early Bird-Rabatt'
-            legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
+            legendary_plan_discount_html: 'Der Preis des Legendary-Plans steigt um %{amount} mit jedem Kauf.'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
