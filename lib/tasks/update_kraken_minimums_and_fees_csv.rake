@@ -36,7 +36,7 @@ task update_kraken_minimums_and_fees_csv: :environment do
   headers = %w[Asset Minimum Fee]
   rows = table.css('tr').drop(1).map do |row|
     row.css('td').map { |td| td.text.strip }.then do |cols|
-      symbol = cols.last.split.last.gsub('BTC', 'XBT')
+      symbol = cols.last.split.last.gsub(/\bBTC\b/, 'XBT')
       chain = get_chain(cols[0])
       cols[0] = symbol + (chain ? " #{chain}" : '')
       # cols[1], cols[2] = cols[2].split.first, cols[1].split.first
