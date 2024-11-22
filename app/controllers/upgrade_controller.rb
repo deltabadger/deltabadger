@@ -18,7 +18,7 @@ class UpgradeController < ApplicationController
   end
 
   def create_payment
-    @payment = new_payment_for(session[:plan_name])
+    @payment = new_payment_for(session[:plan_name], session[:years])
     @payment.assign_attributes(payment_params)
     @payment.assign_attributes({
                                  total: @payment.price_with_vat,
