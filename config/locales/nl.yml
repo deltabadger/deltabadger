@@ -756,7 +756,7 @@ nl:
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
         ethereum_address: 'Adresse Ethereum'
-        confirm_info: 'Ik bevestig dat het adres correct is en begrijp dat de NFT naar dit adres zal worden verzonden. Zodra ik op "Claimen" klik, kan niemand de NFT herstellen als het adres onjuist is.'
+        confirm_info_html: 'Ik bevestig dat het adres correct is en begrijp dat de NFT naar dit adres zal worden verzonden. Zodra ik op <b>Claim NFT</b> klik, kan niemand de NFT herstellen als het adres onjuist is.'
         claim: 'Claim NFT'
     welcome:
         banner_html: |
