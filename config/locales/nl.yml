@@ -119,7 +119,7 @@ nl:
         utils:
             mkt_cap_adjusted: "Ingesteld op marktkapitalisatie"
             mkt_cap_adjusted_info: |
-                De toewijzing wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portefeuille. Hoe groter de marktkapitalisatie, hoe groter de toewijzing.    
+                De toewijzing wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portefeuille. Hoe groter de marktkapitalisatie, hoe groter de toewijzing.
     bots:
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
@@ -625,6 +625,7 @@ nl:
     links:
         about: 'Over ons'
         about_html: 'Over <span class="d-none d-xl-inline">het project</span>'
+        calculator: 'Rekenmachine'
         community: 'Fireheads Community'
         contact: Contact
         cookies_policy: Cookie-instellingen
@@ -724,15 +725,13 @@ nl:
             after_wire_transfer_html: 'Bedankt! We nemen snel contact met u op! Als u verdere hulp nodig hebt, laat het ons weten: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com.</a>'
             bank_address: 'Bank adres'
             billing_information: Factuurgegevens
-            bitcoin: Bitcoin
             compensation_pro:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'
             compensation_basic:
                 one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
                 other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
-            legendary_plan_discount: 'Early Bird korting'
-            legendary_plan_discount_info: 'Bij elke verkoop daalt de korting met $10. Wacht niet!'
+            legendary_plan_discount_html: 'De prijs van het Legendarische plan stijgt met %{amount} bij elke aankoop.'
             eu_bank_country: België
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'
             paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'
