@@ -774,7 +774,7 @@ pl:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
         ethereum_address: 'Adres Ethereum'
-        confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
+        confirm_info_html: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu <b>Odbierz NFT</b>, jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |
