@@ -1,9 +1,21 @@
 <% content_for :body_class, ".view--dashboard" %>
 
-<%= render 'layouts/banners/black_friday' %>
-<%= render 'layouts/banners/welcome_message' %>
-<%= render 'layouts/banners/news_message' %>
-<%= render 'layouts/banners/referral_message' %>
+<% unless current_user.subscription.legendary? %>
+  <%= render 'layouts/banners/black_friday' %>
+<% end %>
+
+<% if @show_welcome_banner %>
+  <%= render 'layouts/banners/welcome_message' %>
+<% end %>
+
+<% if @show_news_banner %>
+  <%= render 'layouts/banners/news_message' %>
+<% end %>
+
+<% if @show_referral_banner %>
+  <%= render 'layouts/banners/referral_message' %>
+<% end %>
+
 <%= render 'layouts/limit_reached' %>
 
 <div id="dashboard"></div>
