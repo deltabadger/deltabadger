@@ -1,5 +1,5 @@
 desc 'rake task to check time to first payment'
-task update_saver_limits: :environment do
+task time_to_first_payment: :environment do
   all_times = []
 
   User.joins(:payments).includes(:payments).where(payments: { status: :paid }).find_each do |user|
@@ -12,7 +12,7 @@ task update_saver_limits: :environment do
   end
 
   if all_times.any?
-    Puts "From a total of #{all_times.size} first payments:"
+    puts "From a total of #{all_times.size} first payments:"
     puts "Average time to first payment: #{(all_times.sum.to_f / all_times.size).to_i} days"
     puts "Median time to first payment: #{all_times.sort[all_times.size / 2]} days"
     puts "80th percentile time to first payment: #{all_times.sort[(all_times.size * 0.8).to_i]} days"
