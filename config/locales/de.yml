@@ -703,7 +703,7 @@ de:
     legendary_badger:
         will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
         ethereum_address: Ethereum-Adresse
-        confirm_info: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf "Claim" klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
+        confirm_info_html: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf <b>NFT beanspruchen</b> klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
