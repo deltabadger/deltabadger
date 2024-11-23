@@ -24,7 +24,7 @@ module ExchangeApi
 
           if order_data.nil?
             res = @client.send :post_private, 'QueryOrders', txid: order_id
-            order_data = res.dig('result').fetch(order_id, nil)
+            order_data = res['result'].fetch(order_id, nil)
           end
 
           return error_to_failure([order_data.fetch('reason')]) if canceled?(order_data)
@@ -47,18 +47,22 @@ module ExchangeApi
           SendgridMailToList.new.user_to_exchange_list(user, exchange_name)
         end
 
-        def currency_balance(currency)
+        def currency_balance(currency) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
           balances_res = @client.balance
-          return Result::Failure.new(*balances_res["error"]) if balances_res["error"].any?
+          return Result::Failure.new(*balances_res['error']) if balances_res['error'].any?
 
           platform_currency_res = @client.assets(currency)
-          return Result::Failure.new(*platform_currency_res["error"]) if platform_currency_res["error"].any?
+          return Result::Failure.new(*platform_currency_res['error']) if platform_currency_res['error'].any?
 
-          platform_currency = platform_currency_res["result"].find {|key, val| key == currency || val["altname"] == currency }&.first
-          balance = balances_res["result"].find {|key, _| key == platform_currency}&.second
+          platform_currency = platform_currency_res['result'].find do |key, val|
+                                key == currency || val['altname'] == currency
+                              end&.first
+          balance = balances_res['result'].find { |key, _| key == platform_currency }&.second
+          balance_rewards = balances_res['result'].find { |key, _| key == "#{currency}.F" }&.second || '0'
 
-          Result::Success.new(balance)
-        rescue StandardError => e
+          total_balance = balance.to_f + balance_rewards.to_f
+          Result::Success.new(total_balance)
+        rescue StandardError
           Result::Failure.new('Could not fetch account info from Kraken')
         end
 
