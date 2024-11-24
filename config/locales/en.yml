@@ -783,6 +783,8 @@ en:
             payment_ordered: 'Payment ordered!'
             referral_discount: '%{discount_percent} discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
+            black_friday_discount: 'Black Friday discount'
+            black_friday_discount_info: '%{discount_percent} off'
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'
             vat: VAT
@@ -798,7 +800,7 @@ en:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
         ethereum_address: 'Ethereum address'
-        confirm_info: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click "Claim", if the address is wrong, nobody can recover the NFT.'
+        confirm_info_html: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click <b>Claim NFT</b>, if the address is wrong, nobody can recover the NFT.'
         claim: Claim NFT
     welcome:
         banner_html: |

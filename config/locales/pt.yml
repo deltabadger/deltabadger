@@ -664,6 +664,8 @@ pt:
             payment_ordered: 'Pagamento solicitado!'
             referral_discount: '%{discount_percent} de desconto'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
+            black_friday_discount: 'Desconto de Black Friday'
+            black_friday_discount_info: '%{discount_percent} de desconto'
             routing_number: 'Número de encaminhamento'
             vat: IVA
             wire_cost_html: 'Por favor, envie <b>%{price}</b> para a seguinte conta bancária:'
@@ -677,7 +679,7 @@ pt:
     legendary_badger:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
         ethereum_address: 'Endereço Ethereum'
-        confirm_info: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em "Reivindicar", se o endereço estiver errado, ninguém poderá recuperar o NFT.'
+        confirm_info_html: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em <b>Reivindicar NFT</b>, se o endereço estiver errado, ninguém poderá recuperar o NFT.'
         claim: 'Reivindicar NFT'
     welcome:
         banner_html: |
