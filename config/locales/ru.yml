@@ -735,6 +735,8 @@ ru:
             payment_ordered: 'Оплата заказана!'
             referral_discount: '%{discount_percent} скидка'
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
+            black_friday_discount: 'Скидка на Черную пятницу'
+            black_friday_discount_info: 'Скидка %{discount_percent}'
             routing_number: 'Номер маршрута'
             server_error: ''
             vat: НДС
@@ -751,7 +753,7 @@ ru:
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger будет отправлен на:'
         ethereum_address: 'Адрес Ethereum'
-        confirm_info: 'Я подтверждаю, что адрес правильный и понимаю, что NFT будет отправлено на этот адрес. После нажатия на "Получить", если адрес неверен, никто не сможет восстановить NFT.'
+        confirm_info_html: 'Я подтверждаю, что адрес правильный и понимаю, что NFT будет отправлено на этот адрес. После нажатия на <b>Получить NFT</b>, если адрес неверен, никто не сможет восстановить NFT.'
         claim: 'Получить NFT'
     welcome:
         banner_html: |
