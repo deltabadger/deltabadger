@@ -28,19 +28,19 @@ class Payment < ApplicationRecord
   end
 
   def vat_amount
-    referral_discounted_price * vat_percent
+    fully_discounted_price * vat_percent
   end
 
   def price_with_vat
-    referral_discounted_price * (1 + vat_percent)
+    fully_discounted_price * (1 + vat_percent)
   end
 
   def base_price
-    from_eu? ? subscription_plan_variant.cost_eur : subscription_plan_variant.cost_usd
+    (from_eu? ? subscription_plan_variant.cost_eur : subscription_plan_variant.cost_usd) - legendary_plan_discount_amount
   end
 
   def adjusted_base_price
-    [0, base_price - current_plan_discount_amount - legendary_plan_discount].max
+    [0, base_price - current_plan_discount_amount].max
   end
 
   def virtual_price(method, split_time)
@@ -78,15 +78,19 @@ class Payment < ApplicationRecord
     current_subscription_base_price * discount_multiplier
   end
 
-  def legendary_plan_discount
-    return 0 if subscription_plan.name != SubscriptionPlan::LEGENDARY_PLAN
+  def black_friday_discount_percent
+    return 0 unless subscription_plan_variant.pro? || subscription_plan_variant.legendary?
 
-    legendary_plan = SubscriptionPlan.legendary
-    if from_eu?
-      legendary_plan.for_sale_count * (subscription_plan_variant.cost_eur / legendary_plan.total_supply)
-    else
-      legendary_plan.for_sale_count * (subscription_plan_variant.cost_usd / legendary_plan.total_supply)
-    end
+    # return 0 unless Date.current.between?(Date.new(Date.current.year, 11, 25), Date.new(Date.current.year, 12, 1))
+    0.3
+  end
+
+  def black_friday_discount_amount
+    adjusted_base_price * black_friday_discount_percent
+  end
+
+  def fully_discounted_price
+    adjusted_base_price - referral_discount_amount - black_friday_discount_amount
   end
 
   private
@@ -101,7 +105,14 @@ class Payment < ApplicationRecord
     by_bitcoin? || by_wire?
   end
 
-  def referral_discounted_price
-    adjusted_base_price * (1 - referral_discount_percent)
+  def legendary_plan_discount_amount
+    return 0 unless subscription_plan.legendary?
+
+    legendary_plan = SubscriptionPlan.legendary
+    if from_eu?
+      legendary_plan.for_sale_count * (subscription_plan_variant.cost_eur / legendary_plan.total_supply)
+    else
+      legendary_plan.for_sale_count * (subscription_plan_variant.cost_usd / legendary_plan.total_supply)
+    end
   end
 end
