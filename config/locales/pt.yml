@@ -666,6 +666,7 @@ pt:
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             black_friday_discount: 'Desconto de Black Friday'
             black_friday_discount_info: '%{discount_percent} de desconto'
+             black_friday_banner_html: '30% zniżki na plany Pro i Legendarny&nbsp;!'
             routing_number: 'Número de encaminhamento'
             vat: IVA
             wire_cost_html: 'Por favor, envie <b>%{price}</b> para a seguinte conta bancária:'
