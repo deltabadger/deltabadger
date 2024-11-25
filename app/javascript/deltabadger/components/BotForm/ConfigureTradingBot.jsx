@@ -513,7 +513,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               disabled={!showLimitOrders}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quote, base: base}))[0]}</RawHTML>
               <input
                 type="text"
                 className="bot-input bot-input--sizable"
@@ -523,7 +523,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 size={Math.max(priceRange.low.length, 1)}
               />
 
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quote, base: base}))[1]}</RawHTML>
               <input
                 type="text"
                 className="bot-input bot-input--sizable"
@@ -532,7 +532,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 disabled={!showLimitOrders}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {currency: quote}))[2]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quote, base: base}))[2]}</RawHTML>
               { !showLimitOrders && <div className="bot input bot-input--pro-plan-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >Pro</a></div> }
             </div>
           </label>
