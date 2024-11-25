@@ -68,14 +68,23 @@ class Payment < ApplicationRecord
     current_subscription = user.subscription
     return 0 if current_subscription.days_left.nil?
 
+    current_subscription_plan_variant = current_subscription.subscription_plan_variant
+    current_subscription_paid_payment = user.payments.paid.where(
+      subscription_plan_variant: current_subscription_plan_variant
+    ).last
+    return 0 unless current_subscription_paid_payment
+
+    eur_usd_rate = current_subscription_plan_variant.cost_usd / current_subscription_plan_variant.cost_eur
+    paid_currency = current_subscription_paid_payment.currency
+    paid_total = current_subscription_paid_payment.total
+    paid_amount = if from_eu?
+                    paid_currency == 'EUR' ? paid_total : paid_total / eur_usd_rate
+                  else
+                    paid_currency == 'USD' ? paid_total : paid_total * eur_usd_rate
+                  end
     plan_years_left = current_subscription.days_left.to_f / 365
-    discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
-    current_subscription_base_price = Payment.new(
-      user: user,
-      subscription_plan_variant: current_subscription.subscription_plan_variant,
-      country: country
-    ).base_price
-    current_subscription_base_price * discount_multiplier
+    discount_multiplier = [1, plan_years_left / current_subscription_plan_variant.years].min
+    paid_amount * discount_multiplier
   end
 
   def black_friday_discount_percent
