@@ -1,15 +1,19 @@
-<div class="infoheader" data-controller="show-hide">
-  <nav class="infoheader__head">
+<div class="infoheader" data-controller="show-hide" >
+  <nav class="infoheader__head" style="align-self: flex-end">
     <div class="infoheader__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">i</div>
   </nav>
 
-  <div class="itiles" data-show-hide-target="hideable">
-    <div class="itile itile--bitcoin">
-      <h3 class="itile__title">30% off on Pro and Legendary plans!</h3>
-      <div class="itile__value">
-        hey hey black friday discount is here!
+  <div class="itiles itiles--blackfriday" data-show-hide-target="hideable">
+    <div class="itile itile--blackfriday">
+      <div>
+        <h3 class="itile__title">30% off on Pro and Legendary plans!</h3>
+        <div class="itile__value">
+          hey hey black friday discount is here!
+        </div>
       </div>
-      <%= link_to "Upgrade now!", upgrade_path, class: "btn btn-lg btn-primary" %>
+      <div>
+        <%= link_to "Upgrade now!", upgrade_path, class: "btn btn-lg btn-primary" %>
+      </div>
     </div>
   </div>
 </div>
