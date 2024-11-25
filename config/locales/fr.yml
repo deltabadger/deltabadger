@@ -746,6 +746,7 @@ fr:
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
             black_friday_discount: 'Réduction Black Friday'
             black_friday_discount_info: '%{discount_percent} de réduction'
+            black_friday_banner_html: '30 % de réduction sur les plans Pro et Légendaire&nbsp;!'
             routing_number: 'Numéro de routage'
             server_error: 'Erreur du serveur de paiement, merci de réessayer plus tard.'
             vat: 'TVA'

@@ -761,6 +761,7 @@ pl:
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
             black_friday_discount: 'Zniżka na Black Friday'
             black_friday_discount_info: '%{discount_percent} zniżki'
+            black_friday_banner_html: '30% de desconto nos planos Pro e Legendário&nbsp;!'
             routing_number: 'Numer routingowy'
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
             vat: VAT
