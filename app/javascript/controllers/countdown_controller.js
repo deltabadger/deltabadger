@@ -34,8 +34,6 @@ export default class extends Controller {
     this.updateTarget(this.hoursTarget, hours);
     this.updateTarget(this.minutesTarget, minutes);
     this.updateTarget(this.secondsTarget, seconds);
-
-    this.animateSecond();
   }
 
   updateTarget(target, value) {
