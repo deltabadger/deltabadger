@@ -75,9 +75,9 @@ class Payment < ApplicationRecord
 
   def black_friday_discount_percent
     return 0 unless subscription_plan_variant.pro? || subscription_plan_variant.legendary?
+    return 0 unless BlackFriday.week?
 
-    # return 0 unless Date.current.between?(Date.new(Date.current.year, 11, 25), Date.new(Date.current.year, 12, 1))
-    0.3
+    BlackFriday::DISCOUNT_PERCENT
   end
 
   def black_friday_discount_amount

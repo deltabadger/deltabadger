@@ -5,7 +5,30 @@
 
   <div class="itiles itiles--blackfriday" data-show-hide-target="hideable">
     <div class="itile itile--blackfriday">
-        <h1 class="itile__title" style="margin-bottom:0"><%= t('subscriptions.payment.black_friday_banner_html') %></h3>
+        <h3 class="itile__title" style="margin-bottom:0">Black Friday sale</h3>
+
+        <h1 class="itile__title" style="margin-bottom:0"><%= t('subscriptions.payment.black_friday_banner_html') %></h1>
+
+        <%= tag.div data: {
+          controller: "countdown",
+          countdown_target_date_value: BlackFriday::END_DATE.iso8601
+        } do %>
+          <div class="countdown-timer">
+            <span class="countdown-segment">
+              <span  data-countdown-target="days" class="value">0</span><small>Days</small>
+            </span>
+            <span class="countdown-segment">
+              <span  data-countdown-target="hours" class="value">0</span><small>Hours</small>
+            </span>
+            <span class="countdown-segment">
+              <span  data-countdown-target="minutes" class="value">0</span><small>Minutes</small>
+            </span>
+            <span class="countdown-segment countdown-second">
+              <span  data-countdown-target="seconds" class="value">0</span><small>Seconds</small>
+            </span>
+          </div>
+        <% end %>
+
       <div>
         <%= link_to "Upgrade now!", upgrade_path, class: "btn btn-lg btn-success" %>
       </div>
