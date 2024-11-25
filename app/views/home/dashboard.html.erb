@@ -1,6 +1,6 @@
 <% content_for :body_class, ".view--dashboard" %>
 
-<% unless current_user.subscription.legendary? %>
+<% if BlackFriday.week? && !current_user.subscription.legendary? %>
   <%= render 'layouts/banners/black_friday' %>
 <% end %>
 
