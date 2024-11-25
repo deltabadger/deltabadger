@@ -744,6 +744,7 @@ es:
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
             black_friday_discount: 'Descuento de Black Friday'
             black_friday_discount_info: '%{discount_percent} de descuento'
+            black_friday_banner_html: '¡30% de descuento en los planes Pro y Legendario!'
             routing_number: 'Número de ruta bancaria'
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
             vat: IVA

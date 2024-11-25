@@ -742,7 +742,8 @@ nl:
             referral_discount: '%{discount_percent} korting'
             referral_discount_html: 'Dankzij de referral link van <b><a href="%{visible_link}">%{visible_name}</a></b>, krijg je een korting voor de eerste aankoop op het platform.'
             black_friday_discount: 'Black Friday korting'
-            black_friday_discount_info: '%{discount_percent} korting'   
+            black_friday_discount_info: '%{discount_percent} korting'
+            black_friday_banner_html: '30% korting op Pro- en Legendary-plannen!'
             routing_number: 'Routing nummer'
             server_error: 'Betalingen server error. Probeer het later opnieuw.'
             vat: BTW
