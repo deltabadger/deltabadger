@@ -1,5 +1,9 @@
 <% content_for :body_class, ".view--upgrade" %>
 
+<% if BlackFriday.week? && !current_user.subscription.legendary? %>
+  <%= render 'layouts/banners/black_friday' %>
+<% end %>
+
 <%= turbo_frame_tag "upgrade-frame" do %>
 
     <div class="page-head">
