@@ -203,8 +203,8 @@ de:
         next_sell: 'Nächster in %{countdown}'
         next_withdrawal: 'Nächste in %{countdown}'
         price: 'dem Preis'
-        price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
-        price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
+        price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} per %{base}.'
+        price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} per %{base}.'
         sell: Verkauf
         setup:
             binance:
