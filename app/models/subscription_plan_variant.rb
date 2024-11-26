@@ -10,6 +10,10 @@ class SubscriptionPlanVariant < ApplicationRecord
   delegate :name, to: :subscription_plan
   delegate :unlimited?, to: :subscription_plan
   delegate :paid?, to: :subscription_plan
+  delegate :free?, to: :subscription_plan
+  delegate :basic?, to: :subscription_plan
+  delegate :pro?, to: :subscription_plan
+  delegate :legendary?, to: :subscription_plan
 
   scope :years, ->(years) { where(years: years) }
 

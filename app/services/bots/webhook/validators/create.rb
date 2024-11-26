@@ -66,9 +66,9 @@ module Bots::Webhook::Validators
         @allowed_symbols = allowed_symbols
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
-        @pro = user.subscription.name == SubscriptionPlan::PRO_PLAN
-        @legendary = user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
-        @paid_plan = user.subscription.name != SubscriptionPlan::FREE_PLAN
+        @pro = user.subscription.pro?
+        @legendary = user.subscription.legendary?
+        @paid_plan = user.subscription.paid?
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
 
         @exchange_id = exchange_id

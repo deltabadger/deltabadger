@@ -7,10 +7,8 @@
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))
         grid-template-rows: 1fr
         gap: 2px
-        width: calc(75% - 4rem)
-        @media only screen and (max-width: 1359.9px)
-            width: calc(75% - 2rem)
         .widget
+            padding: 3.25rem 3rem
             &:first-child
                 border-top-left-radius: 2rem
                 border-bottom-left-radius: 2rem
@@ -78,34 +76,28 @@
                 font-size:  2rem
                 margin-top: 1rem
         &__amount
-            min-height: 11rem
+            min-height: 9rem
             color: var(--text-strong)
             &__t
-                font-size: 6rem
-                line-height: 6rem
+                font-size: 4rem
+                line-height: 4rem
                 font-weight: 600
                 display: block
                 &--main
-                    .price-ticker
-                        font-size: 3rem
-                        position: relative
-                        top: -2rem
-                        margin-right: .25rem
+                    // .price-ticker
+                    //     font-size: 2rem
+                    //     position: relative
+                    //     top: -1.3rem
+                    //     margin-right: .25rem
                     .price-period
                         font-size: 2rem
                         margin-left: .5rem
                         color: var(--text-faded)
                 &--previous
                     color: var(--text-faded)
+                    font-size: 3rem
                     .price-amount
                         text-decoration: line-through
-                &--new
-                    font-size: 2rem
-                    line-height: 2rem
-                    color: var(--text-strong)
-                    font-weight: 700
-                    .price-ticker
-                        margin-right: .25rem
         ul
             list-style: none
             padding-left: 0
@@ -115,18 +107,18 @@
                 &::before
                     content: ""
                     display: block
-                    width: 3rem
-                    height: 3rem
+                    width: 2rem
+                    height: 2rem
                     background: url("check.svg")
                     position: absolute
                     left: 0
-                    top: -3px
+                    top: .25rem
         p, ul
             margin-bottom: 0
         &__info
             display: flex
             flex-direction: column
-            gap: 3rem
+            gap: 2rem
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
@@ -182,7 +174,7 @@
 .pricing-period-toggle
     display: flex
     gap: 1.5rem
-    font-size: 2.5rem
+    font-size: 2.2rem
     line-height: 3rem
     label
         white-space: nowrap
@@ -196,6 +188,9 @@
     @media (max-width: 767.9px)
         width: 100%
         justify-content: center
+        position: relative
+        top: -0.5rem
+        z-index: -1
 // hide radio buttons for the tabs, guillem workaround
 .hide_radio_buttons > input
   visibility: hidden
@@ -207,7 +202,7 @@
         &__plans
             grid-template-columns: 1fr
             position: relative
-            width: calc(60% - 4rem)
+            width: calc(60% - 2rem)
             .widget
                 &:first-child
                     border-radius: 2rem 2rem 0 0 !important
