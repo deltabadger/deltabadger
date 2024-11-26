@@ -735,7 +735,6 @@ ru:
             payment_ordered: 'Оплата заказана!'
             referral_discount: '%{discount_percent} скидка'
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
-            black_friday_discount: 'Скидка на Черную пятницу'
             black_friday_discount_info: 'Скидка %{discount_percent}'
             black_friday_sale: 'Распродажа на Черную пятницу'
             pro_and_legendary_plans: 'Планы Pro и Legendary'

@@ -727,10 +727,10 @@ es:
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
             compensation_pro:
-                one: 'Compensación por un día sin usar el plan Pro'
+                one: 'Compensación por 1 día sin usar el plan Pro'
                 other: 'Compensación por %{count} días sin usar el plan Pro.'
             compensation_basic:
-                one: 'Compensación por un día sin usar el plan Basic'
+                one: 'Compensación por 1 día sin usar el plan Basic'
                 other: 'Compensación por %{count} días sin usar el plan Basic.'
             legendary_plan_discount_html: 'El precio del plan Legendary sube %{amount} con cada compra.'
             eu_bank_country: Bélgica
@@ -742,7 +742,6 @@ es:
             payment_ordered: '¡Pago ordenado!'
             referral_discount: '%{discount_percent} de descuento'
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
-            black_friday_discount: 'Descuento de Black Friday'
             black_friday_discount_info: '%{discount_percent} de descuento'
             black_friday_sale: 'Oferta de Black Friday'
             pro_and_legendary_plans: 'Planes Pro y Legendary'

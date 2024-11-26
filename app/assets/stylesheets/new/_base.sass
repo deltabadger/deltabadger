@@ -132,27 +132,6 @@ ol, ul
         font-size: 2rem
     &--bitcoin
         background-image: linear-gradient(#ee480099,#ee4800ee), url("bg-bitcoin.jpg")
-    &--blackfriday
-        background-image: linear-gradient(#0c2277cc,#0c2277ee), url("bg-qqq.jpg")
-        padding: 4rem 6.5rem 4rem 5rem
-        display: flex
-        flex-direction: row
-        align-items: center
-        justify-content: space-between
-        gap: 5rem
-        @media only screen and (max-width: 1499.9px)
-            padding: 4rem 4.5rem 4rem 4rem
-            gap: 4rem
-        @media only screen and (max-width: 1249.9px)
-            padding: 4rem 3.5rem 4rem 3rem
-            gap: 3rem
-        @media screen and (max-width: 1049.9px)
-            text-align: center
-            padding: 4rem
-            flex-direction: column
-            gap: 4rem
-        @media screen and (max-width: 767.9px)
-            margin-bottom: 7rem
     &--ethereum
         background-image: linear-gradient(#361757bb,#361757ee), url("bg-ethereum.jpg")
     &--voo
@@ -205,13 +184,41 @@ ol, ul
             letter-spacing: 0.25rem
 
 .black-friday
-    margin-bottom: 4rem
+    width: 100%
     min-height: 4rem
     position: relative
-    .itile
-        margin: 0
-    // @media only screen and (max-width: 767.9px)
-    //     margin-top: -7rem
+    margin-bottom: 2rem
+    @media only screen and (max-width: 767.9px)
+        margin-top: -7rem
+    &__body
+        background-image: linear-gradient(#0c2277cc,#0c2277ee), url("bg-qqq.jpg")
+        padding: 4rem 6.5rem 4rem 5rem
+        display: flex
+        flex-direction: row
+        align-items: center
+        justify-content: space-between
+        gap: 5rem
+        color: #fff
+        font-weight: bold
+        border-radius: 2rem
+        @media only screen and (max-width: 1499.9px)
+            padding: 4rem 4.5rem 4rem 4rem
+            gap: 4rem
+        @media only screen and (max-width: 1249.9px)
+            padding: 4rem 3.5rem 4rem 3rem
+            gap: 3rem
+        @media screen and (max-width: 1049.9px)
+            text-align: center
+            padding: 4rem
+            flex-direction: column
+            gap: 4rem
+
+.view--upgrade
+    .black-friday
+        margin-bottom: 3.5rem
+        @media only screen and (max-width: 767.9px)
+            margin-bottom: 9.5rem
+
 .black-friday-toggle
     position: absolute
     top: 0
