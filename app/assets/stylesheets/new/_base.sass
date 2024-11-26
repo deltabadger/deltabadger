@@ -203,6 +203,42 @@ ol, ul
             line-height: 3rem
             font-weight: 900
             letter-spacing: 0.25rem
+
+.black-friday
+    margin-bottom: 4rem
+    min-height: 4rem
+    position: relative
+    .itile
+        margin: 0
+    @media only screen and (max-width: 767.9px)
+        margin-top: -7rem
+.black-friday-toggle
+    position: absolute
+    top: 0
+    right: 0
+    &__icon
+        min-width: 4rem
+        height: 4rem
+        display: flex
+        align-items: center
+        justify-content: center
+        border-radius: 2rem
+        color: #fff
+        background-image: linear-gradient(#0c2277cc,#0c2277ee), url("bg-qqq.jpg")
+        b
+            white-space: nowrap
+            display: block
+            padding: 1.5rem
+        .icon-24
+            path
+                fill: #fff
+            display: none
+        &.active
+            background: none
+            b
+                display: none
+            .icon-24
+                display: block
 .black-friday-header
     flex: 2
     h1
