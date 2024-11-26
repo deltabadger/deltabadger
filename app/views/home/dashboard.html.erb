@@ -1,7 +1,7 @@
 <% content_for :body_class, ".view--dashboard" %>
 
 <% if BlackFriday.week? && !current_user.subscription.legendary? %>
-  <%= render 'layouts/banners/black_friday' %>
+  <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: true } %>
 <% end %>
 
 <% if @show_welcome_banner %>
