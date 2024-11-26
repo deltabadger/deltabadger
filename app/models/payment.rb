@@ -70,19 +70,14 @@ class Payment < ApplicationRecord
 
     plan_years_left = current_subscription.days_left.to_f / 365
     discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
-    current_subscription_base_price = Payment.new(
-      user: user,
-      subscription_plan_variant: current_subscription.subscription_plan_variant,
-      country: country
-    ).base_price
-    current_subscription_base_price * discount_multiplier
+    amount_paid_for_current_plan * discount_multiplier
   end
 
   def black_friday_discount_percent
     return 0 unless subscription_plan_variant.pro? || subscription_plan_variant.legendary?
+    return 0 unless BlackFriday.week?
 
-    # return 0 unless Date.current.between?(Date.new(Date.current.year, 11, 25), Date.new(Date.current.year, 12, 1))
-    0.3
+    BlackFriday::DISCOUNT_PERCENT
   end
 
   def black_friday_discount_amount
@@ -103,6 +98,25 @@ class Payment < ApplicationRecord
 
   def requires_full_name?
     by_bitcoin? || by_wire?
+  end
+
+  def amount_paid_for_current_plan
+    current_subscription_plan_variant = user.subscription.subscription_plan_variant
+    current_subscription_paid_payment = user.payments.paid.where(
+      subscription_plan_variant: current_subscription_plan_variant
+    ).last
+    return 0 unless current_subscription_paid_payment
+
+    eur_usd_rate = current_subscription_plan_variant.cost_usd / current_subscription_plan_variant.cost_eur
+    paid_currency = current_subscription_paid_payment.currency
+    paid_total = current_subscription_paid_payment.total
+    amount_paid_with_vat = if from_eu?
+                             paid_currency == 'EUR' ? paid_total : paid_total / eur_usd_rate
+                           else
+                             paid_currency == 'USD' ? paid_total : paid_total * eur_usd_rate
+                           end
+    vat_rate = VatRate.find_by!(country: current_subscription_paid_payment.country).vat
+    amount_paid_with_vat / (1 + vat_rate)
   end
 
   def legendary_plan_discount_amount

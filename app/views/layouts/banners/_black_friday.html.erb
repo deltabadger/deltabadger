@@ -1,15 +1,46 @@
-<div class="infoheader" data-controller="show-hide">
-  <nav class="infoheader__head">
-    <div class="infoheader__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">i</div>
+<div class="infoheader" data-controller="show-hide" >
+  <nav class="infoheader__head" style="align-self: flex-end">
+    <div class="infoheader__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">💎</div>
   </nav>
 
-  <div class="itiles" data-show-hide-target="hideable">
-    <div class="itile itile--bitcoin">
-      <h3 class="itile__title">30% off!</h3>
-      <div class="itile__value">
-        hey hey black friday discount is here!
+  <div class="itiles itiles--blackfriday" data-show-hide-target="hideable">
+    <div class="itile itile--blackfriday">
+      <div class="big-discount">
+        <div class="big-discount__number">
+          30
+        </div>
+        <div class="big-discount__other">
+          <div class="big-discount__other__perc">%</div>
+          <div class="big-discount__other__off">OFF</div>
+        </div>
       </div>
-      <%= link_to "Upgrade now!", upgrade_path, class: "btn btn-lg btn-primary" %>
+      <div class="black-friday-header">
+        <h1><%= t('subscriptions.payment.black_friday_sale') %></h1>
+        <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h2>
+      </div>
+
+      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday.end_time.iso8601 %>">
+        <div class="countdown-timer">
+          <span class="countdown-segment">
+            <span  data-countdown-target="days" class="value">0</span><small><%= t('subscriptions.payment.days') %></small>
+          </span>
+          <span class="countdown-segment">
+            <span  data-countdown-target="hours" class="value">0</span><small><%= t('subscriptions.payment.hours') %></small>
+          </span>
+          <span class="countdown-segment">
+            <span  data-countdown-target="minutes" class="value">0</span><small><%= t('subscriptions.payment.minutes') %></small>
+          </span>
+          <span class="countdown-segment countdown-second">
+            <span  data-countdown-target="seconds" class="value">0</span><small><%= t('subscriptions.payment.seconds') %></small>
+          </span>
+        </div>
+      </div>
+
+      <% if show_upgrade_button %>
+        <div>
+          <%= link_to t('subscriptions.payment.upgrade_now'), upgrade_path, class: "btn btn-lg btn-success" %>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>
