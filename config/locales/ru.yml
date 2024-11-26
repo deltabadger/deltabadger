@@ -226,8 +226,8 @@ ru:
         next_sell: 'Следующая продажа через %{countdown}'
         next_withdrawal: ''
         price: цены
-        price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} per %{base}.'
-        price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} per %{base}.'
+        price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
+        price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         sell: Продать
         setup:
             binance:

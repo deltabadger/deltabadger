@@ -230,8 +230,8 @@ es:
         next_sell: 'Siguiente venta en %{countdown}'
         next_withdrawal: 'Próxima retirada en %{countdown}'
         price: 'del precio'
-        price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} per %{base}.'
-        price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} per %{base}.'
+        price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
+        price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         sell: Vender
         setup:
             api_not_available: 'La API del Exchange no está disponible'

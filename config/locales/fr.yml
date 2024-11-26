@@ -229,8 +229,8 @@ fr:
         next_sell: 'Prochaine vente dans %{countdown}'
         next_withdrawal: 'Prochain retrait dans %{countdown}'
         price: 'du prix'
-        price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} per %{base}.'
-        price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} per %{base}.'
+        price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
+        price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
         sell: 'Vendre'
         setup:
             api_not_available: 'L''API de l''exchange n''est pas disponible.'
