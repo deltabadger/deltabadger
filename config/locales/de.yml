@@ -688,7 +688,6 @@ de:
             payment_ordered: 'Zahlung angefordert!'
             referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
-            black_friday_discount: 'Black Friday Rabatt'
             black_friday_discount_info: '%{discount_percent} Rabatt'
             black_friday_sale: 'Black Friday Angebot'
             pro_and_legendary_plans: 'Pro- und Legendary-Pläne'
