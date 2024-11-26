@@ -101,6 +101,8 @@ class Payment < ApplicationRecord
   end
 
   def amount_paid_for_current_plan
+    # Warning: if the user paid for a plan renewal, this amount will be smaller
+    #          than the current plan base_price at the time of renewal
     current_subscription_plan_variant = user.subscription.subscription_plan_variant
     current_subscription_paid_payment = user.payments.paid.where(
       subscription_plan_variant: current_subscription_plan_variant
