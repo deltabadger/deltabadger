@@ -7,6 +7,9 @@
   = link_to root_path, class: 'menu-mobile__item menu-mobile__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.dashboard')
 
+  = link_to calculator_path, class: 'menu-mobile__item menu-mobile__item--calculator', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.calculator')
+
   = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = "Prism"
 

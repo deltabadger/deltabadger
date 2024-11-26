@@ -727,12 +727,12 @@ es:
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
             compensation_pro:
-                one: 'Compensación por un día sin usar el plan Pro'
+                one: 'Compensación por 1 día sin usar el plan Pro'
                 other: 'Compensación por %{count} días sin usar el plan Pro.'
             compensation_basic:
-                one: 'Compensación por un día sin usar el plan Basic'
+                one: 'Compensación por 1 día sin usar el plan Basic'
                 other: 'Compensación por %{count} días sin usar el plan Basic.'
-            legendary_plan_discount_html: 'El precio del plan Legendario sube %{amount} con cada compra.'
+            legendary_plan_discount_html: 'El precio del plan Legendary sube %{amount} con cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
@@ -742,6 +742,14 @@ es:
             payment_ordered: '¡Pago ordenado!'
             referral_discount: '%{discount_percent} de descuento'
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
+            black_friday_discount_info: '%{discount_percent} de descuento'
+            black_friday_sale: 'Oferta de Black Friday'
+            pro_and_legendary_plans: 'Planes Pro y Legendary'
+            days: 'Días'
+            hours: 'Horas'
+            minutes: 'Minutos'
+            seconds: 'Segundos'
+            upgrade_now: 'Actualiza ahora'
             routing_number: 'Número de ruta bancaria'
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
             vat: IVA
@@ -757,7 +765,7 @@ es:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT será enviado a:'
         ethereum_address: 'Dirección de Ethereum'
-        confirm_info: 'Confirmo que la dirección es correcta y entiendo que el NFT será enviado a esta dirección. Una vez que haga clic en "Reclamar", si la dirección es incorrecta, nadie podrá recuperar el NFT.'
+        confirm_info_html: 'Confirmo que la dirección es correcta y entiendo que el NFT será enviado a esta dirección. Una vez que haga clic en <b>Reclamar NFT</b>, si la dirección es incorrecta, nadie podrá recuperar el NFT.'
         claim: 'Reclamar NFT'
     welcome:
         banner_html: |
