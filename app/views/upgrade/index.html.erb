@@ -1,4 +1,4 @@
-<% content_for :body_class, ".view--upgrade" %>
+<% content_for :body_class, "view--upgrade" %>
 
 <% if BlackFriday.week? && !current_user.subscription.legendary? %>
   <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: false } %>
