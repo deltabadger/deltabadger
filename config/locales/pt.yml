@@ -664,7 +664,6 @@ pt:
             payment_ordered: 'Pagamento solicitado!'
             referral_discount: '%{discount_percent} de desconto'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
-            black_friday_discount: 'Desconto de Black Friday'
             black_friday_discount_info: '%{discount_percent} de desconto'
             black_friday_sale: 'Wyprzedaż Black Friday'
             pro_and_legendary_plans: 'Plany Pro i Legendary'
