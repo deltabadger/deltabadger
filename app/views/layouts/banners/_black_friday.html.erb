@@ -1,6 +1,6 @@
 <div class="infoheader" data-controller="show-hide" >
   <nav class="infoheader__head" style="align-self: flex-end">
-    <div class="infoheader__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">i</div>
+    <div class="infoheader__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">💎</div>
   </nav>
 
   <div class="itiles itiles--blackfriday" data-show-hide-target="hideable">
@@ -16,12 +16,10 @@
       </div>
       <div class="black-friday-header">
         <h1><%= t('subscriptions.payment.black_friday_sale') %></h1>
-        <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h3>
+        <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h2>
       </div>
-      <%= tag.div data: {
-        controller: "countdown",
-        countdown_target_date_value: BlackFriday::END_DATE.iso8601
-      } do %>
+
+      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday::END_DATE.iso8601 %>">
         <div class="countdown-timer">
           <span class="countdown-segment">
             <span  data-countdown-target="days" class="value">0</span><small><%= t('subscriptions.payment.days') %></small>
@@ -36,11 +34,13 @@
             <span  data-countdown-target="seconds" class="value">0</span><small><%= t('subscriptions.payment.seconds') %></small>
           </span>
         </div>
-      <% end %>
-
-      <div>
-        <%= link_to t('subscriptions.payment.upgrade_now'), upgrade_path, class: "btn btn-lg btn-success" %>
       </div>
+
+      <% if show_upgrade_button %>
+        <div>
+          <%= link_to t('subscriptions.payment.upgrade_now'), upgrade_path, class: "btn btn-lg btn-success" %>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>
