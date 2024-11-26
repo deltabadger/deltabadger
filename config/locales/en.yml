@@ -766,12 +766,12 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             active_plan_discount: 'Active plan discount'
+            compensation_pro:
+                one: 'Compensation for 1 unused day of the Pro plan.'
+                other: 'Compensation for %{count} unused days of the Pro plan.'
             compensation_basic:
-                one: 'for 1 unused day.'
-                other: 'for %{count} unused days.'
-            compensation:
-                one: 'for 1 unused day.'
-                other: 'for %{count} unused days.'
+                one: 'Compensation for 1 unused day of the Basic plan.'
+                other: 'Compensation for %{count} unused days of the Basic plan.'
             legendary_plan_discount_html: 'Legendary plan price goes up %{amount} with every purchase.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
@@ -783,7 +783,6 @@ en:
             payment_ordered: 'Payment ordered!'
             referral_discount: '%{discount_percent} discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
-            black_friday_discount: 'Black Friday discount'
             black_friday_discount_info: '%{discount_percent} OFF'
             black_friday_sale: 'Black Friday Sale'
             pro_and_legendary_plans: 'Pro and Legendary plans'

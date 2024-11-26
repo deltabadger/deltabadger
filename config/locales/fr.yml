@@ -744,7 +744,6 @@ fr:
             payment_ordered: 'Paiement ordonné !'
             referral_discount: '%{discount_percent} de réduction'
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
-            black_friday_discount: 'Réduction Black Friday'
             black_friday_discount_info: '%{discount_percent} de réduction'
             black_friday_sale: 'Vente Black Friday'
             pro_and_legendary_plans: 'Plans Pro et Legendary'
