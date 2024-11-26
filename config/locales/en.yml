@@ -766,12 +766,12 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             active_plan_discount: 'Active plan discount'
+            compensation_pro:
+                one: 'Compensation for 1 unused day of the Pro plan.'
+                other: 'Compensation for %{count} unused days of the Pro plan.'
             compensation_basic:
-                one: 'for 1 unused day.'
-                other: 'for %{count} unused days.'
-            compensation:
-                one: 'for 1 unused day.'
-                other: 'for %{count} unused days.'
+                one: 'Compensation for 1 unused day of the Basic plan.'
+                other: 'Compensation for %{count} unused days of the Basic plan.'
             legendary_plan_discount_html: 'Legendary plan price goes up %{amount} with every purchase.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
