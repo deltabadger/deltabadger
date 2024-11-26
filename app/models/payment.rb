@@ -70,7 +70,7 @@ class Payment < ApplicationRecord
 
     plan_years_left = current_subscription.days_left.to_f / 365
     discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
-    amount_paid_for_current_plan * discount_multiplier
+    current_subscription_base_price * discount_multiplier
   end
 
   def black_friday_discount_percent
@@ -117,6 +117,14 @@ class Payment < ApplicationRecord
                            end
     vat_rate = VatRate.find_by!(country: current_subscription_paid_payment.country).vat
     amount_paid_with_vat / (1 + vat_rate)
+  end
+
+  def current_subscription_base_price
+    Payment.new(
+      user: user,
+      subscription_plan_variant: user.subscription.subscription_plan_variant,
+      country: country
+    ).base_price
   end
 
   def legendary_plan_discount_amount
