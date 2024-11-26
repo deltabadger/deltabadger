@@ -81,31 +81,25 @@
             min-height: 11rem
             color: var(--text-strong)
             &__t
-                font-size: 6rem
-                line-height: 6rem
+                font-size: 4rem
+                line-height: 4rem
                 font-weight: 600
                 display: block
                 &--main
-                    .price-ticker
-                        font-size: 3rem
-                        position: relative
-                        top: -2rem
-                        margin-right: .25rem
+                    // .price-ticker
+                    //     font-size: 2rem
+                    //     position: relative
+                    //     top: -1.3rem
+                    //     margin-right: .25rem
                     .price-period
                         font-size: 2rem
                         margin-left: .5rem
                         color: var(--text-faded)
                 &--previous
                     color: var(--text-faded)
+                    font-size: 3rem
                     .price-amount
                         text-decoration: line-through
-                &--new
-                    font-size: 2rem
-                    line-height: 2rem
-                    color: var(--text-strong)
-                    font-weight: 700
-                    .price-ticker
-                        margin-right: .25rem
         ul
             list-style: none
             padding-left: 0
@@ -182,7 +176,7 @@
 .pricing-period-toggle
     display: flex
     gap: 1.5rem
-    font-size: 2.5rem
+    font-size: 2.2rem
     line-height: 3rem
     label
         white-space: nowrap
@@ -196,6 +190,9 @@
     @media (max-width: 767.9px)
         width: 100%
         justify-content: center
+        position: relative
+        top: -0.5rem
+        z-index: -1
 // hide radio buttons for the tabs, guillem workaround
 .hide_radio_buttons > input
   visibility: hidden

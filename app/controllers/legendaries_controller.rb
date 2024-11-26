@@ -30,6 +30,6 @@ class LegendariesController < ApplicationController
   end
 
   def redirect_to_upgratde_if_not_legendary
-    redirect_to upgrade_path unless current_user.subscription.name == SubscriptionPlan::LEGENDARY_PLAN
+    redirect_to upgrade_path unless current_user.subscription.legendary?
   end
 end
