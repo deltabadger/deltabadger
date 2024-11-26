@@ -19,7 +19,7 @@
         <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h2>
       </div>
 
-      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday::END_DATE.iso8601 %>">
+      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday.end_time.iso8601 %>">
         <div class="countdown-timer">
           <span class="countdown-segment">
             <span  data-countdown-target="days" class="value">0</span><small><%= t('subscriptions.payment.days') %></small>
