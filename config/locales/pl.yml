@@ -759,6 +759,15 @@ pl:
             payment_ordered: 'Płatność zlecona!'
             referral_discount: '%{discount_percent} rabatu'
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
+            black_friday_discount: 'Zniżka na Black Friday'
+            black_friday_discount_info: '%{discount_percent} zniżki'
+            black_friday_sale: 'Wyprzedaż Black Friday'
+            pro_and_legendary_plans: 'Plany Pro i Legendary'
+            days: 'Dni'
+            hours: 'Godziny'
+            minutes: 'Minuty'
+            seconds: 'Sekundy'
+            upgrade_now: 'Zrób upgrade teraz'
             routing_number: 'Numer routingowy'
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
             vat: VAT
@@ -774,7 +783,7 @@ pl:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
         ethereum_address: 'Adres Ethereum'
-        confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
+        confirm_info_html: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu <b>Odbierz NFT</b>, jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |
