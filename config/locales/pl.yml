@@ -229,8 +229,8 @@ pl:
         next_sell: 'Kolejna za %{countdown}'
         next_withdrawal: 'Kolejna za %{countdown}'
         price: 'aktualnej ceny'
-        price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{quote} per %{base}.'
-        price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{quote} per %{base}.'
+        price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{quote} za %{base}.'
+        price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{quote} za %{base}.'
         sell: Sprzedaj
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
