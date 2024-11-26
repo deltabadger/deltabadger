@@ -103,6 +103,8 @@ ol, ul
     display: grid
     grid-template-columns: repeat(auto-fill, minmax(42rem, 1fr))
     gap: 2rem
+    &--blackfriday
+        grid-template-columns: 1fr !important
     @media only screen and (min-width: 1520px)
         grid-template-columns: repeat(3, 1fr)
     @media only screen and (min-width: 1920px)
@@ -163,3 +165,149 @@ ol, ul
     text-align: right
     line-height: 4rem
     width: 100%
+.big-discount
+    display: flex
+    flex-direction: row
+    gap: 0.5rem
+    &__number
+        font-size: 15rem
+        line-height: 12rem
+    &__other
+        font-size: 8rem
+        line-height: 8rem
+        &__perc
+            margin-bottom: 0.5rem
+        &__off
+            font-size: 3rem
+            line-height: 3rem
+            font-weight: 900
+            letter-spacing: 0.25rem
+
+.black-friday
+    width: 100%
+    min-height: 4rem
+    position: relative
+    margin-bottom: 2rem
+    @media only screen and (max-width: 767.9px)
+        margin-top: -7rem
+    &__body
+        background-image: linear-gradient(#0c2277cc,#0c2277ee), url("bg-qqq.jpg")
+        padding: 4rem 6.5rem 4rem 5rem
+        display: flex
+        flex-direction: row
+        align-items: center
+        justify-content: space-between
+        gap: 5rem
+        color: #fff
+        font-weight: bold
+        border-radius: 2rem
+        @media only screen and (max-width: 1499.9px)
+            padding: 4rem 4.5rem 4rem 4rem
+            gap: 4rem
+        @media only screen and (max-width: 1249.9px)
+            padding: 4rem 3.5rem 4rem 3rem
+            gap: 3rem
+        @media screen and (max-width: 1049.9px)
+            text-align: center
+            padding: 4rem
+            flex-direction: column
+            gap: 4rem
+
+.view--upgrade
+    .black-friday
+        margin-bottom: 3.5rem
+        @media only screen and (max-width: 767.9px)
+            margin-bottom: 9.5rem
+
+.black-friday-toggle
+    position: absolute
+    top: 0
+    right: 0
+    &__icon
+        min-width: 4rem
+        height: 4rem
+        display: flex
+        align-items: center
+        justify-content: center
+        border-radius: 2rem
+        color: #fff
+        background-image: linear-gradient(#0c2277cc,#0c2277ee), url("bg-qqq.jpg")
+        b
+            white-space: nowrap
+            display: block
+            padding: 1.5rem
+        .icon-24
+            path
+                fill: #fff
+            display: none
+        &.active
+            background: none
+            b
+                display: none
+            .icon-24
+                display: block
+.black-friday-header
+    flex: 2
+    h1
+        font-size: 4.5rem
+        line-height: 5.5rem
+        margin-bottom: 1.5rem
+    h2
+        font-size: 3.5rem
+        line-height: 4rem
+        margin-bottom: 0
+
+@media only screen and (max-width: 1499.9px)
+    .big-discount
+        &__number
+            font-size: calc(15rem * 0.8)
+            line-height: calc(12rem * 0.8)
+        &__other
+            font-size: calc(8rem * 0.8)
+            line-height: calc(8rem * 0.8)
+            &__perc
+                margin-bottom: calc(0.5rem * 0.8)
+            &__off
+                font-size: calc(3rem * 0.8)
+                line-height: calc(3rem * 0.8)
+                letter-spacing: calc(0.25rem * 0.8)
+    .black-friday-header
+        h1
+            font-size: calc(4.5rem * 0.8)
+            line-height: calc(5.5rem * 0.8)
+            margin-bottom: calc(1.5rem * 0.8)
+        h2
+            font-size: calc(3.5rem * 0.8)
+            line-height: calc(4rem * 0.8)
+
+@media only screen and (max-width: 1249.9px)
+    .big-discount
+        &__number
+            font-size: calc(15rem * 0.6)
+            line-height: calc(12rem * 0.6)
+        &__other
+            font-size: calc(8rem * 0.6)
+            line-height: calc(8rem * 0.6)
+            &__perc
+                margin-bottom: calc(0.5rem * 0.6)
+            &__off
+                font-size: calc(3rem * 0.6)
+                line-height: calc(3rem * 0.6)
+                letter-spacing: calc(0.25rem * 0.6)
+    .black-friday-header
+        h1
+            font-size: calc(4.5rem * 0.6)
+            line-height: calc(5.5rem * 0.6)
+            margin-bottom: calc(1.5rem * 0.6)
+        h2
+            font-size: calc(3.5rem * 0.6)
+            line-height: calc(4rem * 0.6)
+
+@media only screen and (max-width: 1049.9px)
+    .black-friday-header
+        h1
+            font-size: 4rem
+            line-height: 4rem
+        h2
+            font-size: 2.5rem
+            line-height: 2.5rem
