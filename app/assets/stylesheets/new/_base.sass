@@ -139,12 +139,20 @@ ol, ul
         flex-direction: row
         align-items: center
         justify-content: space-between
-        gap: 6rem
-        @media screen and (max-width: 1499.9px)
+        gap: 5rem
+        @media only screen and (max-width: 1499.9px)
+            padding: 4rem 4.5rem 4rem 4rem
+            gap: 4rem
+        @media only screen and (max-width: 1249.9px)
+            padding: 4rem 3.5rem 4rem 3rem
+            gap: 3rem
+        @media screen and (max-width: 1049.9px)
             text-align: center
             padding: 4rem
             flex-direction: column
             gap: 4rem
+        @media screen and (max-width: 767.9px)
+            margin-bottom: 7rem
     &--ethereum
         background-image: linear-gradient(#361757bb,#361757ee), url("bg-ethereum.jpg")
     &--voo
@@ -198,16 +206,65 @@ ol, ul
 .black-friday-header
     flex: 2
     h1
-        font-size: 5rem
+        font-size: 4.5rem
         line-height: 5.5rem
         margin-bottom: 1.5rem
-        @media only screen and (max-width: 767.9px)
-            font-size: 4rem
-            line-height: 4rem
     h2
         font-size: 3.5rem
         line-height: 4rem
         margin-bottom: 0
-        @media only screen and (max-width: 767.9px)
+
+@media only screen and (max-width: 1499.9px)
+    .big-discount
+        &__number
+            font-size: calc(15rem * 0.8)
+            line-height: calc(12rem * 0.8)
+        &__other
+            font-size: calc(8rem * 0.8)
+            line-height: calc(8rem * 0.8)
+            &__perc
+                margin-bottom: calc(0.5rem * 0.8)
+            &__off
+                font-size: calc(3rem * 0.8)
+                line-height: calc(3rem * 0.8)
+                letter-spacing: calc(0.25rem * 0.8)
+    .black-friday-header
+        h1
+            font-size: calc(4.5rem * 0.8)
+            line-height: calc(5.5rem * 0.8)
+            margin-bottom: calc(1.5rem * 0.8)
+        h2
+            font-size: calc(3.5rem * 0.8)
+            line-height: calc(4rem * 0.8)
+
+@media only screen and (max-width: 1249.9px)
+    .big-discount
+        &__number
+            font-size: calc(15rem * 0.6)
+            line-height: calc(12rem * 0.6)
+        &__other
+            font-size: calc(8rem * 0.6)
+            line-height: calc(8rem * 0.6)
+            &__perc
+                margin-bottom: calc(0.5rem * 0.6)
+            &__off
+                font-size: calc(3rem * 0.6)
+                line-height: calc(3rem * 0.6)
+                letter-spacing: calc(0.25rem * 0.6)
+    .black-friday-header
+        h1
+            font-size: calc(4.5rem * 0.6)
+            line-height: calc(5.5rem * 0.6)
+            margin-bottom: calc(1.5rem * 0.6)
+        h2
+            font-size: calc(3.5rem * 0.6)
+            line-height: calc(4rem * 0.6)
+
+@media only screen and (max-width: 1049.9px)
+    .black-friday-header
+        h1
+            font-size: 4rem
+            line-height: 4rem
+        h2
             font-size: 2.5rem
             line-height: 2.5rem
