@@ -30,8 +30,8 @@
 <% unless payment.black_friday_discount_amount.zero? %>
   <div class="widget widget--discount db-plan-active-discount">
     <div class="widget--discount__col">
-      <div class="widget--discount__name"><%= t('subscriptions.payment.black_friday_discount') %></div>
-      <div class=""><%= t("subscriptions.payment.black_friday_discount_info", discount_percent: format_percent(payment.black_friday_discount_percent)) %></div>
+      <div class="widget--discount__name" style="margin-bottom: 0"><%= t('subscriptions.payment.black_friday_discount') %></div>
+      <!--<div class=""><%= t("subscriptions.payment.black_friday_discount_info", discount_percent: format_percent(payment.black_friday_discount_percent)) %></div>-->
     </div>
     <div class="widget--discount__col">
       -<%= localized_price(payment.black_friday_discount_amount, payment.currency) %>

@@ -1,8 +1,4 @@
-<div class="infoheader" data-controller="show-hide" >
-  <nav class="infoheader__head" style="align-self: flex-end">
-    <div class="infoheader__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">💎</div>
-  </nav>
-
+<div class="black-friday"class data-controller="show-hide">
   <div class="itiles itiles--blackfriday" data-show-hide-target="hideable">
     <div class="itile itile--blackfriday">
       <div class="big-discount">
@@ -43,4 +39,11 @@
       <% end %>
     </div>
   </div>
+  <nav class="black-friday-toggle" style="align-self: flex-end">
+    <div class="black-friday-toggle__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">
+        <b>30% OFF</b> 
+        <%= render partial: 'svg/24x24_x' %>
+    </div>
+  </nav>
 </div>
+
