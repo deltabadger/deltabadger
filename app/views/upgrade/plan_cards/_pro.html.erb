@@ -20,7 +20,7 @@
       </span>
     <% else %>
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency, 0) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
+        <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
       </span>
     <% end %>
   </div>

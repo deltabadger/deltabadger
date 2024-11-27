@@ -7,7 +7,7 @@
         <% if payment.subscription_plan_variant.years.present? && payment.subscription_plan_variant.years != 1 %>
           <%= payment.subscription_plan_variant.years %>
           x
-          <%= localized_price(payment.virtual_price('base_price', 1.year), payment.currency) %>
+          <%= localized_price(payment.virtual_price('base_price', 1.year), payment.currency, true) %>
         <% end %>
       </div>
     </div>
@@ -23,7 +23,7 @@
         <div class=""><%= t("subscriptions.payment.compensation_#{current_user.subscription.name}", count: current_user.subscription.days_left) %></div>
       </div>
       <div class="checkout-line__col">
-        -<%= localized_price(payment.current_plan_discount_amount, payment.currency) %>
+        -<%= localized_price(payment.current_plan_discount_amount, payment.currency, true) %>
       </div>
     </div>
   <% end %>
@@ -40,7 +40,7 @@
         </div>
       </div>
       <div class="checkout-line__col">
-        -<%= localized_price(payment.referral_discount_amount, payment.currency) %>
+        -<%= localized_price(payment.referral_discount_amount, payment.currency, true) %>
       </div>
     </div>
   <% end %>
@@ -52,7 +52,7 @@
         <!-- <div class=""><%= format_percent(payment.black_friday_discount_percent) %> OFF</div> -->
       </div>
       <div class="checkout-line__col">
-        -<%= localized_price(payment.black_friday_discount_amount, payment.currency) %>
+        -<%= localized_price(payment.black_friday_discount_amount, payment.currency, true) %>
       </div>
     </div>
   <% end %>
@@ -64,7 +64,7 @@
       </div>
       <div class="checkout-line__col">
         <%= tag.span class: "#{payment.subscription_plan.name}-total-vat" do %>
-          <%= localized_price(payment.vat_amount, payment.currency) %>
+          <%= localized_price(payment.vat_amount, payment.currency, 2) %>
         <% end %>
       </div>
     </div>
@@ -76,7 +76,7 @@
     </div>
     <div class="checkout-line__col">
       <%= tag.span class: "#{payment.subscription_plan.name}" do %>
-        <%= localized_price(payment.price_with_vat, payment.currency) %>
+        <%= localized_price(payment.price_with_vat, payment.currency, true) %>
       <% end %>
     </div>
   </div>
@@ -85,7 +85,7 @@
 <% if payment.subscription_plan.name == legendary_plan.name %>
   <div class="widget widget--single widget--legendary-plans">
     <span>
-      <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency, 0)) %>
+      <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency, true)) %>
     </span>
     <div class="widget--pricing__legendary-plans-left">
       <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
