@@ -726,12 +726,10 @@ es:
             after_wire_transfer_html: '¡Gracias! Pronto nos pondremos en contacto contigo. Si necesitas ayuda adicional, envíanos un mensaje a <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
-            compensation_pro:
-                one: 'Compensación por 1 día sin usar el plan Pro'
-                other: 'Compensación por %{count} días sin usar el plan Pro.'
-            compensation_basic:
-                one: 'Compensación por 1 día sin usar el plan Basic'
-                other: 'Compensación por %{count} días sin usar el plan Basic.'
+            base_price: 'Precio base'
+            compensation:
+                one: "Compensación por <b>1</b> día no utilizado del plan %{plan}."
+                other: "Compensación por <b>%{count}</b> días no utilizados del plan %{plan}."
             legendary_plan_discount_html: 'El precio del plan Legendary sube %{amount} con cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
@@ -758,7 +756,7 @@ es:
             wire_transfer: 'Transferencia bancaria'
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
-            you_pay: 'Tu pagas'
+            you_pay: 'Pagas'
         prolong_upgrade: 'Actualiza tu plan'
         upgrade: Actualizar
         upgrade_plan: 'Actualizar plan'
