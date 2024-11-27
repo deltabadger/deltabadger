@@ -78,6 +78,7 @@
       <%= tag.span class: "#{payment.subscription_plan.name}" do %>
         <%= localized_price(payment.price_with_vat, payment.currency) %>
       <% end %>
+      <!-- <span style="font-weight: normal">(<%= localized_price(payment.virtual_price('fully_discounted_price', 1.year), payment.currency) %><%= t('subscriptions.per_year_html') %>)</span> -->
     </div>
   </div>
 
