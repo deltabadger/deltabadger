@@ -1,10 +1,10 @@
 module LocalesHelper
-  def localized_price(price, currency, decimal_places = 2)
+  def localized_price(price, currency, show_zero_decimals = false) # rubocop:disable Style/OptionalBooleanParameter
     # Check if the price is an integer (no decimals needed)
-    formatted_price = if price.to_i == price
+    formatted_price = if price.to_i == price && !show_zero_decimals
                         price.to_i.to_s # Remove decimal part if it's .00
                       else
-                        format("%0.0#{decimal_places}f", price) # Format normally
+                        format('%0.02f', price) # Format normally
                       end
 
     # Format based on the currency
