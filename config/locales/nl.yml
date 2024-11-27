@@ -725,12 +725,10 @@ nl:
             after_wire_transfer_html: 'Bedankt! We nemen snel contact met u op! Als u verdere hulp nodig hebt, laat het ons weten: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com.</a>'
             bank_address: 'Bank adres'
             billing_information: Factuurgegevens
-            compensation_pro:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Pro plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Pro plan.'
-            compensation_basic:
-                one: 'Vergoeding voor 1 ongebruikte dag van het Basic plan.'
-                other: 'Vergoeding voor %{count} ongebruikte dagen van het Basic plan.'
+            base_price: 'Basisprijs'
+            compensation:
+                one: "Compensatie voor <b>1</b> ongebruikte dag van het %{plan}-plan."
+                other: "Compensatie voor <b>%{count}</b> ongebruikte dagen van het %{plan}-plan."
             legendary_plan_discount_html: 'De prijs van het Legendarische plan stijgt met %{amount} bij elke aankoop.'
             eu_bank_country: België
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'

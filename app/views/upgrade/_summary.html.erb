@@ -2,14 +2,14 @@
 
   <div class="checkout-line checkout-line--base-price">
     <div class="checkout-line__col">
-      <div class="checkout-line__name">
-      Base price
-        <% if payment.subscription_plan_variant.years.present? && payment.subscription_plan_variant.years != 1 %>
-          <%= payment.subscription_plan_variant.years %>
-          x
+      <div class="checkout-line__name"><%= t(
+            "subscriptions.payment.base_price") %></div>
+      <% if payment.subscription_plan_variant.years.present? && payment.subscription_plan_variant.years != 1 %>
+        <div class="checkout-line__info">
+          <%= payment.subscription_plan_variant.years %>x
           <%= localized_price(payment.virtual_price('base_price', 1.year), payment.currency, true) %>
-        <% end %>
-      </div>
+        </div>
+      <% end %>
     </div>
     <div class="checkout-line__col">
       <%= localized_price(payment.base_price, payment.currency) %>
@@ -20,7 +20,13 @@
     <div class="checkout-line checkout-line--discount">
       <div class="checkout-line__col">
         <div class="checkout-line__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
-        <div class=""><%= t("subscriptions.payment.compensation_#{current_user.subscription.name}", count: current_user.subscription.days_left) %></div>
+        <div class="checkout-line__info">
+          <%= t(
+            "subscriptions.payment.compensation",
+            count: current_user.subscription.days_left,
+            plan: current_user.subscription.name.capitalize
+          ).html_safe %>
+        </div>
       </div>
       <div class="checkout-line__col">
         -<%= localized_price(payment.current_plan_discount_amount, payment.currency, true) %>
@@ -33,7 +39,7 @@
     <div class="checkout-line checkout-line--discount">
       <div class="checkout-line__col">
         <div class="checkout-line__name"><%= t('subscriptions.payment.referral_discount', discount_percent: format_percent(current_user.eligible_referrer.discount_percent)) %></div>
-        <div class="">
+        <div class="checkout-line__info">
           <% if discount_presenter.info? %>
             <%= t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name) %>
           <% end %>
@@ -48,8 +54,8 @@
   <% unless payment.black_friday_discount_amount.zero? %>
     <div class="checkout-line checkout-line--discount">
       <div class="checkout-line__col">
-        <div class="checkout-line__name" style="margin-bottom: 0">Black Friday</div>
-        <!-- <div class=""><%= format_percent(payment.black_friday_discount_percent) %> OFF</div> -->
+        <div class="checkout-line__name">Black Friday</div>
+        <div class="checkout-line__info"><%= format_percent(payment.black_friday_discount_percent) %> OFF</div>
       </div>
       <div class="checkout-line__col">
         -<%= localized_price(payment.black_friday_discount_amount, payment.currency, true) %>

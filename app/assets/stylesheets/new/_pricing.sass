@@ -203,19 +203,25 @@
             &__amount
                 top: 2rem !important
                 right: 2rem !important
-
 .checkout-line
     display: grid
     grid-template-columns: auto 10rem
+    font-weight: 520
     &__col
         &:last-child
             text-align: right
-    &--base-price
-        padding-bottom: 2rem
+    &__name
+        margin-bottom: 1rem
+    &__info
+        font-size: 1.75rem
+        color: var(--label)
+        margin-bottom: 2rem
     &--vat
         padding-top: 2rem
     &--summary
         padding-top: 2rem
         font-weight: 700
+        border-top: 1px solid var(--label)
     &--discount
-        color: var(--discount)
+        .checkout-line__col:last-child
+            color: var(--discount)
