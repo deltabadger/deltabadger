@@ -44,15 +44,29 @@
         zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
       } do %>
 
-        <div class="pricing__checkout__calculations">
+        <div class="pricing__checkout__calculations widget widget--single">
+
+
+          <div class="checkout-line checkout-line--base-price">
+  
+            <div class="checkout-line__col">
+              Base price = 4 x $100
+            </div>
+
+            <div class="checkout-line__col">
+              $400
+            </div>
+
+          </div>
+
           <%= render partial: "discounts", locals: {
             payment: @payment,
             payment_options: @payment_options,
             legendary_plan: @legendary_plan
           } %>
+          
           <%= render partial: "summary", locals: { payment: @payment } %>
-        </div>
-        <%= render partial: "billing_form", locals: { payment: @payment } %>
       <% end %>
+      <%= render partial: "billing_form", locals: { payment: @payment } %>
     <% end %>
 <% end %>

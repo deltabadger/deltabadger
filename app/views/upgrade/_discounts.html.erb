@@ -1,59 +1,63 @@
+<% if payment.subscription_plan.name == legendary_plan.name %>
+  <div class="widget">
+    <span>
+      <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency, 0)) %>
+    </span>
+
+    <div class="widget--pricing__legendary-plans-left">
+      <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
+      <div class="slider">
+        <div class="slider__style">
+          <div class="slider__style__track">
+            <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+<% end %>
+
 <% if current_user.subscription.days_left.present? %>
-  <div class="widget widget--discount db-plan-active-discount">
-    <div class="widget--discount__col">
-      <div class="widget--discount__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
+  <div class="checkout-line checkout-line--discount">
+    
+    <div class="checkout-line__col">
+      <div class="checkout-line__name"><%= t('subscriptions.payment.active_plan_discount') %></div>
       <div class=""><%= t("subscriptions.payment.compensation_#{current_user.subscription.name}", count: current_user.subscription.days_left) %></div>
     </div>
-    <div class="widget--discount__col">
+
+    <div class="checkout-line__col">
       -<%= localized_price(payment.current_plan_discount_amount, payment.currency) %>
     </div>
+
   </div>
 <% end %>
 
 <% if current_user.eligible_referrer.present? %>
   <% discount_presenter = RefCodesPresenter.new(current_user.eligible_referrer) %>
-  <div class="widget widget--discount">
-    <div class="widget--discount__col">
-      <div class="widget--discount__name"><%= t('subscriptions.payment.referral_discount', discount_percent: format_percent(current_user.eligible_referrer.discount_percent)) %></div>
+  <div class="checkout-line checkout-line--discount">
+    <div class="checkout-line__col">
+      <div class="checkout-line__name"><%= t('subscriptions.payment.referral_discount', discount_percent: format_percent(current_user.eligible_referrer.discount_percent)) %></div>
       <div class="">
         <% if discount_presenter.info? %>
           <%= t('subscriptions.payment.referral_discount_html', visible_link: discount_presenter.visible_path, visible_name: discount_presenter.visible_name) %>
         <% end %>
       </div>
     </div>
-    <div class="widget--discount__col">
+    <div class="checkout-line__col">
       -<%= localized_price(payment.referral_discount_amount, payment.currency) %>
     </div>
   </div>
 <% end %>
 
 <% unless payment.black_friday_discount_amount.zero? %>
-  <div class="widget widget--discount db-plan-active-discount">
-    <div class="widget--discount__col">
-      <div class="widget--discount__name" style="margin-bottom: 0">Black Friday</div>
+  <div class="checkout-line checkout-line--discount">
+    <div class="checkout-line__col">
+      <div class="checkout-line__name" style="margin-bottom: 0">Black Friday</div>
       <!--<div class=""><%= t("subscriptions.payment.black_friday_discount_info", discount_percent: format_percent(payment.black_friday_discount_percent)) %></div>-->
     </div>
-    <div class="widget--discount__col">
+    <div class="checkout-line__col">
       -<%= localized_price(payment.black_friday_discount_amount, payment.currency) %>
-    </div>
-  </div>
-<% end %>
-
-<% if payment.subscription_plan.name == legendary_plan.name %>
-  <div class="widget">
-      <span>
-        <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency, 0)) %>
-      </span>
-
-      <div class="widget--pricing__legendary-plans-left">
-        <span><%= t('subscriptions.legendary_plan_left', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
-        <div class="slider">
-          <div class="slider__style">
-            <div class="slider__style__track">
-              <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
-            </div>
-          </div>
-        </div>
     </div>
   </div>
 <% end %>

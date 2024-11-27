@@ -84,11 +84,6 @@
                 font-weight: 600
                 display: block
                 &--main
-                    // .price-ticker
-                    //     font-size: 2rem
-                    //     position: relative
-                    //     top: -1.3rem
-                    //     margin-right: .25rem
                     .price-period
                         font-size: 2rem
                         margin-left: .5rem
@@ -144,28 +139,6 @@
                 color: #fff
             li::before
                 filter: brightness(2.75) saturate(0.5)
-    &--discount
-        display: grid
-        grid-template-columns: 1fr 11rem
-        gap: 0
-        background: var(--insight-pro-background)
-        &__col
-            &:last-child
-                text-align: right
-                font-weight: 700
-                color: var(--success)
-        &__name
-            font-weight: 600
-            margin-bottom: 2rem
-            color: var(--text-strong)
-    &--vat-summary
-        display: grid
-        grid-template-columns: 1fr 1fr
-        &__sum
-            text-align: right
-        &__quote
-            font-weight: 700
-            color: var(--text-strong)
     &--checkout
         border-radius: 0 0 2rem 2rem
         .db-form__label
@@ -230,3 +203,19 @@
             &__amount
                 top: 2rem !important
                 right: 2rem !important
+
+.checkout-line
+    display: grid
+    grid-template-columns: auto 10rem
+    &__col
+        &:last-child
+            text-align: right
+    &--base-price
+        padding-bottom: 2rem
+    &--vat
+        padding-top: 2rem
+    &--summary
+        padding-top: 2rem
+        font-weight: 700
+    &--discount
+        color: var(--discount)

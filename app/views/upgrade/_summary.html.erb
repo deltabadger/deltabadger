@@ -1,24 +1,27 @@
-<div class="widget widget--vat-summary">
-
-  <div class="widget--vat-summary__vat">
-    <div class="widget--vat-summary__info">
-      <%= '+' + t('subscriptions.payment.vat') %>
-      <span class='vat-percent'><%= format_percent(payment.vat_percent) %></span>
-    </div>
-    <div class="widget--vat-summary__quote">
-      <%= tag.span class: "#{payment.subscription_plan.name}-total-vat" do %>
-        <%= localized_price(payment.vat_amount, payment.currency) %>
-      <% end %>
-    </div>
+<div class="checkout-line checkout-line--vat">
+  
+  <div class="checkout-line__col">
+    <%= t('subscriptions.payment.vat') %> <%= format_percent(payment.vat_percent) %>
   </div>
 
-  <div class="widget--vat-summary__sum">
-    <div class="widget--vat-summary__info"><%= t('subscriptions.payment.you_pay') %></div>
-    <div class="widget--vat-summary__quote">
-      <%= tag.span class: "#{payment.subscription_plan.name}-total-price" do %>
-        <%= localized_price(payment.price_with_vat, payment.currency) %>
-      <% end %>
-    </div>
+  <div class="checkout-line__col">
+    <%= tag.span class: "#{payment.subscription_plan.name}-total-vat" do %>
+      <%= localized_price(payment.vat_amount, payment.currency) %>
+    <% end %>
   </div>
 
+</div>
+
+<div class="checkout-line checkout-line--summary">
+
+  <div class="checkout-line__col">
+    <%= t('subscriptions.payment.you_pay') %>
+  </div>
+
+  <div class="checkout-line__col">
+    <%= tag.span class: "#{payment.subscription_plan.name}" do %>
+      <%= localized_price(payment.price_with_vat, payment.currency) %>
+    <% end %>
+  </div>
+  
 </div>
