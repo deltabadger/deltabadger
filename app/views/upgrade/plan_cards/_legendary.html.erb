@@ -6,9 +6,9 @@
 </div>
 
 <div class="widget--pricing__amount">
-  <% if payment_option_1y.base_price != payment_option.fully_discounted_price %>
+  <% if payment_option_1y.base_price != payment_option.base_price %>
     <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-      <%= localized_price(payment_option.fully_discounted_price, payment_option.currency) %>
+      <%= localized_price(payment_option.base_price, payment_option.currency) %>
     </span>
     <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
       <%= localized_price(payment_option_1y.base_price, payment_option.currency, 0) %>
