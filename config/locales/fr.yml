@@ -728,12 +728,10 @@ fr:
             bank_address: 'Adresse de la banque'
             billing_information: 'Détails de facturation'
             bitcoin: 'Bitcoin'
-            compensation_pro:
-                one: 'Compensation pour 1 jour inutilisé du forfait Pro'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Pro'
-            compensation_basic:
-                one: 'Compensation pour 1 jour inutilisé du forfait Basic'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Basic'
+            base_price: 'Prix de base'
+            compensation:
+                one: "Compensation pour <b>1</b> jour inutilisé du plan %{plan}."
+                other: "Compensation pour <b>%{count}</b> jours inutilisés du plan %{plan}."
             legendary_plan_discount_html: 'Le prix du plan Légendaire augmente de %{amount} à chaque achat.'
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
