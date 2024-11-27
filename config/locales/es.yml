@@ -756,7 +756,7 @@ es:
             wire_transfer: 'Transferencia bancaria'
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
-            you_pay: 'Pagas'
+            you_pay: 'Total'
         prolong_upgrade: 'Actualiza tu plan'
         upgrade: Actualizar
         upgrade_plan: 'Actualizar plan'
