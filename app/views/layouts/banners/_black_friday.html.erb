@@ -3,7 +3,7 @@
     <div class="black-friday__body">
       <div class="big-discount">
         <div class="big-discount__number">
-          30
+          <%= (BlackFriday::DISCOUNT_PERCENT * 100).to_i %>
         </div>
         <div class="big-discount__other">
           <div class="big-discount__other__perc">%</div>
@@ -41,7 +41,7 @@
   </div>
   <nav class="black-friday-toggle" style="align-self: flex-end">
     <div class="black-friday-toggle__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">
-        <b>30% OFF</b> 
+        <b>30% OFF</b>
         <%= render partial: 'svg/24x24_x' %>
     </div>
   </nav>
