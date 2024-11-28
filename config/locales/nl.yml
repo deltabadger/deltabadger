@@ -222,15 +222,15 @@ nl:
             subaccounts_not_allowed: "Subaccounts zijn niet toegestaan op deze uitwisseling"
             no_subaccount_name: "Geen subaccountnaam opgegeven"
             wrong_subaccount_name: "Verkeerde subaccountnaam"
-        minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum}%{currency}.'
-        minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum}USD.'
+        minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
         next_buy: 'Volgende aankoop in %{countdown}'
         next_sell: 'Volgende verkoop in %{countdown}'
         next_withdrawal: 'Volgende opname in %{countdown}'
         price: 'de prijs'
-        price_range_buy_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{currency}.'
+        price_range_buy_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
         sell: Verkopen
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'

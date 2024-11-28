@@ -222,15 +222,15 @@ fr:
             subaccounts_not_allowed: "Les sous-comptes ne sont pas autorisés sur cet échange"
             no_subaccount_name: "Aucun nom de sous-compte fourni"
             wrong_subaccount_name: "Nom de sous-compte incorrect"
-        minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum}%{currency}'
+        minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
         next_buy: 'Prochain achat dans %{countdown}'
         next_sell: 'Prochaine vente dans %{countdown}'
         next_withdrawal: 'Prochain retrait dans %{countdown}'
         price: 'du prix'
-        price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
-        price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
+        price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
+        price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
         sell: 'Vendre'
         setup:
             api_not_available: 'L''API de l''exchange n''est pas disponible.'
