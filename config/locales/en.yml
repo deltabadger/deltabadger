@@ -238,15 +238,15 @@ en:
             subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
             no_subaccount_name: "No subaccount name supplied"
             wrong_subaccount_name: "Wrong subaccount name"
-        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
-        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum}USD.'
+        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
         next_buy: 'Next in %{countdown}'
         next_sell: 'Next in %{countdown}'
         next_withdrawal: 'Next in %{countdown}'
         price: 'the price'
-        price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
+        price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
         sell: Sell
         buy_all: Buy all
         sell_all: Sell all

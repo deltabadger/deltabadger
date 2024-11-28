@@ -193,14 +193,14 @@ pt:
             subaccounts_not_allowed: "Subcontas não são permitidas nesta troca"
             no_subaccount_name: "Nenhum nome de subconta fornecido"
             wrong_subaccount_name: "Nome de subconta incorreto"
-        minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum}%{currency}."
-        minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum}USD."
+        minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
+        minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
         month: Mês
         next_buy: 'Próxima compra em %{countdown}'
         next_sell: 'Próxima venda em %{countdown}'
         price: 'do preço'
-        price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{currency}.'
+        price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
+        price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         sell: Vender
         setup:
             binance:
