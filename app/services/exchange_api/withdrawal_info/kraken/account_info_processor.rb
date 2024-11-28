@@ -18,10 +18,10 @@ module ExchangeApi
         end
 
         def withdrawal_minimum(currency)
-          data = fetch_minimum_fee_data(currency)
-          return Result::Failure.new('Kraken withdrawal minimum not found on list') unless data.present?
+          result = fetch_minimum_withdrawal_amount(currency)
+          return result if result.failure?
 
-          Result::Success.new(data['Minimum'].to_f)
+          result
         end
 
         def withdrawal_currencies
@@ -60,10 +60,18 @@ module ExchangeApi
 
         private
 
-        def fetch_minimum_fee_data(currency)
-          csv_text = File.read(File.expand_path('kraken_minimums_and_fees.csv', __dir__))
-          minimums_fees_csv = CSV.parse(csv_text, headers: true)
-          minimums_fees_csv.each.find { |row| row['Asset'] == currency }
+        def fetch_minimum_withdrawal_amount(currency)
+          response = @client.withdraw_addresses(asset: currency)
+          Rails.logger.info "withdrawal fetch_minimum_withdrawal_amount withdraw_addresses response: #{response.inspect}" # TODO: delete after testing
+          return error_to_failure(response.fetch('error')) if response.fetch('error').any?
+
+          # FIXME: We assume the user has only one withdrawal address for the asset, and one method
+          method = response.fetch('result').first.fetch('method')
+          response = @client.withdraw_methods(asset: currency, method: method)
+          Rails.logger.info "withdrawal fetch_minimum_withdrawal_amount withdraw_methods response: #{response.inspect}" # TODO: delete after testing
+          return error_to_failure(response.fetch('error')) if response.fetch('error').any?
+
+          response.fetch('result').first.fetch('minimum').to_f
         end
       end
     end
