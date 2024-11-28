@@ -24,13 +24,6 @@ module ExchangeApi
           Result::Success.new(data['Minimum'].to_f)
         end
 
-        def withdrawal_fee(currency)
-          data = fetch_minimum_fee_data(currency)
-          return Result::Failure.new('Kraken withdrawal fee not found on list') unless data.present?
-
-          Result::Success.new(data['Fee'].to_f)
-        end
-
         def withdrawal_currencies
           response = @caching_client.assets
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
