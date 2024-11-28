@@ -82,7 +82,10 @@ const API = {
       force_smart_intervals: params.forceSmartIntervals,
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
-      price_range: [params.priceRange.low, params.priceRange.high],
+      price_range: [
+        Math.min(params.priceRange.low, params.priceRange.high),
+        Math.max(params.priceRange.low, params.priceRange.high)
+      ],
       use_subaccount: params.useSubaccount,
       selected_subaccount: params.selectedSubaccount
     }
@@ -134,7 +137,10 @@ const API = {
       force_smart_intervals: params.forceSmartIntervals,
       smart_intervals_value: params.smartIntervalsValue,
       price_range_enabled: params.priceRangeEnabled,
-      price_range: [params.priceRange.low, params.priceRange.high],
+      price_range: [
+        Math.min(params.priceRange.low, params.priceRange.high),
+        Math.max(params.priceRange.low, params.priceRange.high)
+      ],
       use_subaccount: params.useSubaccount,
       selected_subaccount: params.selectedSubaccount
     }
