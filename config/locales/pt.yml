@@ -649,12 +649,10 @@ pt:
             bank_address: 'Endereço do banco'
             billing_information: 'Informações de faturamento'
             active_plan_discount: 'Desconto no plano ativo'
-            compensation_basic:
-                one: 'por 1 dia não utilizado.'
-                other: 'por %{count} dias não utilizados.'
+            base_price: 'Preço base'
             compensation:
-                one: 'por 1 dia não utilizado.'
-                other: 'por %{count} dias não utilizados.'
+                one: "Compensação por <b>1</b> dia não utilizado do plano %{plan}."
+                other: "Compensação por <b>%{count}</b> dias não utilizados do plano %{plan}."
             legendary_plan_discount_html: 'O preço do plano Lendário aumenta %{amount} a cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
