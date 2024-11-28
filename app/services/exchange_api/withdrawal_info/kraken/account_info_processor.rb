@@ -61,17 +61,19 @@ module ExchangeApi
         private
 
         def fetch_minimum_withdrawal_amount(currency)
-          response = @client.withdraw_addresses(asset: currency)
-          Rails.logger.info "withdrawal fetch_minimum_withdrawal_amount withdraw_addresses response: #{response.inspect}" # TODO: delete after testing
-          return error_to_failure(response.fetch('error')) if response.fetch('error').any?
-
-          # FIXME: We assume the user has only one withdrawal address for the asset, and one method
-          method = response.fetch('result').first.fetch('method')
-          response = @client.withdraw_methods(asset: currency, method: method)
+          # @client.withdraw_addresses can filter by asset, and give the method but not the network
+          # @client.withdraw_methods can filter by asset and network, and give the minimum
+          # For this reason, we use the most restrictive minimum for a given asset, regardless of network
+          response = @client.withdraw_methods(asset: currency)
           Rails.logger.info "withdrawal fetch_minimum_withdrawal_amount withdraw_methods response: #{response.inspect}" # TODO: delete after testing
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
-          response.fetch('result').first.fetch('minimum').to_f
+          data = response.fetch('result').map { |method| method.fetch('minimum').to_f }.max
+          if data.nil?
+            Result::Failure.new('Could not fetch minimum withdrawal amount from Kraken')
+          else
+            Result::Success.new(data)
+          end
         end
       end
     end
