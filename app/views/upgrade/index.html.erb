@@ -44,14 +44,12 @@
         zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
       } do %>
 
-        <div class="pricing__checkout__calculations">
-          <%= render partial: "discounts", locals: {
+
+          <%= render partial: "summary", locals: {
             payment: @payment,
             payment_options: @payment_options,
             legendary_plan: @legendary_plan
           } %>
-          <%= render partial: "summary", locals: { payment: @payment } %>
-        </div>
         <%= render partial: "billing_form", locals: { payment: @payment } %>
       <% end %>
     <% end %>
