@@ -672,12 +672,10 @@ de:
             after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
-            compensation_pro:
-                one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
-            compensation_basic:
-                one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
+            base_price: 'Grundpreis'
+            compensation:
+                one: "Entschädigung für <b>1</b> ungenutzten Tag des %{plan}-Plans."
+                other: "Entschädigung für <b>%{count}</b> ungenutzte Tage des %{plan}-Plans."
             legendary_plan_discount_html: 'Der Preis des Legendary-Plans steigt um %{amount} mit jedem Kauf.'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
