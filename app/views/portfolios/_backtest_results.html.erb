@@ -1,7 +1,7 @@
 <%= turbo_frame_tag "backtest-results" do %>
   <% if backtest.present? %>
 
-    <% chart_names = [fill_default_portfolio_label(@portfolio.label)] %>
+    <% chart_names = [fill_default_portfolio_label(portfolio.label)] %>
     <% chart_colors = [nil] %>
     <% chart_labels = [backtest["timeSeries"]["labels"]] %>
     <% chart_series = [backtest["timeSeries"]["series"]] %>
@@ -16,7 +16,7 @@
 
     <div class="widget widget--thin flex-row">
       <span class="label"><%= t('utils.since') %></span>
-      <%= render "start_date", portfolio: @portfolio %>
+      <%= render "portfolios/start_date", portfolio: portfolio %>
     </div>
 
     <div class="widget widget--chart">
