@@ -56,7 +56,9 @@ class UpgradeController < ApplicationController
   end
 
   def zen_payment_failure
-    handle_server_error
+    Rails.logger.error("Zen payment failure: #{params}")
+    finalizer_result = Result::Failure.new('Zen payment server error', data: params)
+    handle_server_error(finalizer_result)
   end
 
   def zen_payment_ipn
