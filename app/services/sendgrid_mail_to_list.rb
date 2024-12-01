@@ -33,6 +33,7 @@ class SendgridMailToList < BaseService
 
   def delete_user(email, list_name)
     user_id = get_user_from_list(email, list_name).pluck('id').join(',')
+    Rails.logger.info("Deleting user: #{email} with id: #{user_id} from list: #{list_name}")
     response = Faraday.delete(CONTACTS_URL, { ids: user_id }, headers)
     body = JSON.parse(response.body)
 
