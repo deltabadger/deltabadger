@@ -203,8 +203,8 @@ de:
         next_sell: 'Nächster in %{countdown}'
         next_withdrawal: 'Nächste in %{countdown}'
         price: 'dem Preis'
-        price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
-        price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{currency}.'
+        price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} pro %{base}.'
+        price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} pro %{base}.'
         sell: Verkauf
         setup:
             binance:
@@ -581,6 +581,7 @@ de:
     links:
         about: Über
         about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
+        calculator: 'Rechner'
         community: 'Fireheads Community'
         contact: Kontakt
         cookies_policy: Cookie-Richtlinien
@@ -671,15 +672,11 @@ de:
             after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
-            bitcoin: Bitcoin
-            compensation_pro:
-                one: 'Entschädigung für 1 ungenutzten Tag des Pro-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Pro-Plans.'
-            compensation_basic:
-                one: 'Entschädigung für 1 ungenutzten Tag des Basic-Plans.'
-                other: 'Entschädigung für %{count} ungenutzte Tage des Basic-Plans.'
-            legendary_plan_discount: 'Early Bird-Rabatt'
-            legendary_plan_discount_info: 'Mit jedem Verkauf reduziert sich der Rabatt um $10. Warte also nicht!'
+            base_price: 'Grundpreis'
+            compensation:
+                one: "Entschädigung für <b>1</b> ungenutzten Tag des %{plan}-Plans."
+                other: "Entschädigung für <b>%{count}</b> ungenutzte Tage des %{plan}-Plans."
+            legendary_plan_discount_html: 'Der Preis des Legendary-Plans steigt um %{amount} mit jedem Kauf.'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
             paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
@@ -689,6 +686,13 @@ de:
             payment_ordered: 'Zahlung angefordert!'
             referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
+            black_friday_discount_info: '%{discount_percent} Rabatt'
+            black_friday_sale: 'Black Friday Angebot'
+            pro_and_legendary_plans: 'Pro- und Legendary-Pläne'
+            days: 'Tage'
+            hours: 'Stunden'
+            minutes: 'Minuten'
+            seconds: 'Sekunden'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt
@@ -704,7 +708,7 @@ de:
     legendary_badger:
         will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
         ethereum_address: Ethereum-Adresse
-        confirm_info: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf "Claim" klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
+        confirm_info_html: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf <b>NFT beanspruchen</b> klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |

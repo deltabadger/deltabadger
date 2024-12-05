@@ -18,17 +18,10 @@ module ExchangeApi
         end
 
         def withdrawal_minimum(currency)
-          data = fetch_minimum_fee_data(currency)
-          return Result::Failure.new('Kraken withdrawal minimum not found on list') unless data.present?
+          result = fetch_minimum_withdrawal_amount(currency)
+          return result if result.failure?
 
-          Result::Success.new(data['Minimum'].to_f)
-        end
-
-        def withdrawal_fee(currency)
-          data = fetch_minimum_fee_data(currency)
-          return Result::Failure.new('Kraken withdrawal fee not found on list') unless data.present?
-
-          Result::Success.new(data['Fee'].to_f)
+          result
         end
 
         def withdrawal_currencies
@@ -67,10 +60,20 @@ module ExchangeApi
 
         private
 
-        def fetch_minimum_fee_data(currency)
-          csv_text = File.read(File.expand_path('kraken_minimums_and_fees.csv', __dir__))
-          minimums_fees_csv = CSV.parse(csv_text, headers: true)
-          minimums_fees_csv.each.find { |row| row['Asset'] == currency }
+        def fetch_minimum_withdrawal_amount(currency)
+          # @client.withdraw_addresses can filter by asset, and give the method but not the network
+          # @client.withdraw_methods can filter by asset and network, and give the minimum
+          # For this reason, we use the most restrictive minimum for a given asset, regardless of network
+          response = @client.withdraw_methods(asset: currency)
+          Rails.logger.info "withdrawal fetch_minimum_withdrawal_amount withdraw_methods response: #{response.inspect}" # TODO: delete after testing
+          return error_to_failure(response.fetch('error')) if response.fetch('error').any?
+
+          data = response.fetch('result').map { |method| method.fetch('minimum').to_f }.max
+          if data.nil?
+            Result::Failure.new('Could not fetch minimum withdrawal amount from Kraken')
+          else
+            Result::Success.new(data)
+          end
         end
       end
     end

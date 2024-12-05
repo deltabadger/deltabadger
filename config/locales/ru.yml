@@ -219,15 +219,15 @@ ru:
             subaccounts_not_allowed: "Субаккаунты не разрешены на этой бирже"
             no_subaccount_name: "Не указано имя субаккаунта"
             wrong_subaccount_name: "Неправильное имя субаккаунта"
-        minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum}%{currency}."
-        minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum}USD."
+        minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
+        minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц
         next_buy: 'Следующая покупка через %{countdown}'
         next_sell: 'Следующая продажа через %{countdown}'
         next_withdrawal: ''
         price: цены
-        price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{currency}.'
+        price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
+        price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         sell: Продать
         setup:
             binance:
@@ -619,6 +619,7 @@ ru:
     links:
         about: 'О нас'
         about_html: 'О <span class="d-none d-xl-inline">проекте</span>'
+        calculator: 'Калькулятор'
         community: 'Сообщество Fireheads'
         contact: Контакты
         cookies_policy: 'Политика использования файлов cookie'
@@ -715,18 +716,13 @@ ru:
             bank_address: 'Адрес банка'
             billing_information: 'Информация об оплате'
             bitcoin: Биткоин
-            compensation_pro:
-                one: ''
-                few: ''
-                many: ''
-                other: ''
-            compensation_basic:
-                one: 'Компенсация за 1 неиспользованный день плана Инвестора.'
-                few: 'Компенсация за %{{count}}  неиспользованных дня плана Инвестора.'
-                many: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
-                other: 'Компенсация за %{{count}}  неиспользованных дней плана Инвестора.'
-            legendary_plan_discount: ''
-            legendary_plan_discount_info: ''
+            base_price: 'Базовая цена'
+            compensation:
+                one: "Компенсация за <b>1</b> неиспользованный день плана %{plan}."
+                few: "Компенсация за <b>%{count}</b> неиспользованных дня плана %{plan}."
+                many: "Компенсация за <b>%{count}</b> неиспользованных дней плана %{plan}."
+                other: "Компенсация за <b>%{count}</b> неиспользованных дней плана %{plan}."
+            legendary_plan_discount_html: 'Цена легендарного плана увеличивается на %{amount} с каждой покупкой.'
             eu_bank_country: Бельгия
             invalid_vat_number: 'Недействительный номер НДС в ЕС'
             paid_with_wire_transfer: 'Я сделал перевод SEPA'
@@ -735,8 +731,15 @@ ru:
             payment_ordered: 'Оплата заказана!'
             referral_discount: '%{discount_percent} скидка'
             referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
+            black_friday_discount_info: 'Скидка %{discount_percent}'
+            black_friday_sale: 'Распродажа на Черную пятницу'
+            pro_and_legendary_plans: 'Планы Pro и Legendary'
+            days: 'Дни'
+            hours: 'Часы'
+            minutes: 'Минуты'
+            seconds: 'Секунды'
+            upgrade_now: 'Обновить сейчас'
             routing_number: 'Номер маршрута'
-            server_error: ''
             vat: НДС
             wire_cost_html: 'Пожалуйста, отправьте <b>%{price}</b> на следующий банковский счет:'
             wire_cost_pending_html: 'Если вы еще не совершили платеж, отправьте <b>%{price}</b> на следующий банковский счет:'
@@ -751,7 +754,7 @@ ru:
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger будет отправлен на:'
         ethereum_address: 'Адрес Ethereum'
-        confirm_info: 'Я подтверждаю, что адрес правильный и понимаю, что NFT будет отправлено на этот адрес. После нажатия на "Получить", если адрес неверен, никто не сможет восстановить NFT.'
+        confirm_info_html: 'Я подтверждаю, что адрес правильный и понимаю, что NFT будет отправлено на этот адрес. После нажатия на <b>Получить NFT</b>, если адрес неверен, никто не сможет восстановить NFT.'
         claim: 'Получить NFT'
     welcome:
         banner_html: |
