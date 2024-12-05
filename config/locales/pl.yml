@@ -222,16 +222,15 @@ pl:
             subaccounts_not_allowed: "Subkonta nie są dozwolone na tej giełdzie"
             no_subaccount_name: "Nie podano nazwy subkonta"
             wrong_subaccount_name: "Nieprawidłowa nazwa subkonta"
-        minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum}%{currency}.'
+        minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: Miesiąc
         next_buy: 'Kolejna za %{countdown}'
         next_sell: 'Kolejna za %{countdown}'
         next_withdrawal: 'Kolejna za %{countdown}'
         price: 'aktualnej ceny'
-        price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{currency}.'
-        price_range_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{currency}.'
+        price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{quote} za %{base}.'
+        price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{quote} za %{base}.'
         sell: Sprzedaj
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
@@ -636,6 +635,7 @@ pl:
     links:
         about: 'O nas'
         about_html: 'O projekcie<span class="d-none d-xl-inline"></span>'
+        calculator: 'Kalkulator'
         community: 'Społeczność Fireheads'
         contact: Kontakt
         cookies_policy: 'Polityka ciasteczek'
@@ -738,19 +738,13 @@ pl:
             after_wire_transfer_html: 'Dziękujemy! Wkrótce do Ciebie wrócimy! Jeśli potrzebujesz dalszej pomocy, daj nam znać: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adres banku'
             billing_information: 'Informacje rozliczeniowe'
-            bitcoin: Bitcoin
-            compensation_pro:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Pro.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Pro.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Pro.'
-            compensation_basic:
-                one: 'Wyrównanie za 1 niewykorzystany dzień planu Basic.'
-                few: 'Wyrównanie za %{count} niewykorzystane dni planu Basic.'
-                many: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
-                other: 'Wyrównanie za %{count} niewykorzystanych dni planu Basic.'
-            legendary_plan_discount: 'Zniżka Early Bird'
-            legendary_plan_discount_info: 'Z każdą sprzedażą rabat zmniejsza się o 10 USD. Nie czekaj!'
+            base_price: 'Cena bazowa'
+            compensation:
+                one: "Rekompensata za <b>1</b> niewykorzystany dzień planu %{plan}."
+                few: "Rekompensata za <b>%{count}</b> niewykorzystane dni planu %{plan}."
+                many: "Rekompensata za <b>%{count}</b> niewykorzystanych dni planu %{plan}."
+                other: "Rekompensata za <b>%{count}</b> niewykorzystanych dni planu %{plan}."
+            legendary_plan_discount_html: 'Cena planu Legendarnego wzrasta o %{amount} przy każdym zakupie.'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'
@@ -760,6 +754,14 @@ pl:
             payment_ordered: 'Płatność zlecona!'
             referral_discount: '%{discount_percent} rabatu'
             referral_discount_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}">%{visible_name}</a></b>otrzymujesz rabat na pierwszy zakup na platformie.'
+            black_friday_discount_info: '%{discount_percent} zniżki'
+            black_friday_sale: 'Wyprzedaż Black Friday'
+            pro_and_legendary_plans: 'Plany Pro i Legendary'
+            days: 'Dni'
+            hours: 'Godziny'
+            minutes: 'Minuty'
+            seconds: 'Sekundy'
+            upgrade_now: 'Zrób upgrade teraz'
             routing_number: 'Numer routingowy'
             server_error: 'błąd serwera płatności. spróbuj ponownie później'
             vat: VAT
@@ -775,7 +777,7 @@ pl:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'
         ethereum_address: 'Adres Ethereum'
-        confirm_info: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu "Odbierz", jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
+        confirm_info_html: 'Potwierdzam, że adres jest poprawny i rozumiem, że NFT zostanie wysłane na ten adres. Po kliknięciu <b>Odbierz NFT</b>, jeśli adres jest błędny, nikt nie będzie mógł odzyskać NFT.'
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |

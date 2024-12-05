@@ -1,7 +1,7 @@
 module SubscriptionPlan::PlanStats
   extend ActiveSupport::Concern
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     def active_subscriptions_count
       @active_subscriptions_count ||= Subscription.active.by_plan_name(name)&.count || 0
     end
@@ -29,10 +29,6 @@ module SubscriptionPlan::PlanStats
     end
 
     private
-
-    def legendary?
-      name == self.class::LEGENDARY_PLAN
-    end
 
     def ensure_legendary!
       raise 'This method is only available for the Legendary Badger NFT plan' unless legendary?

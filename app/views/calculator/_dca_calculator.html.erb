@@ -2,7 +2,7 @@
   <nav class="infoheader__head">
     <div>
       <h2 class="infoheader__h" id="infoheader-title" data-show-hide-target="hideable">
-        <% input_field = form_with url: dashboard_path, method: :get, data: { controller: "form--submit", turbo_frame: "tiles" }, html: { style: "display: inline;" } do |f| %>
+        <% input_field = form_with url: calculator_path, method: :get, data: { controller: "form--submit", turbo_frame: "tiles" }, html: { style: "display: inline;" } do |f| %>
           <%= f.text_field :invest_amount,
             value: invest_amount,
             class: "hinput",
@@ -18,10 +18,11 @@
         ).html_safe %>
       </h2>
     </div>
-    <div class="infoheader__icon active"  id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">i</div>
+    <%# <div class="infoheader__icon active"  id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">i</div> %>
   </nav>
 
-  <%= turbo_frame_tag "tiles", class: "itiles", data: { show_hide_target: "hideable" } do %>
+  <%# <%= turbo_frame_tag "tiles", class: "itiles", data: { show_hide_target: "hideable" } do %>
+  <%= turbo_frame_tag "tiles", class: "itiles" do %>
     <div class="itile itile--bitcoin">
       <h3 class="itile__title">Bitcoin</h3>
       <div class="itile__value">

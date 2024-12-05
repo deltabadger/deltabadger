@@ -223,15 +223,15 @@ es:
             subaccounts_not_allowed: "Las subcuentas no están permitidas en este intercambio"
             no_subaccount_name: "No se suministró el nombre de la subcuenta"
             wrong_subaccount_name: "Nombre de subcuenta incorrecto"
-        minimum_withdrawal_disclaimer: 'El importe mínimo de retirada es de %{minimum}%{currency}.'
+        minimum_withdrawal_disclaimer: 'El importe mínimo de retirada es de %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'El importe mínimo de retirada es de %{minimum} USD.'
         month: Mes
         next_buy: 'Siguiente compra en %{countdown}'
         next_sell: 'Siguiente venta en %{countdown}'
         next_withdrawal: 'Próxima retirada en %{countdown}'
         price: 'del precio'
-        price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
-        price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{currency}.'
+        price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
+        price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         sell: Vender
         setup:
             api_not_available: 'La API del Exchange no está disponible'
@@ -626,6 +626,7 @@ es:
     links:
         about: 'Acerca de'
         about_html: 'Acerca del <span class="d-none d-xl-inline">proyecto</span>'
+        calculator: 'Calculadora'
         community: 'Comunidad Fireheads'
         contact: Contacto
         cookies_policy: 'Política de cookies'
@@ -725,15 +726,11 @@ es:
             after_wire_transfer_html: '¡Gracias! Pronto nos pondremos en contacto contigo. Si necesitas ayuda adicional, envíanos un mensaje a <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
-            bitcoin: Bitcoin
-            compensation_pro:
-                one: 'Compensación por un día sin usar el plan Pro'
-                other: 'Compensación por %{count} días sin usar el plan Pro.'
-            compensation_basic:
-                one: 'Compensación por un día sin usar el plan Basic'
-                other: 'Compensación por %{count} días sin usar el plan Basic.'
-            legendary_plan_discount: 'Descuento por venta anticipada'
-            legendary_plan_discount_info: 'Con cada venta el descuento disminuye 10$. ¡No esperes!'
+            base_price: 'Precio base'
+            compensation:
+                one: "Compensación por <b>1</b> día no utilizado del plan %{plan}."
+                other: "Compensación por <b>%{count}</b> días no utilizados del plan %{plan}."
+            legendary_plan_discount_html: 'El precio del plan Legendary sube %{amount} con cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA intracomunitario no válido'
             paid_with_wire_transfer: 'He realizado una transferencia SEPA'
@@ -743,6 +740,14 @@ es:
             payment_ordered: '¡Pago ordenado!'
             referral_discount: '%{discount_percent} de descuento'
             referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
+            black_friday_discount_info: '%{discount_percent} de descuento'
+            black_friday_sale: 'Oferta de Black Friday'
+            pro_and_legendary_plans: 'Planes Pro y Legendary'
+            days: 'Días'
+            hours: 'Horas'
+            minutes: 'Minutos'
+            seconds: 'Segundos'
+            upgrade_now: 'Actualiza ahora'
             routing_number: 'Número de ruta bancaria'
             server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
             vat: IVA
@@ -751,14 +756,14 @@ es:
             wire_transfer: 'Transferencia bancaria'
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
-            you_pay: 'Tu pagas'
+            you_pay: 'Total'
         prolong_upgrade: 'Actualiza tu plan'
         upgrade: Actualizar
         upgrade_plan: 'Actualizar plan'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT será enviado a:'
         ethereum_address: 'Dirección de Ethereum'
-        confirm_info: 'Confirmo que la dirección es correcta y entiendo que el NFT será enviado a esta dirección. Una vez que haga clic en "Reclamar", si la dirección es incorrecta, nadie podrá recuperar el NFT.'
+        confirm_info_html: 'Confirmo que la dirección es correcta y entiendo que el NFT será enviado a esta dirección. Una vez que haga clic en <b>Reclamar NFT</b>, si la dirección es incorrecta, nadie podrá recuperar el NFT.'
         claim: 'Reclamar NFT'
     welcome:
         banner_html: |

@@ -6,10 +6,10 @@ class BtcpayClient < ApplicationClient
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
       config.headers = {
-        'x-accept-version' => '2.0.0',
-        'Accept' => 'application/json',
-        'Content-Type' => 'application/json',
-        'Authorization' => AUTHORIZATION_HEADER
+        'x-accept-version': '2.0.0',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': AUTHORIZATION_HEADER
       }
       config.request :json
       config.response :json

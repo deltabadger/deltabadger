@@ -5,7 +5,7 @@ import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
 export const PickExchange = ({ handleSubmit, exchanges, type }) => {
-  console.log("Exchanges:" + JSON.stringify(exchanges, null, 2));
+  // console.log("Exchanges:" + JSON.stringify(exchanges, null, 2));
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
@@ -27,8 +27,8 @@ export const PickExchange = ({ handleSubmit, exchanges, type }) => {
         }
         <a href="mailto:jan@deltabadger.com?subject=Exchange%20request" className="db-bot__exchanges__item db-bot__exchanges__item--link">{I18n.t('bots.buttons.request_exchange')}</a>
       </div>
-      
+
     </div>
-    
+
   )
 }

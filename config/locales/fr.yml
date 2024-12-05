@@ -222,15 +222,15 @@ fr:
             subaccounts_not_allowed: "Les sous-comptes ne sont pas autorisés sur cet échange"
             no_subaccount_name: "Aucun nom de sous-compte fourni"
             wrong_subaccount_name: "Nom de sous-compte incorrect"
-        minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum}%{currency}'
+        minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
         next_buy: 'Prochain achat dans %{countdown}'
         next_sell: 'Prochaine vente dans %{countdown}'
         next_withdrawal: 'Prochain retrait dans %{countdown}'
         price: 'du prix'
-        price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
-        price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{currency}.'
+        price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
+        price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
         sell: 'Vendre'
         setup:
             api_not_available: 'L''API de l''exchange n''est pas disponible.'
@@ -631,6 +631,7 @@ fr:
     links:
         about: 'À propos'
         about_html: 'À propos du <span class="d-none d-xl-inline"> projet </span>'
+        calculator: 'Calculatrice'
         community: 'Communauté Fireheads'
         contact: 'Contact'
         cookies_policy: 'Politique sur l''usage des cookies'
@@ -727,14 +728,11 @@ fr:
             bank_address: 'Adresse de la banque'
             billing_information: 'Détails de facturation'
             bitcoin: 'Bitcoin'
-            compensation_pro:
-                one: 'Compensation pour 1 jour inutilisé du forfait Pro'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Pro'
-            compensation_basic:
-                one: 'Compensation pour 1 jour inutilisé du forfait Basic'
-                other: 'Compensation pour %{count} jours inutilisés du forfait Basic'
-            legendary_plan_discount: 'Réduction Early Bird'
-            legendary_plan_discount_info: "À chaque vente, le montant de la réduction diminue de 10$. Ne tardez pas!"
+            base_price: 'Prix de base'
+            compensation:
+                one: "Compensation pour <b>1</b> jour inutilisé du plan %{plan}."
+                other: "Compensation pour <b>%{count}</b> jours inutilisés du plan %{plan}."
+            legendary_plan_discount_html: 'Le prix du plan Légendaire augmente de %{amount} à chaque achat.'
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
@@ -744,6 +742,14 @@ fr:
             payment_ordered: 'Paiement ordonné !'
             referral_discount: '%{discount_percent} de réduction'
             referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
+            black_friday_discount_info: '%{discount_percent} de réduction'
+            black_friday_sale: 'Vente Black Friday'
+            pro_and_legendary_plans: 'Plans Pro et Legendary'
+            days: 'Jours'
+            hours: 'Heures'
+            minutes: 'Minutes'
+            seconds: 'Secondes'
+            upgrade_now: 'Mettre à niveau maintenant'
             routing_number: 'Numéro de routage'
             server_error: 'Erreur du serveur de paiement, merci de réessayer plus tard.'
             vat: 'TVA'
@@ -759,7 +765,7 @@ fr:
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
         ethereum_address: 'Adresse Ethereum'
-        confirm_info: 'Je confirme que l''adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur "Réclamer", si l''adresse est incorrecte, personne ne pourra récupérer le NFT.'
+        confirm_info_html: 'Je confirme que l''adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur <b>Réclamer le NFT</b>, si l''adresse est incorrecte, personne ne pourra récupérer le NFT.'
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |

@@ -1,12 +1,21 @@
 <% content_for :body_class, ".view--dashboard" %>
 
-<%= render partial: "dca_calculator", locals: {
-  simulation_results: @simulation_results,
-  invest_amount: @invest_amount
-} %>
-<%= render 'layouts/banners/welcome_message' %>
-<%= render 'layouts/banners/news_message' %>
-<%= render 'layouts/banners/referral_message' %>
+<% if BlackFriday.week? && !current_user.subscription.legendary? %>
+  <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: true } %>
+<% end %>
+
+<% if @show_welcome_banner %>
+  <%= render 'layouts/banners/welcome_message' %>
+<% end %>
+
+<% if @show_news_banner %>
+  <%= render 'layouts/banners/news_message' %>
+<% end %>
+
+<% if @show_referral_banner %>
+  <%= render 'layouts/banners/referral_message' %>
+<% end %>
+
 <%= render 'layouts/limit_reached' %>
 
 <div id="dashboard"></div>

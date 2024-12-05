@@ -1,6 +1,6 @@
 <div class="widget--pricing__name">
   <%= t('subscriptions.basic') %>
-  <% if current_user.subscription.name == SubscriptionPlan::BASIC_PLAN %>
+  <% if current_user.subscription.basic? %>
     <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
   <% end %>
   <div class="widget--pricing__name__period">
@@ -11,16 +11,16 @@
 
 <% if payment_option.present? %>
   <div class="widget--pricing__amount">
-    <% if payment_option.base_price != payment_option.adjusted_base_price %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
+    <% if payment_option_1y.base_price != payment_option.base_price %>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
         <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
       </span>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--new">
-        <%= localized_price(payment_option.virtual_price('adjusted_base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
+        <%= localized_price(payment_option_1y.virtual_price('base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
       </span>
     <% else %>
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency, 0) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
+        <%= localized_price(payment_option.virtual_price('base_price', 1.year), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_year_html') %></span>
       </span>
     <% end %>
   </div>
