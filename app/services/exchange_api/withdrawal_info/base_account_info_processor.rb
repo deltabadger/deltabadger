@@ -7,10 +7,6 @@ module ExchangeApi
         raise NotImplementedError
       end
 
-      def withdrawal_fee(_currency)
-        raise NotImplementedError
-      end
-
       def withdrawal_currencies
         raise NotImplementedError
       end

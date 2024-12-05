@@ -193,14 +193,14 @@ pt:
             subaccounts_not_allowed: "Subcontas não são permitidas nesta troca"
             no_subaccount_name: "Nenhum nome de subconta fornecido"
             wrong_subaccount_name: "Nome de subconta incorreto"
-        minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum}%{currency}."
-        minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum}USD."
+        minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
+        minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
         month: Mês
         next_buy: 'Próxima compra em %{countdown}'
         next_sell: 'Próxima venda em %{countdown}'
         price: 'do preço'
-        price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{currency}.'
+        price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
+        price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         sell: Vender
         setup:
             binance:
@@ -562,6 +562,7 @@ pt:
     links:
         about: Sobre
         about_html: 'Sobre <span class="d-none d-xl-inline">o projeto</span>'
+        calculator: 'Calculadora'
         community: 'Comunidade Fireheads'
         contact: Contacto
         cookies_policy: 'Política de Cookies'
@@ -644,11 +645,15 @@ pt:
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
             account_type: 'Tipo de conta'
-            active_plan_discount: 'Desconto do plano ativo'
-            after_wire_transfer_html: 'Obrigado! Voltaremos a entrar em contacto consigo em breve! Se precisar de mais assistência, contacte: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Obrigado! Entraremos em contato com você em breve! Se precisar de mais assistência, avise-nos: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Endereço do banco'
-            billing_information: 'Informação de faturação'
-            bitcoin: Bitcoin
+            billing_information: 'Informações de faturamento'
+            active_plan_discount: 'Desconto no plano ativo'
+            base_price: 'Preço base'
+            compensation:
+                one: "Compensação por <b>1</b> dia não utilizado do plano %{plan}."
+                other: "Compensação por <b>%{count}</b> dias não utilizados do plano %{plan}."
+            legendary_plan_discount_html: 'O preço do plano Lendário aumenta %{amount} a cada compra.'
             eu_bank_country: Bélgica
             invalid_vat_number: 'Número de IVA europeu inválido'
             paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
@@ -657,6 +662,14 @@ pt:
             payment_ordered: 'Pagamento solicitado!'
             referral_discount: '%{discount_percent} de desconto'
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
+            black_friday_discount_info: '%{discount_percent} de desconto'
+            black_friday_sale: 'Wyprzedaż Black Friday'
+            pro_and_legendary_plans: 'Plany Pro i Legendary'
+            days: 'Dni'
+            hours: 'Godziny'
+            minutes: 'Minuty'
+            seconds: 'Sekundy'
+            upgrade_now: 'Atualize agora'
             routing_number: 'Número de encaminhamento'
             vat: IVA
             wire_cost_html: 'Por favor, envie <b>%{price}</b> para a seguinte conta bancária:'
@@ -670,7 +683,7 @@ pt:
     legendary_badger:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
         ethereum_address: 'Endereço Ethereum'
-        confirm_info: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em "Reivindicar", se o endereço estiver errado, ninguém poderá recuperar o NFT.'
+        confirm_info_html: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em <b>Reivindicar NFT</b>, se o endereço estiver errado, ninguém poderá recuperar o NFT.'
         claim: 'Reivindicar NFT'
     welcome:
         banner_html: |

@@ -41,7 +41,7 @@ module Notifications
 
       return nil if subscription.limit_almost_reached_sent
 
-      Subscription.update(subscription.id, limit_almost_reached_sent: true)
+      subscription.update(limit_almost_reached_sent: true)
 
       BotAlertsMailer.with(
         bot: bot,
@@ -54,7 +54,7 @@ module Notifications
 
       return nil unless was_sent_more_than_day_ago?(subscription.first_month_ending_sent_at)
 
-      Subscription.update(subscription.id, first_month_ending_sent_at: Date.current)
+      subscription.update(first_month_ending_sent_at: Date.current)
 
       BotAlertsMailer.with(
         bot: bot,

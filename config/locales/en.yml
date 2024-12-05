@@ -238,15 +238,15 @@ en:
             subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
             no_subaccount_name: "No subaccount name supplied"
             wrong_subaccount_name: "Wrong subaccount name"
-        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum}%{currency}.'
-        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum}USD.'
+        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
         next_buy: 'Next in %{countdown}'
         next_sell: 'Next in %{countdown}'
         next_withdrawal: 'Next in %{countdown}'
         price: 'the price'
-        price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
-        price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{currency}.'
+        price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
         sell: Sell
         buy_all: Buy all
         sell_all: Sell all
@@ -663,6 +663,7 @@ en:
     links:
         about: About
         about_html: 'About <span class="d-none d-xl-inline">the project</span>'
+        calculator: Calculator
         community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
@@ -765,14 +766,11 @@ en:
             bank_address: 'Bank address'
             billing_information: 'Billing information'
             active_plan_discount: 'Active plan discount'
-            compensation_basic:
-                one: 'for 1 unused day.'
-                other: 'for %{count} unused days.'
+            base_price: 'Base price'
             compensation:
-                one: 'for 1 unused day.'
-                other: 'for %{count} unused days.'
-            legendary_plan_discount: 'Legendary discount'
-            legendary_plan_discount_info: 'goes down $10 with every sale.'
+                one: "Compensation for <b>1</b> unused day of the %{plan} plan."
+                other: "Compensation for <b>%{count}</b> unused days of the %{plan} plan."
+            legendary_plan_discount_html: 'The price goes up %{amount} with every sale.'
             eu_bank_country: Belgium
             invalid_vat_number: 'Invalid EU VAT number'
             paid_with_wire_transfer: 'I''ve sent the SEPA transfer'
@@ -783,6 +781,14 @@ en:
             payment_ordered: 'Payment ordered!'
             referral_discount: '%{discount_percent} discount'
             referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
+            black_friday_discount_info: '%{discount_percent} OFF'
+            black_friday_sale: 'Black Friday Sale'
+            pro_and_legendary_plans: 'Pro and Legendary plans'
+            days: 'days'
+            hours: 'hours'
+            minutes: 'Minutes'
+            seconds: 'Seconds'
+            upgrade_now: 'Upgrade Now'
             routing_number: 'Routing number'
             server_error: 'payments server error. try again later'
             vat: VAT
@@ -798,7 +804,7 @@ en:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT will be sent to:'
         ethereum_address: 'Ethereum address'
-        confirm_info: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click "Claim", if the address is wrong, nobody can recover the NFT.'
+        confirm_info_html: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click <b>Claim NFT</b>, if the address is wrong, nobody can recover the NFT.'
         claim: Claim NFT
     welcome:
         banner_html: |
