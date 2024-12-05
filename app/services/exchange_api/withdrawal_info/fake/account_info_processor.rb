@@ -20,10 +20,6 @@ module ExchangeApi
           Result::Success.new(0.1)
         end
 
-        def withdrawal_fee(_currency)
-          Result::Success.new(0.01)
-        end
-
         def withdrawal_currencies
           Result::Success.new(AVAILABLE_CURRENCIES)
         end

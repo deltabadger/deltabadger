@@ -8,10 +8,8 @@ class HomeController < ApplicationController
     about
     confirm_registration
   ].freeze
-  DCA_SIMULATION_ASSETS = %w[btc gspc gdaxi gld ndx usd].freeze
 
   before_action :authenticate_user!, except: PUBLIC_PAGES
-  before_action :set_navigation_session, only: [:dashboard]
   before_action :set_welcome_banner, only: [:dashboard], if: -> { !current_user.welcome_banner_dismissed? }
   before_action :set_news_banner, only: [:dashboard], if: -> { !current_user.news_banner_dismissed? }
   before_action :set_referral_banner, only: [:dashboard], if: -> { !current_user.referral_banner_dismissed? }
@@ -25,11 +23,6 @@ class HomeController < ApplicationController
     end
 
     redirect_to new_user_session_path
-  end
-
-  def dashboard
-    @invest_amount = session[:invest_amount]
-    @simulation_results = get_simulation_results(invest_amount: @invest_amount)
   end
 
   def confirm_registration
@@ -53,21 +46,5 @@ class HomeController < ApplicationController
 
   def set_referral_banner
     @show_referral_banner = true
-  end
-
-  def set_navigation_session
-    params.permit(:invest_amount)
-    session[:invest_amount] = params[:invest_amount]&.to_i || session[:invest_amount] || 1000
-  end
-
-  def get_simulation_results(invest_amount:)
-    DCA_SIMULATION_ASSETS.map do |asset|
-      [asset, DcaSimulation.new(
-        asset: asset,
-        interval: 1.month,
-        amount: invest_amount,
-        target_profit: 1_000_000
-      ).perform]
-    end.to_h
   end
 end
