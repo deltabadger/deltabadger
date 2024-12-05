@@ -4,6 +4,7 @@
   - starting_bots
   - api_keys_validation
   - mailers
+  - sendgrid
   - [binance, 1]
   - [binance.us, 1]
   - [zonda, 1]
