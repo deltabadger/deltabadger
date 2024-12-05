@@ -2,8 +2,10 @@ require 'utilities/time'
 
 class DcaProfitGetter < BaseService
   API_ID_MAP = {
-    'btc' => 1713, # Bitcoin
+    'btc' => 1713,     # Bitcoin
+    'eth' => 4689,     # Ethereum
     'gspc' => 65_951,  # S&P 500 Index
+    'voo' => 61_600,   # S&P 500 Index
     'vti' => 61_914,   # Vanguard Total Stock Market Index Fund ETF Shares
     'vt' => 61_885,    # Vanguard Total World Stock Index Fund ETF Shares
     'qqq' => 51_788,   # Invesco QQQ Trust
