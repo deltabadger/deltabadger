@@ -1,4 +1,4 @@
-class Sendgrid::BaseJob < ApplicationJob
+class SendgridJob < ApplicationJob
   queue_as :sendgrid
 
   private

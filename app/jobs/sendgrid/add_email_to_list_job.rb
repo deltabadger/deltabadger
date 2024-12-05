@@ -1,4 +1,4 @@
-class Sendgrid::AddEmailToListJob < Sendgrid::BaseJob
+class Sendgrid::AddEmailToListJob < SendgridJob
   def perform(email, list_name, name = nil)
     list_id = get_list_id(list_name)
     if list_id.nil?

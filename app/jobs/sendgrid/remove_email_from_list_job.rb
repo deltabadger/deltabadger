@@ -1,6 +1,6 @@
 require 'utilities/hash'
 
-class Sendgrid::RemoveEmailFromListJob < Sendgrid::BaseJob
+class Sendgrid::RemoveEmailFromListJob < SendgridJob
   def perform(email, list_name)
     list_id = get_list_id(list_name)
     raise StandardError, "List not found: #{list_name}" if list_id.nil?
