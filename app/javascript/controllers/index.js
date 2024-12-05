@@ -16,8 +16,8 @@ application.register("countdown", CountdownController)
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
-import FlatpickrController from "./flatpickr_controller"
-application.register("flatpickr", FlatpickrController)
+// import FlatpickrController from "./flatpickr_controller"
+// application.register("flatpickr", FlatpickrController)
 
 import Form__CheckboxEnablesController from "./form/checkbox_enables_controller"
 application.register("form--checkbox-enables", Form__CheckboxEnablesController)
