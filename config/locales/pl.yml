@@ -495,7 +495,7 @@ pl:
                 email_invalid: 'E-mail nieprawidłowy!'
                 email_suggestion_html: 'E-mail nieprawidłowy! Czy chodziło Ci o: <b> %{suggestion} </b>'
                 name_invalid: 'Nie może zawierać cyfr ani symboli, ale nie musi być prawdziwe 👻'
-                submit: 'Zacznij teraz'
+                submit: 'Załóż konto'
                 title_html: 'Załóż <span class="text-success">darmowe</span> konto'
             signed_up: 'Miło cię poznać!'
             signed_up_but_inactive: 'Cześć, Twoje konto nie jest jeszcze aktywne. Czy sprawdziłeś swój e-mail?'
