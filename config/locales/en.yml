@@ -530,7 +530,7 @@ en:
                 email_invalid: 'Email invalid!'
                 email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
                 name_invalid: 'It doesn''t have to be real 👻'
-                submit: 'Start now'
+                submit: 'Sign up'
                 title_html: 'Create <span class="text-success">free</span> account'
             signed_up: 'Nice to meet you!'
             signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
