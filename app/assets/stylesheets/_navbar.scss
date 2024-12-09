@@ -8,14 +8,8 @@
     position: relative;
     top: -.5rem;
     @media (max-width: 575px) {
-      display: none;
-    } 
-    &--mobile {
-      display: none;
-      @media (max-width: 575px) {
-        display: block;
-        width: 5rem;
-      } 
+      display: block;
+      height: 4rem;
     }
   }
   &__name {
@@ -145,7 +139,7 @@
     height: 3rem;
   }
   @media (max-width: 575px) {
-    padding: 3rem
+    padding: 2.125rem 2rem
   } 
 }
 
