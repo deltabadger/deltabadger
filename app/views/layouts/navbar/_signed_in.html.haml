@@ -71,7 +71,7 @@
       .tooltip
         = t('links.dashboard')
 
-    = link_to barbell_bots_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to barbell_bots_path, class: 'menu__item menu__item--barbell_bots', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       BB
       .tooltip
         = "Barbell Bots"
