@@ -401,24 +401,24 @@ de:
         confirmations:
             confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigt.'
             new:
-            submit: 'Erneut senden'
-            title: 'Anweisungen erneut senden'
+                submit: 'Erneut senden'
+                title: 'Anweisungen erneut senden'
             send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
             send_paranoid_instructions: 'Wenn dein Konto existiert, wirst du in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
         passwords:
             edit:
-            submit: 'Passwort ändern'
-            title: 'Passwort ändern'
+                submit: 'Passwort ändern'
+                title: 'Passwort ändern'
             new:
-            submit: 'Anweisungen senden'
-            title: 'Passwort vergessen?'
-            no_token: 'Du kannst diese Seite nicht aufrufen, ohne von einer Passwort-Reset-E-Mail zu kommen. Wenn du von einer Passwort-Reset-E-Mail kommst, stelle bitte sicher, dass du die vollständige URL verwendest.'
-            send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-            send_paranoid_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-            updated: 'Fertig! Dein Passwort wurde geändert.'
-            updated_not_active: 'Fertig! Dein Passwort wurde geändert.'
-            token_expired: 'Dein Passwort-Reset-Link ist abgelaufen. Bitte fordere einen neuen Link an.'
-            validations:
+                submit: 'Anweisungen senden'
+                title: 'Passwort vergessen?'
+        no_token: 'Du kannst diese Seite nicht aufrufen, ohne von einer Passwort-Reset-E-Mail zu kommen. Wenn du von einer Passwort-Reset-E-Mail kommst, stelle bitte sicher, dass du die vollständige URL verwendest.'
+        send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
+        send_paranoid_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
+        updated: 'Fertig! Dein Passwort wurde geändert.'
+        updated_not_active: 'Fertig! Dein Passwort wurde geändert.'
+        token_expired: 'Dein Passwort-Reset-Link ist abgelaufen. Bitte fordere einen neuen Link an.'
+        validations:
             length: 'Mindestens %{count} Zeichen'
             uppercase: 'Enthält einen Großbuchstaben'
             lowercase: 'Enthält einen Kleinbuchstaben'
@@ -427,13 +427,13 @@ de:
             match: 'Passwörter stimmen überein'
         registrations:
             edit:
-            awaiting_confirmation: 'Derzeit wird auf die Bestätigung für folgende Adresse gewartet: %{email}'
+                awaiting_confirmation: 'Derzeit wird auf die Bestätigung für folgende Adresse gewartet: %{email}'
             new:
-            email_invalid: 'Ungültige E-Mail-Adresse!'
-            email_suggestion_html: 'Ungültige E-Mail-Adresse! Meintest du: <b>%{suggestion}</b>'
-            name_invalid: 'Muss nicht echt sein 👻'
-            submit: 'Registrieren'
-            title_html: 'Kostenloses <span class="text-success">Konto</span> erstellen'
+                email_invalid: 'Ungültige E-Mail-Adresse!'
+                email_suggestion_html: 'Ungültige E-Mail-Adresse! Meintest du: <b>%{suggestion}</b>'
+                name_invalid: 'Muss nicht echt sein 👻'
+                submit: 'Registrieren'
+                title_html: 'Kostenloses <span class="text-success">Konto</span> erstellen'
             signed_up: 'Freut mich, dich kennenzulernen!'
             signed_up_but_inactive: 'Hallo, dein Konto ist noch nicht aktiviert. Hast du deine E-Mail überprüft?'
             signed_up_but_locked: 'Ups, dein Konto ist gesperrt.'
@@ -443,9 +443,9 @@ de:
             updated_but_not_signed_in: 'Dein Konto wurde erfolgreich aktualisiert, bitte melde dich erneut an.'
         sessions:
             new:
-            forgot_password: 'Passwort vergessen?'
-            submit: 'Einloggen'
-            title: 'Willkommen zurück!'
+                forgot_password: 'Passwort vergessen?'
+                submit: 'Einloggen'
+                title: 'Willkommen zurück!'
             signed_in: 'Lange nicht gesehen!'
             signed_out: 'Bis bald!'
         unlocks:
@@ -463,20 +463,20 @@ de:
             unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
         mailer:
             confirmation_instructions:
-            subject: 'E-Mail-Adresse bestätigen'
-            template_html: '<p>Deine E-Mail-Adresse ist nur einen Klick davon entfernt, Teil des A-Teams zu werden! Bestätige jetzt und lass die guten Zeiten automatisch laufen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Diese E-Mail bestätigen</a>'
+                subject: 'E-Mail-Adresse bestätigen'
+                template_html: '<p>Deine E-Mail-Adresse ist nur einen Klick davon entfernt, Teil des A-Teams zu werden! Bestätige jetzt und lass die guten Zeiten automatisch laufen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Diese E-Mail bestätigen</a>'
             email_changed:
-            subject: 'E-Mail bestätigt'
-            template_html: '<p>Fertig! Das ist deine neue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>'
+                subject: 'E-Mail bestätigt'
+                template_html: '<p>Fertig! Das ist deine neue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>'
             password_change:
-            subject: 'Passwort geändert'
-            template_html: '<p>Erledigt!</p><p>Dein Passwort wurde geändert.</p><p>Deine Geheimnisse sind sicherer als je zuvor!</p>'
+                subject: 'Passwort geändert'
+                template_html: '<p>Erledigt!</p><p>Dein Passwort wurde geändert.</p><p>Deine Geheimnisse sind sicherer als je zuvor!</p>'
             reset_password_instructions:
-            subject: 'Passwort-Wiederherstellung'
-            template_html: '<p>Passwort-Wiederherstellung gestartet! Bleib ruhig, wir bringen dich schnell wieder ins Spiel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Mein Passwort ändern</a>'
+                subject: 'Passwort-Wiederherstellung'
+                template_html: '<p>Passwort-Wiederherstellung gestartet! Bleib ruhig, wir bringen dich schnell wieder ins Spiel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Mein Passwort ändern</a>'
             unlock_instructions:
-            subject: 'Entsperr-Anweisungen'
-            template_html: '<p>Wir haben dein Konto aufgrund einer hohen Anzahl fehlgeschlagener Anmeldeversuche gesperrt.</p><p>Klicke auf den folgenden Link, um es zu entsperren:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mein Konto entsperren</a>'
+                subject: 'Entsperr-Anweisungen'
+                template_html: '<p>Wir haben dein Konto aufgrund einer hohen Anzahl fehlgeschlagener Anmeldeversuche gesperrt.</p><p>Klicke auf den folgenden Link, um es zu entsperren:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mein Konto entsperren</a>'
         omniauth_callbacks:
             failure: 'Konnte dich nicht über %{kind} authentifizieren, da: "%{reason}".'
             success: 'Erfolgreich über %{kind}-Konto authentifiziert.'
@@ -588,15 +588,15 @@ de:
         create_account: 'Erstelle ein kostenloses Konto'
         dashboard: Dashboard
         homepage: 'Link zur Homepage'
-        log_in: Anmelden
+        log_in: Einloggen
         log_out: Ausloggen
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
         earn: Verdienen
         referral_program: Empfehlungsprogramm
-        resend_link: 'Link erneut zuschicken'
+        resend_link: 'Link senden'
         settings: Einstellungen
-        sign_up: Anmelden
+        sign_up: Registrieren
         terms_and_conditions: AGB
 
     meta:

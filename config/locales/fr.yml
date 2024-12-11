@@ -434,17 +434,17 @@ fr:
         confirmations:
             confirmed: 'Votre adresse e-mail a été confirmée avec succès.'
             new:
-            submit: 'Renvoyer'
-            title: 'Renvoyer les instructions'
+                submit: 'Renvoyer'
+                title: 'Renvoyer les instructions'
             send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
             send_paranoid_instructions: 'Si votre compte existe, vous recevrez un e-mail avec des instructions dans quelques minutes.'
         passwords:
             edit:
-            submit: 'Changer le mot de passe'
-            title: 'Changer le mot de passe'
+                submit: 'Changer le mot de passe'
+                title: 'Changer le mot de passe'
             new:
-            submit: 'Envoyer les instructions'
-            title: 'Mot de passe oublié ?'
+                submit: 'Envoyer les instructions'
+                title: 'Mot de passe oublié ?'
             no_token: 'Vous ne pouvez pas accéder à cette page sans passer par un e-mail de réinitialisation de mot de passe. Si vous avez reçu un tel e-mail, assurez-vous d’utiliser l’URL complète fournie.'
             send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
             send_paranoid_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
@@ -452,21 +452,21 @@ fr:
             updated_not_active: 'Fait ! Votre mot de passe a été changé.'
             token_expired: 'Votre lien de réinitialisation de mot de passe a expiré. Veuillez demander un nouveau lien.'
             validations:
-            length: 'Au moins %{count} caractères'
-            uppercase: 'Contient une majuscule'
-            lowercase: 'Contient une minuscule'
-            digit: 'Contient un chiffre'
-            symbol: 'Contient un symbole'
-            match: 'Les mots de passe correspondent'
+                length: 'Au moins %{count} caractères'
+                uppercase: 'Contient une majuscule'
+                lowercase: 'Contient une minuscule'
+                digit: 'Contient un chiffre'
+                symbol: 'Contient un symbole'
+                match: 'Les mots de passe correspondent'
         registrations:
             edit:
-            awaiting_confirmation: 'En attente de confirmation pour : %{email}'
+                awaiting_confirmation: 'En attente de confirmation pour : %{email}'
             new:
-            email_invalid: 'Adresse e-mail invalide !'
-            email_suggestion_html: 'Adresse e-mail invalide ! Voulez-vous dire : <b>%{suggestion}</b>'
-            name_invalid: 'Pas besoin d’être réel 👻'
-            submit: 'S’inscrire'
-            title_html: 'Créer un compte <span class="text-success">gratuit</span>'
+                email_invalid: 'Adresse e-mail invalide !'
+                email_suggestion_html: 'Adresse e-mail invalide ! Voulez-vous dire : <b>%{suggestion}</b>'
+                name_invalid: 'Pas besoin d’être réel 👻'
+                submit: 'S’inscrire'
+                title_html: 'Créer un compte <span class="text-success">gratuit</span>'
             signed_up: 'Ravi de vous rencontrer !'
             signed_up_but_inactive: 'Bonjour, votre compte n’est pas encore activé. Avez-vous vérifié vos e-mails ?'
             signed_up_but_locked: 'Oups, votre compte est verrouillé.'
@@ -476,9 +476,9 @@ fr:
             updated_but_not_signed_in: 'Votre compte a été mis à jour avec succès, veuillez vous reconnecter.'
         sessions:
             new:
-            forgot_password: 'Mot de passe oublié ?'
-            submit: 'Connexion'
-            title: 'Bon retour !'
+                forgot_password: 'Mot de passe oublié ?'
+                submit: 'Connexion'
+                title: 'Bon retour !'
             signed_in: 'Ça faisait longtemps !'
             signed_out: 'À bientôt !'
         unlocks:
@@ -496,20 +496,20 @@ fr:
             unconfirmed: 'Vous devez confirmer votre adresse e-mail avant de continuer.'
         mailer:
             confirmation_instructions:
-            subject: 'Confirmer l’adresse e-mail'
-            template_html: '<p>Votre adresse e-mail est à un clic de rejoindre l’équipe ! Confirmez maintenant et laissez la magie opérer automatiquement.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmer cette adresse e-mail</a>'
+                subject: 'Confirmer l’adresse e-mail'
+                template_html: '<p>Votre adresse e-mail est à un clic de rejoindre l’équipe ! Confirmez maintenant et laissez la magie opérer automatiquement.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmer cette adresse e-mail</a>'
             email_changed:
-            subject: 'E-mail confirmé'
-            template_html: '<p>Fait ! Voici votre nouvelle et brillante adresse Deltabadger :</p><p><b>%{email}</b></p>'
+                subject: 'E-mail confirmé'
+                template_html: '<p>Fait ! Voici votre nouvelle et brillante adresse Deltabadger :</p><p><b>%{email}</b></p>'
             password_change:
-            subject: 'Mot de passe modifié'
-            template_html: '<p>C’est fait !</p><p>Votre mot de passe a été changé.</p><p>Vos secrets sont plus sécurisés que jamais !</p>'
+                subject: 'Mot de passe modifié'
+                template_html: '<p>C’est fait !</p><p>Votre mot de passe a été changé.</p><p>Vos secrets sont plus sécurisés que jamais !</p>'
             reset_password_instructions:
-            subject: 'Récupération de mot de passe'
-            template_html: '<p>La récupération de mot de passe est en cours ! Restez calme, vous serez bientôt de retour en jeu.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Changer mon mot de passe</a>'
+                subject: 'Récupération de mot de passe'
+                template_html: '<p>La récupération de mot de passe est en cours ! Restez calme, vous serez bientôt de retour en jeu.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Changer mon mot de passe</a>'
             unlock_instructions:
-            subject: 'Instructions pour déverrouiller'
-            template_html: '<p>Nous avons verrouillé votre compte en raison de nombreuses tentatives de connexion échouées.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller :</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Déverrouiller mon compte</a>'
+                subject: 'Instructions pour déverrouiller'
+                template_html: '<p>Nous avons verrouillé votre compte en raison de nombreuses tentatives de connexion échouées.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller :</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Déverrouiller mon compte</a>'
         omniauth_callbacks:
             failure: 'Impossible de vous authentifier via %{kind} en raison de : "%{reason}".'
             success: 'Authentifié avec succès via le compte %{kind}.'
