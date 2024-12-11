@@ -21,7 +21,7 @@
 
   <% if devise_mapping.rememberable? %>
     <div class="db-form__row db-form__row--check form-check">
-      <%= f.check_box :remember_me, class: "form-check-input" %>
+      <%= f.check_box :remember_me %>
       <%= f.label :remember_me, class: "form-check-label" %>
     </div>
   <% end %>
@@ -31,14 +31,13 @@
     <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
   </div>
 
-  <%= cloudflare_turnstile %>
-  <%# <div class="db-form__row" style="min-height: 55px"></div> %>
+  <div class="cf-turnstile-container">
+    <%= cloudflare_turnstile %>
+  </div>
 
   <div class="db-form__row db-form__row--final-button">
     <%= f.submit t('.submit'), class: "btn btn-primary btn-lg w-100" %>
   </div>
 <% end %>
 
-<div class="db-form__other-links">
-  <%= render "devise/shared/links" %>
-</div>
+<%= render "devise/shared/links" %>

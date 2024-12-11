@@ -46,9 +46,6 @@
     </ul>
   </div>
 
-  <%= cloudflare_turnstile %>
-  <%# <div class="db-form__row" style="min-height: 55px"></div> %>
-
   <div class="db-form__row db-form__row--check ml-0" style="text-align: center">
     <%= f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked" %>
     <%= f.label :terms_and_conditions, class: "form-check-label" do %>
@@ -58,11 +55,14 @@
     <% end %>
   </div>
 
+  <div class="cf-turnstile-container">
+    <%= cloudflare_turnstile %>
+  </div>
+
   <div class="db-form__row db-form__row--final-button">
     <%= f.submit t('.submit'), class: "btn btn-success btn-lg w-100" %>
   </div>
 <% end %>
 
-<div class="db-form__other-links">
-  <%= render "devise/shared/links" %>
-</div>
+
+<%= render "devise/shared/links" %>
