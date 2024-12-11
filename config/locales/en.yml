@@ -460,7 +460,6 @@ en:
     days_left:
         one: '1 day left'
         other: '%{count} days left'
-    deltabadger: Deltabadger
     devise:
         confirmations:
             confirmed: 'Your email address has been successfully confirmed.'
