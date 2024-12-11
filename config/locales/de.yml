@@ -397,89 +397,89 @@ de:
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
         withdrawal_percentage: '%{percentage}% bis zur nächsten Auszahlung'
-    deltabadger: Deltabadger
     devise:
-        risk_down: 'Risiko senken.'
-        gains_up: 'Gewinne steigern.'
-        dca: 'Durchschnittskostenmethode'
-        portfolio_analysis: 'Portfolio-Analyse'
-        rebalancing: 'Portfolio-Neuausrichtung (bald)'
         confirmations:
-            confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigen.'
+            confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigt.'
             new:
-                submit: 'Bestätigungslink erneut zuschicken'
-                title: 'Anweisungen erneut senden'
-            send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
-            send_paranoid_instructions: 'Falls Ihr Konto existiert, erhalten Sie in wenigen Minuten eine E-Mail mit Anweisungen.'
-        failure:
-            already_authenticated: 'Du bist bereit angemeldet.'
-            inactive: 'Dein Konto wurde noch nicht aktiviert.'
-            invalid: 'Ungültiger %{authentication_keys} oder Passwort.'
-            last_attempt: 'Du hast noch einen Versuch, bevor dein Konto gesperrt wird.'
-            locked: 'Dein Konto ist gesperrt.'
-            not_found_in_database: 'Ungültiger %{authentication_keys} oder Passwort.'
-            timeout: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an um fortzufahren.'
-            unauthenticated: 'Du musst dich erst registrieren, bevor du fortfahren kannst.'
-            unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
-        mailer:
-            confirmation_instructions:
-                subject: 'E-Mail-Adresse bestätigen'
-                template_html: '<p>Ihre E-Mail-Adresse ist nur noch einen Klick davon entfernt, Teil des A-Teams des Großartigen zu werden! Bestätigen Sie jetzt und lassen Sie die guten Zeiten auf Autopilot weiterlaufen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Diese E-Mail bestätigen</a>'
-            email_changed:
-                subject: 'E-Mail bestätigt'
-                template_html: '<p>Erledigt! Dies ist Ihre neue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>'
-            password_change:
-                subject: 'Passwort geändert'
-                template_html: '<p>Es ist erledigt!</p><p>Ihr Passwort wurde geändert.</p><p>Ihre Geheimnisse sind sicherer als je zuvor!</p>'
-            reset_password_instructions:
-                subject: 'Passwortwiederherstellung'
-                template_html: '<p>Passwortwiederherstellung eingeleitet! Halten Sie durch, wir bringen Sie im Handumdrehen wieder ins Spiel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Mein Passwort ändern</a>'
-            unlock_instructions:
-                subject: 'Freischaltanweisungen'
-                template_html: '<p>Wir haben Ihr Konto aufgrund einer hohen Anzahl erfolgloser Anmeldeversuche gesperrt.</p><p>Klicken Sie auf den untenstehenden Link, um es zu entsperren:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mein Konto entsperren</a>'
-
-        omniauth_callbacks:
-            failure: 'Wir konnten dich aufgrund von "%{reason}" nicht von %{kind} authentifizieren.'
-            success: 'Erfolgreich von %{kind} Konto authentifiziert.'
+            submit: 'Erneut senden'
+            title: 'Anweisungen erneut senden'
+            send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
+            send_paranoid_instructions: 'Wenn dein Konto existiert, wirst du in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
         passwords:
             edit:
-                submit: 'Mein Passwort ändern'
-                title: 'Dein Passwort ändern'
+            submit: 'Passwort ändern'
+            title: 'Passwort ändern'
             new:
-                submit: 'Anweisungen anfordern'
-                title: 'Dein Passwort vergessen?'
-            no_token: 'Du kannst nicht auf diese Seite zugreifen, wenn du nicht von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest. Wenn du von einer E-Mail zum Zurücksetzen des Passworts hergeleitet wurdest, stelle bitte sicher, dass du die vollständige URL verwendet hast.'
-            send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
-            send_paranoid_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
-            token_expired: 'Ihr Link zum Zurücksetzen des Passworts ist abgelaufen. Bitte fordern Sie einen neuen Link an.'
-            updated: 'Erledigt! Dein Passwort wurde geändert.'
-            updated_not_active: 'Erledigt! Dein Passwort wurde geändert.'
+            submit: 'Anweisungen senden'
+            title: 'Passwort vergessen?'
+            no_token: 'Du kannst diese Seite nicht aufrufen, ohne von einer Passwort-Reset-E-Mail zu kommen. Wenn du von einer Passwort-Reset-E-Mail kommst, stelle bitte sicher, dass du die vollständige URL verwendest.'
+            send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
+            send_paranoid_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
+            updated: 'Fertig! Dein Passwort wurde geändert.'
+            updated_not_active: 'Fertig! Dein Passwort wurde geändert.'
+            token_expired: 'Dein Passwort-Reset-Link ist abgelaufen. Bitte fordere einen neuen Link an.'
+            validations:
+            length: 'Mindestens %{count} Zeichen'
+            uppercase: 'Enthält einen Großbuchstaben'
+            lowercase: 'Enthält einen Kleinbuchstaben'
+            digit: 'Enthält eine Ziffer'
+            symbol: 'Enthält ein Symbol'
+            match: 'Passwörter stimmen überein'
         registrations:
             edit:
-                awaiting_confirmation: 'Aktuell warten wir auf die Bestätigung von: %{email}'
+            awaiting_confirmation: 'Derzeit wird auf die Bestätigung für folgende Adresse gewartet: %{email}'
             new:
-                email_invalid: 'E-Mail ungültig!'
-                email_suggestion_html: 'E-Mail ungültig! Meintest du <b>%{suggestion}</b>'
-                name_invalid: 'Darf keine Zahlen oder Symbole enthalten, muss aber nicht real sein 👻'
-                submit: 'Starte jetzt'
-                title_html: 'Erstelle ein <span class="text-success">kostenloses</span> Konto'
-            signed_up: 'Schön, dich kennenzulernen!'
-            signed_up_but_inactive: 'Hi, dein Konto wurde noch nicht aktiviert. Hast du dein Postfach überprüft?'
-            signed_up_but_locked: 'Ups... Dein Konto ist gesperrt.'
-            signed_up_but_unconfirmed: 'Prüfe dein Postfach und klicke auf den Bestätigungslink.'
-            update_needs_confirmation: 'Prüfe dein Postfach und folge dem Bestätigungslink, um deine neue E-Mail-Adresse zu bestätigen.'
+            email_invalid: 'Ungültige E-Mail-Adresse!'
+            email_suggestion_html: 'Ungültige E-Mail-Adresse! Meintest du: <b>%{suggestion}</b>'
+            name_invalid: 'Muss nicht echt sein 👻'
+            submit: 'Registrieren'
+            title_html: 'Kostenloses <span class="text-success">Konto</span> erstellen'
+            signed_up: 'Freut mich, dich kennenzulernen!'
+            signed_up_but_inactive: 'Hallo, dein Konto ist noch nicht aktiviert. Hast du deine E-Mail überprüft?'
+            signed_up_but_locked: 'Ups, dein Konto ist gesperrt.'
+            signed_up_but_unconfirmed: 'Überprüfe deinen Posteingang und klicke auf den Bestätigungslink.'
+            update_needs_confirmation: 'Überprüfe deinen Posteingang und folge dem Bestätigungslink, um deine neue E-Mail-Adresse zu bestätigen.'
             updated: 'Dein Konto wurde erfolgreich aktualisiert.'
-            updated_but_not_signed_in: 'Dein Konto wurde erfolgreich aktualisiert. Melde dich erneut an.'
+            updated_but_not_signed_in: 'Dein Konto wurde erfolgreich aktualisiert, bitte melde dich erneut an.'
         sessions:
             new:
-                forgot_password: 'Passwort vergessen?'
-                submit: Anmelden
-                title: Anmelden
+            forgot_password: 'Passwort vergessen?'
+            submit: 'Einloggen'
+            title: 'Willkommen zurück!'
             signed_in: 'Lange nicht gesehen!'
             signed_out: 'Bis bald!'
         unlocks:
-            send_instructions: 'Du erhältst in wenigen Minuten eine E-Mail mit Anweisungen.'
+            send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
             unlocked: 'Dein Konto wurde erfolgreich entsperrt. Bitte melde dich an, um fortzufahren.'
+        failure:
+            already_authenticated: 'Du bist bereits angemeldet.'
+            inactive: 'Dein Konto ist noch nicht aktiviert.'
+            invalid: 'Ungültige %{authentication_keys} oder Passwort.'
+            last_attempt: 'Du hast noch einen Versuch, bevor dein Konto gesperrt wird.'
+            locked: 'Dein Konto ist gesperrt.'
+            not_found_in_database: 'Ungültige %{authentication_keys} oder Passwort.'
+            timeout: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an, um fortzufahren.'
+            unauthenticated: 'Du musst dich anmelden oder registrieren, bevor du fortfährst.'
+            unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
+        mailer:
+            confirmation_instructions:
+            subject: 'E-Mail-Adresse bestätigen'
+            template_html: '<p>Deine E-Mail-Adresse ist nur einen Klick davon entfernt, Teil des A-Teams zu werden! Bestätige jetzt und lass die guten Zeiten automatisch laufen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Diese E-Mail bestätigen</a>'
+            email_changed:
+            subject: 'E-Mail bestätigt'
+            template_html: '<p>Fertig! Das ist deine neue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>'
+            password_change:
+            subject: 'Passwort geändert'
+            template_html: '<p>Erledigt!</p><p>Dein Passwort wurde geändert.</p><p>Deine Geheimnisse sind sicherer als je zuvor!</p>'
+            reset_password_instructions:
+            subject: 'Passwort-Wiederherstellung'
+            template_html: '<p>Passwort-Wiederherstellung gestartet! Bleib ruhig, wir bringen dich schnell wieder ins Spiel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Mein Passwort ändern</a>'
+            unlock_instructions:
+            subject: 'Entsperr-Anweisungen'
+            template_html: '<p>Wir haben dein Konto aufgrund einer hohen Anzahl fehlgeschlagener Anmeldeversuche gesperrt.</p><p>Klicke auf den folgenden Link, um es zu entsperren:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mein Konto entsperren</a>'
+        omniauth_callbacks:
+            failure: 'Konnte dich nicht über %{kind} authentifizieren, da: "%{reason}".'
+            success: 'Erfolgreich über %{kind}-Konto authentifiziert.'
     errors:
         bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         format: '%{attribute} %{message}'
