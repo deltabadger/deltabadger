@@ -31,8 +31,9 @@
     <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
   </div>
 
-  <%= cloudflare_turnstile %>
-  <%# <div class="db-form__row" style="min-height: 55px"></div> %>
+  <div class="cf-turnstile">
+    <%= cloudflare_turnstile %>
+  </div>
 
   <div class="db-form__row db-form__row--final-button">
     <%= f.submit t('.submit'), class: "btn btn-primary btn-lg w-100" %>
