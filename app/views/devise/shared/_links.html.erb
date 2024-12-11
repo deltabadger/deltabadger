@@ -26,14 +26,12 @@
     <% end %>
   <% end %>
 
-  <div class="btn-group">
-    <button class="btn btn-link" aria-expanded="false" aria-haspopup="true" data-toggle="dropdown" type="button">
-      <%= params[:locale]&.to_s&.upcase || 'EN' %>
-      <svg class="ml-0 btn__svg-icon db-svg-icon" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7.71,9.29l3.88,3.88l3.88-3.88c0.39-0.39,1.02-0.39,1.41,0l0,0c0.39,0.39,0.39,1.02,0,1.41l-4.59,4.59 c-0.39,0.39-1.02,0.39-1.41,0L6.29,10.7c-0.39-0.39-0.39-1.02,0-1.41l0,0C6.68,8.91,7.32,8.9,7.71,9.29z"></path>
-      </svg>
-    </button>
-    <div class="dropdown-menu dropdown-menu-right">
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+    <%= params[:locale]&.to_s&.upcase || 'EN' %>
+    <svg class="ml-0 btn__svg-icon db-svg-icon" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7.71,9.29l3.88,3.88l3.88-3.88c0.39-0.39,1.02-0.39,1.41,0l0,0c0.39,0.39,0.39,1.02,0,1.41l-4.59,4.59 c-0.39,0.39-1.02,0.39-1.41,0L6.29,10.7c-0.39-0.39-0.39-1.02,0-1.41l0,0C6.68,8.91,7.32,8.9,7.71,9.29z"></path>
+    </svg>
+    <div class="dropdown">
       <% locale = params[:locale] %>
       <% unless locale.blank? || locale == 'en' %>
         <%= link_to "🇬🇧 English", url_for(request.params.merge(locale: nil)), class: "dropdown-item" %>
