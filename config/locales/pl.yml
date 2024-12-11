@@ -436,17 +436,17 @@ pl:
         confirmations:
             confirmed: 'Twój adres e-mail został pomyślnie potwierdzony.'
             new:
-            submit: 'Wyślij ponownie'
-            title: 'Wyślij instrukcje ponownie'
+                submit: 'Wyślij ponownie'
+                title: 'Wyślij instrukcje ponownie'
             send_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
             send_paranoid_instructions: 'Jeśli Twoje konto istnieje, w ciągu kilku minut otrzymasz e-mail z instrukcjami.'
         passwords:
             edit:
-            submit: 'Zmień hasło'
-            title: 'Zmień hasło'
+                submit: 'Zmień hasło'
+                title: 'Zmień hasło'
             new:
-            submit: 'Wyślij instrukcje'
-            title: 'Zapomniałeś hasła?'
+                submit: 'Wyślij instrukcje'
+                title: 'Zapomniałeś hasła?'
             no_token: 'Nie możesz uzyskać dostępu do tej strony bezpośrednio z e-maila z resetem hasła. Jeśli go otrzymałeś, upewnij się, że używasz pełnego URL-a.'
             send_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
             send_paranoid_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
@@ -454,21 +454,21 @@ pl:
             updated_not_active: 'Gotowe! Twoje hasło zostało zmienione.'
             token_expired: 'Link do zresetowania hasła wygasł. Proszę poprosić o nowy link.'
             validations:
-            length: 'Co najmniej %{count} znaków'
-            uppercase: 'Zawiera wielką literę'
-            lowercase: 'Zawiera małą literę'
-            digit: 'Zawiera cyfrę'
-            symbol: 'Zawiera symbol'
-            match: 'Hasła pasują do siebie'
+                length: 'Co najmniej %{count} znaków'
+                uppercase: 'Zawiera wielką literę'
+                lowercase: 'Zawiera małą literę'
+                digit: 'Zawiera cyfrę'
+                symbol: 'Zawiera symbol'
+                match: 'Hasła pasują do siebie'
         registrations:
             edit:
-            awaiting_confirmation: 'Oczekuje na potwierdzenie dla: %{email}'
+                awaiting_confirmation: 'Oczekuje na potwierdzenie dla: %{email}'
             new:
-            email_invalid: 'Nieprawidłowy adres e-mail!'
-            email_suggestion_html: 'Nieprawidłowy adres e-mail! Czy chodziło Ci o: <b>%{suggestion}</b>'
-            name_invalid: 'Nie musi być prawdziwe 👻'
-            submit: 'Zarejestruj się'
-            title_html: 'Utwórz <span class="text-success">darmowe</span> konto'
+                email_invalid: 'Nieprawidłowy adres e-mail!'
+                email_suggestion_html: 'Nieprawidłowy adres e-mail! Czy chodziło Ci o: <b>%{suggestion}</b>'
+                name_invalid: 'Nie musi być prawdziwe 👻'
+                submit: 'Zarejestruj się'
+                title_html: 'Utwórz <span class="text-success">darmowe</span> konto'
             signed_up: 'Miło Cię poznać!'
             signed_up_but_inactive: 'Cześć, Twoje konto nie zostało jeszcze aktywowane. Czy sprawdziłeś swoją skrzynkę odbiorczą?'
             signed_up_but_locked: 'Ups, Twoje konto jest zablokowane.'
@@ -478,9 +478,9 @@ pl:
             updated_but_not_signed_in: 'Twoje konto zostało pomyślnie zaktualizowane, zaloguj się ponownie.'
         sessions:
             new:
-            forgot_password: 'Zapomniałeś hasła?'
-            submit: 'Zaloguj się'
-            title: 'Witamy ponownie!'
+                forgot_password: 'Zapomniałeś hasła?'
+                submit: 'Zaloguj się'
+                title: 'Witamy ponownie!'
             signed_in: 'Dawno się nie widzieliśmy!'
             signed_out: 'Do zobaczenia!'
         unlocks:
@@ -498,20 +498,23 @@ pl:
             unconfirmed: 'Musisz potwierdzić swój adres e-mail, aby kontynuować.'
         mailer:
             confirmation_instructions:
-            subject: 'Potwierdź adres e-mail'
-            template_html: '<p>Twój adres e-mail jest o jeden klik od dołączenia do zespołu! Potwierdź go teraz i pozwól, aby wszystko działało automatycznie.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Potwierdź ten e-mail</a>'
+                subject: 'Potwierdź adres e-mail'
+                template_html: '<p>Twój adres e-mail jest o jeden klik od dołączenia do zespołu! Potwierdź go teraz i pozwól, aby wszystko działało automatycznie.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Potwierdź ten e-mail</a>'
             email_changed:
-            subject: 'E-mail potwierdzony'
-            template_html: '<p>Zrobione! To Twój nowy, błyszczący adres Deltabadger:</p><p><b>%{email}</b></p>'
+                subject: 'E-mail potwierdzony'
+                template_html: '<p>Zrobione! To Twój nowy, błyszczący adres Deltabadger:</p><p><b>%{email}</b></p>'
             password_change:
-            subject: 'Hasło zmienione'
-            template_html: '<p>Zrobione!</p><p>Twoje hasło zostało zmienione.</p><p>Twoje sekrety są bezpieczniejsze niż kiedykolwiek!</p>'
+                subject: 'Hasło zmienione'
+                template_html: '<p>Zrobione!</p><p>Twoje hasło zostało zmienione.</p><p>Twoje sekrety są bezpieczniejsze niż kiedykolwiek!</p>'
             reset_password_instructions:
-            subject: 'Odzyskiwanie hasła'
-            template_html: '<p>Odzyskiwanie hasła rozpoczęte! Spokojnie, zaraz wrócisz do gry.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Zmień moje hasło</a>'
+                subject: 'Odzyskiwanie hasła'
+                template_html: '<p>Odzyskiwanie hasła rozpoczęte! Spokojnie, zaraz wrócisz do gry.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Zmień moje hasło</a>'
             unlock_instructions:
-            subject: 'Instrukcje odblokowania'
-            template_html: '<p>Twoje konto zostało zablokowane z powodu wielu nieudanych prób logowania.</p><p>Kliknij w poniższy link, aby je odblokować:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">
+                subject: 'Instrukcje odblokowania'
+                template_html: '<p>Twoje konto zostało zablokowane z powodu wielu nieudanych prób logowania.</p><p>Kliknij w poniższy link, aby je odblokować:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Odblokuj moje konto</a>'
+        omniauth_callbacks:
+            failure: 'Nie udało się uwierzytelnić za pomocą %{kind} z powodu: "%{reason}".'
+            success: 'Pomyślnie uwierzytelniono za pomocą konta %{kind}.'
     errors:
         bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
         format: '%{attribute}%{message}'
@@ -646,7 +649,7 @@ pl:
         privacy_policy: 'Polityka prywatności'
         earn: 'Zarabiaj'
         referral_program: 'Program referencyjny'
-        resend_link: 'Wyślij ponownie link'
+        resend_link: 'Wyślij link'
         settings: Ustawienia
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin

@@ -434,17 +434,17 @@ nl:
         confirmations:
             confirmed: 'Je e-mailadres is succesvol bevestigd.'
             new:
-            submit: 'Opnieuw verzenden'
-            title: 'Instructies opnieuw verzenden'
+                submit: 'Opnieuw verzenden'
+                title: 'Instructies opnieuw verzenden'
             send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
             send_paranoid_instructions: 'Als je account bestaat, ontvang je binnen enkele minuten een e-mail met instructies.'
         passwords:
             edit:
-            submit: 'Wachtwoord wijzigen'
-            title: 'Wachtwoord wijzigen'
+                submit: 'Wachtwoord wijzigen'
+                title: 'Wachtwoord wijzigen'
             new:
-            submit: 'Instructies verzenden'
-            title: 'Wachtwoord vergeten?'
+                submit: 'Instructies verzenden'
+                title: 'Wachtwoord vergeten?'
             no_token: 'Je kunt deze pagina niet openen zonder via een wachtwoord-reset-e-mail te komen. Als je een wachtwoord-reset-e-mail hebt ontvangen, zorg ervoor dat je de volledige URL gebruikt.'
             send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
             send_paranoid_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
@@ -452,21 +452,21 @@ nl:
             updated_not_active: 'Klaar! Je wachtwoord is gewijzigd.'
             token_expired: 'De link om je wachtwoord te resetten is verlopen. Vraag een nieuwe link aan.'
             validations:
-            length: 'Minimaal %{count} tekens'
-            uppercase: 'Bevat een hoofdletter'
-            lowercase: 'Bevat een kleine letter'
-            digit: 'Bevat een cijfer'
-            symbol: 'Bevat een symbool'
-            match: 'Wachtwoorden komen overeen'
+                length: 'Minimaal %{count} tekens'
+                uppercase: 'Bevat een hoofdletter'
+                lowercase: 'Bevat een kleine letter'
+                digit: 'Bevat een cijfer'
+                symbol: 'Bevat een symbool'
+                match: 'Wachtwoorden komen overeen'
         registrations:
             edit:
-            awaiting_confirmation: 'Momenteel wordt gewacht op bevestiging voor: %{email}'
+                awaiting_confirmation: 'Momenteel wordt gewacht op bevestiging voor: %{email}'
             new:
-            email_invalid: 'Ongeldig e-mailadres!'
-            email_suggestion_html: 'Ongeldig e-mailadres! Bedoelde je: <b>%{suggestion}</b>'
-            name_invalid: 'Het hoeft niet echt te zijn 👻'
-            submit: 'Aanmelden'
-            title_html: 'Maak een <span class="text-success">gratis</span> account aan'
+                email_invalid: 'Ongeldig e-mailadres!'
+                email_suggestion_html: 'Ongeldig e-mailadres! Bedoelde je: <b>%{suggestion}</b>'
+                name_invalid: 'Het hoeft niet echt te zijn 👻'
+                submit: 'Aanmelden'
+                title_html: 'Maak een <span class="text-success">gratis</span> account aan'
             signed_up: 'Leuk je te ontmoeten!'
             signed_up_but_inactive: 'Hallo, je account is nog niet geactiveerd. Heb je je e-mail gecontroleerd?'
             signed_up_but_locked: 'Oeps, je account is vergrendeld.'
@@ -476,9 +476,9 @@ nl:
             updated_but_not_signed_in: 'Je account is succesvol bijgewerkt, log opnieuw in.'
         sessions:
             new:
-            forgot_password: 'Wachtwoord vergeten?'
-            submit: 'Inloggen'
-            title: 'Welkom terug!'
+                forgot_password: 'Wachtwoord vergeten?'
+                submit: 'Inloggen'
+                title: 'Welkom terug!'
             signed_in: 'Lang niet gezien!'
             signed_out: 'Tot ziens!'
         unlocks:
@@ -496,20 +496,20 @@ nl:
             unconfirmed: 'Je moet je e-mailadres bevestigen voordat je verder kunt gaan.'
         mailer:
             confirmation_instructions:
-            subject: 'Bevestig je e-mailadres'
-            template_html: '<p>Je e-mailadres is slechts één klik verwijderd van lid worden van het team! Bevestig nu en laat het goede automatisch verlopen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Bevestig dit e-mailadres</a>'
+                subject: 'Bevestig je e-mailadres'
+                template_html: '<p>Je e-mailadres is slechts één klik verwijderd van lid worden van het team! Bevestig nu en laat het goede automatisch verlopen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Bevestig dit e-mailadres</a>'
             email_changed:
-            subject: 'E-mail bevestigd'
-            template_html: '<p>Klaar! Dit is je nieuwe en glanzende Deltabadger-adres:</p><p><b>%{email}</b></p>'
+                subject: 'E-mail bevestigd'
+                template_html: '<p>Klaar! Dit is je nieuwe en glanzende Deltabadger-adres:</p><p><b>%{email}</b></p>'
             password_change:
-            subject: 'Wachtwoord gewijzigd'
-            template_html: '<p>Klaar!</p><p>Je wachtwoord is gewijzigd.</p><p>Je geheimen zijn veiliger dan ooit!</p>'
+                subject: 'Wachtwoord gewijzigd'
+                template_html: '<p>Klaar!</p><p>Je wachtwoord is gewijzigd.</p><p>Je geheimen zijn veiliger dan ooit!</p>'
             reset_password_instructions:
-            subject: 'Wachtwoordherstel'
-            template_html: '<p>Wachtwoordherstel gestart! Blijf rustig, je bent zo weer in het spel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
+                subject: 'Wachtwoordherstel'
+                template_html: '<p>Wachtwoordherstel gestart! Blijf rustig, je bent zo weer in het spel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
             unlock_instructions:
-            subject: 'Instructies voor ontgrendelen'
-            template_html: '<p>We hebben je account vergrendeld vanwege te veel mislukte inlogpogingen.</p><p>Klik op de onderstaande link om het te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
+                subject: 'Instructies voor ontgrendelen'
+                template_html: '<p>We hebben je account vergrendeld vanwege te veel mislukte inlogpogingen.</p><p>Klik op de onderstaande link om het te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
         omniauth_callbacks:
             failure: 'Kan je niet authenticeren via %{kind} vanwege: "%{reason}".'
             success: 'Succesvol geauthenticeerd via %{kind}-account.'
@@ -639,7 +639,7 @@ nl:
         privacy_policy: Privacybeleid
         earn: Verdien
         referral_program: Verwijzingsprogramma
-        resend_link: 'Link opnieuw verzenden'
+        resend_link: 'Link verzenden'
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
