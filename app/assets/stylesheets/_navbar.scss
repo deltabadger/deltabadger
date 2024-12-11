@@ -6,7 +6,6 @@
     height: 5rem;
     fill: var(--navbarLink);
     position: relative;
-    top: -.5rem;
     @media (max-width: 575px) {
       display: block;
       height: 4rem;
@@ -22,7 +21,7 @@
 }
 .db--devise {
   .col-12 {
-    @media (max-width: 575px) {
+    @media (max-width: 767.9px) {
       padding-right: 3rem;
       padding-left: 3rem;
     }
