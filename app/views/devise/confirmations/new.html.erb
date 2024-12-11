@@ -1,3 +1,5 @@
+<h3><%= t('.title') %></h3>
+
 <% content_for :meta_robots_content, 'noindex' %>
 
 <%= form_with model: resource, url: confirmation_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
@@ -14,6 +16,4 @@
   </div>
 <% end %>
 
-<div class="db-form__other-links">
-  <%= render "devise/shared/links" %>
-</div>
+<%= render "devise/shared/links" %>
