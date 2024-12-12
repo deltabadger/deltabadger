@@ -23,7 +23,7 @@
   flex-direction: column
   justify-content: space-between
   align-items: center
-  min-height: 60rem
+  min-height: 77rem
   z-index: 100
   @media only screen and (max-width: 1359px)
     height: 6.5rem
@@ -127,3 +127,21 @@
     position: absolute
     padding: 0.125rem 0.625rem
     bottom: -0.875rem
+
+.menu
+  .btn-link
+    color: var(--menulink)
+    text-decoration: none
+    a
+      color: var(--link)
+  .dropdown-wrapper
+    display: flex
+    align-items: center
+    justify-content: center
+  @media screen and (min-width: 1360px)
+    .dropdown-wrapper
+      .dropdown
+        left: 7rem
+        right: auto
+        top: auto
+        bottom: 0
