@@ -42,7 +42,7 @@ export const WithdrawalTransactions = ({ bot, active }) => {
       </tbody>
     </table>
     <p className="db-smallinfo">
-      <svg className="db-svg-icon db-svg--inactive db-svg--table-disclaimer" xmlns="http://www.w3.org/2000/svg" width="2.4rem" viewBox="0 0 24 24">
+      <svg className="db-svg-icon db-svg--inactive db-svg--table-disclaimer" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
         <path d="M12 7c.6 0 1 .5 1 1v4c0 .6-.5 1-1 1s-1-.5-1-1V8c0-.6.5-1 1-1zm0-5a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm1-3h-2v-2h2v2z"/>
       </svg>
       <RawHTML tag="span">{I18n.t('bots.details.stats.csv_download_html')}</RawHTML>
