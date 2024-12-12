@@ -20,7 +20,7 @@
         -#     %path(d="M1 11.664C15.648 13.481 27.648 9.97 37 1.13" stroke="#0a45a4" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round")
       %div.form-inline.ml-auto
 
-        = render partial: "layouts/language_dropdown"
+        = render partial: "layouts/language_dropdown", locals: { extra_classes: "dropdown-wrapper--right" }
 
         = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-link my-sm-0 mr-4')
         = link_to new_user_registration_path, class: 'btn btn-success my-sm-0' do
