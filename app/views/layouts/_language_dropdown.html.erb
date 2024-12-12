@@ -1,0 +1,30 @@
+<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="btn btn-link dropdown-wrapper <%= extra_classes %>">
+  <%= params[:locale]&.to_s&.upcase || 'EN' %>
+  <div class="dropdown">
+    <% locale = params[:locale] %>
+    <% unless locale.blank? || locale == 'en' %>
+      <%= link_to "🇬🇧 English", url_for(request.params.merge(locale: nil)), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'de' %>
+      <%= link_to "🇩🇪 Deutsch", url_for(request.params.merge(locale: 'de')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'nl' %>
+      <%= link_to "🇳🇱 Nederlandse", url_for(request.params.merge(locale: 'nl')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'fr' %>
+      <%= link_to "🇫🇷 Français", url_for(request.params.merge(locale: 'fr')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'es' %>
+      <%= link_to "🇪🇸 Español", url_for(request.params.merge(locale: 'es')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'pt' %>
+      <%= link_to "🇵🇹 Português", url_for(request.params.merge(locale: 'pt')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'pl' %>
+      <%= link_to "🇵🇱 Polski", url_for(request.params.merge(locale: 'pl')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'ru' %>
+      <%= link_to "🇷🇺 Русский", url_for(request.params.merge(locale: 'ru')), class: "dropdown__item" %>
+    <% end %>
+  </div>
+</div>
