@@ -21,8 +21,12 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <script src="//code.tidio.co/msgruncpixbeh9ezdlpqxlbktys25m2w.js" async></script>
     <%= cloudflare_turnstile_script_tag %>
+
+    <% if Rails.env.production %>
+      <script src="/z/i.js" referrerpolicy="origin"></script>
+      <%# <script src="//code.tidio.co/msgruncpixbeh9ezdlpqxlbktys25m2w.js" async></script> %>
+    <% end %>
 
     <script>
       // service worker registration for PWA
