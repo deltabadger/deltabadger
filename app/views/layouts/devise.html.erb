@@ -23,9 +23,8 @@
 
     <%= cloudflare_turnstile_script_tag %>
 
-    <% if Rails.env.production %>
+    <% if Rails.env.production? %>
       <script src="/z/i.js" referrerpolicy="origin"></script>
-      <%# <script src="//code.tidio.co/msgruncpixbeh9ezdlpqxlbktys25m2w.js" async></script> %>
     <% end %>
 
     <script>
