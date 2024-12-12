@@ -55,8 +55,8 @@ application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmit
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
 
-import PermanentElementsController from "./permanent_elements_controller"
-application.register("permanent-elements", PermanentElementsController)
+import PermanentTidioChatController from "./permanent_tidio_chat_controller"
+application.register("permanent-tidio-chat", PermanentTidioChatController)
 
 import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
 application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
