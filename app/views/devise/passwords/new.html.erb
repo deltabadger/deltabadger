@@ -1,13 +1,13 @@
 <% content_for :meta_robots_content, 'noindex' %>
 
-<h3 class="db-modal-title"><%= t('.title') %></h3>
+<h3><%= t('.title') %></h3>
 <%= form_with model: resource, url: password_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
   <div class="db-form__row">
     <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input", pattern: @email_address_pattern %>
     <%= f.label :email, class: "db-form__label" %>
   </div>
 
-  <div class="db-form__row" style="min-height: 72px">
+  <div class="cf-turnstile-container">
     <%= cloudflare_turnstile %>
   </div>
 
@@ -16,6 +16,4 @@
   </div>
 <% end %>
 
-<div class="db-form__other-links">
-  <%= render "devise/shared/links" %>
-</div>
+<%= render "devise/shared/links" %>
