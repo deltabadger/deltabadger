@@ -52,6 +52,7 @@ module User::Sendgridable
                   end
 
     errors.add(:email, :invalid) if valid_email.nil? || !valid_email
+    Rails.logger.info("Sendgrid email validation result for #{email}: #{valid_email.inspect}")
     valid_email
   end
 
