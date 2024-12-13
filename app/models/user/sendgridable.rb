@@ -70,7 +70,7 @@ module User::Sendgridable
   def sendgrid_email_validation_result
     cache_key = "sendgrid_email_validation_#{email}"
     Rails.cache.fetch(cache_key, expires_in: 1.day, skip_nil: true) do
-      result = sendgrid_client.validate_email(email)
+      result = sendgrid_client.validate_email(email: email)
       result.failure? ? nil : result.data
     end
   end
