@@ -41,7 +41,7 @@ module Admin
       btc_price_result = Admin::BitcoinPriceGetter.call(quote: currency)
       return btc_price_result if btc_price_result.failure?
 
-      Result::Success.new(undiscounted_cost / btc_price.data)
+      Result::Success.new(undiscounted_cost / btc_price_result.data)
     end
 
     def get_commission_in_btc(currency, commission_percent, subscription_plan_variant)

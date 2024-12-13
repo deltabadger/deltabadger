@@ -16,12 +16,14 @@ class MetricsRepository < BaseRepository
       takenLegendaryBadgersNftIds: Subscription.used_nft_ids,
       claimedLegendaryBadgersNftIds: Subscription.claimed_nft_ids,
       dca4yrProfitBtc: DcaProfitGetter.call('btc', 4.years.ago).data,
-      dca4yrProfitSp500: DcaProfitGetter.call('gspc', 4.years.ago).data,
-      dca4yrProfitVti: DcaProfitGetter.call('vti', 4.years.ago).data,
+      dca4yrProfitEth: DcaProfitGetter.call('eth', 4.years.ago).data,
+      # dca4yrProfitSp500: DcaProfitGetter.call('gspc', 4.years.ago).data,
+      dca4yrProfitVoo: DcaProfitGetter.call('voo', 4.years.ago).data,
+      # dca4yrProfitVti: DcaProfitGetter.call('vti', 4.years.ago).data,
       dca4yrProfitVt: DcaProfitGetter.call('vt', 4.years.ago).data,
       dca4yrProfitQqq: DcaProfitGetter.call('qqq', 4.years.ago).data,
-      dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data,
-      dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
+      dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data
+      # dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)
   end
