@@ -23,10 +23,6 @@
 
     <%= cloudflare_turnstile_script_tag %>
 
-    <% if Rails.env.production? %>
-      <script src="//code.tidio.co/msgruncpixbeh9ezdlpqxlbktys25m2w.js" async></script>
-    <% end %>
-
     <script>
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {
@@ -39,7 +35,7 @@
     </script>
   </head>
 
-  <body data-controller="hotwire-animations permanent-tidio-chat">
+  <body data-controller="hotwire-animations">
     <div id="flash">
       <%= render 'layouts/flash' %>
     </div>
