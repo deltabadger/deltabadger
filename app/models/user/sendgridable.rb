@@ -8,7 +8,7 @@ module User::Sendgridable
   KRAKEN_STARTED                     = ENV.fetch('SENDGRID_KRAKEN_STARTED').freeze
 
   included do
-    validate :validate_email_with_sendgrid
+    # validate :validate_email_with_sendgrid  # Disabled for now
 
     def add_to_sendgrid_new_users_list
       add_to_sendgrid_list(SENDGRID_NEW_USERS_LIST_NAME)
