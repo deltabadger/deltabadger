@@ -11,10 +11,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" crossorigin="anonymous" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"></script>
 
-    <% if Rails.env.production? %>
-      <script src="//code.tidio.co/msgruncpixbeh9ezdlpqxlbktys25m2w.js" async></script>
-    <% end %>
-
     <title><%= t('meta.title') %></title>
 
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -72,7 +68,7 @@
   </head>
 
   <%# data-locale & current_user_subscription are only needed for the react dashboard %>
-  <body data-controller="hotwire-animations permanent-tidio-chat" data-locale="<%= I18n.locale %>" class="<%= yield(:body_class) %> <%= main_body_classes %>">
+  <body data-controller="hotwire-animations" data-locale="<%= I18n.locale %>" class="<%= yield(:body_class) %> <%= main_body_classes %>">
     <div id="flash">
       <%= render 'layouts/flash' %>
     </div>
