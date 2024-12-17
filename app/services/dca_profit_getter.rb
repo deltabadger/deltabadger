@@ -4,6 +4,16 @@ class DcaProfitGetter < BaseService
   API_ID_MAP = {
     'btc' => 1713,     # Bitcoin
     'eth' => 4689,     # Ethereum
+    'xrp' => 10_950,   # Ripple
+    'sol' => 11_813,   # Solana
+    'bnb' => 1634,     # Binance Coin
+    'doge' => 4002,    # Dogecoin
+    'ada' => 2502,     # Cardano
+    'trx' => 13_221,   # TRON
+    'avax' => 1082,    # Avalanche
+    'link' => 2703,    # Chainlink
+    'shib' => 11_482,  # Shiba Inu
+    'ton' => 12_869,   # Toncoin
     'gspc' => 65_951,  # S&P 500 Index
     'voo' => 61_600,   # S&P 500 Index
     'vti' => 61_914,   # Vanguard Total Stock Market Index Fund ETF Shares
