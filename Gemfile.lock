@@ -538,7 +538,7 @@ DEPENDENCIES
   bootsnap (>= 1.4.2)
   bullet
   bundle-audit
-  bundler (>= 2.3.5)
+  bundler (>= 2.5.23)
   byebug
   capybara
   capybara-selenium
@@ -604,4 +604,4 @@ RUBY VERSION
    ruby 3.0.2p107
 
 BUNDLED WITH
-   2.4.22
+   2.5.23
