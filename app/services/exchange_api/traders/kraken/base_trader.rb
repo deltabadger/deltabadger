@@ -44,7 +44,7 @@ module ExchangeApi
         end
 
         def send_user_to_sendgrid(exchange_name, user)
-          SendgridMailToList.new.user_to_exchange_list(user, exchange_name)
+          user.add_to_sendgrid_exchange_list(exchange_name)
         end
 
         def currency_balance(currency) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
