@@ -15,8 +15,7 @@ module Affiliates
         commission_granted = [commission_available, payment_commission].min
         commission_granted_percent = commission_granted / payment_commission
         btc_commission_granted = payment.btc_commission * commission_granted_percent
-        new_unexported_btc_commission =
-          referrer.unexported_btc_commission + btc_commission_granted
+        new_unexported_btc_commission = referrer.unexported_btc_commission + btc_commission_granted
         new_current_profit = current_profit + commission_granted
 
         send_registration_reminder(referrer, btc_commission_granted) if referrer.btc_address.blank?
