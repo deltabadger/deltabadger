@@ -538,7 +538,7 @@ DEPENDENCIES
   bootsnap (>= 1.4.2)
   bullet
   bundle-audit
-  bundler (>= 2.5.23)
+  bundler (~> 2.5.23)
   byebug
   capybara
   capybara-selenium
