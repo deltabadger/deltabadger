@@ -21,7 +21,7 @@ gem 'kaminari'
 gem 'nio4r', '2.5.9'
 gem 'parallel'
 gem 'pg', '>= 0.18', '< 2.0'
-gem 'puma', '~> 6.3'
+gem 'puma', '~> 6.5.0'
 gem "rack", "2.2.6.4"
 gem 'rack-cors'
 gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
