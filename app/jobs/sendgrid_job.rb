@@ -1,5 +1,5 @@
 class SendgridJob < ApplicationJob
-  queue_as :sendgrid
+  queue_as :default
 
   private
 
