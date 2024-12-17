@@ -28,7 +28,7 @@ gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
 gem 'rails_cloudflare_turnstile', git: 'https://github.com/guillemap/rails-cloudflare-turnstile', branch: 'add-turbo-support' # TODO: use the official gem once https://github.com/instrumentl/rails-cloudflare-turnstile/pull/186 is merged
 gem 'rqrcode'
 gem 'webpacker', '~> 5.4'
-gem 'sidekiq', '~> 6.5'
+gem 'sidekiq', '~> 6.5.12'
 gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
 gem 'scenic'
 gem 'uglifier', '>= 1.3.0'
@@ -77,7 +77,7 @@ gem "faraday-net_http_persistent", "~> 2.3.0"
 
 gem "turbo-rails", "~> 2.0.11"
 gem "stimulus-rails", "~> 1.3.4"
-gem 'redis', '~> 5.0'
+gem 'redis', '~> 4.8.1' # TODO: remove this dependency and don't use redis as a cache store https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
 gem "jwt", "~> 2.9.3"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
