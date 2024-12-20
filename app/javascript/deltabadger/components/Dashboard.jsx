@@ -14,6 +14,7 @@ import {
 import API from "../lib/API";
 import { WithdrawalBot } from "./WithdrawalBot";
 import { WebhookBot } from "./WebhookBot";
+import { Spinner } from './Spinner';
 
 let apiKeyTimeout;
 
@@ -34,11 +35,14 @@ const DashboardTemplate = ({
   const [exchanges, setExchanges] = useState([]);
   const [page, setPage] = useState(1);
   const [step, setStep] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     closeAllBots()
     const shouldOpenFirstBot = step === 0
+    setIsLoading(true);
     loadBots(shouldOpenFirstBot, page)
+      .finally(() => setIsLoading(false));
   }, [page,])
 
   // # SSE turn off !
@@ -138,6 +142,18 @@ const DashboardTemplate = ({
     )
 
     return botsToRender
+  }
+
+  if (isLoading) {
+    return (
+      <div className="db-bots">
+        <div className="db-bots__item d-flex db-add-more-bots">
+          <div className="db-spinner-positioner">
+            <Spinner />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
