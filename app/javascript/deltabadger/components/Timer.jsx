@@ -24,8 +24,13 @@ export const Timer = ({ bot, callback }) => {
   const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp));
   const timeout = delay < 0;
 
+  const infotext = useMemo(() => {
+    return formatDuration(moment.duration(delay, 'seconds'));
+  }, [delay]);
+
   useEffect(() => { 
     setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp));
+    setI(0);
   }, [bot.nextTransactionTimestamp]);
 
   useInterval(() => {
@@ -35,17 +40,15 @@ export const Timer = ({ bot, callback }) => {
         callback(bot);
       }
     }
-    setDelay(delay - 1);
+    setDelay(prev => prev - 1);
   }, calculateInterval(delay));
 
-  if (timeout) { return <Spinner />; }
+  if (timeout) { 
+    return <Spinner />; 
+  }
 
   const countdown = formatDuration(moment.duration(delay, 'seconds'));
   const translation_key = settings.type === 'buy' ? 'bots.next_buy' : 'bots.next_sell';
-
-  const infotext = useMemo(() => {
-    return countdown;
-  }, [countdown]);
 
   return (
     <div className="db-bot__infotext__right">
