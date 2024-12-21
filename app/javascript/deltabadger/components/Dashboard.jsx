@@ -81,28 +81,31 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
   };
 
   return (
-    <div className="page-head">
+    <div className="page-head page-head--dashboard">
       <div className="page-head__controls">
+
+        <button onClick={goToList} className="sbutton sbutton--link">
+          <i className="material-icons">chevron_left</i>
+          <span>All bots</span>
+        </button>
+
+        &middot;
+        
         <button 
           onClick={goToPrevious} 
           className={`sbutton sbutton--link ${!hasPrevious ? 'sbutton--disabled' : ''}`}
           disabled={!hasPrevious}
         >
           <i className="material-icons">arrow_back</i>
-          <span>Previous bot</span>
         </button>
 
-        <button onClick={goToList} className="sbutton sbutton--link">
-          <i className="material-icons">grid_view</i>
-          <span>All bots</span>
-        </button>
+        
 
         <button 
           onClick={goToNext} 
           className={`sbutton sbutton--link ${!hasNext ? 'sbutton--disabled' : ''}`}
           disabled={!hasNext}
         >
-          <span>Next bot</span>
           <i className="material-icons">arrow_forward</i>
         </button>
       </div>
@@ -252,7 +255,7 @@ const DashboardTemplate = ({
   // Show list view
   return (
     <>
-      <div className="page-head">
+      <div className="page-head page-head--dashboard">
         <button onClick={handleStartCreating} className="sbutton sbutton--primary">
           <span className="d-none d-sm-inline mr-3">{I18n.t('bots.add_new_bot')}</span>
           <i className="material-icons">add</i>
