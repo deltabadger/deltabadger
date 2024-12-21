@@ -296,6 +296,18 @@ const BotTemplate = ({
     })
   }
 
+  const formatNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  // Add this for debugging
+  useEffect(() => {
+    if (tileMode) {
+      console.log('Bot stats:', bot.stats);
+    }
+  }, [bot.stats]);
+
   if (tileMode) {
     return (
       <div 
@@ -328,6 +340,20 @@ const BotTemplate = ({
               <span className="bot-ticker__divider">:</span>
               <span className="bot-ticker__currencies">{baseName}{quoteName}</span>
             </div>
+            
+            {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
+              <div className={`db-bot__infotext__pnl ${bot.stats.currentValue >= bot.stats.totalInvested ? 'text-success' : 'text-danger'}`}>
+                <span className="db-bot__infotext__pnl__value">
+                  {bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
+                  {formatNumber((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100)}%
+                </span>
+                <span className="db-bot__infotext__pnl__amount">
+                  ({bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
+                  {formatNumber(bot.stats.currentValue - bot.stats.totalInvested)} {quoteName})
+                </span>
+              </div>
+            )}
+
             {pending && nextResultFetchingTimestamp && 
               <FetchFromExchangeTimer bot={bot} callback={reload}/>
             }
