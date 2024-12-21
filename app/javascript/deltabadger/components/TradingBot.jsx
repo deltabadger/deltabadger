@@ -32,6 +32,9 @@ const apiKeyStatus = {
 }
 
 const BotTemplate = ({
+  tileMode,
+  onClick,
+  buttonClickHandler,
   showLimitOrders,
   bot,
   errors = [],
@@ -293,8 +296,55 @@ const BotTemplate = ({
     })
   }
 
+  if (tileMode) {
+    return (
+      <div 
+        onClick={onClick} 
+        className={`db-bots__item db-bot db-bot--dca ${botRunningClass}`}
+      >
+        <div className="db-bot__header">
+          {isStarting && <StartingButton />}
+          {(!isStarting && working) && 
+            <div onClick={buttonClickHandler}>
+              <StopButton onClick={() => handleStop(id)}/>
+            </div>
+          }
+          {(!isStarting && pending) && <PendingButton />}
+          {(!isStarting && !working && !pending) &&
+            <div onClick={buttonClickHandler}>
+              <StartButton 
+                settings={settings} 
+                getRestartType={getStartButtonType} 
+                onClickReset={_handleSubmit}
+                setShowInfo={setShowSmartIntervalsInfo} 
+                exchangeName={exchangeName} 
+                newSettings={newSettings()}
+              />
+            </div>
+          }
+          <div className={`db-bot__infotext text-${colorClass}`}>
+            <div className="db-bot__infotext__left bot-ticker">
+              <span className="bot-ticker__exchange">{exchangeName}</span>
+              <span className="bot-ticker__divider">:</span>
+              <span className="bot-ticker__currencies">{baseName}{quoteName}</span>
+            </div>
+            {pending && nextResultFetchingTimestamp && 
+              <FetchFromExchangeTimer bot={bot} callback={reload}/>
+            }
+            {working && nextTransactionTimestamp && 
+              <Timer bot={bot} callback={reload}/>
+            }
+            {!working && isNotEmpty(errors) && <Errors data={errors}/>}
+          </div>
+        </div>
+        <ProgressBar bot={bot} />
+      </div>
+    );
+  }
+
+  // Full view
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
+    <div className="db-bots__item db-bot db-bot--dca">
       { apiKeyExists &&
         <div className="db-bot__header">
 
