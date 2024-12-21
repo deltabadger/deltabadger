@@ -406,7 +406,7 @@ ru:
         week: Неделя
         withdraw_interval_html: ''
         withdraw_threshold_html: ''
-        withdrawal_percentage: ''
+        withdrawal_percentage: '%{percentage}%'
     days_left:
         one: ''
         few: ''
