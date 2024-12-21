@@ -20,6 +20,8 @@ input
   display:              grid
   grid-auto-rows:       max-content
   column-gap:           2rem
+  .progress
+    height: 0.5rem
   &--single
     @include media-breakpoint-up(xl)
       grid-template-columns: 50%
@@ -37,12 +39,6 @@ input
     .db-bot__header
       padding: 0
       padding-bottom: 2rem
-    .db-bot__progress
-      top: auto
-      bottom: auto
-      left: auto
-      right: auto
-      position: relative
     .bot-ticker
       left: 0
   &__item
@@ -214,18 +210,6 @@ input
     height:                   8.9rem
     overflow:                 hidden
     cursor:                   pointer
-  &__progress
-    height:                   .5rem
-    position:                 absolute
-    top:                      6.9rem
-    left:                     1.5rem
-    right:                    1.5rem
-    border-radius:            1rem
-    background:               var(--progressBar)
-    .progress-bar
-      border-radius:          1rem
-    *
-      transition:             all 200ms linear
   &__header
     user-select:              none
     align-items:              flex-start
@@ -511,3 +495,44 @@ input
     background-image: linear-gradient(var(--paper),  #0000, #0000), url('journey-night01.jpg')
     background-position: center top, center bottom
   background-size: cover
+
+.bot-tile
+  padding-top: 2rem
+  &__header
+    display: flex
+    justify-content: space-between
+  &__ticker
+    &__currencies
+      font-weight: 550
+      font-size: 3rem
+      line-height: 2.5rem
+    &__exchange
+      color: var(--label)
+      line-height: 4.5rem
+  &__pnl
+    font-weight: 650
+    font-size: 3rem
+    line-height: 2.5rem
+  &__controls
+    display: flex
+    gap: 2rem
+    justify-content: space-between
+    align-items: center
+    &__feedback
+      display: flex
+      flex-direction: column
+      align-items: stretch
+      justify-content: flex-end
+      width: 100%
+      height: 100%
+  .progress
+    height:                   .5rem
+    border-radius:            1rem
+    background:               var(--progressBar)
+    .progress-bar
+      border-radius:          1rem
+    *
+      transition:             all 200ms linear
+.bot-counting
+  color: var(--success)
+  font-weight: 600
