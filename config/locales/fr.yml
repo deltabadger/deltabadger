@@ -426,7 +426,7 @@ fr:
         week: 'Semaine'
         withdraw_interval_html: 'Retirer tous les <split>2</split> jours.'
         withdraw_threshold_html: 'Retirer lorsqu''un minimum de <split>0,001</split> %{currency} est disponible.'
-        withdrawal_percentage: '%{percentage}% au prochain retrait'
+        withdrawal_percentage: '%{percentage}%'
     days_left:
         one: '1 jour restant'
         other: '%{count} jours restants'
