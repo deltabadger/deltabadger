@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react'
 import { connect } from 'react-redux';
+import I18n from 'i18n-js'
 import { BotForm } from './BotForm'
 import { BotDetails } from './BotDetails'
 import { TradingBot } from './TradingBot'
@@ -18,6 +19,100 @@ import { Spinner } from './Spinner';
 
 let apiKeyTimeout;
 
+const BotTile = ({ bot, isOpen, onClick, showLimitOrders, errors, exchanges, apiKeyTimeout, fetchExchanges }) => {
+  const { bot_type } = bot;
+
+  // Handler to stop event propagation for button clicks
+  const handleButtonClick = (e) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation(); // This prevents the tile onClick from firing
+    }
+  };
+
+  const commonProps = {
+    showLimitOrders,
+    bot,
+    open: isOpen,
+    errors,
+    exchanges,
+    apiKeyTimeout,
+    fetchExchanges,
+    tileMode: true,
+    buttonClickHandler: handleButtonClick // Pass the handler function
+  };
+
+  if (bot_type === 'free') {
+    return <TradingBot {...commonProps} onClick={onClick} />;
+  } else if (bot_type === 'withdrawal') {
+    return <WithdrawalBot {...commonProps} onClick={onClick} />;
+  } else {
+    return <WebhookBot {...commonProps} onClick={onClick} />;
+  }
+};
+
+const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
+  const currentIndex = bots.findIndex(b => b.id === selectedBotId);
+  const hasPrevious = currentIndex > 0;
+  const hasNext = currentIndex < bots.length - 1;
+
+  const goToPrevious = (e) => {
+    e.preventDefault();
+    if (hasPrevious) {
+      // Use setTimeout to break the synchronous state update chain
+      setTimeout(() => {
+        onBotChange(bots[currentIndex - 1].id);
+      }, 0);
+    }
+  };
+
+  const goToNext = (e) => {
+    e.preventDefault();
+    if (hasNext) {
+      // Use setTimeout to break the synchronous state update chain
+      setTimeout(() => {
+        onBotChange(bots[currentIndex + 1].id);
+      }, 0);
+    }
+  };
+
+  const goToList = (e) => {
+    e.preventDefault();
+    // Use setTimeout to break the synchronous state update chain
+    setTimeout(() => {
+      onBackToList();
+    }, 0);
+  };
+
+  return (
+    <nav className="db-navigation">
+      <div className="db-navigation__controls">
+        <button 
+          onClick={goToPrevious} 
+          className={`sbutton sbutton--link ${!hasPrevious ? 'sbutton--disabled' : ''}`}
+          disabled={!hasPrevious}
+        >
+          <i className="material-icons">arrow_back</i>
+          <span>Previous bot</span>
+        </button>
+
+        <button onClick={goToList} className="sbutton sbutton--link">
+          <i className="material-icons">grid_view</i>
+          <span>All bots</span>
+        </button>
+
+        <button 
+          onClick={goToNext} 
+          className={`sbutton sbutton--link ${!hasNext ? 'sbutton--disabled' : ''}`}
+          disabled={!hasNext}
+        >
+          <span>Next bot</span>
+          <i className="material-icons">arrow_forward</i>
+        </button>
+      </div>
+    </nav>
+  );
+};
+
 const DashboardTemplate = ({
   isPro,
   isLegendary,
@@ -31,11 +126,12 @@ const DashboardTemplate = ({
   loadBots,
   botReloaded
 }) => {
-
   const [exchanges, setExchanges] = useState([]);
   const [page, setPage] = useState(1);
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedBotId, setSelectedBotId] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     closeAllBots()
@@ -43,106 +139,40 @@ const DashboardTemplate = ({
     setIsLoading(true);
     loadBots(shouldOpenFirstBot, page)
       .finally(() => setIsLoading(false));
-  }, [page,])
-
-  // # SSE turn off !
-  // useEffect(() => {
-  //   const webhookBotsCount = bots.filter(bot => bot.bot_type === 'webhook').length || 0;
-  //
-  //   if(webhookBotsCount){
-  //     const eventSource = new EventSource('/api/webhook_bots_data');
-  //
-  //     eventSource.onmessage = (event) => {
-  //       try {
-  //         let response = $.parseJSON(event.data)
-  //         botReloaded(response)
-  //       }catch (error) {
-  //         console.error('EventSource failed:', error);
-  //         eventSource.close();
-  //       }
-  //     };
-  //
-  //     eventSource.onerror = (error) => {
-  //       console.error('EventSource failed:', error);
-  //       eventSource.close();
-  //     };
-  //
-  //     return () => {
-  //       eventSource.close();
-  //     };
-  //   }
-  // }, [bots]);
-  // # SSE turn off !
+  }, [page])
 
   const fetchExchanges = (type) => {
     API.getExchanges(type).then(data => setExchanges(data.data))
   }
 
-  useEffect( () => {
+  useEffect(() => {
     fetchExchanges('trading')
   }, [])
 
-  useEffect( () => {
-    if( bots.length === 0 && page !== 1){
+  useEffect(() => {
+    if (bots.length === 0 && page !== 1) {
       setPage(page-1)
     }
-  },[bots])
+  }, [bots])
 
-  const reloadPage = () => {
-    loadBots(false,page)
-  }
+  const handleBotClick = (botId) => {
+    setSelectedBotId(botId);
+  };
 
-  const buildBotsList = (botsToRender, b) => {
-    if(b.bot_type === 'free') {
-      botsToRender.push(
-        <TradingBot
-          showLimitOrders={isPro || isLegendary}
-          key={`${b.id}-${b.id == currentBot}`}
-          bot={b}
-          open={currentBot && (b.id == currentBot.id)}
-          errors={errors[b.id]}
-          fetchExchanges={() => fetchExchanges('trading')}
-          exchanges={exchanges}
-          apiKeyTimeout={apiKeyTimeout}
-          reloadPage={reloadPage}
-        />
-      )
-    } else if(b.bot_type === 'withdrawal') {
-      botsToRender.push(
-        <WithdrawalBot
-          showLimitOrders={isPro || isLegendary}
-          key={`${b.id}-${b.id == currentBot}`}
-          bot={b}
-          open={currentBot && (b.id == currentBot.id)}
-          errors={errors[b.id]}
-          fetchExchanges={() => fetchExchanges('withdrawal')}
-          exchanges={exchanges}
-          apiKeyTimeout={apiKeyTimeout}
-          reloadPage={reloadPage}
-        />
-      )
-    } else {
-      botsToRender.push(
-          <WebhookBot
-              showLimitOrders={isPro || isLegendary}
-              key={`${b.id}-${b.id == currentBot}`}
-              bot={b}
-              open={currentBot && (b.id == currentBot.id)}
-              errors={errors[b.id]}
-              fetchExchanges={() => fetchExchanges('webhook')}
-              exchanges={exchanges}
-              apiKeyTimeout={apiKeyTimeout}
-              reloadPage={reloadPage}
-          />
-      )
+  const handleBackToList = () => {
+    setSelectedBotId(null);
+  };
+
+  const handleStartCreating = () => {
+    setIsCreating(true);
+  };
+
+  const handleFinishCreating = (id = null) => {
+    setIsCreating(false);
+    if (id) {
+      loadBots(false, 1).then(() => startBot(id));
     }
-
-    if (currentBot && (b.id == currentBot.id)) botsToRender.push(
-      <BotDetails key={`${b.id}-details${b.id == currentBot}`} bot={b}/>
-    )
-
-    return botsToRender
-  }
+  };
 
   if (isLoading) {
     return (
@@ -156,31 +186,88 @@ const DashboardTemplate = ({
     );
   }
 
+  // Show bot creation view
+  if (isCreating) {
+    return (
+      <div className="db-bots">
+        <BotForm
+          isPro={isPro}
+          isLegendary={isLegendary}
+          open={true}
+          currentBot={null}
+          callbackAfterCreation={handleFinishCreating}
+          callbackAfterOpening={() => {}}
+          callbackAfterClosing={handleFinishCreating}
+          exchanges={exchanges}
+          fetchExchanges={fetchExchanges}
+          apiKeyTimeout={apiKeyTimeout}
+          step={step}
+          setStep={setStep}
+        />
+      </div>
+    );
+  }
+
+  // Show detailed view when a bot is selected
+  if (selectedBotId) {
+    const selectedBot = bots.find(b => b.id === selectedBotId);
+    if (!selectedBot) return null;
+
+    const BotComponent = selectedBot.bot_type === 'free' ? TradingBot :
+                        selectedBot.bot_type === 'withdrawal' ? WithdrawalBot :
+                        WebhookBot;
+
+    return (
+      <>
+        <BotNavigation 
+          bots={bots}
+          selectedBotId={selectedBotId}
+          onBotChange={setSelectedBotId}
+          onBackToList={handleBackToList}
+        />
+        <div className="db-bots">
+          <BotComponent
+            showLimitOrders={isPro || isLegendary}
+            bot={selectedBot}
+            open={true}
+            errors={errors[selectedBot.id]}
+            fetchExchanges={() => fetchExchanges(selectedBot.bot_type)}
+            exchanges={exchanges}
+            apiKeyTimeout={apiKeyTimeout}
+          />
+          <BotDetails bot={selectedBot} />
+        </div>
+      </>
+    );
+  }
+
+  // Show list view
   return (
     <div className="db-bots">
-      <BotForm
-        isPro={isPro}
-        isLegendary={isLegendary}
-        open={isEmpty(bots)}
-        currentBot={currentBot}
-        callbackAfterCreation={(id) => {
-          loadBots(false, 1).then(() => startBot(id))
-        }}
-        callbackAfterOpening={closeAllBots}
-        callbackAfterClosing={() => {bots[0] && openBot(bots[0].id)}}
-        exchanges={exchanges}
-        fetchExchanges={fetchExchanges}
-        apiKeyTimeout={apiKeyTimeout}
-        page={page}
-        setPage={setPage}
-        numberOfPages={numberOfPages}
-        step={step}
-        setStep={setStep}
-      />
-      { bots.reduce(buildBotsList, []) }
+      <div className="db-bots__item d-flex db-add-more-bots">
+        <button onClick={handleStartCreating} className="sbutton sbutton--primary">
+          <span className="d-none mr-3">{I18n.t('bots.add_new_bot')}</span>
+          <i className="material-icons">add</i>
+        </button>
+      </div>
+      <div className="db-bots__list">
+        {bots.map(bot => (
+          <BotTile
+            key={bot.id}
+            bot={bot}
+            isOpen={false}
+            onClick={() => handleBotClick(bot.id)}
+            showLimitOrders={isPro || isLegendary}
+            errors={errors[bot.id]}
+            exchanges={exchanges}
+            apiKeyTimeout={apiKeyTimeout}
+            fetchExchanges={() => fetchExchanges(bot.bot_type)}
+          />
+        ))}
+      </div>
     </div>
-  )
-}
+  );
+};
 
 const mapStateToProps = (state) => ({
   bots: state.bots,
