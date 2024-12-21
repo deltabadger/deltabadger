@@ -171,6 +171,13 @@ const DashboardTemplate = ({
     }
   };
 
+  const handleBotRemoval = () => {
+    // Return to main view after bot deletion
+    setSelectedBotId(null);
+    // Refresh the bots list
+    loadBots(false, page);
+  };
+
   if (isLoading) {
     return (
       <div className="db-bots db-bots--main">
@@ -208,7 +215,10 @@ const DashboardTemplate = ({
   // Show detailed view when a bot is selected
   if (selectedBotId) {
     const selectedBot = bots.find(b => b.id === selectedBotId);
-    if (!selectedBot) return null;
+    if (!selectedBot) {
+      // If bot not found (was deleted), return to main view
+      return handleBotRemoval();
+    }
 
     const BotComponent = selectedBot.bot_type === 'free' ? TradingBot :
                         selectedBot.bot_type === 'withdrawal' ? WithdrawalBot :
@@ -231,6 +241,7 @@ const DashboardTemplate = ({
             fetchExchanges={() => fetchExchanges(selectedBot.bot_type)}
             exchanges={exchanges}
             apiKeyTimeout={apiKeyTimeout}
+            onRemove={handleBotRemoval}
           />
           <BotDetails bot={selectedBot} />
         </div>
