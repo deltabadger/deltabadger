@@ -154,7 +154,7 @@ const BotTemplate = ({
         <div className="bot-tile__header">
           <div className="bot-tile__ticker">
             <div className="bot-tile__ticker__currencies">{currencyName}</div>
-            <div className="bot-tile__ticker__exchange">{exchangeName}</div>
+            <div className="bot-tile__ticker__exchange">{I18n.t('bots.withdrawal')} · {exchangeName}</div>
           </div>
           
           {bot.stats && bot.stats.totalWithdrawn && (
