@@ -20,8 +20,31 @@ input
   display:              grid
   grid-auto-rows:       max-content
   column-gap:           2rem
-  @include media-breakpoint-up(xl)
-    grid-template-columns: 50%
+  &--single
+    @include media-breakpoint-up(xl)
+      grid-template-columns: 50%
+  &--main
+    .db-bots__list
+      display: grid
+      grid-auto-flow: row
+      gap: 2rem
+      @include media-breakpoint-up(xl)
+        grid-template-columns: repeat(4, 1fr)
+    .db-bots__item
+      grid-column-start: auto
+      margin-bottom: 0
+      padding: 2rem
+    .db-bot__header
+      padding: 0
+      padding-bottom: 2rem
+    .db-bot__progress
+      top: auto
+      bottom: auto
+      left: auto
+      right: auto
+      position: relative
+    .bot-ticker
+      left: 0
   &__item
     grid-column-start:  1
     margin-bottom:      2rem
