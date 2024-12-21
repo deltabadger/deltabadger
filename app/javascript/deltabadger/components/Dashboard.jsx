@@ -176,7 +176,7 @@ const DashboardTemplate = ({
 
   if (isLoading) {
     return (
-      <div className="db-bots">
+      <div className="db-bots db-bots--main">
         <div className="db-bots__item d-flex db-add-more-bots">
           <div className="db-spinner-positioner">
             <Spinner />
@@ -189,7 +189,7 @@ const DashboardTemplate = ({
   // Show bot creation view
   if (isCreating) {
     return (
-      <div className="db-bots">
+      <div className="db-bots db-bots--single">
         <BotForm
           isPro={isPro}
           isLegendary={isLegendary}
@@ -225,7 +225,7 @@ const DashboardTemplate = ({
           onBotChange={setSelectedBotId}
           onBackToList={handleBackToList}
         />
-        <div className="db-bots">
+        <div className="db-bots db-bots--single">
           <BotComponent
             showLimitOrders={isPro || isLegendary}
             bot={selectedBot}
@@ -243,29 +243,32 @@ const DashboardTemplate = ({
 
   // Show list view
   return (
-    <div className="db-bots">
-      <div className="db-bots__item d-flex db-add-more-bots">
+    <>
+      <div className="page-head">
         <button onClick={handleStartCreating} className="sbutton sbutton--primary">
-          <span className="d-none mr-3">{I18n.t('bots.add_new_bot')}</span>
+          <span className="d-none d-sm-inline mr-3">{I18n.t('bots.add_new_bot')}</span>
           <i className="material-icons">add</i>
         </button>
       </div>
-      <div className="db-bots__list">
-        {bots.map(bot => (
-          <BotTile
-            key={bot.id}
-            bot={bot}
-            isOpen={false}
-            onClick={() => handleBotClick(bot.id)}
-            showLimitOrders={isPro || isLegendary}
-            errors={errors[bot.id]}
-            exchanges={exchanges}
-            apiKeyTimeout={apiKeyTimeout}
-            fetchExchanges={() => fetchExchanges(bot.bot_type)}
-          />
-        ))}
+
+      <div className="db-bots db-bots--main">
+        <div className="db-bots__list">
+          {bots.map(bot => (
+            <BotTile
+              key={bot.id}
+              bot={bot}
+              isOpen={false}
+              onClick={() => handleBotClick(bot.id)}
+              showLimitOrders={isPro || isLegendary}
+              errors={errors[bot.id]}
+              exchanges={exchanges}
+              apiKeyTimeout={apiKeyTimeout}
+              fetchExchanges={() => fetchExchanges(bot.bot_type)}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
