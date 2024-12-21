@@ -51,9 +51,9 @@ export const Timer = ({ bot, callback }) => {
   const translation_key = settings.type === 'buy' ? 'bots.next_buy' : 'bots.next_sell';
 
   return (
-    <div className="db-bot__infotext__right">
-      <span className="d-none d-sm-inline">{infotext}</span>
-    </div>
+    <span className="bot-counting" data-testid="bot-timer">
+      {infotext}
+    </span>
   );
 };
 
