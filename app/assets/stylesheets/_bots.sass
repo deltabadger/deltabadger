@@ -544,3 +544,25 @@ input
 .bot-counting
   color: var(--success)
   font-weight: 600
+
+.page-head
+  &--dashboard
+    .page-head__controls
+      display: flex
+      justify-content: space-between
+      align-items: center
+      gap: 2rem
+
+      &__nav
+        display: flex
+        gap: 1rem
+        align-items: center
+
+      .sbutton
+        display: flex
+        align-items: center
+        gap: 0.5rem
+
+        &--disabled
+          opacity: 0.5
+          pointer-events: none

@@ -83,31 +83,28 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
   return (
     <div className="page-head page-head--dashboard">
       <div className="page-head__controls">
-
         <button onClick={goToList} className="sbutton sbutton--link">
           <i className="material-icons">chevron_left</i>
           <span>All bots</span>
         </button>
 
-        &middot;
-        
-        <button 
-          onClick={goToPrevious} 
-          className={`sbutton sbutton--link ${!hasPrevious ? 'sbutton--disabled' : ''}`}
-          disabled={!hasPrevious}
-        >
-          <i className="material-icons">arrow_back</i>
-        </button>
+        <div className="page-head__controls__nav">
+          <button 
+            onClick={goToPrevious} 
+            className={`sbutton sbutton--link ${!hasPrevious ? 'sbutton--disabled' : ''}`}
+            disabled={!hasPrevious}
+          >
+            <i className="material-icons">arrow_back</i>
+          </button>
 
-        
-
-        <button 
-          onClick={goToNext} 
-          className={`sbutton sbutton--link ${!hasNext ? 'sbutton--disabled' : ''}`}
-          disabled={!hasNext}
-        >
-          <i className="material-icons">arrow_forward</i>
-        </button>
+          <button 
+            onClick={goToNext} 
+            className={`sbutton sbutton--link ${!hasNext ? 'sbutton--disabled' : ''}`}
+            disabled={!hasNext}
+          >
+            <i className="material-icons">arrow_forward</i>
+          </button>
+        </div>
       </div>
     </div>
   );
