@@ -253,10 +253,37 @@ const DashboardTemplate = ({
   return (
     <>
       <div className="page-head page-head--dashboard">
+
+        {numberOfPages > 1 && (
+          <div className="page-head__controls">
+            <a 
+              className={`sbutton sbutton--link ${page === 1 ? 'sbutton--disabled' : ''}`}
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                if (page > 1) setPage(page - 1);
+              }}
+            >
+              <i className="material-icons">arrow_back</i>
+            </a>
+            <a 
+              className={`sbutton sbutton--link ${page === numberOfPages ? 'sbutton--disabled' : ''}`}
+              href="#" 
+              onClick={(e) => {
+                e.preventDefault();
+                if (page < numberOfPages) setPage(page + 1);
+              }}
+            >
+              <i className="material-icons">arrow_forward</i>
+            </a>
+          </div>
+        )}
+
         <button onClick={handleStartCreating} className="sbutton sbutton--primary">
           <span className="d-none d-sm-inline mr-3">{I18n.t('bots.add_new_bot')}</span>
           <i className="material-icons">add</i>
         </button>
+
       </div>
 
       <div className="db-bots db-bots--main">
