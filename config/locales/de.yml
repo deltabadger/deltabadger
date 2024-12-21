@@ -396,7 +396,7 @@ de:
         week: Woche
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
-        withdrawal_percentage: '%{percentage}% bis zur nächsten Auszahlung'
+        withdrawal_percentage: '%{percentage}%'
     devise:
         confirmations:
             confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigt.'

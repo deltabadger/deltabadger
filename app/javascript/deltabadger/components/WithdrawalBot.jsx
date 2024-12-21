@@ -45,7 +45,10 @@ const BotTemplate = ({
   fetchExchanges,
   exchanges,
   apiKeyTimeout,
-  getMinimums
+  getMinimums,
+  tileMode,
+  onClick,
+  buttonClickHandler
 }) => {
   const { id, settings, status, exchangeName, exchangeId, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
 
@@ -142,6 +145,56 @@ const BotTemplate = ({
       I18n.t('bots.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: exchangeName})
   }
 
+  if (tileMode) {
+    return (
+      <div 
+        onClick={onClick} 
+        className={`widget widget--single bot-tile ${botRunningClass}`}
+      >
+        <div className="bot-tile__header">
+          <div className="bot-tile__ticker">
+            <div className="bot-tile__ticker__currencies">{currencyName}</div>
+            <div className="bot-tile__ticker__exchange">{I18n.t('bots.withdrawal')} · {exchangeName}</div>
+          </div>
+          
+          {bot.stats && bot.stats.totalWithdrawn && (
+            <div className="bot-tile__pnl">
+              {bot.stats.totalWithdrawn} {currencyName}
+            </div>
+          )}
+        </div>
+        
+        <div className="bot-tile__controls">
+          <div className="bot-tile__controls__feedback">
+            {working && !intervalEnabled && <PercentageProgress bot={bot} callback={reload}/>}
+            {working && intervalEnabled && nextTransactionTimestamp && 
+              <Timer bot={bot} callback={reload}/>
+            }
+            {!working && isNotEmpty(errors) && <Errors data={errors}/>}
+            <ProgressBar bot={bot} />
+          </div>
+      
+          {isStarting && <StartingButton />}
+          {(!isStarting && working) && 
+            <div onClick={buttonClickHandler}>
+              <StopButton onClick={() => handleStop(id)}/>
+            </div>
+          }
+          {(!isStarting && pending) && <PendingButton />}
+          {(!isStarting && !working && !pending) &&
+            <div onClick={buttonClickHandler}>
+              <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+                <div className="animicon animicon--start">
+                  <div className="animicon__a"></div>
+                  <div className="animicon__b"></div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--withdrawal db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
