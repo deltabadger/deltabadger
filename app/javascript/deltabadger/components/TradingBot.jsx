@@ -317,7 +317,7 @@ const BotTemplate = ({
         <div className="bot-tile__header">
           <div className="bot-tile__ticker">
             <div className="bot-tile__ticker__currencies">{baseName}{quoteName}</div>
-            <div className="bot-tile__ticker__exchange">{exchangeName}</div>
+            <div className="bot-tile__ticker__exchange">DCA · {exchangeName}</div>
           </div>
           
           {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (

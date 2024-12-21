@@ -176,14 +176,20 @@ export const PendingButton = () => (
     <span>{I18n.t('bots.buttons.pending.text')}</span>
   </div>
 )
-export const StopButton = ({onClick}) => (
-  <div onClick={onClick} className="sbutton sbutton--primary sbutton--outline">
+export const StopButton = ({ onClick }) => (
+  <div 
+    onClick={onClick} 
+    className="sbutton sbutton--primary sbutton--outline"
+    data-testid="stop-button"
+    role="button"
+    aria-label="stop"
+  >
     <div className="animicon animicon--stop">
-          <div className="animicon__a"></div>
-          <div className="animicon__b"></div>
-        </div>
+      <div className="animicon__a"></div>
+      <div className="animicon__b"></div>
+    </div>
   </div>
-)
+);
 
 export const RemoveButton = ({onClick, disabled}) => {
   const [isOpen, setOpen] = useState(false)
