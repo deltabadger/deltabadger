@@ -58,7 +58,6 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
   const goToPrevious = (e) => {
     e.preventDefault();
     if (hasPrevious) {
-      // Use setTimeout to break the synchronous state update chain
       setTimeout(() => {
         onBotChange(bots[currentIndex - 1].id);
       }, 0);
@@ -68,7 +67,6 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
   const goToNext = (e) => {
     e.preventDefault();
     if (hasNext) {
-      // Use setTimeout to break the synchronous state update chain
       setTimeout(() => {
         onBotChange(bots[currentIndex + 1].id);
       }, 0);
@@ -77,15 +75,14 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
 
   const goToList = (e) => {
     e.preventDefault();
-    // Use setTimeout to break the synchronous state update chain
     setTimeout(() => {
       onBackToList();
     }, 0);
   };
 
   return (
-    <nav className="db-navigation">
-      <div className="db-navigation__controls">
+    <div className="page-head">
+      <div className="page-head__controls">
         <button 
           onClick={goToPrevious} 
           className={`sbutton sbutton--link ${!hasPrevious ? 'sbutton--disabled' : ''}`}
@@ -109,7 +106,7 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
           <i className="material-icons">arrow_forward</i>
         </button>
       </div>
-    </nav>
+    </div>
   );
 };
 
