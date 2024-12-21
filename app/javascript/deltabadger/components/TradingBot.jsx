@@ -312,58 +312,61 @@ const BotTemplate = ({
     return (
       <div 
         onClick={onClick} 
-        className={`db-bots__item db-bot db-bot--dca ${botRunningClass}`}
+        className={`widget widget--single bot-tile ${botRunningClass}`}
       >
-        <div className="db-bot__header">
-          {isStarting && <StartingButton />}
-          {(!isStarting && working) && 
-            <div onClick={buttonClickHandler}>
-              <StopButton onClick={() => handleStop(id)}/>
-            </div>
-          }
-          {(!isStarting && pending) && <PendingButton />}
-          {(!isStarting && !working && !pending) &&
-            <div onClick={buttonClickHandler}>
-              <StartButton 
-                settings={settings} 
-                getRestartType={getStartButtonType} 
-                onClickReset={_handleSubmit}
-                setShowInfo={setShowSmartIntervalsInfo} 
-                exchangeName={exchangeName} 
-                newSettings={newSettings()}
-              />
-            </div>
-          }
-          <div className={`db-bot__infotext text-${colorClass}`}>
-            <div className="db-bot__infotext__left bot-ticker">
-              <span className="bot-ticker__exchange">{exchangeName}</span>
-              <span className="bot-ticker__divider">:</span>
-              <span className="bot-ticker__currencies">{baseName}{quoteName}</span>
-            </div>
-            
-            {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
-              <div className={`db-bot__infotext__pnl ${bot.stats.currentValue >= bot.stats.totalInvested ? 'text-success' : 'text-danger'}`}>
-                <span className="db-bot__infotext__pnl__value">
-                  {bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
-                  {formatNumber((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100)}%
-                </span>
-                <span className="db-bot__infotext__pnl__amount">
-                  ({bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
-                  {formatNumber(bot.stats.currentValue - bot.stats.totalInvested)} {quoteName})
-                </span>
-              </div>
-            )}
-
-            {pending && nextResultFetchingTimestamp && 
-              <FetchFromExchangeTimer bot={bot} callback={reload}/>
-            }
-            {working && nextTransactionTimestamp && 
-              <Timer bot={bot} callback={reload}/>
-            }
-            {!working && isNotEmpty(errors) && <Errors data={errors}/>}
+        <div className="bot-tile__header">
+          <div className="bot-tile__ticker">
+            <div className="bot-tile__ticker__currencies">{baseName}{quoteName}</div>
+            <div className="bot-tile__ticker__exchange">{exchangeName}</div>
           </div>
+          
+          {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
+            <div className={`bot-tile__pnl ${bot.stats.currentValue >= bot.stats.totalInvested ? 'text-success' : 'text-danger'}`}>
+              <span className="widget__pnl__value">
+                {bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
+                {formatNumber((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100)}%
+              </span>
+              {/* <span className="widget__pnl__amount">
+                ({bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
+                {formatNumber(bot.stats.currentValue - bot.stats.totalInvested)} {quoteName})
+              </span> */}
+            </div>
+          )}
         </div>
-        <ProgressBar bot={bot} />
+        
+        <div className="bot-tile__controls">
+            <div className="bot-tile__controls__feedback">
+              {pending && nextResultFetchingTimestamp && 
+                <FetchFromExchangeTimer bot={bot} callback={reload}/>
+              }
+              {working && nextTransactionTimestamp && 
+                <Timer bot={bot} callback={reload}/>
+              }
+              {!working && isNotEmpty(errors) && <Errors data={errors}/>}
+              <ProgressBar bot={bot} />
+            </div>
+        
+            {isStarting && <StartingButton />}
+            {(!isStarting && working) && 
+              <div onClick={buttonClickHandler}>
+                <StopButton onClick={() => handleStop(id)}/>
+              </div>
+            }
+            {(!isStarting && pending) && <PendingButton />}
+            {(!isStarting && !working && !pending) &&
+              <div onClick={buttonClickHandler}>
+                <StartButton 
+                  settings={settings} 
+                  getRestartType={getStartButtonType} 
+                  onClickReset={_handleSubmit}
+                  setShowInfo={setShowSmartIntervalsInfo} 
+                  exchangeName={exchangeName} 
+                  newSettings={newSettings()}
+                />
+              </div>
+            }
+        </div>
+        
       </div>
     );
   }
