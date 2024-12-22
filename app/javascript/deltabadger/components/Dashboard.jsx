@@ -201,12 +201,18 @@ const DashboardTemplate = ({
     
     if (!selectedBot) {
       if (bots.length > 0) {
-        // Bot not found, redirect to dashboard
         handleBackToList();
         return null;
       }
-      // Still loading bots
-      return <Spinner />;
+      return (
+        <div className="db-bots db-bots--main">
+          <div className="db-bots__item d-flex db-add-more-bots">
+            <div className="db-spinner-positioner">
+              <Spinner />
+            </div>
+          </div>
+        </div>
+      );
     }
 
     const BotComponent = selectedBot.bot_type === 'free' ? TradingBot :
@@ -239,7 +245,15 @@ const DashboardTemplate = ({
   };
 
   if (isLoading) {
-    return <Spinner />;
+    return (
+      <div className="db-bots db-bots--main">
+        <div className="db-bots__item d-flex db-add-more-bots">
+          <div className="db-spinner-positioner">
+            <Spinner />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (selectedBotId) {
