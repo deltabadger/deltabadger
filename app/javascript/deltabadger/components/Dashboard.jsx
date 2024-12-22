@@ -152,11 +152,32 @@ const DashboardTemplate = ({
     }
   }, [bots])
 
+  useEffect(() => {
+    if (selectedBotId) {
+      window.history.pushState({ selectedBotId }, '', `/dashboard/bots/${selectedBotId}`);
+    }
+
+    const handlePopState = (event) => {
+      if (event.state?.selectedBotId) {
+        setSelectedBotId(event.state.selectedBotId);
+      } else {
+        setSelectedBotId(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [selectedBotId]);
+
   const handleBotClick = (botId) => {
     setSelectedBotId(botId);
   };
 
   const handleBackToList = () => {
+    window.history.pushState(null, '', '/dashboard');
     setSelectedBotId(null);
   };
 
