@@ -22,6 +22,7 @@ input
   column-gap:           2rem
   .progress
     height: 0.5rem
+    background: var(--progressBar)
   &--single
     @include media-breakpoint-up(xl)
       grid-template-columns: 50%
@@ -566,3 +567,7 @@ input
         &--disabled
           opacity: 0.5
           pointer-events: none
+
+.db-bot__progressbar-wrapper
+  margin-left: 2rem
+  margin-right: 2rem
