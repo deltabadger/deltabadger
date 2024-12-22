@@ -22,6 +22,7 @@ input
   column-gap:           2rem
   .progress
     height: 0.5rem
+    background: var(--progressBar)
   &--single
     @include media-breakpoint-up(xl)
       grid-template-columns: 50%
@@ -504,7 +505,7 @@ input
   &__ticker
     &__currencies
       font-weight: 550
-      font-size: 3rem
+      font-size: 2.5rem
       line-height: 2.5rem
     &__exchange
       color: var(--label)
@@ -512,7 +513,7 @@ input
       font-size: 1.75rem
   &__pnl
     font-weight: 650
-    font-size: 3rem
+    font-size: 2.5rem
     line-height: 2.5rem
   &__controls
     display: flex
@@ -566,3 +567,7 @@ input
         &--disabled
           opacity: 0.5
           pointer-events: none
+
+.db-bot__progressbar-wrapper
+  margin-left: 2rem
+  margin-right: 2rem
