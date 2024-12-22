@@ -29,6 +29,7 @@ class BotsRepository < BaseRepository
       .includes(:exchange)
       .includes(:daily_transaction_aggregates)
       .includes(:transactions)
+      .references(:transactions)
       .where(transactions: { status: %w[success skipped] })
       .order(created_at: :desc)
       .page(page_number)
