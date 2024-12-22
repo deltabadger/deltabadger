@@ -305,7 +305,7 @@ const DashboardTemplate = ({
   return (
     <>
       <div className="page-head page-head--dashboard">
-
+        <div>
         {numberOfPages > 1 && (
           <div className="page-head__controls">
             <a 
@@ -330,7 +330,7 @@ const DashboardTemplate = ({
             </a>
           </div>
         )}
-
+        </div>
         <button onClick={handleStartCreating} className="sbutton sbutton--primary">
           <span className="d-none d-sm-inline mr-3">{I18n.t('bots.add_new_bot')}</span>
           <i className="material-icons">add</i>
