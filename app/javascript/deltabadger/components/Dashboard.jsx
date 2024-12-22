@@ -153,32 +153,29 @@ const DashboardTemplate = ({
   }, [bots])
 
   useEffect(() => {
-    if (selectedBotId) {
-      window.history.pushState({ selectedBotId }, '', `/dashboard/bots/${selectedBotId}`);
-    }
-
-    const handlePopState = (event) => {
-      if (event.state?.selectedBotId) {
-        setSelectedBotId(event.state.selectedBotId);
-      } else {
-        setSelectedBotId(null);
+    const path = window.location.pathname;
+    const botIdMatch = path.match(/\/dashboard\/bots\/(\d+)/);
+    
+    if (botIdMatch) {
+      const botId = parseInt(botIdMatch[1]);
+      setSelectedBotId(botId);
+      
+      // Load bots if not already loaded
+      if (bots.length === 0) {
+        loadBots(false, page);
       }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [selectedBotId]);
+    }
+  }, []);
 
   const handleBotClick = (botId) => {
     setSelectedBotId(botId);
+    const newUrl = `/dashboard/bots/${botId}`;
+    window.history.pushState({ selectedBotId: botId }, '', newUrl);
   };
 
   const handleBackToList = () => {
-    window.history.pushState(null, '', '/dashboard');
     setSelectedBotId(null);
+    window.history.pushState(null, '', '/dashboard');
   };
 
   const handleStartCreating = () => {
@@ -199,46 +196,17 @@ const DashboardTemplate = ({
     loadBots(false, page);
   };
 
-  if (isLoading) {
-    return (
-      <div className="db-bots db-bots--main">
-        <div className="db-bots__item d-flex db-add-more-bots">
-          <div className="db-spinner-positioner">
-            <Spinner />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show bot creation view
-  if (isCreating) {
-    return (
-      <div className="db-bots db-bots--single">
-        <BotForm
-          isPro={isPro}
-          isLegendary={isLegendary}
-          open={true}
-          currentBot={null}
-          callbackAfterCreation={handleFinishCreating}
-          callbackAfterOpening={() => {}}
-          callbackAfterClosing={handleFinishCreating}
-          exchanges={exchanges}
-          fetchExchanges={fetchExchanges}
-          apiKeyTimeout={apiKeyTimeout}
-          step={step}
-          setStep={setStep}
-        />
-      </div>
-    );
-  }
-
-  // Show detailed view when a bot is selected
-  if (selectedBotId) {
+  const renderBotDetail = () => {
     const selectedBot = bots.find(b => b.id === selectedBotId);
+    
     if (!selectedBot) {
-      // If bot not found (was deleted), return to main view
-      return handleBotRemoval();
+      if (bots.length > 0) {
+        // Bot not found, redirect to dashboard
+        handleBackToList();
+        return null;
+      }
+      // Still loading bots
+      return <Spinner />;
     }
 
     const BotComponent = selectedBot.bot_type === 'free' ? TradingBot :
@@ -267,6 +235,36 @@ const DashboardTemplate = ({
           <BotDetails bot={selectedBot} />
         </div>
       </>
+    );
+  };
+
+  if (isLoading) {
+    return <Spinner />;
+  }
+
+  if (selectedBotId) {
+    return renderBotDetail();
+  }
+
+  // Show bot creation view
+  if (isCreating) {
+    return (
+      <div className="db-bots db-bots--single">
+        <BotForm
+          isPro={isPro}
+          isLegendary={isLegendary}
+          open={true}
+          currentBot={null}
+          callbackAfterCreation={handleFinishCreating}
+          callbackAfterOpening={() => {}}
+          callbackAfterClosing={handleFinishCreating}
+          exchanges={exchanges}
+          fetchExchanges={fetchExchanges}
+          apiKeyTimeout={apiKeyTimeout}
+          step={step}
+          setStep={setStep}
+        />
+      </div>
     );
   }
 
