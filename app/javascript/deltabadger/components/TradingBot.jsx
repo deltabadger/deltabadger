@@ -309,6 +309,13 @@ const BotTemplate = ({
   }, [bot.stats]);
 
   if (tileMode) {
+    // Calculate profit/loss before rendering
+    const profitLoss = bot.stats && {
+      value: (bot.stats.currentValue - bot.stats.totalInvested).toFixed(2),
+      percentage: `(${((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100).toFixed(2)}%)`,
+      positive: bot.stats.currentValue >= bot.stats.totalInvested
+    };
+
     return (
       <div 
         onClick={onClick} 
@@ -321,13 +328,13 @@ const BotTemplate = ({
           </div>
           
           {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
-            <div className={`bot-tile__pnl ${bot.stats.currentValue >= bot.stats.totalInvested ? 'text-success' : 'text-danger'}`}>
+            <div className={`bot-tile__pnl ${profitLoss.positive ? 'text-success' : 'text-danger'}`}>
               <span className="widget__pnl__value">
-                {bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
+                {profitLoss.positive ? '+' : ''}
                 {formatNumber((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100)}%
               </span>
               {/* <span className="widget__pnl__amount">
-                ({bot.stats.currentValue >= bot.stats.totalInvested ? '+' : ''}
+                ({profitLoss.positive ? '+' : ''}
                 {formatNumber(bot.stats.currentValue - bot.stats.totalInvested)} {quoteName})
               </span> */}
             </div>
