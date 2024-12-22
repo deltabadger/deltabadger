@@ -28,11 +28,10 @@ class BotsRepository < BaseRepository
       .without_deleted
       .includes(:exchange)
       .includes(:daily_transaction_aggregates)
-      .includes(transactions: [:bot])
       .includes(:transactions)
+      .where(transactions: { status: %w[success skipped] })
       .order(created_at: :desc)
       .page(page_number)
-      .limit(10)
   end
 
   def count_with_status(status)
