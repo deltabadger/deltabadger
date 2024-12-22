@@ -190,7 +190,7 @@ class Bot < ApplicationRecord
   end
 
   def total_amount
-    transactions.where(status: :success).sum(:amount)
+    daily_transaction_aggregates.sum(:amount)
   end
 
   def use_subaccount
