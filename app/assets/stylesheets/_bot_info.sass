@@ -1,12 +1,11 @@
 .db-bot-info--dca, .db-bot-info--withdrawal, .db-bot-info--webhook
     display: none
-.db-bot--active
-    &.db-bot--dca + .db-bots__item--data
-        .db-bot-info--dca
-            display: block
-    &.db-bot--withdrawal + .db-bots__item--data
-        .db-bot-info--withdrawal
-            display: block
-    &.db-bot--webhook + .db-bots__item--data
-        .db-bot-info--webhook
-            display: block
+.db-bot--dca + .db-bots__item--data
+    .db-bot-info--dca
+        display: block
+&.db-bot--withdrawal + .db-bots__item--data
+    .db-bot-info--withdrawal
+        display: block
+&.db-bot--webhook + .db-bots__item--data
+    .db-bot-info--webhook
+        display: block
