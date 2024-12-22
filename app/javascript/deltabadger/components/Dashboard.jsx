@@ -50,7 +50,7 @@ const BotTile = ({ bot, isOpen, onClick, showLimitOrders, errors, exchanges, api
   }
 };
 
-const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
+const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBots, page }) => {
   const currentIndex = bots.findIndex(b => b.id === selectedBotId);
   const hasPrevious = currentIndex > 0;
   const hasNext = currentIndex < bots.length - 1;
@@ -58,18 +58,30 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList }) => {
   const goToPrevious = (e) => {
     e.preventDefault();
     if (hasPrevious) {
-      setTimeout(() => {
-        onBotChange(bots[currentIndex - 1].id);
-      }, 0);
+      const prevBotId = bots[currentIndex - 1].id;
+      // First update the URL
+      const newUrl = `/dashboard/bots/${prevBotId}`;
+      window.history.pushState({ selectedBotId: prevBotId }, '', newUrl);
+      
+      // Then load fresh data and update the selection
+      loadBots(false, page).then(() => {
+        onBotChange(prevBotId);
+      });
     }
   };
 
   const goToNext = (e) => {
     e.preventDefault();
     if (hasNext) {
-      setTimeout(() => {
-        onBotChange(bots[currentIndex + 1].id);
-      }, 0);
+      const nextBotId = bots[currentIndex + 1].id;
+      // First update the URL
+      const newUrl = `/dashboard/bots/${nextBotId}`;
+      window.history.pushState({ selectedBotId: nextBotId }, '', newUrl);
+      
+      // Then load fresh data and update the selection
+      loadBots(false, page).then(() => {
+        onBotChange(nextBotId);
+      });
     }
   };
 
@@ -168,9 +180,14 @@ const DashboardTemplate = ({
   }, []);
 
   const handleBotClick = (botId) => {
-    setSelectedBotId(botId);
+    // First update the URL
     const newUrl = `/dashboard/bots/${botId}`;
     window.history.pushState({ selectedBotId: botId }, '', newUrl);
+    
+    // Then load fresh data for this bot
+    loadBots(false, page).then(() => {
+      setSelectedBotId(botId);
+    });
   };
 
   const handleBackToList = () => {
@@ -226,6 +243,8 @@ const DashboardTemplate = ({
           selectedBotId={selectedBotId}
           onBotChange={setSelectedBotId}
           onBackToList={handleBackToList}
+          loadBots={loadBots}
+          page={page}
         />
         <div className="db-bots db-bots--single">
           <BotComponent
