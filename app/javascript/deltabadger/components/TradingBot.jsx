@@ -32,6 +32,9 @@ const apiKeyStatus = {
 }
 
 const BotTemplate = ({
+  tileMode,
+  onClick,
+  buttonClickHandler,
   showLimitOrders,
   bot,
   errors = [],
@@ -293,8 +296,87 @@ const BotTemplate = ({
     })
   }
 
+  const formatNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  // Add this for debugging
+  useEffect(() => {
+    if (tileMode) {
+      console.log('Bot stats:', bot.stats);
+    }
+  }, [bot.stats]);
+
+  if (tileMode) {
+    // Calculate profit/loss before rendering
+    const profitLoss = bot.stats && {
+      value: (parseFloat(bot.stats.currentValue) - parseFloat(bot.stats.totalInvested)).toFixed(2),
+      percentage: ((parseFloat(bot.stats.currentValue) - parseFloat(bot.stats.totalInvested)) / parseFloat(bot.stats.totalInvested) * 100).toFixed(2),
+      positive: parseFloat(bot.stats.currentValue) >= parseFloat(bot.stats.totalInvested)
+    };
+
+    return (
+      <div 
+        onClick={onClick} 
+        className={`widget widget--single bot-tile ${botRunningClass}`}
+      >
+        <div className="bot-tile__header">
+          <div className="bot-tile__ticker">
+            <div className="bot-tile__ticker__currencies">{baseName}{quoteName}</div>
+            <div className="bot-tile__ticker__exchange">DCA · {exchangeName}</div>
+          </div>
+          
+          {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
+            <div className={`bot-tile__pnl ${profitLoss.positive ? 'text-success' : 'text-danger'}`}>
+              <span className="widget__pnl__value">
+                {profitLoss.positive ? '+' : ''}
+                {profitLoss.percentage}%
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <div className="bot-tile__controls">
+            <div className="bot-tile__controls__feedback">
+              {pending && nextResultFetchingTimestamp && 
+                <FetchFromExchangeTimer bot={bot} callback={reload}/>
+              }
+              {working && nextTransactionTimestamp && 
+                <Timer bot={bot} callback={reload}/>
+              }
+              {!working && isNotEmpty(errors) && <Errors data={errors}/>}
+              <ProgressBar bot={bot} />
+            </div>
+        
+            {isStarting && <StartingButton />}
+            {(!isStarting && working) && 
+              <div onClick={buttonClickHandler}>
+                <StopButton onClick={() => handleStop(id)}/>
+              </div>
+            }
+            {(!isStarting && pending) && <PendingButton />}
+            {(!isStarting && !working && !pending) &&
+              <div onClick={buttonClickHandler}>
+                <StartButton 
+                  settings={settings} 
+                  getRestartType={getStartButtonType} 
+                  onClickReset={_handleSubmit}
+                  setShowInfo={setShowSmartIntervalsInfo} 
+                  exchangeName={exchangeName} 
+                  newSettings={newSettings()}
+                />
+              </div>
+            }
+        </div>
+        
+      </div>
+    );
+  }
+
+  // Full view
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
+    <div className="db-bots__item db-bot db-bot--dca">
       { apiKeyExists &&
         <div className="db-bot__header">
 
