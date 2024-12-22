@@ -311,9 +311,9 @@ const BotTemplate = ({
   if (tileMode) {
     // Calculate profit/loss before rendering
     const profitLoss = bot.stats && {
-      value: (bot.stats.currentValue - bot.stats.totalInvested).toFixed(2),
-      percentage: `(${((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100).toFixed(2)}%)`,
-      positive: bot.stats.currentValue >= bot.stats.totalInvested
+      value: (parseFloat(bot.stats.currentValue) - parseFloat(bot.stats.totalInvested)).toFixed(2),
+      percentage: ((parseFloat(bot.stats.currentValue) - parseFloat(bot.stats.totalInvested)) / parseFloat(bot.stats.totalInvested) * 100).toFixed(2),
+      positive: parseFloat(bot.stats.currentValue) >= parseFloat(bot.stats.totalInvested)
     };
 
     return (
@@ -331,12 +331,8 @@ const BotTemplate = ({
             <div className={`bot-tile__pnl ${profitLoss.positive ? 'text-success' : 'text-danger'}`}>
               <span className="widget__pnl__value">
                 {profitLoss.positive ? '+' : ''}
-                {formatNumber((bot.stats.currentValue - bot.stats.totalInvested) / bot.stats.totalInvested * 100)}%
+                {profitLoss.percentage}%
               </span>
-              {/* <span className="widget__pnl__amount">
-                ({profitLoss.positive ? '+' : ''}
-                {formatNumber(bot.stats.currentValue - bot.stats.totalInvested)} {quoteName})
-              </span> */}
             </div>
           )}
         </div>
