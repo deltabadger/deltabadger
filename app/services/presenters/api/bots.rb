@@ -11,9 +11,7 @@ module Presenters
       private
 
       def present_bot(bot)
-        puts "--- bot.trading? --- #{bot.trading?}"
-        puts "--- bot.withdrawal? --- #{bot.withdrawal?}"
-        puts "--- bot.webhook? --- #{bot.webhook?}"
+        # Each bot presentation might be loading all transactions/aggregates
         return Presenters::Api::TradingBot.call(bot) if bot.trading?
         return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
 

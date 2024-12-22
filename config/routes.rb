@@ -107,9 +107,12 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resources :bots, only: [:show] do
+    resources :bots, only: [:show, :index] do
       get :show, on: :collection
     end
+
+    get '/dashboard', to: 'home#dashboard', as: :dashboard
+    get '/dashboard/bots/:id', to: 'bots#show', as: :dashboard_bot
 
     get '/calculator', to: 'calculator#show', as: :calculator
 
@@ -117,7 +120,6 @@ Rails.application.routes.draw do
       get :show, on: :collection
     end
 
-    get '/dashboard', to: 'home#dashboard', as: :dashboard
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
     get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy
