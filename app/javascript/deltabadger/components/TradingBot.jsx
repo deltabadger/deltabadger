@@ -399,8 +399,10 @@ const BotTemplate = ({
           </div>
         </div>
       }
-
-      <ProgressBar bot={bot} />
+      <div className="db-bot__progressbar-wrapper">
+        <ProgressBar bot={bot} />
+      </div>
+      
 
       { !apiKeyExists &&
         <AddApiKey
