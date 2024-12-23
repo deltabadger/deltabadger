@@ -53,23 +53,41 @@ const BotTemplate = ({
   exchanges,
   apiKeyTimeout
 }) => {
-  const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const defaultSettings = {
+    order_type: 'market',
+    price: "",
+    percentage: 0.0,
+    interval: "hour",
+    force_smart_intervals: false,
+    smart_intervals_value: "0",
+    quote: "",
+    price_range_enabled: false,
+    price_range: [0, 0],
+    use_subaccount: false,
+    selected_subaccount: '',
+    type: 'buy'
+  };
 
-  const [type, setType] = useState(settings.order_type);
-  const [price, setPrice] = useState(settings.price);
-  const [percentage, setPercentage] = useState(settings.percentage == null ? 0.0 : settings.percentage);
-  const [interval, setInterval] = useState(settings.interval);
-  const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? "0" : settings.smart_intervals_value);
+  const { id, settings = defaultSettings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || { settings: defaultSettings };
+
+  const [type, setType] = useState(settings.order_type || defaultSettings.order_type);
+  const [price, setPrice] = useState(settings.price || defaultSettings.price);
+  const [percentage, setPercentage] = useState(settings.percentage !== undefined ? settings.percentage : defaultSettings.percentage);
+  const [interval, setInterval] = useState(settings.interval || defaultSettings.interval);
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals !== undefined ? settings.force_smart_intervals : defaultSettings.force_smart_intervals);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value !== undefined ? settings.smart_intervals_value : defaultSettings.smart_intervals_value);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
-  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
-  const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled)
-  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0].toString(), high: settings.price_range[1].toString() })
-  const [apiKeyExists, setApiKeyExists] = useState(true)
+  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote || defaultSettings.quote);
+  const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled !== undefined ? settings.price_range_enabled : defaultSettings.price_range_enabled);
+  const [priceRange, setPriceRange] = useState({ 
+    low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(), 
+    high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString() 
+  });
+  const [apiKeyExists, setApiKeyExists] = useState(true);
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
-  const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount)
-  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount)
-  const [subaccountsList, setSubaccountsList] = useState([''])
+  const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount !== undefined ? settings.use_subaccount : defaultSettings.use_subaccount);
+  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount || defaultSettings.selected_subaccount);
+  const [subaccountsList, setSubaccountsList] = useState(['']);
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -106,10 +124,10 @@ const BotTemplate = ({
       interval: settings.interval,
       price: settings.price.trim(),
       forceSmartIntervals: settings.force_smart_intervals,
-      smartIntervalsValue: settings.smartIntervalsValue,
+      smartIntervalsValue: settings.smart_intervals_value,
       percentage: settings.order_type === 'limit' ? percentage && percentage.trim() : undefined,
-      useSubaccount: settings.useSubaccount,
-      selectedSubaccount: settings.selectedSubaccount
+      useSubaccount: settings.use_subaccount,
+      selectedSubaccount: settings.selected_subaccount
     }
 
     return !_.isEqual(newSettings, oldSettings)
