@@ -19,26 +19,55 @@ export const Timer = ({ bot, callback }) => {
     return formatDuration(moment.duration(delay, 'seconds'));
   }, [delay]);
 
+  // Initial sync on mount and view change
+  useEffect(() => {
+    if (bot) {
+      callback(bot);
+    }
+  }, []); // Empty dependency array for mount only
+
   // Reset state when transaction timestamp changes
   useEffect(() => { 
     setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp));
     setI(0);
   }, [nextTransactionTimestamp, nowTimestamp]);
 
+  // Handle visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && bot) {
+        // Resync when becoming visible
+        callback(bot);
+      }
+    };
+
+    // Initial sync
+    if (bot) {
+      callback(bot);
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [bot, callback]);
+
   // Handle interval and cleanup
   useEffect(() => {
     let intervalId;
     const interval = timeout ? Math.abs(delay) * 1000 : 1000;
 
-    intervalId = setInterval(() => {
-      if (timeout && i === 0) {
-        if (bot) {
-          setI(prev => prev + 1);
-          callback(bot);
+    if (!document.hidden) { // Only run interval when page is visible
+      intervalId = setInterval(() => {
+        if (timeout && i === 0) {
+          if (bot) {
+            setI(prev => prev + 1);
+            callback(bot);
+          }
         }
-      }
-      setDelay(prev => prev - 1);
-    }, interval);
+        setDelay(prev => prev - 1);
+      }, interval);
+    }
 
     // Cleanup function
     return () => {
@@ -66,24 +95,53 @@ export const FetchFromExchangeTimer = ({ bot, callback }) => {
   const [delay, setDelay] = useState(calculateDelay(nextResultFetchingTimestamp, nowTimestamp));
   const timeout = delay < 0;
 
+  // Initial sync on mount and view change
+  useEffect(() => {
+    if (bot) {
+      callback(bot);
+    }
+  }, []); // Empty dependency array for mount only
+
   // Reset state when fetching timestamp changes
   useEffect(() => { 
     setDelay(calculateDelay(nextResultFetchingTimestamp, nowTimestamp));
   }, [nextResultFetchingTimestamp, nowTimestamp]);
 
+  // Handle visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && bot) {
+        // Resync when becoming visible
+        callback(bot);
+      }
+    };
+
+    // Initial sync
+    if (bot) {
+      callback(bot);
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [bot, callback]);
+
   // Handle interval and cleanup
   useEffect(() => {
     let intervalId;
 
-    intervalId = setInterval(() => {
-      if (timeout && i === 0) {
-        if (bot) {
-          setI(prev => prev + 1);
-          callback(bot);
+    if (!document.hidden) { // Only run interval when page is visible
+      intervalId = setInterval(() => {
+        if (timeout && i === 0) {
+          if (bot) {
+            setI(prev => prev + 1);
+            callback(bot);
+          }
         }
-      }
-      setDelay(prev => prev - 1);
-    }, 1000);
+        setDelay(prev => prev - 1);
+      }, 1000);
+    }
 
     // Cleanup function
     return () => {
