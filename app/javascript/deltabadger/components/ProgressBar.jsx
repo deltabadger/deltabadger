@@ -47,13 +47,37 @@ export const ProgressBar = React.memo(({bot}) => {
     return Math.max(0, Math.min(100, prog * 100)); // Clamp between 0 and 100
   }, [isDisabled, nextTransactionTimestamp, getLastTransactionTimestamp]);
 
+  // Initial sync on mount
   useEffect(() => {
-    // Update progress immediately when bot data changes
+    setProgress(calculateProgress());
+  }, []); // Empty dependency array for mount only
+
+  // Handle visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Recalculate progress when becoming visible
+        setProgress(calculateProgress());
+      }
+    };
+
+    // Initial sync
+    setProgress(calculateProgress());
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [calculateProgress]);
+
+  // Update progress when bot data changes
+  useEffect(() => {
     setProgress(calculateProgress());
   }, [bot, calculateProgress]);
 
+  // Handle interval updates
   useInterval(() => {
-    if (!isDisabled) {
+    if (!isDisabled && !document.hidden) {
       setProgress(calculateProgress());
     }
   }, 1000);
