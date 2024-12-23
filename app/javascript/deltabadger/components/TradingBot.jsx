@@ -283,27 +283,37 @@ const BotTemplate = ({
 
   const keyExists = () => {
     // we have to assume that the key exists to fix unnecessary form rendering
-    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true}
-    const keyStatus = exchange.trading_key_status
-    setApiKeyExists(keyOwned(keyStatus))
+    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true};
+    const keyStatus = exchange.trading_key_status;
+    setApiKeyExists(keyOwned(keyStatus));
 
     if (keyOwned(keyStatus)) {
-      clearTimeout(apiKeyTimeout)
-
+      // No need for timeout
     } else if (keyPending(keyStatus)) {
-      setApiKeysState(apiKeyStatus["VALIDATING"])
-      clearTimeout(apiKeyTimeout)
-      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
-
+      setApiKeysState(apiKeyStatus["VALIDATING"]);
     } else if (keyInvalid(keyStatus)) {
-      clearTimeout(apiKeyTimeout)
-      setApiKeysState(apiKeyStatus["INVALID"])
+      setApiKeysState(apiKeyStatus["INVALID"]);
     }
-  }
+    
+    return keyStatus;
+  };
 
+  // Move useEffect outside of keyExists
   useEffect(() => {
-    keyExists()
-  }, [exchanges]);
+    const keyStatus = keyExists();
+    let timeoutId;
+
+    if (keyPending(keyStatus)) {
+      timeoutId = setTimeout(() => fetchExchanges(), 3000);
+    }
+
+    // Cleanup function
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [exchanges, fetchExchanges]);
 
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
