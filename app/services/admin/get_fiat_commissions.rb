@@ -8,11 +8,18 @@ module Admin
       btc_price_result = get_btc_price
       return btc_price_result if btc_price_result.failure?
 
+      Rails.logger.info("BTC price: #{btc_price_result.data}")
+
       referred_fiat_payments.each do |payment|
+        Rails.logger.info("Processing payment #{payment.id}, commission: #{payment.commission}, currency: #{payment.currency}")
         commission_in_btc = (payment.commission / btc_price_result.data[payment.currency]).ceil(8)
+        Rails.logger.info("Commission in BTC: #{commission_in_btc}")
         affiliate = Affiliate.find(User.find(payment['user_id'])['referrer_id'])
+        Rails.logger.info("Affiliate: #{affiliate.id}, unexported_btc_commission: #{affiliate.unexported_btc_commission}")
         update_commission(affiliate, commission_in_btc)
+        Rails.logger.info('Commission granted')
         payment.update!(external_statuses: 'Commission granted')
+        Rails.logger.info('Payment updated')
       end
       Result::Success.new("Fiat payments\\' commissions granted")
     rescue StandardError => e
