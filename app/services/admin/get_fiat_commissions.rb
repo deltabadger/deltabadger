@@ -8,14 +8,23 @@ module Admin
       btc_price_result = get_btc_price
       return btc_price_result if btc_price_result.failure?
 
+      Rails.logger.info("Affiliates log - BTC price: #{btc_price_result.data}")
+
       referred_fiat_payments.each do |payment|
+        Rails.logger.info("Affiliates log - Processing payment #{payment.id}, commission: #{payment.commission}, currency: #{payment.currency}")
         commission_in_btc = (payment.commission / btc_price_result.data[payment.currency]).ceil(8)
+        Rails.logger.info("Affiliates log - Commission in BTC: #{commission_in_btc}")
         affiliate = Affiliate.find(User.find(payment['user_id'])['referrer_id'])
+        Rails.logger.info("Affiliates log - Affiliate: #{affiliate.id}, unexported_btc_commission: #{affiliate.unexported_btc_commission}")
         update_commission(affiliate, commission_in_btc)
+        Rails.logger.info('Affiliates log - Commission granted')
         payment.update!(external_statuses: 'Commission granted')
+        Rails.logger.info('Affiliates log - Payment updated')
       end
+      Rails.logger.info('Affiliates log - Fiat payments\' commissions granted')
       Result::Success.new("Fiat payments\\' commissions granted")
     rescue StandardError => e
+      Rails.logger.error("Affiliates log - Couldn't grant the commissions: #{e}")
       Result::Failure.new("Couldn\\'t grant the commissions: #{e}")
     end
 

@@ -68,9 +68,11 @@ module Admin
 
     def get_fiat_commissions
       service_call = Admin::GetFiatCommissions.call
-      redirect_to admin_affiliates_path, alert: "Couldn't get FIAT payments' commissions" unless service_call.success?
-
-      redirect_back(fallback_location: '/')
+      if service_call.success?
+        redirect_back(fallback_location: '/')
+      else
+        redirect_to admin_affiliates_path, alert: "Couldn't get FIAT payments' commissions"
+      end
     end
 
     private
