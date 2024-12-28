@@ -23,6 +23,7 @@ module Admin
       end
       Result::Success.new("Fiat payments\\' commissions granted")
     rescue StandardError => e
+      Rails.logger.error("Couldn't grant the commissions: #{e}")
       Result::Failure.new("Couldn\\'t grant the commissions: #{e}")
     end
 
