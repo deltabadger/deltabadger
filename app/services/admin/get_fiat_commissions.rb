@@ -21,6 +21,7 @@ module Admin
         payment.update!(external_statuses: 'Commission granted')
         Rails.logger.info('Payment updated')
       end
+      Rails.logger.info('Fiat payments\' commissions granted')
       Result::Success.new("Fiat payments\\' commissions granted")
     rescue StandardError => e
       Rails.logger.error("Couldn't grant the commissions: #{e}")
