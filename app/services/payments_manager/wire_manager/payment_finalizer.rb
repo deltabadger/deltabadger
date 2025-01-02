@@ -16,6 +16,8 @@ module PaymentsManager
 
         UpgradeSubscriptionWorker.perform_at(15.minutes.since(Time.current), payment.id)
 
+        AssignBtcCommissionJob.set(wait: 15.minutes).perform_later(payment.id)
+
         Result::Success.new
       end
     end

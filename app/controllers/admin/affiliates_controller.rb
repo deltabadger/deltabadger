@@ -66,15 +66,6 @@ module Admin
       send_data(file, filename: filename('accounting'))
     end
 
-    def get_fiat_commissions
-      service_call = Admin::GetFiatCommissions.call
-      if service_call.success?
-        redirect_back(fallback_location: '/')
-      else
-        redirect_to admin_affiliates_path, alert: "Couldn't get FIAT payments' commissions"
-      end
-    end
-
     private
 
     def format_crypto(amount)
