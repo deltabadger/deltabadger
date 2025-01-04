@@ -36,7 +36,6 @@ class UserDashboard < Administrate::BaseDashboard
     referral_banner_dismissed: Field::Boolean,
     limit_reached?: Field::Boolean,
     referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
-    current_referrer_profit: Field::Number,
     otp_secret_key: Field::String,
     otp_module: Field::Select.with_options(collection: %w[disabled enabled])
   }.freeze
@@ -81,7 +80,6 @@ class UserDashboard < Administrate::BaseDashboard
     news_banner_dismissed
     referral_banner_dismissed
     referrer
-    current_referrer_profit
   ].freeze
 
   # FORM_ATTRIBUTES
