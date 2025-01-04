@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_01_04_152528) do
+ActiveRecord::Schema.define(version: 2025_01_04_164714) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -25,7 +25,6 @@ ActiveRecord::Schema.define(version: 2025_01_04_152528) do
     t.string "code", null: false
     t.string "visible_name"
     t.string "visible_link"
-    t.decimal "max_profit", precision: 12, scale: 2, null: false
     t.decimal "discount_percent", precision: 3, scale: 2, null: false
     t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
     t.datetime "created_at", null: false
