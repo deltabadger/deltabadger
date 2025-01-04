@@ -1,5 +1,4 @@
 class Affiliate < ApplicationRecord
-  DEFAULT_MAX_PROFIT = ENV.fetch('AFFILIATE_DEFAULT_MAX_PROFIT').to_f
   DEFAULT_BONUS_PERCENT = ENV.fetch('AFFILIATE_DEFAULT_BONUS_PERCENT').to_f
   DEFAULT_DISCOUNT_PERCENT = ENV.fetch('AFFILIATE_DEFAULT_DISCOUNT_PERCENT').to_f
   MIN_DISCOUNT_PERCENT = ENV.fetch('AFFILIATE_MIN_DISCOUNT_PERCENT').to_f
@@ -21,7 +20,7 @@ class Affiliate < ApplicationRecord
                       with: /\A[A-Z0-9]+\z/,
                       message: :invalid_format
   validates_uniqueness_of :code
-  validates :max_profit, :discount_percent, :total_bonus_percent,
+  validates :discount_percent, :total_bonus_percent,
             numericality: { greater_than_or_equal_to: 0 }
   validates :total_bonus_percent, numericality: { less_than_or_equal_to: 1 }
   validates :discount_percent, numericality: {
