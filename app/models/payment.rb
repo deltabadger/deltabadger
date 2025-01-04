@@ -57,7 +57,7 @@ class Payment < ApplicationRecord
   end
 
   def referrer_commission_percent
-    user.eligible_referrer&.commission_percent || 0
+    user.referrer&.commission_percent || 0
   end
 
   def referrer_commission_amount
