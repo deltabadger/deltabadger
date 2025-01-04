@@ -1,6 +1,6 @@
 require 'utilities/hash'
 
-class AssignBtcCommissionJob < ApplicationJob
+class GrantAffiliateCommissionJob < ApplicationJob
   queue_as :default
 
   def perform(payment_id)
@@ -14,6 +14,7 @@ class AssignBtcCommissionJob < ApplicationJob
       payment.update!(btc_commission: btc_commission)
       affiliate.update!(unexported_btc_commission: previous_btc_commission + btc_commission)
     end
+    send_registration_reminder(affiliate, btc_commission) if affiliate.btc_address.blank?
   end
 
   private

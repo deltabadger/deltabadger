@@ -16,7 +16,8 @@ module PaymentsManager
 
         UpgradeSubscriptionWorker.perform_at(15.minutes.since(Time.current), payment.id)
 
-        AssignBtcCommissionJob.set(wait: 15.minutes).perform_later(payment.id)
+        # Wire payments must be marked as paid manually from the admin panel
+        # The affiliate commission is granted in then
 
         Result::Success.new
       end

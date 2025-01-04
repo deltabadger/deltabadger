@@ -23,7 +23,7 @@ module PaymentsManager
 
         @notifications.invoice(payment: payment)
 
-        AssignBtcCommissionJob.perform_later(payment.id)
+        GrantAffiliateCommissionJob.perform_later(payment.id)
 
         PaymentsManager::SubscriptionUpgrader.call(payment)
       end
