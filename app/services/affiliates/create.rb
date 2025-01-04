@@ -21,10 +21,7 @@ module Affiliates
       set_code(affiliate, affiliate_params) if affiliate_params[:code].blank?
 
       affiliate = if affiliate.present?
-                    AffiliatesRepository.new.update(
-                      affiliate.id,
-                      affiliate_params.merge(old_code_params(affiliate))
-                    )
+                    affiliate.update!(affiliate_params.merge(old_code_params(affiliate)))
                   else
                     Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
                   end

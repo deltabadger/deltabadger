@@ -34,6 +34,48 @@ class Affiliate < ApplicationRecord
 
   attr_reader :check
 
+  def self.find_active_by_code(code)
+    return unless code.present?
+
+    code = code.upcase
+    affiliate = active.find_by(code: code) || active.find_by(old_code: code)
+    affiliate if affiliate&.user.present?
+  end
+
+  def self.get_code_presenter(code)
+    return unless code.present?
+
+    affiliate = find_active_by_code(code)
+    RefCodesPresenter.new(affiliate)
+  end
+
+  def self.all_with_unpaid_commissions
+    includes(:user).where('exported_btc_commission > 0')
+  end
+
+  def self.mark_all_exported_commissions_as_paid
+    update_all(
+      'paid_btc_commission = paid_btc_commission + exported_btc_commission, '\
+      'exported_btc_commission = 0'
+    )
+  end
+
+  def self.total_waiting
+    where(btc_address: [nil, '']).sum(:unexported_btc_commission)
+  end
+
+  def self.total_unexported
+    where.not(btc_address: [nil, '']).sum(:unexported_btc_commission)
+  end
+
+  def self.total_exported
+    sum(:exported_btc_commission)
+  end
+
+  def self.total_paid
+    sum(:paid_btc_commission)
+  end
+
   def code=(val)
     self[:code] = val.upcase
   end

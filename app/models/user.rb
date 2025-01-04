@@ -101,7 +101,7 @@ class User < ApplicationRecord
   end
 
   def active_referrer
-    return if referrer_id.nil? || AffiliatesRepository.new.active?(id: referrer_id)
+    return if referrer_id.nil? || Affiliate.find(referrer_id).active?
 
     errors.add(:referrer, :invalid)
   end
