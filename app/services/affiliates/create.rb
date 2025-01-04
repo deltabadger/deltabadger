@@ -1,7 +1,6 @@
 module Affiliates
   class Create < ::BaseService
     DEFAULT_AFFILIATE_PARAMS = {
-      max_profit: Affiliate::DEFAULT_MAX_PROFIT,
       total_bonus_percent: Affiliate::DEFAULT_BONUS_PERCENT
     }.freeze
 
