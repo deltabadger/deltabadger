@@ -16,7 +16,7 @@ class GrantAffiliateCommissionJob < ApplicationJob
 
     send_registration_reminder(affiliate, btc_commission_amount) if affiliate.btc_address.blank?
     User.transaction do
-      payment.update!(btc_commission: btc_commission_amount)
+      payment.update!(btc_commission: btc_commission_amount, commission_granted: true)
       affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission_amount)
     end
   end
