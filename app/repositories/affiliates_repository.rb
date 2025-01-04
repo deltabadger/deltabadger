@@ -19,12 +19,6 @@ class AffiliatesRepository < BaseRepository
     RefCodesPresenter.new(affiliate)
   end
 
-  def active?(id:)
-    affiliate = model.active.where(id: id).first
-
-    affiliate&.user&.unlimited?
-  end
-
   def all_with_unpaid_commissions
     model.includes(:user).where('exported_btc_commission > 0')
   end
