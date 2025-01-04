@@ -8,11 +8,12 @@ class AssignBtcCommissionJob < ApplicationJob
     fiat_commission = payment.commission
     btc_price = get_btc_price(quote: payment.currency)
     btc_commission = (fiat_commission / btc_price).ceil(8)
-    payment.update!(btc_commission: btc_commission)
-
     affiliate = payment.user.referrer
     previous_btc_commission = affiliate.unexported_btc_commission
-    affiliate.update!(unexported_btc_commission: previous_btc_commission + btc_commission)
+    User.transaction do
+      payment.update!(btc_commission: btc_commission)
+      affiliate.update!(unexported_btc_commission: previous_btc_commission + btc_commission)
+    end
   end
 
   private
@@ -23,9 +24,11 @@ class AssignBtcCommissionJob < ApplicationJob
 
   def get_btc_price(quote:)
     quote = quote.downcase
-    result = @client.simple_price(['bitcoin'], [quote])
-    raise StandardError, result.errors if result.failure?
+    Rails.cache.fetch("btc_price_#{quote}", expires_in: 1.minute) do
+      result = @client.simple_price(['bitcoin'], [quote])
+      raise StandardError, result.errors if result.failure?
 
-    Utilities::Hash.dig_or_raise(result.data, 'bitcoin', quote)
+      Utilities::Hash.dig_or_raise(result.data, 'bitcoin', quote)
+    end
   end
 end
