@@ -29,6 +29,13 @@ class User < ApplicationRecord
   include Sendgridable
   include Upgradeable
 
+  # User/Affiliate relationship:
+  # A user can be an affiliate to refer other users
+  # A user can be referred by another affiliate
+  # From the affiliate's perspective, the user is a referral
+  # From the referral's perspective, the affiliate is the referrer
+  # A user can be both an affiliate (or referrer) and a referral
+
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :desc).first
   end
