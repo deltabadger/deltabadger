@@ -14,11 +14,11 @@ class GrantAffiliateCommissionJob < ApplicationJob
     btc_commission_amount = btc_commission(payment)
     return if btc_commission_amount.zero?
 
+    send_registration_reminder(affiliate, btc_commission_amount) if affiliate.btc_address.blank?
     User.transaction do
       payment.update!(btc_commission: btc_commission_amount)
       affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission_amount)
     end
-    send_registration_reminder(affiliate, btc_commission_amount) if affiliate.btc_address.blank?
   end
 
   private
@@ -45,5 +45,12 @@ class GrantAffiliateCommissionJob < ApplicationJob
       btc_price = get_btc_price(quote: payment.currency)
       (payment.commission / btc_price).floor(8)
     end
+  end
+
+  def send_registration_reminder(affiliate, amount)
+    AffiliateMailer.with(
+      referrer: affiliate,
+      amount: amount
+    ).registration_reminder.deliver_later
   end
 end
