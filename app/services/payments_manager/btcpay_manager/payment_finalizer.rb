@@ -8,7 +8,6 @@ module PaymentsManager
 
       def initialize
         @notifications = Notifications::Subscription.new
-        @grant_commission = Affiliates::GrantCommission.new
       end
 
       def call(invoice)
@@ -23,16 +22,14 @@ module PaymentsManager
           btc_paid: params['btcPaid']
         }
         update_params.merge!(status: status) unless payment.paid?
-        if just_paid
-          update_params.merge!(paid_at: paid_at(params),
-                               btc_commission: recalculate_btc_commission(params, payment))
-        end
+        update_params.merge!(paid_at: paid_at(params)) if just_paid
         return Result::Failure.new('ActiveRecord error', data: update_params) unless payment.update(update_params)
 
         return Result::Failure.new('Still not paid') unless just_paid
 
         @notifications.invoice(payment: payment)
-        @grant_commission.call(referral: payment.user, payment: payment)
+
+        GrantAffiliateCommissionJob.perform_later(payment.id)
 
         PaymentsManager::SubscriptionUpgrader.call(payment)
       end
@@ -63,12 +60,6 @@ module PaymentsManager
 
       def paid_at(params)
         Time.at(params['currentTime'] / 1000)
-      end
-
-      def recalculate_btc_commission(params, payment)
-        return 0 if Utilities::Number.to_bigdecimal(payment.btc_total, precision: 8).zero?
-
-        params['btcPaid'].to_f / payment.btc_total * payment.btc_commission
       end
     end
   end

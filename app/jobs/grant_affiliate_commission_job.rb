@@ -5,16 +5,20 @@ class GrantAffiliateCommissionJob < ApplicationJob
 
   def perform(payment_id)
     payment = Payment.find(payment_id)
-    fiat_commission = payment.commission
-    btc_price = get_btc_price(quote: payment.currency)
-    btc_commission = (fiat_commission / btc_price).ceil(8)
+    return if payment.commission.zero?
+
     affiliate = payment.user.referrer
-    previous_btc_commission = affiliate.unexported_btc_commission
+    return unless affiliate.active?
+
+    previous_unexported_btc_commission = affiliate.unexported_btc_commission
+    btc_commission_amount = btc_commission(payment)
+    return if btc_commission_amount.zero?
+
     User.transaction do
-      payment.update!(btc_commission: btc_commission)
-      affiliate.update!(unexported_btc_commission: previous_btc_commission + btc_commission)
+      payment.update!(btc_commission: btc_commission_amount)
+      affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission_amount)
     end
-    send_registration_reminder(affiliate, btc_commission) if affiliate.btc_address.blank?
+    send_registration_reminder(affiliate, btc_commission_amount) if affiliate.btc_address.blank?
   end
 
   private
@@ -30,6 +34,16 @@ class GrantAffiliateCommissionJob < ApplicationJob
       raise StandardError, result.errors if result.failure?
 
       Utilities::Hash.dig_or_raise(result.data, 'bitcoin', quote)
+    end
+  end
+
+  def btc_commission(payment)
+    if payment.by_bitcoin?
+      commission_multiplier = payment.commission / payment.total
+      (payment.btc_paid * commission_multiplier).floor(8)
+    else
+      btc_price = get_btc_price(quote: payment.currency)
+      (payment.commission / btc_price).floor(8)
     end
   end
 end
