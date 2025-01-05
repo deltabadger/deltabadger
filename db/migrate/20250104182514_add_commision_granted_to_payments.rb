@@ -2,10 +2,10 @@ class AddCommisionGrantedToPayments < ActiveRecord::Migration[6.0]
   def up
     add_column :payments, :commission_granted, :boolean, default: false
 
-    Payment.find_each do |payment|
+    Payment.find_each do |record|
       # When this migration was created, all commissions were granted
-      if payment.commission.positive?
-        payment.update!(commission_granted: true)
+      if record.commission.positive?
+        record.update_column(:commission_granted, true)
       end
     end
   end
