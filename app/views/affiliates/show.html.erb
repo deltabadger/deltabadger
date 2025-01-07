@@ -46,27 +46,13 @@
   <div class="column gap-2">
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.link_title') %></h4>
-      <div class="db-form__row db-form__row--input mb-0">
-        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: affiliate.code, locale: nil) %>" readonly="readonly">
+      <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
+        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
         <label class="db-form__label"><%= t('.your_link') %></label>
-        <div class="db-unmask" onclick="copyText()" title="Copy to clipboard">
+        <div class="db-unmask" title="Copy to clipboard" data-action="click->clipboard#copy">
           <%= render "layouts/svg_copy_to_clipboard" %>
-          <script>
-            async function copyText() {
-              var refLink = document.getElementById("referralLink");
-              refLink.focus();
-              refLink.select();
-              try{
-                await navigator.clipboard.writeText(refLink.value).then(() =>{
-                  document.getElementById('copyAlert').style.visibility = 'visible';
-                });
-              } catch(err) {
-                return
-              }
-            }
-          </script>
         </div>
-        <div class="db-form__info db-form__info text-success" id="copyAlert" style="visibility: hidden" visible="false">
+        <div class="db-form__info db-form__info text-success" id="copyAlert" style="visibility: hidden" data-clipboard-target="alert">
           <%= t('referral.copied') %>
         </div>
       </div>

@@ -10,14 +10,12 @@
         <%= image_tag "bitcoin.svg", alt: "", class: "db-card-providers__item db-card-providers__item--bitcoin" %>
       </h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
-        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
-        <label class="db-form__label">
-          <%= t('affiliates.show.your_link') %>
-        </label>
-        <div class="db-unmask" title="Copy to clipboard" data-action="click->clipboard#copy" >
+        <input class="db-form__input" id="referralLink" type="text" value="<%= @reflink %>" readonly="readonly" data-clipboard-target="input">
+        <label class="db-form__label"><%= t('affiliates.show.your_link') %></label>
+        <div class="db-unmask" title="Copy to clipboard" data-action="click->clipboard#copy">
           <%= render "layouts/svg_copy_to_clipboard" %>
         </div>
-        <div class="db-form__info db-form__info text-success" id="copyAlert" style="visibility: hidden" data-clipboard-target="alert" >
+        <div class="db-form__info db-form__info text-success" id="copyAlert" style="visibility: hidden" data-clipboard-target="alert">
           <%= t('referral.copied') %>
         </div>
       </div>
