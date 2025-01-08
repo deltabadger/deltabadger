@@ -10,22 +10,24 @@ module Charts::PortfolioValueOverTime
 
     def query
       <<~SQL
-        with data as (
-          select
+        with daily_data as (
+          select distinct on (date_trunc('day', created_at))
+            date_trunc('day', created_at) as day,
             created_at,
             rate * amount as invested,
-            rate,
-            amount
+            amount,
+            rate
           from daily_transaction_aggregates
           where bot_id = ? and status = 0
+          order by date_trunc('day', created_at), created_at desc
         ),
         windowed_data as (
           select
-            created_at,
-            sum(invested) over (order by created_at asc) as total_invested,
-            sum(amount) over (order by created_at asc) as total_accumulated,
+            day as created_at,
+            sum(invested) over (order by day asc) as total_invested,
+            sum(amount) over (order by day asc) as total_accumulated,
             rate
-          from data
+          from daily_data
         )
 
         select
@@ -34,7 +36,7 @@ module Charts::PortfolioValueOverTime
           rate * total_accumulated as current_value,
           total_accumulated
         from windowed_data
-
+        order by created_at asc
       SQL
     end
 
