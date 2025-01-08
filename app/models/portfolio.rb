@@ -63,9 +63,9 @@ class Portfolio < ApplicationRecord
     @smart_allocations ||= begin
       smart_allocations_result = PortfolioAnalyzerManager::SmartAllocationsGetter.call(self)
       if smart_allocations_result.failure?
-        Rails.logger.error("Smart allocations error: #{smart_allocations_result.error} for assets #{assets.map(&:api_id)}")
-        # all allocations as 0 if there is an error
-        self.class.risk_levels.keys.map { |_| [assets.map { |a| [a.api_id, 0] }.to_h] }
+        Rails.logger.error("Smart allocations error: #{smart_allocations_result.errors} for assets #{assets.map(&:api_id)}")
+        # set all allocations as 0 if there is an API error
+        self.class.risk_levels.keys.map { |_| assets.map { |a| [a.api_id, 0] }.to_h }
       else
         smart_allocations_result.data
       end
