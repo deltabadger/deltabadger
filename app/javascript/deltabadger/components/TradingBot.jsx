@@ -336,6 +336,25 @@ const BotTemplate = ({
     }
   }, [bot.stats]);
 
+  // Add useEffect to update values when bot changes
+  useEffect(() => {
+    if (bot) {
+      const { settings } = bot;
+      setType(settings.order_type || defaultSettings.order_type);
+      setPrice(settings.price || defaultSettings.price);
+      setPercentage(settings.percentage !== undefined ? settings.percentage : defaultSettings.percentage);
+      setInterval(settings.interval || defaultSettings.interval);
+      setForceSmartIntervals(settings.force_smart_intervals !== undefined ? settings.force_smart_intervals : defaultSettings.force_smart_intervals);
+      setSmartIntervalsValue(settings.smart_intervals_value !== undefined ? settings.smart_intervals_value : defaultSettings.smart_intervals_value);
+      setCurrencyOfMinimum(settings.quote || defaultSettings.quote);
+      setPriceRangeEnabled(settings.price_range_enabled !== undefined ? settings.price_range_enabled : defaultSettings.price_range_enabled);
+      setPriceRange({ 
+        low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(), 
+        high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString() 
+      });
+    }
+  }, [bot?.id]); // Only run when bot ID changes
+
   if (tileMode) {
     // Calculate profit/loss before rendering
     const profitLoss = bot.stats && {

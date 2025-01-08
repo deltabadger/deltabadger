@@ -301,6 +301,21 @@ const BotTemplate = ({
   const webhookUrl = `${window.location.origin}/h/${triggerUrl}`;
   const additionalWebhookUrl = `${window.location.origin}/h/${settings.additional_trigger_url}`;
 
+  // Add useEffect to update values when bot changes
+  useEffect(() => {
+    if (bot) {
+      const { settings } = bot;
+      setType(settings.type);
+      setName(settings.name);
+      setAdditionalType(settings.additional_type || (settings.type === 'buy' || settings.type === 'buy_all' ? 'sell' : 'buy'));
+      setPrice(settings.price);
+      setAdditionalPrice(settings.additional_price);
+      setCurrencyOfMinimum(settings.quote);
+      setTriggerPossibility(settings.trigger_possibility);
+      setAdditionalTypeEnabled(settings.additional_type_enabled || false);
+    }
+  }, [bot?.id]); // Only run when bot ID changes
+
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--webhook db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
