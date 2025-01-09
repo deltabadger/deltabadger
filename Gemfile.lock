@@ -485,9 +485,9 @@ GEM
     stimulus-rails (1.3.4)
       railties (>= 6.0.0)
     stringio (3.1.1)
-    telegram-bot (0.15.7)
-      actionpack (>= 4.0, < 7.1)
-      activesupport (>= 4.0, < 7.1)
+    telegram-bot (0.16.6)
+      actionpack (>= 4.0, < 8.1)
+      activesupport (>= 4.0, < 8.1)
       httpclient (~> 2.7)
     temple (0.10.2)
     thor (1.3.1)
@@ -592,7 +592,7 @@ DEPENDENCIES
   spring-commands-rspec
   spring-watcher-listen (~> 2.1.0)
   stimulus-rails (~> 1.3.4)
-  telegram-bot (~> 0.15.6)
+  telegram-bot (~> 0.16.0)
   turbo-rails (~> 2.0.11)
   tzinfo-data
   uglifier (>= 1.3.0)
