@@ -22,6 +22,7 @@ module Affiliates
 
       affiliate = if affiliate.present?
                     affiliate.update!(affiliate_params.merge(old_code_params(affiliate)))
+                    affiliate
                   else
                     Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
                   end
