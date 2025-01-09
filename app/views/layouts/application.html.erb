@@ -30,19 +30,13 @@
       </script>
     <% end %>
     <script>
-      // referral program registration
+      // referral program registration - TODO: Remove and use hotwire turboframes
       $(document).ready(function() {
         $(".radio--eu-company").click(function() {
           $(".db-form-group--eu-company").addClass("db-form-group--eu-company__visible");
         });
         $(".radio--private").click(function() {
           $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
-        });
-        $(".db-form-control-range--discount-ratio").on('input', function(e) {
-          var discountPercent = Math.round(e.target.value * 100);
-          var earnPercent = Math.round((e.target.dataset.sum - e.target.value) * 100);
-          $(".db-form-label-range--discount-percent").text(discountPercent);
-          $(".db-form-label-range--earn-percent").text(earnPercent);
         });
         $(".db-form-control-text--visible_name").on('input', function(e) {
           if (!e.target) return;
