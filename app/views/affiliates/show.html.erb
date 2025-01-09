@@ -1,5 +1,5 @@
 <% content_for :body_class, ".view--referral-program" %>
-<% unless affiliate_active %>
+<% unless @affiliate.active? %>
   <div class="alert alert-secondary db-alert--flex">
     <span><%= t('.deactivated.notice') %></span>
 
@@ -15,7 +15,7 @@
 <div class="columns">
   <div class="column gap-2">
     <div class="db-referral-stats">
-      <% stats = Presenters::Affiliates::ReferrerStats.new(affiliate) %>
+      <% stats = Presenters::Affiliates::ReferrerStats.new(@affiliate) %>
       <div class="db-referral-stats__item">
         <div class="db-referral-stats__item__title">
           <%= t('.referrals') %>
@@ -47,7 +47,7 @@
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.link_title') %></h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
-        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
+        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: @affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
         <label class="db-form__label"><%= t('.your_link') %></label>
         <div class="db-unmask" title="Copy to clipboard" data-action="click->clipboard#copy">
           <%= render "layouts/svg_copy_to_clipboard" %>
@@ -60,12 +60,12 @@
 
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.update_info') %></h4>
-      <% presenter = RefCodesPresenter.new(affiliate) %>
+      <% presenter = RefCodesPresenter.new(@affiliate) %>
       <p><%= t('affiliates.info_preview') %></p>
-      <%= render partial: 'ref_codes/show', locals: { affiliate: affiliate } %>
+      <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
       <p class="mb-4"><%= t('affiliates.add_link_info') %></p>
 
-      <%= form_with model: affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f| %>
+      <%= form_with model: @affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f| %>
         <div class="db-form__row db-form__row--input">
           <%= f.text_field :visible_name, class: 'db-form__input' %>
           <label class="db-form__label"><%= t('helpers.label.affiliate.visible_name') %></label>
@@ -85,23 +85,17 @@
 
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.update_bitcoin_address') %></h4>
-      <%= form_with model: affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f| %>
+      <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f| %>
         <div class="db-form__row db-form__row--input">
-          <%= f.password_field :current_address, disabled: true, type: 'text', autocomplete: 'nope', value: affiliate.btc_address, class: 'db-form__input' %>
+          <%= f.password_field :current_address, disabled: true, type: 'text', autocomplete: 'off', value: @affiliate.btc_address, class: 'db-form__input' %>
           <%= f.label :current_address, t('affiliates.current_bitcoin_address'), class: 'db-form__label' %>
         </div>
         <div class="db-form__row db-form__row--input">
-          <%= f.text_field :btc_address, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);' %>
-          <div class="db-form__info db-form__info--invalid">
-            <%= t('affiliates.invalid_bitcoin_address') %>
-          </div>
+          <%= f.text_field :btc_address, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'off', class: 'db-form__input' %>
           <%= f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label' %>
         </div>
         <div class="db-form__row db-form__row--input">
-          <%= f.password_field :current_password, type: 'password', autocomplete: 'nope', value: '', class: 'db-form__input', onchange: 'this.setAttribute("value", this.value);' %>
-          <div class="db-form__info db-form__info--invalid">
-            Password is invalid
-          </div>
+          <%= f.password_field :current_password, type: 'password', autocomplete: 'off', class: 'db-form__input' %>
           <%= f.label :current_password, t('helpers.label.user.current_password'), class: 'db-form__label' %>
         </div>
 

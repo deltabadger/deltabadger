@@ -9,12 +9,12 @@ class AffiliatesController < ApplicationController
     Affiliates::Create::EU_COMPANY_PERMITTED_PARAMS
   ).freeze
 
-  def show
-    render :show, locals: default_show_locals.merge(affiliate: affiliate)
-  end
+  def show; end
 
   def new
-    render :new, locals: { affiliate: Affiliate.new, errors: [] }
+    @affiliate = Affiliate.new
+    @presenter = Presenters::Affiliates::New.new(@affiliate)
+    @reflink = ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, locale: nil)
   end
 
   def create
@@ -24,37 +24,37 @@ class AffiliatesController < ApplicationController
     )
 
     if result.success?
+      Rails.logger.info("Affiliate created for user #{current_user.email}")
       redirect_to affiliate_path, flash: { notice: t('affiliates.program_joined') }
     else
-      render :new, locals: {
-        affiliate: result.data || Affiliate.new(affiliate_params.permit(ALL_PERMITTED_PARAMS)),
-        errors: result.errors
-      }
+      Rails.logger.error("Affiliate creation failed for user #{current_user.email}")
+      @affiliate = current_user.affiliate
+      @presenter = Presenters::Affiliates::New.new(@affiliate)
+      @reflink = ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, locale: nil)
+      render :new, status: :unprocessable_entity
     end
   end
 
   def update_visible_info
-    Affiliates::UpdateVisibleInfo.call(affiliate: affiliate, params: params[:affiliate])
+    Affiliates::UpdateVisibleInfo.call(affiliate: @affiliate, params: params[:affiliate])
 
-    render :show, locals: default_show_locals.merge(affiliate: affiliate)
+    render :show
   end
 
   def update_btc_address
     btc_address = params[:affiliate][:btc_address]
-    result = Affiliates::UpdateBtcAddress.call(affiliate: affiliate, new_btc_address: btc_address)
+    result = Affiliates::UpdateBtcAddress.call(affiliate: @affiliate, new_btc_address: btc_address)
 
     if result.success?
       flash[:notice] = t('affiliates.btc_address_confirmation_sent')
-      render :show, locals: default_show_locals.merge(affiliate: affiliate)
+      render :show
     else
-      render :show, locals: default_show_locals.merge(
-        affiliate: result.data || affiliate, errors: result.errors
-      )
+      render :show, status: :unprocessable_entity
     end
   end
 
   def confirm_btc_address
-    result = Affiliates::ConfirmBtcAddress.call(affiliate: affiliate, token: params[:token])
+    result = Affiliates::ConfirmBtcAddress.call(affiliate: @affiliate, token: params[:token])
 
     if result.success?
       redirect_to affiliate_path, flash: { notice: t('affiliates.btc_address_changed') }
@@ -64,8 +64,6 @@ class AffiliatesController < ApplicationController
   end
 
   private
-
-  attr_reader :affiliate
 
   def fetch_affiliate!
     @affiliate = current_user.affiliate
@@ -82,22 +80,12 @@ class AffiliatesController < ApplicationController
     confirmation_password = params[:affiliate][:current_password]
     return if current_user.valid_password?(confirmation_password)
 
-    affiliate.errors.add(:current_password, 'is incorrect.')
+    @affiliate.errors.add(:current_password, 'is incorrect.')
 
-    render :show, locals: default_show_locals.merge(
-      affiliate: affiliate, errors: affiliate.errors.full_messages
-    )
-  end
-
-  def default_show_locals
-    {
-      errors: [],
-      affiliate_active: affiliate.active?
-    }
+    render :show, status: :unprocessable_entity
   end
 
   def affiliate_params
-    params
-      .require(:affiliate)
+    params.require(:affiliate)
   end
 end
