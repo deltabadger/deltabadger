@@ -72,7 +72,7 @@ end
 
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
-gem "telegram-bot", "~> 0.15.6"
+gem "telegram-bot", "~> 0.16.0"
 gem "faraday-net_http_persistent", "~> 2.3.0"
 
 gem "turbo-rails", "~> 2.0.11"
