@@ -87,8 +87,7 @@ class Affiliate < ApplicationRecord
   private
 
   def valid_btc_address
-    return if btc_address.nil? || ::Bitcoin.valid_address?(btc_address)
-
-    errors.add(:btc_address, :invalid)
+    valid_address = btc_address.nil? || ::Bitcoin.valid_address?(btc_address)
+    errors.add(:btc_address, :invalid) unless valid_address
   end
 end
