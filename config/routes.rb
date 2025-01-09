@@ -76,11 +76,11 @@ Rails.application.routes.draw do
       post 'signup', to: 'users/registrations#create', as: 'user_registration'
     end
 
-    resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
+    resource :affiliate, path: 'referral-program', only: [:new, :show] do
       get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
       patch :update_visible_info
       patch :update_btc_address
-      patch :new, to: 'affiliates#new'
+      # patch :new, to: 'affiliates#new'
       patch :create, to: 'affiliates#create'
     end
 
