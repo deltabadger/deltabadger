@@ -19,6 +19,7 @@ module ExchangeApi
           @map_errors = map_errors
         end
 
+        # https://docs.cdp.coinbase.com/advanced-trade/docs/api-overview
         API_URL = 'https://api.coinbase.com'.freeze
 
         # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
@@ -40,7 +41,7 @@ module ExchangeApi
               rate = parsed_response.dig('order', 'order_configuration', 'limit_limit_gtc', 'limit_price')&.to_f
             end
 
-            if amount.nil? || rate.nil? || (market_order?(parsed_response) && !filled?(parsed_response))
+            if amount.nil? || rate.nil? || (market_order?(parsed_response) && !filled?(parsed_response)) && !coinbase_engine_error?(parsed_response)
               Rails.logger.info 'Waiting for Coinbase response'
               sleep 0.5
               return fetch_order_by_id(order_id)
@@ -143,6 +144,10 @@ module ExchangeApi
 
         def filled?(parsed_response)
           parsed_response.dig('order', 'completion_percentage')&.to_i == 100
+        end
+
+        def coinbase_engine_error?(parsed_response)
+          parsed_response.dig('order', 'cancel_message') == "Internal error"
         end
       end
     end
