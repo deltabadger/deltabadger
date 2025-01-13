@@ -37,7 +37,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
       end
     end
 
-    # Prevent flash message with t(signed_up_but_unconfirmed) for unconfirmed accounts.
+    # Prevent flash message with t('signed_up_but_unconfirmed') for unconfirmed accounts.
     # The view already has all the info nad the flash message is redundant.
     if resource.persisted? && !resource.active_for_authentication?
       flash.delete(:notice)
