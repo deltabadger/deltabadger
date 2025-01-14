@@ -9,20 +9,15 @@ module Presenters
         return {} if transactions.empty?
 
         market = @get_exchange_market.call(bot.exchange_id)
-
         market_symbol = market.symbol(bot.base, bot.quote)
         current_price_result = market.current_price(market_symbol)
         current_price = current_price_result.or(transactions.last.rate)
 
-        transactions_amount_sum = 0
-        total_invested = 0
+        daily_aggregates = bot.daily_transaction_aggregates
 
-        transactions.each do |transaction|
-          transactions_amount_sum += transaction.amount
-          total_invested += transaction.price
-        end
+        transactions_amount_sum = daily_aggregates.sum(:amount)
+        total_invested = daily_aggregates.sum { |agg| agg.amount * agg.rate }
 
-        total_invested = total_invested.ceil(8)
         average_price = total_invested / transactions_amount_sum
         current_value = current_price * transactions_amount_sum
 

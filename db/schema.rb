@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2024_11_10_144246) do
+ActiveRecord::Schema.define(version: 2025_01_04_182514) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -25,7 +25,6 @@ ActiveRecord::Schema.define(version: 2024_11_10_144246) do
     t.string "code", null: false
     t.string "visible_name"
     t.string "visible_link"
-    t.decimal "max_profit", precision: 12, scale: 2, null: false
     t.decimal "discount_percent", precision: 3, scale: 2, null: false
     t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
     t.datetime "created_at", null: false
@@ -172,6 +171,7 @@ ActiveRecord::Schema.define(version: 2024_11_10_144246) do
     t.string "country", null: false
     t.integer "payment_type", null: false
     t.boolean "gads_tracked", default: false
+    t.boolean "commission_granted", default: false
     t.index ["currency"], name: "index_payments_on_currency"
     t.index ["payment_type"], name: "index_payments_on_payment_type"
     t.index ["status"], name: "index_payments_on_status"
@@ -234,7 +234,6 @@ ActiveRecord::Schema.define(version: 2024_11_10_144246) do
     t.datetime "first_month_ending_sent_at"
     t.integer "nft_id"
     t.string "eth_address"
-    t.index ["end_time"], name: "index_subscriptions_on_end_time"
     t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
     t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
@@ -279,7 +278,6 @@ ActiveRecord::Schema.define(version: 2024_11_10_144246) do
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_dismissed", default: false
     t.bigint "referrer_id"
-    t.decimal "current_referrer_profit", default: "0.0", null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "pending_wire_transfer"
     t.integer "pending_plan_variant_id"

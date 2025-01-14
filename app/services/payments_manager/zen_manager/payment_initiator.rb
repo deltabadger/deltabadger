@@ -8,9 +8,7 @@ module PaymentsManager
         update_params = {
           payment_id: payment_url_result.data[:payment_url].split('/').last
         }
-        unless payment.update(update_params)
-          return Result::Failure.new('ActiveRecord error', data: update_params)
-        end
+        return Result::Failure.new('ActiveRecord error', data: update_params) unless payment.update(update_params)
 
         payment_url_result
       end

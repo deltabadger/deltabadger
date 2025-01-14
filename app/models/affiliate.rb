@@ -1,5 +1,4 @@
 class Affiliate < ApplicationRecord
-  DEFAULT_MAX_PROFIT = ENV.fetch('AFFILIATE_DEFAULT_MAX_PROFIT').to_f
   DEFAULT_BONUS_PERCENT = ENV.fetch('AFFILIATE_DEFAULT_BONUS_PERCENT').to_f
   DEFAULT_DISCOUNT_PERCENT = ENV.fetch('AFFILIATE_DEFAULT_DISCOUNT_PERCENT').to_f
   MIN_DISCOUNT_PERCENT = ENV.fetch('AFFILIATE_MIN_DISCOUNT_PERCENT').to_f
@@ -21,7 +20,7 @@ class Affiliate < ApplicationRecord
                       with: /\A[A-Z0-9]+\z/,
                       message: :invalid_format
   validates_uniqueness_of :code
-  validates :max_profit, :discount_percent, :total_bonus_percent,
+  validates :discount_percent, :total_bonus_percent,
             numericality: { greater_than_or_equal_to: 0 }
   validates :total_bonus_percent, numericality: { less_than_or_equal_to: 1 }
   validates :discount_percent, numericality: {
@@ -35,6 +34,48 @@ class Affiliate < ApplicationRecord
 
   attr_reader :check
 
+  def self.find_active_by_code(code)
+    return unless code.present?
+
+    code = code.upcase
+    affiliate = active.find_by(code: code) || active.find_by(old_code: code)
+    affiliate if affiliate&.user.present?
+  end
+
+  def self.get_code_presenter(code)
+    return unless code.present?
+
+    affiliate = find_active_by_code(code)
+    RefCodesPresenter.new(affiliate)
+  end
+
+  def self.all_with_unpaid_commissions
+    includes(:user).where('exported_btc_commission > 0')
+  end
+
+  def self.mark_all_exported_commissions_as_paid
+    update_all(
+      'paid_btc_commission = paid_btc_commission + exported_btc_commission, '\
+      'exported_btc_commission = 0'
+    )
+  end
+
+  def self.total_waiting
+    where(btc_address: [nil, '']).sum(:unexported_btc_commission)
+  end
+
+  def self.total_unexported
+    where.not(btc_address: [nil, '']).sum(:unexported_btc_commission)
+  end
+
+  def self.total_exported
+    sum(:exported_btc_commission)
+  end
+
+  def self.total_paid
+    sum(:paid_btc_commission)
+  end
+
   def code=(val)
     self[:code] = val.upcase
   end
@@ -46,8 +87,7 @@ class Affiliate < ApplicationRecord
   private
 
   def valid_btc_address
-    return if btc_address.nil? || ::Bitcoin.valid_address?(btc_address)
-
-    errors.add(:btc_address, :invalid)
+    valid_address = btc_address.nil? || ::Bitcoin.valid_address?(btc_address)
+    errors.add(:btc_address, :invalid) unless valid_address
   end
 end

@@ -16,12 +16,24 @@ class MetricsRepository < BaseRepository
       takenLegendaryBadgersNftIds: Subscription.used_nft_ids,
       claimedLegendaryBadgersNftIds: Subscription.claimed_nft_ids,
       dca4yrProfitBtc: DcaProfitGetter.call('btc', 4.years.ago).data,
-      dca4yrProfitSp500: DcaProfitGetter.call('gspc', 4.years.ago).data,
-      dca4yrProfitVti: DcaProfitGetter.call('vti', 4.years.ago).data,
+      dca4yrProfitEth: DcaProfitGetter.call('eth', 4.years.ago).data,
+      dca4yrProfitXrp: DcaProfitGetter.call('xrp', 4.years.ago).data,
+      dca4yrProfitSol: DcaProfitGetter.call('sol', 4.years.ago).data,
+      dca4yrProfitBnb: DcaProfitGetter.call('bnb', 4.years.ago).data,
+      dca4yrProfitDoge: DcaProfitGetter.call('doge', 4.years.ago).data,
+      dca4yrProfitAda: DcaProfitGetter.call('ada', 4.years.ago).data,
+      dca4yrProfitTrx: DcaProfitGetter.call('trx', 4.years.ago).data,
+      dca4yrProfitAvax: DcaProfitGetter.call('avax', 4.years.ago).data,
+      dca4yrProfitLink: DcaProfitGetter.call('link', 4.years.ago).data,
+      dca4yrProfitShib: DcaProfitGetter.call('shib', 4.years.ago).data,
+      dca4yrProfitTon: DcaProfitGetter.call('ton', 4.years.ago).data,
+      # dca4yrProfitSp500: DcaProfitGetter.call('gspc', 4.years.ago).data,
+      dca4yrProfitVoo: DcaProfitGetter.call('voo', 4.years.ago).data,
+      # dca4yrProfitVti: DcaProfitGetter.call('vti', 4.years.ago).data,
       dca4yrProfitVt: DcaProfitGetter.call('vt', 4.years.ago).data,
       dca4yrProfitQqq: DcaProfitGetter.call('qqq', 4.years.ago).data,
-      dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data,
-      dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
+      dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data
+      # dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)
   end

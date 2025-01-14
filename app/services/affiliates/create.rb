@@ -1,7 +1,6 @@
 module Affiliates
   class Create < ::BaseService
     DEFAULT_AFFILIATE_PARAMS = {
-      max_profit: Affiliate::DEFAULT_MAX_PROFIT,
       total_bonus_percent: Affiliate::DEFAULT_BONUS_PERCENT
     }.freeze
 
@@ -22,10 +21,8 @@ module Affiliates
       set_code(affiliate, affiliate_params) if affiliate_params[:code].blank?
 
       affiliate = if affiliate.present?
-                    AffiliatesRepository.new.update(
-                      affiliate.id,
-                      affiliate_params.merge(old_code_params(affiliate))
-                    )
+                    affiliate.update!(affiliate_params.merge(old_code_params(affiliate)))
+                    affiliate
                   else
                     Affiliate.new(affiliate_params.merge(DEFAULT_AFFILIATE_PARAMS))
                   end

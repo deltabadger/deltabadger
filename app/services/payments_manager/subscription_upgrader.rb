@@ -1,7 +1,7 @@
 module PaymentsManager
   class SubscriptionUpgrader < BaseService
     def call(payment)
-      current_plan_name = payment.user.subscription.name
+      previous_plan_name = payment.user.subscription.name
       new_plan_name = payment.subscription_plan.name
 
       plan_subscriber_result = PaymentsManager::PlanSubscriber.call(payment: payment)
@@ -15,7 +15,7 @@ module PaymentsManager
         return Result::Failure.new(payment.user.errors.full_messages.join(', '), data: update_params)
       end
 
-      SendgridMailToList.new.change_plan_list(payment.user, current_plan_name, new_plan_name)
+      payment.user.change_sendgrid_plan_list(previous_plan_name, new_plan_name)
 
       Result::Success.new
     end

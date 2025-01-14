@@ -250,36 +250,44 @@ const BotTemplate = ({
     }
   }
 
-  const keyOwned = (status) => status === 'correct'
-  const keyPending = (status) => status === 'pending'
-  const keyInvalid = (status) => status === 'incorrect'
+  const keyOwned = (status) => status === 'correct';
+  const keyPending = (status) => status === 'pending';
+  const keyInvalid = (status) => status === 'incorrect';
 
   const keyExists = () => {
     // we have to assume that the key exists to fix unnecessary form rendering
-    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true}
-    const keyStatus = exchange.trading_key_status
+    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true};
+    const keyStatus = exchange.trading_key_status;
 
-    // debugger
-
-    setApiKeyExists(keyOwned(keyStatus))
+    setApiKeyExists(keyOwned(keyStatus));
 
     if (keyOwned(keyStatus)) {
-      clearTimeout(apiKeyTimeout)
-
+      // No need for timeout
     } else if (keyPending(keyStatus)) {
-      setApiKeysState(apiKeyStatus["VALIDATING"])
-      clearTimeout(apiKeyTimeout)
-      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
-
+      setApiKeysState(apiKeyStatus["VALIDATING"]);
     } else if (keyInvalid(keyStatus)) {
-      clearTimeout(apiKeyTimeout)
-      setApiKeysState(apiKeyStatus["INVALID"])
+      setApiKeysState(apiKeyStatus["INVALID"]);
     }
-  }
+    
+    return keyStatus;
+  };
 
+  // Move useEffect outside of keyExists
   useEffect(() => {
-    keyExists()
-  }, [exchanges]);
+    const keyStatus = keyExists();
+    let timeoutId;
+
+    if (keyPending(keyStatus)) {
+      timeoutId = setTimeout(() => fetchExchanges(), 3000);
+    }
+
+    // Cleanup function
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [exchanges, fetchExchanges]);
 
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
@@ -292,6 +300,21 @@ const BotTemplate = ({
 
   const webhookUrl = `${window.location.origin}/h/${triggerUrl}`;
   const additionalWebhookUrl = `${window.location.origin}/h/${settings.additional_trigger_url}`;
+
+  // Add useEffect to update values when bot changes
+  useEffect(() => {
+    if (bot) {
+      const { settings } = bot;
+      setType(settings.type);
+      setName(settings.name);
+      setAdditionalType(settings.additional_type || (settings.type === 'buy' || settings.type === 'buy_all' ? 'sell' : 'buy'));
+      setPrice(settings.price);
+      setAdditionalPrice(settings.additional_price);
+      setCurrencyOfMinimum(settings.quote);
+      setTriggerPossibility(settings.trigger_possibility);
+      setAdditionalTypeEnabled(settings.additional_type_enabled || false);
+    }
+  }, [bot?.id]); // Only run when bot ID changes
 
   return (
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--webhook db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>

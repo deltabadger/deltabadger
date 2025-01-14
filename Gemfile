@@ -38,7 +38,7 @@ gem 'bitcoin-ruby', git: 'https://github.com/lian/bitcoin-ruby', branch: 'master
 gem 'i18n-js', '~> 3.8.0'
 gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
-gem 'bundler', '>= 2.3.5'
+gem 'bundler', '~> 2.5.23'
 gem 'lol_dba'
 
 group :development, :test do
@@ -72,7 +72,7 @@ end
 
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
-gem "telegram-bot", "~> 0.15.6"
+gem "telegram-bot", "~> 0.16.6"
 gem "faraday-net_http_persistent", "~> 2.3.0"
 
 gem "turbo-rails", "~> 2.0.11"

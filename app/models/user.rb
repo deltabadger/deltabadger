@@ -22,12 +22,19 @@ class User < ApplicationRecord
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name
   validate :validate_email
-  validate :validate_email_with_sendgrid
   validate :password_complexity, if: -> { password.present? }
 
   delegate :unlimited?, to: :subscription
 
+  include Sendgridable
   include Upgradeable
+
+  # User/Affiliate relationship:
+  # A user can be an affiliate to refer other users
+  # A user can be referred by another affiliate
+  # From the affiliate's perspective, the user is a referral
+  # From the referral's perspective, the affiliate is the referrer
+  # A user can be both an affiliate (or referrer) and a referral
 
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :desc).first
@@ -94,7 +101,7 @@ class User < ApplicationRecord
   end
 
   def active_referrer
-    return if referrer_id.nil? || AffiliatesRepository.new.active?(id: referrer_id)
+    return if referrer_id.nil? || Affiliate.find(referrer_id).active?
 
     errors.add(:referrer, :invalid)
   end
@@ -112,22 +119,6 @@ class User < ApplicationRecord
     valid_email = email =~ Regexp.new(Email::ADDRESS_PATTERN)
     errors.add(:email, I18n.t('devise.registrations.new.email_invalid')) unless valid_email
   end
-
-  def validate_email_with_sendgrid
-    email_validator = SendgridMailValidator.new
-    result = email_validator.call(email)
-    errors.add(:email, :invalid) unless result.success?
-
-    result.success?
-  end
-
-  # def get_email_suggestion
-  #   return unless devise_mapping.validatable?
-
-  #   email_validator = SendgridMailValidator.new
-  #   suggestion = email_validator.get_suggestion(email)
-  #   suggestion.to_s unless suggestion.nil?
-  # end
 
   def password_complexity
     complexity_is_valid = password =~ Regexp.new(Password::PATTERN)

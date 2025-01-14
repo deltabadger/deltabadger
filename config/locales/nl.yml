@@ -426,92 +426,93 @@ nl:
         week: Week
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
-        withdrawal_percentage: '%{percentage}% tot de volgende opname'
+        withdrawal_percentage: '%{percentage}%'
     days_left:
         one: '1 dag over'
         other: '%{count} dagen over'
-    deltabadger: Deltabadger
     devise:
-        risk_down: 'Risico verlagen.'
-        gains_up: 'Winst verhogen.'
-        dca: 'Dollar-Cost Gemiddelde'
-        portfolio_analysis: 'Portefeuille analyse'
-        rebalancing: 'Portefeuille herschikken (binnenkort)'
         confirmations:
-            confirmed: 'Uw emailadres is bevestigd.'
+            confirmed: 'Je e-mailadres is succesvol bevestigd.'
             new:
-                submit: 'Bevestigingslink opnieuw verzenden'
+                submit: 'Opnieuw verzenden'
                 title: 'Instructies opnieuw verzenden'
-            send_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
-            send_paranoid_instructions: 'Als uw account bestaat, ontvangt u binnen enkele minuten een e-mail met instructies.'
-        failure:
-            already_authenticated: 'U bent al ingelogd.'
-            inactive: 'Uw account is nog niet geactiveerd.'
-            invalid: 'Ongeldige %{authentication_keys} of wachtwoord.'
-            last_attempt: 'Je hebt nog één poging voordat je account wordt vergrendeld.'
-            locked: 'Uw account is vergrendeld.'
-            not_found_in_database: 'Ongeldige %{authentication_keys} of wachtwoord.'
-            timeout: 'Uw sessie is verlopen. Meld u opnieuw aan om door te gaan.'
-            unauthenticated: 'U moet zich aanmelden of registreren om verder te gaan.'
-            unconfirmed: 'U moet uw email adres bevestigen om verder te gaan.'
-        mailer:
-            confirmation_instructions:
-                subject: 'Bevestig email adres'
-                template_html: '<p>Je emailadres is één klik verwijderd van deelname aan het A-Team van awesomeness! Bevestig nu en laat de goede tijden maar komen op automatische piloot.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Bevestig deze email</a>'
-            email_changed:
-                subject: 'Email bevestigd'
-                template_html: '<p>Klaar! Dit is je gloednieuwe schitterende Deltabadger adres:</p><p><b>%{email}</b></p>'
-            password_change:
-                subject: 'Wachtwoord gewijzigd'
-                template_html: '<p>Klaar!</p><p>Uw wachtwoord is gewijzigd.</p> <p>Uw geheimen zijn veiliger dan ooit!</p>'
-            reset_password_instructions:
-                subject: 'Wachtwoord herstel'
-                template_html: '<p>Wachtwoord herstel gestart! Hou vol, je kan in een mum van tijd weer aan de slag.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
-            unlock_instructions:
-                subject: 'Instructies om te ontgrendelen'
-                template_html: '<p>We hebben uw account vergrendeld vanwege een hoog aantal mislukte inlogpogingen.</p><p>Klik op de onderstaande link om te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
-        omniauth_callbacks:
-            failure: 'Kan u niet verifiëren van %{kind} omdat "%{reason}".'
-            success: 'Succesvol geverifieerd van %{kind} account.'
+            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
+            send_paranoid_instructions: 'Als je account bestaat, ontvang je binnen enkele minuten een e-mail met instructies.'
         passwords:
             edit:
-                submit: 'Mijn wachtwoord wijzigen'
-                title: 'Uw wachtwoord wijzigen'
+                submit: 'Wachtwoord wijzigen'
+                title: 'Wachtwoord wijzigen'
             new:
-                submit: 'Stuur mij instructies'
+                submit: 'Instructies verzenden'
                 title: 'Wachtwoord vergeten?'
-            no_token: 'U hebt geen toegang tot deze pagina als u niet via een wachtwoord reset email komt. Als u van een wachtwoord reset email komt, zorg er dan voor dat u de volledige URL gebruikt.'
-            send_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
-            send_paranoid_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
-            token_expired: 'Uw link om het wachtwoord opnieuw in te stellen is verlopen. Vraag een nieuwe link aan.'
-            updated: 'Klaar! Uw wachtwoord is gewijzigd.'
-            updated_not_active: 'Klaar! Uw wachtwoord is gewijzigd.'
+            no_token: 'Je kunt deze pagina niet openen zonder via een wachtwoord-reset-e-mail te komen. Als je een wachtwoord-reset-e-mail hebt ontvangen, zorg ervoor dat je de volledige URL gebruikt.'
+            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
+            send_paranoid_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
+            updated: 'Klaar! Je wachtwoord is gewijzigd.'
+            updated_not_active: 'Klaar! Je wachtwoord is gewijzigd.'
+            token_expired: 'De link om je wachtwoord te resetten is verlopen. Vraag een nieuwe link aan.'
+            validations:
+                length: 'Minimaal %{count} tekens'
+                uppercase: 'Bevat een hoofdletter'
+                lowercase: 'Bevat een kleine letter'
+                digit: 'Bevat een cijfer'
+                symbol: 'Bevat een symbool'
+                match: 'Wachtwoorden komen overeen'
         registrations:
             edit:
-                awaiting_confirmation: 'Wacht momenteel op bevestiging voor: %{email}'
+                awaiting_confirmation: 'Momenteel wordt gewacht op bevestiging voor: %{email}'
             new:
-                email_invalid: 'Email ongeldig!'
-                email_suggestion_html: 'Email ongeldig! Bedoelde u: <b> %{suggestion} </b>'
-                name_invalid: 'Mag geen cijfers of symbolen bevatten, maar hoeft niet echt te zijn 👻'
-                submit: 'Start nu'
-                title_html: '<span class="text-success">Gratis</span> account aanmaken'
+                email_invalid: 'Ongeldig e-mailadres!'
+                email_suggestion_html: 'Ongeldig e-mailadres! Bedoelde je: <b>%{suggestion}</b>'
+                name_invalid: 'Het hoeft niet echt te zijn 👻'
+                submit: 'Aanmelden'
+                title_html: 'Maak een <span class="text-success">gratis</span> account aan'
             signed_up: 'Leuk je te ontmoeten!'
-            signed_up_but_inactive: 'Hallo, je account is nog niet geactiveerd. Heb je je email gecontroleerd?'
+            signed_up_but_inactive: 'Hallo, je account is nog niet geactiveerd. Heb je je e-mail gecontroleerd?'
             signed_up_but_locked: 'Oeps, je account is vergrendeld.'
-            signed_up_but_unconfirmed: 'Controleer uw email en klik op de bevestigingslink.'
-            update_needs_confirmation: 'Controleer uw email en volg de bevestigingslink om uw nieuwe emailadres te bevestigen.'
-            updated: 'Uw account is bijgewerkt.'
-            updated_but_not_signed_in: 'Uw account is bijgewerkt, meld u opnieuw aan.'
+            signed_up_but_unconfirmed: 'Controleer je inbox en klik op de bevestigingslink.'
+            update_needs_confirmation: 'Controleer je inbox en volg de bevestigingslink om je nieuwe e-mailadres te bevestigen.'
+            updated: 'Je account is succesvol bijgewerkt.'
+            updated_but_not_signed_in: 'Je account is succesvol bijgewerkt, log opnieuw in.'
         sessions:
             new:
                 forgot_password: 'Wachtwoord vergeten?'
-                submit: Aanmelden
-                title: Aanmelden
+                submit: 'Inloggen'
+                title: 'Welkom terug!'
             signed_in: 'Lang niet gezien!'
-            signed_out: 'Tot gauw!'
+            signed_out: 'Tot ziens!'
         unlocks:
-            send_instructions: 'Binnen enkele minuten ontvangt u een email met instructies.'
-            unlocked: 'Uw account is succesvol ontgrendeld. Meld u aan om verder te gaan.'
+            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
+            unlocked: 'Je account is succesvol ontgrendeld. Log in om verder te gaan.'
+        failure:
+            already_authenticated: 'Je bent al ingelogd.'
+            inactive: 'Je account is nog niet geactiveerd.'
+            invalid: 'Ongeldig e-mailadres of wachtwoord.'
+            last_attempt: 'Je hebt nog één poging voordat je account wordt vergrendeld.'
+            locked: 'Je account is vergrendeld.'
+            not_found_in_database: 'Ongeldig e-mailadres of wachtwoord.'
+            timeout: 'Je sessie is verlopen. Log opnieuw in om verder te gaan.'
+            unauthenticated: 'Je moet inloggen of registreren voordat je verder kunt gaan.'
+            unconfirmed: 'Je moet je e-mailadres bevestigen voordat je verder kunt gaan.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Bevestig je e-mailadres'
+                template_html: '<p>Je e-mailadres is slechts één klik verwijderd van lid worden van het team! Bevestig nu en laat het goede automatisch verlopen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Bevestig dit e-mailadres</a>'
+            email_changed:
+                subject: 'E-mail bevestigd'
+                template_html: '<p>Klaar! Dit is je nieuwe en glanzende Deltabadger-adres:</p><p><b>%{email}</b></p>'
+            password_change:
+                subject: 'Wachtwoord gewijzigd'
+                template_html: '<p>Klaar!</p><p>Je wachtwoord is gewijzigd.</p><p>Je geheimen zijn veiliger dan ooit!</p>'
+            reset_password_instructions:
+                subject: 'Wachtwoordherstel'
+                template_html: '<p>Wachtwoordherstel gestart! Blijf rustig, je bent zo weer in het spel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
+            unlock_instructions:
+                subject: 'Instructies voor ontgrendelen'
+                template_html: '<p>We hebben je account vergrendeld vanwege te veel mislukte inlogpogingen.</p><p>Klik op de onderstaande link om het te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
+        omniauth_callbacks:
+            failure: 'Kan je niet authenticeren via %{kind} vanwege: "%{reason}".'
+            success: 'Succesvol geauthenticeerd via %{kind}-account.'
     errors:
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
         format: '%{attribute}%{message}'
@@ -638,7 +639,7 @@ nl:
         privacy_policy: Privacybeleid
         earn: Verdien
         referral_program: Verwijzingsprogramma
-        resend_link: 'Link opnieuw verzenden'
+        resend_link: 'Link verzenden'
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'

@@ -1,20 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import I18n from 'i18n-js';
 import moment from 'moment';
-import { useInterval } from '../utils/interval';
 import { formatDuration } from '../utils/time';
 import { Spinner } from './Spinner';
 
 const calculateDelay = (nextTimestamp, nowTimestamp) => {
   return nextTimestamp - nowTimestamp;
-};
-
-const calculateInterval = (delay) => {
-  if (delay >= 0) {
-    return 1000;
-  } else {
-    return Math.abs(delay) * 1000;
-  }
 };
 
 export const Timer = ({ bot, callback }) => {
@@ -24,33 +15,76 @@ export const Timer = ({ bot, callback }) => {
   const [delay, setDelay] = useState(calculateDelay(nextTransactionTimestamp, nowTimestamp));
   const timeout = delay < 0;
 
+  const infotext = useMemo(() => {
+    return formatDuration(moment.duration(delay, 'seconds'));
+  }, [delay]);
+
+  // Initial sync on mount and view change
+  useEffect(() => {
+    if (bot) {
+      callback(bot);
+    }
+  }, []); // Empty dependency array for mount only
+
+  // Reset state when transaction timestamp changes
   useEffect(() => { 
     setDelay(calculateDelay(nextTransactionTimestamp, nowTimestamp));
-  }, [bot.nextTransactionTimestamp]);
+    setI(0);
+  }, [nextTransactionTimestamp, nowTimestamp]);
 
-  useInterval(() => {
-    if (timeout && i === 0) {
-      if (bot) {
-        setI(i + 1);
+  // Handle visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && bot) {
+        // Resync when becoming visible
         callback(bot);
       }
+    };
+
+    // Initial sync
+    if (bot) {
+      callback(bot);
     }
-    setDelay(delay - 1);
-  }, calculateInterval(delay));
 
-  if (timeout) { return <Spinner />; }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [bot, callback]);
 
-  const countdown = formatDuration(moment.duration(delay, 'seconds'));
-  const translation_key = settings.type === 'buy' ? 'bots.next_buy' : 'bots.next_sell';
+  // Handle interval and cleanup
+  useEffect(() => {
+    let intervalId;
+    const interval = timeout ? Math.abs(delay) * 1000 : 1000;
 
-  const infotext = useMemo(() => {
-    return countdown;
-  }, [countdown]);
+    if (!document.hidden) { // Only run interval when page is visible
+      intervalId = setInterval(() => {
+        if (timeout && i === 0) {
+          if (bot) {
+            setI(prev => prev + 1);
+            callback(bot);
+          }
+        }
+        setDelay(prev => prev - 1);
+      }, interval);
+    }
+
+    // Cleanup function
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [timeout, i, bot, delay, callback]);
+
+  if (timeout) { 
+    return <Spinner />; 
+  }
 
   return (
-    <div className="db-bot__infotext__right">
-      <span className="d-none d-sm-inline">{infotext}</span>
-    </div>
+    <span className="bot-counting" data-testid="bot-timer">
+      {infotext}
+    </span>
   );
 };
 
@@ -58,24 +92,68 @@ export const FetchFromExchangeTimer = ({ bot, callback }) => {
   const [i, setI] = useState(0);
   const { status, nextResultFetchingTimestamp, nowTimestamp } = bot || { settings: {}, stats: {}, transactions: [], logs: [] };
 
-  const [delay, setDelay] = useState(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status));
+  const [delay, setDelay] = useState(calculateDelay(nextResultFetchingTimestamp, nowTimestamp));
   const timeout = delay < 0;
 
-  useEffect(() => { 
-    setDelay(calculateDelay(nextResultFetchingTimestamp, nowTimestamp, status));
-  }, [bot.nextResultFetchingTimestamp]);
+  // Initial sync on mount and view change
+  useEffect(() => {
+    if (bot) {
+      callback(bot);
+    }
+  }, []); // Empty dependency array for mount only
 
-  useInterval(() => {
-    if (timeout && i === 0) {
-      if (bot) {
-        setI(i + 1);
+  // Reset state when fetching timestamp changes
+  useEffect(() => { 
+    setDelay(calculateDelay(nextResultFetchingTimestamp, nowTimestamp));
+  }, [nextResultFetchingTimestamp, nowTimestamp]);
+
+  // Handle visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && bot) {
+        // Resync when becoming visible
         callback(bot);
       }
-    }
-    setDelay(delay - 1);
-  }, 1000);
+    };
 
-  if (timeout) { return <Spinner />; }
+    // Initial sync
+    if (bot) {
+      callback(bot);
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [bot, callback]);
+
+  // Handle interval and cleanup
+  useEffect(() => {
+    let intervalId;
+
+    if (!document.hidden) { // Only run interval when page is visible
+      intervalId = setInterval(() => {
+        if (timeout && i === 0) {
+          if (bot) {
+            setI(prev => prev + 1);
+            callback(bot);
+          }
+        }
+        setDelay(prev => prev - 1);
+      }, 1000);
+    }
+
+    // Cleanup function
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [timeout, i, bot, callback]);
+
+  if (timeout) { 
+    return <Spinner />; 
+  }
 
   return (
     <div className="db-bot__infotext__right">

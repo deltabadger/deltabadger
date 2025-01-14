@@ -456,24 +456,65 @@ en:
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
-        withdrawal_percentage: '%{percentage}% to next withdrawal'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Withdrawal'
     days_left:
         one: '1 day left'
         other: '%{count} days left'
-    deltabadger: Deltabadger
     devise:
-        risk_down: 'Risk down.'
-        gains_up: 'Gains up.'
-        dca: 'Dollar-Cost Averaging'
-        portfolio_analysis: 'Portfolio Analysis'
-        rebalancing: 'Portfolio Rebalancing (soon)'
         confirmations:
             confirmed: 'Your email address has been successfully confirmed.'
             new:
-                submit: 'Resend confirmation link'
+                submit: 'Resend'
                 title: 'Resend instructions'
             send_instructions: 'You will receive an email with instructions in a few minutes.'
             send_paranoid_instructions: 'If your account exists, you will receive an email with instructions in a few minutes.'
+        passwords:
+            edit:
+                submit: 'Change password'
+                title: 'Change password'
+            new:
+                submit: 'Send instructions'
+                title: 'Forgot your password?'
+            no_token: 'You can''t access this page without coming from a password reset email. If you do come from a password reset email, please make sure you used the full URL provided.'
+            send_instructions: 'You will receive an email with instructions in a few minutes.'
+            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
+            updated: 'Done! Your password has been changed.'
+            updated_not_active: 'Done! Your password has been changed.'
+            token_expired: 'Your password reset link has expired. Please request a new link.'
+            validations:
+                length: 'At least %{count} characters'
+                uppercase: 'Contains an uppercase character'
+                lowercase: 'Contains a lowercase character'
+                digit: 'Contains a digit'
+                symbol: 'Contains a symbol'
+                match: 'Passwords match'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
+            new:
+                email_invalid: 'Email invalid!'
+                email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
+                name_invalid: 'It doesn''t have to be real 👻'
+                submit: 'Sign Up'
+                title_html: 'Create <span class="text-success">free</span> account'
+            signed_up: 'Nice to meet you!'
+            signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
+            signed_up_but_locked: 'Oops, your account is locked.'
+            signed_up_but_unconfirmed: 'Check your email inbox and click in the confirmation link.'
+            update_needs_confirmation: 'Check your email inbox and follow the confirm link to confirm your new email address.'
+            updated: 'Your account has been updated successfully.'
+            updated_but_not_signed_in: 'Your account has been updated successfully, sign in again.'
+        sessions:
+            new:
+                forgot_password: 'Forgot password?'
+                submit: 'Log In'
+                title: 'Welcome back!'
+            signed_in: 'Long time no see!'
+            signed_out: 'See you soon!'
+        unlocks:
+            send_instructions: 'You will receive an email with instructions in a few minutes.'
+            unlocked: 'Your account has been unlocked successfully. Please sign in to continue.'
         failure:
             already_authenticated: 'You are already signed in.'
             inactive: 'Your account is not activated yet.'
@@ -503,52 +544,6 @@ en:
         omniauth_callbacks:
             failure: 'Could not authenticate you from %{kind} because "%{reason}".'
             success: 'Successfully authenticated from %{kind} account.'
-        passwords:
-            edit:
-                submit: 'Change my password'
-                title: 'Change your password'
-            new:
-                submit: 'Send me instructions'
-                title: 'Forgot your password?'
-            no_token: 'You can''t access this page without coming from a password reset email. If you do come from a password reset email, please make sure you used the full URL provided.'
-            send_instructions: 'You will receive an email with instructions in a few minutes.'
-            send_paranoid_instructions: 'You will receive an email with instructions in a few minutes.'
-            updated: 'Done! Your password has been changed.'
-            updated_not_active: 'Done! Your password has been changed.'
-            token_expired: 'Your password reset link has expired. Please request a new link.'
-            validations:
-                length: 'At least %{count} characters'
-                uppercase: 'Contains an uppercase character'
-                lowercase: 'Contains a lowercase character'
-                digit: 'Contains a digit'
-                symbol: 'Contains a symbol'
-                match: 'Passwords match'
-        registrations:
-            edit:
-                awaiting_confirmation: 'Currently, waiting confirmation for: %{email}'
-            new:
-                email_invalid: 'Email invalid!'
-                email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
-                name_invalid: 'It doesn''t have to be real 👻'
-                submit: 'Start now'
-                title_html: 'Create <span class="text-success">free</span> account'
-            signed_up: 'Nice to meet you!'
-            signed_up_but_inactive: 'Hi, your account is not yet activated. Have you checked your email?'
-            signed_up_but_locked: 'Oops, your account is locked.'
-            signed_up_but_unconfirmed: 'Check your email inbox and click in the confirmation link.'
-            update_needs_confirmation: 'Check your email inbox and follow the confirm link to confirm your new email address.'
-            updated: 'Your account has been updated successfully.'
-            updated_but_not_signed_in: 'Your account has been updated successfully, sign in again.'
-        sessions:
-            new:
-                forgot_password: 'Forgot password?'
-                submit: 'Log in'
-                title: 'Sign in'
-            signed_in: 'Long time no see!'
-            signed_out: 'See you soon!'
-        unlocks:
-            send_instructions: 'You will receive an email with instructions in a few minutes.'
-            unlocked: 'Your account has been unlocked successfully. Please sign in to continue.'
     errors:
         cloudflare_turnstile: 'Cloudflare Turnstile verification failed'
         bitcoin_address_not_updated: 'Bitcoin address could not be updated'

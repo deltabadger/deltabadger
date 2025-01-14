@@ -32,6 +32,9 @@ const apiKeyStatus = {
 }
 
 const BotTemplate = ({
+  tileMode,
+  onClick,
+  buttonClickHandler,
   showLimitOrders,
   bot,
   errors = [],
@@ -50,23 +53,41 @@ const BotTemplate = ({
   exchanges,
   apiKeyTimeout
 }) => {
-  const { id, settings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || {settings: {}, stats: {}, transactions: [], logs: []}
+  const defaultSettings = {
+    order_type: 'market',
+    price: "",
+    percentage: 0.0,
+    interval: "hour",
+    force_smart_intervals: false,
+    smart_intervals_value: "0",
+    quote: "",
+    price_range_enabled: false,
+    price_range: [0, 0],
+    use_subaccount: false,
+    selected_subaccount: '',
+    type: 'buy'
+  };
 
-  const [type, setType] = useState(settings.order_type);
-  const [price, setPrice] = useState(settings.price);
-  const [percentage, setPercentage] = useState(settings.percentage == null ? 0.0 : settings.percentage);
-  const [interval, setInterval] = useState(settings.interval);
-  const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals);
-  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value == null ? "0" : settings.smart_intervals_value);
+  const { id, settings = defaultSettings, status, exchangeName, exchangeId, nextResultFetchingTimestamp, nextTransactionTimestamp } = bot || { settings: defaultSettings };
+
+  const [type, setType] = useState(settings.order_type || defaultSettings.order_type);
+  const [price, setPrice] = useState(settings.price || defaultSettings.price);
+  const [percentage, setPercentage] = useState(settings.percentage !== undefined ? settings.percentage : defaultSettings.percentage);
+  const [interval, setInterval] = useState(settings.interval || defaultSettings.interval);
+  const [forceSmartIntervals, setForceSmartIntervals] = useState(settings.force_smart_intervals !== undefined ? settings.force_smart_intervals : defaultSettings.force_smart_intervals);
+  const [smartIntervalsValue, setSmartIntervalsValue] = useState(settings.smart_intervals_value !== undefined ? settings.smart_intervals_value : defaultSettings.smart_intervals_value);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
-  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote);
-  const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled)
-  const [priceRange, setPriceRange] = useState({ low: settings.price_range[0].toString(), high: settings.price_range[1].toString() })
-  const [apiKeyExists, setApiKeyExists] = useState(true)
+  const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote || defaultSettings.quote);
+  const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled !== undefined ? settings.price_range_enabled : defaultSettings.price_range_enabled);
+  const [priceRange, setPriceRange] = useState({ 
+    low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(), 
+    high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString() 
+  });
+  const [apiKeyExists, setApiKeyExists] = useState(true);
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
-  const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount)
-  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount)
-  const [subaccountsList, setSubaccountsList] = useState([''])
+  const [useSubaccount,setUseSubaccounts] = useState(settings.use_subaccount !== undefined ? settings.use_subaccount : defaultSettings.use_subaccount);
+  const [selectedSubaccount, setSelectedSubaccount] = useState(settings.selected_subaccount || defaultSettings.selected_subaccount);
+  const [subaccountsList, setSubaccountsList] = useState(['']);
 
   const isStarting = startingBotIds.includes(id);
   const working = status === 'working'
@@ -103,10 +124,10 @@ const BotTemplate = ({
       interval: settings.interval,
       price: settings.price.trim(),
       forceSmartIntervals: settings.force_smart_intervals,
-      smartIntervalsValue: settings.smartIntervalsValue,
+      smartIntervalsValue: settings.smart_intervals_value,
       percentage: settings.order_type === 'limit' ? percentage && percentage.trim() : undefined,
-      useSubaccount: settings.useSubaccount,
-      selectedSubaccount: settings.selectedSubaccount
+      useSubaccount: settings.use_subaccount,
+      selectedSubaccount: settings.selected_subaccount
     }
 
     return !_.isEqual(newSettings, oldSettings)
@@ -262,27 +283,37 @@ const BotTemplate = ({
 
   const keyExists = () => {
     // we have to assume that the key exists to fix unnecessary form rendering
-    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true}
-    const keyStatus = exchange.trading_key_status
-    setApiKeyExists(keyOwned(keyStatus))
+    const exchange = exchanges.find(e => exchangeId === e.id) || {trading_key_status: true, withdrawal_key_status: true, webhook_key_status: true};
+    const keyStatus = exchange.trading_key_status;
+    setApiKeyExists(keyOwned(keyStatus));
 
     if (keyOwned(keyStatus)) {
-      clearTimeout(apiKeyTimeout)
-
+      // No need for timeout
     } else if (keyPending(keyStatus)) {
-      setApiKeysState(apiKeyStatus["VALIDATING"])
-      clearTimeout(apiKeyTimeout)
-      apiKeyTimeout = setTimeout(() => fetchExchanges(), 3000)
-
+      setApiKeysState(apiKeyStatus["VALIDATING"]);
     } else if (keyInvalid(keyStatus)) {
-      clearTimeout(apiKeyTimeout)
-      setApiKeysState(apiKeyStatus["INVALID"])
+      setApiKeysState(apiKeyStatus["INVALID"]);
     }
-  }
+    
+    return keyStatus;
+  };
 
+  // Move useEffect outside of keyExists
   useEffect(() => {
-    keyExists()
-  }, [exchanges]);
+    const keyStatus = keyExists();
+    let timeoutId;
+
+    if (keyPending(keyStatus)) {
+      timeoutId = setTimeout(() => fetchExchanges(), 3000);
+    }
+
+    // Cleanup function
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [exchanges, fetchExchanges]);
 
   const addApiKeyHandler = (key, secret, passphrase, germanAgreement) => {
     setApiKeysState(apiKeyStatus["VALIDATING"])
@@ -293,8 +324,106 @@ const BotTemplate = ({
     })
   }
 
+  const formatNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  // Add this for debugging
+  useEffect(() => {
+    if (tileMode) {
+      console.log('Bot stats:', bot.stats);
+    }
+  }, [bot.stats]);
+
+  // Add useEffect to update values when bot changes
+  useEffect(() => {
+    if (bot) {
+      const { settings } = bot;
+      setType(settings.order_type || defaultSettings.order_type);
+      setPrice(settings.price || defaultSettings.price);
+      setPercentage(settings.percentage !== undefined ? settings.percentage : defaultSettings.percentage);
+      setInterval(settings.interval || defaultSettings.interval);
+      setForceSmartIntervals(settings.force_smart_intervals !== undefined ? settings.force_smart_intervals : defaultSettings.force_smart_intervals);
+      setSmartIntervalsValue(settings.smart_intervals_value !== undefined ? settings.smart_intervals_value : defaultSettings.smart_intervals_value);
+      setCurrencyOfMinimum(settings.quote || defaultSettings.quote);
+      setPriceRangeEnabled(settings.price_range_enabled !== undefined ? settings.price_range_enabled : defaultSettings.price_range_enabled);
+      setPriceRange({ 
+        low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(), 
+        high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString() 
+      });
+    }
+  }, [bot?.id]); // Only run when bot ID changes
+
+  if (tileMode) {
+    // Calculate profit/loss before rendering
+    const profitLoss = bot.stats && {
+      value: (parseFloat(bot.stats.currentValue) - parseFloat(bot.stats.totalInvested)).toFixed(2),
+      percentage: ((parseFloat(bot.stats.currentValue) - parseFloat(bot.stats.totalInvested)) / parseFloat(bot.stats.totalInvested) * 100).toFixed(2),
+      positive: parseFloat(bot.stats.currentValue) >= parseFloat(bot.stats.totalInvested)
+    };
+
+    return (
+      <div 
+        onClick={onClick} 
+        className={`widget widget--single bot-tile ${botRunningClass}`}
+      >
+        <div className="bot-tile__header">
+          <div className="bot-tile__ticker">
+            <div className="bot-tile__ticker__currencies">{baseName}{quoteName}</div>
+            <div className="bot-tile__ticker__exchange">DCA · {exchangeName}</div>
+          </div>
+          
+          {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
+            <div className={`bot-tile__pnl ${profitLoss.positive ? 'text-success' : 'text-danger'}`}>
+              <span className="widget__pnl__value">
+                {profitLoss.positive ? '+' : ''}
+                {profitLoss.percentage}%
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <div className="bot-tile__controls">
+            <div className="bot-tile__controls__feedback">
+              {pending && nextResultFetchingTimestamp && 
+                <FetchFromExchangeTimer bot={bot} callback={reload}/>
+              }
+              {working && nextTransactionTimestamp && 
+                <Timer bot={bot} callback={reload}/>
+              }
+              {!working && isNotEmpty(errors) && <Errors data={errors}/>}
+              <ProgressBar bot={bot} />
+            </div>
+        
+            {isStarting && <StartingButton />}
+            {(!isStarting && working) && 
+              <div onClick={buttonClickHandler}>
+                <StopButton onClick={() => handleStop(id)}/>
+              </div>
+            }
+            {(!isStarting && pending) && <PendingButton />}
+            {(!isStarting && !working && !pending) &&
+              <div onClick={buttonClickHandler}>
+                <StartButton 
+                  settings={settings} 
+                  getRestartType={getStartButtonType} 
+                  onClickReset={_handleSubmit}
+                  setShowInfo={setShowSmartIntervalsInfo} 
+                  exchangeName={exchangeName} 
+                  newSettings={newSettings()}
+                />
+              </div>
+            }
+        </div>
+        
+      </div>
+    );
+  }
+
+  // Full view
   return (
-    <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--dca db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
+    <div className="db-bots__item db-bot db-bot--dca">
       { apiKeyExists &&
         <div className="db-bot__header">
 
@@ -317,8 +446,10 @@ const BotTemplate = ({
           </div>
         </div>
       }
-
-      <ProgressBar bot={bot} />
+      <div className="db-bot__progressbar-wrapper">
+        <ProgressBar bot={bot} />
+      </div>
+      
 
       { !apiKeyExists &&
         <AddApiKey
