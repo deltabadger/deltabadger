@@ -23,7 +23,6 @@ Rails.application.routes.draw do
       get :accounting_csv, on: :collection
       post :mark_as_exported, on: :collection
       post :mark_as_paid, on: :collection
-      put :get_fiat_commissions, on: :collection
     end
     resources :api_keys, except: [:edit, :update]
     resources :bots
@@ -77,11 +76,11 @@ Rails.application.routes.draw do
       post 'signup', to: 'users/registrations#create', as: 'user_registration'
     end
 
-    resource :affiliate, path: 'referral-program', only: [:new, :create, :show] do
+    resource :affiliate, path: 'referral-program', only: [:new, :show] do
       get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
       patch :update_visible_info
       patch :update_btc_address
-      patch :new, to: 'affiliates#new'
+      # patch :new, to: 'affiliates#new'
       patch :create, to: 'affiliates#create'
     end
 
@@ -110,6 +109,12 @@ Rails.application.routes.draw do
     resources :barbell_bots, only: [:show], path: "/barbell-bots" do
       get :show, on: :collection
     end
+    resources :bots, only: [:show, :index] do
+      get :show, on: :collection
+    end
+
+    get '/dashboard', to: 'home#dashboard', as: :dashboard
+    get '/dashboard/bots/:id', to: 'bots#show', as: :dashboard_bot
 
     get '/calculator', to: 'calculator#show', as: :calculator
 
@@ -117,7 +122,6 @@ Rails.application.routes.draw do
       get :show, on: :collection
     end
 
-    get '/dashboard', to: 'home#dashboard', as: :dashboard
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
     get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy

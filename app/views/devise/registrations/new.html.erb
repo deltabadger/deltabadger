@@ -1,4 +1,3 @@
-<h3 class="db-modal-title"><%= t('.title_html') %></h3>
 <%= form_with model: resource, url: registration_path(resource_name), method: :post, data: {
   turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength",
@@ -47,11 +46,7 @@
     </ul>
   </div>
 
-  <div class="db-form__row" style="min-height: 72px">
-    <%= cloudflare_turnstile %>
-  </div>
-
-  <div class="db-form__row db-form__row--check ml-0">
+  <div class="db-form__row db-form__row--check ml-0" style="text-align: center">
     <%= f.check_box :terms_and_conditions, class: "form-check-input d-none", checked: "checked" %>
     <%= f.label :terms_and_conditions, class: "form-check-label" do %>
       <%= raw t('helpers.label.user.terms_and_conditions_tooltip',
@@ -60,11 +55,14 @@
     <% end %>
   </div>
 
+  <div class="cf-turnstile-container">
+    <%= cloudflare_turnstile %>
+  </div>
+
   <div class="db-form__row db-form__row--final-button">
     <%= f.submit t('.submit'), class: "btn btn-success btn-lg w-100" %>
   </div>
 <% end %>
 
-<div class="db-form__other-links">
-  <%= render "devise/shared/links" %>
-</div>
+
+<%= render "devise/shared/links" %>

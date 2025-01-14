@@ -14,7 +14,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   def create
-    affiliate = find_affiliate(@code)
+    affiliate = Affiliate.find_active_by_code(@code)
 
     super do
       if resource.persisted?
@@ -55,10 +55,6 @@ class Users::RegistrationsController < Devise::RegistrationsController
     params.require(:user).permit(:name, :email, :password, :terms_and_conditions)
   end
 
-  def find_affiliate(code)
-    AffiliatesRepository.new.find_active_by_code(code)
-  end
-
   def set_code
     @code = session[:code]
   end
@@ -66,7 +62,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   def set_affiliate
     return if @code.nil?
 
-    @affiliate = find_affiliate(@code)
+    @affiliate = Affiliate.find_active_by_code(@code)
     session.delete(:code) if @affiliate.nil? # don't show an invalid code twice
   end
 
