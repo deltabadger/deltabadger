@@ -933,3 +933,5 @@ ru:
             past_performance: "Прошлая доходность"
             benchmark_performance: "Прошлая доходность бенчмарка"
             metrics_since: "Показатели с %{start_date} по %{end_date}:"
+    not_found: 'Такой бот не существует.'
+    price: 'цена'
