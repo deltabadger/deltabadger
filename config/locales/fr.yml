@@ -481,6 +481,9 @@ fr:
                 title: 'Bon retour !'
             signed_in: 'Ça faisait longtemps !'
             signed_out: 'À bientôt !'
+            two_factor:
+                submit: "Vérifier"
+                invalid_code: "Code invalide. Réessayez."
         unlocks:
             send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
             unlocked: 'Votre compte a été déverrouillé avec succès. Veuillez vous connecter pour continuer.'
