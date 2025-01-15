@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Users::SessionsController < Devise::SessionsController
-  prepend_before_action :validate_cloudflare_turnstile, only: %i[create verify_two_factor]
+  prepend_before_action :validate_cloudflare_turnstile, only: %i[create]
 
   rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
