@@ -512,6 +512,9 @@ en:
                 title: 'Welcome back!'
             signed_in: 'Long time no see!'
             signed_out: 'See you soon!'
+            two_factor:
+                submit: "Verify"
+                invalid_code: "Wrong code. Try again."
         unlocks:
             send_instructions: 'You will receive an email with instructions in a few minutes.'
             unlocked: 'Your account has been unlocked successfully. Please sign in to continue.'
