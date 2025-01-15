@@ -431,6 +431,10 @@ pt:
                 title: 'Bem-vindo de volta!'
             signed_in: 'Quanto tempo!'
             signed_out: 'Até mais!'
+            two_factor:
+                title: "Autenticação de dois fatores"
+                submit: "Verificar"
+                invalid_code: "Código incorreto. Tente novamente."
         unlocks:
             send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
             unlocked: 'Sua conta foi desbloqueada com sucesso. Faça login para continuar.'
@@ -665,11 +669,11 @@ pt:
             referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
             black_friday_discount_info: '%{discount_percent} de desconto'
             black_friday_sale: 'Wyprzedaż Black Friday'
-            pro_and_legendary_plans: 'Plany Pro i Legendary'
-            days: 'Dni'
-            hours: 'Godziny'
-            minutes: 'Minuty'
-            seconds: 'Sekundy'
+            pro_and_legendary_plans: 'Planos Pro e Legendary'
+            days: 'Dias'
+            hours: 'Horas'
+            minutes: 'Minutos'
+            seconds: 'Segundos'
             upgrade_now: 'Atualize agora'
             routing_number: 'Número de encaminhamento'
             vat: IVA
