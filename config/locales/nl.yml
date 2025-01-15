@@ -660,6 +660,13 @@ nl:
         title: 'Deltabadger - Automatiseer Dollar-Cost Averaging voor elke Crypto'
         title_short: 'Deltabadger - Automatische DCA aankoop van Bitcoin en Andere Activa'
         twitter_image_alt: 'Geautomatiseerde dollar-cost averaging voor Bitcoin, Ethereum, Polkadot, Cardano, Solana en andere digitale assets.'
+        descriptions:
+            default: "Start gratis met de meest bewezen strategie die werkt met Binance, Coinbase, Kraken, Kucoin en andere exchanges. Geen KYC."
+            privacy_policy: "Ontdek hoe Deltabadger je privacy beschermt en je gegevens verwerkt bij het gebruik van ons geautomatiseerd crypto DCA-platform."
+            terms_and_conditions: "Lees onze servicevoorwaarden om je rechten en plichten te begrijpen bij het gebruik van Deltabadger's geautomatiseerde crypto DCA-platform."
+        titles:
+            privacy_policy: "Privacybeleid • Deltabadger"
+            terms_and_conditions: "Algemene Voorwaarden • Deltabadger"
     referral:
         banner_html: 'Deel uw referral link met vrienden, en <a href="/referral-program" alt="Read more">verdien tot $50 in BTC</a>. De beste manier om DCA Bitcoin te verkrijgen, is door het te verdienen!'
         copied: Gekopieerd!

@@ -693,6 +693,13 @@ en:
         title: 'Deltabadger • Automate Dollar-Cost Averaging into Any Crypto'
         title_short: 'Deltabadger • Auto-DCA into Bitcoin and Other Assets'
         twitter_image_alt: 'Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets.'
+        descriptions:
+            default: "Start for free the most-proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
+            privacy_policy: "Learn how Deltabadger protects your privacy and handles your data when using our automated cryptocurrency DCA platform."
+            terms_and_conditions: "Read our terms of service to understand your rights and responsibilities when using Deltabadger's automated cryptocurrency DCA platform."
+        titles:
+            privacy_policy: "Privacy Policy • Deltabadger"
+            terms_and_conditions: "Terms and Conditions • Deltabadger"
     referral:
         banner_html: 'Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!'
         copied: Copied!
