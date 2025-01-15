@@ -5,6 +5,7 @@ class ApplicationController < ActionController::Base
   around_action :switch_locale
 
   include SharedHelper
+  include MetaTagsHelper
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
