@@ -448,6 +448,9 @@ de:
                 title: 'Willkommen zurück!'
             signed_in: 'Lange nicht gesehen!'
             signed_out: 'Bis bald!'
+            two_factor:
+                submit: "Verifizieren"
+                invalid_code: "Falscher Code. Versuche es erneut."
         unlocks:
             send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
             unlocked: 'Dein Konto wurde erfolgreich entsperrt. Bitte melde dich an, um fortzufahren.'
