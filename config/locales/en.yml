@@ -116,8 +116,7 @@ en:
         connect: "Connect"
     bot:
         barbell:
-            invest_html:
-                "Invest %{input} /month"
+            invest_html: "Invest %{input} /month"
         utils:
             mkt_cap_adjusted: "Market Cap adjusted"
             mkt_cap_adjusted_info: |
@@ -129,9 +128,10 @@ en:
         value_ticker: "Value (%{ticker})"
         date: Date
     bots:
-        above: above
+        not_found: 'Such a bot doesn''t exist.'
+        above: 'above'
         add_new_bot: 'Add new bot'
-        below: below
+        below: 'below'
         buttons:
             automatic_withdrawal: 'Automatic Withdrawal'
             request_exchange: 'Ask to add an exchange'
@@ -244,7 +244,7 @@ en:
         next_buy: 'Next in %{countdown}'
         next_sell: 'Next in %{countdown}'
         next_withdrawal: 'Next in %{countdown}'
-        not_found: 'Such a bot doesn't exist.'
+        not_found: 'Such a bot doesn''t exist.'
         price: 'the price'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
