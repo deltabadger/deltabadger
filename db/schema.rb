@@ -92,7 +92,12 @@ ActiveRecord::Schema.define(version: 2025_01_04_182514) do
     t.integer "fetch_restarts", default: 0, null: false
     t.decimal "account_balance", default: "0.0"
     t.datetime "last_end_of_funds_notification"
+    t.decimal "cached_total_amount", precision: 20, scale: 8
+    t.decimal "cached_total_invested", precision: 20, scale: 8
+    t.decimal "cached_average_price", precision: 20, scale: 8
+    t.datetime "stats_cached_at"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
+    t.index ["stats_cached_at"], name: "index_bots_on_stats_cached_at"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
@@ -122,8 +127,14 @@ ActiveRecord::Schema.define(version: 2025_01_04_182514) do
     t.decimal "total_amount", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "total_value", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "total_invested", precision: 20, scale: 10, default: "0.0", null: false
+    t.decimal "running_total_amount", precision: 20, scale: 8
+    t.decimal "running_total_invested", precision: 20, scale: 8
+    t.index ["bot_id", "created_at", "amount", "rate", "total_invested", "total_amount"], name: "index_daily_transaction_aggregates_stats"
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
+    t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_success", where: "(status = 0)"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
+    t.index ["bot_id", "status", "created_at"], name: "index_daily_tx_aggregates_bot_status_date"
+    t.index ["bot_id", "status"], name: "index_daily_tx_aggregates_bot_status", where: "(status = 0)"
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
     t.index ["bot_id"], name: "index_daily_transaction_aggregates_on_bot_id"
     t.index ["created_at"], name: "index_daily_transaction_aggregates_on_created_at"
@@ -234,6 +245,7 @@ ActiveRecord::Schema.define(version: 2025_01_04_182514) do
     t.datetime "first_month_ending_sent_at"
     t.integer "nft_id"
     t.string "eth_address"
+    t.index ["end_time"], name: "index_subscriptions_on_end_time"
     t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
     t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
@@ -330,5 +342,37 @@ ActiveRecord::Schema.define(version: 2025_01_04_182514) do
     GROUP BY transactions.bot_id, bots.exchange_id, bots.settings, bots.created_at;
   SQL
   add_index "bots_total_amounts", ["bot_id"], name: "index_bots_total_amounts_on_bot_id", unique: true
+
+  create_view "bot_daily_stats", materialized: true, sql_definition: <<-SQL
+      WITH daily_stats AS (
+           SELECT daily_transaction_aggregates.bot_id,
+              date_trunc('day'::text, daily_transaction_aggregates.created_at) AS day,
+              sum(daily_transaction_aggregates.amount) AS daily_amount,
+              sum((daily_transaction_aggregates.amount * daily_transaction_aggregates.rate)) AS daily_invested,
+              max(daily_transaction_aggregates.rate) AS last_rate
+             FROM daily_transaction_aggregates
+            WHERE (daily_transaction_aggregates.status = 0)
+            GROUP BY daily_transaction_aggregates.bot_id, (date_trunc('day'::text, daily_transaction_aggregates.created_at))
+          )
+   SELECT bot_id,
+      day AS created_at,
+      sum(daily_amount) OVER (PARTITION BY bot_id ORDER BY day) AS total_accumulated,
+      sum(daily_invested) OVER (PARTITION BY bot_id ORDER BY day) AS total_invested,
+      last_rate
+     FROM daily_stats;
+  SQL
+  add_index "bot_daily_stats", ["bot_id", "created_at"], name: "bot_daily_stats_bot_day", unique: true
+
+  create_view "bot_stats", materialized: true, sql_definition: <<-SQL
+      SELECT bot_id,
+      sum(amount) AS total_amount,
+      sum((amount * rate)) AS total_invested,
+      max(rate) AS last_rate,
+      max(created_at) AS last_transaction_at
+     FROM daily_transaction_aggregates
+    WHERE (status = 0)
+    GROUP BY bot_id;
+  SQL
+  add_index "bot_stats", ["bot_id"], name: "index_bot_stats_on_bot_id", unique: true
 
 end
