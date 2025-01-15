@@ -670,6 +670,14 @@ pl:
         title: 'Deltabadger • Automatyczne uśrednianie ceny dowolnej kryptowaluty'
         title_short: 'Deltabadger - Auto-DCA dla Bitcoina i innych kryptowalut'
         twitter_image_alt: 'Automatyczne uśrednianie ceny Bitcoina, Ethereum, Polkadot, Cardano, Solany i innych aktywów cyfrowych.'
+        title: "Deltabadger • Automatyczne uśrednianie ceny dowolnej kryptowaluty"
+        descriptions:
+            default: "Wystartuj za darmo najlepiej sprawdzoną strategię DCA, która działa z Binance, Coinbase, Kraken, Kucoin i innymi giełdami. Bez KYC."
+            privacy_policy: "Dowiedz się, jak Deltabadger chroni Twoją prywatność i zarządza danymi podczas korzystania z naszej zautomatyzowanej platformy DCA dla kryptowalut."
+            terms_and_conditions: "Przeczytaj nasze warunki korzystania, aby zrozumieć swoje prawa i obowiązki podczas korzystania z zautomatyzowanej platformy DCA Deltabadger."
+        titles:
+            privacy_policy: "Polityka Prywatności • Deltabadger"
+            terms_and_conditions: "Warunki Korzystania • Deltabadger"
     referral:
         banner_html: '<b> Udostępnij swój link referencyjny znajomym i <a href="/referral-program" alt="Read more"> zarób do 50 USD w BTC </a> . Najlepszym sposobem na uśrednianie ceny to zarabianie w bitcoinach! </b>'
         copied: Skopiowane!
