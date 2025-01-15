@@ -432,7 +432,6 @@ pt:
             signed_in: 'Quanto tempo!'
             signed_out: 'Até mais!'
             two_factor:
-                title: "Autenticação de dois fatores"
                 submit: "Verificar"
                 invalid_code: "Código incorreto. Tente novamente."
         unlocks:

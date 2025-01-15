@@ -483,7 +483,6 @@ es:
             signed_in: '¡Cuánto tiempo sin verte!'
             signed_out: '¡Hasta pronto!'
             two_factor:
-                title: "Autenticación de dos factores"
                 submit: "Verificar"
                 invalid_code: "Código incorrecto. Inténtalo de nuevo."
         unlocks:
