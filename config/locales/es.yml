@@ -482,6 +482,9 @@ es:
                 title: '¡Bienvenido de nuevo!'
             signed_in: '¡Cuánto tiempo sin verte!'
             signed_out: '¡Hasta pronto!'
+            two_factor:
+                submit: "Verificar"
+                invalid_code: "Código incorrecto. Inténtalo de nuevo."
         unlocks:
             send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
             unlocked: 'Tu cuenta ha sido desbloqueada con éxito. Por favor, inicia sesión para continuar.'
