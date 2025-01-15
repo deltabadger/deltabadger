@@ -432,136 +432,130 @@ fr:
         other: '%{count} jours restants'
     devise:
         confirmations:
-            confirmed: "Votre adresse e-mail a été confirmée avec succès."
+            confirmed: 'Votre adresse e-mail a été confirmée avec succès.'
             new:
-                submit: "Renvoyer"
-                title: "Renvoyer les instructions"
-            send_instructions: "Vous recevrez un e-mail avec des instructions dans quelques minutes."
-            send_paranoid_instructions: "Si votre compte existe, vous recevrez un e-mail avec des instructions dans quelques minutes."
+                submit: 'Renvoyer'
+                title: 'Renvoyer les instructions'
+            send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
+            send_paranoid_instructions: 'Si votre compte existe, vous recevrez un e-mail avec des instructions dans quelques minutes.'
         passwords:
             edit:
-                submit: "Changer le mot de passe"
-                title: "Changer le mot de passe"
+                submit: 'Changer le mot de passe'
+                title: 'Changer le mot de passe'
             new:
-                submit: "Envoyer les instructions"
-                title: "Mot de passe oublié ?"
-            no_token: "Vous ne pouvez pas accéder à cette page sans passer par un e-mail de réinitialisation de mot de passe. Si vous avez reçu un tel e-mail, assurez-vous d'utiliser l'URL complète fournie."
-            send_instructions: "Vous recevrez un e-mail avec des instructions dans quelques minutes."
-            send_paranoid_instructions: "Vous recevrez un e-mail avec des instructions dans quelques minutes."
-            updated: "Fait ! Votre mot de passe a été changé."
-            updated_not_active: "Fait ! Votre mot de passe a été changé."
-            token_expired: "Votre lien de réinitialisation de mot de passe a expiré. Veuillez demander un nouveau lien."
+                submit: 'Envoyer les instructions'
+                title: 'Mot de passe oublié ?'
+            no_token: 'Vous ne pouvez pas accéder à cette page sans passer par un e-mail de réinitialisation de mot de passe. Si vous avez reçu un tel e-mail, assurez-vous d’utiliser l’URL complète fournie.'
+            send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
+            send_paranoid_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
+            updated: 'Fait ! Votre mot de passe a été changé.'
+            updated_not_active: 'Fait ! Votre mot de passe a été changé.'
+            token_expired: 'Votre lien de réinitialisation de mot de passe a expiré. Veuillez demander un nouveau lien.'
             validations:
-                length: "Au moins %{count} caractères"
-                uppercase: "Contient une majuscule"
-                lowercase: "Contient une minuscule"
-                digit: "Contient un chiffre"
-                symbol: "Contient un symbole"
-                match: "Les mots de passe correspondent"
+                length: 'Au moins %{count} caractères'
+                uppercase: 'Contient une majuscule'
+                lowercase: 'Contient une minuscule'
+                digit: 'Contient un chiffre'
+                symbol: 'Contient un symbole'
+                match: 'Les mots de passe correspondent'
         registrations:
             edit:
-                awaiting_confirmation: "En attente de confirmation pour : %{email}"
+                awaiting_confirmation: 'En attente de confirmation pour : %{email}'
             new:
-                email_invalid: "Adresse e-mail invalide !"
-                email_suggestion_html: "Adresse e-mail invalide ! Voulez-vous dire : <b>%{suggestion}</b>"
-                name_invalid: "Pas besoin d'être réel 👻"
-                submit: "S'inscrire"
+                email_invalid: 'Adresse e-mail invalide !'
+                email_suggestion_html: 'Adresse e-mail invalide ! Voulez-vous dire : <b>%{suggestion}</b>'
+                name_invalid: 'Pas besoin d’être réel 👻'
+                submit: 'S’inscrire'
                 title_html: 'Créer un compte <span class="text-success">gratuit</span>'
-            signed_up: "Ravi de vous rencontrer !"
-            signed_up_but_inactive: "Bonjour, votre compte n'est pas encore activé. Avez-vous vérifié vos e-mails ?"
-            signed_up_but_locked: "Oups, votre compte est verrouillé."
-            signed_up_but_unconfirmed: "Vérifiez votre boîte de réception et cliquez sur le lien de confirmation."
-            update_needs_confirmation: "Vérifiez votre boîte de réception et cliquez sur le lien pour confirmer votre nouvelle adresse e-mail."
-            updated: "Votre compte a été mis à jour avec succès."
-            updated_but_not_signed_in: "Votre compte a été mis à jour avec succès, veuillez vous reconnecter."
+            signed_up: 'Ravi de vous rencontrer !'
+            signed_up_but_inactive: 'Bonjour, votre compte n’est pas encore activé. Avez-vous vérifié vos e-mails ?'
+            signed_up_but_locked: 'Oups, votre compte est verrouillé.'
+            signed_up_but_unconfirmed: 'Vérifiez votre boîte de réception et cliquez sur le lien de confirmation.'
+            update_needs_confirmation: 'Vérifiez votre boîte de réception et cliquez sur le lien pour confirmer votre nouvelle adresse e-mail.'
+            updated: 'Votre compte a été mis à jour avec succès.'
+            updated_but_not_signed_in: 'Votre compte a été mis à jour avec succès, veuillez vous reconnecter.'
         sessions:
             new:
-                forgot_password: "Mot de passe oublié ?"
-                submit: "Se connecter"
-                title: "Bon retour !"
-            signed_in: "Ça fait longtemps !"
-            signed_out: "À bientôt !"
+                forgot_password: 'Mot de passe oublié ?'
+                submit: 'Connexion'
+                title: 'Bon retour !'
+            signed_in: 'Ça faisait longtemps !'
+            signed_out: 'À bientôt !'
             two_factor:
-                title: "Authentification à deux facteurs"
                 submit: "Vérifier"
-                invalid_code: "Code incorrect. Réessayez."
+                invalid_code: "Code invalide. Réessayez."
         unlocks:
-            send_instructions: "Vous recevrez un e-mail avec des instructions dans quelques minutes."
-            unlocked: "Votre compte a été déverrouillé avec succès. Veuillez vous connecter pour continuer."
+            send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
+            unlocked: 'Votre compte a été déverrouillé avec succès. Veuillez vous connecter pour continuer.'
         failure:
-            already_authenticated: "Vous êtes déjà connecté."
-            inactive: "Votre compte n'est pas encore activé."
-            invalid: "Adresse e-mail ou mot de passe invalide."
-            last_attempt: "Il vous reste une tentative avant que votre compte ne soit verrouillé."
-            locked: "Votre compte est verrouillé."
-            not_found_in_database: "Adresse e-mail ou mot de passe invalide."
-            timeout: "Votre session a expiré. Veuillez vous reconnecter pour continuer."
-            unauthenticated: "Vous devez vous connecter ou vous inscrire avant de continuer."
-            unconfirmed: "Vous devez confirmer votre adresse e-mail avant de continuer."
+            already_authenticated: 'Vous êtes déjà connecté.'
+            inactive: 'Votre compte n’est pas encore activé.'
+            invalid: 'Adresse e-mail ou mot de passe invalide.'
+            last_attempt: 'Il vous reste une tentative avant que votre compte ne soit verrouillé.'
+            locked: 'Votre compte est verrouillé.'
+            not_found_in_database: 'Adresse e-mail ou mot de passe invalide.'
+            timeout: 'Votre session a expiré. Veuillez vous reconnecter pour continuer.'
+            unauthenticated: 'Vous devez vous connecter ou vous inscrire avant de continuer.'
+            unconfirmed: 'Vous devez confirmer votre adresse e-mail avant de continuer.'
         mailer:
             confirmation_instructions:
-                subject: "Confirmer l'adresse e-mail"
-                template_html: "<p>Votre adresse e-mail est à un clic de rejoindre l'équipe ! Confirmez maintenant et laissez la magie opérer automatiquement.</p> <a class=\"mail-button\" style=\"color: #fff\" href=\"%{confirmation_url}\">Confirmer cette adresse e-mail</a>"
+                subject: 'Confirmer l’adresse e-mail'
+                template_html: '<p>Votre adresse e-mail est à un clic de rejoindre l’équipe ! Confirmez maintenant et laissez la magie opérer automatiquement.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmer cette adresse e-mail</a>'
             email_changed:
-                subject: "E-mail confirmé"
-                template_html: "<p>Fait ! Voici votre nouvelle et brillante adresse Deltabadger :</p><p><b>%{email}</b></p>"
+                subject: 'E-mail confirmé'
+                template_html: '<p>Fait ! Voici votre nouvelle et brillante adresse Deltabadger :</p><p><b>%{email}</b></p>'
             password_change:
-                subject: "Mot de passe modifié"
-                template_html: |
-                    <p>C'est fait !</p>
-                    <p>Votre mot de passe a été changé.</p>
-                    <p>Vos secrets sont plus sécurisés que jamais !</p>
+                subject: 'Mot de passe modifié'
+                template_html: '<p>C’est fait !</p><p>Votre mot de passe a été changé.</p><p>Vos secrets sont plus sécurisés que jamais !</p>'
             reset_password_instructions:
-                subject: "Récupération de mot de passe"
-                template_html: |
-                    <p>La récupération de mot de passe est en cours ! Restez calme, vous serez bientôt de retour en jeu.</p>
-                    <a class="mail-button" style="color: #fff" href="%{edit_password_url}">Changer mon mot de passe</a>
+                subject: 'Récupération de mot de passe'
+                template_html: '<p>La récupération de mot de passe est en cours ! Restez calme, vous serez bientôt de retour en jeu.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Changer mon mot de passe</a>'
             unlock_instructions:
-                subject: "Instructions pour déverrouiller"
-                template_html: "<p>Nous avons verrouillé votre compte en raison de nombreuses tentatives de connexion échouées.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller :</p><a class=\"mail-button\" style=\"color: #fff\" href=\"%{unlock_url}\">Déverrouiller mon compte</a>"
+                subject: 'Instructions pour déverrouiller'
+                template_html: '<p>Nous avons verrouillé votre compte en raison de nombreuses tentatives de connexion échouées.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller :</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Déverrouiller mon compte</a>'
         omniauth_callbacks:
-            failure: "Impossible de vous authentifier via %{kind} en raison de : \"%{reason}\"."
-            success: "Authentifié avec succès via le compte %{kind}."
+            failure: 'Impossible de vous authentifier via %{kind} en raison de : "%{reason}".'
+            success: 'Authentifié avec succès via le compte %{kind}.'
     errors:
-        bitcoin_address_not_updated: "L'adresse Bitcoin n'a pas pu être mise à jour"
-        format: "%{attribute} %{message}"
-        frequency_limit: "Limite de fréquence dépassée"
-        invalid_api_keys: "Tokens non valides"
-        limit_reached: "Limite du forfait gratuit atteinte"
-        invalid_risk_free_rate_key: "Clé de taux sans risque non valide"
-        unable_to_get_risk_free_rate: "Impossible d'obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l'API de données est inaccessible."
-        invalid_number_of_allocations: "Nombre d'allocations non valide"
-        invalid_allocation_value: "Valeur d'allocation non valide"
+        bitcoin_address_not_updated: 'L''adresse Bitcoin n''a pas pu être mise à jour'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Limite de fréquence dépassée'
+        invalid_api_keys: 'Tokens non valides'
+        limit_reached: 'Limite du forfait gratuit atteinte'
+        invalid_risk_free_rate_key: 'Clé de taux sans risque non valide.'
+        unable_to_get_risk_free_rate: 'Impossible d''obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l''API de données est inaccessible.'
+        invalid_number_of_allocations: 'Nombre d''allocations non valide'
+        invalid_allocation_value: 'Valeur d''allocation non valide'
         messages:
-            accepted: "doit être accepté"
-            already_confirmed: "a déjà été confirmé, veuillez essayer de vous connecter"
-            bad_2fa_code: "Code invalide. Réessayez."
-            bad_credentials: "Adresse e-mail ou mot de passe incorrects."
-            bad_credentials_with_code: "Adresse e-mail, mot de passe ou code 2FA incorrects."
-            blank: "ne peut pas être vide"
-            confirmation: "ne correspond pas à %{attribute}"
-            confirmation_period_expired: "doit être confirmé d'ici %{period}, merci d'en demander un nouveau"
-            empty: "ne peut pas être vide"
-            empty_two_fa_token: "Code 2FA erroné. Réessayez."
-            equal_to: "doit être égal à %{count}"
-            even: "doit être un chiffre pair"
-            exclusion: "est réservé"
-            expired: "a expiré, merci d'en demander un nouveau"
-            greater_than: "doit être supérieur à %{count}"
-            greater_than_or_equal_to: "doit être supérieur ou égal à %{count}"
-            in: "doit être en %{count}"
-            inclusion: "n'est pas inclus dans la liste"
-            invalid: "n'est pas valable"
-            less_than: "doit être inférieur à %{count}"
-            less_than_or_equal_to: "doit être inférieur ou égal à %{count}"
-            model_invalid: "Échec de la validation : %{errors}"
-            not_a_number: "n'est pas un numéro"
-            not_an_integer: "doit être un entier"
-            not_found: "introuvable"
-            not_locked: "n'était pas verrouillé"
+            accepted: 'doit être accepté'
+            already_confirmed: 'a déjà été confirmé, veuillez essayer de vous connecter.'
+            bad_2fa_code: 'Code invalide. Réessayez.'
+            bad_credentials: 'Adresse e-mail ou mot de passe incorrects.'
+            bad_credentials_with_code: 'Adresse e-mail, mot de passe ou code 2FA incorrects.'
+            blank: 'ne peut pas être vide'
+            confirmation: 'ne correspond pas à %{attribute}'
+            confirmation_period_expired: 'doit être confirmé d''ici %{period}, merci d''en demander un nouveau.'
+            empty: 'ne peut pas être vide'
+            empty_two_fa_token: 'Code 2FA erroné. Réessayez.'
+            equal_to: 'doit être égal à %{count}'
+            even: 'doit être un chiffre pair'
+            exclusion: 'est réservé'
+            expired: 'a expiré, merci d''en demander un nouveau.'
+            greater_than: 'doit être supérieur à %{count}'
+            greater_than_or_equal_to: 'doit être supérieur ou égal à %{count}'
+            in: 'doit être en %{count}'
+            inclusion: 'n''est pas inclus dans la liste'
+            invalid: 'n''est pas valable'
+            less_than: 'doit être inférieur à %{count}'
+            less_than_or_equal_to: 'doit être inférieur ou égal à %{count}'
+            model_invalid: 'Échec de la validation : %{errors}'
+            not_a_number: 'n''est pas un numéro'
+            not_an_integer: 'doit être un entier'
+            not_found: 'introuvable.'
+            not_locked: 'n''était pas verrouillé.'
             not_saved:
-                one: "1 erreur a empêché %{resource} d'être enregistré"
-                other: "%{count} erreurs ont empêché %{resource} d'être enregistrés"
+                one: '1 erreur a empêché %{resource} d''être enregistré'
+                other: '%{count} erreurs ont empêché %{resource} d''être enregistrés'
             odd: 'doit être un chiffre impair'
             other_than: 'doit être autre que %{count}'
             password_not_match: 'Les mots de passe ne correspondent pas'
@@ -739,13 +733,13 @@ fr:
             legendary_plan_discount_html: 'Le prix du plan Légendaire augmente de %{amount} à chaque achat.'
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
-            paid_with_wire_transfer: "J'ai effectué un virement SEPA"
-            paid_with_wire_transfer_other: "J'ai effectué un virement bancaire"
+            paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
+            paid_with_wire_transfer_other: 'J''ai effectué un virement bancaire'
             pay_html: 'Payer %{amount_html}'
             pay_with_bitcoin: 'Payer en bitcoin'
             payment_ordered: 'Paiement ordonné !'
             referral_discount: '%{discount_percent} de réduction'
-            referral_discount_html: "Grâce au lien de parrainage de <b><a href=\"%{visible_link}\">%{visible_name}</a></b>, vous bénéficiez d'une réduction pour le premier achat sur la plateforme."
+            referral_discount_html: 'Grâce au lien de parrainage de <b><a href="%{visible_link}">%{visible_name}</a></b>, vous bénéficiez d''une réduction pour le premier achat sur la plateforme.'
             black_friday_discount_info: '%{discount_percent} de réduction'
             black_friday_sale: 'Vente Black Friday'
             pro_and_legendary_plans: 'Plans Pro et Legendary'
@@ -769,17 +763,17 @@ fr:
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
         ethereum_address: 'Adresse Ethereum'
-        confirm_info_html: "Je confirme que l'adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur <b>Réclamer le NFT</b>, si l'adresse est incorrecte, personne ne pourra récupérer le NFT."
+        confirm_info_html: 'Je confirme que l''adresse est correcte et comprends que le NFT sera envoyé à cette adresse. Une fois que je clique sur <b>Réclamer le NFT</b>, si l''adresse est incorrecte, personne ne pourra récupérer le NFT.'
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
             <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>"Regarde maman, sans les mains !"</i></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
                 <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
-                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu''à 65 ans ? Non, merci.</li>
+                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
             </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l''appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
+            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
             <p style="margin-bottom:0">À bientôt, Jan</p>
         default: 'Bonjour, bienvenue sur Deltabadger'
         legendary: 'Le NFT arrive bientôt !'
@@ -823,7 +817,7 @@ fr:
             best: 'Meilleur Ratio de Calmar'
         alpha:
             short_name: 'Alpha'
-            short_info: "L'excédent de rendement de votre portefeuille par rapport au marché, ajusté au risque."
+            short_info: 'L''excédent de rendement de votre portefeuille par rapport au marché, ajusté au risque.'
             best: 'Meilleur Alpha'
         beta:
             short_name: 'Beta'

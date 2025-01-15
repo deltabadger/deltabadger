@@ -513,7 +513,6 @@ en:
             signed_in: 'Long time no see!'
             signed_out: 'See you soon!'
             two_factor:
-                title: "Two-Factor Authentication"
                 submit: "Verify"
                 invalid_code: "Wrong code. Try again."
         unlocks:
