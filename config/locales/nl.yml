@@ -937,3 +937,4 @@ nl:
             past_performance: "Historische prestatie"
             benchmark_performance: "Historische prestatie benchmark"
             metrics_since: "Statistieken vanaf %{start_date} tot %{end_date}:"
+    not_found: 'Deze bot bestaat niet.'

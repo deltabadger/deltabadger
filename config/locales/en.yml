@@ -244,6 +244,7 @@ en:
         next_buy: 'Next in %{countdown}'
         next_sell: 'Next in %{countdown}'
         next_withdrawal: 'Next in %{countdown}'
+        not_found: 'Such a bot doesn't exist.'
         price: 'the price'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
         price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'

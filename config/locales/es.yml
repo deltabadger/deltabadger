@@ -229,7 +229,7 @@ es:
         next_buy: 'Siguiente compra en %{countdown}'
         next_sell: 'Siguiente venta en %{countdown}'
         next_withdrawal: 'Próxima retirada en %{countdown}'
-        price: 'del precio'
+        price: 'el precio'
         price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         sell: Vender
@@ -938,3 +938,4 @@ es:
             past_performance: "Rendimiento pasado"
             benchmark_performance: "Rendimiento pasado del benchmark"
             metrics_since: "Métricas desde %{start_date} hasta %{end_date}:"
+    not_found: 'Este bot no existe.'
