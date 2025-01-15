@@ -553,7 +553,7 @@ pl:
             model_invalid: 'Weryfikacja nie powiodła się: %{errors}'
             not_a_number: 'nie jest liczbą'
             not_an_integer: 'musi być liczbą całkowitą'
-            not_found: nieznaleziony.
+            not_found: 'Taki bot nie istnieje.'
             not_locked: 'nie był zablokowany.'
             not_saved:
                 one: '1 błąd uniemożliwił zapisanie  %{resource}:'

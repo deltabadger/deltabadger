@@ -501,7 +501,7 @@ pt:
             model_invalid: 'Falha de validação: %{errors}'
             not_a_number: 'não é um número'
             not_an_integer: 'tem de ser um número inteiro'
-            not_found: 'não encontrado.'
+            not_found: 'Este bot não existe.'
             not_locked: 'não estava bloqueado'
             odd: 'tem de ser ímpar'
             other_than: 'tem de ser diferente de %{count}'
