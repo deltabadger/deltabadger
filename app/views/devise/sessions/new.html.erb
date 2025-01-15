@@ -26,11 +26,6 @@
     </div>
   <% end %>
 
-  <div class="db-form__row">
-    <%= f.text_field :otp_code_token, autocomplete: 'off', class: "db-form__input" %>
-    <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
-  </div>
-
   <div class="cf-turnstile-container">
     <%= cloudflare_turnstile %>
   </div>
