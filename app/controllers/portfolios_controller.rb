@@ -37,7 +37,7 @@ class PortfoliosController < ApplicationController
       flash.now[:alert] = t('alert.portfolio.invalid_name')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_name') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_name') }
       end
     end
   end
@@ -65,7 +65,7 @@ class PortfoliosController < ApplicationController
     if @portfolio.persisted?
       render :edit, notice: t('alert.portfolio.portfolio_duplicated')
     else
-      redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.unable_to_duplicate_portfolio')
+      redirect_to portfolios_path, alert: t('alert.portfolio.unable_to_duplicate_portfolio')
     end
   end
 
@@ -89,14 +89,14 @@ class PortfoliosController < ApplicationController
     if Portfolio.benchmarks.include?(new_benchmark) && @portfolio.update(benchmark: new_benchmark)
       set_backtest_data
       respond_to do |format|
-        format.html { redirect_to portfolio_analyzer_path }
+        format.html { redirect_to portfolios_path }
         format.turbo_stream
       end
     else
       flash.now[:alert] = t('alert.portfolio.invalid_benchmark')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_benchmark') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_benchmark') }
       end
     end
   end
@@ -108,14 +108,14 @@ class PortfoliosController < ApplicationController
     if Portfolio.strategies.include?(new_strategy) && @portfolio.update(strategy: new_strategy)
       set_backtest_data
       respond_to do |format|
-        format.html { redirect_to portfolio_analyzer_path }
+        format.html { redirect_to portfolios_path }
         format.turbo_stream { render 'update_benchmark' }
       end
     else
       flash.now[:alert] = t('alert.portfolio.invalid_strategy')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_strategy') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_strategy') }
       end
     end
   end
@@ -127,14 +127,14 @@ class PortfoliosController < ApplicationController
     if @portfolio.update(backtest_start_date: new_backtest_start_date)
       set_backtest_data
       respond_to do |format|
-        format.html { redirect_to portfolio_analyzer_path }
+        format.html { redirect_to portfolios_path }
         format.turbo_stream
       end
     else
       flash.now[:alert] = t('alert.portfolio.invalid_start_date')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_start_date') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_start_date') }
       end
     end
   rescue Date::Error
@@ -148,7 +148,7 @@ class PortfoliosController < ApplicationController
         flash.now[:alert] = risk_free_rate_result.errors.first
         respond_to do |format|
           format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-          format.html { redirect_to portfolio_analyzer_path, alert: risk_free_rate_result.errors.first }
+          format.html { redirect_to portfolios_path, alert: risk_free_rate_result.errors.first }
         end
         return
       else
@@ -162,14 +162,14 @@ class PortfoliosController < ApplicationController
     if @portfolio.update(risk_free_rate: new_risk_free_rate)
       set_backtest_data
       respond_to do |format|
-        format.html { redirect_to portfolio_analyzer_path }
+        format.html { redirect_to portfolios_path }
         format.turbo_stream
       end
     else
       flash.now[:alert] = t('alert.portfolio.invalid_risk_free_rate')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_risk_free_rate') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_risk_free_rate') }
       end
     end
   end
@@ -179,13 +179,13 @@ class PortfoliosController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.smart_allocation_updated') }
+        format.html { redirect_to portfolios_path, notice: t('alert.portfolio.smart_allocation_updated') }
       end
     else
       flash.now[:alert] = t('alert.portfolio.invalid_smart_allocation')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_smart_allocation') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_smart_allocation') }
       end
     end
   end
@@ -198,13 +198,13 @@ class PortfoliosController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.risk_level_updated') }
+        format.html { redirect_to portfolios_path, notice: t('alert.portfolio.risk_level_updated') }
       end
     else
       flash.now[:alert] = t('alert.portfolio.invalid_risk_level')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: t('alert.portfolio.invalid_risk_level') }
+        format.html { redirect_to portfolios_path, alert: t('alert.portfolio.invalid_risk_level') }
       end
     end
   end
@@ -214,7 +214,7 @@ class PortfoliosController < ApplicationController
     set_backtest_data
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to portfolio_analyzer_path, notice: t('alert.portfolio.portfolio_normalized') }
+      format.html { redirect_to portfolios_path, notice: t('alert.portfolio.portfolio_normalized') }
     end
   end
 
@@ -224,13 +224,13 @@ class PortfoliosController < ApplicationController
       @insights = insights_result.data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path } # TODO: redirect to the correct place
+        format.html { redirect_to portfolios_path } # TODO: redirect to the correct place
       end
     else
       flash.now[:alert] = 'Unable to get insights.'
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Unable to get insights.' }
+        format.html { redirect_to portfolios_path, alert: 'Unable to get insights.' }
       end
     end
   end
@@ -271,7 +271,7 @@ class PortfoliosController < ApplicationController
   def reject_if_limited
     return unless @portfolio.limited?
 
-    redirect_to portfolio_analyzer_path
+    redirect_to portfolios_path
   end
 
   def default_portfolio_params

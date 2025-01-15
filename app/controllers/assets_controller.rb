@@ -19,13 +19,13 @@ class AssetsController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully added.' }
+        format.html { redirect_to portfolios_path, notice: 'Asset was successfully added.' }
       end
     else
       flash.now[:alert] = @asset.errors.messages.values.join(', ')
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid asset.' }
+        format.html { redirect_to portfolios_path, alert: 'Invalid asset.' }
       end
     end
   end
@@ -35,13 +35,13 @@ class AssetsController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset was successfully removed.' }
+        format.html { redirect_to portfolios_path, notice: 'Asset was successfully removed.' }
       end
     else
       flash.now[:alert] = 'Invalid asset.'
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid asset.' }
+        format.html { redirect_to portfolios_path, alert: 'Invalid asset.' }
       end
     end
   end
@@ -51,13 +51,13 @@ class AssetsController < ApplicationController
       set_backtest_data
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to portfolio_analyzer_path, notice: 'Asset allocation was successfully updated.' }
+        format.html { redirect_to portfolios_path, notice: 'Asset allocation was successfully updated.' }
       end
     else
       flash.now[:alert] = 'Invalid allocation value.'
       respond_to do |format|
         format.turbo_stream { render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity }
-        format.html { redirect_to portfolio_analyzer_path, alert: 'Invalid allocation value.' }
+        format.html { redirect_to portfolios_path, alert: 'Invalid allocation value.' }
       end
     end
   end
@@ -70,22 +70,22 @@ class AssetsController < ApplicationController
 
   def set_asset
     if params[:id].blank?
-      redirect_to portfolio_analyzer_path, alert: 'No Asset ID provided.'
+      redirect_to portfolios_path, alert: 'No Asset ID provided.'
       return
     end
     @asset = @portfolio.assets.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    redirect_to portfolio_analyzer_path, alert: 'Asset not found.'
+    redirect_to portfolios_path, alert: 'Asset not found.'
   end
 
   def set_portfolio
     if params[:portfolio_id].blank?
-      redirect_to portfolio_analyzer_path, alert: 'No Portfolio ID provided.'
+      redirect_to portfolios_path, alert: 'No Portfolio ID provided.'
       return
     end
     @portfolio = current_user.portfolios.find(params[:portfolio_id])
   rescue ActiveRecord::RecordNotFound
-    redirect_to portfolio_analyzer_path, alert: 'Portfolio not found.'
+    redirect_to portfolios_path, alert: 'Portfolio not found.'
   end
 
   def set_backtest_data
