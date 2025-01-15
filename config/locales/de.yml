@@ -518,7 +518,7 @@ de:
             model_invalid: 'Validierung ist fehlgeschlagen: %{errors}'
             not_a_number: 'ist keine Zahl'
             not_an_integer: 'muss eine ganze Zahl sein'
-            not_found: 'nicht gefunden.'
+            not_found: 'Dieser Bot existiert nicht.'
             not_locked: 'wurde nicht gesperrt.'
             odd: 'muss ungerade sein'
             other_than: 'darf nicht %{count} sein'

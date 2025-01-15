@@ -776,7 +776,7 @@ fr:
         banner_html: |
             <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>"Regarde maman, sans les mains !"</i></li>
                 <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
                 <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
             </ol>
