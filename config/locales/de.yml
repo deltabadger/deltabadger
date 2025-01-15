@@ -449,7 +449,6 @@ de:
             signed_in: 'Lange nicht gesehen!'
             signed_out: 'Bis bald!'
             two_factor:
-                title: "Zwei-Faktor-Authentifizierung"
                 submit: "Verifizieren"
                 invalid_code: "Falscher Code. Versuche es erneut."
         unlocks:
