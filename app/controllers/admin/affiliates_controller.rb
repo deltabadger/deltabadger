@@ -9,11 +9,10 @@ module Admin
     #   send_foo_updated_email
     # end
     def index
-      repository = AffiliatesRepository.new
-      @total_waiting = format_crypto(repository.total_waiting)
-      @total_unexported = format_crypto(repository.total_unexported)
-      @total_exported = format_crypto(repository.total_exported)
-      @total_paid = format_crypto(repository.total_paid)
+      @total_waiting = format_crypto(Affiliate.total_waiting)
+      @total_unexported = format_crypto(Affiliate.total_unexported)
+      @total_exported = format_crypto(Affiliate.total_exported)
+      @total_paid = format_crypto(Affiliate.total_paid)
       super
     end
 
@@ -64,15 +63,6 @@ module Admin
       file = Affiliates::GenerateCommissionsAccountingCsv.call
 
       send_data(file, filename: filename('accounting'))
-    end
-
-    def get_fiat_commissions
-      service_call = Admin::GetFiatCommissions.call
-      if service_call.success?
-        redirect_back(fallback_location: '/')
-      else
-        redirect_to admin_affiliates_path, alert: "Couldn't get FIAT payments' commissions"
-      end
     end
 
     private

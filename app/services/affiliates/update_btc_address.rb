@@ -3,10 +3,8 @@ module Affiliates
     attr_reader :affiliates_repository, :affiliate_mailer
 
     def initialize(
-      affiliates_repository: AffiliatesRepository.new,
       affiliate_mailer: AffiliateMailer
     )
-      @affiliates_repository = affiliates_repository
       @affiliate_mailer = affiliate_mailer
     end
 
@@ -19,8 +17,7 @@ module Affiliates
         return Result::Failure.new(*affiliate.errors.full_messages, data: affiliate)
       end
 
-      affiliate = affiliates_repository.update(
-        affiliate.id,
+      affiliate.update!(
         new_btc_address: new_btc_address,
         new_btc_address_token: Devise.friendly_token,
         new_btc_address_send_at: Time.now
