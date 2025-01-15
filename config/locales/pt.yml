@@ -584,8 +584,14 @@ pt:
         sign_up: Registar
         terms_and_conditions: 'Termos e Condições'
     meta:
-        title: 'Deltabadger • Automatizar o cálculo da média do custo do dólar para qualquer criptomoeda'
-        title_short: 'Deltabadger • Auto-DCA para Bitcoin e outros ativos'
+        title: "Deltabadger • Automatizar o cálculo da média do custo do dólar para qualquer criptomoeda"
+        descriptions:
+            default: "Comece gratuitamente a estratégia mais comprovada que funciona com Binance, Coinbase, Kraken, Kucoin e outras exchanges. Sem KYC."
+            privacy_policy: "Saiba como a Deltabadger protege sua privacidade e gerencia seus dados ao usar nossa plataforma automatizada de DCA em criptomoedas."
+            terms_and_conditions: "Leia nossos termos de serviço para entender seus direitos e responsabilidades ao usar a plataforma automatizada de DCA em criptomoedas da Deltabadger."
+        titles:
+            privacy_policy: "Política de Privacidade • Deltabadger"
+            terms_and_conditions: "Termos e Condições • Deltabadger"
         twitter_image_alt: 'Média automatizada do custo do dólar em Bitcoin, Ethereum, Polkadot, Cardano, Solana e outros ativos digitais.'
     referral:
         banner_html: '<b>Partilhe o seu link de referência com amigos e <a href="/referral-program" alt="Read more">ganhe até $50 em BTC</a>. A melhor forma de fazer DCA em Bitcoin é ganhá-lo!</b>'
