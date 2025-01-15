@@ -74,7 +74,7 @@ Rails.application.routes.draw do
     devise_scope :user do
       get  'signup', to: 'users/registrations#new', as: 'new_user_registration'
       post 'signup', to: 'users/registrations#create', as: 'user_registration'
-      post 'verify_two_factor', to: 'users/sessions#verify_two_factor', as: 'verify_two_factor_user_session'
+      post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
     resource :affiliate, path: 'referral-program', only: [:new, :show] do
