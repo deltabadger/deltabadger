@@ -482,7 +482,6 @@ nl:
             signed_in: 'Lang niet gezien!'
             signed_out: 'Tot ziens!'
             two_factor:
-                title: "Tweefactorauthenticatie"
                 submit: "Verifiëren"
                 invalid_code: "Onjuiste code. Probeer het opnieuw."
         unlocks:
