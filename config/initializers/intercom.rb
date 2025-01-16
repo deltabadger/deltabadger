@@ -10,7 +10,7 @@ IntercomRails.config do |config|
   # This is required to enable Identity Verification, you can find it on your Setup
   # guide in the "Identity Verification" step.
   #
-  # config.api_secret = "..."
+  config.api_secret = ENV.fetch("INTERCOM_HMAC")
 
   # == Enabled Environments
   # Which environments is auto inclusion of the Javascript enabled for
@@ -27,7 +27,7 @@ IntercomRails.config do |config|
   # == Include for logged out Users
   # If set to true, include the Intercom messenger on all pages, regardless of whether
   # The user model class (set below) is present.
-  # config.include_for_logged_out_users = true
+  config.include_for_logged_out_users = true
 
   # == User model class
   # The class which defines your user model
