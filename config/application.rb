@@ -53,5 +53,7 @@ module Deltabadger
     config.after_initialize do
       config.assets.precompile -= Turbo::Engine::PRECOMPILE_ASSETS
     end
+
+    config.api_base = "https://api-iam.intercom.io"
   end
 end
