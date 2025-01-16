@@ -460,9 +460,12 @@ ru:
             new:
                 forgot_password: 'Забыли пароль?'
                 submit: 'Войти'
-                title: 'Добро пожаловать обратно!'
+                title: 'С возвращением!'
             signed_in: 'Давно не виделись!'
-            signed_out: 'До скорой встречи!'
+            signed_out: 'До встречи!'
+            two_factor:
+                submit: "Подтвердить"
+                invalid_code: "Неверный код. Попробуйте еще раз."
         unlocks:
             send_instructions: 'Вы получите письмо с инструкциями в течение нескольких минут.'
             unlocked: 'Ваш аккаунт был успешно разблокирован. Пожалуйста, войдите, чтобы продолжить.'
@@ -645,6 +648,14 @@ ru:
         title: 'Deltabadger • Автоматизируйте усреднение долларовой стоимости для любой криптовалюты'
         title_short: 'Deltabadger • Авто-усреднение для Bitcoin и других активов'
         twitter_image_alt: 'Автоматизированное усреднение долларовой стоимости для Bitcoin, Ethereum, Polkadot, Cardano, Solana и других цифровых активов.'
+        title: "Deltabadger • Автоматизируйте усреднение долларовой стоимости для любой криптовалюты"
+        descriptions:
+            default: "Начните бесплатно самую проверенную стратегию, которая работает с Binance, Coinbase, Kraken, Kucoin и другими биржами. Без KYC."
+            privacy_policy: "Узнайте, как Deltabadger защищает вашу конфиденциальность и управляет вашими данными при использовании нашей автоматизированной платформы DCA для криптовалют."
+            terms_and_conditions: "Ознакомьтесь с нашими условиями использования, чтобы понять свои права и обязанности при использовании автоматизированной платформы DCA Deltabadger."
+        titles:
+            privacy_policy: "Политика Конфиденциальности • Deltabadger"
+            terms_and_conditions: "Условия Использования • Deltabadger"
     referral:
         banner_html: '<b>Поделитесь реферальной ссылкой с друзьями и <a href="/referral-program" alt="Read more">заработайте до $50 в BTC</a>. Лучший способ использовать DCA в Bitcoin – это заработать его!</b>'
         copied: Скопировано!
@@ -922,3 +933,5 @@ ru:
             past_performance: "Прошлая доходность"
             benchmark_performance: "Прошлая доходность бенчмарка"
             metrics_since: "Показатели с %{start_date} по %{end_date}:"
+    not_found: 'Такой бот не существует.'
+    price: 'цена'

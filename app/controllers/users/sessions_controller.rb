@@ -11,34 +11,37 @@ class Users::SessionsController < Devise::SessionsController
     end
   end
 
-  def create # rubocop:disable Metrics/PerceivedComplexity
+  def create
     params[:user][:password] = trim_long_password(params[:user][:password])
     self.resource = warden.authenticate!(auth_options)
 
     if resource&.otp_module_enabled?
-      if params[:user][:otp_code_token].present?
-        if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
-          continue_sign_in(resource_name, resource)
-        else
-          resource.errors.add(:otp_code_token, t('errors.messages.bad_2fa_code'))
-          abort_sign_in
-        end
-      else
-        resource.errors.add(:otp_code_token, t('errors.messages.empty_two_fa_token'))
-        abort_sign_in
-      end
-    elsif params[:user][:otp_code_token].empty?
-      continue_sign_in(resource_name, resource)
+      sign_out(resource)
+      session[:pending_user_id] = resource.id
+      render :two_factor
     else
-      flash[:alert] = t('errors.messages.bad_credentials_with_code')
-      abort_sign_in
+      continue_sign_in(resource_name, resource)
+    end
+  end
+
+  def verify_two_factor
+    return unless session[:pending_user_id]
+
+    self.resource = User.find(session[:pending_user_id])
+
+    if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
+      session.delete(:pending_user_id)
+      sign_in(resource_name, resource)
+      respond_with(resource, location: after_sign_in_path_for(resource))
+    else
+      flash.now[:alert] = t('errors.messages.bad_2fa_code')
+      render :two_factor
     end
   end
 
   private
 
   def continue_sign_in(resource_name, resource)
-    # set_flash_message!(:notice, :signed_in)
     sign_in(resource_name, resource)
     yield resource if block_given?
     respond_with(resource, location: after_sign_in_path_for(resource))

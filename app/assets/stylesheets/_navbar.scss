@@ -28,58 +28,6 @@
   }
 }
 
-.db--guest {
-  .db-logo-svg-shape {
-    fill: $textColorInverted;
-  }
-  .db-hi-welcome {
-    path {
-      stroke: $textColorInverted;
-      fill: transparent !important;
-    }
-    &.text-danger {
-      path {
-        stroke: var(--danger);
-        fill: transparent !important;
-      }
-    }
-  }
-  .navbar-brand {
-    color: $textColorInverted !important;
-    span {
-      @include media-breakpoint-down(xs) {
-        display: none;
-      }
-    }
-    @include media-breakpoint-down(sm) {
-      width: 50px;
-      svg {
-        width: 60px;
-      }
-    }
-  }
-  .navbar,
-  .row--intro {
-    a {
-      color: $textColorInverted;
-    }
-    .btn-outline-primary {
-      border-color: $textColorInverted;
-      &:hover {
-        background: $textColorInverted;
-        color: var(--primary);
-      }
-    }
-    color: $textColorInverted;
-  }
-  .btn-success {
-    &:hover {
-      background:   var(--success);
-      border-color: var(--success);
-
-    }
-  }
-}
 .navbar {
   position: relative;
   padding: 4rem 0;
