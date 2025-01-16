@@ -480,9 +480,12 @@ pl:
             new:
                 forgot_password: 'Zapomniałeś hasła?'
                 submit: 'Zaloguj się'
-                title: 'Witamy ponownie!'
+                title: 'Witaj z powrotem!'
             signed_in: 'Dawno się nie widzieliśmy!'
             signed_out: 'Do zobaczenia!'
+            two_factor:
+                submit: "Zweryfikuj"
+                invalid_code: "Nieprawidłowy kod. Spróbuj ponownie."
         unlocks:
             send_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
             unlocked: 'Twoje konto zostało pomyślnie odblokowane. Zaloguj się, aby kontynuować.'
@@ -550,7 +553,7 @@ pl:
             model_invalid: 'Weryfikacja nie powiodła się: %{errors}'
             not_a_number: 'nie jest liczbą'
             not_an_integer: 'musi być liczbą całkowitą'
-            not_found: nieznaleziony.
+            not_found: 'Taki bot nie istnieje.'
             not_locked: 'nie był zablokowany.'
             not_saved:
                 one: '1 błąd uniemożliwił zapisanie  %{resource}:'
@@ -667,6 +670,14 @@ pl:
         title: 'Deltabadger • Automatyczne uśrednianie ceny dowolnej kryptowaluty'
         title_short: 'Deltabadger - Auto-DCA dla Bitcoina i innych kryptowalut'
         twitter_image_alt: 'Automatyczne uśrednianie ceny Bitcoina, Ethereum, Polkadot, Cardano, Solany i innych aktywów cyfrowych.'
+        title: "Deltabadger • Automatyczne uśrednianie ceny dowolnej kryptowaluty"
+        descriptions:
+            default: "Wystartuj za darmo najlepiej sprawdzoną strategię DCA, która działa z Binance, Coinbase, Kraken, Kucoin i innymi giełdami. Bez KYC."
+            privacy_policy: "Dowiedz się, jak Deltabadger chroni Twoją prywatność i zarządza danymi podczas korzystania z naszej zautomatyzowanej platformy DCA dla kryptowalut."
+            terms_and_conditions: "Przeczytaj nasze warunki korzystania, aby zrozumieć swoje prawa i obowiązki podczas korzystania z zautomatyzowanej platformy DCA Deltabadger."
+        titles:
+            privacy_policy: "Polityka Prywatności • Deltabadger"
+            terms_and_conditions: "Warunki Korzystania • Deltabadger"
     referral:
         banner_html: '<b> Udostępnij swój link referencyjny znajomym i <a href="/referral-program" alt="Read more"> zarób do 50 USD w BTC </a> . Najlepszym sposobem na uśrednianie ceny to zarabianie w bitcoinach! </b>'
         copied: Skopiowane!
@@ -820,12 +831,12 @@ pl:
             short_info: 'Jeśli straty przekraczają VaR, jest to średnia strata, jakiej można się spodziewać.'
             best: 'Najniższy CVaR'
         sharpe_ratio:
-            short_name: 'Wskaźnik Sharpe’a'
+            short_name: 'Wskaźnik Sharpe''a'
             short_info: 'Ilość zwrotu za podejmowane ryzyko.'
-            best: 'Najwyższy Wskaźnik Sharpe’a'
+            best: 'Najwyższy Wskaźnik Sharpe''a'
         sortino_ratio:
             short_name: 'Wskaźnik Sortino'
-            short_info: 'Podobny do wskaźnika Sharpe’a, ale uwzględnia tylko ryzyko spadku.'
+            short_info: 'Podobny do wskaźnika Sharpe''a, ale uwzględnia tylko ryzyko spadku.'
             best: 'Najwyższy Wskaźnik Sortino'
         calmar_ratio:
             short_name: 'Wskaźnik Calmar'

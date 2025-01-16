@@ -448,6 +448,9 @@ de:
                 title: 'Willkommen zurück!'
             signed_in: 'Lange nicht gesehen!'
             signed_out: 'Bis bald!'
+            two_factor:
+                submit: "Verifizieren"
+                invalid_code: "Falscher Code. Versuche es erneut."
         unlocks:
             send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
             unlocked: 'Dein Konto wurde erfolgreich entsperrt. Bitte melde dich an, um fortzufahren.'
@@ -515,7 +518,7 @@ de:
             model_invalid: 'Validierung ist fehlgeschlagen: %{errors}'
             not_a_number: 'ist keine Zahl'
             not_an_integer: 'muss eine ganze Zahl sein'
-            not_found: 'nicht gefunden.'
+            not_found: 'Dieser Bot existiert nicht.'
             not_locked: 'wurde nicht gesperrt.'
             odd: 'muss ungerade sein'
             other_than: 'darf nicht %{count} sein'
@@ -600,9 +603,14 @@ de:
         terms_and_conditions: AGB
 
     meta:
-        title: 'Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung'
-        title_short: 'Deltabadger - Auto-DCA in Bitcoin und andere Assets'
-        twitter_image_alt: 'Automatisiertes Dollar-Cost-Averaging in Bitcoin, Ethereum, Polkadot, Cardano, Solana und anderen digitalen Assets.'
+        title: "Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung"
+        descriptions:
+            default: "Starte kostenlos mit der bewährtesten Strategie, die mit Binance, Coinbase, Kraken, Kucoin und anderen Börsen funktioniert. Keine KYC."
+            privacy_policy: "Erfahren Sie, wie Deltabadger Ihre Privatsphäre schützt und Ihre Daten bei der Nutzung unserer automatisierten Krypto-DCA-Plattform verarbeitet."
+            terms_and_conditions: "Lesen Sie unsere Nutzungsbedingungen, um Ihre Rechte und Pflichten bei der Nutzung von Deltabadgers automatisierter Krypto-DCA-Plattform zu verstehen."
+        titles:
+            privacy_policy: "Datenschutzerklärung • Deltabadger"
+            terms_and_conditions: "Nutzungsbedingungen • Deltabadger"
     referral:
         banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie bis zu 50$ in BTC</a>. Der beste Weg zum Durchschnittskosteneffekt ist, sich bitcoin zu verdienen!</b>'
         copied: Kopiert!

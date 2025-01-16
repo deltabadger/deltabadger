@@ -445,7 +445,7 @@ fr:
             new:
                 submit: 'Envoyer les instructions'
                 title: 'Mot de passe oublié ?'
-            no_token: 'Vous ne pouvez pas accéder à cette page sans passer par un e-mail de réinitialisation de mot de passe. Si vous avez reçu un tel e-mail, assurez-vous d’utiliser l’URL complète fournie.'
+            no_token: 'Vous ne pouvez pas accéder à cette page sans passer par un e-mail de réinitialisation de mot de passe. Si vous avez reçu un tel e-mail, assurez-vous d''utiliser l''URL complète fournie.'
             send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
             send_paranoid_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
             updated: 'Fait ! Votre mot de passe a été changé.'
@@ -464,11 +464,11 @@ fr:
             new:
                 email_invalid: 'Adresse e-mail invalide !'
                 email_suggestion_html: 'Adresse e-mail invalide ! Voulez-vous dire : <b>%{suggestion}</b>'
-                name_invalid: 'Pas besoin d’être réel 👻'
-                submit: 'S’inscrire'
+                name_invalid: 'Pas besoin d''être réel 👻'
+                submit: 'S''inscrire'
                 title_html: 'Créer un compte <span class="text-success">gratuit</span>'
             signed_up: 'Ravi de vous rencontrer !'
-            signed_up_but_inactive: 'Bonjour, votre compte n’est pas encore activé. Avez-vous vérifié vos e-mails ?'
+            signed_up_but_inactive: 'Bonjour, votre compte n''est pas encore activé. Avez-vous vérifié vos e-mails ?'
             signed_up_but_locked: 'Oups, votre compte est verrouillé.'
             signed_up_but_unconfirmed: 'Vérifiez votre boîte de réception et cliquez sur le lien de confirmation.'
             update_needs_confirmation: 'Vérifiez votre boîte de réception et cliquez sur le lien pour confirmer votre nouvelle adresse e-mail.'
@@ -481,12 +481,15 @@ fr:
                 title: 'Bon retour !'
             signed_in: 'Ça faisait longtemps !'
             signed_out: 'À bientôt !'
+            two_factor:
+                submit: "Vérifier"
+                invalid_code: "Code invalide. Réessayez."
         unlocks:
             send_instructions: 'Vous recevrez un e-mail avec des instructions dans quelques minutes.'
             unlocked: 'Votre compte a été déverrouillé avec succès. Veuillez vous connecter pour continuer.'
         failure:
             already_authenticated: 'Vous êtes déjà connecté.'
-            inactive: 'Votre compte n’est pas encore activé.'
+            inactive: 'Votre compte n''est pas encore activé.'
             invalid: 'Adresse e-mail ou mot de passe invalide.'
             last_attempt: 'Il vous reste une tentative avant que votre compte ne soit verrouillé.'
             locked: 'Votre compte est verrouillé.'
@@ -496,14 +499,14 @@ fr:
             unconfirmed: 'Vous devez confirmer votre adresse e-mail avant de continuer.'
         mailer:
             confirmation_instructions:
-                subject: 'Confirmer l’adresse e-mail'
-                template_html: '<p>Votre adresse e-mail est à un clic de rejoindre l’équipe ! Confirmez maintenant et laissez la magie opérer automatiquement.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmer cette adresse e-mail</a>'
+                subject: 'Confirmer l''adresse e-mail'
+                template_html: '<p>Votre adresse e-mail est à un clic de rejoindre l''équipe ! Confirmez maintenant et laissez la magie opérer automatiquement.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmer cette adresse e-mail</a>'
             email_changed:
                 subject: 'E-mail confirmé'
                 template_html: '<p>Fait ! Voici votre nouvelle et brillante adresse Deltabadger :</p><p><b>%{email}</b></p>'
             password_change:
                 subject: 'Mot de passe modifié'
-                template_html: '<p>C’est fait !</p><p>Votre mot de passe a été changé.</p><p>Vos secrets sont plus sécurisés que jamais !</p>'
+                template_html: '<p>C''est fait !</p><p>Votre mot de passe a été changé.</p><p>Vos secrets sont plus sécurisés que jamais !</p>'
             reset_password_instructions:
                 subject: 'Récupération de mot de passe'
                 template_html: '<p>La récupération de mot de passe est en cours ! Restez calme, vous serez bientôt de retour en jeu.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Changer mon mot de passe</a>'
@@ -657,6 +660,13 @@ fr:
         title: 'Deltabadger • Automatisez les achats périodiques en n''importe quelle crypto-monnaie'
         title_short: 'Deltabadger • DCA automatisé en Bitcoin et autres'
         twitter_image_alt: 'Achats périodiques automatisés en Bitcoin, Ethereum, Polkadot, Cardano, Solana, et autres actifs numériques.'
+        descriptions:
+            default: "Commencez gratuitement à utiliser la stratégie optimale avec Binance, Coinbase, Kraken et d'autres exchanges, sans KYC."
+            privacy_policy: "Découvrez comment Deltabadger protège votre vie privée et gère vos données lors de l'utilisation de notre plateforme automatisée de DCA en crypto-monnaies."
+            terms_and_conditions: "Lisez nos conditions d'utilisation pour comprendre vos droits et responsabilités lors de l'utilisation de la plateforme automatisée de DCA en crypto-monnaies de Deltabadger."
+        titles:
+            privacy_policy: "Politique de Confidentialité • Deltabadger"
+            terms_and_conditions: "Conditions d'Utilisation • Deltabadger"
     referral:
         banner_html: 'Partagez votre lien de parrainage avec vos proches et <a href="/referral-program" alt="Read more">gagnez jusqu''à 50 $ en BTC</a>. Le meilleur moyen de faire du DCA en Bitcoin est d''en gagner !'
         copied: 'Copié !'
@@ -766,7 +776,7 @@ fr:
         banner_html: |
             <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
             <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>“Regarde maman, sans les mains !”</i></li>
+                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>"Regarde maman, sans les mains !"</i></li>
                 <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
                 <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
             </ol>

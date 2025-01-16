@@ -229,7 +229,7 @@ es:
         next_buy: 'Siguiente compra en %{countdown}'
         next_sell: 'Siguiente venta en %{countdown}'
         next_withdrawal: 'Próxima retirada en %{countdown}'
-        price: 'del precio'
+        price: 'el precio'
         price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         sell: Vender
@@ -482,6 +482,9 @@ es:
                 title: '¡Bienvenido de nuevo!'
             signed_in: '¡Cuánto tiempo sin verte!'
             signed_out: '¡Hasta pronto!'
+            two_factor:
+                submit: "Verificar"
+                invalid_code: "Código incorrecto. Inténtalo de nuevo."
         unlocks:
             send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
             unlocked: 'Tu cuenta ha sido desbloqueada con éxito. Por favor, inicia sesión para continuar.'
@@ -658,6 +661,13 @@ es:
         title: 'Deltabadger • Inversión constante automatizada (DCA) en cualquier criptomoneda'
         title_short: 'Deltabadger • DCA automatizada en Bitcoin y otros activos'
         twitter_image_alt: 'Inversión constante automatizada en Bitcoin, Ethereum, Polkadot, Cardano, Solana y otros activos digitales.'
+        descriptions:
+            default: "Comienza de forma gratuita, la estrategia probada que funciona con Binance, Coinbase, Kraken, Kucoin, y otros exchanges. Sin KYC."
+            privacy_policy: "Descubre cómo Deltabadger protege tu privacidad y maneja tus datos al usar nuestra plataforma automatizada de DCA en criptomonedas."
+            terms_and_conditions: "Lee nuestros términos de servicio para entender tus derechos y responsabilidades al usar la plataforma automatizada de DCA en criptomonedas de Deltabadger."
+        titles:
+            privacy_policy: "Política de Privacidad • Deltabadger"
+            terms_and_conditions: "Términos y Condiciones • Deltabadger"
     referral:
         banner_html: '<b>Comparte tu enlace para invitar a tus amigos y <a href="/referral-program" alt="Read more">gana hasta 50 dólares en BTC</a>. ¡La mejor manera de seguir la estrategia DCA e invertir en Bitcoin es ganándolos!</b>'
         copied: ¡Copiado!
@@ -928,3 +938,4 @@ es:
             past_performance: "Rendimiento pasado"
             benchmark_performance: "Rendimiento pasado del benchmark"
             metrics_since: "Métricas desde %{start_date} hasta %{end_date}:"
+    not_found: 'Este bot no existe.'

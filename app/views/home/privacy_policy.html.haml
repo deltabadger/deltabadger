@@ -1,6 +1,15 @@
 - content_for :html_class do
   db--guest--text
 
+- content_for :static_page do
+  true
+
+- content_for :title do
+  = page_title_for_static_page(:privacy_policy)
+
+- content_for :meta_description do
+  = meta_description_for_static_page(:privacy_policy)
+
 .container.db-page.content-below-menu
   .row
     .col-md-4
