@@ -75,7 +75,8 @@ export default class extends Controller {
   }
 
   #buildFieldErrorHtml(field) {
-    return `<div class="db-form__info db-form__info--invalid">${field.validationMessage}</div>`
+    const errorMessage = field.dataset.html5ErrorMessage || field.validationMessage
+    return `<div class="db-form__info db-form__info--invalid">${errorMessage}</div>`
   }
 
   get #formFields() {
