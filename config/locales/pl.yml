@@ -634,7 +634,7 @@ pl:
             title: Dzięki!
         contact:
             general_questions_html: 'W przypadku pytań ogólnych spróbuj naszego <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">kanału na Telegramie</a>. To zazwyczaj najszybszy sposób na uzyskanie odpowiedzi. Wszystkie opinie, pomysły na produkty i prośby o dodanie giełdy są mile widziane.'
-            specific_questions_html: 'W przypadku bardziej szczegółowych kwestii, napisz do nas maila: %{email}, lub bezpośrednią wiadomość na Telegramie lub <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitterze</a>.'
+            specific_questions_html: 'W przypadku bardziej szczegółowych kwestii, napisz do nas maila: %{email}, lub bezpośrednią wiadomość na Telegramie lub <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Kontakt
     links:
         about: 'O nas'
@@ -705,7 +705,7 @@ pl:
         blog: 'Czytaj nasz blog'
         knowledge_base: 'Baza wiedzy'
         telegram: 'Dołącz do naszej grupy na Telegramie'
-        twitter: 'Śledź nas na Twitterze'
+        twitter: 'Śledź nas na 𝕏'
     subscription_mailer:
         invoice:
             subject: 'Płatność Deltabadger'
