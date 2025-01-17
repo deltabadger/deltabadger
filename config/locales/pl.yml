@@ -476,6 +476,7 @@ pl:
             update_needs_confirmation: 'Sprawdź swoją skrzynkę odbiorczą i kliknij w link, aby potwierdzić nowy adres e-mail.'
             updated: 'Twoje konto zostało pomyślnie zaktualizowane.'
             updated_but_not_signed_in: 'Twoje konto zostało pomyślnie zaktualizowane, zaloguj się ponownie.'
+            email_exists: 'Ten adres e-mail jest już zarejestrowany - spróbuj się zalogować.'
         sessions:
             new:
                 forgot_password: 'Zapomniałeś hasła?'

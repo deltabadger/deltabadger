@@ -474,6 +474,7 @@ nl:
             update_needs_confirmation: 'Controleer je inbox en volg de bevestigingslink om je nieuwe e-mailadres te bevestigen.'
             updated: 'Je account is succesvol bijgewerkt.'
             updated_but_not_signed_in: 'Je account is succesvol bijgewerkt, log opnieuw in.'
+            email_exists: 'Dit e-mailadres is al geregistreerd - probeer in te loggen.'
         sessions:
             new:
                 forgot_password: 'Wachtwoord vergeten?'
