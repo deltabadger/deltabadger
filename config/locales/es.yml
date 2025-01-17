@@ -475,6 +475,7 @@ es:
             update_needs_confirmation: 'Revisa tu bandeja de entrada y sigue el enlace de confirmación para confirmar tu nueva dirección de correo electrónico.'
             updated: 'Tu cuenta se ha actualizado correctamente.'
             updated_but_not_signed_in: 'Tu cuenta se ha actualizado correctamente, por favor inicia sesión nuevamente.'
+            email_exists: 'Este correo ya está registrado - por favor intenta iniciar sesión.'
         sessions:
             new:
                 forgot_password: '¿Olvidaste tu contraseña?'

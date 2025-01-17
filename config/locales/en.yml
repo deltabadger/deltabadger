@@ -506,6 +506,7 @@ en:
             update_needs_confirmation: 'Check your email inbox and follow the confirm link to confirm your new email address.'
             updated: 'Your account has been updated successfully.'
             updated_but_not_signed_in: 'Your account has been updated successfully, sign in again.'
+            email_exists: 'This email is already registered - please try logging in instead.'
         sessions:
             new:
                 forgot_password: 'Forgot password?'

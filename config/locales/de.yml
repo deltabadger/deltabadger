@@ -441,6 +441,7 @@ de:
             update_needs_confirmation: 'Überprüfe deinen Posteingang und folge dem Bestätigungslink, um deine neue E-Mail-Adresse zu bestätigen.'
             updated: 'Dein Konto wurde erfolgreich aktualisiert.'
             updated_but_not_signed_in: 'Dein Konto wurde erfolgreich aktualisiert, bitte melde dich erneut an.'
+            email_exists: 'Diese E-Mail ist bereits registriert - bitte versuchen Sie sich stattdessen anzumelden.'
         sessions:
             new:
                 forgot_password: 'Passwort vergessen?'
@@ -669,7 +670,7 @@ de:
             withdrawals: 'Automatische Auszahlungen'
         limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Transaktionslimit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
-        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
+        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
