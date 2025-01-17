@@ -21,15 +21,11 @@ class Users::RegistrationsController < Devise::RegistrationsController
         session.delete(:code)
         resource.update(referrer_id: affiliate.id) if affiliate.present?
       else
-
-        # for privacy, if the registered email is :taken, just redirect as if registration was successful
+        # Handle taken emails by redirecting to sign in
         if resource.errors.details[:email].any? { |error| error[:error] == :taken }
-          # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
-          resource.errors.delete(:email)
-          if resource.errors.empty?
-            redirect_to confirm_registration_url
-            return
-          end
+          flash[:notice] = t('devise.registrations.email_exists')
+          redirect_to new_user_session_path
+          return
         end
 
         set_new_instance_variables
@@ -39,9 +35,9 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
     # Prevent flash message with t('signed_up_but_unconfirmed') for unconfirmed accounts.
     # The view already has all the info nad the flash message is redundant.
-    if resource.persisted? && !resource.active_for_authentication?
-      flash.delete(:notice)
-    end
+    return unless resource.persisted? && !resource.active_for_authentication?
+
+    flash.delete(:notice)
   end
 
   protected

@@ -424,6 +424,7 @@ pt:
             update_needs_confirmation: 'Verifique sua caixa de entrada e clique no link para confirmar seu novo endereço de e-mail.'
             updated: 'Sua conta foi atualizada com sucesso.'
             updated_but_not_signed_in: 'Sua conta foi atualizada com sucesso, faça login novamente.'
+            email_exists: 'Este e-mail já está registrado - por favor tente fazer login.'
         sessions:
             new:
                 forgot_password: 'Esqueceu sua senha?'
