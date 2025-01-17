@@ -624,7 +624,7 @@ nl:
             title: Bedankt!
         contact:
             general_questions_html: 'Voor algemene vragen kan u terecht op ons <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram kanaal</a>. Dit is meestal de snelste manier om een antwoord te verkrijgen. Ook: all feedback, productideeën, en vragen betreffende exchanges zijn welkom.'
-            specific_questions_html: 'Voor meer specifieke vragen, email ons: %{email}, of via een persoonlijk bericht op Telegram of <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'Voor meer specifieke vragen, email ons: %{email}, of via een persoonlijk bericht op Telegram of <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contact
     links:
         about: 'Over ons'
@@ -693,7 +693,7 @@ nl:
         blog: 'Lees onze blog'
         knowledge_base: Kennisbank
         telegram: 'Word lid van onze Telegram-groep'
-        twitter: 'Volg ons op Twitter'
+        twitter: 'Volg ons op 𝕏'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Betaling'
