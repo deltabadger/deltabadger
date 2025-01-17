@@ -21,11 +21,15 @@ class Users::RegistrationsController < Devise::RegistrationsController
         session.delete(:code)
         resource.update(referrer_id: affiliate.id) if affiliate.present?
       else
-        # Handle taken emails by redirecting to sign in
+
+        # for privacy, if the registered email is :taken, just redirect as if registration was successful
         if resource.errors.details[:email].any? { |error| error[:error] == :taken }
-          flash[:notice] = t('devise.registrations.email_exists')
-          redirect_to new_user_session_path
-          return
+          # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
+          resource.errors.delete(:email)
+          if resource.errors.empty?
+            redirect_to confirm_registration_url
+            return
+          end
         end
 
         set_new_instance_variables
