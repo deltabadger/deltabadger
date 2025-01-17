@@ -1,0 +1,7 @@
+<% email = @resource.try(:unconfirmed_email) || @resource.try(:email) %>
+
+<h1 class="mail-header"><%= t('.subject') %></h1>
+
+<p><%= t('mailer.greeting_name', name: @resource.name) %></p>
+
+<%= t('.template_html', email: email) %>
