@@ -515,6 +515,11 @@ pl:
             unlock_instructions:
                 subject: 'Instrukcje odblokowania'
                 template_html: '<p>Twoje konto zostało zablokowane z powodu wielu nieudanych prób logowania.</p><p>Kliknij w poniższy link, aby je odblokować:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Odblokuj moje konto</a>'
+            email_already_taken:
+                subject: "Konto już istnieje"
+                message: "Masz już konto z tym adresem e-mail."
+                reset_password_message: "Jeśli zapomniałeś hasła, możesz je zresetować klikając przycisk poniżej."
+                reset_password_button: "Zresetuj hasło"
         omniauth_callbacks:
             failure: 'Nie udało się uwierzytelnić za pomocą %{kind} z powodu: "%{reason}".'
             success: 'Pomyślnie uwierzytelniono za pomocą konta %{kind}.'

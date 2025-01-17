@@ -514,6 +514,11 @@ es:
             unlock_instructions:
                 subject: 'Instrucciones para desbloquear'
                 template_html: '<p>Bloqueamos tu cuenta debido a varios intentos fallidos de inicio de sesión.</p><p>Haz clic en el siguiente enlace para desbloquearla:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear mi cuenta</a>'
+            email_already_taken:
+                subject: "La cuenta ya existe"
+                message: "Ya tienes una cuenta con esta dirección de correo electrónico."
+                reset_password_message: "Si has olvidado tu contraseña, puedes restablecerla haciendo clic en el botón de abajo."
+                reset_password_button: "Restablecer Contraseña"
         omniauth_callbacks:
             failure: 'No se pudo autenticar con %{kind} debido a: "%{reason}".'
             success: 'Autenticado correctamente con la cuenta %{kind}.'
