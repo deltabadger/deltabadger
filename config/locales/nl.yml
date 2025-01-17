@@ -513,6 +513,11 @@ nl:
             unlock_instructions:
                 subject: 'Instructies voor ontgrendelen'
                 template_html: '<p>We hebben je account vergrendeld vanwege te veel mislukte inlogpogingen.</p><p>Klik op de onderstaande link om het te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
+            email_already_taken:
+                subject: "Account bestaat al"
+                message: "Je hebt al een account met dit e-mailadres."
+                reset_password_message: "Als je je wachtwoord bent vergeten, kun je het opnieuw instellen door op de onderstaande knop te klikken."
+                reset_password_button: "Wachtwoord opnieuw instellen"
         omniauth_callbacks:
             failure: 'Kan je niet authenticeren via %{kind} vanwege: "%{reason}".'
             success: 'Succesvol geauthenticeerd via %{kind}-account.'
