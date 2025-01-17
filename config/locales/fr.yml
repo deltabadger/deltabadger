@@ -513,6 +513,11 @@ fr:
             unlock_instructions:
                 subject: 'Instructions pour déverrouiller'
                 template_html: '<p>Nous avons verrouillé votre compte en raison de nombreuses tentatives de connexion échouées.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller :</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Déverrouiller mon compte</a>'
+            email_already_taken:
+                subject: "Le compte existe déjà"
+                message: "Vous avez déjà un compte avec cette adresse e-mail."
+                reset_password_message: "Si vous avez oublié votre mot de passe, vous pouvez le réinitialiser en cliquant sur le bouton ci-dessous."
+                reset_password_button: "Réinitialiser le mot de passe"
         omniauth_callbacks:
             failure: 'Impossible de vous authentifier via %{kind} en raison de : "%{reason}".'
             success: 'Authentifié avec succès via le compte %{kind}.'
