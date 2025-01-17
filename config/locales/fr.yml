@@ -474,6 +474,7 @@ fr:
             update_needs_confirmation: 'Vérifiez votre boîte de réception et cliquez sur le lien pour confirmer votre nouvelle adresse e-mail.'
             updated: 'Votre compte a été mis à jour avec succès.'
             updated_but_not_signed_in: 'Votre compte a été mis à jour avec succès, veuillez vous reconnecter.'
+            email_exists: 'Cet e-mail est déjà enregistré - veuillez essayer de vous connecter.'
         sessions:
             new:
                 forgot_password: 'Mot de passe oublié ?'
