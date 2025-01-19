@@ -27,6 +27,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
           # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
           resource.errors.delete(:email)
           if resource.errors.empty?
+            CustomDeviseMailer.email_already_taken(resource.email).deliver_later
             redirect_to confirm_registration_url
             return
           end
@@ -39,9 +40,9 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
     # Prevent flash message with t('signed_up_but_unconfirmed') for unconfirmed accounts.
     # The view already has all the info nad the flash message is redundant.
-    if resource.persisted? && !resource.active_for_authentication?
-      flash.delete(:notice)
-    end
+    return unless resource.persisted? && !resource.active_for_authentication?
+
+    flash.delete(:notice)
   end
 
   protected

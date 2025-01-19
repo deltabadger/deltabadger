@@ -545,6 +545,11 @@ en:
             unlock_instructions:
                 subject: 'Unlock instructions'
                 template_html: '<p>We locked your account due to a high number of unsuccessful log in attempts.</p><p>Click the link below to unlock it:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Unlock my account</a>'
+            email_already_taken:
+                subject: "Account Already Exists"
+                message: "You already have an account with this email address."
+                reset_password_message: "If you've forgotten your password, you can reset it by clicking the button below."
+                reset_password_button: "Reset Password"
         omniauth_callbacks:
             failure: 'Could not authenticate you from %{kind} because "%{reason}".'
             success: 'Successfully authenticated from %{kind} account.'
@@ -657,7 +662,7 @@ en:
             title: Thanks!
         contact:
             general_questions_html: 'For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.'
-            specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contact
     links:
         about: About
@@ -727,7 +732,7 @@ en:
         blog: 'Read our blog'
         knowledge_base: 'Knowledge base'
         telegram: 'Join our Telegram group'
-        twitter: 'Follow us on Twitter'
+        twitter: 'Follow us on 𝕏'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Payment'

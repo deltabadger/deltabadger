@@ -514,6 +514,11 @@ es:
             unlock_instructions:
                 subject: 'Instrucciones para desbloquear'
                 template_html: '<p>Bloqueamos tu cuenta debido a varios intentos fallidos de inicio de sesión.</p><p>Haz clic en el siguiente enlace para desbloquearla:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear mi cuenta</a>'
+            email_already_taken:
+                subject: "La cuenta ya existe"
+                message: "Ya tienes una cuenta con esta dirección de correo electrónico."
+                reset_password_message: "Si has olvidado tu contraseña, puedes restablecerla haciendo clic en el botón de abajo."
+                reset_password_button: "Restablecer Contraseña"
         omniauth_callbacks:
             failure: 'No se pudo autenticar con %{kind} debido a: "%{reason}".'
             success: 'Autenticado correctamente con la cuenta %{kind}.'
@@ -625,7 +630,7 @@ es:
             title: ¡Gracias!
         contact:
             general_questions_html: 'Para preguntas generales, prueba nuestro <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canal de Telegram</a>. Suele ser la forma más rápida de obtener una respuesta. Además: todos los comentarios, ideas de productos y solicitudes de intercambio son bienvenidos.'
-            specific_questions_html: 'Para cuestiones específicas, envíanos un correo electrónico: %{email}, o un mensaje por Telegram o a través de <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">Twitter</a>.'
+            specific_questions_html: 'Para cuestiones específicas, envíanos un correo electrónico: %{email}, o un mensaje por Telegram o a través de <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contacto
     links:
         about: 'Acerca de'
@@ -694,7 +699,7 @@ es:
         blog: 'Lee nuestro blog'
         knowledge_base: 'Base de conocimientos'
         telegram: 'Únete a nuestro grupo de Telegram'
-        twitter: 'Síguenos en Twitter'
+        twitter: 'Síguenos en 𝕏'
     subscription_mailer:
         invoice:
             subject: 'Pago de Deltabadger'
