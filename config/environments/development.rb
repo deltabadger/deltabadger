@@ -70,5 +70,4 @@ Rails.application.configure do
   config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
 
   routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'http'}
-
 end
