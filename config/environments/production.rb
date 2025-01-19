@@ -106,7 +106,7 @@ Rails.application.configure do
 
   config.hosts << "app.deltabadger.com"
   config.hosts << "test.deltabadger.com"
-  config.hosts << "community.deltabadger.com"  
+  config.hosts << "community.deltabadger.com"
 
   config.exceptions_app = self.routes
 end

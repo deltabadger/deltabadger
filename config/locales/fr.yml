@@ -513,6 +513,11 @@ fr:
             unlock_instructions:
                 subject: 'Instructions pour déverrouiller'
                 template_html: '<p>Nous avons verrouillé votre compte en raison de nombreuses tentatives de connexion échouées.</p><p>Cliquez sur le lien ci-dessous pour le déverrouiller :</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Déverrouiller mon compte</a>'
+            email_already_taken:
+                subject: "Le compte existe déjà"
+                message: "Vous avez déjà un compte avec cette adresse e-mail."
+                reset_password_message: "Si vous avez oublié votre mot de passe, vous pouvez le réinitialiser en cliquant sur le bouton ci-dessous."
+                reset_password_button: "Réinitialiser le mot de passe"
         omniauth_callbacks:
             failure: 'Impossible de vous authentifier via %{kind} en raison de : "%{reason}".'
             success: 'Authentifié avec succès via le compte %{kind}.'
@@ -624,7 +629,7 @@ fr:
             title: 'Merci !'
         contact:
             general_questions_html: 'Pour des questions d''ordre général, merci d''essayer notre <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow"> chaîne Telegram </a>. C''est généralement le moyen le plus rapide d''obtenir une réponse. Aussi : tous les commentaires, idées de produits et demandes d''échange sont les bienvenus.'
-            specific_questions_html: 'Pour des problèmes plus spécifiques, envoyez-nous un e-mail : %{email} , ou un message direct sur Telegram ou <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow"> Twitter </a> .'
+            specific_questions_html: 'Pour des problèmes plus spécifiques, envoyez-nous un e-mail : %{email} , ou un message direct sur Telegram ou <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a> .'
             title: 'Contact'
     links:
         about: 'À propos'
@@ -689,7 +694,7 @@ fr:
         blog: 'Lire notre blog'
         knowledge_base: 'Base de connaissances'
         telegram: 'Rejoignez notre groupe Telegram'
-        twitter: 'Suivez-nous sur Twitter'
+        twitter: 'Suivez-nous sur 𝕏'
     subscription_mailer:
         invoice:
             subject: 'Paiement Deltabadger'
