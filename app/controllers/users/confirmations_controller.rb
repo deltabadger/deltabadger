@@ -23,6 +23,7 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
     super do
       if params[:new_user] == 'true'
         resource.add_to_sendgrid_new_users_list
+        resource.add_to_sendgrid_free_users_list
         ZapierMailToList.new.call(resource)
       end
     end
