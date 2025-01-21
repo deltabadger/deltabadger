@@ -11,12 +11,8 @@ module User::Sendgridable
   included do
     # validate :validate_email_with_sendgrid  # Disabled for now
 
-    def add_to_sendgrid_new_users_list
-      add_to_sendgrid_list(SENDGRID_NEW_USERS_LIST_NAME)
-    end
-
-    def add_to_sendgrid_free_users_list
-      add_to_sendgrid_list(SENDGRID_FREE_USERS_LIST_NAME)
+    def add_to_sendgrid_list(list_name)
+      Sendgrid::AddEmailToListJob.perform_later(email, list_name, name)
     end
 
     def add_to_sendgrid_exchange_list(exchange_name)
@@ -39,10 +35,6 @@ module User::Sendgridable
 
   def sendgrid_client
     @sendgrid_client ||= SendgridClient.new
-  end
-
-  def add_to_sendgrid_list(list_name)
-    Sendgrid::AddEmailToListJob.perform_later(email, list_name, name)
   end
 
   def remove_from_sendgrid_list(list_name)
