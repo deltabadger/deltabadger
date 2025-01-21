@@ -25,6 +25,11 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
         resource.add_to_sendgrid_new_users_list
         resource.add_to_sendgrid_free_users_list
         ZapierMailToList.new.call(resource)
+      elsif resource.previous_changes.key?('unconfirmed_email')
+        Sendgrid::UpdateEmailJob.perform_later(
+          resource.previous_changes['email'].first,
+          resource.previous_changes['email'].last
+        )
       end
     end
   end
