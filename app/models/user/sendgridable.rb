@@ -12,26 +12,26 @@ module User::Sendgridable
     # validate :validate_email_with_sendgrid  # Disabled for now
 
     def add_to_sendgrid_new_users_list
-      add_to_sendgrid_list(SENDGRID_NEW_USERS_LIST_NAME)
+      Sendgrid::AddEmailToListJob.perform_later(email, SENDGRID_NEW_USERS_LIST_NAME, name)
     end
 
     def add_to_sendgrid_free_users_list
-      add_to_sendgrid_list(SENDGRID_FREE_USERS_LIST_NAME)
+      Sendgrid::AddEmailToListJob.perform_later(email, SENDGRID_FREE_USERS_LIST_NAME, name)
     end
 
     def add_to_sendgrid_exchange_list(exchange_name)
       list_name = self.class.const_get("#{exchange_name.upcase}_STARTED")
-      add_to_sendgrid_list(list_name)
+      Sendgrid::AddEmailToListJob.perform_later(email, list_name, name)
     end
 
     def change_sendgrid_plan_list(from_plan_name, to_plan_name)
       from_const_name = "SENDGRID_#{from_plan_name&.upcase}_USERS_LIST_NAME"
       from_list_name = self.class.const_defined?(from_const_name) ? self.class.const_get(from_const_name) : nil
-      remove_from_sendgrid_list(from_list_name)
+      Sendgrid::RemoveEmailFromListJob.perform_later(email, from_list_name)
 
       to_const_name = "SENDGRID_#{to_plan_name&.upcase}_USERS_LIST_NAME"
       to_list_name = self.class.const_defined?(to_const_name) ? self.class.const_get(to_const_name) : nil
-      add_to_sendgrid_list(to_list_name)
+      Sendgrid::AddEmailToListJob.perform_later(email, to_list_name, name)
     end
   end
 
@@ -39,14 +39,6 @@ module User::Sendgridable
 
   def sendgrid_client
     @sendgrid_client ||= SendgridClient.new
-  end
-
-  def add_to_sendgrid_list(list_name)
-    Sendgrid::AddEmailToListJob.perform_later(email, list_name, name)
-  end
-
-  def remove_from_sendgrid_list(list_name)
-    Sendgrid::RemoveEmailFromListJob.perform_later(email, list_name)
   end
 
   def validate_email_with_sendgrid
