@@ -24,7 +24,7 @@ class SettingsController < ApplicationController
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')
       # do not automatically update the first name in Sendgrid, as it's not always correct
-      # Sendgrid::UpdateFirstNameJob.perform_later(current_user.email, current_user.name)
+      # Sendgrid::UpdateFirstName.perform_later(current_user.email, current_user.name)
       render turbo_stream: turbo_stream_prepend_flash
     else
       set_index_instance_variables
