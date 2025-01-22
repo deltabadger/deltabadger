@@ -1,6 +1,6 @@
 require 'utilities/hash'
 
-class Sendgrid::UpdateEmail < SendgridJob
+class Sendgrid::UpdateEmailJob < SendgridJob
   def perform(old_email, new_email)
     result = client.get_contacts_by_emails(emails: [old_email])
     contact_name = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'first_name')
