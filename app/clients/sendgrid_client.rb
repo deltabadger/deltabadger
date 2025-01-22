@@ -148,4 +148,35 @@ class SendgridClient < ApplicationClient
       Result::Success.new(response.body)
     end
   end
+
+  # https://www.twilio.com/docs/sendgrid/api-reference/suppressions-suppressions/retrieve-all-suppressions
+  # @param id [String] The ID of the list on which you want to perform the operation.
+  # @param contact_sample [Boolean] Setting this parameter to the true will cause the contact_sample to be returned.
+  def retrieve_all_suppressions
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/v3/asm/suppressions'
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://www.twilio.com/docs/sendgrid/api-reference/suppressions-global-suppressions/retrieve-all-global-suppressions
+  # @param id [String] The ID of the list on which you want to perform the operation.
+  # @param contact_sample [Boolean] Setting this parameter to the true will cause the contact_sample to be returned.
+  def retrieve_all_global_suppressions(start_time: nil, end_time: nil, limit: 500, offset: 0, email: nil)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/v3/suppression/unsubscribes'
+        req.params = {
+          start_time: start_time,
+          end_time: end_time,
+          limit: limit,
+          offset: offset,
+          email: email
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
 end
