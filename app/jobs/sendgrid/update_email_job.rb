@@ -7,10 +7,8 @@ class Sendgrid::UpdateEmailJob < SendgridJob
     contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'id')
     contact_lists_ids = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'list_ids')
 
-    contact_lists_ids.each do |list_id|
-      result = client.remove_contacts_from_list(id: list_id, contact_ids: [contact_id])
-      raise StandardError, result.errors if result.failure?
-    end
+    result = client.delete_contacts(ids: [contact_id])
+    raise StandardError, result.errors if result.failure?
 
     contact = {
       email: new_email,
