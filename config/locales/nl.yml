@@ -44,7 +44,7 @@ nl:
             valid_for: 'Geldig voor de eerste aankoop op het platform.'
         info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
         invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Ons verwijzingsprogramma <b>betaalt tot $50</b><sup>1</sup> per gebruiker in BTC (met behulp van de wisselkoers van de transactie). Voorbeeld:</p> <ol><li>Voor de eenvoud, stel dat de prijs van Bitcoin ~$10000 is, de korting is 10%, en uw marge is 20%.</li><li>De doorverwezen persoon koopt een 1-jarig plan voor $49,99, en betaalt na de korting $44,99 wat gelijk is aan 0,0045BTC. U verdient 0,001BTC (20% van $49,99).</li><li>Het maakt niet uit of de prijs van Bitcoin ondertussen verandert. Uw winst ligt vast in BTC.</li><li>De volgende keer koopt de doorverwezen persoon een Pro plan voor $149,99 en betaalt hij 0,015BTC. Hij of zij krijgt geen korting meer, maar jij krijgt nog steeds je 20% wat gelijk is aan 0,003BTC.</li><li>Je blijft winst maken zolang je een actief abonnement <sup>2</sup> hebt, en je totale winst per doorverwezen persoon niet hoger dan $50 is.</li> </ol><p><em>bitcoin verdienen is de beste manier van dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> De limiet is 50USD of 50EUR, afhankelijk van de valuta van de prijsbepaling.</small> <br><small class="mb-5"><sup>2</sup> Voor de doorverwezen persoon werkt de referral link zelfs als uw abonnement is verlopen.</small> </div>'
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Ons verwijzingsprogramma betaalt <b>20% commissie</b> op elke abonnementsbetaling van uw doorverwezen gebruikers. Er is geen limiet - u blijft verdienen zolang zij geabonneerd blijven. Bijvoorbeeld:</p>\n  <ol>\n    <li>Uw vriend koopt een Pro-plan voor $299/jaar. U verdient $60 in BTC (tegen de wisselkoers van de transactie).</li>\n    <li>Als zij geabonneerd blijven, blijft u $60 verdienen elk jaar dat zij verlengen.</li>\n    <li>Als zij upgraden naar ons Lifetime-plan ($2.000+), verdient u direct $400+ in BTC.</li>\n    <li>Uw inkomsten worden vastgelegd in BTC op het moment van de transactie, waardoor u beschermd bent tegen prijsschommelingen.</li>\n    <li>Commissies worden direct bijgeschreven en maandelijks uitbetaald.</li>\n  </ol>\n\n  <p><em>Bitcoin verdienen is de beste manier om aan DCA te doen!</em></p>\n</div>"
         new:
             checked: 'Ik heb alles nauwkeurig nagekeken.'
             discount_info_html: 'U <b> verdient <span class="db-form-label-range--earn-percent">%{earn_percent_preview}%</span></b>, en de persoon die werd doorverwezen krijgt <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> korting</b>.'
@@ -673,7 +673,7 @@ nl:
             privacy_policy: "Privacybeleid • Deltabadger"
             terms_and_conditions: "Algemene Voorwaarden • Deltabadger"
     referral:
-        banner_html: 'Deel uw referral link met vrienden, en <a href="/referral-program" alt="Read more">verdien tot $50 in BTC</a>. De beste manier om DCA Bitcoin te verkrijgen, is door het te verdienen!'
+        banner_html: '<b>Deel uw verwijzingslink met vrienden en <a href="/referral-program" alt="Read more">verdien 20% terugkerende commissie</a> in BTC. De beste manier om aan Bitcoin-DCA te doen is door ze te verdienen!</b>'
         copied: Gekopieerd!
     settings:
         index:
