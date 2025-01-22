@@ -5,7 +5,7 @@ en:
                 affiliate:
                     attributes:
                         code:
-                            invalid_format: 'has to consist of uppercase alphanumeric characters'
+                            invalid_format: "has to consist of uppercase alphanumeric characters"
                 subscription:
                     attributes:
                         eth_address:
@@ -13,45 +13,45 @@ en:
                 asset:
                     attributes:
                         portfolio:
-                            max_assets_reached: 'Maximum number of assets reached.'
+                            max_assets_reached: "Maximum number of assets reached."
     ads:
-        dca_profit_html: 'If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you''d be now&nbsp;up <span class="text-success">%{profit}%</span>'
+        dca_profit_html: "If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you'd be now&nbsp;up <span class=\"text-success\">%{profit}%</span>"
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: 'Confirm new Bitcoin address'
-            template_html: '<p>It looks like you want to change your Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Yes, let''s change it!</a>'
+            subject: "Confirm new Bitcoin address"
+            template_html: "<p>It looks like you want to change your Bitcoin address to:</p><p><b>%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p><a class=\"mail-button\" style=\"color: #fff\" href=\"%{confirmation_url}\">Yes, let's change it!</a>"
         referrals_payout_notification:
-            subject: 'It''s a payday!'
-            template_html: '<p>Your referral link is gaining traction! Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>'
+            subject: "It's a payday!"
+            template_html: "<p>Your referral link is gaining traction! Sweet!</p><p>We transfer a commission of</p><p> <b>%{amount} BTC</b></p><p>to your Bitcoin wallet.</p><p>Thank you for expanding the badger gang!</p>"
         registration_reminder:
-            subject: 'Wow! You earned %{amount} BTC!'
-            template_html: '<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoin:</p><a class="email-button" style="color: #fff" href=%{link}>Complete registration.</a>'
+            subject: "Wow! You earned %{amount} BTC!"
+            template_html: "<p>You have a new commission from the referral program waiting for you! Finish registration to receive your bitcoin:</p><a class=\"email-button\" style=\"color: #fff\" href=\"%{link}\">Complete registration.</a>"
     affiliates:
-        add_link_info: 'You can add your name and link to your website to let the referral know where the discount is coming from. You can also leave it blank:'
+        add_link_info: "You can add your name and link to your website to let the referral know where the discount is coming from. You can also leave it blank:"
         apply_code:
-            accept: Accept
-            reject: Back
-            title: 'Referral Link'
-        btc_address_changed: 'Bitcoin address changed'
-        btc_address_confirmation_sent: 'Confirmation email sent'
+            accept: "Accept"
+            reject: "Back"
+            title: "Referral Link"
+        btc_address_changed: "Bitcoin address changed"
+        btc_address_confirmation_sent: "Confirmation email sent"
         create:
-            error: 'Referral program registration failed'
-            free_plan_error: 'You have to upgrade to register'
-        current_bitcoin_address: 'Current Bitcoin address'
+            error: "Referral program registration failed"
+            free_plan_error: "You have to upgrade to register"
+        current_bitcoin_address: "Current Bitcoin address"
         discount:
-            accepted: 'You have accepted the referral link'
-            already_used: 'You have already used a referral link'
-            congrats_html: 'Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% discount is active.'
-            flash_html: 'Hello! enjoy %{discount_percent}% discount from <span class="text-success text-success--lighter">%{visible_name}</span>'
-            invalid: 'The referral link seems invalid or obsolete'
-            referrer_html: 'Thanks to the referral link from <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
-            valid_for: 'Valid for the first purchase on the platform.'
+            accepted: "You have accepted the referral link"
+            already_used: "You have already used a referral link"
+            congrats_html: "Congrats! The <span class=\"db-form-label-range--discount-percent\">%{discount_percent}</span>% discount is active."
+            flash_html: "Hello! enjoy %{discount_percent}% discount from <span class=\"text-success text-success--lighter\">%{visible_name}</span>"
+            invalid: "The referral link seems invalid or obsolete"
+            referrer_html: "Thanks to the referral link from <b><a href=\"%{visible_link}\"><span class=\"db-form-preview--visible_name\">%{visible_name}</span></a>.</b>"
+            valid_for: "Valid for the first purchase on the platform."
         info_preview: 'This is a preview of what referrals will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: '<div class="alert alert-success"><p class="mt-1">Our referral program <b>pays up to $50</b><sup>1</sup> per user in BTC (using an exchange ratio from the transaction). Example:</p> <ol><li>For simplicity, the price of Bitcoin is ~$10000, the discount is 10%, and your margin is 20%.</li><li>Referral buys a 1-year plan for $49.99, paying after the discount $44.99 what equals 0.0045BTC. You earn 0.001BTC (20% of $49.99).</li><li>It doesn''t matter if the price of Bitcoin changes in the meantime. Your profit is locked in BTC.</li><li>Next time, the referral buys a Pro plan for $149.99 and pays 0.015BTC. He or she doesn''t get a discount anymore, but you still get your 20% what equals 0.003BTC.</li><li>You continue to profit as long as you have an active plan<sup>2</sup>, and your total profit per referral does not reach $50.</li> </ol><p><em>Earning bitcoin is the best kind of dollar-cost averaging!</em></p> <small class="mb-2"><sup>1</sup> The limit is either 50USD or 50EUR, depending on the currency of the pricing.</small> <br> <small class="mb-5"><sup>2</sup> For the referral, the referral link works even if your subscription has expired.</small> </div>'
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Our referral program pays <b>20% commission</b> on every subscription payment your referrals make. There's no cap - you keep earning as long as they stay subscribed. For example:</p>\n  <ol>\n    <li>Your friend buys a Pro plan for $299/year. You earn $60 in BTC (at the exchange rate of the transaction).</li>\n    <li>If they stay subscribed, you keep earning $60 every year they renew.</li>\n    <li>If they upgrade to our Lifetime plan ($2,000+), you earn $400+ in BTC instantly.</li>\n    <li>Your earnings are locked in BTC at the time of the transaction, protecting you from price fluctuations.</li>\n    <li>Commissions are credited instantly and paid out monthly.</li>\n  </ol>\n\n  <p><em>Earning bitcoin is the best way to DCA!</em></p>\n</div>"
         new:
             checked: 'I checked everything carefully.'
-            discount_info_html: 'You will <b> earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, and referral will get <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
+            discount_info_html: 'You will <b>earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>% recurring commission</b> on all payments, and your referral will get a <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount for the first purchase.'
             eu_company: 'EU company'
             payout_address: 'Payout address'
@@ -92,26 +92,26 @@ en:
         your_bitcoin_address: 'Your Bitcoin address'
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
-            subject: 'transaction successful'
-            template_html: 'transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange_name: %{exchange_name}'
+            subject: "transaction successful"
+            template_html: "transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange_name: %{exchange_name}"
         end_of_funds:
-            subject: 'Your bot is running out of funds soon'
-            template_html: '<p>It looks like your bot is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>'
+            subject: "Your bot is running out of funds soon"
+            template_html: "<p>It looks like your bot is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
         first_month_ending_soon:
-            subject: 'First month trial ending soon!'
-            template_html: '<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>'
+            subject: "First month trial ending soon!"
+            template_html: "<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>"
         limit_almost_reached:
-            subject: 'Limit almost reached'
-            template_html: '<p>You''ve almost reached the <b>Free</b> plan transaction limit.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>'
+            subject: "Limit almost reached"
+            template_html: "<p>You've almost reached the <b>Free</b> plan transaction limit.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>"
         limit_reached:
-            subject: 'You''ve reached the limit'
-            template_html: '<p>Oh, well done! Your <b>Free</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you''re happy about the results.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>'
+            subject: "You've reached the limit"
+            template_html: "<p>Oh, well done! Your <b>Free</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you're happy about the results.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>"
         notify_about_error:
-            subject: 'Something went wrong'
-            template_html: '<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
+            subject: "Something went wrong"
+            template_html: "<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: 'Oops! Next try…'
-            template_html: '<p>The bot couldn''t perform your order. It looks like an exchange issue. We''ll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
+            subject: "Oops! Next try…"
+            template_html: "<p>The bot couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Connect"
     bot:
@@ -126,43 +126,43 @@ en:
         avg_price_ticker: "Avg. Price (%{ticker})"
         invested_ticker: "Invested (%{ticker})"
         value_ticker: "Value (%{ticker})"
-        date: Date
+        date: "Date"
     bots:
-        not_found: 'Such a bot doesn''t exist.'
-        above: 'above'
-        add_new_bot: 'Add new bot'
-        below: 'below'
+        not_found: "Such a bot doesn't exist."
+        above: "above"
+        add_new_bot: "Add new bot"
+        below: "below"
         buttons:
-            automatic_withdrawal: 'Automatic Withdrawal'
-            request_exchange: 'Ask to add an exchange'
-            move_existing_bot: 'Move existing bot to another exchange'
-            webhook: 'Webhook Trade'
+            automatic_withdrawal: "Automatic Withdrawal"
+            request_exchange: "Ask to add an exchange"
+            move_existing_bot: "Move existing bot to another exchange"
+            webhook: "Webhook Trade"
             delete:
-                cancel: Cancel
-                ok: 'Remove completely'
-                text: Delete
-                warning_html: 'That will remove the bot with all<br>its historical data. Are you sure?'
-            dollar_cost_averaging: 'Dollar-Cost Averaging'
+                cancel: "Cancel"
+                ok: "Remove completely"
+                text: "Delete"
+                warning_html: "That will remove the bot with all<br>its historical data. Are you sure?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
             pending:
-                info_html: Processing…
-                text: Pending
+                info_html: "Processing…"
+                text: "Pending"
             start:
                 changed_missed:
-                    continue: 'Yes, buy and continue'
-                    info_html: 'Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused? The new schedule will start after the current countdown is finished.'
-                    skip: 'Ignore the missed part'
+                    continue: "Yes, buy and continue"
+                    info_html: "Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused? The new schedule will start after the current countdown is finished."
+                    skip: "Ignore the missed part"
                 changed_on_schedule:
-                    continue: 'I understand'
-                    info_html: 'The new schedule will start after the remaining <b>%{time}</b> of the last one is finished.'
-                    skip: 'Ignore it and start immediately'
+                    continue: "I understand"
+                    info_html: "The new schedule will start after the remaining <b>%{time}</b> of the last one is finished."
+                    skip: "Ignore it and start immediately"
                 missed:
-                    continue: 'Yes, buy and continue'
-                    info_html: 'Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused, and continue the original time schedule?'
-                    skip: 'Skip the missed part'
+                    continue: "Yes, buy and continue"
+                    info_html: "Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused, and continue the original time schedule?"
+                    skip: "Skip the missed part"
                 on_schedule:
-                    continue: 'Continue original schedule'
-                    info_html: 'You have still <b>%{time}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown.'
-                    skip: 'Skip it'
+                    continue: "Continue original schedule"
+                    info_html: "You have still <b>%{time}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown."
+                    skip: "Skip it"
         buy: Buy
         counter: '%{countdown}'
         day: Day
@@ -247,48 +247,46 @@ en:
         not_found: 'Such a bot doesn''t exist.'
         price: 'the price'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
-        price_range_sell_html: 'Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
-        sell: Sell
-        buy_all: Buy all
-        sell_all: Sell all
-        first_time: first time
-        every_time: every time
-        name: 'Name:'
-        triggered_title: 'this webhook is triggered:'
-        triggered_first: 'the first webhook is triggered.'
-        triggered_second: 'the second webhook is triggered.'
-        webhook_has_been_copied: 'Webhook has been copied to clipboard.'
-        fees: 'Fees'
-        maker_fee: 'Maker'
-        taker_fee: 'Taker'
-        withdrawal_fee: 'Withdrawal (₿)'
-        additional_title: Two-way bot
+        price_range_sell_html: "Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}."
+        sell: "Sell"
+        buy_all: "Buy all"
+        sell_all: "Sell all"
+        first_time: "first time"
+        every_time: "every time"
+        name: "Name:"
+        triggered_title: "this webhook is triggered:"
+        triggered_first: "the first webhook is triggered."
+        triggered_second: "the second webhook is triggered."
+        webhook_has_been_copied: "Webhook has been copied to clipboard."
+        fees: "Fees"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Withdrawal (₿)"
+        additional_title: "Two-way bot"
         setup:
-            api_not_available: 'Exchange API is not available'
+            api_not_available: "Exchange API is not available"
             binance:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu (round icon in the top right corner) go to <b>API Management</b>.'
-                instructions_3_html: 'Name the new API key by pressing <b>Create</b>.'
-                instructions_4_html: 'Confirm creation with one-time code(s).'
-                instructions_5_html: 'Make sure that <b>Enable Spot & Margin Trading</b> is checked.'
-                instructions_6_html: 'If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>18.132.181.159</b>'
-                instructions_7_html: 'Press <b>Save</b> and confirm with another one-time code if necessary.'
-                instructions_8_html: 'Remember that the Secret Key is visible only during creation, so make sure you copy both keys before leaving the view.'
-                instructions_9_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "In user menu (round icon in the top right corner) go to <b>API Management</b>."
+                instructions_3_html: "Name the new API key by pressing <b>Create</b>."
+                instructions_4_html: "Confirm creation with one-time code(s)."
+                instructions_5_html: "Make sure that <b>Enable Spot & Margin Trading</b> is checked."
+                instructions_6_html: "If you want to restrict access to the key only for Deltabadger, click <b>Edit restrictions</b>, check <b>Restrict access to trusted IPs only (Recommended)</b>, and add this IP in the next step: <b>18.132.181.159</b>"
+                instructions_7_html: "Press <b>Save</b> and confirm with another one-time code if necessary."
+                instructions_8_html: "Remember that the Secret Key is visible only during creation, so make sure you copy both keys before leaving the view."
+                instructions_9_html: "Copy and paste your new API keys into the form above."
+                private_key: "Secret Key"
+                public_key: "API Key"
             bitfinex:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner) go to <b>API Keys</b>.'
-                instructions_3_html: 'Go to <b>Create New Key</b>.'
-                instructions_4_1_html: 'Set permissions for:'
-                instructions_4_2_html: '<b>Get orders and statuses.</b>'
-                instructions_4_3_html: '<b>Create and cancel orders.</b>'
-                instructions_5_html: 'Provide <b>Label</b> to your API key.'
-                instructions_6_html: 'Press <b>Generate API key</b>.'
-                instructions_7_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'API Secret'
-                public_key: 'API Key'
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "Go to <b>API</b> in the menu."
+                instructions_3_html: "Click <b>Create New Key</b>."
+                instructions_4_html: "Label your key and select <b>Read</b> and <b>Write</b> permissions."
+                instructions_5_html: "Click <b>Generate API Key</b>."
+                instructions_6_html: "Confirm with 2FA if necessary."
+                instructions_7_html: "Copy and paste your new API keys into the form above."
+                private_key: "API Secret"
+                public_key: "API Key"
             bitso:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In the account menu (top right corner) go to <b>Profile</b>.'
@@ -356,97 +354,89 @@ en:
             how_to_add_withdrawal_bot: 'How to set up withdrawal bot:'
             how_to_get_keys: 'How to get API keys from %{exchange}:'
             kraken:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
-                instructions_3_html: 'Press <b>Generate New Key</b>.'
-                instructions_4_html: 'Set permissions for:'
-                instructions_5_1_html: 'Funds:'
-                instructions_5_2_html: '<b>Query Funds</b>'
-                instructions_6_1_html: 'Order & Trades:'
-                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
-                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
-                instructions_6_4_html: '<b>Create and modify orders</b>'
-                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
-                instructions_7_html: 'Press <b>Generate Key</b>.'
-                instructions_8_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Private Key'
-                public_key: 'API Key'
-                trading_agreement_html: '<b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.'
-                trading_agreement_label_html: 'I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>.'
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "Go to <b>Security</b> > <b>API</b>."
+                instructions_3_html: "Click <b>Add key</b>."
+                instructions_4_html: "Name your key and select <b>Query Funds</b>, <b>Query Open Orders & Trades</b>, and <b>Create & Modify Orders</b> permissions."
+                instructions_5_html: "Click <b>Generate Key</b>."
+                instructions_6_html: "Copy and paste your new API keys into the form above."
+                private_key: "Private Key"
+                public_key: "API Key"
             kucoin:
-                instructions_10_html: 'Confirm creation of API keys by Trading Password and 2FA.'
-                instructions_11_html: 'Copy and paste your new API keys into the form above.'
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the account menu (top right corner next to the language picker) go to <b>API Management</b>.'
-                instructions_3_html: 'Press <b>Create API</b>.'
-                instructions_4_html: 'If you create your API keys for the first time, set and save <b>Trading Password</b>.'
-                instructions_5_html: 'Provide <b>API Name</b>.'
-                instructions_6_html: 'Provide and save <b>API Passphrase</b>.'
-                instructions_7_1_html: 'Set permissions for:'
-                instructions_7_2_html: '<b>General</b>'
-                instructions_7_3_html: '<b>Trade</b>'
-                instructions_8_html: 'If you want to restrict access to the key only for Deltabadger set <b>IP Restriction</b> to yes and add this IP: <b>3.18.70.231</b>'
-                instructions_9_html: 'Press <b>Next</b>.'
-                passphrase: Passphrase
-                private_key: 'API Secret'
-                public_key: 'API Key'
-            limit_warning: 'Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it''s best to stick with it if you''re unsure.'
-            next: Next
-            no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "Go to <b>API Management</b>."
+                instructions_3_html: "Click <b>Create API</b>."
+                instructions_4_html: "Name your key and select <b>Trade</b> permission."
+                instructions_5_html: "Click <b>Next</b>."
+                instructions_6_html: "Copy and paste your new API keys into the form above."
+                private_key: "API Secret"
+                public_key: "API Key"
+            okx:
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "Go to <b>API</b> in the menu."
+                instructions_3_html: "Click <b>Create API</b>."
+                instructions_4_html: "Name your key and select <b>Read</b> and <b>Trade</b> permissions."
+                instructions_5_html: "Click <b>Confirm</b>."
+                instructions_6_html: "Copy and paste your new API keys into the form above."
+                private_key: "Secret Key"
+                public_key: "API Key"
+            limit_warning: "Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it's best to stick with it if you're unsure."
+            next: "Next"
+            no_wallet_found: "No wallet found. Go to %{exchangeName} and add a withdrawal wallet."
+            no_wallet_found_html: "No wallet found. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and add a withdrawal wallet."
+            not_enough_funds: "Not enough funds."
+            not_enough_funds_html: "Not enough funds. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{quote}."
+            not_enough_funds_for_withdrawal: "Not enough funds for withdrawal."
+            not_enough_funds_for_withdrawal_html: "Not enough funds for withdrawal. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{base}."
+            not_enough_funds_to_start: "Not enough funds to start."
+            not_enough_funds_to_start_html: "Not enough funds to start. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{quote}."
+            not_enough_funds_to_start_withdrawal: "Not enough funds to start withdrawal."
+            not_enough_funds_to_start_withdrawal_html: "Not enough funds to start withdrawal. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{base}."
             probit:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the <b>My Page</b> menu (top right corner) go to <b>API Management</b>.'
-                instructions_3_html: 'Provide API key label and press <b>Create new key</b>.'
-                instructions_4_html: 'Confirm creation of API keys.'
-                instructions_5_html: 'If you want to restrict the access so only Deltabadger can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b> to this IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Set permissions for:'
-                instructions_6_2_html: '<b>Read</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Copy and paste your new Client ID and Client''s Secret Key into the form above.'
-                private_key: 'Client''s Secret Key'
-                public_key: 'Client ID'
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "Go to <b>API</b> in the menu."
+                instructions_3_html: "Click <b>Create New Key</b>."
+                instructions_4_html: "Label your key and select <b>Read</b> and <b>Write</b> permissions."
+                instructions_5_html: "Click <b>Generate API Key</b>."
+                instructions_6_html: "Confirm with 2FA if necessary."
+                instructions_7_html: "Copy and paste your new API keys into the form above."
+                private_key: "API Secret"
+                public_key: "API Key"
             set: Set
             smart_intervals:
-                dont_show_again: 'Don''t show again'
-                info_html:
-                    force_smart_intervals: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger will execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
-                    other: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
+                info_html: |
+                    <p>Smart intervals help you to deal with exchange minimum order sizes.</p>
+                    <p>For example, if you want to buy $5 worth of Bitcoin every day, but the exchange minimum order size is $10, smart intervals will place a $10 order every second day.</p>
+                    <p>The result is the same, but you don't have to worry about exchange limitations.</p>
+                title: "Smart Intervals"
             step_api_key: 'API Key'
             step_exchange: Exchange
             step_schedule: Schedule
             step_type: Type
             validating: Validating
             withdrawal:
-                kraken:
-                    instructions_1_html: 'Log into your %{exchange_link} account.'
-                    instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
-                    instructions_3_html: 'Press <b>Generate New Key</b>.'
-                    instructions_4_html: 'Set permissions for:'
-                    instructions_5_1_html: 'Funds:'
-                    instructions_5_2_html: '<b>Query Funds</b>'
-                    instructions_5_3_html: '<b>Withdraw Funds</b>'
-                    instructions_6_html: 'Press <b>Generate Key</b>.'
-                    instructions_7_html: 'Copy and paste your new API keys into the form above.'
-            withdrawal_address:
-                kraken:
-                    instructions_1_html: 'Log in to your %{exchange_link} account.'
-                    instructions_2_html: 'Go to <b>Funding</b> → <b>Withdraw</b>.'
-                    instructions_3_html: 'Pick asset you are interested in.'
-                    instructions_4_html: 'Add new withdrawal address or manage already created addresses.'
-                    instructions_5_html: 'Copy description you assigned to withdrawal address in to the form above.'
-            withdrawal_html: 'Withdraw <split>%{currency}</split> to <split>%{address}</split> wallet.'
+                info_html: |
+                    <p>Automatic withdrawals help you to keep your funds safe.</p>
+                    <p>When enabled, the bot will automatically withdraw your funds to your wallet when they reach the specified amount.</p>
+                    <p>This is especially useful if you want to keep your funds in cold storage.</p>
+                title: "Automatic Withdrawal"
+            withdrawal_address: "Withdrawal address"
+            withdrawal_amount: "Withdrawal amount"
+            withdrawal_amount_info: "The bot will withdraw your funds when they reach this amount."
+            withdrawal_amount_info_html: "The bot will withdraw your funds when they reach <b>%{amount} %{currency}</b>."
+            withdrawal_amount_info_usd_html: "The bot will withdraw your funds when they reach <b>$%{amount}</b> worth of %{currency}."
+            withdrawal_amount_minimum: "Minimum withdrawal amount"
+            withdrawal_amount_minimum_html: "The minimum withdrawal amount is <b>%{amount} %{currency}</b>."
+            withdrawal_amount_minimum_usd_html: "The minimum withdrawal amount is <b>$%{amount}</b> worth of %{currency}."
             zonda:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In user menu (top right corner) go to <b>API Settings</b>.'
-                instructions_3_html: 'Press <b>Add New Key</b>.'
-                instructions_4_1_html: 'Set permissions for:'
-                instructions_4_2_html: '<b>History</b>'
-                instructions_4_3_html: '<b>Get orders and market configurations</b>'
-                instructions_4_4_html: '<b>Manage orders and change market configurations</b>'
-                instructions_5_html: 'Press <b>Create</b>.'
-                instructions_6_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'Private Key'
-                public_key: 'Public Key'
+                instructions_1_html: "Log into your %{exchange_link} account."
+                instructions_2_html: "Go to <b>API</b> in the menu."
+                instructions_3_html: "Click <b>Create API Key</b>."
+                instructions_4_html: "Name your key and select <b>Read</b> and <b>Trade</b> permissions."
+                instructions_5_html: "Click <b>Generate</b>."
+                instructions_6_html: "Copy and paste your new API keys into the form above."
+                private_key: "API Secret"
+                public_key: "API Key"
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
@@ -695,19 +685,19 @@ en:
         signature_badgers: 'Invincible team of badgers at your service.'
         signature_html: 'Deltabadger Team'
     meta:
-        desc: 'Start for free the most-proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC.'
-        title: 'Deltabadger • Automate Dollar-Cost Averaging into Any Crypto'
-        title_short: 'Deltabadger • Auto-DCA into Bitcoin and Other Assets'
-        twitter_image_alt: 'Automated dollar-cost averaging into Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets.'
+        desc: "Start for free the most proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
+        title: "Deltabadger • Automate Dollar-Cost Averaging for any Crypto"
+        title_short: "Deltabadger • Automated DCA for Bitcoin and Other Assets"
+        twitter_image_alt: "Automated dollar-cost averaging for Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets."
         descriptions:
-            default: "Start for free the most-proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
-            privacy_policy: "Learn how Deltabadger protects your privacy and handles your data when using our automated cryptocurrency DCA platform."
-            terms_and_conditions: "Read our terms of service to understand your rights and responsibilities when using Deltabadger's automated cryptocurrency DCA platform."
+            default: "Start for free the most proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
+            privacy_policy: "Learn how Deltabadger protects your privacy and handles your data when using our automated crypto DCA platform."
+            terms_and_conditions: "Read our terms of service to understand your rights and responsibilities when using Deltabadger's automated crypto DCA platform."
         titles:
             privacy_policy: "Privacy Policy • Deltabadger"
             terms_and_conditions: "Terms and Conditions • Deltabadger"
     referral:
-        banner_html: 'Share your referral link with friends, and <a href="/referral-program" alt="Read more">earn up to $50 in BTC</a>. The best way to DCA into Bitcoin is to earn it!'
+        banner_html: '<b>Share your referral link with friends and <a href="/referral-program" alt="Read more">earn 20% recurring commission</a> in BTC. The best way to DCA Bitcoin is to earn it!</b>'
         copied: Copied!
     settings:
         name:
@@ -743,80 +733,80 @@ en:
     subscriptions:
         per_month_html: "/mo"
         per_year_html: "/yr"
-        plan_1_year: '1 year'
-        plan_4_year: '4 years'
-        plan_life_time: 'Lifetime'
+        plan_1_year: "1 year"
+        plan_4_year: "4 years"
+        plan_life_time: "Lifetime"
         variant1: "1 year"
         variant4: "4 years, one free"
-        free: Free
-        basic: Basic
-        pro: Pro
-        Legendary: Legendary
+        free: "Free"
+        basic: "Basic"
+        pro: "Pro"
+        Legendary: "Legendary"
         days_left:
-            one: '1 day left'
-            other: '%{count} days left'
-        legendary_badger_info_html: '<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>'
+            one: "1 day left"
+            other: "%{count} days left"
+        legendary_badger_info_html: "<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href=\"https://legendarybadgers.com/\" class=\"nobreak\">the collection</a>.</p>"
         legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
         features:
-            analyzer_html: 'Prism: Portfolio Tester'
-            dca: 'DCA bots'
-            price_limit: 'Price limit'
-            fee_cutter: 'FeeCutter'
-            withdrawals: 'Auto-withdrawals'
-        limit_reached_html: '<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan.'
-        analyzer_html: 'Boost your portfolio with the unlimited power of the Prism: Portfolio Tester.'
-        expires_soon_html: 'We''re building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>'
+            analyzer_html: "Prism: Portfolio Tester"
+            dca: "DCA bots"
+            price_limit: "Price limit"
+            fee_cutter: "FeeCutter"
+            withdrawals: "Auto-withdrawals"
+        limit_reached_html: "<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan."
+        analyzer_html: "Boost your portfolio with the unlimited power of the Prism: Portfolio Tester."
+        expires_soon_html: "We're building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>"
         payment:
-            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
-            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
-            card: 'Card'
-            account_holder: 'Account holder'
-            account_number: 'Account number'
-            account_type: 'Account type'
-            after_wire_transfer_html: 'Thank you! We''ll be back to you soon! If you need further assistance, let us know: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
-            bank_address: 'Bank address'
-            billing_information: 'Billing information'
-            active_plan_discount: 'Active plan discount'
-            base_price: 'Base price'
+            price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
+            price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
+            card: "Card"
+            account_holder: "Account holder"
+            account_number: "Account number"
+            account_type: "Account type"
+            after_wire_transfer_html: "Thank you! We'll be back to you soon! If you need further assistance, let us know: <a href='mailto:sales@deltabadger.com'>sales@deltabadger.com</a>."
+            bank_address: "Bank address"
+            billing_information: "Billing information"
+            active_plan_discount: "Active plan discount"
+            base_price: "Base price"
             compensation:
                 one: "Compensation for <b>1</b> unused day of the %{plan} plan."
                 other: "Compensation for <b>%{count}</b> unused days of the %{plan} plan."
-            legendary_plan_discount_html: 'The price goes up %{amount} with every sale.'
-            eu_bank_country: Belgium
-            invalid_vat_number: 'Invalid EU VAT number'
-            paid_with_wire_transfer: 'I''ve sent the SEPA transfer'
-            paid_with_wire_transfer_other: 'I''ve sent the wire transfer'
-            pay_html: 'Pay %{amount_html}'
-            pay_with_bitcoin: 'Pay with bitcoin'
-            pay_with_card: 'Pay with Card'
-            payment_ordered: 'Payment ordered!'
-            referral_discount: '%{discount_percent} discount'
-            referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
-            black_friday_discount_info: '%{discount_percent} OFF'
-            black_friday_sale: 'Black Friday Sale'
-            pro_and_legendary_plans: 'Pro and Legendary plans'
-            days: 'days'
-            hours: 'hours'
-            minutes: 'Minutes'
-            seconds: 'Seconds'
-            upgrade_now: 'Upgrade Now'
-            routing_number: 'Routing number'
-            server_error: 'payments server error. try again later'
-            vat: VAT
-            wire_cost_html: 'Please, send <b>%{price}</b> to the following bank account:'
-            wire_cost_pending_html: 'If you didn''t make a payment yet, send <b>%{price}</b> to the following bank account:'
-            wire_transfer: 'Wire Transfer'
-            wire_transfer_fill_form: 'Please, fill the form above to proceed…'
-            wire_transfer_pending: 'Thanks! We''ll activate your account soon and contact you by email.'
-            you_pay: 'You pay'
+            legendary_plan_discount_html: "The price goes up %{amount} with every sale."
+            eu_bank_country: "Belgium"
+            invalid_vat_number: "Invalid EU VAT number"
+            paid_with_wire_transfer: "I've sent the SEPA transfer"
+            paid_with_wire_transfer_other: "I've sent the wire transfer"
+            pay_html: "Pay %{amount_html}"
+            pay_with_bitcoin: "Pay with bitcoin"
+            pay_with_card: "Pay with Card"
+            payment_ordered: "Payment ordered!"
+            referral_discount: "%{discount_percent} discount"
+            referral_discount_html: "Thanks to the referral link from <b><a href=\"%{visible_link}\">%{visible_name}</a></b>, you get a discount for the first purchase on the platform."
+            black_friday_discount_info: "%{discount_percent} OFF"
+            black_friday_sale: "Black Friday Sale"
+            pro_and_legendary_plans: "Pro and Legendary plans"
+            days: "days"
+            hours: "hours"
+            minutes: "Minutes"
+            seconds: "Seconds"
+            upgrade_now: "Upgrade Now"
+            routing_number: "Routing number"
+            server_error: "payments server error. try again later"
+            vat: "VAT"
+            wire_cost_html: "Please, send <b>%{price}</b> to the following bank account:"
+            wire_cost_pending_html: "If you didn't make a payment yet, send <b>%{price}</b> to the following bank account:"
+            wire_transfer: "Wire Transfer"
+            wire_transfer_fill_form: "Please, fill the form above to proceed…"
+            wire_transfer_pending: "Thanks! We'll activate your account soon and contact you by email."
+            you_pay: "You pay"
         prolong_upgrade: 'Upgrade your plan'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'
     legendary_badger:
-        will_be_sent: 'Legendary Badger NFT will be sent to:'
-        ethereum_address: 'Ethereum address'
-        confirm_info_html: 'I confirm the address is correct and understand that the NFT will be sent to this address. Once I click <b>Claim NFT</b>, if the address is wrong, nobody can recover the NFT.'
-        claim: Claim NFT
+        will_be_sent: "Legendary Badger NFT will be sent to:"
+        ethereum_address: "Ethereum address"
+        confirm_info_html: "I confirm the address is correct and understand that the NFT will be sent to this address. Once I click <b>Claim NFT</b>, if the address is wrong, nobody can recover the NFT."
+        claim: "Claim NFT"
     welcome:
         banner_html: |
             <p>Welcome aboard, %{name}!</p>
@@ -826,78 +816,78 @@ en:
                 <li>Look for an email from me.</li>
                 <li>Reply with <b>FIRE</b>.</li>
             </ol>
-            <p>That keeps central bank swamp creatures out, so they won''t capture our communication.</p>
+            <p>That keeps central bank swamp creatures out, so they won't capture our communication.</p>
             <p>Thanks, Jan</p>
-        default: 'Hi, welcome to Deltabadger'
-        legendary: 'The NFT will arrive here soon!'
-        free: 'Get rid of the limits, and make an upgrade!'
+        default: "Hi, welcome to Deltabadger"
+        legendary: "The NFT will arrive here soon!"
+        free: "Get rid of the limits, and make an upgrade!"
     metrics:
         exp_return:
-            short_name: 'Exp. Return'
-            short_info: 'The expected yearly return based on the CAPM model.'
-            best: 'Highest Exp. Return'
+            short_name: "Exp. Return"
+            short_info: "The expected yearly return based on the CAPM model."
+            best: "Highest Exp. Return"
         cagr:
-            short_name: 'Avg. Return'
-            short_info: 'How much your portfolio has grown on average each year.'
-            best: 'Highest Avg. Return'
+            short_name: "Avg. Return"
+            short_info: "How much your portfolio has grown on average each year."
+            best: "Highest Avg. Return"
         max_drawdown:
-            short_name: 'Max. Drawdown'
-            short_info: 'The biggest drop in your portfolio’s value from its highest point.'
-            best: 'Lowest Max. Drawdown'
+            short_name: "Max. Drawdown"
+            short_info: "The biggest drop in your portfolio's value from its highest point."
+            best: "Lowest Max. Drawdown"
         volatility:
-            short_name: 'Risk'
-            short_info: 'Volatility — how much your portfolio value fluctuates in a year.'
-            best: 'Lowest Risk'
+            short_name: "Risk"
+            short_info: "Volatility — how much your portfolio value fluctuates in a year."
+            best: "Lowest Risk"
         var:
-            short_name: 'VaR'
-            short_info: 'There is a 95% chance that your portfolio won’t lose more than this amount in a single day.'
-            best: 'Lowest VaR'
+            short_name: "VaR"
+            short_info: "There is a 95% chance that your portfolio won't lose more than this amount in a single day."
+            best: "Lowest VaR"
         cvar:
-            short_name: 'CVaR'
-            short_info: 'If losses exceed the VaR, this is the average loss you can expect.'
-            best: 'Lowest CVaR'
+            short_name: "CVaR"
+            short_info: "If losses exceed the VaR, this is the average loss you can expect."
+            best: "Lowest CVaR"
         sharpe_ratio:
-            short_name: 'Sharpe Ratio'
-            short_info: 'How much return you’re getting for the risk you’re taking.'
-            best: 'Highest Sharpe Ratio'
+            short_name: "Sharpe Ratio"
+            short_info: "How much return you're getting for the risk you're taking."
+            best: "Highest Sharpe Ratio"
         sortino_ratio:
-            short_name: 'Sortino Ratio'
-            short_info: 'Similar to Sharpe Ratio, but only considers downside risk.'
-            best: 'Highest Sortino Ratio'
+            short_name: "Sortino Ratio"
+            short_info: "Similar to Sharpe Ratio, but only considers downside risk."
+            best: "Highest Sortino Ratio"
         calmar_ratio:
-            short_name: 'Calmar Ratio'
-            short_info: 'The return compared to the biggest loss your portfolio has experienced.'
-            best: 'Highest Calmar Ratio'
+            short_name: "Calmar Ratio"
+            short_info: "The return compared to the biggest loss your portfolio has experienced."
+            best: "Highest Calmar Ratio"
         alpha:
-            short_name: 'Alpha'
-            short_info: 'How much your portfolio outperformed the market, adjusted for risk.'
-            best: 'Highest Alpha'
+            short_name: "Alpha"
+            short_info: "How much your portfolio outperformed the market, adjusted for risk."
+            best: "Highest Alpha"
         beta:
-            short_name: 'Beta'
-            short_info: 'How your portfolio’s returns move compared to the market.'
-            best: 'Lowest Beta'
+            short_name: "Beta"
+            short_info: "How your portfolio's returns move compared to the market."
+            best: "Lowest Beta"
         treynor_ratio:
-            short_name: 'Treynor Ratio'
-            short_info: 'The return you’re getting for each unit of market risk.'
-            best: 'Highest Treynor Ratio'
+            short_name: "Treynor Ratio"
+            short_info: "The return you're getting for each unit of market risk."
+            best: "Highest Treynor Ratio"
         omega_ratio:
-            short_name: 'Omega Ratio'
-            short_info: 'The chance of gains compared to the chance of losses.'
-            best: 'Highest Omega Ratio'
+            short_name: "Omega Ratio"
+            short_info: "The chance of gains compared to the chance of losses."
+            best: "Highest Omega Ratio"
         r_squared:
-            short_name: 'R²'
-            short_info: 'How closely your portfolio’s returns match the overall market.'
-            best: 'Highest R²'
+            short_name: "R²"
+            short_info: "How closely your portfolio's returns match the overall market."
+            best: "Highest R²"
         info_ratio:
-            short_name: 'Info. Ratio'
-            short_info: 'How consistently your portfolio outperforms the benchmark.'
-            best: 'Highest Info. Ratio'
+            short_name: "Info. Ratio"
+            short_info: "How consistently your portfolio outperforms the benchmark."
+            best: "Highest Info. Ratio"
         diversification:
-            short_name: 'Diversification'
-            short_info: 'The variety of different investments in your portfolio to spread risk.'
-            best: 'Best Diversification'
+            short_name: "Diversification"
+            short_info: "The variety of different investments in your portfolio to spread risk."
+            best: "Best Diversification"
     analyzer:
-        default_portfolio: 'Default portfolio'
+        default_portfolio: "Default portfolio"
         change_portfolio_name: 'Change name'
         compare: 'Compare'
         new_portfolio: 'New portfolio'
