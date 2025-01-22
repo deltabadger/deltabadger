@@ -36,21 +36,21 @@ class SendgridClient < ApplicationClient
     end
   end
 
-  # # https://www.twilio.com/docs/sendgrid/api-reference/contacts/delete-contacts
-  # # @param ids [Array<String>] A list of contact IDs.
-  # # @param delete_all_contacts [Boolean] Must be set to "true" to delete all contacts.
-  # def delete_contacts(ids:)
-  #   with_rescue do
-  #     response = self.class.connection.delete do |req|
-  #       req.url '/v3/marketing/contacts'
-  #       req.params = {
-  #         ids: ids.join(',')
-  #         # delete_all_contacts: false # Warning! Disabled for now as it can delete all contacts.
-  #       }
-  #     end
-  #     Result::Success.new(response.body)
-  #   end
-  # end
+  # https://www.twilio.com/docs/sendgrid/api-reference/contacts/delete-contacts
+  # @param ids [Array<String>] A list of contact IDs.
+  # @param delete_all_contacts [Boolean] Must be set to "true" to delete all contacts.
+  def delete_contacts(ids:)
+    with_rescue do
+      response = self.class.connection.delete do |req|
+        req.url '/v3/marketing/contacts'
+        req.params = {
+          ids: ids.join(',')
+          # delete_all_contacts: false # Warning! Disabled for now as it can delete all contacts.
+        }
+      end
+      Result::Success.new(response.body)
+    end
+  end
 
   # https://www.twilio.com/docs/sendgrid/api-reference/contacts/get-contacts-by-emails
   # @param emails [Array<String>] One or more primary and/or alternate email addresses to search for in your
