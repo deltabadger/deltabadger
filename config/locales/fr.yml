@@ -44,7 +44,7 @@ fr:
             valid_for: 'Valable dès le premier achat sur la plateforme.'
         info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
         invalid_bitcoin_address: 'Adresse Bitcoin invalide'
-        manual_html: "<div class=\"alert alert-success\"> <p class=\"mt-1\"> Notre programme de parrainage <b> offre jusqu''à 50$ </b> <sup> 1 </sup> par utilisateur en BTC (en utilisant le taux d''échange de la transaction). Exemple : </p>\n <ol> <li> Par souci de simplicité, le prix du Bitcoin est d''environ 10000 USD, la remise est de 10% et votre marge est de 20%. </li>\n <li> Le membre parrainé achète un forfait d''un an pour 49,99$, payant après la remise 44,99$, ce qui équivaut à 0,0045 BTC. Vous gagnez 0,001 BTC (20% de 49,99$). </li>\n <li> Peu importe si le prix du Bitcoin change entre-temps. Votre profit est bloqué en BTC. </li>\n <li> Plus tard, le membre parrainé achète un plan de 4 ans pour 149,99$ et paie 0,015 BTC. Il ou elle n''obtient plus de réduction, mais vous obtenez toujours les 20 %, ce qui équivaut à 0,003 BTC. </li>\n <li> Vous continuez à en profiter tant que vous disposez d''un forfait actif <sup> 2 </sup> et que votre bénéfice total par membre parrainé n''atteint pas 50 USD. </li> </ol>\n\n <p> <em> Gagner des bitcoin est le meilleur type de DCA ! </em> </p>\n <small class=\"mb-2\"> <sup> 1 </sup> La limite est de 50 USD ou 50 EUR, selon la devise de la tarification. </small>\n <br>\n <small class=\"mb-5\"> <sup> 2 </sup> Pour le parrain, le lien de parrainage fonctionne même si votre abonnement a expiré. </small>\n </div>"
+        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Notre programme de parrainage verse une <b>commission de 20%</b> sur chaque paiement d'abonnement de vos filleuls. Il n'y a pas de plafond - vous continuez à gagner tant qu'ils restent abonnés. Par exemple :</p>\n  <ol>\n    <li>Votre ami achète un plan Pro à 299$/an. Vous gagnez 60$ en BTC (au taux de change de la transaction).</li>\n    <li>S'ils restent abonnés, vous continuez à gagner 60$ chaque année qu'ils renouvellent.</li>\n    <li>S'ils passent à notre plan Lifetime (2000$+), vous gagnez instantanément 400$+ en BTC.</li>\n    <li>Vos gains sont fixés en BTC au moment de la transaction, vous protégeant des fluctuations de prix.</li>\n    <li>Les commissions sont créditées instantanément et payées mensuellement.</li>\n  </ol>\n\n  <p><em>Gagner des bitcoin est la meilleure façon de faire du DCA !</em></p>\n</div>"
         new:
             checked: 'J''ai tout vérifié avec soin.'
             discount_info_html: 'Vous <b> gagnerez <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span></b>, et le parrain obtiendra <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}% de</span> réduction</b>.'
@@ -673,8 +673,8 @@ fr:
             privacy_policy: "Politique de Confidentialité • Deltabadger"
             terms_and_conditions: "Conditions d'Utilisation • Deltabadger"
     referral:
-        banner_html: 'Partagez votre lien de parrainage avec vos proches et <a href="/referral-program" alt="Read more">gagnez jusqu''à 50 $ en BTC</a>. Le meilleur moyen de faire du DCA en Bitcoin est d''en gagner !'
-        copied: 'Copié !'
+        banner_html: '<b>Partagez votre lien de parrainage avec vos amis et <a href="/referral-program" alt="Read more">gagnez une commission récurrente de 20%</a> en BTC. La meilleure façon de faire du DCA en Bitcoin est d''en gagner !</b>'
+        copied: Copié !
     settings:
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
