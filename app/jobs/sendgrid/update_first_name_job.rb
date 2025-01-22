@@ -1,4 +1,4 @@
-class Sendgrid::UpdateFirstName < SendgridJob
+class Sendgrid::UpdateFirstNameJob < SendgridJob
   def perform(email, new_name)
     name = new_name.split.first.capitalize if new_name.present?
     contact = {
