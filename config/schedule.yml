@@ -14,6 +14,7 @@ send_telegram_update_job:
 #   cron: "15 0 * * *" # every day at 00:15 UTC
 #   class: "UpdateBotsInProfitJob"
 
+
 # second_job:
 #   cron: "*/30 * * * *" # execute at every 30 minutes
 #   class: "HardWorker"
