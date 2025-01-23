@@ -1,0 +1,10 @@
+update_sendgrid_unsubscribes_job:
+  cron: "10 0 * * *"
+  class: "Sendgrid::UpdateUnsubscribesJob"
+
+# second_job:
+#   cron: "*/30 * * * *" # execute at every 30 minutes
+#   class: "HardWorker"
+#   queue: hard_worker_long
+#   args:
+#     hard: "stuff"
