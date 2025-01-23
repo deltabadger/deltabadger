@@ -1,4 +1,4 @@
-update_sendgrid_unsubscribes_job:
+sendgrid_update_unsubscribes_job:
   cron: "10 0 * * *" # every day at 00:10 UTC
   class: "Sendgrid::UpdateUnsubscribesJob"
 
