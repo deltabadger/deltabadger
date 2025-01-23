@@ -1,0 +1,23 @@
+sendgrid_update_unsubscribes_job:
+  cron: "10 0 * * *" # every day at 00:10 UTC
+  class: "Sendgrid::UpdateUnsubscribesJob"
+
+update_metrics_job:
+  cron: "5 */6 * * *" # every 6 hours at minute 5
+  class: "UpdateMetricsJob"
+
+send_telegram_update_job:
+  cron: "0 7 * * *" # every day at 07:00 UTC
+  class: "SendTelegramUpdateJob"
+
+# update_bots_in_profit_job:
+#   cron: "15 0 * * *" # every day at 00:15 UTC
+#   class: "UpdateBotsInProfitJob"
+
+
+# second_job:
+#   cron: "*/30 * * * *" # execute at every 30 minutes
+#   class: "HardWorker"
+#   queue: hard_worker_long
+#   args:
+#     hard: "stuff"

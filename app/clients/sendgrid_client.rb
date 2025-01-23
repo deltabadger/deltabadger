@@ -1,6 +1,6 @@
 class SendgridClient < ApplicationClient
   URL = 'https://api.sendgrid.com'.freeze
-  API_KEY = ENV.fetch('SENDGRID_VALIDATION_API_KEY').freeze # TODO: Change to SENDGRID_API_KEY
+  API_KEY = ENV.fetch('SENDGRID_API_KEY').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
@@ -36,21 +36,21 @@ class SendgridClient < ApplicationClient
     end
   end
 
-  # # https://www.twilio.com/docs/sendgrid/api-reference/contacts/delete-contacts
-  # # @param ids [Array<String>] A list of contact IDs.
-  # # @param delete_all_contacts [Boolean] Must be set to "true" to delete all contacts.
-  # def delete_contacts(ids:)
-  #   with_rescue do
-  #     response = self.class.connection.delete do |req|
-  #       req.url '/v3/marketing/contacts'
-  #       req.params = {
-  #         ids: ids.join(',')
-  #         # delete_all_contacts: false # Warning! Disabled for now as it can delete all contacts.
-  #       }
-  #     end
-  #     Result::Success.new(response.body)
-  #   end
-  # end
+  # https://www.twilio.com/docs/sendgrid/api-reference/contacts/delete-contacts
+  # @param ids [Array<String>] A list of contact IDs.
+  # @param delete_all_contacts [Boolean] Must be set to "true" to delete all contacts.
+  def delete_contacts(ids:)
+    with_rescue do
+      response = self.class.connection.delete do |req|
+        req.url '/v3/marketing/contacts'
+        req.params = {
+          ids: ids.join(',')
+          # delete_all_contacts: false # Warning! Disabled for now as it can delete all contacts.
+        }
+      end
+      Result::Success.new(response.body)
+    end
+  end
 
   # https://www.twilio.com/docs/sendgrid/api-reference/contacts/get-contacts-by-emails
   # @param emails [Array<String>] One or more primary and/or alternate email addresses to search for in your
@@ -143,6 +143,37 @@ class SendgridClient < ApplicationClient
         req.body = {
           email: email,
           source: source
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://www.twilio.com/docs/sendgrid/api-reference/suppressions-suppressions/retrieve-all-suppressions
+  # @param id [String] The ID of the list on which you want to perform the operation.
+  # @param contact_sample [Boolean] Setting this parameter to the true will cause the contact_sample to be returned.
+  def retrieve_all_suppressions
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/v3/asm/suppressions'
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://www.twilio.com/docs/sendgrid/api-reference/suppressions-global-suppressions/retrieve-all-global-suppressions
+  # @param id [String] The ID of the list on which you want to perform the operation.
+  # @param contact_sample [Boolean] Setting this parameter to the true will cause the contact_sample to be returned.
+  def retrieve_all_global_suppressions(start_time: nil, end_time: nil, limit: 500, offset: 0, email: nil)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/v3/suppression/unsubscribes'
+        req.params = {
+          start_time: start_time,
+          end_time: end_time,
+          limit: limit,
+          offset: offset,
+          email: email
         }.compact
       end
       Result::Success.new(response.body)
