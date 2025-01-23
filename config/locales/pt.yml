@@ -77,8 +77,6 @@ pt:
             your_link: 'A sua ligação de referência'
         your_bitcoin_address: 'O seu endereço Bitcoin'
     bot_alerts_mailer:
-        first_month_ending_soon:
-            subject: 'A avaliação do primeiro mês vai terminar em breve!'
     data_labels:
         bought_ticker: "Comprado (%{ticker})"
         avg_price_ticker: "Preço Médio (%{ticker})"
@@ -476,7 +474,6 @@ pt:
         format: '%{attribute}%{message}'
         frequency_limit: 'Excedido o limite de frequência'
         invalid_api_keys: 'Tokens inválidos'
-        limit_reached: 'Atingido o limite do plano gratuito'
         invalid_risk_free_rate_key: 'Ungültiger risikofreier Zinssatz-Schlüssel.'
         unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
         invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'
@@ -651,7 +648,6 @@ pt:
             price_limit: 'Limite de preço'
             fee_cutter: 'Corta-Taxas'
             withdrawals: 'Saques automáticos'
-        limit_reached_html: '<b>Parabéns!</b> Você atingiu nosso limite de transações gratuitas de $1200/ano. Para continuar, atualize para o plano ilimitado.'
         analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
         expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
