@@ -77,8 +77,6 @@ de:
             your_link: 'Dein Empfehlungslink'
         your_bitcoin_address: 'Deine Bitcoin-Adresse'
     bot_alerts_mailer:
-        first_month_ending_soon:
-            subject: 'Dein Probemonat endet bald!'
     data_labels:
         bought_ticker: "Gekauft (%{ticker})"
         avg_price_ticker: "Durchschn. Preis (%{ticker})"
@@ -493,7 +491,6 @@ de:
         format: '%{attribute} %{message}'
         frequency_limit: 'Frequenzgrenze überschritten'
         invalid_api_keys: 'Ungültige Tokens'
-        limit_reached: 'Limit des kostenlosen Plans erreicht'
         invalid_risk_free_rate_key: 'Ungültiger risikofreier Zinssatz-Schlüssel.'
         unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
         invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'
@@ -626,7 +623,6 @@ de:
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
-            free_plan_days_left_html: '<b>$%{credits}</b> vom Limit des kostenlosen Plans übrig.'
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
@@ -672,7 +668,6 @@ de:
             price_limit: 'Preislimit'
             fee_cutter: 'Gebührenschneider'
             withdrawals: 'Automatische Auszahlungen'
-        limit_reached_html: '<b>Herzlichen Glückwunsch!</b> Du hast unser kostenloses Transaktionslimit von 1200 $/Jahr erreicht. Um fortzufahren, führe ein Upgrade auf den unbegrenzten Plan durch.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
         expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
