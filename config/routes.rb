@@ -1,4 +1,5 @@
 require 'sidekiq/web'
+require 'sidekiq/cron/web'
 require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
