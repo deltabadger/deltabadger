@@ -1,4 +1,5 @@
 require 'sidekiq/web'
+require 'sidekiq/cron/web'
 require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
@@ -46,7 +47,6 @@ Rails.application.routes.draw do
     root to: "dashboard#index"
   end
 
-  post '/newsletter/add_email', to: 'newsletter#add_email'
   namespace :api do
     get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
