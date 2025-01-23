@@ -90,15 +90,6 @@ pl:
         end_of_funds:
             subject: 'Twojemu botowi wkrótce skończą się środki'
             template_html: '<p>Wygląda na to, że Twojemu botowi wkrótce skończy się %{quote}.</p><p>Dokonaj przelewu do %{exchange_name}, aby mieć pewność, że bot działa nieprzerwanie.</p>'
-        first_month_ending_soon:
-            subject: 'Miesiąc próbny wkrótce się kończy!'
-            template_html: '<p>Używasz Deltabadgera już prawie miesiąc!</p><p>Twój bezpłatny, nieograniczony okres próbny wkrótce się kończy. Upewnij się, że dokonasz aktualizacji, aby twoje boty nie przerwały pracy!</p>'
-        limit_almost_reached:
-            subject: 'Limit prawie wyczerpany'
-            template_html: '<p>Prawie osiągnąłeś limit transakcji w planie <b>oszczędnościowym</b>.</p><p>Ulepsz swój plan do <b>Basic</b> lub <b>Pro</b>, aby upewnić się, że Twoje boty</br>będą nadal działać.</p>'
-        limit_reached:
-            subject: 'Wyczerpałeś darmowy limit'
-            template_html: '<p>No to się udało! Osiagnąłeś limit planu <b>Oszczędny</b>.</p><p>Wygląda na to, że od jakiegoś czasu uśredniasz cenę z naszymi botami.</p><p>Mamy nadzieję, że jesteś zadowolony z wyników.</p><p>Zrób upgrade, aby usunąć wszystkie limity i przywrócić swoje boty do pracy.</p>'
         notify_about_error:
             subject: 'Coś poszło nie tak'
             template_html: '<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji.</p><p>Możesz zobaczyć błąd w logu bota. Zaloguj się, aby go sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -528,7 +519,6 @@ pl:
         format: '%{attribute}%{message}'
         frequency_limit: 'Przekroczyłeś limit częstotliwości'
         invalid_api_keys: 'Nieprawidłowe tokeny'
-        limit_reached: 'Wyczerpałeś darmowy limit'
         invalid_risk_free_rate_key: 'Nieprawidłowy klucz wolnej od ryzyka stopy procentowej.'
         unable_to_get_risk_free_rate: 'Nie można uzyskać wolnej od ryzyka stopy procentowej dla %{risk_free_rate_name}. Serwer API danych jest niedostępny.'
         invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
@@ -693,7 +683,6 @@ pl:
             email_section: E-mail
             name_section: Imię
             password_section: Hasło
-            free_plan_days_left_html: '%{credits}'
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             submit_email: 'Zaktualizuj e-mail'
             submit_name: 'Aktualizuj nazwę'
@@ -742,7 +731,6 @@ pl:
             price_limit: 'Limit cenowy'
             fee_cutter: 'Obniżka opłat'
             withdrawals: 'Automatyczne wypłaty'
-        limit_reached_html: '<b>Gratulacje!</b> Osiągnąłeś nasz limit bezpłatnych transakcji w wysokości 1200 $/rok. Aby kontynuować, wykup płatną subskrypcję.'
         analyzer_html: 'Wzmocnij swoje portfolio dzięki nieograniczonej mocy <b>Analizatora Portfela</b>.'
         expires_soon_html: 'Rozwijamy się teraz szybko, więc oto najważniejsze rzeczy, które pojawią się w planie Pro: <b>monitorowanie portfela</b> na wszystkich rynkach, <b>rebalansowanie portfela</b> wspierane przez Analizator, <b>synchronizacja</b> dla istniejących kont.</b>'
         payment:

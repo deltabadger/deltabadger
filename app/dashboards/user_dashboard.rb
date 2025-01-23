@@ -34,7 +34,6 @@ class UserDashboard < Administrate::BaseDashboard
     welcome_banner_dismissed: Field::Boolean,
     news_banner_dismissed: Field::Boolean,
     referral_banner_dismissed: Field::Boolean,
-    limit_reached?: Field::Boolean,
     referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
     otp_secret_key: Field::String,
     otp_module: Field::Select.with_options(collection: %w[disabled enabled])
