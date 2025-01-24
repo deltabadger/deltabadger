@@ -90,15 +90,6 @@ nl:
         end_of_funds:
             subject: 'Uw bot heeft binnenkort geen geld meer'
             template_html: '<p>Het lijkt erop dat je bot binnenkort geen %{quote} meer heeft.</p><p>Maak een transfer naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>'
-        first_month_ending_soon:
-            subject: 'De eerste maand proefperiode eindigt binnenkort!'
-            template_html: '<p>U gebruikt Deltabadger nu bijna een maand!</p><p>Uw gratis proefperiode eindigt binnenkort. Zorg voor een upgrade om je zwaardere badgers lopende te houden!</p>'
-        limit_almost_reached:
-            subject: 'Limiet bijna bereikt'
-            template_html: '<p>U hebt bijna de limiet van het transactieplan <b>Spaarder</b> bereikt.</p><p>Upgrade uw abonnement naar <b>Basic</b> of <b>Pro</b> om te verzekeren dat je </br>bots blijven werken.</p>'
-        limit_reached:
-            subject: 'U hebt de limiet bereikt'
-            template_html: '<p>Oh, Goed gedaan! Je <b>Spaarder</b> plan heeft zijn limiet bereikt.</p><p>Zo te zien doe je al een tijdje aan dollar-cost averaging.</p><p>We hopen dat u tevreden bent over de resultaten.</p><p>Upgrade uw abonnement naar <b>Basic</b> of <b>Pro</b> om alle beperkingen te verwijderen en uw bots weer aan het werk te zetten.</p>'
         notify_about_error:
             subject: 'Er ging iets mis'
             template_html: '<p>Er ging iets mis tijdens het verwerken van de laatste transactie.</p><p>U kan de error zien in het bot logboek. Log in om dit te controleren.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -526,7 +517,6 @@ nl:
         format: '%{attribute}%{message}'
         frequency_limit: 'Frequentiegrens overschreden'
         invalid_api_keys: 'Ongeldige tokens'
-        limit_reached: 'Limiet gratis abonnement bereikt'
         invalid_risk_free_rate_key: 'Ongeldige risicovrije rentetarief sleutel.'
         unable_to_get_risk_free_rate: 'Kan het risicovrije rentetarief voor %{risk_free_rate_name} niet verkrijgen. Gegevens-API-server is niet bereikbaar.'
         invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
@@ -682,7 +672,6 @@ nl:
             email_section: Email
             name_section: Voornaam
             password_section: Wachtwoord
-            free_plan_days_left_html: '<b>$%{credits}</b> van de transactielimiet van het gratis abonnement is nog over.'
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             submit_email: 'Email wijzigen'
             submit_name: 'Naam wijzigen'
@@ -728,7 +717,6 @@ nl:
             price_limit: 'Prijsgrens'
             fee_cutter: 'FeeCutter'
             withdrawals: 'Automatische opnames'
-        limit_reached_html: '<b>Gefeliciteerd!</b> Je hebt onze gratis transactielimiet van $1200/jaar bereikt. Om door te gaan, upgrade naar het unlimited plan.'
         analyzer_html: 'Versterk je portfolio met de onbeperkte kracht van de <b>Portfolio Analyzer</b>.'
         expires_soon_html: 'We bouwen nu snel, dus hier zijn de belangrijkste dingen die naar het Pro-plan komen: <b>portfoliobewaking</b> op alle markten, <b>portfoliobalans</b> aangedreven door de Analyzer, <b>synchronisatie</b> voor bestaande accounts.</b>'
         payment:
