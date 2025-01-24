@@ -8,7 +8,6 @@ module ExchangeApi
 
         def validate_credentials(api_key:, api_secret:, passphrase:)
           path = "/api/v1/orders/#{FAKE_ORDER_ID}"
-          url = "#{API_URL}#{path}"
           conn = Faraday.new(url: API_URL, proxy: ENV.fetch('EU_PROXY_IP'))
           request = conn.delete(path, {}, headers(api_key, api_secret, passphrase, '', path, 'DELETE'))
           return false if request.status != 200
