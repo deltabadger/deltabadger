@@ -1,5 +1,3 @@
-require_relative '../kucoin_enum'
-
 module ExchangeApi
   module Clients
     module Kucoin
