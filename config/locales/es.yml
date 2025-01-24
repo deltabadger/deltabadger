@@ -90,15 +90,6 @@ es:
         end_of_funds:
             subject: 'Tu bot se quedará pronto sin fondos'
             template_html: '<p>Parece que tu bot se quedará sin %{quote} muy pronto.</p><p>Haz una transferencia a %{exchange_name} para asegurarte de que el bot funciona continuamente.</p>'
-        first_month_ending_soon:
-            subject: '¡El primer mes de prueba termina pronto!'
-            template_html: '<p>Llevas casi un mes utilizando Deltabadger.</p><p>Tu prueba gratuita e ilimitada terminará pronto. Asegúrate de actualizar para que tus tejones más pesados sigan funcionando.</p>'
-        limit_almost_reached:
-            subject: 'Límite casi alcanzado'
-            template_html: '<p>Casi has alcanzado el límite de transacciones del plan <b>Ahorrador</b>.</p><p>Actualiza tu plan a <b>Basic</b> o <b>Pro</b> para asegurarte de que tus bots de</br>sigan funcionando.</p>'
-        limit_reached:
-            subject: 'Has llegado al límite'
-            template_html: '<p>Oh, ¡bien hecho! Has alcanzado el límite de tu plan <b>Ahorro</b>.</p><p>Parece que ya llevas un tiempo haciendo promedios de coste en dólares.</p><p>Esperamos que estés contento con los resultados.</p><p>Actualiza tu plan a <b>Basic</b> o <b>Pro</b> para eliminar todos los límites y volver a poner tus bots a trabajar.</p>'
         notify_about_error:
             subject: 'Algo salió mal'
             template_html: '<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Error:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
@@ -527,7 +518,6 @@ es:
         format: '%{attribute} %{message}'
         frequency_limit: 'Límite de frecuencia superado'
         invalid_api_keys: 'Tokens no válidos'
-        limit_reached: 'Se ha alcanzado el límite del plan gratuito'
         invalid_risk_free_rate_key: 'Clave de tasa libre de riesgo no válida.'
         unable_to_get_risk_free_rate: 'No se puede obtener la tasa libre de riesgo para %{risk_free_rate_name}. El servidor de la API de datos no está disponible.'
         invalid_number_of_allocations: 'Número de asignaciones no válido'
@@ -683,7 +673,6 @@ es:
             email_section: 'Correo electrónico'
             name_section: Nombre
             password_section: Contraseña
-            free_plan_days_left_html: '<b>$%{créditos}</b> restantes del límite de transacción del plan gratuito.'
             free_plan_reset_date_html: 'Tu tiempo se resetea en <b>%{end_time}</b>'
             submit_email: 'Actualizar correo electrónico'
             submit_name: 'Actualizar nombre'
@@ -729,7 +718,6 @@ es:
             price_limit: 'Límite de precio'
             fee_cutter: 'Cortador de tarifas'
             withdrawals: 'Retiros automáticos'
-        limit_reached_html: '<b>¡Felicidades!</b> Has alcanzado nuestro límite de transacciones gratuitas de 1200 dólares/año. Para continuar, actualiza al plan ilimitado.'
         analyzer_html: 'Mejora tu cartera con el poder ilimitado del <b>Analizador de Cartera</b>.'
         expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Pro: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
         payment:
