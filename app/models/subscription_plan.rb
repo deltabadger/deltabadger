@@ -9,8 +9,6 @@ class SubscriptionPlan < ApplicationRecord
   has_many :subscriptions
   has_many :subscription_plan_variants, dependent: :destroy
 
-  validates :credits, numericality: { only_integer: true, greater_than: 0 }
-
   include PlanStats
 
   def self.free

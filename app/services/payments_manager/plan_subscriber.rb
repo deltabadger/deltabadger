@@ -15,8 +15,7 @@ module PaymentsManager
         Subscription.create!(
           user_id: user.id,
           subscription_plan_variant: new_subscription_plan_variant,
-          end_time: end_time,
-          credits: new_subscription_plan_variant.subscription_plan.credits
+          end_time: end_time
         )
       rescue ActiveRecord::RecordInvalid => e
         return Result::Failure.new("Subscription could not be created: #{e.message}")

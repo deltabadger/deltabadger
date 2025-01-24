@@ -29,39 +29,6 @@ module Notifications
       ).notify_about_restart.deliver_later
     end
 
-    def limit_reached(bot:)
-      BotAlertsMailer.with(
-        bot: bot,
-        user: bot.user
-      ).limit_reached.deliver_later
-    end
-
-    def limit_almost_reached(bot:)
-      subscription = bot.user.subscription
-
-      return nil if subscription.limit_almost_reached_sent
-
-      subscription.update(limit_almost_reached_sent: true)
-
-      BotAlertsMailer.with(
-        bot: bot,
-        user: bot.user
-      ).limit_almost_reached.deliver_later
-    end
-
-    def first_month_ending_soon(bot:)
-      subscription = bot.user.subscription
-
-      return nil unless was_sent_more_than_day_ago?(subscription.first_month_ending_sent_at)
-
-      subscription.update(first_month_ending_sent_at: Date.current)
-
-      BotAlertsMailer.with(
-        bot: bot,
-        user: bot.user
-      ).first_month_ending_soon.deliver_later
-    end
-
     def end_of_funds(bot:)
       return if bot.last_end_of_funds_notification && bot.last_end_of_funds_notification > 1.day.ago
 
