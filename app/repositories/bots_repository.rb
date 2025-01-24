@@ -7,7 +7,7 @@ class BotsRepository < BaseRepository
   TOP_BOTS_KEY = 'TOP_BOTS_CACHE_KEY'.freeze
 
   def by_id_for_user(user, id)
-    user.bots.without_deleted.find(id)
+    user.bots.not_deleted.find(id)
   end
 
   def by_webhook_for_user(webhook, user = nil)
@@ -25,7 +25,7 @@ class BotsRepository < BaseRepository
   def for_user(user, page_number)
     user
       .bots
-      .without_deleted
+      .not_deleted
       .includes(:exchange)
       .includes(:daily_transaction_aggregates)
       .includes(:transactions)

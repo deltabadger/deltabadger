@@ -4,14 +4,12 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
-  scope :without_deleted, -> { where.not(status: 'deleted') }
-
   enum status: %i[created working stopped deleted pending]
   enum bot_type: %i[trading withdrawal webhook barbell]
 
   def self.by_webhook(webhook)
     queries = [{ trigger_url: webhook }.to_json, { additional_trigger_url: webhook }.to_json]
-    without_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
+    not_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
   end
 
   def base

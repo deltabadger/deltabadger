@@ -132,7 +132,7 @@ class SettingsController < ApplicationController
   end
 
   def stop_working_bots(api_key)
-    current_user.bots.without_deleted.each do |bot|
+    current_user.bots.not_deleted.each do |bot|
       StopBot.call(bot.id) if same_exchange_and_type?(bot, api_key)
     end
   end
