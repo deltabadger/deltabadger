@@ -8,8 +8,7 @@ class FetchOrderResult < BaseService
     transactions_repository: TransactionsRepository.new,
     api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
-    order_flow_helper: Helpers::OrderFlowHelper.new,
-    subtract_credits: SubtractCredits.new
+    order_flow_helper: Helpers::OrderFlowHelper.new
   )
     @get_exchange_trader = exchange_trader
     @schedule_transaction = schedule_transaction
@@ -19,7 +18,6 @@ class FetchOrderResult < BaseService
     @transactions_repository = transactions_repository
     @api_keys_repository = api_keys_repository
     @notifications = notifications
-    @subtract_credits = subtract_credits
     @order_flow_helper = order_flow_helper
   end
 
@@ -32,15 +30,13 @@ class FetchOrderResult < BaseService
 
     if result.success?
       bot = @bots_repository.update(bot.id, restarts: 0, fetch_restarts: 0, **success_status(bot))
-      result = @order_flow_helper.validate_limit(bot, notify)
-      @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
       if notify && bot.webhook?
         @notifications.successful_webhook_bot_transaction(bot: bot,
                                                           type: called_bot_type(
                                                             bot, called_bot
                                                           ))
       end
-      @schedule_transaction.call(bot) if result.success? && !bot.webhook?
+      @schedule_transaction.call(bot) if !bot.webhook?
     elsif !fetched?(result)
       bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
       @schedule_result_fetching.call(bot, result_params, fixing_price)
@@ -102,9 +98,7 @@ class FetchOrderResult < BaseService
     @transactions_repository.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
 
     if result.success?
-      cost = result.data[:rate].to_f * result.data[:amount].to_f
-      @subtract_credits.call(bot, cost)
-      bot.reload
+      bot.reload # TODO: needed?
     end
 
     result

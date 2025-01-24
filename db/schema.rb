@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_01_22_183912) do
+ActiveRecord::Schema.define(version: 2025_01_23_181228) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -212,7 +212,6 @@ ActiveRecord::Schema.define(version: 2025_01_22_183912) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "credits", default: 1200, null: false
     t.boolean "unlimited", default: false, null: false
   end
 
@@ -222,9 +221,6 @@ ActiveRecord::Schema.define(version: 2025_01_22_183912) do
     t.datetime "end_time"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.decimal "credits"
-    t.boolean "limit_almost_reached_sent", default: false
-    t.datetime "first_month_ending_sent_at"
     t.integer "nft_id"
     t.string "eth_address"
     t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"

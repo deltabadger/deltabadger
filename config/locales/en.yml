@@ -97,15 +97,6 @@ en:
         end_of_funds:
             subject: "Your bot is running out of funds soon"
             template_html: "<p>It looks like your bot is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
-        first_month_ending_soon:
-            subject: "First month trial ending soon!"
-            template_html: "<p>You have been using Deltabadger for almost a month now!</p><p>Your free unlimited trial is ending soon. Make sure to upgrade in order to keep your heavier badgers running!</p>"
-        limit_almost_reached:
-            subject: "Limit almost reached"
-            template_html: "<p>You've almost reached the <b>Free</b> plan transaction limit.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to make sure that your</br>bots will continue to work.</p>"
-        limit_reached:
-            subject: "You've reached the limit"
-            template_html: "<p>Oh, well done! Your <b>Free</b> plan limit has been reached.</p><p>It looks like you do dollar-cost averaging for a while now.</p><p>We hope you're happy about the results.</p><p>Upgrade your plan to <b>Basic</b> or <b>Pro</b> to remove all limits and put your bots back to work.</p>"
         notify_about_error:
             subject: "Something went wrong"
             template_html: "<p>Something went wrong while processing the last transaction.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
@@ -549,7 +540,6 @@ en:
         format: '%{attribute} %{message}'
         frequency_limit: 'Frequency limit exceeded'
         invalid_api_keys: 'Invalid tokens'
-        limit_reached: 'Free plan limit reached'
         invalid_risk_free_rate_key: 'Invalid Risk Free Rate Key.'
         unable_to_get_risk_free_rate: 'Unable to get the risk free rate for %{risk_free_rate_name}. Data API server is unreachable.'
         invalid_number_of_allocations: 'Invalid number of allocations'
@@ -711,7 +701,6 @@ en:
             email_section: Email
             name_section: Name
             password_section: Password
-            free_plan_days_left_html: '<b>$%{credits}</b> of the free  plan transaction limit left.'
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             submit_email: 'Update email'
             submit_name: 'Update name'
@@ -753,7 +742,6 @@ en:
             price_limit: "Price limit"
             fee_cutter: "FeeCutter"
             withdrawals: "Auto-withdrawals"
-        limit_reached_html: "<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan."
         analyzer_html: "Boost your portfolio with the unlimited power of the Prism: Portfolio Tester."
         expires_soon_html: "We're building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>"
         payment:
