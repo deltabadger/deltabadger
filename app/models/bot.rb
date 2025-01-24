@@ -7,6 +7,8 @@ class Bot < ApplicationRecord
   enum status: %i[created working stopped deleted pending]
   enum bot_type: %i[trading withdrawal webhook barbell]
 
+  include Barbellable
+
   def self.by_webhook(webhook)
     queries = [{ trigger_url: webhook }.to_json, { additional_trigger_url: webhook }.to_json]
     not_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
