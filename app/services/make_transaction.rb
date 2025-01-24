@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/ClassLength
 class MakeTransaction < BaseService
   def initialize(
     exchange_trader: ExchangeApi::Traders::Get.new,
@@ -44,9 +43,7 @@ class MakeTransaction < BaseService
 
     if continue_schedule
       bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
-      result = @order_flow_helper.validate_limit(bot, notify)
-      @order_flow_helper.check_if_trial_ending_soon(bot, notify) # Send e-mail if ending soon
-      @schedule_transaction.call(bot) if result.success?
+      @schedule_transaction.call(bot)
     elsif result&.success?
       @bots_repository.update(bot.id, status: 'pending')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
@@ -179,4 +176,3 @@ class MakeTransaction < BaseService
     end
   end
 end
-# rubocop:enable Metrics/ClassLength

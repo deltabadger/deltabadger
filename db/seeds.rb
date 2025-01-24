@@ -24,10 +24,10 @@ FeeApiKey.find_or_create_by!(exchange: Exchange.find_or_create_by!(name: 'Coinba
 FeeApiKey.update(key: COINBASE_API_KEY)
 FeeApiKey.update(secret: COINBASE_API_SECRET)
 
-free_plan = SubscriptionPlan.find_or_create_by!(name: 'free', unlimited: false, credits: 1200)
-basic_plan = SubscriptionPlan.find_or_create_by!(name: 'basic', unlimited: true, credits: 1200)
-pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro', unlimited: true, credits: 1200)
-legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary', unlimited: true, credits: 1200)
+free_plan = SubscriptionPlan.find_or_create_by!(name: 'free', unlimited: false)
+basic_plan = SubscriptionPlan.find_or_create_by!(name: 'basic', unlimited: true)
+pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro', unlimited: true)
+legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary', unlimited: true)
 
 free_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: free_plan, cost_eur: 0, cost_usd: 0)
 basic_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: basic_plan, years: 1, cost_eur: 87, cost_usd: 97)
@@ -63,7 +63,7 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: free_plan_variant, credits: free_plan_variant.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: free_plan_variant)
 end
 
 User.find_or_create_by(
@@ -72,7 +72,7 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: basic_plan_1_year_variant, credits: basic_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: basic_plan_1_year_variant)
 end
 
 
@@ -82,7 +82,7 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: pro_plan_1_year_variant, credits: pro_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: pro_plan_1_year_variant)
 end
 
 
@@ -92,5 +92,5 @@ User.find_or_create_by(
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
-  user.subscriptions << Subscription.new(subscription_plan_variant: legendary_plan_variant, credits: legendary_plan.credits)
+  user.subscriptions << Subscription.new(subscription_plan_variant: legendary_plan_variant)
 end
