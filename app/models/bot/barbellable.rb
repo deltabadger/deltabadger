@@ -4,6 +4,13 @@ module Bot::Barbellable
   included do
     validate :validate_barbell_bot_settings, if: :barbell?
 
+    def set_barbell_orders
+      #  check exchange balances for base0 and base1
+      #  convert balances to quote amount
+      #  define order(s) amounts
+      #  create order(s)
+    end
+
     private
 
     def validate_barbell_bot_settings
