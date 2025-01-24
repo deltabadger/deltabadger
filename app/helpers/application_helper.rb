@@ -6,13 +6,6 @@ module ApplicationHelper
     classes.join(' ')
   end
 
-  def show_limit_reached_navbar?
-    current_user.limit_reached? &&
-      !action?('upgrade', 'index') &&
-      !action?('affiliates', 'new') &&
-      !action?('affiliates', 'create')
-  end
-
   def plan_variant_name(subscription_plan_variant)
     years = subscription_plan_variant.years
     if years.nil?

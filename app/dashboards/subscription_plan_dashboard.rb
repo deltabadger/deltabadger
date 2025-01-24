@@ -10,7 +10,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     id: Field::Number,
     name: Field::String,
-    credits: Field::Number,
     unlimited: Field::Boolean,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
@@ -25,7 +24,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
     id
     name
     unlimited
-    credits
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -34,15 +32,12 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
     id
     name
     unlimited
-    credits
   ].freeze
 
   # FORM_ATTRIBUTES
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
-  FORM_ATTRIBUTES = %i[
-    credits
-  ].freeze
+  FORM_ATTRIBUTES = %i[].freeze
 
   # COLLECTION_FILTERS
   # a hash that defines filters that can be used while searching via the search

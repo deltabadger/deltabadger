@@ -14,8 +14,6 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     end_time: Field::DateTime.with_options(format: '%F'),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
-    credits: Field::String.with_options(searchable: false),
-    limit_almost_reached_sent: Field::Boolean,
     nft_id: Field::Number
   }.freeze
 
@@ -41,8 +39,6 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     end_time
     created_at
     updated_at
-    credits
-    limit_almost_reached_sent
     nft_id
   ].freeze
 
@@ -53,8 +49,6 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     subscription_plan_variant
     user
     end_time
-    credits
-    limit_almost_reached_sent
     nft_id
   ].freeze
 
