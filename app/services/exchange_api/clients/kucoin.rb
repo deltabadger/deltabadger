@@ -1,9 +1,11 @@
+require_relative '../kucoin_enum'
+
 module ExchangeApi
   module Clients
     module Kucoin
       include BaseFaraday
 
-      API_URL = 'https://api.kucoin.com'.freeze
+      API_URL = KucoinEnum::API_URL
       API_KEY_VERSION = '2'.freeze
 
       def headers(api_key, api_secret, passphrase, body, request_path, method = 'GET')
@@ -37,6 +39,18 @@ module ExchangeApi
         # create a sha256 hmac with the secret
         hash = OpenSSL::HMAC.digest('sha256', api_secret, message)
         Base64.strict_encode64(hash)
+      end
+
+      def base_client(url_base)
+        Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP'))
+      end
+
+      def caching_client(url_base, expire_time = ENV['DEFAULT_MARKET_CACHING_TIME'])
+        Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP')) do |builder|
+          builder.use :manual_cache,
+                      expires_in: expire_time
+          builder.adapter Faraday.default_adapter
+        end
       end
     end
   end
