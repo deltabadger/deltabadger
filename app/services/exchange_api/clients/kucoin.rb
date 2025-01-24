@@ -5,7 +5,7 @@ module ExchangeApi
     module Kucoin
       include BaseFaraday
 
-      API_URL = KucoinEnum::API_URL
+      API_URL = 'https://api.kucoin.com'.freeze
       API_KEY_VERSION = '2'.freeze
 
       def headers(api_key, api_secret, passphrase, body, request_path, method = 'GET')
