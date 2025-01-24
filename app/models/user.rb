@@ -40,21 +40,6 @@ class User < ApplicationRecord
     @subscription ||= subscriptions.active.order(created_at: :desc).first
   end
 
-  def credits
-    subscription.credits
-  end
-
-  def first_month?
-    month_ago = Date.current - 1.month
-    created_at > month_ago
-  end
-
-  def limit_reached?
-    return false if unlimited?
-
-    credits <= 0
-  end
-
   def eligible_referrer
     referrer if eligible_for_discount?
   end
@@ -82,8 +67,7 @@ class User < ApplicationRecord
   private
 
   def set_subscription
-    Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free,
-                         credits: 100_000)
+    Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free)
   end
 
   def set_affiliate
