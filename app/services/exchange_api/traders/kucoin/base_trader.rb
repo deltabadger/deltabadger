@@ -23,8 +23,8 @@ module ExchangeApi
 
         def fetch_order_by_id(order_id)
           path = "/api/v1/orders/#{order_id}".freeze
-          url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
+          conn = Faraday.new(url: API_URL, proxy: ENV.fetch('EU_PROXY_IP'))
+          request = conn.get(path, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
           return Result::Failure.new('Waiting for KuCoin response', **NOT_FETCHED) unless order_done?(request, response)
@@ -45,9 +45,9 @@ module ExchangeApi
 
         def place_order(order_params)
           path = '/api/v1/orders'.freeze
-          url = API_URL + path
           body = order_params.to_json
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
+          conn = Faraday.new(url: API_URL, proxy: ENV.fetch('EU_PROXY_IP'))
+          request = conn.post(path, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
 
           parse_request(request)
         rescue StandardError => e
