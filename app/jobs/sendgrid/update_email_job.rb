@@ -23,7 +23,7 @@ class Sendgrid::UpdateEmailJob < SendgridJob
 
     contact = {
       email: new_email,
-      first_name: old_contact_details[:contact_name]
+      first_name: old_contact_details[:contact_name].presence
     }.compact
 
     result = client.add_or_update_contacts(
