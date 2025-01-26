@@ -3,9 +3,9 @@ require 'utilities/hash'
 class Sendgrid::UpdateEmailJob < SendgridJob
   def perform(old_email, new_email)
     result = client.get_contacts_by_emails(emails: [old_email])
-    contact_name = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'first_name')
     contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'id')
     contact_lists_ids = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'list_ids')
+    contact_name = result.data.dig('result', old_email, 'contact', 'first_name')
 
     result = client.delete_contacts(ids: [contact_id])
     raise StandardError, result.errors if result.failure?
