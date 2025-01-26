@@ -11,7 +11,7 @@ class Sendgrid::UpdateEmailJob < SendgridJob
         contact_name: contact_name,
         contact_id: contact_id,
         contact_lists_ids: contact_lists_ids
-      }.compact
+      }
     end
 
     result = client.delete_contacts(ids: [old_contact_details[:contact_id]])
