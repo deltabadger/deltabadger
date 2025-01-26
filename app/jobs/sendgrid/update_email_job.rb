@@ -2,7 +2,7 @@ require 'utilities/hash'
 
 class Sendgrid::UpdateEmailJob < SendgridJob
   def perform(old_email, new_email)
-    old_contact_details = Rails.cache.fetch("sendgrid_contact_details_#{old_email}", expires_in: 30.days) do
+    old_contact_details = Rails.cache.fetch("sendgrid_update_email_job_contact_details_#{old_email}", expires_in: 30.days) do
       result = client.get_contacts_by_emails(emails: [old_email])
       contact_name = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'first_name')
       contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', old_email, 'contact', 'id')
@@ -28,6 +28,6 @@ class Sendgrid::UpdateEmailJob < SendgridJob
     )
     raise StandardError, result.errors if result.failure?
 
-    Rails.cache.delete("sendgrid_contact_details_#{old_email}")
+    Rails.cache.delete("sendgrid_update_email_job_contact_details_#{old_email}")
   end
 end
