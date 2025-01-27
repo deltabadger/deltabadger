@@ -2,6 +2,8 @@ class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
 
+  scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
+
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
     market = case name.downcase
@@ -27,10 +29,6 @@ class Exchange < ApplicationRecord
     market.all_symbols(cache_key)
   end
   # rubocop:enable Metrics/CyclomaticComplexity
-
-  def self.available
-    order(:name).where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro'])
-  end
 
   def free_plan_symbols
     all_symbols = symbols
