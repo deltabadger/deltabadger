@@ -6,7 +6,6 @@ class MakeTransaction < BaseService
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
-    api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     check_price_range: CheckPriceRange.new
@@ -17,7 +16,6 @@ class MakeTransaction < BaseService
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
-    @api_keys_repository = api_keys_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
     @check_price_range = check_price_range
@@ -92,7 +90,7 @@ class MakeTransaction < BaseService
   end
 
   def get_api(bot)
-    api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
+    api_key = ApiKey.for_bot(bot.user_id, bot.exchange_id).first
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
