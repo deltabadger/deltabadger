@@ -5,7 +5,6 @@ class MakeTransaction < BaseService
     fetch_order_result: FetchOrderResult.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
-    transactions_repository: TransactionsRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     check_price_range: CheckPriceRange.new
@@ -15,7 +14,6 @@ class MakeTransaction < BaseService
     @fetch_order_result = fetch_order_result
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
-    @transactions_repository = transactions_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
     @check_price_range = check_price_range
@@ -49,13 +47,13 @@ class MakeTransaction < BaseService
       send_user_to_sendgrid(bot)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
-      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
+      Transaction.create(failed_transaction_params(result, bot, fixing_price))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      @transactions_repository.create(failed_transaction_params(result, bot, fixing_price))
+      Transaction.create(failed_transaction_params(result, bot, fixing_price))
       @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
@@ -135,7 +133,7 @@ class MakeTransaction < BaseService
       transaction_type: 'REGULAR'
     }
 
-    @transactions_repository.create(transaction_params)
+    Transaction.create(transaction_params)
   end
 
   def fixing_transaction?(price)
