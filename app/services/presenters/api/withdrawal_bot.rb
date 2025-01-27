@@ -2,10 +2,8 @@ module Presenters
   module Api
     class WithdrawalBot < BaseService
       def initialize(
-        transactions_repository: TransactionsRepository.new,
         next_withdrawal_at: NextWithdrawalBotTransactionAt.new
       )
-        @transactions_repository = transactions_repository
         @next_withdrawal_at = next_withdrawal_at
       end
 
