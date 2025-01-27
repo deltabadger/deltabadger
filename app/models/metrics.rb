@@ -35,10 +35,10 @@ class Metrics
 
   def update_bots_in_profit
     Scenic.database.refresh_materialized_view(:bots_total_amounts, concurrently: true, cascade: false)
-    profitable_bots_data = ProfitableBotsRepository.new.profitable_bots_data
+    profitable_bots = profitable_bots_data
     bots_in_profit = {
-      profitBotsTillNow: profitable_bots_data[0],
-      profitBots12MonthsAgo: profitable_bots_data[1]
+      profitBotsTillNow: profitable_bots[0],
+      profitBots12MonthsAgo: profitable_bots[1]
     }
     redis_client.set(BOTS_IN_PROFIT_KEY, bots_in_profit.to_json)
     FeesService.new.update_fees
@@ -61,11 +61,62 @@ class Metrics
 
   private
 
+  def redis_client
+    @redis_client ||= Redis.new(url: ENV.fetch('REDIS_URL'))
+  end
+
   def convert_to_satoshis(amount)
     (amount * 10**8).ceil
   end
 
-  def redis_client
-    @redis_client ||= Redis.new(url: ENV.fetch('REDIS_URL'))
+  def profitable_bots_data
+    bot_totals = ActiveRecord::Base.connection.execute('select * from bots_total_amounts')
+    filtered_bots_map = bot_totals.to_a.map { |bot| profitable_or_nil(bot) }.compact
+    bots_in_periods = split_bots_by_period(filtered_bots_map)
+    total_amount_of_bots = bots_in_periods.map(&:length)
+    total_amount_of_bots_in_profit = bots_in_periods.map { |bot| bot.count { |b| b[0] } }
+    bots_in_periods.each_index.map do |index|
+      percentage(total_amount_of_bots_in_profit[0..index].sum, total_amount_of_bots[0..index].sum)
+    end.reverse
+  end
+
+  def prices_dictionary
+    @prices_dictionary ||= {}
+  end
+
+  def markets_dictionary
+    @markets_dictionary ||= {}
+  end
+
+  def percentage(amount, total)
+    (amount / total.to_f * 100).ceil(2)
+  end
+
+  def profitable_or_nil(bot)
+    settings = JSON.parse(bot['settings'])
+    current_price = current_price(bot['exchange_id'], settings['base'], settings['quote'])
+    return nil if current_price.data.nil? || bot['total_amount'].nil? || !current_price.success?
+
+    current_value = bot['total_amount'].to_f * current_price.data.to_f
+    [current_value.to_f > bot['total_cost'].to_f, bot['created_at']]
+  end
+
+  def split_bots_by_period(filtered_bots_map)
+    [
+      filtered_bots_map.filter { |x| x[1] <= Time.now - 12.month },
+      filtered_bots_map.filter { |x| x[1] > Time.now - 12.month }
+    ]
+  end
+
+  def current_price(exchange_id, base, quote)
+    prices_dictionary[symbol_key(base, quote)] ||= begin
+      market = markets_dictionary[exchange_id] ||= ExchangeApi::Markets::Get.new.call(exchange_id)
+      symbol = market.symbol(base, quote)
+      market.current_price(symbol)
+    end
+  end
+
+  def symbol_key(base, quote)
+    "#{base}-#{quote}"
   end
 end
