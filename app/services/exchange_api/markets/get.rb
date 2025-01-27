@@ -5,13 +5,9 @@ module ExchangeApi
       include ExchangeApi::FtxEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
-      def initialize(exchanges_repository: ExchangesRepository.new)
-        @exchanges_repository = exchanges_repository
-      end
-
       # rubocop:disable Metrics/CyclomaticComplexity
       def call(exchange_id)
-        exchange = @exchanges_repository.find(exchange_id)
+        exchange = Exchange.find(exchange_id)
         return ExchangeApi::Markets::Fake::Market.new if DISABLE_EXCHANGES_API
 
         case exchange.name.downcase

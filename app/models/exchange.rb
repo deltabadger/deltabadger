@@ -28,6 +28,10 @@ class Exchange < ApplicationRecord
   end
   # rubocop:enable Metrics/CyclomaticComplexity
 
+  def self.available
+    order(:name).where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro'])
+  end
+
   def free_plan_symbols
     all_symbols = symbols
     return all_symbols unless all_symbols.success?
