@@ -7,7 +7,6 @@ class MakeWithdrawal < BaseService
     bots_repository: BotsRepository.new,
     transactions_repository: TransactionsRepository.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
-    api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new
   )
     @get_withdrawal_processor = exchange_withdrawal_processor
@@ -16,7 +15,6 @@ class MakeWithdrawal < BaseService
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
     @transactions_repository = transactions_repository
-    @api_keys_repository = api_keys_repository
     @order_flow_helper = order_flow_helper
     @notifications = notifications
   end
@@ -56,7 +54,7 @@ class MakeWithdrawal < BaseService
   private
 
   def perform_action(bot)
-    api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id, 'withdrawal')
+    api_key = ApiKey.for_bot(bot.user_id, bot.exchange_id, 'withdrawal').first
     account_info_api = @get_withdrawal_info_processor.call(api_key)
     withdrawal_api = @get_withdrawal_processor.call(api_key)
     balance = account_info_api.available_funds(bot)
