@@ -7,7 +7,6 @@ class MakeWebhook < BaseService
     fetch_order_result: FetchOrderResult.new,
     unschedule_webhooks: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
-    transactions_repository: TransactionsRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     update_formatter: Bots::Webhook::FormatParams::Update.new
@@ -17,7 +16,6 @@ class MakeWebhook < BaseService
     @fetch_order_result = fetch_order_result
     @unschedule_webhooks = unschedule_webhooks
     @bots_repository = bots_repository
-    @transactions_repository = transactions_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
     @update_formatter = update_formatter
@@ -35,23 +33,23 @@ class MakeWebhook < BaseService
     if result&.success?
       triggered_types(bot, called_bot) if bot.first_time?
       settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
-      @bots_repository.update(bot.id, **settings_params.merge({status: 'pending'}))
+      @bots_repository.update(bot.id, **settings_params.merge({ status: 'pending' }))
       result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f, called_bot: called_bot)
       send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
       result = range_check_result if result.nil?
-      @transactions_repository.create(failed_transaction_params(result, bot))
+      Transaction.create(failed_transaction_params(result, bot))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_webhook.call(bot, webhook)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      @transactions_repository.create(failed_transaction_params(result, bot))
+      Transaction.create(failed_transaction_params(result, bot))
       @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
     result
-  rescue => e
+  rescue StandardError => e
     @unschedule_webhooks.call(bot)
     @order_flow_helper.stop_bot(bot, notify)
     Rails.logger.info '======================= RESCUE 1 MakeWebhook =============================='
@@ -63,7 +61,7 @@ class MakeWebhook < BaseService
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   def called_bot(settings, webhook)
-    return "additional_bot" if settings["additional_type_enabled"] && settings["additional_trigger_url"] == webhook
+    return 'additional_bot' if settings['additional_type_enabled'] && settings['additional_trigger_url'] == webhook
 
     'main_bot' if settings['trigger_url'] == webhook
   end
@@ -103,7 +101,7 @@ class MakeWebhook < BaseService
   end
 
   def perform_action(api, bot, called_bot)
-    type = bot.settings[called_bot == 'additional_bot'? 'additional_type' : 'type']
+    type = bot.settings[called_bot == 'additional_bot' ? 'additional_type' : 'type']
     settings = transaction_settings(bot, type, called_bot)
     if buyer?(type)
       api.buy(**settings)
@@ -115,7 +113,7 @@ class MakeWebhook < BaseService
   def calculate_price(bot, type, called_bot)
     case type
     when 'buy', 'sell'
-      bot.send(called_bot == 'additional_bot'? 'additional_price' : 'price').to_f
+      bot.send(called_bot == 'additional_bot' ? 'additional_price' : 'price').to_f
     when 'buy_all', 'sell_all'
       allowable_balance(get_api(bot), bot).to_f
     else
@@ -146,7 +144,7 @@ class MakeWebhook < BaseService
       transaction_type: 'REGULAR'
     }
 
-    @transactions_repository.create(transaction_params)
+    Transaction.create(transaction_params)
   end
 
   def fixing_transaction?(price)

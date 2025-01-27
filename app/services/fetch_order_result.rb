@@ -5,7 +5,6 @@ class FetchOrderResult < BaseService
     schedule_result_fetching: ScheduleResultFetching.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
-    transactions_repository: TransactionsRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new
   )
@@ -14,7 +13,6 @@ class FetchOrderResult < BaseService
     @schedule_result_fetching = schedule_result_fetching
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
-    @transactions_repository = transactions_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
   end
@@ -93,7 +91,7 @@ class FetchOrderResult < BaseService
                api.fetch_order_by_id(offer_id)
              end
 
-    @transactions_repository.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
+    Transaction.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
 
     if result.success?
       bot.reload # TODO: needed?

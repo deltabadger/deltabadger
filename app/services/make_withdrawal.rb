@@ -5,7 +5,6 @@ class MakeWithdrawal < BaseService
     schedule_withdrawal: ScheduleWithdrawal.new,
     unschedule_transactions: UnscheduleTransactions.new,
     bots_repository: BotsRepository.new,
-    transactions_repository: TransactionsRepository.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     notifications: Notifications::BotAlerts.new
   )
@@ -14,7 +13,6 @@ class MakeWithdrawal < BaseService
     @schedule_withdrawal = schedule_withdrawal
     @unschedule_transactions = unschedule_transactions
     @bots_repository = bots_repository
-    @transactions_repository = transactions_repository
     @order_flow_helper = order_flow_helper
     @notifications = notifications
   end
@@ -27,15 +25,15 @@ class MakeWithdrawal < BaseService
 
     result = perform_action(bot)
     if result&.success?
-      @transactions_repository.create(transaction_params(result, bot))
+      Transaction.create(transaction_params(result, bot))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: 0, account_balance: 0.0)
       @schedule_withdrawal.call(bot)
     elsif insufficient_balance?(result)
-      @transactions_repository.create(skipped_transaction_params(bot))
+      Transaction.create(skipped_transaction_params(bot))
       bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
       @schedule_withdrawal.call(bot)
     else
-      @transactions_repository.create(failed_transaction_params(result, bot))
+      Transaction.create(failed_transaction_params(result, bot))
       Rails.logger.info '=======================  make_withdrawal ELSE =============================='
       Rails.logger.info "================= #{result.errors.inspect} ======================="
       Rails.logger.info '====================================================='

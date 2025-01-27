@@ -6,7 +6,7 @@ class Metrics
     telegram_metrics = FetchTelegramMetrics.new.call
     metrics = {
       liveBots: BotsRepository.new.count_with_status('working'),
-      btcBought: convert_to_satoshis(TransactionsRepository.new.total_btc_bought),
+      btcBought: convert_to_satoshis(total_btc_bought),
       availableLegendaryBadgers: SubscriptionPlan.legendary.for_sale_count,
       takenLegendaryBadgersNftIds: Subscription.used_nft_ids,
       claimedLegendaryBadgersNftIds: Subscription.claimed_nft_ids,
@@ -118,5 +118,11 @@ class Metrics
 
   def symbol_key(base, quote)
     "#{base}-#{quote}"
+  end
+
+  def total_btc_bought
+    ActiveRecord::Base.connection.execute("select sum(total_amount) from bots_total_amounts where settings->>'base' in ('XXBT','XBT','BTC')")[0]['sum'].to_f # rubocop:disable Layout/LineLength
+
+    # Transaction.where(status: :success).where('created_at >= ?', 1.days.ago).where(bot: { settings: { 'base' => 'XXBT' } }).sum(:amount).ceil(8) # cursor suggestion
   end
 end

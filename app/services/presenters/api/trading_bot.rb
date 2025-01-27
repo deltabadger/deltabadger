@@ -3,11 +3,9 @@ module Presenters
     class TradingBot < BaseService
       def initialize(
         next_bot_transaction_at: NextTradingBotTransactionAt.new,
-        transactions_repository: TransactionsRepository.new,
         next_result_fetching_at: NextResultFetchingAt.new
       )
         @next_bot_transaction_at = next_bot_transaction_at
-        @transactions_repository = transactions_repository
         @next_result_fetching_at = next_result_fetching_at
       end
 
