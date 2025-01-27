@@ -5,13 +5,6 @@ class DailyTransactionAggregate < ApplicationRecord
 
   validates :bot, presence: true
 
-  def get_errors
-    JSON.parse(error_messages)
-  end
-
-  def price
-    return 0.0 unless rate.present?
-
-    amount * rate
-  end
+  scope :for_bot, ->(bot, limit: nil) { where(bot_id: bot.id).limit(limit).order(id: :desc) }
+  scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
 end

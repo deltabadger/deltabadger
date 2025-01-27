@@ -24,9 +24,8 @@ class Transaction < ApplicationRecord
     return unless success?
 
     transactions_repository = TransactionsRepository.new
-    daily_transaction_aggregates_repository = DailyTransactionAggregateRepository.new
-    daily_transaction_aggregate = daily_transaction_aggregates_repository.today_for_bot(bot).first
-    return daily_transaction_aggregates_repository.create(attributes.except('id')) unless daily_transaction_aggregate
+    daily_transaction_aggregate = DailyTransactionAggregate.today_for_bot(bot).first
+    return DailyTransactionAggregate.create(attributes.except('id')) unless daily_transaction_aggregate
 
     bot_transactions = transactions_repository.today_for_bot(bot)
     bot_transactions_with_rate = bot_transactions.reject { |t| t.rate.nil? }
@@ -37,7 +36,7 @@ class Transaction < ApplicationRecord
       rate: bot_transactions_with_rate.sum(&:rate) / bot_transactions_with_rate.count.to_f,
       amount: bot_transactions_with_amount.sum(&:amount)
     }
-    daily_transaction_aggregates_repository.update(daily_transaction_aggregate.id, daily_transaction_aggregate_new_data)
+    daily_transaction_aggregate.update(daily_transaction_aggregate_new_data)
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 end
