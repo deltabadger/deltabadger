@@ -1,11 +1,6 @@
-class MetricsRepository < BaseRepository
+class Metrics
   METRICS_KEY = 'metrics'.freeze
   BOTS_IN_PROFIT_KEY = 'bots_in_profit'.freeze
-
-  def initialize
-    super
-    @redis_client = Redis.new(url: ENV.fetch('REDIS_URL'))
-  end
 
   def update_metrics
     telegram_metrics = FetchTelegramMetrics.new.call
@@ -35,7 +30,7 @@ class MetricsRepository < BaseRepository
       dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data
       # dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
     }.merge(telegram_metrics)
-    @redis_client.set(METRICS_KEY, metrics.to_json)
+    redis_client.set(METRICS_KEY, metrics.to_json)
   end
 
   def update_bots_in_profit
@@ -45,15 +40,15 @@ class MetricsRepository < BaseRepository
       profitBotsTillNow: profitable_bots_data[0],
       profitBots12MonthsAgo: profitable_bots_data[1]
     }
-    @redis_client.set(BOTS_IN_PROFIT_KEY, bots_in_profit.to_json)
+    redis_client.set(BOTS_IN_PROFIT_KEY, bots_in_profit.to_json)
     FeesService.new.update_fees
   end
 
   def metrics_data
     Rails.logger.info('Fetching metrics data from Redis 0')
-    metrics_response = @redis_client.get(METRICS_KEY)
+    metrics_response = redis_client.get(METRICS_KEY)
     Rails.logger.info("Fetching metrics data from Redis 1 #{metrics_response.inspect}")
-    bots_in_profit_response = @redis_client.get(BOTS_IN_PROFIT_KEY)
+    bots_in_profit_response = redis_client.get(BOTS_IN_PROFIT_KEY)
     Rails.logger.info("Fetching bots in profit data from Redis #{bots_in_profit_response.inspect}")
     data = {}
     Rails.logger.info("Fetching metrics data from Redis 2 #{data.inspect}")
@@ -68,5 +63,9 @@ class MetricsRepository < BaseRepository
 
   def convert_to_satoshis(amount)
     (amount * 10**8).ceil
+  end
+
+  def redis_client
+    @redis_client ||= Redis.new(url: ENV.fetch('REDIS_URL'))
   end
 end
