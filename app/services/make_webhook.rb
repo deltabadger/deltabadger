@@ -6,7 +6,6 @@ class MakeWebhook < BaseService
     schedule_webhook: ScheduleWebhook.new,
     fetch_order_result: FetchOrderResult.new,
     unschedule_webhooks: UnscheduleTransactions.new,
-    bots_repository: BotsRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     update_formatter: Bots::Webhook::FormatParams::Update.new
@@ -15,7 +14,6 @@ class MakeWebhook < BaseService
     @schedule_webhook = schedule_webhook
     @fetch_order_result = fetch_order_result
     @unschedule_webhooks = unschedule_webhooks
-    @bots_repository = bots_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
     @update_formatter = update_formatter
@@ -23,7 +21,7 @@ class MakeWebhook < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, webhook, notify: true, restart: true)
-    bot = @bots_repository.find(bot_id)
+    bot = Bot.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
     called_bot = called_bot(bot.settings, webhook)
@@ -33,13 +31,13 @@ class MakeWebhook < BaseService
     if result&.success?
       triggered_types(bot, called_bot) if bot.first_time?
       settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
-      @bots_repository.update(bot.id, **settings_params.merge({ status: 'pending' }))
+      bot.update(**settings_params.merge({ status: 'pending' }))
       result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f, called_bot: called_bot)
       send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
       result = range_check_result if result.nil?
       Transaction.create(failed_transaction_params(result, bot))
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_webhook.call(bot, webhook)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new

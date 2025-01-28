@@ -5,7 +5,7 @@ class Metrics
   def update_metrics
     telegram_metrics = FetchTelegramMetrics.new.call
     metrics = {
-      liveBots: BotsRepository.new.count_with_status('working'),
+      liveBots: Bot.working.count,
       btcBought: convert_to_satoshis(total_btc_bought),
       availableLegendaryBadgers: SubscriptionPlan.legendary.for_sale_count,
       takenLegendaryBadgersNftIds: Subscription.used_nft_ids,

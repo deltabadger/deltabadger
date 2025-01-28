@@ -4,7 +4,6 @@ class MakeTransaction < BaseService
     schedule_transaction: ScheduleTransaction.new,
     fetch_order_result: FetchOrderResult.new,
     unschedule_transactions: UnscheduleTransactions.new,
-    bots_repository: BotsRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     check_price_range: CheckPriceRange.new
@@ -13,7 +12,6 @@ class MakeTransaction < BaseService
     @schedule_transaction = schedule_transaction
     @fetch_order_result = fetch_order_result
     @unschedule_transactions = unschedule_transactions
-    @bots_repository = bots_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
     @check_price_range = check_price_range
@@ -21,7 +19,7 @@ class MakeTransaction < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, notify: true, restart: true, continue_params: nil)
-    bot = @bots_repository.find(bot_id)
+    bot = Bot.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
     continue_params = extract_continue_params(continue_params)
@@ -38,17 +36,17 @@ class MakeTransaction < BaseService
     result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
 
     if continue_schedule
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
+      bot.update(status: 'working', restarts: 0)
       @schedule_transaction.call(bot)
     elsif result&.success?
-      @bots_repository.update(bot.id, status: 'pending')
+      bot.update(status: 'pending')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
       check_allowable_balance(get_api(bot), bot, fixing_price, notify)
       send_user_to_sendgrid(bot)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
       Transaction.create(failed_transaction_params(result, bot, fixing_price))
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new

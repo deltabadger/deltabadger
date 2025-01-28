@@ -36,14 +36,11 @@ module Bots
         private
 
         def webhook_urls(additional_type_enabled)
-          result = {trigger_url: generate_webhook_url}
-          return result.merge(additional_trigger_url: generate_webhook_url) if additional_type_enabled
-
-          result
-        end
-
-        def generate_webhook_url
-          BotsRepository.new.webhook_url
+          # FIXME: there's a small chance that the webhook url will be the same for both trigger_url and additional_trigger_url
+          {
+            trigger_url: Bot.generate_new_webhook_url,
+            additional_trigger_url: additional_type_enabled ? Bot.generate_new_webhook_url : nil
+          }
         end
       end
     end

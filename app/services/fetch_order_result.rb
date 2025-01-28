@@ -4,7 +4,6 @@ class FetchOrderResult < BaseService
     schedule_transaction: ScheduleTransaction.new,
     schedule_result_fetching: ScheduleResultFetching.new,
     unschedule_transactions: UnscheduleTransactions.new,
-    bots_repository: BotsRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new
   )
@@ -12,20 +11,19 @@ class FetchOrderResult < BaseService
     @schedule_transaction = schedule_transaction
     @schedule_result_fetching = schedule_result_fetching
     @unschedule_transactions = unschedule_transactions
-    @bots_repository = bots_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
   end
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, result_params, fixing_price, notify: true, restart: true, called_bot: nil)
-    bot = @bots_repository.find(bot_id)
+    bot = Bot.find(bot_id)
     return Result::Failure.new unless bot.pending?
 
     result = perform_action(get_api(bot), result_params, bot, fixing_price, called_bot)
 
     if result.success?
-      bot = @bots_repository.update(bot.id, restarts: 0, fetch_restarts: 0, **success_status(bot))
+      bot.update(restarts: 0, fetch_restarts: 0, **success_status(bot))
       if notify && bot.webhook?
         @notifications.successful_webhook_bot_transaction(bot: bot,
                                                           type: called_bot_type(
@@ -34,11 +32,11 @@ class FetchOrderResult < BaseService
       end
       @schedule_transaction.call(bot) if !bot.webhook?
     elsif !fetched?(result)
-      bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
+      bot.update(fetch_restarts: bot.fetch_restarts + 1)
       @schedule_result_fetching.call(bot, result_params, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new

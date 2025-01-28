@@ -7,12 +7,9 @@ class Bot < ApplicationRecord
   enum status: %i[created working stopped deleted pending]
   enum bot_type: %i[trading withdrawal webhook barbell]
 
+  include Webhookable
   include Barbellable
-
-  def self.by_webhook(webhook)
-    queries = [{ trigger_url: webhook }.to_json, { additional_trigger_url: webhook }.to_json]
-    not_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
-  end
+  include Rankable
 
   def base
     settings['base']
@@ -187,6 +184,6 @@ class Bot < ApplicationRecord
   end
 
   def destroy
-    update_attribute(:status, 'deleted')
+    update(status: 'deleted')
   end
 end

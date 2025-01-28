@@ -2,13 +2,11 @@ module Bots
   class CreateBot < BaseService
     def initialize(
       bot_validator:,
-      format_params:,
-      bots_repository: BotsRepository.new
+      format_params:
     )
 
       @bot_validator = bot_validator
       @format_params = format_params
-      @bots_repository = bots_repository
     end
 
     def call(params)
@@ -18,8 +16,8 @@ module Bots
       result = @bot_validator.call(bot, params[:user])
 
       if result.success?
-        saved_bot = @bots_repository.save(bot)
-        Result::Success.new(saved_bot)
+        bot.save!
+        Result::Success.new(bot)
       else
         Result::Failure.new(*result.errors)
       end

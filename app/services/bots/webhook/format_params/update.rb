@@ -38,11 +38,7 @@ module Bots
         private
 
         def webhook_urls(additional_type_enabled, additional_trigger_url)
-          { additional_trigger_url: generate_webhook_url } if additional_type_enabled && !additional_trigger_url
-        end
-
-        def generate_webhook_url
-          BotsRepository.new.webhook_url
+          { additional_trigger_url: Bot.generate_new_webhook_url } if additional_type_enabled && !additional_trigger_url
         end
       end
     end
