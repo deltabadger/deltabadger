@@ -1,18 +1,16 @@
 class GetRestartParams < BaseService
   def initialize(
     parse_interval: ParseInterval.new,
-    next_bot_transaction_at: NextTradingBotTransactionAt.new,
-    bots_repository: BotsRepository.new
+    next_bot_transaction_at: NextTradingBotTransactionAt.new
   )
     @parse_interval = parse_interval
     @next_bot_transaction_at = next_bot_transaction_at
-    @bots_repository = bots_repository
   end
 
   LARGEST_TIMEOUT = 2_147_483_647 # js timeout cannot be larger than 2^32
 
   def call(bot_id:)
-    bot = @bots_repository.find(bot_id)
+    bot = Bot.find(bot_id)
     if bot.webhook? || was_first_transaction_failed(bot)
       return {
         restartType: 'failed'

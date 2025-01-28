@@ -4,7 +4,6 @@ class MakeWithdrawal < BaseService
     exchange_withdrawal_info_processor: ExchangeApi::WithdrawalInfo::Get.new,
     schedule_withdrawal: ScheduleWithdrawal.new,
     unschedule_transactions: UnscheduleTransactions.new,
-    bots_repository: BotsRepository.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
     notifications: Notifications::BotAlerts.new
   )
@@ -12,7 +11,6 @@ class MakeWithdrawal < BaseService
     @get_withdrawal_info_processor = exchange_withdrawal_info_processor
     @schedule_withdrawal = schedule_withdrawal
     @unschedule_transactions = unschedule_transactions
-    @bots_repository = bots_repository
     @order_flow_helper = order_flow_helper
     @notifications = notifications
   end
@@ -20,17 +18,17 @@ class MakeWithdrawal < BaseService
   SKIPPED = { data: { skipped: true }.freeze }.freeze
 
   def call(bot_id)
-    bot = @bots_repository.find(bot_id)
+    bot = Bot.find(bot_id)
     return Result::Failure.new unless make_transaction?(bot)
 
     result = perform_action(bot)
     if result&.success?
       Transaction.create(transaction_params(result, bot))
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0, account_balance: 0.0)
+      bot.update(status: 'working', restarts: 0, account_balance: 0.0)
       @schedule_withdrawal.call(bot)
     elsif insufficient_balance?(result)
       Transaction.create(skipped_transaction_params(bot))
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: 0)
+      bot.update(status: 'working', restarts: 0)
       @schedule_withdrawal.call(bot)
     else
       Transaction.create(failed_transaction_params(result, bot))
@@ -59,7 +57,7 @@ class MakeWithdrawal < BaseService
     Rails.logger.info "withdrawal balance: #{balance.inspect}" # TODO: delete after testing
     return balance unless balance.success?
 
-    bot = @bots_repository.update(bot.id, account_balance: balance.data)
+    bot.update(account_balance: balance.data)
     Rails.logger.info "withdrawal bot: #{bot.inspect}" # TODO: delete after testing
     Rails.logger.info "withdrawal threshold : #{check_balance_threshold(bot, balance).inspect}" # TODO: delete after testing
     return Result::Failure.new(**SKIPPED) unless check_balance_threshold(bot, balance)
