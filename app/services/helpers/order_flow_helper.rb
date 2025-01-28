@@ -1,7 +1,7 @@
 module Helpers
   class OrderFlowHelper
     def initialize(
-      notifications: Notifications::BotAlerts.new,
+      notifications: Notifications::BotAlerts.new
     )
       @notifications = notifications
     end
