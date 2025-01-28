@@ -2,17 +2,26 @@ module Api
   # rubocop:disable Metrics/ClassLength
   class BotsController < Api::BaseController
     include ActionController::Live
+
     skip_before_action :authenticate_user!, only: [:webhook]
     skip_before_action :verify_authenticity_token, only: [:webhook]
+
     def index
-      bots = BotsRepository.new.for_user(current_user, params[:page])
+      bots = current_user
+             .bots
+             .not_deleted
+             .includes(:exchange)
+             .includes(:daily_transaction_aggregates)
+             .includes(:transactions)
+             .order(created_at: :desc)
+             .page(params[:page])
       data = present_bots(bots)
 
       render json: { data: data }
     end
 
     def show
-      bot = BotsRepository.new.by_id_for_user(current_user, params[:id])
+      bot = Bot.find(params[:id])
       data = present_bot(bot)
 
       render json: { data: data }
@@ -40,7 +49,7 @@ module Api
     end
 
     def webhook
-      bot = BotsRepository.new.by_webhook_for_user(params[:webhook])
+      bot = Bot.find_by_webhook(params[:webhook])
       return render json: { errors: 'No bot found' }, status: 422 unless bot
       unless bot.possible_to_call_a_webhook?(params[:webhook])
         return render json: { errors: 'This webhook has already been called before' }, status: 422

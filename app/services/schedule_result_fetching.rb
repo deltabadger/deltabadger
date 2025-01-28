@@ -1,10 +1,8 @@
 class ScheduleResultFetching < BaseService
   def initialize(
-    bots_repository: BotsRepository.new,
     fetch_result_worker: FetchResultWorker,
     next_result_fetching_at: NextResultFetchingAt.new
   )
-    @bots_repository = bots_repository
     @fetch_result_worker = fetch_result_worker
     @next_result_fetching_at = next_result_fetching_at
   end
@@ -18,8 +16,4 @@ class ScheduleResultFetching < BaseService
       fixing_price
     )
   end
-
-  private
-
-  attr_reader :bots_repository, :make_transaction_worker, :parse_interval, :next_bot_transaction_at
 end

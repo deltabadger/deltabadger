@@ -1,13 +1,7 @@
 module Bots
   class Update < BaseService
-    def initialize(
-      bots_repository: BotsRepository.new
-    )
-      @bots_repository = bots_repository
-    end
-
     def call(user, bot_params)
-      bot = @bots_repository.by_id_for_user(user, bot_params[:id])
+      bot = Bot.find(bot_params[:id])
       bot_validator = get_validator(bot)
       format_params = get_formatter(bot)
 
@@ -24,8 +18,8 @@ module Bots
       validation = bot_validator.call(bot, user)
 
       if validation.success?
-        updated_bot = @bots_repository.save(bot)
-        Result::Success.new(updated_bot)
+        bot.save!
+        Result::Success.new(bot)
       else
         Result::Failure.new(*validation.errors)
       end

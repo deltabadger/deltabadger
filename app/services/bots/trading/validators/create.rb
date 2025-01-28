@@ -100,7 +100,7 @@ module Bots::Trading::Validators
       end
 
       def plan_allowed_bot
-        return if @user.unlimited? || @user.bots.where(status: 'working').count.zero?
+        return if @user.unlimited? || @user.bots.working.count.zero?
 
         errors.add(:base, I18n.t('bots.messages.upgrade_plan_more_bots'))
       end
