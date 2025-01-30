@@ -348,11 +348,13 @@ en:
                 instructions_1_html: "Log into your %{exchange_link} account."
                 instructions_2_html: "Go to <b>Security</b> > <b>API</b>."
                 instructions_3_html: "Click <b>Add key</b>."
-                instructions_4_html: "Name your key and select <b>Query Funds</b>, <b>Query Open Orders & Trades</b>, and <b>Create & Modify Orders</b> permissions."
+                instructions_4_html: "Name your key and select <b>Query Funds</b>, <b>Query Open Orders & Trades</b>, <b>Query Closed Orders & Trades</b>, <b>Candel & close orders</b> and <b>Create & Modify Orders</b> permissions."
                 instructions_5_html: "Click <b>Generate Key</b>."
                 instructions_6_html: "Copy and paste your new API keys into the form above."
                 private_key: "Private Key"
                 public_key: "API Key"
+                trading_agreement_html: '<b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.'
+                trading_agreement_label_html: 'I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>.'
             kucoin:
                 instructions_1_html: "Log into your %{exchange_link} account."
                 instructions_2_html: "Go to <b>API Management</b>."
