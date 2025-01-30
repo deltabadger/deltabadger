@@ -21,6 +21,7 @@ module ExchangeApi
 
         def fetch_order_by_id(order_id)
           res = @client.send :post_private, 'QueryOrders', txid: order_id
+          Rails.logger.info "Kraken response: #{res}"
           order_data = res['result'].fetch(order_id, nil)
 
           return error_to_failure([order_data.fetch('reason')]) if canceled?(order_data)
