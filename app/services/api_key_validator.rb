@@ -1,6 +1,6 @@
 class ApiKeyValidator < BaseService
   def initialize(
-    get_validator: ExchangeApi::Validators::Get.new,
+    get_validator: ExchangeApi::Validators::Get.new
   )
     @get_validator = get_validator
   end
