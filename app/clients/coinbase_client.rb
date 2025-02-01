@@ -81,6 +81,78 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
+  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproducts
+  # @param limit [Integer] The number of products to return
+  # @param offset [Integer] The offset for pagination
+  # @param product_type [String] The product type (spot or future)
+  # @param product_ids [Array<String>] The product ids
+  # @param contract_expiry_type [String] The contract expiry type (expiring or perpetual)
+  # @param expiring_contract_status [String] The expiring contract status (status_unexpired, status_expired, status_all)
+  # @param get_tradability_status [Boolean] Whether to get the tradability status
+  # @param get_all_products [Boolean] Whether to get all products
+  def list_products(
+    limit: nil,
+    offset: nil,
+    product_type: nil,
+    product_ids: nil,
+    contract_expiry_type: nil,
+    expiring_contract_status: nil,
+    get_tradability_status: nil,
+    get_all_products: nil
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/brokerage/products'
+        req.headers = headers(req)
+        req.params = {
+          limit: limit,
+          offset: offset,
+          product_type: product_type,
+          product_ids: product_ids,
+          contract_expiry_type: contract_expiry_type,
+          expiring_contract_status: expiring_contract_status,
+          get_tradability_status: get_tradability_status,
+          get_all_products: get_all_products
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproduct
+  # @param product_id [String] The product id
+  # @param get_tradability_status [Boolean] Whether or not to populate view_only with the tradability status of the product. This is only enabled for SPOT products. # rubocop:disable Layout/LineLength
+  def get_product(
+    product_id:,
+    get_tradability_status: nil
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url "/api/v3/brokerage/products/#{product_id}"
+        req.headers = headers(req)
+        req.params = {
+          get_tradability_status: get_tradability_status
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getbestbidask
+  # @param product_ids [Array<String>] The product ids
+  def get_best_bid_ask(product_ids: nil)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/brokerage/best_bid_ask'
+        req.headers = headers(req)
+        req.params = {
+          product_ids: product_ids
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def headers(req)
@@ -92,9 +164,11 @@ class CoinbaseClient < ApplicationClient
   end
 
   def legacy_headers(req)
-    timestamp = Time.now.utc.to_i.to_s
+    timestamp = Time.now.utc.to_i
+    method = req.http_method.to_s.upcase
+    request_path = req.path
     body = req.body.present? ? req.body : ''
-    payload = "#{timestamp}#{req.http_method.to_s.upcase}#{req.path}#{body}"
+    payload = "#{timestamp}#{method}#{request_path}#{body}"
     signature = OpenSSL::HMAC.hexdigest('sha256', @api_secret, payload)
     {
       'CB-ACCESS-KEY': @api_key,
@@ -106,15 +180,18 @@ class CoinbaseClient < ApplicationClient
   end
 
   def cdp_headers(req)
-    private_key = OpenSSL::PKey::EC.new(@api_secret)
-    uri = "#{req.http_method.to_s.upcase} #{URL}#{req.path}"
+    timestamp = Time.now.utc.to_i
+    method = req.http_method.to_s.upcase
+    request_host = URI(URL).host
+    request_path = req.path
     jwt_payload = {
       sub: @api_key,
       iss: 'coinbase-cloud',
-      nbf: Time.now.utc.to_i,
-      exp: Time.now.utc.to_i + 120,
-      uri: uri
+      nbf: timestamp,
+      exp: timestamp + 120,
+      uri: "#{method} #{request_host}#{request_path}"
     }
+    private_key = OpenSSL::PKey::EC.new(@api_secret)
     jwt = JWT.encode(jwt_payload, private_key, 'ES256', { kid: @api_key, nonce: SecureRandom.hex })
     {
       'Authorization': "Bearer #{jwt}"
