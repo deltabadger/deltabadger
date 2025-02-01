@@ -51,13 +51,24 @@ class BarbellBotsController < ApplicationController
     end
   end
 
-  def create_api_key
-    # TODO: check this works
-    @api_key = ApiKey.new(api_key_params)
+  def create_api_keys
+    @barbell_bot = current_user.bots.barbell.find(api_key_params[:bot_id])
+    @api_key = ApiKey.new(
+      user: current_user,
+      exchange_id: api_key_params[:exchange_id],
+      key: api_key_params[:key],
+      secret: api_key_params[:secret],
+      status: 'pending',
+      passphrase: '',                   # TODO: required?
+      german_trading_agreement: false   # TODO: required?
+    )
+
+    # TODO: verify apikey works
 
     if @api_key.save
       redirect_to barbell_bot_path(@barbell_bot), notice: 'API keys saved successfully'
     else
+      flash.now[:alert] = @api_key.errors.messages.values.join(', ')
       render :api_keys, status: :unprocessable_entity
     end
   end
@@ -89,7 +100,7 @@ class BarbellBotsController < ApplicationController
   end
 
   def api_key_params
-    params.require(:api_keys).permit(:api_key, :api_secret)
+    params.require(:api_key).permit(:key, :secret, :bot_id, :exchange_id)
   end
 
   def trader_key_id_for_user(exchange)
