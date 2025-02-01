@@ -1,4 +1,4 @@
-module Bot::Barbellable
+module Bot::Barbell
   extend ActiveSupport::Concern
 
   included do
@@ -13,15 +13,13 @@ module Bot::Barbellable
 
     private
 
-    def validate_barbell_bot_settings
-      return if settings['quote_amount'].present? && settings['quote_amount'].to_f > 0 &&
+    def validate_barbell_bot_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+      return if settings['quote_amount'].present? && settings['quote_amount'].to_f.positive? &&
                 settings['quote'].present? &&
                 settings['interval'].present? &&
                 settings['base0'].present? &&
                 settings['base1'].present? &&
-                settings['allocation0'].present? && settings['allocation0'].to_f >= 0 && settings['allocation0'].to_f <= 1
-
-      puts 'barbellable errors!!'
+                settings['allocation0'].present? && settings['allocation0'].to_f.between?(0, 1)
 
       errors.add(:settings, :invalid_settings, message: 'Invalid settings')
     end
