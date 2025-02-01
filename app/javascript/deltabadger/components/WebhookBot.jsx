@@ -268,7 +268,7 @@ const BotTemplate = ({
     } else if (keyInvalid(keyStatus)) {
       setApiKeysState(apiKeyStatus["INVALID"]);
     }
-    
+
     return keyStatus;
   };
 

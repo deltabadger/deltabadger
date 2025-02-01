@@ -41,11 +41,11 @@ const BotTile = ({ bot, isOpen, onClick, showLimitOrders, errors, exchanges, api
     buttonClickHandler: handleButtonClick // Pass the handler function
   };
 
-  if (bot_type === 'free') {
+  if (bot_type === 'trading') {
     return <TradingBot {...commonProps} onClick={onClick} />;
   } else if (bot_type === 'withdrawal') {
     return <WithdrawalBot {...commonProps} onClick={onClick} />;
-  } else {
+  } else if (bot_type === 'webhook') {
     return <WebhookBot {...commonProps} onClick={onClick} />;
   }
 };
@@ -232,9 +232,9 @@ const DashboardTemplate = ({
       );
     }
 
-    const BotComponent = selectedBot.bot_type === 'free' ? TradingBot :
+    const BotComponent = selectedBot.bot_type === 'trading' ? TradingBot :
                         selectedBot.bot_type === 'withdrawal' ? WithdrawalBot :
-                        WebhookBot;
+                        selectedBot.bot_type === 'webhook' ? WebhookBot : null;
 
     return (
       <>
