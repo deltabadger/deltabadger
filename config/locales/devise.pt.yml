@@ -1,0 +1,92 @@
+pt:
+    devise:
+        confirmations:
+            confirmed: 'Seu endereço de e-mail foi confirmado com sucesso.'
+            new:
+                submit: 'Reenviar'
+                title: 'Reenviar instruções'
+            send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
+            send_paranoid_instructions: 'Se sua conta existir, você receberá um e-mail com instruções em alguns minutos.'
+        passwords:
+            edit:
+                submit: 'Alterar senha'
+                title: 'Alterar senha'
+            new:
+                submit: 'Enviar instruções'
+                title: 'Esqueceu sua senha?'
+            no_token: 'Você não pode acessar esta página sem vir de um e-mail de redefinição de senha. Se você recebeu um, certifique-se de usar o URL completo fornecido.'
+            send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
+            send_paranoid_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
+            updated: 'Feito! Sua senha foi alterada.'
+            updated_not_active: 'Feito! Sua senha foi alterada.'
+            token_expired: 'O link de redefinição de senha expirou. Solicite um novo link.'
+            validations:
+                length: 'No mínimo %{count} caracteres'
+                uppercase: 'Contém uma letra maiúscula'
+                lowercase: 'Contém uma letra minúscula'
+                digit: 'Contém um número'
+                symbol: 'Contém um símbolo'
+                match: 'As senhas correspondem'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Atualmente aguardando confirmação para: %{email}'
+            new:
+                email_invalid: 'E-mail inválido!'
+                email_suggestion_html: 'E-mail inválido! Você quis dizer: <b>%{suggestion}</b>'
+                name_invalid: 'Não precisa ser real 👻'
+                submit: 'Registar'
+                title_html: 'Crie uma conta <span class="text-success">gratuita</span>'
+            signed_up: 'Prazer em conhecer você!'
+            signed_up_but_inactive: 'Olá, sua conta ainda não foi ativada. Você verificou seu e-mail?'
+            signed_up_but_locked: 'Ops, sua conta está bloqueada.'
+            signed_up_but_unconfirmed: 'Verifique sua caixa de entrada e clique no link de confirmação.'
+            update_needs_confirmation: 'Verifique sua caixa de entrada e clique no link para confirmar seu novo endereço de e-mail.'
+            updated: 'Sua conta foi atualizada com sucesso.'
+            updated_but_not_signed_in: 'Sua conta foi atualizada com sucesso, faça login novamente.'
+        sessions:
+            new:
+                forgot_password: 'Esqueceu sua senha?'
+                submit: 'Entrar'
+                title: 'Bem-vindo de volta!'
+            signed_in: 'Quanto tempo!'
+            signed_out: 'Até mais!'
+            two_factor:
+                submit: "Verificar"
+                invalid_code: "Código incorreto. Tente novamente."
+        unlocks:
+            send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
+            unlocked: 'Sua conta foi desbloqueada com sucesso. Faça login para continuar.'
+        failure:
+            already_authenticated: 'Você já está logado.'
+            inactive: 'Sua conta ainda não foi ativada.'
+            invalid: 'E-mail ou senha inválidos.'
+            last_attempt: 'Você tem mais uma tentativa antes que sua conta seja bloqueada.'
+            locked: 'Sua conta está bloqueada.'
+            not_found_in_database: 'E-mail ou senha inválidos.'
+            timeout: 'Sua sessão expirou. Faça login novamente para continuar.'
+            unauthenticated: 'Você precisa fazer login ou se cadastrar antes de continuar.'
+            unconfirmed: 'Você precisa confirmar seu endereço de e-mail antes de continuar.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Confirme seu endereço de e-mail'
+                template_html: '<p>Seu endereço de e-mail está a um clique de distância de se juntar ao time! Confirme agora e deixe as coisas fluírem automaticamente.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirme este e-mail</a>'
+            email_changed:
+                subject: 'E-mail confirmado'
+                template_html: '<p>Pronto! Este é seu novo e brilhante endereço do Deltabadger:</p><p><b>%{email}</b></p>'
+            password_change:
+                subject: 'Senha alterada'
+                template_html: '<p>Está feito!</p><p>Sua senha foi alterada.</p><p>Seus segredos estão mais seguros do que nunca!</p>'
+            reset_password_instructions:
+                subject: 'Recuperação de senha'
+                template_html: '<p>Recuperação de senha iniciada! Aguarde, logo você estará de volta ao jogo.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Alterar minha senha</a>'
+            unlock_instructions:
+                subject: 'Instruções para desbloqueio'
+                template_html: '<p>Bloqueamos sua conta devido a um número alto de tentativas de login sem sucesso.</p><p>Clique no link abaixo para desbloqueá-la:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear minha conta</a>'
+            email_already_taken:
+                subject: "Conta já existe"
+                message: "Você já tem uma conta com este endereço de e-mail."
+                reset_password_message: "Se você esqueceu sua senha, pode redefini-la clicando no botão abaixo."
+                reset_password_button: "Redefinir Senha"
+        omniauth_callbacks:
+            failure: 'Não foi possível autenticar através de %{kind} devido a: "%{reason}".'
+            success: 'Autenticado com sucesso através da conta %{kind}.'
