@@ -345,92 +345,97 @@ en:
             how_to_add_withdrawal_bot: 'How to set up withdrawal bot:'
             how_to_get_keys: 'How to get API keys from %{exchange}:'
             kraken:
-                instructions_1_html: "Log into your %{exchange_link} account."
-                instructions_2_html: "Go to <b>Security</b> > <b>API</b>."
-                instructions_3_html: "Click <b>Add key</b>."
-                instructions_4_html: "Name your key and select <b>Query Funds</b>, <b>Query Open Orders & Trades</b>, <b>Query Closed Orders & Trades</b>, <b>Candel & close orders</b> and <b>Create & Modify Orders</b> permissions."
-                instructions_5_html: "Click <b>Generate Key</b>."
-                instructions_6_html: "Copy and paste your new API keys into the form above."
-                private_key: "Private Key"
-                public_key: "API Key"
+                instructions_1_html: 'Log into your %{exchange_link} account.'
+                instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
+                instructions_3_html: 'Press <b>Generate New Key</b>.'
+                instructions_4_html: 'Set permissions for:'
+                instructions_5_1_html: 'Funds:'
+                instructions_5_2_html: '<b>Query Funds</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
+                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
+                instructions_6_4_html: '<b>Create and modify orders</b>'
+                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
+                instructions_7_html: 'Press <b>Generate Key</b>.'
+                instructions_8_html: 'Copy and paste your new API keys into the form above.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
                 trading_agreement_html: '<b>Hallo!</b> If your Kraken account is verified with a German address, you will need to accept a <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a> in order to place market and margin orders.'
                 trading_agreement_label_html: 'I accept <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">trading agreement</a>.'
             kucoin:
-                instructions_1_html: "Log into your %{exchange_link} account."
-                instructions_2_html: "Go to <b>API Management</b>."
-                instructions_3_html: "Click <b>Create API</b>."
-                instructions_4_html: "Name your key and select <b>Trade</b> permission."
-                instructions_5_html: "Click <b>Next</b>."
-                instructions_6_html: "If you want to restrict access to the key only for Deltabadger, set <b>IP Restriction</b> to yes and add this IP: <b>18.132.181.159</b>"
-                instructions_7_html: "Copy and paste your new API keys into the form above."
-                private_key: "API Secret"
-                public_key: "API Key"
-            okx:
-                instructions_1_html: "Log into your %{exchange_link} account."
-                instructions_2_html: "Go to <b>API</b> in the menu."
-                instructions_3_html: "Click <b>Create API</b>."
-                instructions_4_html: "Name your key and select <b>Read</b> and <b>Trade</b> permissions."
-                instructions_5_html: "Click <b>Confirm</b>."
-                instructions_6_html: "Copy and paste your new API keys into the form above."
-                private_key: "Secret Key"
-                public_key: "API Key"
-            limit_warning: "Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it's best to stick with it if you're unsure."
-            next: "Next"
-            no_wallet_found: "No wallet found. Go to %{exchangeName} and add a withdrawal wallet."
-            no_wallet_found_html: "No wallet found. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and add a withdrawal wallet."
-            not_enough_funds: "Not enough funds."
-            not_enough_funds_html: "Not enough funds. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{quote}."
-            not_enough_funds_for_withdrawal: "Not enough funds for withdrawal."
-            not_enough_funds_for_withdrawal_html: "Not enough funds for withdrawal. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{base}."
-            not_enough_funds_to_start: "Not enough funds to start."
-            not_enough_funds_to_start_html: "Not enough funds to start. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{quote}."
-            not_enough_funds_to_start_withdrawal: "Not enough funds to start withdrawal."
-            not_enough_funds_to_start_withdrawal_html: "Not enough funds to start withdrawal. Go to <a href=\"%{exchange_url}\" target=\"_blank\">%{exchange_name}</a> and deposit some %{base}."
+                instructions_10_html: 'Confirm creation of API keys by Trading Password and 2FA.'
+                instructions_11_html: 'Copy and paste your new API keys into the form above.'
+                instructions_1_html: 'Log into your %{exchange_link} account.'
+                instructions_2_html: 'In the account menu (top right corner next to the language picker) go to <b>API Management</b>.'
+                instructions_3_html: 'Press <b>Create API</b>.'
+                instructions_4_html: 'If you create your API keys for the first time, set and save <b>Trading Password</b>.'
+                instructions_5_html: 'Provide <b>API Name</b>.'
+                instructions_6_html: 'Provide and save <b>API Passphrase</b>.'
+                instructions_7_1_html: 'Set permissions for:'
+                instructions_7_2_html: '<b>General</b>'
+                instructions_7_3_html: '<b>Trade</b>'
+                instructions_8_html: 'If you want to restrict access to the key only for Deltabadger set <b>IP Restriction</b> to yes and add this IP: <b>18.132.181.159</b>'
+                instructions_9_html: 'Press <b>Next</b>.'
+                passphrase: Passphrase
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            limit_warning: 'Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it''s best to stick with it if you''re unsure.'
+            next: Next
+            no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
             probit:
-                instructions_1_html: "Log into your %{exchange_link} account."
-                instructions_2_html: "Go to <b>API</b> in the menu."
-                instructions_3_html: "Click <b>Create New Key</b>."
-                instructions_4_html: "Label your key and select <b>Read</b> and <b>Write</b> permissions."
-                instructions_5_html: "Click <b>Generate API Key</b>."
-                instructions_6_html: "Confirm with 2FA if necessary."
-                instructions_7_html: "Copy and paste your new API keys into the form above."
-                private_key: "API Secret"
-                public_key: "API Key"
+                instructions_1_html: 'Log into your %{exchange_link} account.'
+                instructions_2_html: 'In the <b>My Page</b> menu (top right corner) go to <b>API Management</b>.'
+                instructions_3_html: 'Provide API key label and press <b>Create new key</b>.'
+                instructions_4_html: 'Confirm creation of API keys.'
+                instructions_5_html: 'If you want to restrict the access so only Deltabadger can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b> to this IP: <b>3.18.70.231</b>'
+                instructions_6_1_html: 'Set permissions for:'
+                instructions_6_2_html: '<b>Read</b>'
+                instructions_6_3_html: '<b>Trading</b>'
+                instructions_7_html: 'Copy and paste your new Client ID and Client''s Secret Key into the form above.'
+                private_key: 'Client''s Secret Key'
+                public_key: 'Client ID'
             set: Set
             smart_intervals:
-                info_html: |
-                    <p>Smart intervals help you to deal with exchange minimum order sizes.</p>
-                    <p>For example, if you want to buy $5 worth of Bitcoin every day, but the exchange minimum order size is $10, smart intervals will place a $10 order every second day.</p>
-                    <p>The result is the same, but you don't have to worry about exchange limitations.</p>
-                title: "Smart Intervals"
+                dont_show_again: 'Don''t show again'
+                info_html:
+                    force_smart_intervals: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger will execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
+                    other: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
             step_api_key: 'API Key'
             step_exchange: Exchange
             step_schedule: Schedule
             step_type: Type
             validating: Validating
             withdrawal:
-                info_html: |
-                    <p>Automatic withdrawals help you to keep your funds safe.</p>
-                    <p>When enabled, the bot will automatically withdraw your funds to your wallet when they reach the specified amount.</p>
-                    <p>This is especially useful if you want to keep your funds in cold storage.</p>
-                title: "Automatic Withdrawal"
-            withdrawal_address: "Withdrawal address"
-            withdrawal_amount: "Withdrawal amount"
-            withdrawal_amount_info: "The bot will withdraw your funds when they reach this amount."
-            withdrawal_amount_info_html: "The bot will withdraw your funds when they reach <b>%{amount} %{currency}</b>."
-            withdrawal_amount_info_usd_html: "The bot will withdraw your funds when they reach <b>$%{amount}</b> worth of %{currency}."
-            withdrawal_amount_minimum: "Minimum withdrawal amount"
-            withdrawal_amount_minimum_html: "The minimum withdrawal amount is <b>%{amount} %{currency}</b>."
-            withdrawal_amount_minimum_usd_html: "The minimum withdrawal amount is <b>$%{amount}</b> worth of %{currency}."
+                kraken:
+                    instructions_1_html: 'Log into your %{exchange_link} account.'
+                    instructions_2_html: 'In user menu go to <b>Security</b> → <b>API</b>.'
+                    instructions_3_html: 'Press <b>Generate New Key</b>.'
+                    instructions_4_html: 'Set permissions for:'
+                    instructions_5_1_html: 'Funds:'
+                    instructions_5_2_html: '<b>Query Funds</b>'
+                    instructions_5_3_html: '<b>Withdraw Funds</b>'
+                    instructions_6_html: 'Press <b>Generate Key</b>.'
+                    instructions_7_html: 'Copy and paste your new API keys into the form above.'
+            withdrawal_address:
+                kraken:
+                    instructions_1_html: 'Log in to your %{exchange_link} account.'
+                    instructions_2_html: 'Go to <b>Funding</b> → <b>Withdraw</b>.'
+                    instructions_3_html: 'Pick asset you are interested in.'
+                    instructions_4_html: 'Add new withdrawal address or manage already created addresses.'
+                    instructions_5_html: 'Copy description you assigned to withdrawal address in to the form above.'
+            withdrawal_html: 'Withdraw <split>%{currency}</split> to <split>%{address}</split> wallet.'
             zonda:
-                instructions_1_html: "Log into your %{exchange_link} account."
-                instructions_2_html: "Go to <b>API</b> in the menu."
-                instructions_3_html: "Click <b>Create API Key</b>."
-                instructions_4_html: "Name your key and select <b>Read</b> and <b>Trade</b> permissions."
-                instructions_5_html: "Click <b>Generate</b>."
-                instructions_6_html: "Copy and paste your new API keys into the form above."
-                private_key: "API Secret"
-                public_key: "API Key"
+                instructions_1_html: 'Log into your %{exchange_link} account.'
+                instructions_2_html: 'In user menu (top right corner) go to <b>API Settings</b>.'
+                instructions_3_html: 'Press <b>Add New Key</b>.'
+                instructions_4_1_html: 'Set permissions for:'
+                instructions_4_2_html: '<b>History</b>'
+                instructions_4_3_html: '<b>Get orders and market configurations</b>'
+                instructions_4_4_html: '<b>Manage orders and change market configurations</b>'
+                instructions_5_html: 'Press <b>Create</b>.'
+                instructions_6_html: 'Copy and paste your new API keys into the form above.'
+                private_key: 'Private Key'
+                public_key: 'Public Key'
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
@@ -543,6 +548,7 @@ en:
         format: '%{attribute} %{message}'
         frequency_limit: 'Frequency limit exceeded'
         invalid_api_keys: 'Invalid tokens'
+        limit_reached: 'Free plan limit reached'
         invalid_risk_free_rate_key: 'Invalid Risk Free Rate Key.'
         unable_to_get_risk_free_rate: 'Unable to get the risk free rate for %{risk_free_rate_name}. Data API server is unreachable.'
         invalid_number_of_allocations: 'Invalid number of allocations'
@@ -704,6 +710,7 @@ en:
             email_section: Email
             name_section: Name
             password_section: Password
+            free_plan_days_left_html: '<b>$%{credits}</b> of the free  plan transaction limit left.'
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             submit_email: 'Update email'
             submit_name: 'Update name'
@@ -745,6 +752,7 @@ en:
             price_limit: "Price limit"
             fee_cutter: "FeeCutter"
             withdrawals: "Auto-withdrawals"
+        limit_reached_html: "<b>Congrats!</b> You have reached our free transaction limit of $1200/year. To continue, upgrade to the unlimited plan."
         analyzer_html: "Boost your portfolio with the unlimited power of the Prism: Portfolio Tester."
         expires_soon_html: "We're building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>"
         payment:
