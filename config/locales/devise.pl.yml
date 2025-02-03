@@ -1,0 +1,92 @@
+pl:
+    devise:
+        confirmations:
+            confirmed: 'Twój adres e-mail został pomyślnie potwierdzony.'
+            new:
+                submit: 'Wyślij ponownie'
+                title: 'Wyślij instrukcje ponownie'
+            send_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
+            send_paranoid_instructions: 'Jeśli Twoje konto istnieje, w ciągu kilku minut otrzymasz e-mail z instrukcjami.'
+        passwords:
+            edit:
+                submit: 'Zmień hasło'
+                title: 'Zmień hasło'
+            new:
+                submit: 'Wyślij instrukcje'
+                title: 'Zapomniałeś hasła?'
+            no_token: 'Nie możesz uzyskać dostępu do tej strony bezpośrednio z e-maila z resetem hasła. Jeśli go otrzymałeś, upewnij się, że używasz pełnego URL-a.'
+            send_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
+            send_paranoid_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
+            updated: 'Gotowe! Twoje hasło zostało zmienione.'
+            updated_not_active: 'Gotowe! Twoje hasło zostało zmienione.'
+            token_expired: 'Link do zresetowania hasła wygasł. Proszę poprosić o nowy link.'
+            validations:
+                length: 'Co najmniej %{count} znaków'
+                uppercase: 'Zawiera wielką literę'
+                lowercase: 'Zawiera małą literę'
+                digit: 'Zawiera cyfrę'
+                symbol: 'Zawiera symbol'
+                match: 'Hasła pasują do siebie'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Oczekuje na potwierdzenie dla: %{email}'
+            new:
+                email_invalid: 'Nieprawidłowy adres e-mail!'
+                email_suggestion_html: 'Nieprawidłowy adres e-mail! Czy chodziło Ci o: <b>%{suggestion}</b>'
+                name_invalid: 'Nie musi być prawdziwe 👻'
+                submit: 'Zarejestruj się'
+                title_html: 'Utwórz <span class="text-success">darmowe</span> konto'
+            signed_up: 'Miło Cię poznać!'
+            signed_up_but_inactive: 'Cześć, Twoje konto nie zostało jeszcze aktywowane. Czy sprawdziłeś swoją skrzynkę odbiorczą?'
+            signed_up_but_locked: 'Ups, Twoje konto jest zablokowane.'
+            signed_up_but_unconfirmed: 'Sprawdź swoją skrzynkę odbiorczą i kliknij w link potwierdzający.'
+            update_needs_confirmation: 'Sprawdź swoją skrzynkę odbiorczą i kliknij w link, aby potwierdzić nowy adres e-mail.'
+            updated: 'Twoje konto zostało pomyślnie zaktualizowane.'
+            updated_but_not_signed_in: 'Twoje konto zostało pomyślnie zaktualizowane, zaloguj się ponownie.'
+        sessions:
+            new:
+                forgot_password: 'Zapomniałeś hasła?'
+                submit: 'Zaloguj się'
+                title: 'Witaj z powrotem!'
+            signed_in: 'Dawno się nie widzieliśmy!'
+            signed_out: 'Do zobaczenia!'
+            two_factor:
+                submit: "Zweryfikuj"
+                invalid_code: "Nieprawidłowy kod. Spróbuj ponownie."
+        unlocks:
+            send_instructions: 'W ciągu kilku minut otrzymasz e-mail z instrukcjami.'
+            unlocked: 'Twoje konto zostało pomyślnie odblokowane. Zaloguj się, aby kontynuować.'
+        failure:
+            already_authenticated: 'Jesteś już zalogowany.'
+            inactive: 'Twoje konto nie jest jeszcze aktywowane.'
+            invalid: 'Nieprawidłowy adres e-mail lub hasło.'
+            last_attempt: 'Masz jeszcze jedną próbę przed zablokowaniem konta.'
+            locked: 'Twoje konto jest zablokowane.'
+            not_found_in_database: 'Nieprawidłowy adres e-mail lub hasło.'
+            timeout: 'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.'
+            unauthenticated: 'Musisz się zalogować lub zarejestrować, aby kontynuować.'
+            unconfirmed: 'Musisz potwierdzić swój adres e-mail, aby kontynuować.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Potwierdź adres e-mail'
+                template_html: '<p>Twój adres e-mail jest o jeden klik od dołączenia do zespołu! Potwierdź go teraz i pozwól, aby wszystko działało automatycznie.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Potwierdź ten e-mail</a>'
+            email_changed:
+                subject: 'E-mail potwierdzony'
+                template_html: '<p>Zrobione! To Twój nowy, błyszczący adres Deltabadger:</p><p><b>%{email}</b></p>'
+            password_change:
+                subject: 'Hasło zmienione'
+                template_html: '<p>Zrobione!</p><p>Twoje hasło zostało zmienione.</p><p>Twoje sekrety są bezpieczniejsze niż kiedykolwiek!</p>'
+            reset_password_instructions:
+                subject: 'Odzyskiwanie hasła'
+                template_html: '<p>Odzyskiwanie hasła rozpoczęte! Spokojnie, zaraz wrócisz do gry.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Zmień moje hasło</a>'
+            unlock_instructions:
+                subject: 'Instrukcje odblokowania'
+                template_html: '<p>Twoje konto zostało zablokowane z powodu wielu nieudanych prób logowania.</p><p>Kliknij w poniższy link, aby je odblokować:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Odblokuj moje konto</a>'
+            email_already_taken:
+                subject: "Konto już istnieje"
+                message: "Masz już konto z tym adresem e-mail."
+                reset_password_message: "Jeśli zapomniałeś hasła, możesz je zresetować klikając przycisk poniżej."
+                reset_password_button: "Zresetuj hasło"
+        omniauth_callbacks:
+            failure: 'Nie udało się uwierzytelnić za pomocą %{kind} z powodu: "%{reason}".'
+            success: 'Pomyślnie uwierzytelniono za pomocą konta %{kind}.'
