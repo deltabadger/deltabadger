@@ -214,10 +214,25 @@ de:
         next_buy: 'Nächster in %{countdown}'
         next_sell: 'Nächster in %{countdown}'
         next_withdrawal: 'Nächste in %{countdown}'
+        not_found: 'Dieser Bot existiert nicht.'
         price: 'dem Preis'
         price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} pro %{base}.'
         price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} pro %{base}.'
         sell: Verkauf
+        buy_all: "Kaufen Sie alles"
+        sell_all: "Verkaufen Sie alles"
+        first_time: "Erste Bestellung"
+        every_time: "Jede Bestellung"
+        name: "Name:"
+        triggered_title: "Dieser Webhook wird ausgelöst:"
+        triggered_first: "Der erste Webhook wird ausgelöst."
+        triggered_second: "Der zweite Webhook wird ausgelöst."
+        webhook_has_been_copied: "Webhook wurde in die Zwischenablage kopiert."
+        fees: "Gebühren"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Auszahlung (₿)"
+        additional_title: "Zwei-Wege-Bot"
         smart_intervals_disclaimer: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_base: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_quote: 'Die Mindestordergröße beträgt %{minimum}%{currency}'

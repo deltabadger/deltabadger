@@ -253,7 +253,7 @@ en:
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Withdrawal (₿)"
-        additional_title: "Two-way bot"ą
+        additional_title: "Two-way bot"
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
@@ -264,8 +264,6 @@ en:
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
-        withdrawal_percentage: '%{percentage}%'
-        withdrawal: 'Withdrawal'
     days_left:
         one: '1 day left'
         other: '%{count} days left'
