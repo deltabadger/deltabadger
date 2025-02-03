@@ -10,6 +10,10 @@ de:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: 'Maximale Anzahl von Assets erreicht.'
     ads:
         dca_profit_html: 'Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, wären Sie jetzt&nbsp;um <span class="text-success">%{profit} %</span> gestiegen'
     affiliates:
@@ -396,6 +400,10 @@ de:
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
         withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Auszahlung'
+    days_left:
+        one: '1 Tag übrig'
+        other: '%{count} Tage übrig'
     devise:
         confirmations:
             confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigt.'
@@ -523,20 +531,30 @@ de:
             not_an_integer: 'muss eine ganze Zahl sein'
             not_found: 'Dieser Bot existiert nicht.'
             not_locked: 'wurde nicht gesperrt.'
+            not_saved:
+                one: '1 Fehler verhinderte das Speichern dieses %{resource}.'
+                other: '%{count} Fehler verhinderte das Speichern dieses %{resource}.'
             odd: 'muss ungerade sein'
             other_than: 'darf nicht %{count} sein'
             password_not_match: 'Die Passwörter stimmen nicht überein'
             present: 'muss frei sein'
-            too_short_password: 'Das Passwort ist zu kurz'
-            too_simple_password: "Das Passwort muss Zeichen aus den folgenden Kategorien enthalten: Großbuchstaben (A-Z), Kleinbuchstaben (a-z), Ziffern (0-9), Sonderzeichen (z.\_B. #, ?, !)."
+            too_long:
+                one: 'ist zu lang (maximal %{count} Zeichen)'
+                other: 'ist zu lang (maximal %{count} Zeichen)'
+            too_short:
+                one: 'ist zu kurz (mindestens 1 Zeichen)'
+                other: 'ist zu kurz (mindestens %{count} Zeichen)'
             wrong_email: 'Falsche E-Mail.'
+            wrong_length:
+                one: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
+                other: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
             wrong_password: 'Falsches Passwort'
-            wrong_two_fa_token: 'Angegebener Code ist falsch.'
+            wrong_two_fa_token: 'Falscher 2FA-Code.'
         referral_program_inactive: 'Dein Werbeprogramm ist nicht aktiv.'
         unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
     forms:
-        for_confirmation: '(zur Bestätigung)'
-        minimum_length: 'mind. %{length} Zeichen'
+        for_confirmation: '(für Bestätigung)'
+        minimum_length: 'Mindestens %{length} Zeichen'
     helpers:
         label:
             affiliate:
@@ -585,26 +603,35 @@ de:
             specific_questions_html: 'Solltest du ein Problem haben, schick uns eine eMail %{email} oder sende uns eine Direktnachricht auf Telegram oder <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>'
             title: Kontakt
     links:
-        about: Über
-        about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
-        calculator: 'Rechner'
-        community: 'Fireheads Community'
+        about: Über das Projekt
+        about_html: Über das Projekt
+        calculator: Rechner
+        community: Fireheads Community
         contact: Kontakt
-        cookies_policy: Cookie-Richtlinien
-        create_account: 'Erstelle ein kostenloses Konto'
+        cookies_policy: Cookies-Richtlinie
+        create_account: Konto erstellen
         dashboard: Dashboard
-        homepage: 'Link zur Homepage'
-        log_in: Einloggen
-        log_out: Ausloggen
+        homepage: Startseite
+        log_in: Anmelden
+        log_out: Abmelden
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
-        earn: Verdienen
+        earn: Erzielen
         referral_program: Empfehlungsprogramm
-        resend_link: 'Link senden'
+        resend_link: Link erneut senden
         settings: Einstellungen
         sign_up: Registrieren
-        terms_and_conditions: AGB
-
+        terms_and_conditions: Nutzungsbedingungen
+        legendary_badger: Legendary Badger
+    mail:
+    mailer:
+        all_rights_reserved: Alle Rechte reserviert.    
+        email_or_telegram: Fragen? Antworte auf diese E-Mail oder schreibe uns eine Nachricht auf Telegram.
+        follow_us_twitter: Folge uns auf 𝕏
+        greeting: Hallo, %{name}! 
+        greeting_name: Hallo, %{name}!
+        signature_badgers: Unsere unerschlagbare Crew von Badgern.
+        signature_html: Deltabadger-Team
     meta:
         title: "Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung"
         descriptions:
@@ -618,28 +645,29 @@ de:
         banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie 20% wiederkehrende Provision</a> in BTC. Der beste Weg zum Bitcoin-DCA ist es, welche zu verdienen!</b>'
         copied: Kopiert!
     settings:
+        name:
+            updated: 'Ihr Name wurde aktualisiert.'
+        two_fa:
+            disabled: 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.'
+            enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
+            free_plan_days_left_html: '<b>$%{credits}</b> des Limits des kostenlosen Plans übrig.'
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
             submit_password: 'Passwort ändern'
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
-        name:
-            updated: 'Ihr Name wurde aktualisiert.'
-        two_fa:
-            disabled: 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.'
-            enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
     social:
         blog: 'Lies unseren Blog'
         knowledge_base: Wissensdatenbank
         telegram: 'Schließe dich unserer Telegram-Gruppe an'
-        𝕏: 'Folge uns auf 𝕏'
+        twitter: 'Folge uns auf 𝕏'
     subscription_mailer:
         invoice:
             subject: 'Deltabadger Zahlung'
@@ -669,18 +697,20 @@ de:
             price_limit: 'Preislimit'
             fee_cutter: 'Gebührenschneider'
             withdrawals: 'Automatische Auszahlungen'
+        limit_reached_html: '<b>Glückwunsch!</b> Du hast das kostenlose Transaktionslimit von $1200/Jahr erreicht. Um weiterhin zu bleiben, erhöhe deinen Plan auf den unbegrenzten Plan.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
         expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
-            account_holder: Kontoinhaber
-            account_number: Kontonummer
-            account_type: Kontotyp
-            active_plan_discount: 'Rabatt für Pläne aktiv'
+            card: 'Karte'
+            account_holder: 'Kontoinhaber'
+            account_number: 'Kontonummer'
+            account_type: 'Kontotyp'
             after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
+            active_plan_discount: 'Rabatt für Pläne aktiv'
             base_price: 'Grundpreis'
             compensation:
                 one: "Entschädigung für <b>1</b> ungenutzten Tag des %{plan}-Plans."
@@ -692,6 +722,7 @@ de:
             paid_with_wire_transfer_other: 'I habe eine Überweisung per Wire Transfer durchgeführt'
             pay_html: 'Bezahlen %{amount_html}'
             pay_with_bitcoin: 'Zahle mit bitcoin'
+            pay_with_card: 'Zahle mit Kreditkarte'
             payment_ordered: 'Zahlung angefordert!'
             referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
@@ -702,6 +733,7 @@ de:
             hours: 'Stunden'
             minutes: 'Minuten'
             seconds: 'Sekunden'
+            upgrade_now: 'Jetzt upgraden'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt
