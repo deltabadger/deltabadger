@@ -16,8 +16,8 @@ en:
                             max_assets_reached: "Maximum number of assets reached."
     ads:
         dca_profit_html: |
-            <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b>%{profit}%</b>.</p>
-            <p>That's <b>%{sp500_diff}% more than S&P 500</b> in the same time.</p>
+            <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Confirm new Bitcoin address"
@@ -107,7 +107,7 @@ en:
         your_bitcoin_address: 'Your Bitcoin address'
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
-            subject: "transaction successful"
+            subject: "Transaction has been successful"
             template_html: "transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange_name: %{exchange_name}"
         end_of_funds:
             subject: "Your bot is running out of funds soon"

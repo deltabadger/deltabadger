@@ -70,7 +70,11 @@ en:
                     <p>Click the link below to confirm your email address:</p>
                 confirm_button: 'Confirm my email'
             email_changed:
-                subject: 'Email Changed'
+                subject: 'Your email has been changed'
+                template_html: |
+                    <p>We're contacting you to notify you that your email has been changed to %{email}.</p>
+            confirm_email:
+                subject: 'Confirm your new email address'
                 template_html: |
                     <p>We're contacting you to notify you that your email is being changed to %{unconfirmed_email}.</p>
             password_change:
