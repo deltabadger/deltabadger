@@ -20,6 +20,7 @@ class FetchOrderResult < BaseService
     bot = Bot.find(bot_id)
     return Result::Failure.new unless bot.pending?
 
+    Rails.logger.info "Fetching order result for bot: #{bot.id}. result_params: #{result_params.inspect}"
     result = perform_action(get_api(bot), result_params, bot, fixing_price, called_bot)
 
     if result.success?

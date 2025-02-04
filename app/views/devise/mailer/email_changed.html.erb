@@ -1,7 +1,7 @@
-<% email = @resource.try(:unconfirmed_email) || @resource.try(:email) %>
-
-<h1 class="mail-header"><%= t('.subject') %></h1>
+<% content_for :subject do %>
+  <%= t('devise.mailer.email_changed.subject') %>
+<% end %>
 
 <p><%= t('mailer.greeting_name', name: @resource.name) %></p>
 
-<%= t('.template_html', email: email) %>
+<%= t('devise.mailer.email_changed.template_html', email: @resource.email) %>

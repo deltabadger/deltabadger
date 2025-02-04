@@ -11,7 +11,32 @@ pt:
                         eth_address:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
-        dca_profit_html: 'Se você estivesse investindo regularmente em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria&nbsp;com um ganho de <span class="text-success">%{profit}%</span>'
+        dca_profit_html: |
+            <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: "Confirmar novo endereço Bitcoin"
+            template_html: |
+                <p>Parece que quer alterar o seu endereço Bitcoin para:</p>
+                <p><code>%{new_btc_address}</code></p><p>Este endereço será usado para os seus pagamentos do programa de referência.</p><p>Tem a certeza?</p>
+                <a href=\"%{confirmation_url}\">Sim, alterar o endereço</a>
+        referrals_payout_notification:
+            subject: "É dia de pagamento!"
+            template_html: |
+                <p>Obrigado. A Deltabadger cresce apenas graças a referências de boca a boca.</p>
+                <p>E as suas funcionam mesmo:</p>
+                <p>Há pouco, transferimos <b>%{amount} BTC</b> para si.</p>
+                <p>A melhor parte? Não acaba aqui:</p>
+                <p><b>Receberá 20% todos os anos que as suas referências prolongarem a subscrição</b>.</p>
+                <p>Conhece mais alguém que possa beneficiar da Deltabadger?</p>
+            grow_stream: "Avise-os e aumente o seu fluxo recorrente"
+        registration_reminder:
+            subject: "Uau! Ganhou %{amount} BTC!"
+            template_html: |
+                <p>Tem uma nova comissão do programa de referência à sua espera!</p>
+                <p>Complete o registo para receber os seus bitcoin:</p>
+            complete_registration: "Completar registo"
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
         apply_code:
@@ -200,177 +225,6 @@ pt:
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         sell: Vender
-        setup:
-            binance:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.'
-                instructions_3_html: 'Atribua um nome à nova chave de API premindo em <b>Criar</b>.'
-                instructions_4_html: 'Confirme a criação com código(s) único(s).'
-                instructions_5_html: 'Certifique-se de que marcou <b>Permitir transações a contado e de margens</b>.'
-                instructions_6_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger, clique em <b>Editar restrições</b>, marque <b>Restringir acesso apenas a IPs confiáveis (Recomendado)</b> e adicione este IP no próximo passo: <b>18.132.181.159</b>'
-                instructions_7_html: 'Prima em <b>Guardar</b> e confirme com outro código único, se necessário.'
-                instructions_8_html: 'Lembre-se que a sua chave secreta só é visível no momento da criação. Por isso, certifique-se de que copia ambas as chaves antes de sair do ecrã.'
-                instructions_9_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Chave secreta'
-                public_key: 'Chave API'
-            bitfinex:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu da conta (canto superior direito) vá a <b>Chaves API</b>.'
-                instructions_3_html: 'Vá a <b>Criar nova chave</b>.'
-                instructions_4_1_html: 'Defina as permissões para o seguinte:'
-                instructions_4_2_html: '<b>Obter ordens e estados.</b>'
-                instructions_4_3_html: '<b>Criar e cancelar ordens.</b>'
-                instructions_5_html: 'Proporcionar um <b>Rótulo</b> à sua Chave API.'
-                instructions_6_html: 'Prima <b>Gerar chave API</b>.'
-                instructions_7_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Segredo API'
-                public_key: 'Chave API'
-            bitso:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu de conta (canto superior direito) vá a <b>Perfil</b>.'
-                instructions_3_html: 'Escolha <b>API</b> (lado esquerdo).'
-                instructions_4_html: 'Prima <b>Adicionar novo API</b>.'
-                instructions_5_html: 'Preencha o <b>Nome API</b> e forneça o seu <b>PIN de Transacção</b>.'
-                instructions_6_1_html: 'Defina as permissões para o seguinte:'
-                instructions_6_2_html: '<b>Realizar transacções</b>'
-                instructions_6_3_html: '<b>Ver saldos</b>'
-                instructions_6_4_html: '<b>Ver informação da conta</b>'
-                instructions_7_html: ' <b>Guardar</b> na Imprensa.'
-                instructions_8_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Segredo API'
-                public_key: 'Chave API'
-            bitstamp:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu da conta (canto superior direito) aceda a <b>Definições</b>.'
-                instructions_3_html: 'Em <b>Controlo de acesso</b> vá a <b>Acesso API</b>.'
-                instructions_4_html: 'Prima em <b>Nova chave de API</b>.'
-                instructions_5_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina o <b>Filtro de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Defina as permissões para o seguinte:'
-                instructions_6_2_html: '<b>Abrir ordens.</b>'
-                instructions_6_3_html: '<b>Cancelar ordem.</b>'
-                instructions_6_4_html: '<b>Ordens buy limit/mercado.</b>'
-                instructions_6_5_html: '<b>Ordens sell limit/mercado.</b>'
-                instructions_7_html: 'Prima <b>Inserir 2FA e submeter</b>.'
-                instructions_8_html: 'Prima <b>Ativar</b>.'
-                instructions_9_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Segredo API'
-                public_key: 'Chave API'
-            cancel: Cancelar
-            coinbase:
-                instructions_1_html: 'Faça login na sua conta %{exchange_link}.'
-                instructions_2_html: 'Selecione a aba <b>Mais</b> na barra lateral esquerda.'
-                instructions_3_html: 'Selecione <b>API Avançada</b> e depois clique em <b>Criar sua chave API</b>. Se não conseguir encontrar, vá diretamente de <a href="https://portal.cdp.coinbase.com/">aqui</a>.'
-                instructions_4_html: 'Selecione a aba <b>Chaves API</b>.'
-                instructions_5_html: 'Clique no botão <b>Criar chave API</b>.'
-                instructions_6_1_html: 'Na janela popup, expanda <b>Restrições de API</b> e configure:'
-                instructions_6_2_html: '<b>Apelido da chave API</b>: Dê o nome que preferir, <b>Deltabadger</b> é bom para reconhecê-la mais tarde.'
-                instructions_6_3_html: '<b>Whitelist de IP</b>: <b>3.18.70.231</b>.'
-                instructions_6_4_html: '<b>Portfólio</b>: Selecione o portfólio ao qual deseja que o Deltabadger tenha acesso, <b>Padrão</b> se não estiver usando Portfólios do Coinbase.'
-                instructions_6_5_html: '<b>Permissões</b>:<br>&middot; <b>Visualizar</b> (somente leitura)<br>&middot; <b>Comércio</b> (executar negociações em seu nome)'
-                instructions_7_html: 'Clique em <b>Criar & baixar</b> e complete a verificação em 2 etapas.'
-                instructions_8_html: 'Copie e cole suas novas chaves API no formulário acima.'
-                private_key: 'Segredo'
-                public_key: 'Nome da chave API'
-            error_info: 'Falha ao validar. Tente novamente ou gira novas chaves.'
-            frequency_limit:
-                back_to_settings: 'Voltar às definições'
-                limit_exceeded: 'Para cumprir o limite de bot de %{frequency_limit} transações por minuto, a sua agenda será executada em ordens de moeda de %{price}%{currency} cada.'
-                start_the_bot: 'Modificar e iniciar'
-            gemini:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu da conta (canto superior direito) aceda a <b>Definições</b>.'
-                instructions_3_html: 'Escolha <b>API</b> (lado esquerdo).'
-                instructions_4_html: 'Prima em <b>Criar uma nova chave de API</b>.'
-                instructions_5_html: 'Na lista pendente <b>Âmbito</b>, escolha <b>Primária</b>.'
-                instructions_6_html: 'Prima em <b>Criar uma nova chave de API</b>.'
-                instructions_7_1_html: 'Defina as definições da chave de API:'
-                instructions_7_2_html: '<b>Transações</b>'
-                instructions_8_html: 'Não marque <b>Requer heartbeat da sessão</b>'
-                instructions_9_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Chave secreta'
-                public_key: 'Chave API'
-            how_to_get_keys: 'Como obter chaves de API de %{exchange}:'
-            kraken:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.'
-                instructions_3_html: 'Prima <b>Gerar nova chave</b>.'
-                instructions_4_html: 'Defina as permissões para o seguinte:'
-                instructions_5_1_html: 'Fundos:'
-                instructions_5_2_html: '<b>Consulta de fundos</b>'
-                instructions_6_1_html: 'Pedidos e transações:'
-                instructions_6_2_html: '<b>Pedidos e transações de consulta aberta</b>'
-                instructions_6_3_html: '<b>Pedidos e transações de consulta fechada</b>'
-                instructions_6_4_html: '<b>Modificar pedidos</b>'
-                instructions_6_5_html: '<b>Cancelar/fechar pedidos</b>'
-                instructions_7_html: 'Prima em <b>Gerar chave</b>.'
-                instructions_8_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Chave privada'
-                public_key: 'Chave API'
-                trading_agreement_html: '<b>Olá!</b> Se a sua conta Kraken estiver verificada com um endereço alemão, terá de aceitar um <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">acordo comercial</a> para definir o mercado e as margens.'
-                trading_agreement_label_html: 'Aceito o <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">acordo comercial</a>.'
-            kucoin:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu da conta (canto superior direito junto ao seletor de idioma) vá a <b>Gestão de API</b>.'
-                instructions_3_html: 'Prima <b>Criar API</b>.'
-                instructions_4_html: 'Se criar as suas chaves API pela primeira vez, defina e grave a <b>Palavra-passe de negociação</b>.'
-                instructions_5_html: 'Forneça o <b>Nome da API</b>.'
-                instructions_6_html: 'Forneça e guarde a <b>Frase de acesso à API</b>.'
-                instructions_7_1_html: 'Defina as permissões para o seguinte:'
-                instructions_7_2_html: '<b>Geral</b>'
-                instructions_7_3_html: '<b>Negociação</b>'
-                instructions_8_html: 'Se quiser restringir o acesso à chave apenas para Deltabadger defina <b>Restrição IP</b> como sim e adicione este IP: <b>18.132.181.159</b>'
-                instructions_9_html: 'Prima <b>Seguinte</b>.'
-                instructions_10_html: 'Confirme a criação das chaves API através da Palavra-passe de negociação e de 2FA.'
-                instructions_11_html: 'Cole ambas as chaves no formulário acima.'
-                passphrase: 'Frase de acesso'
-                private_key: 'Segredo API'
-                public_key: 'Chave API'
-            limit_warning: 'Definir suas ordens no valor da taxa reduz efetivamente sua taxa a zero. Embora as ordens limitadas possam demorar mais para serem executadas, geralmente são uma boa ideia. A configuração padrão faz isso por você, então é melhor mantê-la se você estiver em dúvida.'
-            next: Próximo
-            probit:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu <b>A minha página</b> (canto superior direito) aceda a <b>Gestão de API</b>.'
-                instructions_3_html: 'Faculte uma etiqueta de chave API e pressione <b>Criar nova chave</b>.'
-                instructions_4_html: 'Confirme a criação de chaves API.'
-                instructions_5_html: 'Se quiser restringir o acesso para que apenas Deltabadger possa utilizar as chaves, pressione <b>Editar</b> e defina <b>Restrição de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Defina as permissões para o seguinte:'
-                instructions_6_2_html: '<b>Ler</b>'
-                instructions_6_3_html: '<b>Transações</b>'
-                instructions_7_html: 'Copie e cole no formulário acima a sua nova ID de cliente e a chave secreta do cliente.'
-                private_key: 'Chave secreta do cliente'
-                public_key: 'ID do cliente'
-            set: Definir
-            smart_intervals:
-                dont_show_again: 'Não mostrar novamente'
-                info_html:
-                    force_smart_intervals: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger irá executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>.'
-                    other: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger pode executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>. '
-            step_api_key: 'Chave API'
-            step_exchange: Câmbio
-            step_schedule: Horário
-            validating: 'A validar'
-            withdrawal:
-                kraken:
-                    instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                    instructions_2_html: 'No menu do utilizador, aceda a <b>Segurança</b> → <b>API</b>.'
-                    instructions_3_html: 'Prima <b>Gerar nova chave</b>.'
-                    instructions_4_html: 'Defina as permissões para o seguinte:'
-                    instructions_5_1_html: 'Fundos:'
-                    instructions_5_2_html: '<b>Consulta de fundos</b>'
-                    instructions_6_html: 'Prima em <b>Gerar chave</b>.'
-                    instructions_7_html: 'Cole ambas as chaves no formulário acima.'
-            zonda:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu do utilizador (canto superior direito), aceda a <b>Definições de API</b>.'
-                instructions_3_html: 'Prima em <b>Adicionar nova chave</b>.'
-                instructions_4_1_html: 'Defina as permissões para o seguinte:'
-                instructions_4_2_html: '<b>Histórico</b>'
-                instructions_4_3_html: '<b>Obter pedidos e configurações de mercado</b>'
-                instructions_4_4_html: '<b>Gerir pedidos e alterar configurações de mercado</b>'
-                instructions_5_html: 'Prima em <b>Criar</b>.'
-                instructions_6_html: 'Cole ambas as chaves no formulário acima.'
-                private_key: 'Chave privada'
-                public_key: 'Chave pública'
         smart_intervals_disclaimer: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'A dimensão da ordem mínima é %{minimum}%{currency}.'
@@ -379,97 +233,6 @@ pt:
         stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
-    devise:
-        confirmations:
-            confirmed: 'Seu endereço de e-mail foi confirmado com sucesso.'
-            new:
-                submit: 'Reenviar'
-                title: 'Reenviar instruções'
-            send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
-            send_paranoid_instructions: 'Se sua conta existir, você receberá um e-mail com instruções em alguns minutos.'
-        passwords:
-            edit:
-                submit: 'Alterar senha'
-                title: 'Alterar senha'
-            new:
-                submit: 'Enviar instruções'
-                title: 'Esqueceu sua senha?'
-            no_token: 'Você não pode acessar esta página sem vir de um e-mail de redefinição de senha. Se você recebeu um, certifique-se de usar o URL completo fornecido.'
-            send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
-            send_paranoid_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
-            updated: 'Feito! Sua senha foi alterada.'
-            updated_not_active: 'Feito! Sua senha foi alterada.'
-            token_expired: 'O link de redefinição de senha expirou. Solicite um novo link.'
-            validations:
-                length: 'No mínimo %{count} caracteres'
-                uppercase: 'Contém uma letra maiúscula'
-                lowercase: 'Contém uma letra minúscula'
-                digit: 'Contém um número'
-                symbol: 'Contém um símbolo'
-                match: 'As senhas correspondem'
-        registrations:
-            edit:
-                awaiting_confirmation: 'Atualmente aguardando confirmação para: %{email}'
-            new:
-                email_invalid: 'E-mail inválido!'
-                email_suggestion_html: 'E-mail inválido! Você quis dizer: <b>%{suggestion}</b>'
-                name_invalid: 'Não precisa ser real 👻'
-                submit: 'Registar'
-                title_html: 'Crie uma conta <span class="text-success">gratuita</span>'
-            signed_up: 'Prazer em conhecer você!'
-            signed_up_but_inactive: 'Olá, sua conta ainda não foi ativada. Você verificou seu e-mail?'
-            signed_up_but_locked: 'Ops, sua conta está bloqueada.'
-            signed_up_but_unconfirmed: 'Verifique sua caixa de entrada e clique no link de confirmação.'
-            update_needs_confirmation: 'Verifique sua caixa de entrada e clique no link para confirmar seu novo endereço de e-mail.'
-            updated: 'Sua conta foi atualizada com sucesso.'
-            updated_but_not_signed_in: 'Sua conta foi atualizada com sucesso, faça login novamente.'
-        sessions:
-            new:
-                forgot_password: 'Esqueceu sua senha?'
-                submit: 'Entrar'
-                title: 'Bem-vindo de volta!'
-            signed_in: 'Quanto tempo!'
-            signed_out: 'Até mais!'
-            two_factor:
-                submit: "Verificar"
-                invalid_code: "Código incorreto. Tente novamente."
-        unlocks:
-            send_instructions: 'Você receberá um e-mail com instruções em alguns minutos.'
-            unlocked: 'Sua conta foi desbloqueada com sucesso. Faça login para continuar.'
-        failure:
-            already_authenticated: 'Você já está logado.'
-            inactive: 'Sua conta ainda não foi ativada.'
-            invalid: 'E-mail ou senha inválidos.'
-            last_attempt: 'Você tem mais uma tentativa antes que sua conta seja bloqueada.'
-            locked: 'Sua conta está bloqueada.'
-            not_found_in_database: 'E-mail ou senha inválidos.'
-            timeout: 'Sua sessão expirou. Faça login novamente para continuar.'
-            unauthenticated: 'Você precisa fazer login ou se cadastrar antes de continuar.'
-            unconfirmed: 'Você precisa confirmar seu endereço de e-mail antes de continuar.'
-        mailer:
-            confirmation_instructions:
-                subject: 'Confirme seu endereço de e-mail'
-                template_html: '<p>Seu endereço de e-mail está a um clique de distância de se juntar ao time! Confirme agora e deixe as coisas fluírem automaticamente.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirme este e-mail</a>'
-            email_changed:
-                subject: 'E-mail confirmado'
-                template_html: '<p>Pronto! Este é seu novo e brilhante endereço do Deltabadger:</p><p><b>%{email}</b></p>'
-            password_change:
-                subject: 'Senha alterada'
-                template_html: '<p>Está feito!</p><p>Sua senha foi alterada.</p><p>Seus segredos estão mais seguros do que nunca!</p>'
-            reset_password_instructions:
-                subject: 'Recuperação de senha'
-                template_html: '<p>Recuperação de senha iniciada! Aguarde, logo você estará de volta ao jogo.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Alterar minha senha</a>'
-            unlock_instructions:
-                subject: 'Instruções para desbloqueio'
-                template_html: '<p>Bloqueamos sua conta devido a um número alto de tentativas de login sem sucesso.</p><p>Clique no link abaixo para desbloqueá-la:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear minha conta</a>'
-            email_already_taken:
-                subject: "Conta já existe"
-                message: "Você já tem uma conta com este endereço de e-mail."
-                reset_password_message: "Se você esqueceu sua senha, pode redefini-la clicando no botão abaixo."
-                reset_password_button: "Redefinir Senha"
-        omniauth_callbacks:
-            failure: 'Não foi possível autenticar através de %{kind} devido a: "%{reason}".'
-            success: 'Autenticado com sucesso através da conta %{kind}.'
     errors:
         bitcoin_address_not_updated: 'Não foi possível atualizar o endereço Bitcoin'
         format: '%{attribute}%{message}'
@@ -623,10 +386,21 @@ pt:
         twitter: 'Siga-nos no 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Pagamento à Deltabadger'
-            template_html: "<h1>Fatura</h1>\n<p><b>Pago em:</b></p>\n<p>%{paid_at}</p>\n<p><b>Vendedor:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estónia\n  <br>\n  Registo n.º 14781461\n</p>\n<p><b>Comprador:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Plano %{plan_name} da Deltabadger (%{years}anos)</h2>\n<p>\n  <b>Pago:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: 'Plano %{plan_name} garantido'
+            subject: 'Recibo'
+            template_html: |
+                <h2>Plano %{plan_name} Deltabadger (%{years} anos)</h2>
+                <p> <b>Pago:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Data de pagamento:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Vendedor:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estónia <br>
+                Reg.No.14781461</p>
+                <p><b>Comprador:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/mês"
         per_year_html: "/ano"

@@ -1,0 +1,101 @@
+de:
+    devise:
+        confirmations:
+            confirmed: 'Ihre E-Mail-Adresse wurde erfolgreich bestätigt.'
+            new:
+                submit: 'Erneut senden'
+                title: 'Anweisungen erneut senden'
+            send_instructions: 'Sie erhalten in wenigen Minuten eine E-Mail mit Anweisungen, wie Sie Ihre E-Mail-Adresse bestätigen können.'
+            send_paranoid_instructions: 'Falls Ihre E-Mail-Adresse in unserer Datenbank existiert, erhalten Sie in wenigen Minuten eine E-Mail mit Anweisungen zur Bestätigung Ihrer E-Mail-Adresse.'
+        passwords:
+            edit:
+                submit: 'Passwort ändern'
+                title: 'Passwort ändern'
+            new:
+                submit: 'Anweisungen senden'
+                title: 'Passwort vergessen?'
+            no_token: 'Sie können diese Seite nur von einem Passwort-Reset-E-Mail aus aufrufen. Wenn Sie von einer Passwort-Reset-E-Mail kommen, stellen Sie bitte sicher, dass Sie die vollständige URL verwendet haben.'
+            send_instructions: 'Sie erhalten in wenigen Minuten eine E-Mail mit Anweisungen zur Passwort-Zurücksetzung.'
+            send_paranoid_instructions: 'Falls Ihre E-Mail-Adresse in unserer Datenbank existiert, erhalten Sie in wenigen Minuten einen Link zur Passwortwiederherstellung an Ihre E-Mail-Adresse.'
+            updated: 'Ihr Passwort wurde erfolgreich geändert. Sie sind jetzt angemeldet.'
+            updated_not_active: 'Ihr Passwort wurde erfolgreich geändert.'
+            token_expired: 'Ihr Link zum Zurücksetzen des Passworts ist abgelaufen. Bitte fordern Sie einen neuen Link an.'
+            validations:
+                length: 'Mindestens %{count} Zeichen'
+                uppercase: 'Enthält einen Großbuchstaben'
+                lowercase: 'Enthält einen Kleinbuchstaben'
+                digit: 'Enthält eine Ziffer'
+                symbol: 'Enthält ein Sonderzeichen'
+                match: 'Passwörter stimmen überein'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Warte auf Bestätigung für: %{email}'
+            new:
+                email_invalid: 'E-Mail ungültig!'
+                email_suggestion_html: 'E-Mail ungültig! Meinten Sie: <b>%{suggestion}</b>'
+                name_invalid: 'Muss nicht echt sein 👻'
+                submit: 'Registrieren'
+                title_html: '<span class="text-success">Kostenloses</span> Konto erstellen'
+            signed_up: 'Willkommen! Sie haben sich erfolgreich registriert.'
+            signed_up_but_inactive: 'Sie haben sich erfolgreich registriert. Wir konnten Sie jedoch nicht anmelden, da Ihr Konto noch nicht aktiviert ist.'
+            signed_up_but_unconfirmed: 'Eine Nachricht mit einem Bestätigungslink wurde an Ihre E-Mail-Adresse gesendet. Bitte folgen Sie dem Link, um Ihr Konto zu aktivieren.'
+            update_needs_confirmation: 'Sie haben Ihr Konto erfolgreich aktualisiert, aber wir müssen Ihre neue E-Mail-Adresse überprüfen. Bitte prüfen Sie Ihre E-Mails und folgen Sie dem Bestätigungslink.'
+            updated: 'Ihr Konto wurde erfolgreich aktualisiert.'
+            updated_but_not_signed_in: 'Ihr Konto wurde erfolgreich aktualisiert. Da Ihr Passwort geändert wurde, müssen Sie sich erneut anmelden.'
+            destroyed: 'Tschüss! Ihr Konto wurde erfolgreich gelöscht. Wir hoffen, Sie bald wiederzusehen.'
+        sessions:
+            new:
+                forgot_password: 'Passwort vergessen?'
+                submit: 'Anmelden'
+                title: 'Willkommen zurück!'
+            signed_in: 'Erfolgreich angemeldet.'
+            signed_out: 'Erfolgreich abgemeldet.'
+            already_signed_out: 'Erfolgreich abgemeldet.'
+            two_factor:
+                submit: "Verifizieren"
+                invalid_code: "Falscher Code. Versuchen Sie es erneut."
+        failure:
+            already_authenticated: 'Sie sind bereits angemeldet.'
+            inactive: 'Ihr Konto ist noch nicht aktiviert.'
+            invalid: 'Ungültige %{authentication_keys} oder Passwort.'
+            not_found_in_database: 'Ungültige %{authentication_keys} oder Passwort.'
+            timeout: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.'
+            unauthenticated: 'Sie müssen sich anmelden oder registrieren, bevor Sie fortfahren können.'
+            unconfirmed: 'Sie müssen Ihre E-Mail-Adresse bestätigen, bevor Sie fortfahren können.'
+        mailer:
+            confirmation_instructions:
+                subject: 'E-Mail bestätigen'
+                template_html: |
+                    <p>Willkommen bei Deltabadger!</p>
+                    <p>Klicken Sie auf den Link unten, um Ihre E-Mail-Adresse zu bestätigen:</p>
+                confirm_button: 'Meine E-Mail bestätigen'
+            email_changed:
+                subject: 'Your email has been changed'
+                template_html: |
+                    <p>We're contacting you to notify you that your email has been changed to %{email}.</p>
+            confirm_email:
+                subject: 'Confirm your new email address'
+                template_html: |
+                    <p>We're contacting you to notify you that your email is being changed to %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Password Changed'
+                template_html: |
+                    <p>We're contacting you to notify you that your password has been changed.</p>
+            reset_password_instructions:
+                subject: 'Anleitung zum Zurücksetzen des Passworts'
+                template_html: |
+                    <p>Jemand hat einen Link angefordert, um Ihr Passwort zu ändern.</p>
+                    <p>Sie können dies über den folgenden Link tun:</p>
+                change_password_button: 'Mein Passwort ändern'
+                ignore_mail_html: |
+                    <p>Wenn Sie dies nicht angefordert haben, ignorieren Sie diese E-Mail und Ihr Passwort bleibt unverändert.</p>
+                wont_change_html: |
+                    <p>Ihr Passwort wird sich nicht ändern, bis Sie den obigen Link aufrufen und ein neues erstellen.</p>
+            email_already_taken:
+                subject: 'E-Mail bereits vergeben'
+                message: 'Diese E-Mail-Adresse ist bereits registriert.'
+                reset_password_message: 'Wenn dies Ihr Konto ist, können Sie hier Ihr Passwort zurücksetzen:'
+                reset_password_button: 'Passwort zurücksetzen'
+        omniauth_callbacks:
+            failure: 'Sie konnten nicht über %{kind} authentifiziert werden, weil "%{reason}".'
+            success: 'Erfolgreich über %{kind}-Konto authentifiziert.'

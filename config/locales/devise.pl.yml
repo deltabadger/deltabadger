@@ -1,0 +1,97 @@
+pl:
+    devise:
+        confirmations:
+            confirmed: 'Twój adres email został pomyślnie potwierdzony.'
+            new:
+                submit: 'Wyślij ponownie'
+                title: 'Wyślij instrukcje ponownie'
+            send_instructions: 'W ciągu kilku minut otrzymasz wiadomość email z instrukcjami dotyczącymi potwierdzenia adresu email.'
+            send_paranoid_instructions: 'Jeśli Twój adres email istnieje w naszej bazie danych, w ciągu kilku minut otrzymasz wiadomość email z instrukcjami dotyczącymi potwierdzenia adresu.'
+        passwords:
+            edit:
+                submit: 'Zmień hasło'
+                title: 'Zmień hasło'
+            new:
+                submit: 'Wyślij instrukcje'
+                title: 'Zapomniałeś hasła?'
+            no_token: 'Nie możesz uzyskać dostępu do tej strony bez przejścia z emaila resetującego hasło. Jeśli przechodzisz z emaila resetującego hasło, upewnij się, że użyłeś pełnego adresu URL.'
+            send_instructions: 'W ciągu kilku minut otrzymasz email z instrukcjami dotyczącymi resetowania hasła.'
+            send_paranoid_instructions: 'Jeśli Twój adres email istnieje w naszej bazie danych, otrzymasz link do odzyskiwania hasła na swój adres email w ciągu kilku minut.'
+            updated: 'Twoje hasło zostało pomyślnie zmienione. Jesteś teraz zalogowany.'
+            updated_not_active: 'Twoje hasło zostało pomyślnie zmienione.'
+            token_expired: 'Link do resetowania hasła wygasł. Poproś o nowy link.'
+            validations:
+                length: 'Minimum %{count} znaków'
+                uppercase: 'Zawiera wielką literę'
+                lowercase: 'Zawiera małą literę'
+                digit: 'Zawiera cyfrę'
+                symbol: 'Zawiera symbol'
+                match: 'Hasła są zgodne'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Obecnie oczekuje na potwierdzenie: %{email}'
+            new:
+                email_invalid: 'Nieprawidłowy email!'
+                email_suggestion_html: 'Nieprawidłowy email! Czy chodziło ci o: <b>%{suggestion}</b>'
+                name_invalid: 'Nie musi być prawdziwe 👻'
+                submit: 'Zarejestruj się'
+                title_html: 'Utwórz <span class="text-success">darmowe</span> konto'
+            signed_up: 'Witaj! Rejestracja przebiegła pomyślnie.'
+            signed_up_but_inactive: 'Rejestracja przebiegła pomyślnie. Jednak nie mogliśmy Cię zalogować, ponieważ Twoje konto nie jest jeszcze aktywowane.'
+            signed_up_but_unconfirmed: 'Wiadomość z linkiem potwierdzającym została wysłana na Twój adres email. Kliknij w link, aby aktywować konto.'
+            update_needs_confirmation: 'Konto zostało zaktualizowane pomyślnie, ale musimy zweryfikować Twój nowy adres email. Sprawdź swoją skrzynkę i kliknij w link potwierdzający, aby potwierdzić nowy adres email.'
+            updated: 'Twoje konto zostało pomyślnie zaktualizowane.'
+            updated_but_not_signed_in: 'Twoje konto zostało pomyślnie zaktualizowane, ale ponieważ Twoje hasło zostało zmienione, musisz zalogować się ponownie.'
+            destroyed: 'Żegnaj! Twoje konto zostało pomyślnie usunięte. Mamy nadzieję zobaczyć Cię wkrótce ponownie.'
+        sessions:
+            new:
+                forgot_password: 'Zapomniałeś hasła?'
+                submit: 'Zaloguj się'
+                title: 'Witaj ponownie!'
+            signed_in: 'Zalogowano pomyślnie.'
+            signed_out: 'Wylogowano pomyślnie.'
+            already_signed_out: 'Wylogowano pomyślnie.'
+            two_factor:
+                submit: "Zweryfikuj"
+                invalid_code: "Nieprawidłowy kod. Spróbuj ponownie."
+        failure:
+            already_authenticated: 'Jesteś już zalogowany.'
+            inactive: 'Twoje konto nie zostało jeszcze aktywowane.'
+            invalid: 'Nieprawidłowy %{authentication_keys} lub hasło.'
+            not_found_in_database: 'Nieprawidłowy %{authentication_keys} lub hasło.'
+            timeout: 'Twoja sesja wygasła. Zaloguj się ponownie, aby kontynuować.'
+            unauthenticated: 'Musisz się zalogować lub zarejestrować przed kontynuowaniem.'
+            unconfirmed: 'Musisz potwierdzić swój adres email przed kontynuowaniem.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Potwierdź swój email'
+                template_html: |
+                    <p>Witaj w Deltabadger!</p>
+                    <p>Kliknij w link poniżej, aby potwierdzić swój adres email:</p>
+                confirm_button: 'Potwierdź mój email'
+            email_changed:
+                subject: 'Email został zmieniony'
+                template_html: |
+                    <p>Kontaktujemy się z Tobą, aby powiadomić Cię, że Twój email jest zmieniany na %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Hasło zostało zmienione'
+                template_html: |
+                    <p>Kontaktujemy się z Tobą, aby powiadomić Cię, że Twoje hasło zostało zmienione.</p>
+            reset_password_instructions:
+                subject: 'Instrukcje resetowania hasła'
+                template_html: |
+                    <p>Ktoś zażądał linku do zmiany Twojego hasła.</p>
+                    <p>Możesz to zrobić poprzez link poniżej:</p>
+                change_password_button: 'Zmień moje hasło'
+                ignore_mail_html: |
+                    <p>Jeśli nie żądałeś tego, zignoruj tego emaila, a Twoje hasło nie zostanie zmienione.</p>
+                wont_change_html: |
+                    <p>Twoje hasło nie zostanie zmienione, dopóki nie wejdziesz w powyższy link i nie utworzysz nowego.</p>
+            email_already_taken:
+                subject: 'Email jest już zajęty'
+                message: 'Ten email jest już zarejestrowany.'
+                reset_password_message: 'Jeśli to Twoje konto, możesz zresetować hasło tutaj:'
+                reset_password_button: 'Zresetuj hasło'
+        omniauth_callbacks:
+            failure: 'Nie można było uwierzytelnić Cię z %{kind} z powodu "%{reason}".'
+            success: 'Pomyślnie uwierzytelniono z konta %{kind}.'
