@@ -74,6 +74,7 @@ Rails.application.routes.draw do
     devise_scope :user do
       get  'signup', to: 'users/registrations#new', as: 'new_user_registration'
       post 'signup', to: 'users/registrations#create', as: 'user_registration'
+      get 'verify_two_factor', to: 'users/sessions#verify_two_factor'
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
