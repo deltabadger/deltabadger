@@ -148,6 +148,54 @@ class CoinbaseClient < ApplicationClient
         req.params = {
           product_ids: product_ids
         }.compact
+        req.options.params_encoder = Faraday::FlatParamsEncoder
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getapikeypermissions
+  def get_api_key_permissions
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/brokerage/key_permissions'
+        req.headers = headers(req)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  def list_accounts
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/brokerage/accounts'
+        req.headers = headers(req)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  def list_portfolios
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/brokerage/portfolios'
+        req.headers = headers(req)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  def get_portfolio_breakdown(
+    portfolio_uuid:,
+    currency: nil
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url "/api/v3/brokerage/portfolios/#{portfolio_uuid}"
+        req.headers = headers(req)
+        req.params = {
+          currency: currency
+        }.compact
       end
       Result::Success.new(response.body)
     end

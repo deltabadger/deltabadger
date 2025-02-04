@@ -2,6 +2,8 @@ class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
 
+  after_initialize :include_exchange_module
+
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
 
   # rubocop:disable Metrics/CyclomaticComplexity
@@ -37,7 +39,22 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
+  def set_bot(bot)
+    @bot = bot
+  end
+
   private
+
+  def include_exchange_module
+    case name.downcase
+    when 'binance', 'binance.us'
+      self.class.include(Binance) unless self.class.included_modules.include?(Binance)
+    when 'coinbase'
+      self.class.include(Coinbase) unless self.class.included_modules.include?(Coinbase)
+    else
+      raise "Unsupported exchange #{name}"
+    end
+  end
 
   def filter_free_plan_symbols(symbols)
     return symbols # disable free plan symbols limitation
