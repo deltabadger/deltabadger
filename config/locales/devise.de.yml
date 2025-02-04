@@ -70,13 +70,17 @@ de:
                     <p>Klicken Sie auf den Link unten, um Ihre E-Mail-Adresse zu bestätigen:</p>
                 confirm_button: 'Meine E-Mail bestätigen'
             email_changed:
-                subject: 'E-Mail geändert'
+                subject: 'Your email has been changed'
                 template_html: |
-                    <p>Wir informieren Sie darüber, dass Ihre E-Mail-Adresse zu %{unconfirmed_email} geändert wird.</p>
+                    <p>We're contacting you to notify you that your email has been changed to %{email}.</p>
+            confirm_email:
+                subject: 'Confirm your new email address'
+                template_html: |
+                    <p>We're contacting you to notify you that your email is being changed to %{unconfirmed_email}.</p>
             password_change:
-                subject: 'Passwort geändert'
+                subject: 'Password Changed'
                 template_html: |
-                    <p>Wir informieren Sie darüber, dass Ihr Passwort geändert wurde.</p>
+                    <p>We're contacting you to notify you that your password has been changed.</p>
             reset_password_instructions:
                 subject: 'Anleitung zum Zurücksetzen des Passworts'
                 template_html: |
