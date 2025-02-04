@@ -2,6 +2,8 @@
   <%= t('devise.mailer.confirm_email.subject') %>
 <% end %>
 
+<h1><%= t('devise.mailer.confirm_email.subject') %></h1>
+
 <p><%= t('mailer.greeting_name', name: @resource.name) %></p>
 
 <%= t('devise.mailer.confirm_email.template_html', unconfirmed_email: @resource.unconfirmed_email) %>

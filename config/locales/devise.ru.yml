@@ -70,9 +70,13 @@ ru:
                     <p>Нажмите на ссылку ниже, чтобы подтвердить свой адрес электронной почты:</p>
                 confirm_button: 'Подтвердить email'
             email_changed:
-                subject: 'Email изменен'
+                subject: 'Ваш email был изменен'
                 template_html: |
-                    <p>Мы сообщаем вам о том, что ваш email меняется на %{unconfirmed_email}.</p>
+                    <p>Мы сообщаем вам о том, что ваш email был изменен на %{email}.</p>
+            confirm_email:
+                subject: 'Подтвердите ваш новый email'
+                template_html: |
+                    <p>Мы сообщаем вам о том, что ваш email будет изменен на %{unconfirmed_email}.</p>
             password_change:
                 subject: 'Пароль изменен'
                 template_html: |
