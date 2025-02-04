@@ -65,20 +65,28 @@ en:
         mailer:
             confirmation_instructions:
                 subject: 'Confirm your email'
-                template_html: '<p>Welcome to Deltabadger!</p><p>Click the link below to confirm your email address:</p>'
+                template_html: |
+                    <p>Welcome to Deltabadger!</p>
+                    <p>Click the link below to confirm your email address:</p>
                 confirm_button: 'Confirm my email'
             email_changed:
                 subject: 'Email Changed'
-                template_html: '<p>We''re contacting you to notify you that your email is being changed to %{unconfirmed_email}.</p>'
+                template_html: |
+                    <p>We're contacting you to notify you that your email is being changed to %{unconfirmed_email}.</p>
             password_change:
                 subject: 'Password Changed'
-                template_html: '<p>We''re contacting you to notify you that your password has been changed.</p>'
+                template_html: |
+                    <p>We're contacting you to notify you that your password has been changed.</p>
             reset_password_instructions:
                 subject: 'Reset password instructions'
-                template_html: '<p>Someone has requested a link to change your password.</p><p>You can do this through the link below:</p>'
+                template_html: |
+                    <p>Someone has requested a link to change your password.</p>
+                    <p>You can do this through the link below:</p>
                 change_password_button: 'Change my password'
-                ignore_mail_html: 'If you didn''t request this, please ignore this email.'
-                wont_change_html: 'Your password won''t change until you access the link above and create a new one.'
+                ignore_mail_html: |
+                    <p>If you didn't request this, ignore this email and your password won't change.</p>
+                wont_change_html: |
+                    <p>Your password won't change until you access the link above and create a new one.</p>
             email_already_taken:
                 subject: 'Email already taken'
                 message: 'This email is already registered.'

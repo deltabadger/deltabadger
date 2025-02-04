@@ -3,23 +3,23 @@ nl:
         confirmations:
             confirmed: 'Je e-mailadres is succesvol bevestigd.'
             new:
-                submit: 'Opnieuw verzenden'
-                title: 'Instructies opnieuw verzenden'
-            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
-            send_paranoid_instructions: 'Als je account bestaat, ontvang je binnen enkele minuten een e-mail met instructies.'
+                submit: 'Opnieuw versturen'
+                title: 'Instructies opnieuw versturen'
+            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies om je e-mailadres te bevestigen.'
+            send_paranoid_instructions: 'Als je e-mailadres bestaat in onze database, ontvang je binnen enkele minuten een e-mail met instructies om je e-mailadres te bevestigen.'
         passwords:
             edit:
                 submit: 'Wachtwoord wijzigen'
                 title: 'Wachtwoord wijzigen'
             new:
-                submit: 'Instructies verzenden'
+                submit: 'Instructies versturen'
                 title: 'Wachtwoord vergeten?'
-            no_token: 'Je kunt deze pagina niet openen zonder via een wachtwoord-reset-e-mail te komen. Als je een wachtwoord-reset-e-mail hebt ontvangen, zorg ervoor dat je de volledige URL gebruikt.'
-            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
-            send_paranoid_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
-            updated: 'Klaar! Je wachtwoord is gewijzigd.'
-            updated_not_active: 'Klaar! Je wachtwoord is gewijzigd.'
-            token_expired: 'De link om je wachtwoord te resetten is verlopen. Vraag een nieuwe link aan.'
+            no_token: 'Je kunt deze pagina niet bezoeken zonder dat je uit een wachtwoord reset e-mail komt. Als je wel uit een wachtwoord reset e-mail komt, zorg er dan voor dat je de volledige URL gebruikt.'
+            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies om je wachtwoord te resetten.'
+            send_paranoid_instructions: 'Als je e-mailadres bestaat in onze database, ontvang je binnen enkele minuten een link om je wachtwoord te herstellen in je e-mail.'
+            updated: 'Je wachtwoord is succesvol gewijzigd. Je bent nu ingelogd.'
+            updated_not_active: 'Je wachtwoord is succesvol gewijzigd.'
+            token_expired: 'Je wachtwoord reset link is verlopen. Vraag een nieuwe link aan.'
             validations:
                 length: 'Minimaal %{count} tekens'
                 uppercase: 'Bevat een hoofdletter'
@@ -29,64 +29,69 @@ nl:
                 match: 'Wachtwoorden komen overeen'
         registrations:
             edit:
-                awaiting_confirmation: 'Momenteel wordt gewacht op bevestiging voor: %{email}'
+                awaiting_confirmation: 'Momenteel in afwachting van bevestiging voor: %{email}'
             new:
-                email_invalid: 'Ongeldig e-mailadres!'
-                email_suggestion_html: 'Ongeldig e-mailadres! Bedoelde je: <b>%{suggestion}</b>'
+                email_invalid: 'E-mail ongeldig!'
+                email_suggestion_html: 'E-mail ongeldig! Bedoelde je: <b>%{suggestion}</b>'
                 name_invalid: 'Het hoeft niet echt te zijn 👻'
-                submit: 'Aanmelden'
+                submit: 'Registreren'
                 title_html: 'Maak een <span class="text-success">gratis</span> account aan'
-            signed_up: 'Leuk je te ontmoeten!'
-            signed_up_but_inactive: 'Hallo, je account is nog niet geactiveerd. Heb je je e-mail gecontroleerd?'
-            signed_up_but_locked: 'Oeps, je account is vergrendeld.'
-            signed_up_but_unconfirmed: 'Controleer je inbox en klik op de bevestigingslink.'
-            update_needs_confirmation: 'Controleer je inbox en volg de bevestigingslink om je nieuwe e-mailadres te bevestigen.'
+            signed_up: 'Welkom! Je hebt je succesvol geregistreerd.'
+            signed_up_but_inactive: 'Je hebt je succesvol geregistreerd. We konden je echter niet inloggen omdat je account nog niet is geactiveerd.'
+            signed_up_but_unconfirmed: 'Een bericht met een bevestigingslink is verzonden naar je e-mailadres. Volg de link om je account te activeren.'
+            update_needs_confirmation: 'Je account is succesvol bijgewerkt, maar we moeten je nieuwe e-mailadres verifiëren. Controleer je e-mail en volg de bevestigingslink om je nieuwe e-mailadres te bevestigen.'
             updated: 'Je account is succesvol bijgewerkt.'
-            updated_but_not_signed_in: 'Je account is succesvol bijgewerkt, log opnieuw in.'
+            updated_but_not_signed_in: 'Je account is succesvol bijgewerkt, maar omdat je wachtwoord is gewijzigd, moet je opnieuw inloggen.'
+            destroyed: 'Tot ziens! Je account is succesvol verwijderd. We hopen je snel weer te zien.'
         sessions:
             new:
                 forgot_password: 'Wachtwoord vergeten?'
                 submit: 'Inloggen'
                 title: 'Welkom terug!'
-            signed_in: 'Lang niet gezien!'
-            signed_out: 'Tot ziens!'
+            signed_in: 'Succesvol ingelogd.'
+            signed_out: 'Succesvol uitgelogd.'
+            already_signed_out: 'Succesvol uitgelogd.'
             two_factor:
                 submit: "Verifiëren"
-                invalid_code: "Onjuiste code. Probeer het opnieuw."
-        unlocks:
-            send_instructions: 'Je ontvangt binnen enkele minuten een e-mail met instructies.'
-            unlocked: 'Je account is succesvol ontgrendeld. Log in om verder te gaan.'
+                invalid_code: "Verkeerde code. Probeer opnieuw."
         failure:
             already_authenticated: 'Je bent al ingelogd.'
             inactive: 'Je account is nog niet geactiveerd.'
-            invalid: 'Ongeldig e-mailadres of wachtwoord.'
-            last_attempt: 'Je hebt nog één poging voordat je account wordt vergrendeld.'
-            locked: 'Je account is vergrendeld.'
-            not_found_in_database: 'Ongeldig e-mailadres of wachtwoord.'
-            timeout: 'Je sessie is verlopen. Log opnieuw in om verder te gaan.'
-            unauthenticated: 'Je moet inloggen of registreren voordat je verder kunt gaan.'
-            unconfirmed: 'Je moet je e-mailadres bevestigen voordat je verder kunt gaan.'
+            invalid: 'Ongeldige %{authentication_keys} of wachtwoord.'
+            not_found_in_database: 'Ongeldige %{authentication_keys} of wachtwoord.'
+            timeout: 'Je sessie is verlopen. Log opnieuw in om door te gaan.'
+            unauthenticated: 'Je moet inloggen of registreren om door te gaan.'
+            unconfirmed: 'Je moet je e-mailadres bevestigen voordat je door kunt gaan.'
         mailer:
             confirmation_instructions:
-                subject: 'Bevestig je e-mailadres'
-                template_html: '<p>Je e-mailadres is slechts één klik verwijderd van lid worden van het team! Bevestig nu en laat het goede automatisch verlopen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Bevestig dit e-mailadres</a>'
+                subject: 'Bevestig je e-mail'
+                template_html: |
+                    <p>Welkom bij Deltabadger!</p>
+                    <p>Klik op de link hieronder om je e-mailadres te bevestigen:</p>
+                confirm_button: 'Bevestig mijn e-mail'
             email_changed:
-                subject: 'E-mail bevestigd'
-                template_html: '<p>Klaar! Dit is je nieuwe en glanzende Deltabadger-adres:</p><p><b>%{email}</b></p>'
+                subject: 'E-mail gewijzigd'
+                template_html: |
+                    <p>We nemen contact met je op om je te laten weten dat je e-mail wordt gewijzigd naar %{unconfirmed_email}.</p>
             password_change:
                 subject: 'Wachtwoord gewijzigd'
-                template_html: '<p>Klaar!</p><p>Je wachtwoord is gewijzigd.</p><p>Je geheimen zijn veiliger dan ooit!</p>'
+                template_html: |
+                    <p>We nemen contact met je op om je te laten weten dat je wachtwoord is gewijzigd.</p>
             reset_password_instructions:
-                subject: 'Wachtwoordherstel'
-                template_html: '<p>Wachtwoordherstel gestart! Blijf rustig, je bent zo weer in het spel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Wijzig mijn wachtwoord</a>'
-            unlock_instructions:
-                subject: 'Instructies voor ontgrendelen'
-                template_html: '<p>We hebben je account vergrendeld vanwege te veel mislukte inlogpogingen.</p><p>Klik op de onderstaande link om het te ontgrendelen:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Ontgrendel mijn account</a>'
+                subject: 'Instructies voor wachtwoord resetten'
+                template_html: |
+                    <p>Iemand heeft een link aangevraagd om je wachtwoord te wijzigen.</p>
+                    <p>Je kunt dit doen via de link hieronder:</p>
+                change_password_button: 'Wijzig mijn wachtwoord'
+                ignore_mail_html: |
+                    <p>Als je dit niet hebt aangevraagd, negeer dan deze e-mail en je wachtwoord zal niet worden gewijzigd.</p>
+                wont_change_html: |
+                    <p>Je wachtwoord wordt niet gewijzigd totdat je de bovenstaande link opent en een nieuwe aanmaakt.</p>
             email_already_taken:
-                subject: "Account bestaat al"
-                message: "Je hebt al een account met dit e-mailadres."
-                reset_password_message: "Als je je wachtwoord bent vergeten, kun je het opnieuw instellen door op de onderstaande knop te klikken."
-                reset_password_button: "Wachtwoord opnieuw instellen"
+                subject: 'E-mail al in gebruik'
+                message: 'Dit e-mailadres is al geregistreerd.'
+                reset_password_message: 'Als dit jouw account is, kun je hier je wachtwoord resetten:'
+                reset_password_button: 'Wachtwoord resetten'
         omniauth_callbacks:
-            failure: 'Kan je niet authenticeren via %{kind} vanwege: "%{reason}".'
-            success: 'Succesvol geauthenticeerd via %{kind}-account.'
+            failure: 'Kon je niet authenticeren via %{kind} omdat "%{reason}".'
+            success: 'Succesvol geauthenticeerd via %{kind} account.'
