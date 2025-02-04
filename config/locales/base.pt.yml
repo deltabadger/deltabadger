@@ -12,8 +12,8 @@ pt:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
         dca_profit_html: |
-            <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b>%{profit}%</b>.</p>
-            <p>Isso é <b>%{sp500_diff}% mais do que o S&P 500</b> no mesmo período.</p>
+            <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Confirmar novo endereço Bitcoin"

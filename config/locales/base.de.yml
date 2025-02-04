@@ -16,8 +16,8 @@ de:
                             max_assets_reached: 'Maximale Anzahl von Assets erreicht.'
     ads:
         dca_profit_html: |
-            <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b>%{profit}%</b> im Plus.</p>
-            <p>Das sind <b>%{sp500_diff}% mehr als der S&P 500</b> im gleichen Zeitraum.</p>
+            <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
+            <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Neue Bitcoin-Adresse bestätigen"
