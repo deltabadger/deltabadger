@@ -18,8 +18,10 @@ class AffiliateMailerPreview < ActionMailer::Preview
   end
 
   def registration_reminder
+    user = User.new(email: 'test@example.com', name: 'Mathias')
     referrer = Affiliate.new
-    referrer.user = User.new(email: 'test@example.com', name: 'Mathias')
+    referrer.user = user
+
     AffiliateMailer.with(
       referrer: referrer,
       amount: 50

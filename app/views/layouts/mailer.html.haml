@@ -2,22 +2,33 @@
 %html
   %head
     %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
+    :css
+      body {
+        font-family: sans-serif;
+      }
+      h1 {
+        font-size: 1.25em;
+        font-family: 'Arial Rounded MT Bold', sans-serif;
+        margin: 1.25em 0;
+      }
+      
   %body
 
     = yield
 
-    —
+    %p
+      —
 
     - if @show_dca_profit
       %p
         = localized_dca_profit_recap('btc', 4)
 
     %p
-      %a{href: "https://x.com/deltabadgerapp"}
+      %a{style: "color: #444", href: "https://x.com/deltabadgerapp", target: "_blank"}
         = t('mailer.follow_us_on_x')
         →
 
     %p
-      %a{href: "https://t.me/deltabadger"}
+      %a{style: "color: #444", href: "https://t.me/deltabadger", target: "_blank"}
         = t('mailer.we_reply_faster_on_telegram')
         →

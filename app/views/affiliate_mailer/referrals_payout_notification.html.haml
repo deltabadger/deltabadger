@@ -2,3 +2,6 @@
 
 %p= t('mailer.greeting_name', name: @user.name)
 = t('.template_html', amount: @amount)
+
+%p
+  = link_to t('.grow_stream'), referral_program_url

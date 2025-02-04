@@ -1,4 +1,7 @@
-%h1{class: "mail-header"}= t('.subject', amount: @amount)
+%h1= t('.subject', amount: @amount)
 
-%p= t('mailer.greeting_name', name: @user.name)
-= t('.template_html', link: affiliate_url)
+= t('mailer.greeting_name', name: @user.name)
+= t('.template_html')
+
+%p
+  = link_to t('.complete_registration'), affiliate_url
