@@ -10,8 +10,37 @@ de:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: 'Maximale Anzahl von Assets erreicht.'
     ads:
-        dca_profit_html: 'Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, wären Sie jetzt&nbsp;um <span class="text-success">%{profit} %</span> gestiegen'
+        dca_profit_html: |
+            <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
+            <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: "Neue Bitcoin-Adresse bestätigen"
+            template_html: |
+                <p>Es sieht so aus, als möchten Sie Ihre Bitcoin-Adresse ändern in:</p>
+                <p><code>%{new_btc_address}</code></p><p>Diese Adresse wird für Ihre Auszahlungen aus unserem Empfehlungsprogramm verwendet.</p><p>Sind Sie sicher?</p>
+                <a href=\"%{confirmation_url}\">Ja, Adresse ändern</a>
+        referrals_payout_notification:
+            subject: "Es ist Zahltag!"
+            template_html: |
+                <p>Vielen Dank. Deltabadger wächst nur dank Mundpropaganda-Empfehlungen.</p>
+                <p>Und Ihre funktionieren wirklich gut:</p>
+                <p>Vor kurzem haben wir <b>%{amount} BTC</b> an Sie überwiesen.</p>
+                <p>Das Beste daran? Es ist noch nicht vorbei:</p>
+                <p><b>Sie erhalten jedes Jahr 20%, wenn Empfehlungen ihr Abonnement verlängern</b>.</p>
+                <p>Kennen Sie noch jemanden, der von Deltabadger profitieren könnte?</p>
+            grow_stream: "Lassen Sie es sie wissen und steigern Sie Ihre wiederkehrenden Einnahmen"
+        registration_reminder:
+            subject: "Wow! Sie haben %{amount} BTC verdient!"
+            template_html: |
+                <p>Eine neue Provision aus dem Empfehlungsprogramm wartet auf Sie!</p>
+                <p>Schließen Sie die Registrierung ab, um Ihre Bitcoin zu erhalten:</p>
+            complete_registration: "Registrierung abschließen"
     affiliates:
         add_link_info: 'Du kannst deinen Namen und einen Link zu deiner Website hinzufügen, damit der Geworbene weiß, woher der Rabatt stammt. Du kannst dieses Feld auch leer lassen:'
         apply_code:
@@ -200,191 +229,25 @@ de:
         next_buy: 'Nächster in %{countdown}'
         next_sell: 'Nächster in %{countdown}'
         next_withdrawal: 'Nächste in %{countdown}'
+        not_found: 'Dieser Bot existiert nicht.'
         price: 'dem Preis'
         price_range_buy_html: 'Kaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} pro %{base}.'
         price_range_sell_html: 'Verkaufen Sie nur in der Preisspanne von <split>100$</split> bis <split>!000$</split>%{quote} pro %{base}.'
         sell: Verkauf
-        setup:
-            binance:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.'
-                instructions_3_html: 'Benenne den neuen API-Schlüssel, indem du auf "Erstellen" klickst.'
-                instructions_4_html: 'Bestätige mit einem einmaligen Code.'
-                instructions_5_html: 'Stelle sicher, dass <b>Spot & Margin Trading zulassen</b> aktiviert ist.'
-                instructions_6_html: 'Wenn du den Zugriff auf den Schlüssel nur für Deltabadger beschränken möchtest, klicke auf <b>Einschränkungen bearbeiten</b>, aktiviere <b>Zugriff nur auf vertrauenswürdige IPs beschränken (Empfohlen)</b> und füge diese IP im nächsten Schritt hinzu: <b>18.132.181.159</b>'
-                instructions_7_html: 'Drücke <b>Speichern</b> und bestätige mit einem weiteren einmaligen Code, falls notwendig.'
-                instructions_8_html: 'Bedenke, dass der Secret Key nur während der Erstellung sichtbar ist, also kopiere beide Schlüssel, bevor du die Ansicht verlässt.'
-                instructions_9_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: API-Geheimnis
-                public_key: API-Schlüssel
-            bitfinex:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Klicke in dem Kontomenü (ob rechts in der Ecke) auf <b>API-Schlüssel</b>.'
-                instructions_3_html: 'Gehe zu <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4_1_html: 'Setze Berechtigungen für:'
-                instructions_4_2_html: '<b>Aufträge und Status erhalten.</b>'
-                instructions_4_3_html: '<b>Erstellen und abbrechen von Aufträgen.</b>'
-                instructions_5_html: 'Gebe das <b>Label</b> für deinen API-Schlüssel an.'
-                instructions_6_html: 'Gehe auf <b>API-Schlüsse generieren</b>.'
-                instructions_7_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: API-Geheimnis
-                public_key: API-Schlüssel
-            bitso:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Im Kontomenü (oben rechts) gehst du auf <b>Profil</b>.'
-                instructions_3_html: 'Wähle <b>API</b> (links).'
-                instructions_4_html: 'Drücke <b>Neue API hinzufügen</b>.'
-                instructions_5_html: 'Fülle den <b>API-Namen</b> aus und gebe deinen <b>Transaktions-PIN</b> ein.'
-                instructions_6_1_html: 'Setze Berechtigungen für:'
-                instructions_6_2_html: '<b>Trades durchführen</b>'
-                instructions_6_3_html: '<b>Kontostände anzeigen</b>'
-                instructions_6_4_html: '<b>Kontoinformationen anzeigen</b>'
-                instructions_7_html: 'Drücke <b>Speichern</b>.'
-                instructions_8_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: API-Geheimnis
-                public_key: API-Schlüssel
-            bitstamp:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Konto-Menü (obere rechte Ecke) zu <b>Einstellungen</b>.'
-                instructions_3_html: 'Unter<b>Zugangskontrolle</b> gehen Sie auf <b>API-Zugang</b>.'
-                instructions_4_html: 'Drücke auf <b>Neuer API-Schlüssel</b>.'
-                instructions_5_html: 'Wenn Sie den Zugang zu dem Schlüssel nur für Deltabadger verbieten wollen, stellen Sie den <b>IP-Adressen-Filter</b> auf diese IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Setze Berechtigungen für:'
-                instructions_6_2_html: '<b>Auftrag öffnen.</b>'
-                instructions_6_3_html: '<b>Auftrag abbrechen.</b>'
-                instructions_6_4_html: '<b>Limit-/Marken-Order kaufen.</b>'
-                instructions_6_5_html: '<b>Limit-/Marken-Order verkaufen.</b>/li>'
-                instructions_7_html: 'Drücke <b>2FA eingeben & einreichen</b>.'
-                instructions_8_html: 'Kopiere deinen neuen API-Schlüssel und fügen ihn in das obige Formular ein.'
-                instructions_9_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: API-Geheimnis
-                public_key: API-Schlüssel
-            cancel: Abbrechen
-            coinbase:
-                instructions_1_html: 'Melden Sie sich in Ihrem %{exchange_link} Konto an.'
-                instructions_2_html: 'Wählen Sie die Registerkarte <b>Mehr</b> aus der linken Seitenleiste.'
-                instructions_3_html: 'Wählen Sie <b>Erweiterte API</b> und klicken Sie dann auf <b>Erstellen Sie Ihren API-Schlüssel</b>. Wenn Sie es nicht finden können, gehen Sie direkt von <a href="https://portal.cdp.coinbase.com/">hier</a>.'
-                instructions_4_html: 'Wählen Sie die Registerkarte <b>API-Schlüssel</b> aus.'
-                instructions_5_html: 'Klicken Sie auf die Schaltfläche <b>API-Schlüssel erstellen</b>.'
-                instructions_6_1_html: 'Erweitern Sie im Popup-Dialogfeld <b>API-Einschränkungen</b> und konfigurieren Sie:'
-                instructions_6_2_html: '<b>API-Schlüssel-Spitzname</b>: Geben Sie Ihren bevorzugten Namen ein, <b>Deltabadger</b> ist gut, um es später wiederzuerkennen.'
-                instructions_6_3_html: '<b>IP-Whitelist</b>: <b>3.18.70.231</b>.'
-                instructions_6_4_html: '<b>Portfolio</b>: Wählen Sie das Portfolio aus, auf das Deltabadger zugreifen soll, <b>Basic</b>, wenn Sie keine Coinbase-Portfolios verwenden.'
-                instructions_6_5_html: '<b>Berechtigungen</b>:<br>&middot; <b>Anzeigen</b> (nur lesen)<br>&middot; <b>Handel</b> (Ausführen von Trades in Ihrem Namen)'
-                instructions_7_html: 'Klicken Sie auf <b>Erstellen & herunterladen</b> und vervollständigen Sie die 2-Schritt-Verifizierung.'
-                instructions_8_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
-                private_key: 'Geheim'
-                public_key: 'API-Schlüssel-Name'
-            error_info: 'Validierung fehlgeschlagen. Versuchen Sie erneut oder generieren Sie neue Schlüssel'
-            frequency_limit:
-                back_to_settings: 'Zurück zu Einstellungen'
-                limit_exceeded: 'Um das Bot-Limit von %{frequency_limit} Transaktionen pro Minute einzuhalten, wird dein Zeitplan in Aufträgen zu je %{price} %{currency} ausgeführt.'
-                start_the_bot: 'Ändern und beginnen'
-            gemini:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Konto-Menü (obere rechte Ecke) zu <b>Einstellungen</b>.'
-                instructions_3_html: 'Wähle <b>API</b> (links).'
-                instructions_4_html: 'Drücke auf <b>Neuen API-Schlüssel erstellen</b>.'
-                instructions_5_html: 'Wähle im Dropdownmenü <b>Bereich</b> <b>Primär</b>.'
-                instructions_6_html: 'Drücke auf <b>Neuen API-Schlüssel erstellen</b>.'
-                instructions_7_1_html: 'Stelle die API-Schlüssel-Einstellungen ein:'
-                instructions_7_2_html: '<b>Trading</b>'
-                instructions_8_html: 'Wähle <b>Require session heartbeat</b> nicht aus'
-                instructions_9_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: API-Geheimnis
-                public_key: API-Schlüssel
-            how_to_add_withdrawal_bot: 'So richtest du einen Auszahlungs-Bot ein:'
-            how_to_get_keys: 'So erstellst du einen API-Key bei %{exchange}:'
-            kraken:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.'
-                instructions_3_html: 'Drücke auf <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4_html: 'Setze Berechtigungen für:'
-                instructions_5_1_html: 'Gelder:'
-                instructions_5_2_html: '<b>Gelder abfragen</b>'
-                instructions_6_1_html: 'Order & Trades:'
-                instructions_6_2_html: '<b>Offene Orders & Trades abfragen</b>'
-                instructions_6_3_html: '<b>Geschlossene Orders & Trades abfragen</b>'
-                instructions_6_4_html: '<b>Order ändern</b>'
-                instructions_6_5_html: '<b>Order abbrechen/schließen</b>'
-                instructions_7_html: 'Drücke auf <b>Schlüssel generieren</b>.'
-                instructions_8_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: 'Private Key'
-                public_key: API-Schlüssel
-                trading_agreement_html: '<b>Hallo!</b> Wenn dein Kraken-Konto mit einer deutschen Adresse verifiziert ist, musst du eine <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsvereinbarung</a> akzeptieren, um Market- und Margin-Orders zu platzieren.'
-                trading_agreement_label_html: 'Ich akzeptiere die <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">Handelsvereinbarung</a>.'
-            kucoin:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Kontomenü (oben rechts neben der Sprachauswahl) zu <b>API-Verwaltung</b>.'
-                instructions_3_html: 'Drücke auf <b>API erstellen</b>.'
-                instructions_4_html: 'Wenn du deine API-Schlüssel zum ersten Mal erstellst, richte ein <b>Trading-Passwort</b> ein und speichere es.'
-                instructions_5_html: 'Gib den <b>API-Namen</b> ein.'
-                instructions_6_html: 'Gib die <b>API-Passphrase</b> ein und speichere sie.'
-                instructions_7_1_html: 'Setze Berechtigungen für:'
-                instructions_7_2_html: '<b>Allgemein</b>'
-                instructions_7_3_html: '<b>Trading</b>'
-                instructions_8_html: 'Wenn du den Zugriff auf den Schlüssel nur für Deltabadger beschränken möchtest, setze <b>IP-Beschränkung</b> auf Ja und füge diese IP hinzu: <b>18.132.181.159</b>'
-                instructions_9_html: 'Drücke auf <b>Weiter</b>.'
-                instructions_10_html: 'Bestätige die Erstellung des API-Schlüssels durch dein Trading-Passwort und die 2FA.'
-                instructions_11_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                passphrase: 'API-Passphrase'
-                private_key: 'API-Geheimnis'
-                public_key: 'API-Schlüssel'
-            limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Basic übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
-            next: Weiter
-            no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
-            probit:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Wähle im Menü <b>Meine Seite</b> (oben rechts) den Punkt <b>API Management</b>.'
-                instructions_3_html: 'Gib die Bezeichnung des API-Schlüssels an und klicke auf <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4_html: 'Bestätige die Erstellung von API-Schlüsseln.'
-                instructions_5_html: 'Wenn du den Zugang einschränken willst, damit nur Deltabadger die Tasten benutzen kann, klicke auf <b>Bearbeiten</b> und setze <b>IP-Adressenbeschränkung</b> auf diese IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Setze Berechtigungen für:'
-                instructions_6_2_html: '<b>Lesen</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Kopiere deine neue Client-ID und den geheimen Client-Schlüssel und füge sie in das Formular oben ein.'
-                private_key: 'Geheimer Client-Schlüssel'
-                public_key: Client-ID
-            set: Einstellen
-            smart_intervals:
-                dont_show_again: 'Nicht wieder anzeigen'
-                info_html:
-                    force_smart_intervals: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>.'
-                    other: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>.'
-            step_api_key: API-Schlüssel
-            step_exchange: Umtauschen
-            step_schedule: Planen
-            validating: 'Wird validiert'
-            withdrawal:
-                kraken:
-                    instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                    instructions_2_html: 'Gehe im Benutzermenü zu <b>Sicherheit</b> → <b>API</b>.'
-                    instructions_3_html: 'Drücke auf <b>Neuen Schlüssel erstellen</b>.'
-                    instructions_4_html: 'Setze Berechtigungen für:'
-                    instructions_5_1_html: 'Gelder:'
-                    instructions_5_2_html: '<b>Gelder abfragen</b>'
-                    instructions_5_3_html: '<b>Mittel auszahlen</b>'
-                    instructions_6_html: 'Drücke auf <b>Schlüssel generieren</b>.'
-                    instructions_7_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-            withdrawal_address:
-                kraken:
-                    instructions_2_html: 'Gehe zu <b>Einzahlung</b> → <b>Auszahlung</b>.'
-                    instructions_3_html: 'Wähle den Vermögenswert, an dem du interessiert bist.'
-                    instructions_4_html: 'Füge eine neue Adresse für Auszahlungen hinzu oder verwalte bereits erstellte Adressen.'
-                    instructions_5_html: 'Kopiere die Beschreibung, mit der du die Adresse für die Auszahlung angegeben hast, in das Formular oben.'
-            withdrawal_html: '<split>%{currency}</split> an <split>%{address}</split>-Wallet auszahlen.'
-            zonda:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Einstellungen</b>.'
-                instructions_3_html: 'Drücke auf <b>Neuen Schlüssel hinzufügen</b>.'
-                instructions_4_1_html: 'Setze Berechtigungen für:'
-                instructions_4_2_html: '<b>Verlauf</b>'
-                instructions_4_3_html: '<b>Order und Marktkonfigurationen erhalten</b>'
-                instructions_4_4_html: '<b>Order prüfen und Marktkonfigurationen ändern</b>'
-                instructions_5_html: 'Drücke auf <b>Erstellen</b>.'
-                instructions_6_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
-                private_key: 'Private Key'
-                public_key: 'Public Key'
+        buy_all: "Kaufen Sie alles"
+        sell_all: "Verkaufen Sie alles"
+        first_time: "Erste Bestellung"
+        every_time: "Jede Bestellung"
+        name: "Name:"
+        triggered_title: "Dieser Webhook wird ausgelöst:"
+        triggered_first: "Der erste Webhook wird ausgelöst."
+        triggered_second: "Der zweite Webhook wird ausgelöst."
+        webhook_has_been_copied: "Webhook wurde in die Zwischenablage kopiert."
+        fees: "Gebühren"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Auszahlung (₿)"
+        additional_title: "Zwei-Wege-Bot"
         smart_intervals_disclaimer: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_base: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_quote: 'Die Mindestordergröße beträgt %{minimum}%{currency}'
@@ -396,97 +259,10 @@ de:
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
         withdrawal_percentage: '%{percentage}%'
-    devise:
-        confirmations:
-            confirmed: 'Deine E-Mail-Adresse wurde erfolgreich bestätigt.'
-            new:
-                submit: 'Erneut senden'
-                title: 'Anweisungen erneut senden'
-            send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-            send_paranoid_instructions: 'Wenn dein Konto existiert, wirst du in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-        passwords:
-            edit:
-                submit: 'Passwort ändern'
-                title: 'Passwort ändern'
-            new:
-                submit: 'Anweisungen senden'
-                title: 'Passwort vergessen?'
-        no_token: 'Du kannst diese Seite nicht aufrufen, ohne von einer Passwort-Reset-E-Mail zu kommen. Wenn du von einer Passwort-Reset-E-Mail kommst, stelle bitte sicher, dass du die vollständige URL verwendest.'
-        send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-        send_paranoid_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-        updated: 'Fertig! Dein Passwort wurde geändert.'
-        updated_not_active: 'Fertig! Dein Passwort wurde geändert.'
-        token_expired: 'Dein Passwort-Reset-Link ist abgelaufen. Bitte fordere einen neuen Link an.'
-        validations:
-            length: 'Mindestens %{count} Zeichen'
-            uppercase: 'Enthält einen Großbuchstaben'
-            lowercase: 'Enthält einen Kleinbuchstaben'
-            digit: 'Enthält eine Ziffer'
-            symbol: 'Enthält ein Symbol'
-            match: 'Passwörter stimmen überein'
-        registrations:
-            edit:
-                awaiting_confirmation: 'Derzeit wird auf die Bestätigung für folgende Adresse gewartet: %{email}'
-            new:
-                email_invalid: 'Ungültige E-Mail-Adresse!'
-                email_suggestion_html: 'Ungültige E-Mail-Adresse! Meintest du: <b>%{suggestion}</b>'
-                name_invalid: 'Muss nicht echt sein 👻'
-                submit: 'Registrieren'
-                title_html: 'Kostenloses <span class="text-success">Konto</span> erstellen'
-            signed_up: 'Freut mich, dich kennenzulernen!'
-            signed_up_but_inactive: 'Hallo, dein Konto ist noch nicht aktiviert. Hast du deine E-Mail überprüft?'
-            signed_up_but_locked: 'Ups, dein Konto ist gesperrt.'
-            signed_up_but_unconfirmed: 'Überprüfe deinen Posteingang und klicke auf den Bestätigungslink.'
-            update_needs_confirmation: 'Überprüfe deinen Posteingang und folge dem Bestätigungslink, um deine neue E-Mail-Adresse zu bestätigen.'
-            updated: 'Dein Konto wurde erfolgreich aktualisiert.'
-            updated_but_not_signed_in: 'Dein Konto wurde erfolgreich aktualisiert, bitte melde dich erneut an.'
-        sessions:
-            new:
-                forgot_password: 'Passwort vergessen?'
-                submit: 'Einloggen'
-                title: 'Willkommen zurück!'
-            signed_in: 'Lange nicht gesehen!'
-            signed_out: 'Bis bald!'
-            two_factor:
-                submit: "Verifizieren"
-                invalid_code: "Falscher Code. Versuche es erneut."
-        unlocks:
-            send_instructions: 'Du wirst in wenigen Minuten eine E-Mail mit Anweisungen erhalten.'
-            unlocked: 'Dein Konto wurde erfolgreich entsperrt. Bitte melde dich an, um fortzufahren.'
-        failure:
-            already_authenticated: 'Du bist bereits angemeldet.'
-            inactive: 'Dein Konto ist noch nicht aktiviert.'
-            invalid: 'Ungültige %{authentication_keys} oder Passwort.'
-            last_attempt: 'Du hast noch einen Versuch, bevor dein Konto gesperrt wird.'
-            locked: 'Dein Konto ist gesperrt.'
-            not_found_in_database: 'Ungültige %{authentication_keys} oder Passwort.'
-            timeout: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an, um fortzufahren.'
-            unauthenticated: 'Du musst dich anmelden oder registrieren, bevor du fortfährst.'
-            unconfirmed: 'Du musst deine E-Mail-Adresse bestätigen, bevor du fortfährst.'
-        mailer:
-            confirmation_instructions:
-                subject: 'E-Mail-Adresse bestätigen'
-                template_html: '<p>Deine E-Mail-Adresse ist nur einen Klick davon entfernt, Teil des A-Teams zu werden! Bestätige jetzt und lass die guten Zeiten automatisch laufen.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Diese E-Mail bestätigen</a>'
-            email_changed:
-                subject: 'E-Mail bestätigt'
-                template_html: '<p>Fertig! Das ist deine neue und glänzende Deltabadger-Adresse:</p><p><b>%{email}</b></p>'
-            password_change:
-                subject: 'Passwort geändert'
-                template_html: '<p>Erledigt!</p><p>Dein Passwort wurde geändert.</p><p>Deine Geheimnisse sind sicherer als je zuvor!</p>'
-            reset_password_instructions:
-                subject: 'Passwort-Wiederherstellung'
-                template_html: '<p>Passwort-Wiederherstellung gestartet! Bleib ruhig, wir bringen dich schnell wieder ins Spiel.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Mein Passwort ändern</a>'
-            unlock_instructions:
-                subject: 'Entsperr-Anweisungen'
-                template_html: '<p>Wir haben dein Konto aufgrund einer hohen Anzahl fehlgeschlagener Anmeldeversuche gesperrt.</p><p>Klicke auf den folgenden Link, um es zu entsperren:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Mein Konto entsperren</a>'
-            email_already_taken:
-                subject: "Konto existiert bereits"
-                message: "Sie haben bereits ein Konto mit dieser E-Mail-Adresse."
-                reset_password_message: "Wenn Sie Ihr Passwort vergessen haben, können Sie es über den Button unten zurücksetzen."
-                reset_password_button: "Passwort zurücksetzen"
-        omniauth_callbacks:
-            failure: 'Konnte dich nicht über %{kind} authentifizieren, da: "%{reason}".'
-            success: 'Erfolgreich über %{kind}-Konto authentifiziert.'
+        withdrawal: 'Auszahlung'
+    days_left:
+        one: '1 Tag übrig'
+        other: '%{count} Tage übrig'
     errors:
         bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         format: '%{attribute} %{message}'
@@ -523,20 +299,30 @@ de:
             not_an_integer: 'muss eine ganze Zahl sein'
             not_found: 'Dieser Bot existiert nicht.'
             not_locked: 'wurde nicht gesperrt.'
+            not_saved:
+                one: '1 Fehler verhinderte das Speichern dieses %{resource}.'
+                other: '%{count} Fehler verhinderte das Speichern dieses %{resource}.'
             odd: 'muss ungerade sein'
             other_than: 'darf nicht %{count} sein'
             password_not_match: 'Die Passwörter stimmen nicht überein'
             present: 'muss frei sein'
-            too_short_password: 'Das Passwort ist zu kurz'
-            too_simple_password: "Das Passwort muss Zeichen aus den folgenden Kategorien enthalten: Großbuchstaben (A-Z), Kleinbuchstaben (a-z), Ziffern (0-9), Sonderzeichen (z.\_B. #, ?, !)."
+            too_long:
+                one: 'ist zu lang (maximal %{count} Zeichen)'
+                other: 'ist zu lang (maximal %{count} Zeichen)'
+            too_short:
+                one: 'ist zu kurz (mindestens 1 Zeichen)'
+                other: 'ist zu kurz (mindestens %{count} Zeichen)'
             wrong_email: 'Falsche E-Mail.'
+            wrong_length:
+                one: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
+                other: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
             wrong_password: 'Falsches Passwort'
-            wrong_two_fa_token: 'Angegebener Code ist falsch.'
+            wrong_two_fa_token: 'Falscher 2FA-Code.'
         referral_program_inactive: 'Dein Werbeprogramm ist nicht aktiv.'
         unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
     forms:
-        for_confirmation: '(zur Bestätigung)'
-        minimum_length: 'mind. %{length} Zeichen'
+        for_confirmation: '(für Bestätigung)'
+        minimum_length: 'Mindestens %{length} Zeichen'
     helpers:
         label:
             affiliate:
@@ -585,26 +371,30 @@ de:
             specific_questions_html: 'Solltest du ein Problem haben, schick uns eine eMail %{email} oder sende uns eine Direktnachricht auf Telegram oder <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>'
             title: Kontakt
     links:
-        about: Über
-        about_html: 'Über <span class="d-none d-xl-inline">das Projekt</span>'
-        calculator: 'Rechner'
-        community: 'Fireheads Community'
+        about: Über das Projekt
+        about_html: Über das Projekt
+        calculator: Rechner
+        community: Fireheads Community
         contact: Kontakt
-        cookies_policy: Cookie-Richtlinien
-        create_account: 'Erstelle ein kostenloses Konto'
+        cookies_policy: Cookies-Richtlinie
+        create_account: Konto erstellen
         dashboard: Dashboard
-        homepage: 'Link zur Homepage'
-        log_in: Einloggen
-        log_out: Ausloggen
+        homepage: Startseite
+        log_in: Anmelden
+        log_out: Abmelden
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
-        earn: Verdienen
+        earn: Erzielen
         referral_program: Empfehlungsprogramm
-        resend_link: 'Link senden'
+        resend_link: Link erneut senden
         settings: Einstellungen
         sign_up: Registrieren
-        terms_and_conditions: AGB
-
+        terms_and_conditions: Nutzungsbedingungen
+        legendary_badger: Legendary Badger
+    mailer:
+        follow_us_on_x: Folge uns auf 𝕏
+        greeting: Hallo, %{name}! 
+        greeting_name: Hallo, %{name}!
     meta:
         title: "Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung"
         descriptions:
@@ -618,35 +408,46 @@ de:
         banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie 20% wiederkehrende Provision</a> in BTC. Der beste Weg zum Bitcoin-DCA ist es, welche zu verdienen!</b>'
         copied: Kopiert!
     settings:
+        name:
+            updated: 'Ihr Name wurde aktualisiert.'
+        two_fa:
+            disabled: 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.'
+            enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
+            free_plan_days_left_html: '<b>$%{credits}</b> des Limits des kostenlosen Plans übrig.'
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
             submit_password: 'Passwort ändern'
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
-        name:
-            updated: 'Ihr Name wurde aktualisiert.'
-        two_fa:
-            disabled: 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.'
-            enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
     social:
         blog: 'Lies unseren Blog'
         knowledge_base: Wissensdatenbank
         telegram: 'Schließe dich unserer Telegram-Gruppe an'
-        𝕏: 'Folge uns auf 𝕏'
+        twitter: 'Folge uns auf 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Deltabadger Zahlung'
-            template_html: "<h1>Rechnung</h1>\n<p><b>Bezahlt am:</b></p>\n<p>%{paid_at}</p>\n<p><b>Verkäufer:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  Reg-Nr. 14781461\n</p>\n<p><b>Käufer:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} Plan (%{years}-Jahre)</h2>\n<p>\n  <b>Bezahlt:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: '%{plan_name}-Plan garantiert'
-            template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
+            subject: 'Quittung'
+            template_html: |
+                <h2>Deltabadger %{plan_name} Plan (%{years}-Jahr)</h2>
+                <p> <b>Bezahlt:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Bezahlt am:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Verkäufer:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estland <br>
+                Reg.Nr.14781461</p>
+                <p><b>Käufer:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/Monat"
         per_year_html: "/Jahr"
@@ -669,18 +470,20 @@ de:
             price_limit: 'Preislimit'
             fee_cutter: 'Gebührenschneider'
             withdrawals: 'Automatische Auszahlungen'
+        limit_reached_html: '<b>Glückwunsch!</b> Du hast das kostenlose Transaktionslimit von $1200/Jahr erreicht. Um weiterhin zu bleiben, erhöhe deinen Plan auf den unbegrenzten Plan.'
         analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
         expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
-            account_holder: Kontoinhaber
-            account_number: Kontonummer
-            account_type: Kontotyp
-            active_plan_discount: 'Rabatt für Pläne aktiv'
+            card: 'Karte'
+            account_holder: 'Kontoinhaber'
+            account_number: 'Kontonummer'
+            account_type: 'Kontotyp'
             after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
+            active_plan_discount: 'Rabatt für Pläne aktiv'
             base_price: 'Grundpreis'
             compensation:
                 one: "Entschädigung für <b>1</b> ungenutzten Tag des %{plan}-Plans."
@@ -692,6 +495,7 @@ de:
             paid_with_wire_transfer_other: 'I habe eine Überweisung per Wire Transfer durchgeführt'
             pay_html: 'Bezahlen %{amount_html}'
             pay_with_bitcoin: 'Zahle mit bitcoin'
+            pay_with_card: 'Zahle mit Kreditkarte'
             payment_ordered: 'Zahlung angefordert!'
             referral_discount: 'Rabatt in Höhe von %{discount_percent}'
             referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
@@ -702,6 +506,7 @@ de:
             hours: 'Stunden'
             minutes: 'Minuten'
             seconds: 'Sekunden'
+            upgrade_now: 'Jetzt upgraden'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
             vat: MwSt

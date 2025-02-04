@@ -1,0 +1,97 @@
+pt:
+    devise:
+        confirmations:
+            confirmed: 'Seu endereço de e-mail foi confirmado com sucesso.'
+            new:
+                submit: 'Reenviar'
+                title: 'Reenviar instruções'
+            send_instructions: 'Você receberá um e-mail com instruções para confirmar seu endereço de e-mail em alguns minutos.'
+            send_paranoid_instructions: 'Se seu endereço de e-mail existir em nosso banco de dados, você receberá um e-mail com instruções para confirmar seu endereço de e-mail em alguns minutos.'
+        passwords:
+            edit:
+                submit: 'Alterar senha'
+                title: 'Alterar senha'
+            new:
+                submit: 'Enviar instruções'
+                title: 'Esqueceu sua senha?'
+            no_token: 'Você não pode acessar esta página sem vir de um e-mail de redefinição de senha. Se você veio de um e-mail de redefinição de senha, certifique-se de ter usado a URL completa fornecida.'
+            send_instructions: 'Você receberá um e-mail com instruções sobre como redefinir sua senha em alguns minutos.'
+            send_paranoid_instructions: 'Se seu endereço de e-mail existir em nosso banco de dados, você receberá um link de recuperação de senha em seu endereço de e-mail em alguns minutos.'
+            updated: 'Sua senha foi alterada com sucesso. Você está conectado agora.'
+            updated_not_active: 'Sua senha foi alterada com sucesso.'
+            token_expired: 'Seu link de redefinição de senha expirou. Por favor, solicite um novo link.'
+            validations:
+                length: 'Pelo menos %{count} caracteres'
+                uppercase: 'Contém uma letra maiúscula'
+                lowercase: 'Contém uma letra minúscula'
+                digit: 'Contém um número'
+                symbol: 'Contém um símbolo'
+                match: 'As senhas coincidem'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Atualmente, aguardando confirmação para: %{email}'
+            new:
+                email_invalid: 'E-mail inválido!'
+                email_suggestion_html: 'E-mail inválido! Você quis dizer: <b>%{suggestion}</b>'
+                name_invalid: 'Não precisa ser real 👻'
+                submit: 'Cadastrar'
+                title_html: 'Criar conta <span class="text-success">gratuita</span>'
+            signed_up: 'Bem-vindo! Você se cadastrou com sucesso.'
+            signed_up_but_inactive: 'Você se cadastrou com sucesso. No entanto, não pudemos conectá-lo porque sua conta ainda não está ativada.'
+            signed_up_but_unconfirmed: 'Uma mensagem com um link de confirmação foi enviada para seu endereço de e-mail. Por favor, siga o link para ativar sua conta.'
+            update_needs_confirmation: 'Você atualizou sua conta com sucesso, mas precisamos verificar seu novo endereço de e-mail. Por favor, verifique seu e-mail e siga o link de confirmação para confirmar seu novo endereço de e-mail.'
+            updated: 'Sua conta foi atualizada com sucesso.'
+            updated_but_not_signed_in: 'Sua conta foi atualizada com sucesso, mas como sua senha foi alterada, você precisa fazer login novamente.'
+            destroyed: 'Tchau! Sua conta foi cancelada com sucesso. Esperamos vê-lo novamente em breve.'
+        sessions:
+            new:
+                forgot_password: 'Esqueceu a senha?'
+                submit: 'Entrar'
+                title: 'Bem-vindo de volta!'
+            signed_in: 'Login efetuado com sucesso.'
+            signed_out: 'Logout efetuado com sucesso.'
+            already_signed_out: 'Logout efetuado com sucesso.'
+            two_factor:
+                submit: "Verificar"
+                invalid_code: "Código errado. Tente novamente."
+        failure:
+            already_authenticated: 'Você já está conectado.'
+            inactive: 'Sua conta ainda não está ativada.'
+            invalid: '%{authentication_keys} ou senha inválidos.'
+            not_found_in_database: '%{authentication_keys} ou senha inválidos.'
+            timeout: 'Sua sessão expirou. Por favor, faça login novamente para continuar.'
+            unauthenticated: 'Você precisa fazer login ou se cadastrar antes de continuar.'
+            unconfirmed: 'Você precisa confirmar seu endereço de e-mail antes de continuar.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Confirme seu e-mail'
+                template_html: |
+                    <p>Bem-vindo ao Deltabadger!</p>
+                    <p>Clique no link abaixo para confirmar seu endereço de e-mail:</p>
+                confirm_button: 'Confirmar meu e-mail'
+            email_changed:
+                subject: 'E-mail Alterado'
+                template_html: |
+                    <p>Estamos entrando em contato para notificá-lo que seu e-mail está sendo alterado para %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Senha Alterada'
+                template_html: |
+                    <p>Estamos entrando em contato para notificá-lo que sua senha foi alterada.</p>
+            reset_password_instructions:
+                subject: 'Instruções de redefinição de senha'
+                template_html: |
+                    <p>Alguém solicitou um link para alterar sua senha.</p>
+                    <p>Você pode fazer isso através do link abaixo:</p>
+                change_password_button: 'Alterar minha senha'
+                ignore_mail_html: |
+                    <p>Se você não solicitou isso, ignore este e-mail e sua senha não será alterada.</p>
+                wont_change_html: |
+                    <p>Sua senha não será alterada até que você acesse o link acima e crie uma nova.</p>
+            email_already_taken:
+                subject: 'E-mail já cadastrado'
+                message: 'Este e-mail já está registrado.'
+                reset_password_message: 'Se esta é sua conta, você pode redefinir sua senha aqui:'
+                reset_password_button: 'Redefinir senha'
+        omniauth_callbacks:
+            failure: 'Não foi possível autenticá-lo do %{kind} porque "%{reason}".'
+            success: 'Autenticado com sucesso da conta %{kind}.'
