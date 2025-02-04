@@ -378,13 +378,9 @@ pl:
         terms_and_conditions: Regulamin
     mail: '<p>Twój link polecający zyskuje na popularności! Nieźle!!!</p><p>Wysłaliśmy prowizję w wysokości</p><p> <b>%{amount} BTC</b></p><p>na Twój portfel Bitcoin.</p><p>Dziękujemy za powiększanie gangu borsuka!</p>'
     mailer:
-        all_rights_reserved: 'Wszelkie prawa hiperbitcoinizowane.'
-        email_or_telegram: 'Masz pytania? Odpowiedz na ten e-mail lub dołącz do naszej społeczności na'
-        follow_us_twitter: 'Nie zapomnij śledzić nas na'
-        greeting: 'Ahoj kapitanie,'
-        greeting_name: 'Ahoj %{name} ,'
-        signature_badgers: 'Niezwyciężony zespół borsuków do usług.'
-        signature_html: 'Zespół Deltabadger'
+        follow_us_on_x: 'Śledź nas na 𝕏'
+        greeting: 'Hej kapitanie,'
+        greeting_name: 'Hej %{name},'
     meta:
         desc: 'Wystartuj za darmo najlepiej sprawdzoną strategię DCA, która działa z Binance, Coinbase, Kraken, Kucoin i innymi giełdami. Bez KYC.'
         title: 'Deltabadger • Automatyczne uśrednianie ceny dowolnej kryptowaluty'
@@ -427,11 +423,21 @@ pl:
         twitter: 'Śledź nas na 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Płatność Deltabadger'
-            template_html: "<h1>Faktura</h1><p><b>Zapłacono w dniu:</b></p><p>%{paid_at}</p><p><b>Sprzedawca:</b></p>\n<p>Deltabadger OÜ<br>Pärnu mnt 158/2-88<br>11317 Tallinn<br>Estonia<br>Nr rej. 14781461</p>\n<p><b>Kupujący:</b></p>\n<p>%{first_name} %{last_name}<br>%{email}</p>\n<h2>Deltabadger  Plan %{plan_name} (%{years}-letni)</h2>\n<p><b>Zapłacone:</b></p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: 'Plan %{plan_name} został włączony'
-            template_html: '<p> Wow, </p> <p> Dziękujemy za zakup naszego planu <b> %{plan_name} </b> </p> <p> Dajesz radę! </p>'
+            subject: 'Rachunek'
+            template_html: |
+                <h2>Plan Deltabadger %{plan_name} (%{years}-letni)</h2>
+                <p> <b>Zapłacono:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Data płatności:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Sprzedawca:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estonia <br>
+                Nr rej. 14781461</p>
+                <p><b>Nabywca:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         free: Oszczędny
         per_month_html: "/miesiąc"

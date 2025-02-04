@@ -376,15 +376,10 @@ de:
         sign_up: Registrieren
         terms_and_conditions: Nutzungsbedingungen
         legendary_badger: Legendary Badger
-    mail:
     mailer:
-        all_rights_reserved: Alle Rechte reserviert.    
-        email_or_telegram: Fragen? Antworte auf diese E-Mail oder schreibe uns eine Nachricht auf Telegram.
-        follow_us_twitter: Folge uns auf 𝕏
+        follow_us_on_x: Folge uns auf 𝕏
         greeting: Hallo, %{name}! 
         greeting_name: Hallo, %{name}!
-        signature_badgers: Unsere unerschlagbare Crew von Badgern.
-        signature_html: Deltabadger-Team
     meta:
         title: "Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung"
         descriptions:
@@ -423,11 +418,21 @@ de:
         twitter: 'Folge uns auf 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Deltabadger Zahlung'
-            template_html: "<h1>Rechnung</h1>\n<p><b>Bezahlt am:</b></p>\n<p>%{paid_at}</p>\n<p><b>Verkäufer:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n  Reg-Nr. 14781461\n</p>\n<p><b>Käufer:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} Plan (%{years}-Jahre)</h2>\n<p>\n  <b>Bezahlt:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: '%{plan_name}-Plan garantiert'
-            template_html: "<p>Wow,</p>\n<p>Danke, dass du unseren <b>%{plan_name}-Plan</b> gekauft hast.</p>\n<p>Du bist toll!</p>"
+            subject: 'Quittung'
+            template_html: |
+                <h2>Deltabadger %{plan_name} Plan (%{years}-Jahr)</h2>
+                <p> <b>Bezahlt:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Bezahlt am:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Verkäufer:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estland <br>
+                Reg.Nr.14781461</p>
+                <p><b>Käufer:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/Monat"
         per_year_html: "/Jahr"

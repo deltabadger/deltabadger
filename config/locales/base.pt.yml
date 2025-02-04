@@ -361,10 +361,21 @@ pt:
         twitter: 'Siga-nos no 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Pagamento à Deltabadger'
-            template_html: "<h1>Fatura</h1>\n<p><b>Pago em:</b></p>\n<p>%{paid_at}</p>\n<p><b>Vendedor:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estónia\n  <br>\n  Registo n.º 14781461\n</p>\n<p><b>Comprador:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Plano %{plan_name} da Deltabadger (%{years}anos)</h2>\n<p>\n  <b>Pago:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: 'Plano %{plan_name} garantido'
+            subject: 'Recibo'
+            template_html: |
+                <h2>Plano %{plan_name} Deltabadger (%{years} anos)</h2>
+                <p> <b>Pago:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Data de pagamento:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Vendedor:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estónia <br>
+                Reg.No.14781461</p>
+                <p><b>Comprador:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/mês"
         per_year_html: "/ano"
