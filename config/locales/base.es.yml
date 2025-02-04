@@ -369,9 +369,7 @@ es:
         terms_and_conditions: 'Términos y condiciones'
     mail: '<p>¡Genial! ¡Tu enlace de referidos está ganando tracción en<br>!</p><p>Transferimos una comisión de</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la comunidad Badger!</p>'
     mailer:
-        all_rights_reserved: 'Todos los derechos hiperbitcoinizados.'
-        email_or_telegram: '¿Tienes preguntas? Responde a este correo electrónico o únete a nuestra comunidad en'
-        follow_us_twitter: 'No olvides seguirnos en'
+        follow_us_on_x: 'No olvides seguirnos en 𝕏'
         greeting: 'Arrr capitán'
         greeting_name: 'Ahoy%{name}'
         signature_badgers: 'Un equipo inmejorable de Badgers a tu disposición.'
@@ -416,11 +414,21 @@ es:
         twitter: 'Síguenos en 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Pago de Deltabadger'
-            template_html: "<h1>Factura</h1>\n<p><b>Pagado en:</b></p>\n<p>%{paid_at}</p>\n<p><b>Vendedor:</b></p>\n<p>\n  Deltabadger OÜ\n <br>\n  Pärnu mnt 158/2-88\n <br>\n  11317 Tallin\n <br>\n  Estonia\n <br>\n  N.º de registro 14781461\n</p>\n<p><b>Comprador:</b></p>\n<p>\n  %{first_name} %{last_name}\n <br>\n  %{email}\n</p>\n<h2>Plan %{plan_name} de Deltabadger (%{years} años)</h2>\n<p>\n  <b>Pagado:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: '%{plan_name} plan concedido'
-            template_html: '<p> Guau, </p> <p> Gracias por comprar nuestro plan <b> %{plan_name} </b> </p> <p> ¡No te arrepentirás! </p>'
+            subject: 'Recibo'
+            template_html: |
+                <h2>Plan %{plan_name} de Deltabadger (%{years} años)</h2>
+                <p> <b>Pagado:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Fecha de pago:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Vendedor:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estonia <br>
+                Reg.No.14781461</p>
+                <p><b>Comprador:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/mes"
         per_year_html: "/año"
