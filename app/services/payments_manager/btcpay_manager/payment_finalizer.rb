@@ -1,5 +1,3 @@
-require 'utilities/number'
-
 module PaymentsManager
   module BtcpayManager
     class PaymentFinalizer < BaseService

@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 module PortfolioAnalyzerManager
   class SmartAllocationsGetter < BaseService
     def call(portfolio)

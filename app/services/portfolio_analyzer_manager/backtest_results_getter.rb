@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 module PortfolioAnalyzerManager
   class BacktestResultsGetter < BaseService
     def call(portfolio, custom_start_date: nil)

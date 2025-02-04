@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 class Asset < ApplicationRecord
   belongs_to :portfolio
 

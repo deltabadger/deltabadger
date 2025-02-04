@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 class DcaProfitGetter < BaseService
   API_ID_MAP = {
     'btc' => 1713,     # Bitcoin

@@ -1,5 +1,3 @@
-require 'utilities/hash'
-
 class GrantAffiliateCommissionJob < ApplicationJob
   queue_as :default
 

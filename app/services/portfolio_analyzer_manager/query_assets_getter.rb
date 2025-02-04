@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 module PortfolioAnalyzerManager
   class QueryAssetsGetter < BaseService
     def call(query, portfolio)

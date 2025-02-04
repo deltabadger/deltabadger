@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 module PortfolioAnalyzerManager
   class OpenaiInsightsGetter < BaseService
     def call(portfolio)

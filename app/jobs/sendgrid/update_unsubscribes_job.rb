@@ -1,5 +1,3 @@
-require 'utilities/hash'
-
 class Sendgrid::UpdateUnsubscribesJob < SendgridJob
   def perform
     result = client.retrieve_all_global_suppressions
