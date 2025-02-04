@@ -4,4 +4,4 @@
 
 <p><%= t('mailer.greeting_name', name: @resource.name) %></p>
 
-<%= t('.template_html', email: email) %>
+<%= t('.template_html', unconfirmed_email: @resource.unconfirmed_email) %>
