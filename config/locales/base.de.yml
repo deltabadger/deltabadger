@@ -392,7 +392,8 @@ de:
         terms_and_conditions: Nutzungsbedingungen
         legendary_badger: Legendary Badger
     mailer:
-        follow_us_on_x: Folge uns auf 𝕏
+        follow_us_on_x: 'Folge uns auf 𝕏'
+        we_reply_faster_on_telegram: 'Wir antworten schneller auf Telegram'
         greeting: Hallo, %{name}! 
         greeting_name: Hallo, %{name}!
     meta:
