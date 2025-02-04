@@ -11,17 +11,32 @@ es:
                         eth_address:
                             invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
     ads:
-        dca_profit_html: 'Si hubieses hecho DCA en Bitcoin durante los últimos %{years} años, habrías ganado un <span class="text-success">%{profit}%</span>'
+        dca_profit_html: |
+            <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b>%{profit}%</b> de ganancia.</p>
+            <p>Eso es un <b>%{sp500_diff}% más que el S&P 500</b> en el mismo período.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: 'Confirmar nueva dirección Bitcoin'
-            template_html: '<p>Parece que quieres cambiar tu dirección Bitcoin a:</p><p><b>%{new_btc_address}</b></p><p>Esta dirección se utilizará para sus pagos de nuestro programa de referidos.</p><p>¿Está seguro?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Sí, ¡cambiémosla!</a>'
+            subject: "Confirmar nueva dirección de Bitcoin"
+            template_html: |
+                <p>Parece que quieres cambiar tu dirección de Bitcoin a:</p>
+                <p><code>%{new_btc_address}</code></p><p>Esta dirección se utilizará para tus pagos del programa de referidos.</p><p>¿Estás seguro?</p>
+                <a href=\"%{confirmation_url}\">Sí, cambiar la dirección</a>
         referrals_payout_notification:
-            subject: '¡Es el día de cobrar!'
-            template_html: '<p>Tu enlace de referidos está ganando afiliados. ¡Genial!</p><p>Transferimos una comisión de</p><p> <b>%{amount} BTC</b></p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la banda de tejones!</p>'
+            subject: "¡Es día de pago!"
+            template_html: |
+                <p>Gracias. Deltabadger crece solo gracias a las recomendaciones de boca en boca.</p>
+                <p>Y las tuyas realmente funcionan:</p>
+                <p>Hace poco, te transferimos <b>%{amount} BTC</b>.</p>
+                <p>¿La mejor parte? No termina aquí:</p>
+                <p><b>Recibirás un 20% cada año que tus referidos renueven su suscripción</b>.</p>
+                <p>¿Conoces a alguien más que podría beneficiarse de Deltabadger?</p>
+            grow_stream: "Hazles saber y aumenta tus ingresos recurrentes"
         registration_reminder:
-            subject: '¡Enhorabuena! ¡Has ganado %{amount} BTC!'
-            template_html: '<p>¡Te espera una nueva comisión del programa de afiliados! Finaliza el registro para recibir tus bitcoin:</p><a class="email-button" style="color: #fff" href=%{link}>Completa el registro.</a>'
+            subject: "¡Wow! ¡Has ganado %{amount} BTC!"
+            template_html: |
+                <p>¡Tienes una nueva comisión del programa de referidos esperándote!</p>
+                <p>Completa el registro para recibir tus bitcoin:</p>
+            complete_registration: "Completar registro"
     affiliates:
         add_link_info: 'Puedes añadir tu nombre y un enlace a tu sitio web para que el referido sepa de dónde procede el descuento. También puedes dejarlo en blanco:'
         apply_code:

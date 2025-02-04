@@ -15,25 +15,26 @@ en:
                         portfolio:
                             max_assets_reached: "Maximum number of assets reached."
     ads:
-        dca_profit_html: "If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b>%{profit}%</b>"
+        dca_profit_html: |
+            <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b>%{profit}%</b>.</p>
+            <p>That's <b>%{sp500_diff}% more than S&P 500</b> in the same time.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Confirm new Bitcoin address"
             template_html: |
                 <p>It looks like you want to change your Bitcoin address to:</p>
-                <p><b>%{new_btc_address}</b></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p>
-                <a href=\"%{confirmation_url}\">Yes, let's change it!</a>
+                <p><code>%{new_btc_address}</code></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p>
+                <a href=\"%{confirmation_url}\">Yes, change the address</a>
         referrals_payout_notification:
             subject: "It's a payday!"
             template_html: |
-                <p>Thank you for recommending Deltabadger.</p>
-                <p>We grow only thanks to you and word-of-mouth referrals.</p>
-                <p>And your recommendation really works:</p>
-                <p>Just a while ago, <b>%{amount} BTC</b> has been transferred to you.</p>
+                <p>Thank you. Deltabadger grows only thanks to word-of-mouth referrals.</p>
+                <p>And yours really works:</p>
+                <p>Just a while ago, we transfererred <b>%{amount} BTC</b> to you.</p>
                 <p>The best part? It's not over:</p>
-                <p><b>You'll get 20% every year they prolong subscription</b>.</p>
+                <p><b>You'll get 20% every year referrals prolong subscription</b>.</p>
                 <p>Do you know somebody else who may benefit from Deltabadger?</p>
-            grow_stream: "Let them know and grow your stream"
+            grow_stream: "Let them know and grow your recurring stream"
         registration_reminder:
             subject: "Wow! You earned %{amount} BTC!"
             template_html: |
