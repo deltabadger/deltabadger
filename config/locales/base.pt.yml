@@ -10,6 +10,10 @@ pt:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Número máximo de ativos atingido."
     ads:
         dca_profit_html: |
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
@@ -28,7 +32,7 @@ pt:
                 <p>E as suas funcionam mesmo:</p>
                 <p>Há pouco, transferimos <b>%{amount} BTC</b> para si.</p>
                 <p>A melhor parte? Não acaba aqui:</p>
-                <p><b>Receberá 20% todos os anos que as suas referências prolongarem a subscrição</b>.</p>
+                <p><b>Receberá 20% sempre que essas pessoas referidas prolongarem a subscrição</b>.</p>
                 <p>Conhece mais alguém que possa beneficiar da Deltabadger?</p>
             grow_stream: "Avise-os e aumente o seu fluxo recorrente"
         registration_reminder:
@@ -102,21 +106,33 @@ pt:
             your_link: 'A sua ligação de referência'
         your_bitcoin_address: 'O seu endereço Bitcoin'
     bot_alerts_mailer:
-    data_labels:
-        bought_ticker: "Comprado (%{ticker})"
-        avg_price_ticker: "Preço Médio (%{ticker})"
-        invested_ticker: "Investido (%{ticker})"
-        value_ticker: "Valor (%{ticker})"
-        date: Data
+        successful_webhook_bot_transaction:
+            subject: "A transação foi bem-sucedida"
+            template_html: "transação bem-sucedida, base: %{base}, quote: %{quote}, nome_do_bot: %{bot_name}, tipo: %{type}, preço: %{price}, nome_da_exchange: %{exchange_name}"
+        end_of_funds:
+            subject: "Seu bot está ficando sem fundos em breve"
+            template_html: "<p>Parece que seu bot está ficando sem %{quote} muito em breve.</p><p>Faça uma transferência para %{exchange_name} para garantir que o bot continue funcionando.</p>"
+        notify_about_error:
+            subject: "Algo deu errado"
+            template_html: "<p>Algo deu errado durante o processamento da última transação.</p><p>Você pode ver o erro no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Ops! Próxima tentativa…"
+            template_html: "<p>O bot não pôde executar seu pedido. Parece ser um problema da exchange. Tentaremos novamente em %{delay}.</p><p>Todos os erros estão visíveis no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Conectar"
     bot:
         barbell:
             invest_html: "Investir %{input} /mês"
         utils:
-            mkt_cap_adjusted: "Ajustado pela capitalização"
+            mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
             mkt_cap_adjusted_info: |
-                A alocação é definida automaticamente com base na capitalização de mercado das moedas em sua carteira. Quanto maior a capitalização, maior a alocação.
+                A alocação é automaticamente definida com base na capitalização de mercado das moedas em seu portfólio. Quanto maior a capitalização de mercado, maior a alocação.
+    data_labels:
+        bought_ticker: "Comprado (%{ticker})"
+        avg_price_ticker: "Preço Médio (%{ticker})"
+        invested_ticker: "Investido (%{ticker})"
+        value_ticker: "Valor (%{ticker})"
+        date: "Data"
     bots:
         above: acima
         add_new_bot: 'Adicionar novo bot'

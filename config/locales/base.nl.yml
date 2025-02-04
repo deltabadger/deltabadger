@@ -10,6 +10,10 @@ nl:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Maximum aantal activa bereikt."
     ads:
         dca_profit_html: |
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
@@ -28,7 +32,7 @@ nl:
                 <p>En die van u werken echt goed:</p>
                 <p>Zojuist hebben we <b>%{amount} BTC</b> naar u overgemaakt.</p>
                 <p>Het beste deel? Het is nog niet voorbij:</p>
-                <p><b>U krijgt elk jaar 20% wanneer doorverwezen gebruikers hun abonnement verlengen</b>.</p>
+                <p><b>U krijgt 20% elke keer dat deze doorverwezen personen hun abonnement verlengen</b>.</p>
                 <p>Kent u nog iemand anders die baat zou kunnen hebben bij Deltabadger?</p>
             grow_stream: "Laat het ze weten en laat uw terugkerende inkomsten groeien"
         registration_reminder:
@@ -102,30 +106,33 @@ nl:
             your_link: 'Uw referral link'
         your_bitcoin_address: 'Uw Bitcoin-adres'
     bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "Transactie is geslaagd"
+            template_html: "transactie geslaagd, base: %{base}, quote: %{quote}, bot_naam: %{bot_name}, type: %{type}, prijs: %{price}, beurs_naam: %{exchange_name}"
         end_of_funds:
-            subject: 'Uw bot heeft binnenkort geen geld meer'
-            template_html: '<p>Het lijkt erop dat je bot binnenkort geen %{quote} meer heeft.</p><p>Maak een transfer naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>'
+            subject: "Uw bot heeft binnenkort onvoldoende saldo"
+            template_html: "<p>Het lijkt erop dat uw bot binnenkort geen %{quote} meer heeft.</p><p>Maak een overboeking naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>"
         notify_about_error:
-            subject: 'Er ging iets mis'
-            template_html: '<p>Er ging iets mis tijdens het verwerken van de laatste transactie.</p><p>U kan de error zien in het bot logboek. Log in om dit te controleren.</p><p>Errors:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
+            subject: "Er is iets misgegaan"
+            template_html: "<p>Er is iets misgegaan tijdens het verwerken van de laatste transactie.</p><p>U kunt de fout bekijken in het bot logboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: 'Oeps! Volgende poging...'
-            template_html: '<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem bij de exchange. We proberen het opnieuw in %{delay}.</p><p>Alle errors zijn zichtbaar in het logboek van de bot. Log in om dit te controleren.</p><p>Errors:</p><blockquote><b>%{exchange}:%{base}%{quote}</b> <b> %{errors}</b></blockquote>'
-    data_labels:
-        bought_ticker: "Gekocht (%{ticker})"
-        avg_price_ticker: "Gem. Prijs (%{ticker})"
-        invested_ticker: "Geïnvesteerd (%{ticker})"
-        value_ticker: "Waarde (%{ticker})"
-        date: Datum
+            subject: "Oeps! Volgende poging…"
+            template_html: "<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem met de beurs. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het bot logboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Verbinden"
     bot:
         barbell:
             invest_html: "Investeer %{input} /maand"
         utils:
-            mkt_cap_adjusted: "Ingesteld op marktkapitalisatie"
+            mkt_cap_adjusted: "Marktkapitalisatie aangepast"
             mkt_cap_adjusted_info: |
-                De toewijzing wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portefeuille. Hoe groter de marktkapitalisatie, hoe groter de toewijzing.
+                De allocatie wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portfolio. Hoe groter de marktkapitalisatie, hoe groter de allocatie.
+    data_labels:
+        bought_ticker: "Gekocht (%{ticker})"
+        avg_price_ticker: "Gem. Prijs (%{ticker})"
+        invested_ticker: "Geïnvesteerd (%{ticker})"
+        value_ticker: "Waarde (%{ticker})"
+        date: "Datum"
     bots:
         above: boven
         add_new_bot: 'Nieuwe bot toevoegen'
