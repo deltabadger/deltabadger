@@ -35,10 +35,7 @@ class Users::SessionsController < Devise::SessionsController
 
     if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
 
-      # manually set the remember_me cookie. It's normally set by warden, but we can't use
-      # warden.authenticate!(auth_options) here because we don't have access to the user
-      # credentials (email and password). We cannot call warden.authenticate!(auth_options)
-      # before the OTP verification because then the user would be signed in directly.
+      # manually set the remember_me cookie because it's unset after sign_out()
       custom_remember_me(resource) if session[:remember_me] == '1'
 
       session.delete(:pending_user_id)
