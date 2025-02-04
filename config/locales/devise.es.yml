@@ -1,12 +1,12 @@
 es:
     devise:
         confirmations:
-            confirmed: 'Tu dirección de correo electrónico ha sido confirmada con éxito.'
+            confirmed: 'Tu dirección de correo electrónico ha sido confirmada exitosamente.'
             new:
                 submit: 'Reenviar'
                 title: 'Reenviar instrucciones'
-            send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
-            send_paranoid_instructions: 'Si tu cuenta existe, recibirás un correo electrónico con instrucciones en unos minutos.'
+            send_instructions: 'Recibirás un correo electrónico con instrucciones sobre cómo confirmar tu dirección de correo electrónico en unos minutos.'
+            send_paranoid_instructions: 'Si tu dirección de correo electrónico existe en nuestra base de datos, recibirás un correo electrónico con instrucciones sobre cómo confirmar tu dirección de correo electrónico en unos minutos.'
         passwords:
             edit:
                 submit: 'Cambiar contraseña'
@@ -14,17 +14,17 @@ es:
             new:
                 submit: 'Enviar instrucciones'
                 title: '¿Olvidaste tu contraseña?'
-            no_token: 'No puedes acceder a esta página sin provenir de un correo electrónico de restablecimiento de contraseña. Si provienes de un correo electrónico de restablecimiento, asegúrate de haber utilizado la URL completa proporcionada.'
-            send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
-            send_paranoid_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
-            updated: '¡Hecho! Tu contraseña ha sido cambiada.'
-            updated_not_active: '¡Hecho! Tu contraseña ha sido cambiada.'
-            token_expired: 'El enlace para restablecer tu contraseña ha expirado. Por favor, solicita un nuevo enlace.'
+            no_token: 'No puedes acceder a esta página sin venir desde un correo de restablecimiento de contraseña. Si vienes desde un correo de restablecimiento de contraseña, asegúrate de usar la URL completa proporcionada.'
+            send_instructions: 'Recibirás un correo electrónico con instrucciones sobre cómo restablecer tu contraseña en unos minutos.'
+            send_paranoid_instructions: 'Si tu dirección de correo electrónico existe en nuestra base de datos, recibirás un enlace de recuperación de contraseña en tu dirección de correo electrónico en unos minutos.'
+            updated: 'Tu contraseña ha sido cambiada exitosamente. Has iniciado sesión.'
+            updated_not_active: 'Tu contraseña ha sido cambiada exitosamente.'
+            token_expired: 'Tu enlace de restablecimiento de contraseña ha expirado. Por favor, solicita un nuevo enlace.'
             validations:
                 length: 'Al menos %{count} caracteres'
                 uppercase: 'Contiene una letra mayúscula'
                 lowercase: 'Contiene una letra minúscula'
-                digit: 'Contiene un dígito'
+                digit: 'Contiene un número'
                 symbol: 'Contiene un símbolo'
                 match: 'Las contraseñas coinciden'
         registrations:
@@ -32,61 +32,66 @@ es:
                 awaiting_confirmation: 'Actualmente esperando confirmación para: %{email}'
             new:
                 email_invalid: '¡Correo electrónico inválido!'
-                email_suggestion_html: '¡Correo electrónico inválido! ¿Quisiste decir: <b>%{suggestion}</b>?'
+                email_suggestion_html: '¡Correo electrónico inválido! ¿Quisiste decir: <b>%{suggestion}</b>'
                 name_invalid: 'No tiene que ser real 👻'
                 submit: 'Registrarse'
-                title_html: 'Crea una cuenta <span class="text-success">gratis</span>'
-            signed_up: '¡Encantado de conocerte!'
-            signed_up_but_inactive: 'Hola, tu cuenta aún no está activada. ¿Has revisado tu correo electrónico?'
-            signed_up_but_locked: 'Vaya, tu cuenta está bloqueada.'
-            signed_up_but_unconfirmed: 'Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.'
-            update_needs_confirmation: 'Revisa tu bandeja de entrada y sigue el enlace de confirmación para confirmar tu nueva dirección de correo electrónico.'
-            updated: 'Tu cuenta se ha actualizado correctamente.'
-            updated_but_not_signed_in: 'Tu cuenta se ha actualizado correctamente, por favor inicia sesión nuevamente.'
+                title_html: 'Crear cuenta <span class="text-success">gratuita</span>'
+            signed_up: '¡Bienvenido! Te has registrado exitosamente.'
+            signed_up_but_inactive: 'Te has registrado exitosamente. Sin embargo, no pudimos iniciar sesión porque tu cuenta aún no está activada.'
+            signed_up_but_unconfirmed: 'Se ha enviado un mensaje con un enlace de confirmación a tu dirección de correo electrónico. Por favor, sigue el enlace para activar tu cuenta.'
+            update_needs_confirmation: 'Has actualizado tu cuenta exitosamente, pero necesitamos verificar tu nueva dirección de correo electrónico. Por favor, revisa tu correo y sigue el enlace de confirmación para confirmar tu nueva dirección de correo electrónico.'
+            updated: 'Tu cuenta ha sido actualizada exitosamente.'
+            updated_but_not_signed_in: 'Tu cuenta ha sido actualizada exitosamente, pero como tu contraseña fue cambiada, necesitas iniciar sesión nuevamente.'
+            destroyed: '¡Adiós! Tu cuenta ha sido cancelada exitosamente. Esperamos verte pronto.'
         sessions:
             new:
                 forgot_password: '¿Olvidaste tu contraseña?'
-                submit: 'Iniciar sesión'
+                submit: 'Iniciar Sesión'
                 title: '¡Bienvenido de nuevo!'
-            signed_in: '¡Cuánto tiempo sin verte!'
-            signed_out: '¡Hasta pronto!'
+            signed_in: 'Sesión iniciada exitosamente.'
+            signed_out: 'Sesión cerrada exitosamente.'
+            already_signed_out: 'Sesión cerrada exitosamente.'
             two_factor:
                 submit: "Verificar"
                 invalid_code: "Código incorrecto. Inténtalo de nuevo."
-        unlocks:
-            send_instructions: 'Recibirás un correo electrónico con instrucciones en unos minutos.'
-            unlocked: 'Tu cuenta ha sido desbloqueada con éxito. Por favor, inicia sesión para continuar.'
         failure:
             already_authenticated: 'Ya has iniciado sesión.'
             inactive: 'Tu cuenta aún no está activada.'
-            invalid: 'Correo electrónico o contraseña inválidos.'
-            last_attempt: 'Tienes un intento más antes de que tu cuenta sea bloqueada.'
-            locked: 'Tu cuenta está bloqueada.'
-            not_found_in_database: 'Correo electrónico o contraseña inválidos.'
+            invalid: '%{authentication_keys} o contraseña inválidos.'
+            not_found_in_database: '%{authentication_keys} o contraseña inválidos.'
             timeout: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente para continuar.'
             unauthenticated: 'Necesitas iniciar sesión o registrarte antes de continuar.'
             unconfirmed: 'Debes confirmar tu dirección de correo electrónico antes de continuar.'
         mailer:
             confirmation_instructions:
-                subject: 'Confirmar dirección de correo electrónico'
-                template_html: '<p>¡Tu dirección de correo está a un clic de formar parte del equipo! Confirma ahora y deja que los buenos momentos fluyan automáticamente.</p> <a class="mail-button" style="color: #fff" href="%{confirmation_url}">Confirmar este correo electrónico</a>'
+                subject: 'Confirma tu correo electrónico'
+                template_html: |
+                    <p>¡Bienvenido a Deltabadger!</p>
+                    <p>Haz clic en el enlace de abajo para confirmar tu dirección de correo electrónico:</p>
+                confirm_button: 'Confirmar mi correo electrónico'
             email_changed:
-                subject: 'Correo confirmado'
-                template_html: '<p>¡Hecho! Esta es tu nueva y brillante dirección de Deltabadger:</p><p><b>%{email}</b></p>'
+                subject: 'Correo Electrónico Cambiado'
+                template_html: |
+                    <p>Te contactamos para notificarte que tu correo electrónico está siendo cambiado a %{unconfirmed_email}.</p>
             password_change:
-                subject: 'Contraseña cambiada'
-                template_html: '<p>¡Hecho!</p><p>Tu contraseña ha sido cambiada.</p><p>¡Tus secretos están más seguros que nunca!</p>'
+                subject: 'Contraseña Cambiada'
+                template_html: |
+                    <p>Te contactamos para notificarte que tu contraseña ha sido cambiada.</p>
             reset_password_instructions:
-                subject: 'Recuperación de contraseña'
-                template_html: '<p>¡La recuperación de contraseña está en marcha! Espera un momento, pronto estarás de vuelta.</p><a class="mail-button" style="color: #fff" href="%{edit_password_url}">Cambiar mi contraseña</a>'
-            unlock_instructions:
-                subject: 'Instrucciones para desbloquear'
-                template_html: '<p>Bloqueamos tu cuenta debido a varios intentos fallidos de inicio de sesión.</p><p>Haz clic en el siguiente enlace para desbloquearla:</p><a class="mail-button" style="color: #fff" href="%{unlock_url}">Desbloquear mi cuenta</a>'
+                subject: 'Instrucciones para restablecer contraseña'
+                template_html: |
+                    <p>Alguien ha solicitado un enlace para cambiar tu contraseña.</p>
+                    <p>Puedes hacerlo a través del siguiente enlace:</p>
+                change_password_button: 'Cambiar mi contraseña'
+                ignore_mail_html: |
+                    <p>Si no solicitaste esto, ignora este correo y tu contraseña no cambiará.</p>
+                wont_change_html: |
+                    <p>Tu contraseña no cambiará hasta que accedas al enlace anterior y crees una nueva.</p>
             email_already_taken:
-                subject: "La cuenta ya existe"
-                message: "Ya tienes una cuenta con esta dirección de correo electrónico."
-                reset_password_message: "Si has olvidado tu contraseña, puedes restablecerla haciendo clic en el botón de abajo."
-                reset_password_button: "Restablecer Contraseña"
+                subject: 'Correo electrónico ya registrado'
+                message: 'Este correo electrónico ya está registrado.'
+                reset_password_message: 'Si esta es tu cuenta, puedes restablecer tu contraseña aquí:'
+                reset_password_button: 'Restablecer contraseña'
         omniauth_callbacks:
-            failure: 'No se pudo autenticar con %{kind} debido a: "%{reason}".'
-            success: 'Autenticado correctamente con la cuenta %{kind}.'
+            failure: 'No pudimos autenticarte desde %{kind} porque "%{reason}".'
+            success: 'Autenticado exitosamente desde la cuenta %{kind}.'
