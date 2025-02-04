@@ -1,4 +1,5 @@
-<h1 class="mail-header"><%= t('.subject', plan_name: localized_plan_name(@payment.subscription_plan_variant.name)) %></h1>
+<p>Hey <%= user_first_name %>, I saw your subscription to Deltabadger yesterday. Thanks a lot!</p>
+<p>Guillem and I are trying to grow our reviews on Google.</p>
+<p>We'll be absolutely grateful if you could <a href="https://g.page/r/CUqE1Hcl49ciEBM/review">leave a review here</a>.</p>
 
-<p><%= t('mailer.greeting', name: @payment.user.name) %></p>
-<%= t('.template_html', years: @payment.subscription_plan_variant.years, plan_name: localized_plan_name(@payment.subscription_plan_variant.name)) %>
+<p>I appreciate it,<br>Jan</p>

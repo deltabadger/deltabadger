@@ -2,93 +2,22 @@
 %html
   %head
     %meta{:content => "text/html; charset=utf-8", "http-equiv" => "Content-Type"}
-    :css
-      body {
-        padding: 0 16px;
-      }
-      body, div, p, ol, ul {
-        font: 16px/24px sans-serif;
-        color: #091638;
-      }
-      a {
-        color: #2948A1;
-      }
-      p, ol, ul {
-        margin-bottom: 16px;
-      }
-      h1 {
-        font-family: "Arial Rounded MT Bold", sans-serif;
-        font-weight: 400;
-        color: #2948A1;
-        font-size: 24px;
-        line-height: 32px;
-        margin-bottom: 40px;
-      }
-      ol {
-        padding-left: 18px;
-      }
-      .mail-block {
-        margin-top: 32px;
-        margin-bottom: 32px;
-      }
-      .mail-button {
-        margin-top: 32px;
-        margin-bottom: 32px;
-        width: 220px;
-        text-align: center;
-        font-family: 'Arial Rounded MT Bold', sans-serif;
-        letter-spacing: 0.01em;
-        line-height: 43px;
-        border: 2px solid #2948A1;
-        border-radius: 24px;
-        padding: 0 24px 1px;
-        background: #2948A1;
-        color: #fff;
-        display: inline-block;
-        box-shadow: 1px 2px 5px rgba(0,0,0,.5);
-        text-decoration: none;
-      }
-      .mail-button:active,
-      .mail-button:hover,
-      .mail-button:focus,
-      .mail-button:visited,
-      .mail-button:link {
-        color: #fff !important;
-      }
-      .text-success {
-        color: #00b186;
-        font-weight: bold;
-      }
-      @media only screen and (min-width: 600px) {
-        h1 {
-          font-size: 28px;
-          line-height: 40px;
-        }
-      }
   %body
-    %div{ style: "margin: 0 auto; max-width: 600px" }
 
-      %img{alt: "Deltabadger", src: "https://deltabadger.com/logo_c_128x96.png", style: "margin: 40px 0; width: 64px; height: auto; display: block;"}
+    = yield
 
-      = yield
+    —
 
-      -# %p= t('mailer.signature_html')
-      - if @show_dca_profit
-        %p{style: "margin-top: 24px;"}
-          💡
-          = localized_dca_profit_recap('btc', 4)
+    - if @show_dca_profit
+      %p
+        = localized_dca_profit_recap('btc', 4)
 
-      %p{style: "color:#9d9d9d;  margin: 24px 0;"} &mdash;
-      %p{style: "color:#9d9d9d;  margin: 24px 0;"}= t('mailer.signature_badgers')
+    %p
+      %a{href: "https://x.com/deltabadgerapp"}
+        = t('mailer.follow_us_on_x')
+        →
 
-      %p{style: "color:#9d9d9d; margin: 24px 0;"}
-        = t('mailer.email_or_telegram')
-        %a{href: "https://t.me/deltabadger", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
-          Telegram →
-        %br
-        = t('mailer.follow_us_twitter')
-        %a{href: "https://x.com/deltabadgerapp", style: "color:#9d9d9d; white-space: nowrap; text-underline-position: under;"}
-          𝕏 →
-
-      -# %p{style: "color:#9d9d9d;  margin: 24px 0;"}
-      -#   &copy; 2023 Deltabadger. #{t('mailer.all_rights_reserved')}
+    %p
+      %a{href: "https://t.me/deltabadger"}
+        = t('mailer.we_reply_faster_on_telegram')
+        →

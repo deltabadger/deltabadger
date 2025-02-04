@@ -420,11 +420,21 @@ ru:
         twitter: 'Подписывайтесь на нас в 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Платеж Deltabadger'
-            template_html: "<h1>Счет</h1>\n<p><b>Оплачено:</b></p>\n<p>%{paid_at}</p>\n<p><b>Продавец:</b></p>\n<p>\n  Deltabadger OÜ\n  <br>\n  Pärnu mnt 158/2-88\n  <br>\n  11317 Tallinn\n  <br>\n  Estonia\n  <br>\n Рег.№ 14781461\n</p>\n<p><b>Покупатель:</b></p>\n<p>\n  %{first_name} %{last_name}\n  <br>\n  %{email}\n</p>\n<h2>Deltabadger %{plan_name} План (%{years}-летний)</h2>\n<p>\n  <b>Оплачено:</b>\n</p>\n<h2>%{total_paid} %{currency}</h2>"
-        subscription_granted:
-            subject: '%{plan_name} план предоставлен'
-            template_html: "<p>Вау 💙,</p>\n<p>Благодарим за покупку нашего</p>\n<p>\n  <b>\n    %{years}-летнего %{plan_name} плана\n  </b>\n</p>\n<p>Вы – супер! 🔥</p>"
+            subject: 'Квитанция'
+            template_html: |
+                <h2>План Deltabadger %{plan_name} (%{years}-летний)</h2>
+                <p> <b>Оплачено:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Дата оплаты:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Продавец:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estonia <br>
+                Рег.№14781461</p>
+                <p><b>Покупатель:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/мес"
         per_year_html: "/год"
