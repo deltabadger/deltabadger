@@ -391,9 +391,9 @@ pl:
         settings: Ustawienia
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin
-    mail: '<p>Twój link polecający zyskuje na popularności! Nieźle!!!</p><p>Wysłaliśmy prowizję w wysokości</p><p> <b>%{amount} BTC</b></p><p>na Twój portfel Bitcoin.</p><p>Dziękujemy za powiększanie gangu borsuka!</p>'
     mailer:
         follow_us_on_x: 'Śledź nas na 𝕏'
+        we_reply_faster_on_telegram: 'Szybciej odpowiadamy na Telegramie'
         greeting: 'Hej kapitanie,'
         greeting_name: 'Hej %{name},'
     meta:

@@ -382,13 +382,11 @@ es:
         settings: Configuración
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
-    mail: '<p>¡Genial! ¡Tu enlace de referidos está ganando tracción en<br>!</p><p>Transferimos una comisión de</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la comunidad Badger!</p>'
     mailer:
-        follow_us_on_x: 'No olvides seguirnos en 𝕏'
+        follow_us_on_x: 'Síguenos en 𝕏'
+        we_reply_faster_on_telegram: 'Respondemos más rápido en Telegram'
         greeting: 'Arrr capitán,'
         greeting_name: 'Ahoy %{name},'
-        signature_badgers: 'Un equipo inmejorable de Badgers a tu disposición.'
-        signature_html: 'El Equipo de Deltabadger'
     meta:
         desc: 'Comienza de forma gratuita,la estrategia probada que funciona con Binance, Coinbase, Kraken, Kucoin, y otros exchanges. Sin KYC.'
         title: 'Deltabadger • Inversión constante automatizada (DCA) en cualquier criptomoneda'

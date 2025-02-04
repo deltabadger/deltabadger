@@ -381,13 +381,11 @@ nl:
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
-    mail: '<p>Top! Uw referral link <br>wint aan populariteit!</p><p>Wij maken een commissie over van </p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b></p><p>naar uw Bitcoin wallet.</p><p>Dank voor het uitbreiden van de badger gang!</p>'
     mailer:
         follow_us_on_x: 'Volg ons op 𝕏'
+        we_reply_faster_on_telegram: 'We reageren sneller op Telegram'
         greeting: 'Ahoy kapitein,'
         greeting_name: 'Ahoy %{name},'
-        signature_badgers: 'Onoverwinnelijk team van badgers tot uw dienst.'
-        signature_html: 'Deltabadger Team'
     meta:
         desc: 'Start gratis met de meest bewezen strategie die werkt met Binance, Coinbase, Kraken, Kucoin en andere exchanges. Geen KYC.'
         title: 'Deltabadger - Automatiseer Dollar-Cost Averaging voor elke Crypto'
