@@ -12,8 +12,8 @@ es:
                             invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
     ads:
         dca_profit_html: |
-            <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b>%{profit}%</b> de ganancia.</p>
-            <p>Eso es un <b>%{sp500_diff}% más que el S&P 500</b> en el mismo período.</p>
+            <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b style="color: #00A36C;">%{profit}%</b> de ganancia.</p>
+            <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Confirmar nueva dirección de Bitcoin"
@@ -385,8 +385,8 @@ es:
     mail: '<p>¡Genial! ¡Tu enlace de referidos está ganando tracción en<br>!</p><p>Transferimos una comisión de</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la comunidad Badger!</p>'
     mailer:
         follow_us_on_x: 'No olvides seguirnos en 𝕏'
-        greeting: 'Arrr capitán'
-        greeting_name: 'Ahoy%{name}'
+        greeting: 'Arrr capitán,'
+        greeting_name: 'Ahoy %{name},'
         signature_badgers: 'Un equipo inmejorable de Badgers a tu disposición.'
         signature_html: 'El Equipo de Deltabadger'
     meta:

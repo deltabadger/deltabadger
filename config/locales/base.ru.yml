@@ -12,8 +12,8 @@ ru:
                             invalid_address: '"%{eth_address}" является недействительным адресом Ethereum. Пожалуйста, попробуйте снова.'
     ads:
         dca_profit_html: |
-            <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b>%{profit}%</b>.</p>
-            <p>Это на <b>%{sp500_diff}% больше, чем S&P 500</b> за тот же период.</p>
+            <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Подтвердите новый Bitcoin адрес"

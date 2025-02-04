@@ -12,8 +12,8 @@ nl:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
         dca_profit_html: |
-            <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b>%{profit}%</b> in de plus staan.</p>
-            <p>Dat is <b>%{sp500_diff}% meer dan de S&P 500</b> in dezelfde periode.</p>
+            <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
+            <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Bevestig nieuw Bitcoin-adres"
