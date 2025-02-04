@@ -349,6 +349,11 @@ pt:
         settings: Definições
         sign_up: Registar
         terms_and_conditions: 'Termos e Condições'
+    mailer:
+        follow_us_on_x: 'Siga-nos no 𝕏'
+        we_reply_faster_on_telegram: 'Respondemos mais rápido no Telegram'
+        greeting: 'Olá capitão,'
+        greeting_name: 'Olá %{name},'
     meta:
         title: "Deltabadger • Automatizar o cálculo da média do custo do dólar para qualquer criptomoeda"
         descriptions:

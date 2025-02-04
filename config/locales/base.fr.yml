@@ -381,13 +381,11 @@ fr:
         settings: 'Paramètres'
         sign_up: 'S''inscrire'
         terms_and_conditions: 'Conditions générales'
-    mail: '<p>Génial ! Votre lien de parrainage <br>gagne du terrain !</p> <p>Nous transférons une commission de </p><p style="margin: 1em 0 1.2em;"><b>%{amount}BTC</b></p><p>sur votre portefeuille Bitcoin.</p><p>Merci d''élargir le gang Badger !</p>'
     mailer:
         follow_us_on_x: 'Suivez-nous sur 𝕏'
+        we_reply_faster_on_telegram: 'Nous répondons plus rapidement sur Telegram'
         greeting: 'Ohé capitaine,'
         greeting_name: 'Ohé %{name},'
-        signature_badgers: 'Une équope de Badgers invincibles à votre service'
-        signature_html: 'Équipe Deltabadger'
     meta:
         desc: 'Commencez gratuitement à utiliser la stratégie optimale avec Binance, Coinbase, Kraken et d''autres exchanges, sans KYC.'
         title: 'Deltabadger • Automatisez les achats périodiques en n''importe quelle crypto-monnaie'
