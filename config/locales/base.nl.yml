@@ -11,17 +11,32 @@ nl:
                         eth_address:
                             invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
     ads:
-        dca_profit_html: 'Als je de afgelopen %{years}&nbsp;jaar regelmatig in Bitcoin had geïnvesteerd, zou je nu&nbsp;stijgen met <span class="text-success">%{profit}%</span>'
+        dca_profit_html: |
+            <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b>%{profit}%</b> in de plus staan.</p>
+            <p>Dat is <b>%{sp500_diff}% meer dan de S&P 500</b> in dezelfde periode.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: 'Bevestig nieuw Bitcoin-adres'
-            template_html: '<p>Het lijkt erop dat u uw Bitcoin-adres wilt veranderen naar:</p><p><b>%{new_btc_address}</b></p><p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p><p>Weet u het zeker?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Ja, laten we het veranderen!</a>'
+            subject: "Bevestig nieuw Bitcoin-adres"
+            template_html: |
+                <p>Het lijkt erop dat u uw Bitcoin-adres wilt wijzigen naar:</p>
+                <p><code>%{new_btc_address}</code></p><p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p><p>Weet u het zeker?</p>
+                <a href=\"%{confirmation_url}\">Ja, wijzig het adres</a>
         referrals_payout_notification:
-            subject: 'Het is betaaldag!'
-            template_html: '<p>Top! Uw referral link wint aan populariteit!</p><p>Wij maken een commissie over van </p><p> <b>%{amount} BTC</b></p><p>naar uw Bitcoin wallet.</p><p>Dank voor het uitbreiden van de badger gang!</p>'
+            subject: "Het is uitbetalingsdag!"
+            template_html: |
+                <p>Bedankt. Deltabadger groeit alleen dankzij mond-tot-mond verwijzingen.</p>
+                <p>En die van u werken echt goed:</p>
+                <p>Zojuist hebben we <b>%{amount} BTC</b> naar u overgemaakt.</p>
+                <p>Het beste deel? Het is nog niet voorbij:</p>
+                <p><b>U krijgt elk jaar 20% wanneer doorverwezen gebruikers hun abonnement verlengen</b>.</p>
+                <p>Kent u nog iemand anders die baat zou kunnen hebben bij Deltabadger?</p>
+            grow_stream: "Laat het ze weten en laat uw terugkerende inkomsten groeien"
         registration_reminder:
-            subject: 'Wow! Je hebt %{amount} BTC verdiend!'
-            template_html: "<p>Je hebt een nieuwe commissie van het verwijzingsprogramma verdiend! Voltooi de registratie om je bitcoin te ontvangen:</p>\n<a class=\"email-button\" href=%{link}>Voltooi de registratie.</a>"
+            subject: "Wow! U heeft %{amount} BTC verdiend!"
+            template_html: |
+                <p>Er staat een nieuwe commissie van het verwijzingsprogramma op u te wachten!</p>
+                <p>Voltooi de registratie om uw bitcoin te ontvangen:</p>
+            complete_registration: "Registratie voltooien"
     affiliates:
         add_link_info: 'U kunt uw naam en link naar uw website toevoegen zodat de doorverwezen persoon weet waar de korting vandaan komt. U kan dit veld ook leeg laten:'
         apply_code:
