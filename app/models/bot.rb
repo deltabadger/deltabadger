@@ -4,12 +4,21 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
+  after_initialize :set_exchange_bot
+
   enum status: %i[created working stopped deleted pending]
   enum bot_type: %i[trading withdrawal webhook barbell]
 
   include Webhook
   include Barbell
   include Rankable
+
+  delegate :market_sell, :market_buy, :limit_sell, :limit_buy, :valid_keys?, to: :exchange
+
+  def api_key
+    key_type = withdrawal? ? :withdrawal : :trading
+    @api_key ||= ApiKey.for_bot(user_id, exchange_id, key_type).first
+  end
 
   def base
     settings['base']
@@ -185,5 +194,11 @@ class Bot < ApplicationRecord
 
   def destroy
     update(status: 'deleted')
+  end
+
+  private
+
+  def set_exchange_bot
+    exchange.set_bot(self)
   end
 end
