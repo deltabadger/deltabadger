@@ -1,6 +1,9 @@
-<h1 class="mail-header"><%= t('.subject') %></h1>
+<h1><%= t('.subject') %></h1>
 
+<p><%= t('mailer.greeting_name', name: @resource.name) %></p>
 <p><%= t('.message') %></p>
 <p><%= t('.reset_password_message') %></p>
 
-<%= link_to t('.reset_password_button'), new_password_url(@resource, locale: I18n.locale), class: 'mail-button' %>
+<p>
+  <%= link_to t('.reset_password_button'), new_password_url(@resource, locale: I18n.locale) %>
+</p>

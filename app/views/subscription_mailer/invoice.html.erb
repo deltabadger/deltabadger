@@ -1,4 +1,6 @@
-<h1 class="mail-header"><%= t('.subject') %></h1>
+<% content_for :subject do %>
+  <%= t('.subject') %>
+<% end %>
 
 <%= t('.template_html',
       paid_at: @payment.paid_at,

@@ -1,4 +1,8 @@
-<h1 class="mail-header"><%= t('.subject') %></h1>
+<h1><%= t('.subject') %></h1>
 
 <p><%= t('mailer.greeting_name', name: @resource.name) %></p>
-<%= t('.template_html', confirmation_url: confirmation_url(@resource, confirmation_token: @token, locale: I18n.locale, new_user: @resource.email.in?(controller.message.to))) %>
+<%= t('.template_html') %>
+
+<p>
+  <%= link_to t('.confirm_button'), confirmation_url(@resource, confirmation_token: @token) %>
+</p>

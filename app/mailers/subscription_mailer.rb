@@ -1,5 +1,4 @@
 class SubscriptionMailer < ApplicationMailer
-
   include LocalesHelper
   helper LocalesHelper
 
@@ -8,11 +7,11 @@ class SubscriptionMailer < ApplicationMailer
 
     mail(
       to: @payment.user.email,
-      subject: t(
-        'subscription_mailer.subscription_granted.subject',
-        plan_name: localized_plan_name(@payment.subscription_plan.name)
-      )
-    )
+      from: 'jan@deltabadger.com',
+      subject: 'One more thing'
+    ) do |format|
+      format.html { render layout: 'plain_mail' }
+    end
   end
 
   def after_wire_transfer
@@ -40,5 +39,14 @@ class SubscriptionMailer < ApplicationMailer
       to: 'jan@deltabadger.com',
       subject: "New wire transfer, ##{@payment.id}"
     )
+  end
+
+  private
+
+  helper_method def user_first_name
+    return @payment.first_name if @payment.first_name.present?
+    return @payment.user.name.split.first if @payment.user.name.present?
+
+    'man'
   end
 end

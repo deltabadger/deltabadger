@@ -4,7 +4,7 @@ module Notifications
       SubscriptionMailer
         .with(payment: payment)
         .subscription_granted
-        .deliver_later
+        .deliver_later(wait: 23.hours)
     end
 
     def invoice(payment:)

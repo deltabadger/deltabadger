@@ -60,7 +60,13 @@ module LocalesHelper
     dca_profit_result = DcaProfitGetter.call(asset, years.years.ago)
     return '' if dca_profit_result.failure?
 
-    t('ads.dca_profit_html', profit: (dca_profit_result.data * 100).to_i, years: years)
+    sp500_profit_result = DcaProfitGetter.call('gspc', years.years.ago)
+    sp500_diff = sp500_profit_result.success? ? ((dca_profit_result.data - sp500_profit_result.data) * 100).to_i : 0
+
+    t('ads.dca_profit_html',
+      profit: (dca_profit_result.data * 100).to_i,
+      years: years,
+      sp500_diff: sp500_diff)
   end
 
   private
