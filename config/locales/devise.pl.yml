@@ -70,9 +70,13 @@ pl:
                     <p>Kliknij w link poniżej, aby potwierdzić swój adres email:</p>
                 confirm_button: 'Potwierdź mój email'
             email_changed:
-                subject: 'Email został zmieniony'
+                subject: 'Twój email został zmieniony'
                 template_html: |
-                    <p>Kontaktujemy się z Tobą, aby powiadomić Cię, że Twój email jest zmieniany na %{unconfirmed_email}.</p>
+                    <p>Kontaktujemy się z Tobą, aby powiadomić Cię, że Twój adres email został zmieniony na %{email}.</p>
+            confirm_email:
+                subject: 'Potwierdź swój nowy adres email'
+                template_html: |
+                    <p>Kontaktujemy się z Tobą, aby powiadomić Cię, że Twój adres email zostanie zmieniony na %{unconfirmed_email}.</p>
             password_change:
                 subject: 'Hasło zostało zmienione'
                 template_html: |
