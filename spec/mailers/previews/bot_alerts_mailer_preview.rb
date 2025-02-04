@@ -1,3 +1,47 @@
 # Preview all emails at http://localhost:3000/rails/mailers/bot_alerts_mailer
 class BotAlertsMailerPreview < ActionMailer::Preview
+  def notify_about_error
+    user = User.new(email: 'test@example.com', name: 'Mathias')
+    bot = Bot.new(exchange_id: 1)
+    BotAlertsMailer.with(
+      user: user,
+      bot: bot,
+      errors: ['API error']
+    ).notify_about_error
+  end
+
+  def notify_about_restart
+    user = User.new(email: 'test@example.com', name: 'Mathias')
+    bot = Bot.new(exchange_id: 1)
+    BotAlertsMailer.with(
+      user: user,
+      bot: bot,
+      delay: 5.minutes,
+      errors: ['API error']
+    ).notify_about_restart
+  end
+
+  def end_of_funds
+    user = User.new(email: 'test@example.com', name: 'Mathias')
+    bot = Bot.new(exchange_id: 1)
+    BotAlertsMailer.with(
+      user: user,
+      bot: bot,
+      quote: 'USDT'
+    ).end_of_funds
+  end
+
+  def successful_webhook_bot_transaction
+    user = User.new(email: 'test@example.com', name: 'Mathias')
+    bot = Bot.new(exchange_id: 1)
+    BotAlertsMailer.with(
+      user: user,
+      bot: bot,
+      base: 'BTC',
+      quote: 'USDT',
+      bot_name: 'My Bot',
+      type: 'buy',
+      price: '50000'
+    ).successful_webhook_bot_transaction
+  end
 end

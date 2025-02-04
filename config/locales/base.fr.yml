@@ -368,9 +368,7 @@ fr:
         terms_and_conditions: 'Conditions générales'
     mail: '<p>Génial ! Votre lien de parrainage <br>gagne du terrain !</p> <p>Nous transférons une commission de </p><p style="margin: 1em 0 1.2em;"><b>%{amount}BTC</b></p><p>sur votre portefeuille Bitcoin.</p><p>Merci d''élargir le gang Badger !</p>'
     mailer:
-        all_rights_reserved: 'Tous droits hyperbitcoinisés.'
-        email_or_telegram: 'Vous avez des questions ? Répondez à cet e-mail ou rejoignez notre communauté sur'
-        follow_us_twitter: 'N''oubliez pas de nous suivre sur'
+        follow_us_on_x: 'Suivez-nous sur 𝕏'
         greeting: 'Ohé capitaine,'
         greeting_name: 'Ohé %{name},'
         signature_badgers: 'Une équope de Badgers invincibles à votre service'
@@ -411,11 +409,21 @@ fr:
         twitter: 'Suivez-nous sur 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Paiement Deltabadger'
-            template_html: '<h1>Facture</h1><p><b>Payé à :</b></p><p>%{paid_at}</p><p><b>Vendeur :</b></p><p>Deltabadger OÜ<br> Pärnu mnt 158/2-88 <br>11317 Tallinn <br> Estonia <br> Reg.No.14781461 </p><p><b>Acheteur </b></p><p>%{first_name}%{last_name}<br>%{email}</p><h2>Deltabadger %{plan_name} Forfait (%{years} ans)</h2><p><b> Payé :</b></p><h2>%{total_paid}%{currency}</h2>'
-        subscription_granted:
-            subject: 'Forfait %{plan_name} accordé'
-            template_html: '<p>Wow,</p><p>merci d''avoir acheté notre forfait <b>%{plan_name}</b></p>. <p>Vous déchirez !</p>'
+            subject: 'Reçu'
+            template_html: |
+                <h2>Plan Deltabadger %{plan_name} (%{years} ans)</h2>
+                <p> <b>Payé :</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Payé le :</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Vendeur :</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estonie <br>
+                N° d'enregistrement 14781461</p>
+                <p><b>Acheteur :</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/mois"
         per_year_html: "/an"

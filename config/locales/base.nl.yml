@@ -368,9 +368,7 @@ nl:
         terms_and_conditions: 'Algemene voorwaarden'
     mail: '<p>Top! Uw referral link <br>wint aan populariteit!</p><p>Wij maken een commissie over van </p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b></p><p>naar uw Bitcoin wallet.</p><p>Dank voor het uitbreiden van de badger gang!</p>'
     mailer:
-        all_rights_reserved: 'Alle rechten hyperbitcoinized.'
-        email_or_telegram: 'Vragen? Beantwoord deze email, of word lid van onze gemeenschap op'
-        follow_us_twitter: 'Vergeet niet ons te volgen op'
+        follow_us_on_x: 'Volg ons op 𝕏'
         greeting: 'Ahoy kapitein,'
         greeting_name: 'Ahoy %{name},'
         signature_badgers: 'Onoverwinnelijk team van badgers tot uw dienst.'
@@ -415,11 +413,21 @@ nl:
         twitter: 'Volg ons op 𝕏'
     subscription_mailer:
         invoice:
-            subject: 'Deltabadger Betaling'
-            template_html: '<h1>Factuur</h1><p><b>Betaald op:</b></p><p>%{paid_at}</p><p><b>Verkoper:</b></p><p> Deltabadger OÜ <br> Pärnu mnt 158/2-88 <br> 11317 Tallinn <br> Estland <br> Reg.nr.14781461</p><p><b>Koper:</b></p><p> %{first_name} %{last_name} <br> %{email}</p><h2>Deltabadger %{plan_name} Plan (%{years}-jaar)</h2><p> <b>Betaald:</b></p><h2>%{total_paid} %{currency}</h2>'
-        subscription_granted:
-            subject: '%{plan_name} abonnement geactiveerd'
-            template_html: '<p>Wow,</p><p>Bedankt voor het kopen van ons <b>%{plan_name} plan</b></p><p>Je bent geweldig!</p>'
+            subject: 'Factuur'
+            template_html: |
+                <h2>Deltabadger %{plan_name} Plan (%{years}-jarig)</h2>
+                <p> <b>Betaald:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Betaald op:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Verkoper:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estland <br>
+                KvK nr.14781461</p>
+                <p><b>Koper:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
     subscriptions:
         per_month_html: "/maand"
         per_year_html: "/jaar"
