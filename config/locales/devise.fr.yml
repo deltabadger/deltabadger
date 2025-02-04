@@ -1,0 +1,97 @@
+fr:
+    devise:
+        confirmations:
+            confirmed: 'Votre adresse e-mail a été confirmée avec succès.'
+            new:
+                submit: 'Renvoyer'
+                title: 'Renvoyer les instructions'
+            send_instructions: 'Vous allez recevoir un e-mail avec les instructions pour confirmer votre adresse e-mail dans quelques minutes.'
+            send_paranoid_instructions: 'Si votre adresse e-mail existe dans notre base de données, vous recevrez un e-mail avec les instructions pour confirmer votre adresse e-mail dans quelques minutes.'
+        passwords:
+            edit:
+                submit: 'Changer le mot de passe'
+                title: 'Changer le mot de passe'
+            new:
+                submit: 'Envoyer les instructions'
+                title: 'Mot de passe oublié ?'
+            no_token: 'Vous ne pouvez pas accéder à cette page sans passer par un e-mail de réinitialisation de mot de passe. Si vous venez d''un e-mail de réinitialisation de mot de passe, assurez-vous d''avoir utilisé l''URL complète fournie.'
+            send_instructions: 'Vous allez recevoir un e-mail avec les instructions pour réinitialiser votre mot de passe dans quelques minutes.'
+            send_paranoid_instructions: 'Si votre adresse e-mail existe dans notre base de données, vous recevrez un lien de récupération de mot de passe à votre adresse e-mail dans quelques minutes.'
+            updated: 'Votre mot de passe a été changé avec succès. Vous êtes maintenant connecté.'
+            updated_not_active: 'Votre mot de passe a été changé avec succès.'
+            token_expired: 'Votre lien de réinitialisation de mot de passe a expiré. Veuillez demander un nouveau lien.'
+            validations:
+                length: 'Au moins %{count} caractères'
+                uppercase: 'Contient une majuscule'
+                lowercase: 'Contient une minuscule'
+                digit: 'Contient un chiffre'
+                symbol: 'Contient un symbole'
+                match: 'Les mots de passe correspondent'
+        registrations:
+            edit:
+                awaiting_confirmation: 'En attente de confirmation pour : %{email}'
+            new:
+                email_invalid: 'E-mail invalide !'
+                email_suggestion_html: 'E-mail invalide ! Vouliez-vous dire : <b>%{suggestion}</b>'
+                name_invalid: 'Pas besoin d''être réel 👻'
+                submit: 'S''inscrire'
+                title_html: 'Créer un compte <span class="text-success">gratuit</span>'
+            signed_up: 'Bienvenue ! Vous vous êtes inscrit avec succès.'
+            signed_up_but_inactive: 'Vous vous êtes inscrit avec succès. Cependant, nous n''avons pas pu vous connecter car votre compte n''est pas encore activé.'
+            signed_up_but_unconfirmed: 'Un message avec un lien de confirmation a été envoyé à votre adresse e-mail. Veuillez suivre le lien pour activer votre compte.'
+            update_needs_confirmation: 'Vous avez mis à jour votre compte avec succès, mais nous devons vérifier votre nouvelle adresse e-mail. Veuillez vérifier vos e-mails et suivre le lien de confirmation pour confirmer votre nouvelle adresse e-mail.'
+            updated: 'Votre compte a été mis à jour avec succès.'
+            updated_but_not_signed_in: 'Votre compte a été mis à jour avec succès, mais comme votre mot de passe a été modifié, vous devez vous reconnecter.'
+            destroyed: 'Au revoir ! Votre compte a été supprimé avec succès. Nous espérons vous revoir bientôt.'
+        sessions:
+            new:
+                forgot_password: 'Mot de passe oublié ?'
+                submit: 'Se connecter'
+                title: 'Bon retour !'
+            signed_in: 'Connecté avec succès.'
+            signed_out: 'Déconnecté avec succès.'
+            already_signed_out: 'Déconnecté avec succès.'
+            two_factor:
+                submit: "Vérifier"
+                invalid_code: "Code incorrect. Réessayez."
+        failure:
+            already_authenticated: 'Vous êtes déjà connecté.'
+            inactive: 'Votre compte n''est pas encore activé.'
+            invalid: '%{authentication_keys} ou mot de passe invalide.'
+            not_found_in_database: '%{authentication_keys} ou mot de passe invalide.'
+            timeout: 'Votre session a expiré. Veuillez vous reconnecter pour continuer.'
+            unauthenticated: 'Vous devez vous connecter ou vous inscrire avant de continuer.'
+            unconfirmed: 'Vous devez confirmer votre adresse e-mail avant de continuer.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Confirmez votre e-mail'
+                template_html: |
+                    <p>Bienvenue sur Deltabadger !</p>
+                    <p>Cliquez sur le lien ci-dessous pour confirmer votre adresse e-mail :</p>
+                confirm_button: 'Confirmer mon e-mail'
+            email_changed:
+                subject: 'E-mail modifié'
+                template_html: |
+                    <p>Nous vous contactons pour vous informer que votre e-mail est en cours de modification pour %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Mot de passe modifié'
+                template_html: |
+                    <p>Nous vous contactons pour vous informer que votre mot de passe a été modifié.</p>
+            reset_password_instructions:
+                subject: 'Instructions de réinitialisation du mot de passe'
+                template_html: |
+                    <p>Quelqu''un a demandé un lien pour changer votre mot de passe.</p>
+                    <p>Vous pouvez le faire via le lien ci-dessous :</p>
+                change_password_button: 'Changer mon mot de passe'
+                ignore_mail_html: |
+                    <p>Si vous n''avez pas fait cette demande, ignorez cet e-mail et votre mot de passe ne sera pas modifié.</p>
+                wont_change_html: |
+                    <p>Votre mot de passe ne changera pas tant que vous n''aurez pas accédé au lien ci-dessus et créé un nouveau.</p>
+            email_already_taken:
+                subject: 'E-mail déjà utilisé'
+                message: 'Cet e-mail est déjà enregistré.'
+                reset_password_message: 'Si c''est votre compte, vous pouvez réinitialiser votre mot de passe ici :'
+                reset_password_button: 'Réinitialiser le mot de passe'
+        omniauth_callbacks:
+            failure: 'Nous n''avons pas pu vous authentifier via %{kind} pour la raison suivante : "%{reason}".'
+            success: 'Authentification réussie avec le compte %{kind}.'
