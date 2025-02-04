@@ -415,7 +415,7 @@ en:
         legendary_badger: 'Legendary Badger'
     mailer:
         follow_us_on_x: 'Follow us on 𝕏'
-        we_reply_faster_on_telegram: 'We reply the fastest on Telegram'
+        we_reply_faster_on_telegram: 'We reply faster on Telegram'
         greeting: 'Ahoy captain,'
         greeting_name: 'Hey %{name},'
     meta:
