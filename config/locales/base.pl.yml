@@ -11,17 +11,32 @@ pl:
                         eth_address:
                             invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
     ads:
-        dca_profit_html: 'Gdybyś inwestował w Bitcoina metodą DCA przez ostatnie %{years}&nbsp;lata, teraz byłbyś na&nbsp;plusie <span class="text-success">%{profit}%</span>'
+        dca_profit_html: |
+            <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b>%{profit}%</b>.</p>
+            <p>To <b>%{sp500_diff}% więcej niż S&P 500</b> w tym samym okresie.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: 'Potwierdź nowy adres bitcoinowy'
-            template_html: '<p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p><p><b>%{new_btc_address}</b></p><p>Ten adres będzie używany do Twoich wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p><a class="mail-button" style="color: #fff" href="%{confirmation_url}">Tak, zmieńmy go!</a>'
+            subject: "Potwierdź nowy adres Bitcoin"
+            template_html: |
+                <p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p>
+                <p><code>%{new_btc_address}</code></p><p>Ten adres będzie używany do wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p>
+                <a href=\"%{confirmation_url}\">Tak, zmień adres</a>
         referrals_payout_notification:
-            subject: 'Nadszedł dzień wypłaty!'
-            template_html: '<p>Twój link polecający zyskuje na popularności! Nieźle!!!</p><p>Wysłaliśmy prowizję w wysokości</p><p> <b>%{amount} BTC</b></p><p>na Twój portfel Bitcoin.</p><p>Dziękujemy za powiększanie gangu borsuka!</p>'
+            subject: "Czas na wypłatę!"
+            template_html: |
+                <p>Dziękujemy! Deltabadger rośnie tylko dzięki poleceniom.</p>
+                <p>A Twoje naprawdę działają:</p>
+                <p>Właśnie przelaliśmy Ci <b>%{amount} BTC</b>.</p>
+                <p>Najlepsza część? To nie koniec:</p>
+                <p><b>Otrzymasz 20% za każdy rok, gdy polecone osoby przedłużą subskrypcję</b>.</p>
+                <p>Znasz kogoś, kto mógłby skorzystać z Deltabadgera?</p>
+            grow_stream: "Daj im znać i zwiększ swój powracający dochód"
         registration_reminder:
-            subject: 'Wow! Zarobiłeś %{amount} BTC!'
-            template_html: '<p>Czeka na Ciebie nowa prowizja z programu poleceń! Zakończ rejestrację, aby otrzymać swoje bitcoiny.</p><a class="email-button" style="color: #fff" href=%{link}>Dokończ rejestrację.</a>'
+            subject: "Wow! Zarobiłeś %{amount} BTC!"
+            template_html: |
+                <p>Czeka na Ciebie nowa prowizja z programu poleceń!</p>
+                <p>Dokończ rejestrację, aby otrzymać swoje bitcoiny:</p>
+            complete_registration: "Dokończ rejestrację"
     affiliates:
         add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
         apply_code:

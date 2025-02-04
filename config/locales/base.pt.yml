@@ -11,7 +11,32 @@ pt:
                         eth_address:
                             invalid_address: '"%{eth_address}" é um endereço Ethereum inválido. Por favor, tente novamente.'
     ads:
-        dca_profit_html: 'Se você estivesse investindo regularmente em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria&nbsp;com um ganho de <span class="text-success">%{profit}%</span>'
+        dca_profit_html: |
+            <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b>%{profit}%</b>.</p>
+            <p>Isso é <b>%{sp500_diff}% mais do que o S&P 500</b> no mesmo período.</p>
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: "Confirmar novo endereço Bitcoin"
+            template_html: |
+                <p>Parece que quer alterar o seu endereço Bitcoin para:</p>
+                <p><code>%{new_btc_address}</code></p><p>Este endereço será usado para os seus pagamentos do programa de referência.</p><p>Tem a certeza?</p>
+                <a href=\"%{confirmation_url}\">Sim, alterar o endereço</a>
+        referrals_payout_notification:
+            subject: "É dia de pagamento!"
+            template_html: |
+                <p>Obrigado. A Deltabadger cresce apenas graças a referências de boca a boca.</p>
+                <p>E as suas funcionam mesmo:</p>
+                <p>Há pouco, transferimos <b>%{amount} BTC</b> para si.</p>
+                <p>A melhor parte? Não acaba aqui:</p>
+                <p><b>Receberá 20% todos os anos que as suas referências prolongarem a subscrição</b>.</p>
+                <p>Conhece mais alguém que possa beneficiar da Deltabadger?</p>
+            grow_stream: "Avise-os e aumente o seu fluxo recorrente"
+        registration_reminder:
+            subject: "Uau! Ganhou %{amount} BTC!"
+            template_html: |
+                <p>Tem uma nova comissão do programa de referência à sua espera!</p>
+                <p>Complete o registo para receber os seus bitcoin:</p>
+            complete_registration: "Completar registo"
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
         apply_code:
