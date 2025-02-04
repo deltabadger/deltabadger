@@ -32,7 +32,7 @@ de:
                 <p>Und Ihre funktionieren wirklich gut:</p>
                 <p>Vor kurzem haben wir <b>%{amount} BTC</b> an Sie überwiesen.</p>
                 <p>Das Beste daran? Es ist noch nicht vorbei:</p>
-                <p><b>Sie erhalten jedes Jahr 20%, wenn Empfehlungen ihr Abonnement verlängern</b>.</p>
+                <p><b>Sie erhalten 20% jedes Mal, wenn diese Empfehlungen ihr Abonnement verlängern</b>.</p>
                 <p>Kennen Sie noch jemanden, der von Deltabadger profitieren könnte?</p>
             grow_stream: "Lassen Sie es sie wissen und steigern Sie Ihre wiederkehrenden Einnahmen"
         registration_reminder:
@@ -106,21 +106,33 @@ de:
             your_link: 'Dein Empfehlungslink'
         your_bitcoin_address: 'Deine Bitcoin-Adresse'
     bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "Transaktion war erfolgreich"
+            template_html: "Transaktion erfolgreich, Basis: %{base}, Quote: %{quote}, Bot-Name: %{bot_name}, Typ: %{type}, Preis: %{price}, Börsenname: %{exchange_name}"
+        end_of_funds:
+            subject: "Deinem Bot gehen bald die Mittel aus"
+            template_html: "<p>Es sieht so aus, als würde deinem Bot bald das %{quote} ausgehen.</p><p>Tätige eine Überweisung an %{exchange_name}, damit der Bot kontinuierlich weiterarbeiten kann.</p>"
+        notify_about_error:
+            subject: "Etwas ist schiefgelaufen"
+            template_html: "<p>Bei der Verarbeitung der letzten Transaktion ist etwas schiefgelaufen.</p><p>Du kannst den Fehler im Bot-Log sehen. Melde dich an, um ihn zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Ups! Nächster Versuch…"
+            template_html: "<p>Der Bot konnte deine Order nicht ausführen. Es scheint ein Problem mit der Börse zu geben. Wir versuchen es in %{delay} erneut.</p><p>Alle Fehler sind im Bot-Log sichtbar. Melde dich an, um sie zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
+    button:
+        connect: "Verbinden"
+    bot:
+        barbell:
+            invest_html: "%{input} /Monat investieren"
+        utils:
+            mkt_cap_adjusted: "Marktkapitalisierung angepasst"
+            mkt_cap_adjusted_info: |
+                Die Zuteilung wird automatisch basierend auf der Marktkapitalisierung der Coins in deinem Portfolio festgelegt. Je größer die Marktkapitalisierung, desto größer die Zuteilung.
     data_labels:
         bought_ticker: "Gekauft (%{ticker})"
         avg_price_ticker: "Durchschn. Preis (%{ticker})"
         invested_ticker: "Investiert (%{ticker})"
         value_ticker: "Wert (%{ticker})"
-        date: Datum
-    button:
-        connect: "Verbinden"
-    bot:
-        barbell:
-            invest_html: "Investiere %{input} /Monat"
-        utils:
-            mkt_cap_adjusted: "Nach Marktkapitalisierung"
-            mkt_cap_adjusted_info: |
-                Die Zuweisung erfolgt automatisch basierend auf der Marktkapitalisierung der Münzen in Ihrem Portfolio. Je größer die Marktkapitalisierung, desto größer die Zuweisung.
+        date: "Datum"
     bots:
         above: über
         add_new_bot: 'Neuen Bot hinzufügen'

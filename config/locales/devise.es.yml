@@ -70,9 +70,13 @@ es:
                     <p>Haz clic en el enlace de abajo para confirmar tu dirección de correo electrónico:</p>
                 confirm_button: 'Confirmar mi correo electrónico'
             email_changed:
-                subject: 'Correo Electrónico Cambiado'
+                subject: 'Tu correo electrónico ha sido cambiado'
                 template_html: |
-                    <p>Te contactamos para notificarte que tu correo electrónico está siendo cambiado a %{unconfirmed_email}.</p>
+                    <p>Te contactamos para notificarte que tu correo electrónico ha sido cambiado a %{email}.</p>
+            confirm_email:
+                subject: 'Confirma tu nueva dirección de correo electrónico'
+                template_html: |
+                    <p>Te contactamos para notificarte que tu correo electrónico será cambiado a %{unconfirmed_email}.</p>
             password_change:
                 subject: 'Contraseña Cambiada'
                 template_html: |
