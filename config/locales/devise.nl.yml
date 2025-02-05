@@ -70,9 +70,13 @@ nl:
                     <p>Klik op de link hieronder om je e-mailadres te bevestigen:</p>
                 confirm_button: 'Bevestig mijn e-mail'
             email_changed:
-                subject: 'E-mail gewijzigd'
+                subject: 'Je e-mailadres is gewijzigd'
                 template_html: |
-                    <p>We nemen contact met je op om je te laten weten dat je e-mail wordt gewijzigd naar %{unconfirmed_email}.</p>
+                    <p>We nemen contact met je op om je te laten weten dat je e-mailadres is gewijzigd naar %{email}.</p>
+            confirm_email:
+                subject: 'Bevestig je nieuwe e-mailadres'
+                template_html: |
+                    <p>We nemen contact met je op om je te laten weten dat je e-mailadres wordt gewijzigd naar %{unconfirmed_email}.</p>
             password_change:
                 subject: 'Wachtwoord gewijzigd'
                 template_html: |
