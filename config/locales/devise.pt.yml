@@ -70,7 +70,11 @@ pt:
                     <p>Clique no link abaixo para confirmar seu endereço de e-mail:</p>
                 confirm_button: 'Confirmar meu e-mail'
             email_changed:
-                subject: 'E-mail Alterado'
+                subject: 'Seu e-mail foi alterado'
+                template_html: |
+                    <p>Estamos entrando em contato para notificá-lo que seu e-mail foi alterado para %{email}.</p>
+            confirm_email:
+                subject: 'Confirme seu novo endereço de e-mail'
                 template_html: |
                     <p>Estamos entrando em contato para notificá-lo que seu e-mail está sendo alterado para %{unconfirmed_email}.</p>
             password_change:

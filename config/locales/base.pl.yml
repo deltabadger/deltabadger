@@ -10,6 +10,10 @@ pl:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
     ads:
         dca_profit_html: |
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
@@ -28,7 +32,7 @@ pl:
                 <p>A Twoje naprawdę działają:</p>
                 <p>Właśnie przelaliśmy Ci <b>%{amount} BTC</b>.</p>
                 <p>Najlepsza część? To nie koniec:</p>
-                <p><b>Otrzymasz 20% za każdy rok, gdy polecone osoby przedłużą subskrypcję</b>.</p>
+                <p><b>Otrzymasz 20% za każdym razem, gdy polecone osoby przedłużą subskrypcję</b>.</p>
                 <p>Znasz kogoś, kto mógłby skorzystać z Deltabadgera?</p>
             grow_stream: "Daj im znać i zwiększ swój powracający dochód"
         registration_reminder:
@@ -102,30 +106,33 @@ pl:
             your_link: 'Twój link polecający'
         your_bitcoin_address: 'Twój adres bitcoinowy'
     bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "Transakcja zakończona sukcesem"
+            template_html: "transakcja udana, base: %{base}, quote: %{quote}, nazwa bota: %{bot_name}, typ: %{type}, cena: %{price}, giełda: %{exchange_name}"
         end_of_funds:
-            subject: 'Twojemu botowi wkrótce skończą się środki'
-            template_html: '<p>Wygląda na to, że Twojemu botowi wkrótce skończy się %{quote}.</p><p>Dokonaj przelewu do %{exchange_name}, aby mieć pewność, że bot działa nieprzerwanie.</p>'
+            subject: "Twojemu botowi wkrótce zabraknie środków"
+            template_html: "<p>Wygląda na to, że twojemu botowi wkrótce zabraknie %{quote}.</p><p>Wykonaj przelew na %{exchange_name}, aby bot mógł działać nieprzerwanie.</p>"
         notify_about_error:
-            subject: 'Coś poszło nie tak'
-            template_html: '<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji.</p><p>Możesz zobaczyć błąd w logu bota. Zaloguj się, aby go sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
+            subject: "Coś poszło nie tak"
+            template_html: "<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji.</p><p>Możesz zobaczyć błąd w logach bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: 'Ups! Następna próba...'
-            template_html: '<p>Bot nie mógł wykonać twojego zamówienia. Wygląda to na problem z wymianą walut. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logu bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
-    data_labels:
-        bought_ticker: "Kupione (%{ticker})"
-        avg_price_ticker: "Średnia Cena (%{ticker})"
-        invested_ticker: "Zainwestowane (%{ticker})"
-        value_ticker: "Wartość (%{ticker})"
-        date: Data
+            subject: "Ups! Następna próba…"
+            template_html: "<p>Bot nie mógł wykonać twojego zlecenia. Wygląda na problem z giełdą. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logach bota. Zaloguj się, aby je sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Połącz"
     bot:
         barbell:
             invest_html: "Inwestuj %{input} /miesiąc"
         utils:
-            mkt_cap_adjusted: "Ustaw wg kapitalizacji rynkowej"
+            mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
             mkt_cap_adjusted_info: |
-                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w Twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
+                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
+    data_labels:
+        bought_ticker: "Kupiono (%{ticker})"
+        avg_price_ticker: "Śr. cena (%{ticker})"
+        invested_ticker: "Zainwestowano (%{ticker})"
+        value_ticker: "Wartość (%{ticker})"
+        date: "Data"
     bots:
         above: powyżej
         add_new_bot: 'Dodaj nowego bota'
@@ -391,9 +398,9 @@ pl:
         settings: Ustawienia
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin
-    mail: '<p>Twój link polecający zyskuje na popularności! Nieźle!!!</p><p>Wysłaliśmy prowizję w wysokości</p><p> <b>%{amount} BTC</b></p><p>na Twój portfel Bitcoin.</p><p>Dziękujemy za powiększanie gangu borsuka!</p>'
     mailer:
         follow_us_on_x: 'Śledź nas na 𝕏'
+        we_reply_faster_on_telegram: 'Szybciej odpowiadamy na Telegramie'
         greeting: 'Hej kapitanie,'
         greeting_name: 'Hej %{name},'
     meta:

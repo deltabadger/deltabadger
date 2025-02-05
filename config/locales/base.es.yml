@@ -10,6 +10,10 @@ es:
                     attributes:
                         eth_address:
                             invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Se ha alcanzado el máximo número de activos."
     ads:
         dca_profit_html: |
             <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b style="color: #00A36C;">%{profit}%</b> de ganancia.</p>
@@ -28,7 +32,7 @@ es:
                 <p>Y las tuyas realmente funcionan:</p>
                 <p>Hace poco, te transferimos <b>%{amount} BTC</b>.</p>
                 <p>¿La mejor parte? No termina aquí:</p>
-                <p><b>Recibirás un 20% cada año que tus referidos renueven su suscripción</b>.</p>
+                <p><b>Recibirás un 20% cada vez que esos referidos prolonguen su suscripción</b>.</p>
                 <p>¿Conoces a alguien más que podría beneficiarse de Deltabadger?</p>
             grow_stream: "Hazles saber y aumenta tus ingresos recurrentes"
         registration_reminder:
@@ -102,30 +106,33 @@ es:
             your_link: 'Tu enlace de referidos'
         your_bitcoin_address: 'Tu dirección de Bitcoin'
     bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "La transacción ha sido exitosa"
+            template_html: "transacción exitosa, base: %{base}, cotización: %{quote}, nombre del bot: %{bot_name}, tipo: %{type}, precio: %{price}, nombre del exchange: %{exchange_name}"
         end_of_funds:
-            subject: 'Tu bot se quedará pronto sin fondos'
-            template_html: '<p>Parece que tu bot se quedará sin %{quote} muy pronto.</p><p>Haz una transferencia a %{exchange_name} para asegurarte de que el bot funciona continuamente.</p>'
+            subject: "Tu bot se está quedando sin fondos pronto"
+            template_html: "<p>Parece que tu bot se está quedando sin %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurarte de que el bot siga funcionando continuamente.</p>"
         notify_about_error:
-            subject: 'Algo salió mal'
-            template_html: '<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Error:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>'
+            subject: "Algo salió mal"
+            template_html: "<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: 'Oops! Siguiente intento'
-            template_html: '<p>El bot no ha podido realizar tu pedido. Parece un problema de intercambio. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>'
-    data_labels:
-        bought_ticker: "Comprado (%{ticker})"
-        avg_price_ticker: "Precio Prom. (%{ticker})"
-        invested_ticker: "Invertido (%{ticker})"
-        value_ticker: "Valor (%{ticker})"
-        date: Fecha
+            subject: "¡Ups! Siguiente intento…"
+            template_html: "<p>El bot no pudo realizar tu orden. Parece un problema del exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Conectar"
     bot:
         barbell:
-            invest_html: "Invierte %{input} /mes"
+            invest_html: "Invertir %{input} /mes"
         utils:
-            mkt_cap_adjusted: "Ajustado a la capitalización"
+            mkt_cap_adjusted: "Ajustado por capitalización de mercado"
             mkt_cap_adjusted_info: |
-                La asignación se establece automáticamente según la capitalización de mercado de las monedas en su cartera. Cuanto mayor sea la capitalización de mercado, mayor será la asignación.
+                La asignación se establece automáticamente según la capitalización de mercado de las monedas en tu cartera. Cuanto mayor sea la capitalización de mercado, mayor será la asignación.
+    data_labels:
+        bought_ticker: "Comprado (%{ticker})"
+        avg_price_ticker: "Precio promedio (%{ticker})"
+        invested_ticker: "Invertido (%{ticker})"
+        value_ticker: "Valor (%{ticker})"
+        date: "Fecha"
     bots:
         above: 'por encima'
         add_new_bot: 'Añadir nuevo bot'
@@ -382,13 +389,11 @@ es:
         settings: Configuración
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
-    mail: '<p>¡Genial! ¡Tu enlace de referidos está ganando tracción en<br>!</p><p>Transferimos una comisión de</p><p style="margin: 1em 0 1.2em;"> <b>%{amount} BTC</b> </p><p>a tu monedero Bitcoin.</p><p>¡Gracias por ampliar la comunidad Badger!</p>'
     mailer:
-        follow_us_on_x: 'No olvides seguirnos en 𝕏'
+        follow_us_on_x: 'Síguenos en 𝕏'
+        we_reply_faster_on_telegram: 'Respondemos más rápido en Telegram'
         greeting: 'Arrr capitán,'
         greeting_name: 'Ahoy %{name},'
-        signature_badgers: 'Un equipo inmejorable de Badgers a tu disposición.'
-        signature_html: 'El Equipo de Deltabadger'
     meta:
         desc: 'Comienza de forma gratuita,la estrategia probada que funciona con Binance, Coinbase, Kraken, Kucoin, y otros exchanges. Sin KYC.'
         title: 'Deltabadger • Inversión constante automatizada (DCA) en cualquier criptomoneda'

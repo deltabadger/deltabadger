@@ -32,7 +32,7 @@ en:
                 <p>And yours really works:</p>
                 <p>Just a while ago, we transfererred <b>%{amount} BTC</b> to you.</p>
                 <p>The best part? It's not over:</p>
-                <p><b>You'll get 20% every year referrals prolong subscription</b>.</p>
+                <p><b>You'll get 20% every time those referrals prolong subscription</b>.</p>
                 <p>Do you know somebody else who may benefit from Deltabadger?</p>
             grow_stream: "Let them know and grow your recurring stream"
         registration_reminder:
@@ -134,7 +134,6 @@ en:
         value_ticker: "Value (%{ticker})"
         date: "Date"
     bots:
-        not_found: "Such a bot doesn't exist."
         above: "above"
         add_new_bot: "Add new bot"
         below: "below"
