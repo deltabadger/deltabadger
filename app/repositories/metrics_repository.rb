@@ -32,8 +32,9 @@ class MetricsRepository < BaseRepository
       # dca4yrProfitVti: DcaProfitGetter.call('vti', 4.years.ago).data,
       dca4yrProfitVt: DcaProfitGetter.call('vt', 4.years.ago).data,
       dca4yrProfitQqq: DcaProfitGetter.call('qqq', 4.years.ago).data,
-      dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data
+      dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data,
       # dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
+      topCoins: top_coins_data(count: 60)
     }.merge(telegram_metrics)
     @redis_client.set(METRICS_KEY, metrics.to_json)
   end
@@ -68,5 +69,26 @@ class MetricsRepository < BaseRepository
 
   def convert_to_satoshis(amount)
     (amount * 10**8).ceil
+  end
+
+  def top_coins_data(count:)
+    coingecko_client = CoingeckoClient.new
+    top_coins_result = coingecko_client.coins_markets(vs_currency: 'usd', per_page: count)
+    top_stablecoins_result = coingecko_client.coins_markets(vs_currency: 'usd', category: 'stablecoins', per_page: count)
+    top_stablecoins_ids = top_stablecoins_result.data.map { |coin| coin['id'] }
+    top_coins = []
+    top_coins_result.data.each_with_index do |coin, index|
+      break if index >= count
+
+      next if top_stablecoins_ids.include?(coin['id'])
+
+      top_coins << {
+        name: coin['name'],
+        symbol: coin['symbol'].upcase,
+        price: coin['current_price'],
+        market_cap: coin['market_cap']
+      }
+    end
+    top_coins
   end
 end
