@@ -18,14 +18,16 @@ class CoingeckoClient < ApplicationClient
   end
 
   # https://docs.coingecko.com/reference/simple-price
-  # @param coin_ids [Array] An array of coin ids to get all tickers.
-  # @param vs_currencies [Array] An array of vs_currencies to get all prices.
+  # @param coin_ids [Array<String>] An array of coin ids to get all tickers.
+  # @param vs_currencies [Array<String>] An array of vs_currencies to get all prices.
   def simple_price(coin_ids, vs_currencies)
     with_rescue do
       response = self.class.connection.get do |req|
         req.url 'simple/price'
-        req.params['ids'] = coin_ids.join(',')
-        req.params['vs_currencies'] = vs_currencies.join(',')
+        req.params = {
+          ids: coin_ids.join(','),
+          vs_currencies: vs_currencies.join(',')
+        }
       end
       Result::Success.new(response.body)
     end
@@ -42,11 +44,61 @@ class CoingeckoClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url "coins/#{coin_id}/market_chart/range"
-        req.params['vs_currency'] = vs_currency
-        req.params['from'] = from.to_i
-        req.params['to'] = to.to_i
-        req.params['interval'] = interval if interval.present?
-        req.params['precision'] = precision if precision.present?
+        req.params = {
+          vs_currency: vs_currency,
+          from: from.to_i,
+          to: to.to_i,
+          interval: interval,
+          precision: precision
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.coingecko.com/reference/coins-markets
+  # @param vs_currency [String] The target currency of market chart
+  # @param ids [Array<String>] coins' ids, comma-separated if querying more than 1 coin.
+  # @param category [String] Filter based on coins' category.
+  # @param order [String] Sort result by field, default: market_cap_desc
+  # @param per_page [Int] Total results per page, default: 100
+  #                       Valid values: 1...250
+  # @param page [Int] Page through results, default: 1.
+  # @param sparkline [Boolean] Whether to include sparkline 7 days data.
+  # @param price_change_percentage [String] Include price change percentage timeframe,
+  #                                         comma-separated if query more than 1 price
+  #                                         change percentage timeframe
+  # Valid values: 1h, 24h, 7d, 14d, 30d, 200d, 1y.
+  # @param locale [String] The locale of the coin.
+  # @param precision [String] Decimal place for currency price value.
+  def coins_markets(
+    vs_currency:,
+    ids: nil,
+    category: nil,
+    order: 'market_cap_desc',
+    per_page: 100,
+    page: 1,
+    sparkline: false,
+    price_change_percentage: nil,
+    locale: 'en',
+    precision: 'full'
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url 'coins/markets'
+        ids = ids.join(',') if ids.present?
+        req.params = {
+          vs_currency: vs_currency,
+          ids: ids,
+          category: category,
+          order: order,
+          per_page: per_page,
+          page: page,
+          sparkline: sparkline,
+          price_change_percentage: price_change_percentage,
+          locale: locale,
+          precision: precision
+        }.compact
       end
       Result::Success.new(response.body)
     end
