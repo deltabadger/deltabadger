@@ -480,7 +480,7 @@ es:
             account_number: 'Número de cuenta'
             account_type: 'Tipo de cuenta'
             active_plan_discount: 'Descuento del plan activo'
-            after_wire_transfer_html: '¡Gracias! Pronto nos pondremos en contacto contigo. Si necesitas ayuda adicional, envíanos un mensaje a <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: '¡Gracias! Pronto nos pondremos en contacto contigo. Si necesitas ayuda adicional, envíanos un mensaje a <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
             bank_address: 'Dirección del banco'
             billing_information: 'Datos de facturación'
             base_price: 'Precio base'

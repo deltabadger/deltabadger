@@ -504,7 +504,7 @@ en:
             account_holder: "Account holder"
             account_number: "Account number"
             account_type: "Account type"
-            after_wire_transfer_html: "Thank you! We'll be back to you soon! If you need further assistance, let us know: <a href='mailto:sales@deltabadger.com'>sales@deltabadger.com</a>."
+            after_wire_transfer_html: "Thank you! We'll be back to you soon! If you need further assistance, let us know: <a href='mailto:support@deltabadger.com'>support@deltabadger.com</a>."
             bank_address: "Bank address"
             billing_information: "Billing information"
             active_plan_discount: "Active plan discount"

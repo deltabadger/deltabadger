@@ -493,7 +493,7 @@ pl:
             account_number: 'Numer konta'
             account_type: 'Typ konta'
             active_plan_discount: 'Rabat z tytułu aktywnego planu'
-            after_wire_transfer_html: 'Dziękujemy! Wkrótce do Ciebie wrócimy! Jeśli potrzebujesz dalszej pomocy, daj nam znać: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Dziękujemy! Wkrótce do Ciebie wrócimy! Jeśli potrzebujesz dalszej pomocy, daj nam znać: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
             bank_address: 'Adres banku'
             billing_information: 'Informacje rozliczeniowe'
             base_price: 'Cena bazowa'
