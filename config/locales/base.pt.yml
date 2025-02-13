@@ -452,7 +452,7 @@ pt:
             account_holder: 'Titular da conta'
             account_number: 'Número da conta'
             account_type: 'Tipo de conta'
-            after_wire_transfer_html: 'Obrigado! Entraremos em contato com você em breve! Se precisar de mais assistência, avise-nos: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Obrigado! Entraremos em contato com você em breve! Se precisar de mais assistência, avise-nos: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
             bank_address: 'Endereço do banco'
             billing_information: 'Informações de faturamento'
             active_plan_discount: 'Desconto no plano ativo'
