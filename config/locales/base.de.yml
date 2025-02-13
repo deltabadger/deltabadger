@@ -493,7 +493,7 @@ de:
             account_holder: 'Kontoinhaber'
             account_number: 'Kontonummer'
             account_type: 'Kontotyp'
-            after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
             bank_address: 'Adresse der Bank'
             billing_information: Zahlungsinformationen
             active_plan_discount: 'Rabatt für Pläne aktiv'
