@@ -51,6 +51,7 @@ class FinancialDataApiClient < ApplicationClient
         req.params = {
           source: source
         }.compact
+        req.options.read_timeout = 15
       end
       Result::Success.new(response.body)
     end
