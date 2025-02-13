@@ -479,7 +479,7 @@ nl:
             account_number: Rekeningnummer
             account_type: 'Rekening soort'
             active_plan_discount: 'Korting op actief plan'
-            after_wire_transfer_html: 'Bedankt! We nemen snel contact met u op! Als u verdere hulp nodig hebt, laat het ons weten: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com.</a>'
+            after_wire_transfer_html: 'Bedankt! We nemen snel contact met u op! Als u verdere hulp nodig hebt, laat het ons weten: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com.</a>'
             bank_address: 'Bank adres'
             billing_information: Factuurgegevens
             base_price: 'Basisprijs'
