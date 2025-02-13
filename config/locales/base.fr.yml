@@ -475,7 +475,7 @@ fr:
             account_number: 'Numéro de compte'
             account_type: 'Type de compte'
             active_plan_discount: 'Réduction sur le forfait en cours'
-            after_wire_transfer_html: 'Merci ! Nous reviendrons bientôt vers vous ! Si vous avez besoin d''aide, dites-le nous : <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Merci ! Nous reviendrons bientôt vers vous ! Si vous avez besoin d''aide, dites-le nous : <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
             bank_address: 'Adresse de la banque'
             billing_information: 'Détails de facturation'
             bitcoin: 'Bitcoin'

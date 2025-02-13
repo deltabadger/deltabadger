@@ -495,7 +495,7 @@ ru:
             account_number: 'Номер счета'
             account_type: 'Тип аккаунта'
             active_plan_discount: 'Скидка на активный план'
-            after_wire_transfer_html: 'Спасибо! Мы скоро вернемся! Если вам нужна дополнительная помощь, дайте нам знать: <a href=''mailto:sales@deltabadger.com''>sales@deltabadger.com</a>.'
+            after_wire_transfer_html: 'Спасибо! Мы скоро вернемся! Если вам нужна дополнительная помощь, дайте нам знать: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
             bank_address: 'Адрес банка'
             billing_information: 'Информация об оплате'
             bitcoin: Биткоин
@@ -527,7 +527,7 @@ ru:
             wire_cost_html: 'Пожалуйста, отправьте <b>%{price}</b> на следующий банковский счет:'
             wire_cost_pending_html: 'Если вы еще не совершили платеж, отправьте <b>%{price}</b> на следующий банковский счет:'
             wire_transfer: 'Безналичный перевод'
-            wire_transfer_description_html: 'Для оплаты безналичным переводом отправьте основную информацию для счета: <b>имя</b>, <b>фамилия</b>, <b>физический адрес</b>, <b>электронная почта</b>, которые используются в Deltabadger, и план, который вы хотите купить: <a href="mailto:sales@deltabadger.com">sales@deltabadger.com</a>.'
+            wire_transfer_description_html: 'Для оплаты безналичным переводом отправьте основную информацию для счета: <b>имя</b>, <b>фамилия</b>, <b>физический адрес</b>, <b>электронная почта</b>, которые используются в Deltabadger, и план, который вы хотите купить: <a href="mailto:support@deltabadger.com">support@deltabadger.com</a>.'
             wire_transfer_fill_form: 'Пожалуйста, заполните форму выше, чтобы продолжить…'
             wire_transfer_pending: 'Спасибо! Мы скоро активируем ваш аккаунт и свяжемся с вами по электронной почте.'
             you_pay: 'Вы платите'
