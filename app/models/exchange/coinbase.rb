@@ -1,4 +1,4 @@
-module Exchange::Coinbase
+module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
@@ -81,6 +81,13 @@ module Exchange::Coinbase
       Result::Success.new(result.data)
     end
 
+    def valid_order?(order)
+      # result = get_order(order_id: order_id)
+      # return result unless result.success?
+
+      # Result::Success.new(result.data['status'] == 'filled')
+    end
+
     def valid_keys?
       result = client.get_api_key_permissions
       result.success? &&
@@ -143,14 +150,14 @@ module Exchange::Coinbase
       result = client.get_product(product_id: symbol)
       return result unless result.success?
 
-      Result::Success.new(Utilities::Number.decimals(result.data['base_increment'].to_s))
+      Result::Success.new(Utilities::Number.decimals(result.data['base_increment']))
     end
 
     def get_quote_decimals(symbol)
       result = client.get_product(product_id: symbol)
       return result unless result.success?
 
-      Result::Success.new(Utilities::Number.decimals(result.data['quote_increment'].to_s))
+      Result::Success.new(Utilities::Number.decimals(result.data['quote_increment']))
     end
 
     def get_adjusted_amount(symbol, amount, amount_type)
@@ -170,7 +177,7 @@ module Exchange::Coinbase
       result = client.get_product(product_id: symbol)
       return result unless result.success?
 
-      Result::Success.new(Utilities::Number.decimals(result.data['price_increment'].to_s))
+      Result::Success.new(Utilities::Number.decimals(result.data['price_increment']))
     end
 
     def get_adjusted_price(symbol, price)
@@ -202,7 +209,10 @@ module Exchange::Coinbase
       )
       return result unless result.success?
 
-      return Result::Failure.new("Order #{client_order_id} failed", data: result.data) if result.data['success'] == false
+      if result.data['success'] == false
+        return Result::Failure.new("Order #{client_order_id} failed: #{result.data['message']}",
+                                   data: result.data)
+      end
 
       Result::Success.new(result.data)
     end
@@ -234,7 +244,10 @@ module Exchange::Coinbase
       )
       return result unless result.success?
 
-      return Result::Failure.new("Order #{client_order_id} failed", data: result.data) if result.data['success'] == false
+      if result.data['success'] == false
+        return Result::Failure.new("Order #{client_order_id} failed: #{result.data['message']}",
+                                   data: result.data)
+      end
 
       Result::Success.new(result.data)
     end

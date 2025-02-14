@@ -39,16 +39,24 @@ class BarbellBotsController < ApplicationController
   #   render json: { success: true }
   # end
 
-  def delete
+  def destroy
     @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
     puts "barbell_bot: #{@barbell_bot.inspect}"
-    if @barbell_bot.update(status: :deleted)
+    @barbell_bot.cancel_scheduled_orders
+    if @barbell_bot.update(status: 'deleted')
       redirect_to barbell_bots_path, notice: 'Bot deleted successfully'
     else
-      puts "barbell_bot errors: #{@barbell_bot.errors.messages.inspect}"
       flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
       render :show, status: :unprocessable_entity
     end
+
+    # result = RemoveBot.call(bot_id: params[:id], user: current_user)
+
+    # if result.success?
+    #   render json: { data: true }, status: 200
+    # else
+    #   render json: { id: params[:id], errors: result.errors }, status: 422
+    # end
   end
 
   def create_api_keys
@@ -74,12 +82,39 @@ class BarbellBotsController < ApplicationController
   end
 
   def start
-    render json: { start: true }
+    @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
+    if @barbell_bot.update(status: 'pending', restarts: 0, delay: 0, current_delay: 0)
+      Bot::SetBarbellOrdersJob.perform_later(@barbell_bot.id)
+      redirect_to barbell_bot_path(@barbell_bot)
+    else
+      flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
+      render :show, status: :unprocessable_entity
+    end
   end
 
-  # def stop
-  # render json: { stop: true }
-  # end
+  def stop
+    @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
+    @barbell_bot.cancel_scheduled_orders
+    if @barbell_bot.update(status: 'stopped')
+      redirect_to barbell_bot_path(@barbell_bot)
+    else
+      flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
+      render :show, status: :unprocessable_entity
+    end
+
+    # render json: { stop: true }
+    #
+    #
+    # result = StopBot.call(params[:id])
+
+    # if result.success?
+    #   data = present_bot(result.data)
+    #   render json: { data: data }, status: 200
+    # else
+    #   render json: { id: params[:id], errors: result.errors }, status: 422
+    # end
+    #
+  end
 
   private
 
