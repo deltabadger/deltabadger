@@ -52,7 +52,8 @@ class Exchange < ApplicationRecord
     when 'coinbase'
       self.class.include(Coinbase) unless self.class.included_modules.include?(Coinbase)
     else
-      raise "Unsupported exchange #{name}"
+      puts "Unsupported exchange #{name}"
+      # raise "Unsupported exchange #{name}"
     end
   end
 
