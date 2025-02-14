@@ -49,7 +49,7 @@ class Transaction < ApplicationRecord
     daily_transaction_aggregate = DailyTransactionAggregate.today_for_bot(bot).first
     return DailyTransactionAggregate.create(attributes.except('id')) unless daily_transaction_aggregate
 
-    bot_transactions = today_for_bot(bot)
+    bot_transactions = Transaction.today_for_bot(bot)
     bot_transactions_with_rate = bot_transactions.reject { |t| t.rate.nil? }
     bot_transactions_with_amount = bot_transactions.reject { |t| t.amount.nil? }
     return if bot_transactions_with_rate.count.zero? || bot_transactions_with_amount.count.zero?
