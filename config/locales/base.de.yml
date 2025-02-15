@@ -406,7 +406,7 @@ de:
     mailer:
         follow_us_on_x: 'Folge uns auf 𝕏'
         we_reply_faster_on_telegram: 'Wir antworten schneller auf Telegram'
-        greeting: Hallo, %{name}! 
+        greeting: Hallo, %{name}!
         greeting_name: Hallo, %{name}!
     meta:
         title: "Deltabadger • Automatisiere Bitcoin Dollar-Cost-Averaging in jede Kryptowährung"
@@ -515,10 +515,14 @@ de:
             black_friday_discount_info: '%{discount_percent} Rabatt'
             black_friday_sale: 'Black Friday Angebot'
             pro_and_legendary_plans: 'Pro- und Legendary-Pläne'
-            days: 'Tage'
-            hours: 'Stunden'
-            minutes: 'Minuten'
-            seconds: 'Sekunden'
+            days: 'tage'
+            hours: 'stunden'
+            minutes: 'minuten'
+            seconds: 'sekunden'
+            days_short: 't'
+            hours_short: 's'
+            minutes_short: 'm'
+            seconds_short: 's'
             upgrade_now: 'Jetzt upgraden'
             routing_number: Bankleitzahl
             server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
