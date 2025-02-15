@@ -5,6 +5,8 @@ module Bot::Barbell
     validate :validate_barbell_bot_settings, if: :barbell?
 
     def set_barbell_orders
+      # return Result::Success.new
+
       quote_asset = settings['quote'].upcase
       quote_amount = settings['quote_amount'].to_f
       result = exchange.get_balance(asset: quote_asset)
@@ -61,7 +63,7 @@ module Bot::Barbell
           # TODO: stop the bot?
           return result
         end
-        # handle if order 1 or 2 fail
+
         # test default failures and retries
         # add views for it all
 
@@ -100,6 +102,21 @@ module Bot::Barbell
                         job.display_args == [id]
         end
       end
+    end
+
+    def next_scheduled_order_time
+      sidekiq_places = [
+        Sidekiq::RetrySet.new,
+        Sidekiq::ScheduledSet.new
+      ]
+      sidekiq_places.each do |place|
+        place.each do |job|
+          return job.at if job.queue == exchange.name.downcase &&
+                           job.display_class == 'Bot::SetBarbellOrdersJob' &&
+                           job.display_args == [id]
+        end
+      end
+      nil
     end
 
     private

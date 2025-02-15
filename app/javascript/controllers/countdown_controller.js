@@ -2,8 +2,8 @@ import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="countdown"
 export default class extends Controller {
-  static targets = ["days", "hours", "minutes", "seconds"];
-  static values = { targetDate: String }
+  static targets = ["days", "hours", "minutes", "seconds", "daysLabel", "hoursLabel", "minutesLabel", "secondsLabel"];
+  static values = { targetDate: String, animationClass: String, hideIfZero: Boolean }
 
   connect() {
     this.targetDate = new Date(this.targetDateValue);
@@ -34,6 +34,25 @@ export default class extends Controller {
     this.updateTarget(this.hoursTarget, hours);
     this.updateTarget(this.minutesTarget, minutes);
     this.updateTarget(this.secondsTarget, seconds);
+
+    if (this.hideIfZeroValue) {
+      if (days === 0) {
+        this.daysTarget.classList.add("hidden");
+        this.daysLabelTarget.classList.add("hidden");
+      }
+      if (hours === 0) {
+        this.hoursTarget.classList.add("hidden");
+        this.hoursLabelTarget.classList.add("hidden");
+      }
+      if (minutes === 0) {
+        this.minutesTarget.classList.add("hidden");
+        this.minutesLabelTarget.classList.add("hidden");
+      }
+      if (seconds === 0) {
+        this.secondsTarget.classList.add("hidden");
+        this.secondsLabelTarget.classList.add("hidden");
+      }
+    }
   }
 
   updateTarget(target, value) {
@@ -44,7 +63,9 @@ export default class extends Controller {
   }
 
   animateValue(target) {
-    target.classList.add("pulse");
-    setTimeout(() => target.classList.remove("pulse"), 300); // Remove animation class after 300ms
+    if (this.animationClassValue) {
+      target.classList.add(this.animationClassValue);
+      setTimeout(() => target.classList.remove(this.animationClassValue), 300); // Remove animation class after 300ms
+    }
   }
 }

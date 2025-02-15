@@ -15,19 +15,19 @@
         <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h2>
       </div>
 
-      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday.end_time.iso8601 %>">
+      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday.end_time.iso8601 %>" data-countdown-animation-class-value="pulse">
         <div class="countdown-timer">
           <span class="countdown-segment">
-            <span  data-countdown-target="days" class="value">0</span><small><%= t('subscriptions.payment.days') %></small>
+            <span data-countdown-target="days" class="value">0</span><small data-countdown-target="daysLabel"><%= t('subscriptions.payment.days').capitalize %></small>
           </span>
           <span class="countdown-segment">
-            <span  data-countdown-target="hours" class="value">0</span><small><%= t('subscriptions.payment.hours') %></small>
+            <span data-countdown-target="hours" class="value">0</span><small data-countdown-target="hoursLabel"><%= t('subscriptions.payment.hours').capitalize %></small>
           </span>
           <span class="countdown-segment">
-            <span  data-countdown-target="minutes" class="value">0</span><small><%= t('subscriptions.payment.minutes') %></small>
+            <span data-countdown-target="minutes" class="value">0</span><small data-countdown-target="minutesLabel"><%= t('subscriptions.payment.minutes').capitalize %></small>
           </span>
           <span class="countdown-segment countdown-second">
-            <span  data-countdown-target="seconds" class="value">0</span><small><%= t('subscriptions.payment.seconds') %></small>
+            <span data-countdown-target="seconds" class="value">0</span><small data-countdown-target="secondsLabel"><%= t('subscriptions.payment.seconds').capitalize %></small>
           </span>
         </div>
       </div>
