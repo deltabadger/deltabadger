@@ -24,7 +24,7 @@ es:
             template_html: |
                 <p>Parece que quieres cambiar tu dirección de Bitcoin a:</p>
                 <p><code>%{new_btc_address}</code></p><p>Esta dirección se utilizará para tus pagos del programa de referidos.</p><p>¿Estás seguro?</p>
-                <a href=\"%{confirmation_url}\">Sí, cambiar la dirección</a>
+                <a href="%{confirmation_url}">Sí, cambiar la dirección</a>
         referrals_payout_notification:
             subject: "¡Es día de pago!"
             template_html: |
@@ -59,14 +59,25 @@ es:
             congrats_html: '¡Felicidades! El <span class="db-form-label-range--discount-percent">%{discount_percent}</span> % de descuento está activo.'
             flash_html: '¡Hola! disfruta del %{discount_percent} % de descuento en <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: 'El enlace de referidos parece no válido u obsoleto.'
-            referrer_html: "Gracias al enlace de referidos de\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
+            referrer_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: 'Válido para la primera compra en la plataforma.'
         info_preview: 'Esta es una vista previa de lo que los referidos verán durante el registro:'
         invalid_bitcoin_address: 'Dirección de Bitcoin no válida'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Nuestro programa de referidos paga una <b>comisión del 20%</b> por cada pago de suscripción que realicen tus referidos. No hay límite - sigues ganando mientras permanezcan suscritos. Por ejemplo:</p>\n  <ol>\n    <li>Tu amigo compra un plan Pro por $299/año. Tú ganas $60 en BTC (al tipo de cambio de la transacción).</li>\n    <li>Si mantienen la suscripción, sigues ganando $60 cada año que renueven.</li>\n    <li>Si actualizan a nuestro plan Lifetime ($2,000+), ganas $400+ en BTC al instante.</li>\n    <li>Tus ganancias se fijan en BTC en el momento de la transacción, protegiéndote de las fluctuaciones de precio.</li>\n    <li>Las comisiones se acreditan al instante y se pagan mensualmente.</li>\n  </ol>\n\n  <p><em>¡Ganar bitcoin es la mejor forma de hacer DCA!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Nuestro programa de referidos paga una <b>comisión del 20%</b> por cada pago de suscripción que realicen tus referidos. No hay límite - sigues ganando mientras permanezcan suscritos. Por ejemplo:</p>
+              <ol>
+                <li>Tu amigo compra un plan Pro por $299/año. Tú ganas $60 en BTC (al tipo de cambio de la transacción).</li>
+                <li>Si mantienen la suscripción, sigues ganando $60 cada año que renueven.</li>
+                <li>Si actualizan a nuestro plan Lifetime ($2,000+), ganas $400+ en BTC al instante.</li>
+                <li>Tus ganancias se fijan en BTC en el momento de la transacción, protegiéndote de las fluctuaciones de precio.</li>
+                <li>Las comisiones se acreditan al instante y se pagan mensualmente.</li>
+              </ol>
+              <p><em>¡Ganar bitcoin es la mejor forma de hacer DCA!</em></p>
+            </div>
         new:
             checked: 'He comprobado todo cuidadosamente.'
-            discount_info_html: "<b> Ganarás <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>,\ny el referido obtendrá un <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> % de descuento</b>."
+            discount_info_html: '<b> Ganarás <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span> %</b>, y el referido obtendrá un <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> % de descuento</b>.'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> % de descuento para la primera compra.<br>'
             eu_company: 'Empresa de la UE'
             payout_address: 'Dirección de pago'
@@ -298,7 +309,7 @@ es:
             not_locked: 'no estaba bloqueado.'
             not_saved:
                 one: '1 error impidió que este %{recurso} fuera guardado'
-                other: "%{count} errores impidieron que este %{resource} fuera guardado.\n"
+                other: '%{count} errores impidieron que este %{resource} fuera guardado.'
             odd: 'debe ser impar'
             other_than: 'debe ser distinto de %{count}'
             password_not_match: 'Las contraseñas no coinciden'

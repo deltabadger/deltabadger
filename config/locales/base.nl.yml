@@ -24,7 +24,7 @@ nl:
             template_html: |
                 <p>Het lijkt erop dat u uw Bitcoin-adres wilt wijzigen naar:</p>
                 <p><code>%{new_btc_address}</code></p><p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p><p>Weet u het zeker?</p>
-                <a href=\"%{confirmation_url}\">Ja, wijzig het adres</a>
+                <a href="%{confirmation_url}">Ja, wijzig het adres</a>
         referrals_payout_notification:
             subject: "Het is uitbetalingsdag!"
             template_html: |
@@ -63,7 +63,18 @@ nl:
             valid_for: 'Geldig voor de eerste aankoop op het platform.'
         info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
         invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Ons verwijzingsprogramma betaalt <b>20% commissie</b> op elke abonnementsbetaling van uw doorverwezen gebruikers. Er is geen limiet - u blijft verdienen zolang zij geabonneerd blijven. Bijvoorbeeld:</p>\n  <ol>\n    <li>Uw vriend koopt een Pro-plan voor $299/jaar. U verdient $60 in BTC (tegen de wisselkoers van de transactie).</li>\n    <li>Als zij geabonneerd blijven, blijft u $60 verdienen elk jaar dat zij verlengen.</li>\n    <li>Als zij upgraden naar ons Lifetime-plan ($2.000+), verdient u direct $400+ in BTC.</li>\n    <li>Uw inkomsten worden vastgelegd in BTC op het moment van de transactie, waardoor u beschermd bent tegen prijsschommelingen.</li>\n    <li>Commissies worden direct bijgeschreven en maandelijks uitbetaald.</li>\n  </ol>\n\n  <p><em>Bitcoin verdienen is de beste manier om aan DCA te doen!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Ons verwijzingsprogramma betaalt <b>20% commissie</b> op elke abonnementsbetaling van uw doorverwezen gebruikers. Er is geen limiet - u blijft verdienen zolang zij geabonneerd blijven. Bijvoorbeeld:</p>
+              <ol>
+                <li>Uw vriend koopt een Pro-plan voor $299/jaar. U verdient $60 in BTC (tegen de wisselkoers van de transactie).</li>
+                <li>Als zij geabonneerd blijven, blijft u $60 verdienen elk jaar dat zij verlengen.</li>
+                <li>Als zij upgraden naar ons Lifetime-plan ($2.000+), verdient u direct $400+ in BTC.</li>
+                <li>Uw inkomsten worden vastgelegd in BTC op het moment van de transactie, waardoor u beschermd bent tegen prijsschommelingen.</li>
+                <li>Commissies worden direct bijgeschreven en maandelijks uitbetaald.</li>
+              </ol>
+              <p><em>Bitcoin verdienen is de beste manier om aan DCA te doen!</em></p>
+            </div>
         new:
             checked: 'Ik heb alles nauwkeurig nagekeken.'
             discount_info_html: 'U <b> verdient <span class="db-form-label-range--earn-percent">%{earn_percent_preview}%</span></b>, en de persoon die werd doorverwezen krijgt <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> korting</b>.'

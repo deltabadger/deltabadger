@@ -5,38 +5,8 @@
 %h2.db-modal-title= t('.title')
 .text-center.mb-5= t('.text_html')
 .alert.alert-primary
-  = t('.deliverability_html', email: %q{<a class="db-woowoo" href="javascript:linkTo_UnCryptMailto('nbjmup;dpoubduAefmubcbehfs/dpn')"><span>dger</span><span>b</span><span>ct@delt</span><span>cont</span></a>}.html_safe)
+  = t('.deliverability_html', email: %q{<a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a>}.html_safe)
   %p.mb-0
     = image_tag "signature.png", alt: "Klosowski", style: "width: 120px; mix-blend-mode: exclusion; filter: invert(1);"
 
 = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-primary btn-lg w-100 mt-5')
-
--# / Reddit Pixel
--# :javascript
--#   !function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','t2_9nws8asv');rdt('track', 'PageVisit');
-
--#   rdt('track', 'Sign Up');
--# / DO NOT MODIFY
--# / End Reddit Pixel
-
--# :javascript
--#   function UnCryptMailto( s )
--#     {
--#         var n = 0;
--#         var r = "";
--#         for( var i = 0; i < s.length; i++)
--#         {
--#             n = s.charCodeAt( i );
--#             if( n >= 8364 )
--#             {
--#                 n = 128;
--#             }
--#             r += String.fromCharCode( n - 1 );
--#         }
--#         return r;
--#     }
-
--#     function linkTo_UnCryptMailto( s )
--#     {
--#         location.href=UnCryptMailto( s );
--#     }

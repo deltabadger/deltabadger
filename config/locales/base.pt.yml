@@ -24,7 +24,7 @@ pt:
             template_html: |
                 <p>Parece que quer alterar o seu endereço Bitcoin para:</p>
                 <p><code>%{new_btc_address}</code></p><p>Este endereço será usado para os seus pagamentos do programa de referência.</p><p>Tem a certeza?</p>
-                <a href=\"%{confirmation_url}\">Sim, alterar o endereço</a>
+                <a href="%{confirmation_url}">Sim, alterar o endereço</a>
         referrals_payout_notification:
             subject: "É dia de pagamento!"
             template_html: |
@@ -59,14 +59,25 @@ pt:
             congrats_html: 'Parabéns! O desconto de <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% está ativo.'
             flash_html: 'Olá! Desfrute do desconto de %{discount_percent}% de <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: 'A ligação de referência parece inválida ou obsoleta'
-            referrer_html: "Graças à ligação de referência de\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
+            referrer_html: 'Graças à ligação de referência de <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a></b>.'
             valid_for: 'Válido para a primeira compra na plataforma.'
         info_preview: 'Esta é uma pré-visualização do que as pessoas referidas verão durante o registo:'
         invalid_bitcoin_address: 'Endereço Bitcoin inválido'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Nosso programa de referência paga <b>20% de comissão</b> em cada pagamento de assinatura que seus referidos fazem. Não há limite - você continua ganhando enquanto eles permanecerem assinantes. Por exemplo:</p>\n  <ol>\n    <li>Seu amigo compra um plano Pro por $299/ano. Você ganha $60 em BTC (à taxa de câmbio da transação).</li>\n    <li>Se eles continuarem assinantes, você continua ganhando $60 a cada ano que renovarem.</li>\n    <li>Se eles atualizarem para nosso plano Lifetime ($2.000+), você ganha $400+ em BTC instantaneamente.</li>\n    <li>Seus ganhos são fixados em BTC no momento da transação, protegendo você contra flutuações de preço.</li>\n    <li>As comissões são creditadas instantaneamente e pagas mensalmente.</li>\n  </ol>\n\n  <p><em>Ganhar bitcoin é a melhor maneira de fazer DCA!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Nosso programa de referência paga <b>20% de comissão</b> em cada pagamento de assinatura que seus referidos fazem. Não há limite - você continua ganhando enquanto eles permanecerem assinantes. Por exemplo:</p>
+              <ol>
+                <li>Seu amigo compra um plano Pro por $299/ano. Você ganha $60 em BTC (à taxa de câmbio da transação).</li>
+                <li>Se eles continuarem assinantes, você continua ganhando $60 a cada ano que renovarem.</li>
+                <li>Se eles atualizarem para nosso plano Lifetime ($2.000+), você ganha $400+ em BTC instantaneamente.</li>
+                <li>Seus ganhos são fixados em BTC no momento da transação, protegendo você contra flutuações de preço.</li>
+                <li>As comissões são creditadas instantaneamente e pagas mensalmente.</li>
+              </ol>
+              <p><em>Ganhar bitcoin é a melhor maneira de fazer DCA!</em></p>
+            </div>
         new:
             checked: 'Verifiquei tudo cuidadosamente.'
-            discount_info_html: "Irá <b> ganhar <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>,\ne a pessoa referida irá receber <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>% de desconto</b>."
+            discount_info_html: 'Irá <b> ganhar <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, e a pessoa referida irá receber <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% de desconto</b>.'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% de desconto na primeira compra.<br>'
             eu_company: 'Empresa da UE'
             payout_address: 'Endereço de pagamentos'

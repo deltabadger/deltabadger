@@ -24,7 +24,7 @@ ru:
             template_html: |
                 <p>Похоже, вы хотите изменить свой Bitcoin адрес на:</p>
                 <p><code>%{new_btc_address}</code></p><p>Этот адрес будет использоваться для выплат по нашей реферальной программе.</p><p>Вы уверены?</p>
-                <a href=\"%{confirmation_url}\">Да, изменить адрес</a>
+                <a href="%{confirmation_url}">Да, изменить адрес</a>
         referrals_payout_notification:
             subject: "День выплат!"
             template_html: |
@@ -59,14 +59,25 @@ ru:
             congrats_html: 'Поздравляем! <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% скидка активирована.'
             flash_html: 'Привет! Получите %{discount_percent}% скидку от <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: 'Реферальная ссылка кажется недействительной или устаревшей'
-            referrer_html: "Благодаря реферальной ссылке от\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>"
+            referrer_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: 'Действительно для первой покупки на платформе.'
         info_preview: 'Это предварительный просмотр того, что рефералы увидят во время регистрации:'
         invalid_bitcoin_address: 'Недействительный биткоин-адрес'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Наша реферальная программа выплачивает <b>20% комиссии</b> с каждого платежа за подписку ваших рефералов. Нет ограничений - вы продолжаете зарабатывать, пока они остаются подписчиками. Например:</p>\n  <ol>\n    <li>Ваш друг покупает план Pro за $299/год. Вы зарабатываете $60 в BTC (по курсу на момент транзакции).</li>\n    <li>Если они остаются подписчиками, вы продолжаете зарабатывать $60 каждый год при продлении.</li>\n    <li>Если они перейдут на наш план Lifetime ($2.000+), вы мгновенно получаете $400+ в BTC.</li>\n    <li>Ваш заработок фиксируется в BTC в момент транзакции, защищая вас от колебаний цен.</li>\n    <li>Комиссии начисляются мгновенно и выплачиваются ежемесячно.</li>\n  </ol>\n\n  <p><em>Зарабатывать биткоин - лучший способ делать DCA!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Наша реферальная программа выплачивает <b>20% комиссии</b> с каждого платежа за подписку ваших рефералов. Нет ограничений - вы продолжаете зарабатывать, пока они остаются подписчиками. Например:</p>
+              <ol>
+                <li>Ваш друг покупает план Pro за $299/год. Вы зарабатываете $60 в BTC (по курсу на момент транзакции).</li>
+                <li>Если они остаются подписчиками, вы продолжаете зарабатывать $60 каждый год при продлении.</li>
+                <li>Если они перейдут на наш план Lifetime ($2.000+), вы мгновенно получаете $400+ в BTC.</li>
+                <li>Ваш заработок фиксируется в BTC в момент транзакции, защищая вас от колебаний цен.</li>
+                <li>Комиссии начисляются мгновенно и выплачиваются ежемесячно.</li>
+              </ol>
+              <p><em>Зарабатывать биткоин - лучший способ делать DCA!</em></p>
+            </div>
         new:
             checked: 'Я все внимательно проверил.'
-            discount_info_html: "Вы <b> заработаете <span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span>%</b>,\nи реферал получит <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span>% скидку</b>."
+            discount_info_html: 'Вы <b> заработаете <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, и реферал получит <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% скидку</b>.'
             discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% скидка на первую покупку.<br>'
             eu_company: 'Компания ЕС'
             payout_address: 'Адрес выплаты'
