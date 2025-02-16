@@ -24,7 +24,7 @@ fr:
             template_html: |
                 <p>Il semble que vous souhaitiez changer votre adresse Bitcoin pour :</p>
                 <p><code>%{new_btc_address}</code></p><p>Cette adresse sera utilisée pour vos paiements du programme de parrainage.</p><p>Êtes-vous sûr ?</p>
-                <a href=\"%{confirmation_url}\">Oui, changer l'adresse</a>
+                <a href="%{confirmation_url}">Oui, changer l'adresse</a>
         referrals_payout_notification:
             subject: "C'est le jour de paye !"
             template_html: |
@@ -59,11 +59,22 @@ fr:
             congrats_html: 'Félicitations ! Le <span class="db-form-label-range--discount-percent"> %{discount_percent} </span> % de réduction est actif'
             flash_html: 'Bonjour ! Profite de %{discount_percent} % de réduction grâce à <span class="text-success text-success--lighter"> %{visible_name} </span>'
             invalid: 'Le lien de référence semble invalide ou obsolète.'
-            referrer_html: "Grâce au lien de parrainage de\n <b> <a href=\"%{visible_link}\"> <span class=\"db-form-preview--visible_name\">%{visible_name} </span> </a>. </b>"
+            referrer_html: 'Grâce au lien de parrainage de <b> <a href="%{visible_link}"> <span class="db-form-preview--visible_name">%{visible_name} </span> </a></b>.'
             valid_for: 'Valable dès le premier achat sur la plateforme.'
         info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
         invalid_bitcoin_address: 'Adresse Bitcoin invalide'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Notre programme de parrainage verse une <b>commission de 20%</b> sur chaque paiement d'abonnement de vos filleuls. Il n'y a pas de plafond - vous continuez à gagner tant qu'ils restent abonnés. Par exemple :</p>\n  <ol>\n    <li>Votre ami achète un plan Pro à 299$/an. Vous gagnez 60$ en BTC (au taux de change de la transaction).</li>\n    <li>S'ils restent abonnés, vous continuez à gagner 60$ chaque année qu'ils renouvellent.</li>\n    <li>S'ils passent à notre plan Lifetime (2000$+), vous gagnez instantanément 400$+ en BTC.</li>\n    <li>Vos gains sont fixés en BTC au moment de la transaction, vous protégeant des fluctuations de prix.</li>\n    <li>Les commissions sont créditées instantanément et payées mensuellement.</li>\n  </ol>\n\n  <p><em>Gagner des bitcoin est la meilleure façon de faire du DCA !</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Notre programme de parrainage verse une <b>commission de 20%</b> sur chaque paiement d'abonnement de vos filleuls. Il n'y a pas de plafond - vous continuez à gagner tant qu'ils restent abonnés. Par exemple :</p>
+              <ol>
+                <li>Votre ami achète un plan Pro à 299$/an. Vous gagnez 60$ en BTC (au taux de change de la transaction).</li>
+                <li>S'ils restent abonnés, vous continuez à gagner 60$ chaque année qu'ils renouvellent.</li>
+                <li>S'ils passent à notre plan Lifetime (2000$+), vous gagnez instantanément 400$+ en BTC.</li>
+                <li>Vos gains sont fixés en BTC au moment de la transaction, vous protégeant des fluctuations de prix.</li>
+                <li>Les commissions sont créditées instantanément et payées mensuellement.</li>
+              </ol>
+              <p><em>Gagner des bitcoin est la meilleure façon de faire du DCA !</em></p>
+            </div>
         new:
             checked: 'J''ai tout vérifié avec soin.'
             discount_info_html: 'Vous <b> gagnerez <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span></b>, et le parrain obtiendra <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}% de</span> réduction</b>.'
@@ -246,7 +257,7 @@ fr:
         price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
         sell: 'Vendre'
         smart_intervals_disclaimer: 'Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: "Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum}%{currency}.\n"
+        smart_intervals_disclaimer_base: 'Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'Le montant minimal d''un ordre est de %{minimum}%{currency}.'
         start: 'Commencer'
         starting: 'Commencer'
@@ -309,7 +320,7 @@ fr:
                 one: 'est trop court (le minimum est de 1 caractère)'
                 other: 'est trop court (le minimum est de %{count} caractères)'
             too_short_password: 'Le mot de passe est trop court'
-            too_simple_password: "Le mot de passe doit comporter des caractères de chacune des catégories suivantes\_: caractères majuscules (A-Z), caractères minuscules (a-z), chiffres (0-9), caractères spéciaux (par ex., #, ?,!)."
+            too_simple_password: 'Le mot de passe doit comporter des caractères de chacune des catégories suivantes : caractères majuscules (A-Z), caractères minuscules (a-z), chiffres (0-9), caractères spéciaux (par ex., #, ?,!).'
             wrong_email: 'Adresse e-mail incorrecte'
             wrong_length:
                 one: 'est de la mauvaise longueur (devrait être 1 caractère)'
