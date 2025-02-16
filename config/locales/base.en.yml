@@ -24,7 +24,7 @@ en:
             template_html: |
                 <p>It looks like you want to change your Bitcoin address to:</p>
                 <p><code>%{new_btc_address}</code></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p>
-                <a href=\"%{confirmation_url}\">Yes, change the address</a>
+                <a href="%{confirmation_url}">Yes, change the address</a>
         referrals_payout_notification:
             subject: "It's a payday!"
             template_html: |
@@ -56,14 +56,25 @@ en:
         discount:
             accepted: "You have accepted the referral link"
             already_used: "You have already used a referral link"
-            congrats_html: "Congrats! The <span class=\"db-form-label-range--discount-percent\">%{discount_percent}</span>% discount is active."
-            flash_html: "Hello! enjoy %{discount_percent}% discount from <span class=\"text-success text-success--lighter\">%{visible_name}</span>"
+            congrats_html: 'Congrats! The <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% discount is active.'
+            flash_html: 'Hello! enjoy %{discount_percent}% discount from <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: "The referral link seems invalid or obsolete"
-            referrer_html: "Thanks to the referral link from <b><a href=\"%{visible_link}\"><span class=\"db-form-preview--visible_name\">%{visible_name}</span></a>.</b>"
+            referrer_html: 'Thanks to the referral link from <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: "Valid for the first purchase on the platform."
         info_preview: 'This is a preview of what referrals will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Our referral program pays <b>20% commission</b> on every subscription payment your referrals make. There's no cap - you keep earning as long as they stay subscribed. For example:</p>\n  <ol>\n    <li>Your friend buys a Pro plan for $299/year. You earn $60 in BTC (at the exchange rate of the transaction).</li>\n    <li>If they stay subscribed, you keep earning $60 every year they renew.</li>\n    <li>If they upgrade to our Lifetime plan ($2,000+), you earn $400+ in BTC instantly.</li>\n    <li>Your earnings are locked in BTC at the time of the transaction, protecting you from price fluctuations.</li>\n    <li>Commissions are credited instantly and paid out monthly.</li>\n  </ol>\n\n  <p><em>Earning bitcoin is the best way to DCA!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Our referral program pays <b>20% commission</b> on every subscription payment your referrals make. There's no cap - you keep earning as long as they stay subscribed. For example:</p>
+              <ol>
+                <li>Your friend buys a Pro plan for $299/year. You earn $60 in BTC (at the exchange rate of the transaction).</li>
+                <li>If they stay subscribed, you keep earning $60 every year they renew.</li>
+                <li>If they upgrade to our Lifetime plan ($2,000+), you earn $400+ in BTC instantly.</li>
+                <li>Your earnings are locked in BTC at the time of the transaction, protecting you from price fluctuations.</li>
+                <li>Commissions are credited instantly and paid out monthly.</li>
+              </ol>
+              <p><em>Earning bitcoin is the best way to DCA!</em></p>
+            </div>
         new:
             checked: 'I checked everything carefully.'
             discount_info_html: 'You will <b>earn <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>% recurring commission</b> on all payments, and your referral will get a <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% discount</b>.'
@@ -487,7 +498,10 @@ en:
         days_left:
             one: "1 day left"
             other: "%{count} days left"
-        legendary_badger_info_html: "<p>Pay once. Get all for life.</p><p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p><p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href=\"https://legendarybadgers.com/\" class=\"nobreak\">the collection</a>.</p>"
+        legendary_badger_info_html: |
+            <p>Pay once. Get all for life.</p>
+            <p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p>
+            <p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>
         legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
         features:
             analyzer_html: "Prism: Portfolio Tester"
@@ -522,7 +536,7 @@ en:
             pay_with_card: "Pay with Card"
             payment_ordered: "Payment ordered!"
             referral_discount: "%{discount_percent} discount"
-            referral_discount_html: "Thanks to the referral link from <b><a href=\"%{visible_link}\">%{visible_name}</a></b>, you get a discount for the first purchase on the platform."
+            referral_discount_html: 'Thanks to the referral link from <b><a href="%{visible_link}">%{visible_name}</a></b>, you get a discount for the first purchase on the platform.'
             black_friday_discount_info: "%{discount_percent} OFF"
             black_friday_sale: "Black Friday Sale"
             pro_and_legendary_plans: "Pro and Legendary plans"
