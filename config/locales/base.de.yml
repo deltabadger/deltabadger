@@ -24,7 +24,7 @@ de:
             template_html: |
                 <p>Es sieht so aus, als möchten Sie Ihre Bitcoin-Adresse ändern in:</p>
                 <p><code>%{new_btc_address}</code></p><p>Diese Adresse wird für Ihre Auszahlungen aus unserem Empfehlungsprogramm verwendet.</p><p>Sind Sie sicher?</p>
-                <a href=\"%{confirmation_url}\">Ja, Adresse ändern</a>
+                <a href="%{confirmation_url}">Ja, Adresse ändern</a>
         referrals_payout_notification:
             subject: "Es ist Zahltag!"
             template_html: |
@@ -63,10 +63,24 @@ de:
             valid_for: 'Gültig für den ersten Kauf auf der Plattform.'
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Unser Empfehlungsprogramm zahlt <b>20% Provision</b> auf jede Abonnementzahlung Ihrer Empfehlungen. Es gibt keine Obergrenze - Sie verdienen weiter, solange sie abonniert bleiben. Beispiel:</p>\n  <ol>\n    <li>Ihr Freund kauft einen Pro-Plan für 299 $/Jahr. Sie verdienen 60 $ in BTC (zum Wechselkurs der Transaktion).</li>\n    <li>Wenn sie abonniert bleiben, verdienen Sie jedes Jahr bei der Verlängerung 60 $.</li>\n    <li>Wenn sie auf unseren Lifetime-Plan (2.000 $+) upgraden, verdienen Sie sofort 400 $+ in BTC.</li>\n    <li>Ihre Einnahmen werden zum Zeitpunkt der Transaktion in BTC festgeschrieben und schützen Sie vor Preisschwankungen.</li>\n    <li>Provisionen werden sofort gutgeschrieben und monatlich ausgezahlt.</li>\n  </ol>\n\n  <p><em>Bitcoin zu verdienen ist der beste Weg zum DCA!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Unser Empfehlungsprogramm zahlt <b>20% Provision</b> auf jede Abonnementzahlung Ihrer Empfehlungen. Es gibt keine Obergrenze - Sie verdienen weiter, solange sie abonniert bleiben. Beispiel:</p>
+              <ol>
+                <li>Ihr Freund kauft einen Pro-Plan für 299 $/Jahr. Sie verdienen 60 $ in BTC (zum Wechselkurs der Transaktion).</li>
+                <li>Wenn sie abonniert bleiben, verdienen Sie jedes Jahr bei der Verlängerung 60 $.</li>
+                <li>Wenn sie auf unseren Lifetime-Plan (2.000 $+) upgraden, verdienen Sie sofort 400 $+ in BTC.</li>
+                <li>Ihre Einnahmen werden zum Zeitpunkt der Transaktion in BTC festgeschrieben und schützen Sie vor Preisschwankungen.</li>
+                <li>Provisionen werden sofort gutgeschrieben und monatlich ausgezahlt.</li>
+              </ol>
+
+              <p><em>Bitcoin zu verdienen ist der beste Weg zum DCA!</em></p>
+            </div>
         new:
             checked: 'Ich habe mir alles genau angesehen.'
-            discount_info_html: "Du verdienst <b><span class=\"db-form-label-range--earn-percent\">%{earn_percent_preview}</span> %</b>\nund deine geworbene Person erhält einen Rabatt in Höhe von <b><span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}</span> %</b>."
+            discount_info_html: |
+                Du verdienst <b><span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span> %</b>
+                und deine geworbene Person erhält einen Rabatt in Höhe von <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> %</b>.
             discount_preview_html: '<span class="db-form-label-range--discount-percent"></span>%{discount_percent_preview} % Rabatt auf deinen ersten Einkauf.<br>'
             eu_company: EU-Firma
             payout_address: Auszahlungsadresse
