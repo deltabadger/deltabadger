@@ -13,7 +13,7 @@ Rails.application.configure do
   # Full error reports are disabled and caching is turned on.
   config.consider_all_requests_local       = false
   config.action_controller.perform_caching = true
-  config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
+  config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_CACHE_URL') }
 
   # Ensures that a master key has been made available in either ENV["RAILS_MASTER_KEY"]
   # or in config/master.key. This key is used to decrypt credentials (and other encrypted files).

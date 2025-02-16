@@ -23,12 +23,12 @@ Rails.application.configure do
   # Run rails dev:cache to toggle caching.
   if Rails.root.join('tmp', 'caching-dev.txt').exist?
     config.action_controller.perform_caching = true
-    config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
+    # config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
 
     # DO NOT use the same REDIS_URL for caching and Sidekiq:
     # https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
     # https://medium.com/@simptive/rails-using-redis-for-caching-as-well-as-for-sidekiq-jobs-5254ba0d2f7d
-    # config.cache_store = :redis_cache_store
+    config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_CACHE_URL') }
   else
     config.action_controller.perform_caching = false
     config.cache_store = :null_store
@@ -72,5 +72,5 @@ Rails.application.configure do
   config.action_mailer.perform_deliveries = true
   config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
 
-  routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'http'}
+  routes.default_url_options = {host: ENV.fetch('APP_ROOT_URL'), protocol: 'http'}
 end
