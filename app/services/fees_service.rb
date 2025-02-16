@@ -1,7 +1,7 @@
 class FeesService
   FEES_KEY = 'fees_key'.freeze
   def update_fees
-    redis_client = Redis.new(url: ENV.fetch('REDIS_URL'))
+    redis_client = Redis.new(url: ENV.fetch('REDIS_CACHE_URL'))
     table = redis_client.get(FEES_KEY).nil? ? [] : JSON.parse(redis_client.get(FEES_KEY))
     exchanges = Exchange.all
     exchanges.each do |exchange|
@@ -15,7 +15,7 @@ class FeesService
   end
 
   def current_fee(exchange_id)
-    redis_client = Redis.new(url: ENV.fetch('REDIS_URL'))
+    redis_client = Redis.new(url: ENV.fetch('REDIS_CACHE_URL'))
     update_fees if redis_client.get(FEES_KEY).nil?
     JSON.parse(redis_client.get(FEES_KEY))[exchange_id]
   rescue StandardError

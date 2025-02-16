@@ -63,7 +63,7 @@ class Metrics
   private
 
   def redis_client
-    @redis_client ||= Redis.new(url: ENV.fetch('REDIS_URL'))
+    @redis_client ||= Redis.new(url: ENV.fetch('REDIS_CACHE_URL'))
   end
 
   def convert_to_satoshis(amount)
