@@ -24,7 +24,7 @@ pl:
             template_html: |
                 <p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p>
                 <p><code>%{new_btc_address}</code></p><p>Ten adres będzie używany do wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p>
-                <a href=\"%{confirmation_url}\">Tak, zmień adres</a>
+                <a href="%{confirmation_url}">Tak, zmień adres</a>
         referrals_payout_notification:
             subject: "Czas na wypłatę!"
             template_html: |
@@ -59,15 +59,26 @@ pl:
             congrats_html: 'Gratulacje! Zniżka <span class="db-form-label-range--discount-percent">%{discount_percent}%</span> jest aktywna.'
             flash_html: 'Witaj! ciesz się %{discount_percent}% rabatem od <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: 'Link polecający wydaje się nieprawidłowy lub nieaktualny'
-            referrer_html: "Dzięki linkowi polecającemu od\n<b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a></b>."
+            referrer_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a></b>.'
             valid_for: 'Ważny przy pierwszym zakupie na platformie.'
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
-        manual_html: "<div class=\"alert alert-success\">\n  <p class=\"mt-1\">Nasz program polecający wypłaca <b>20% prowizji</b> od każdej płatności za subskrypcję dokonanej przez polecone osoby. Nie ma limitu - zarabiasz tak długo, jak długo pozostają subskrybentami. Na przykład:</p>\n  <ol>\n    <li>Twój znajomy kupuje plan Pro za 299$/rok. Zarabiasz 60$ w BTC (po kursie z momentu transakcji).</li>\n    <li>Jeśli pozostają subskrybentami, zarabiasz 60$ każdego roku, gdy odnawiają.</li>\n    <li>Jeśli przejdą na nasz plan Lifetime (2000$+), natychmiast zarabiasz 400$+ w BTC.</li>\n    <li>Twoje zarobki są ustalane w BTC w momencie transakcji, chroniąc Cię przed wahaniami cen.</li>\n    <li>Prowizje są naliczane natychmiast i wypłacane miesięcznie.</li>\n  </ol>\n\n  <p><em>Zarabianie bitcoinów to najlepszy sposób na DCA!</em></p>\n</div>"
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Nasz program polecający wypłaca <b>20% prowizji</b> od każdej płatności za subskrypcję dokonanej przez polecone osoby. Nie ma limitu - zarabiasz tak długo, jak długo pozostają subskrybentami. Na przykład:</p>
+              <ol>
+                <li>Twój znajomy kupuje plan Pro za 299$/rok. Zarabiasz 60$ w BTC (po kursie z momentu transakcji).</li>
+                <li>Jeśli pozostają subskrybentami, zarabiasz 60$ każdego roku, gdy odnawiają.</li>
+                <li>Jeśli przejdą na nasz plan Lifetime (2000$+), natychmiast zarabiasz 400$+ w BTC.</li>
+                <li>Twoje zarobki są ustalane w BTC w momencie transakcji, chroniąc Cię przed wahaniami cen.</li>
+                <li>Prowizje są naliczane natychmiast i wypłacane miesięcznie.</li>
+              </ol>
+              <p><em>Zarabianie bitcoinów to najlepszy sposób na DCA!</em></p>
+            </div>
         new:
             checked: 'Sprawdziłem wszystko dokładnie.'
             discount_info_html: '<b> Zarobisz <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, a korzystający z linku otrzyma <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu</b>.'
-            discount_preview_html: "<span class=\"db-form-label-range--discount-percent\">%{discount_percent_preview}%</span> rabatu na pierwszy zakup.<br>\n"
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> rabatu na pierwszy zakup.<br>'
             eu_company: 'Firma z Unii Europejskiej'
             payout_address: 'Adres do wypłat'
             pick_referral_code: 'Wpisz swój kod referencyjny'

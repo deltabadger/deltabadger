@@ -98,7 +98,7 @@ es:
                 instructions_3_html: 'Pulsa <b>Generar nueva clave</b>.'
                 instructions_4_html: 'Establece los permisos para lo siguiente:'
                 instructions_5_1_html: 'Fondos:'
-                instructions_5_2_html: "<b>Consulta de fondos</b>    \n    Órdenes y operaciones:"
+                instructions_5_2_html: "<b>Consulta de fondos</b>"
                 instructions_6_1_html: 'Órdenes y operaciones:'
                 instructions_6_2_html: '<b>Consulta de órdenes y operaciones abiertas</b>'
                 instructions_6_3_html: '<b>Consulta de órdenes y operaciones cerradas</b>'
@@ -160,7 +160,7 @@ es:
                     instructions_3_html: 'Pulsa <b>Generar nueva clave</b>.'
                     instructions_4_html: 'Establece los permisos para lo siguiente:'
                     instructions_5_1_html: 'Fondos:'
-                    instructions_5_2_html: "<b>Consulta de fondos</b>    \n    Órdenes y operaciones:"
+                    instructions_5_2_html: '<b>Consulta de fondos</b>'
                     instructions_5_3_html: '<b>Retirar fondos</b>'
                     instructions_6_html: 'Pulsa <b>Generar clave</b>.'
                     instructions_7_html: 'Pega ambas claves en las entradas de arriba.'
