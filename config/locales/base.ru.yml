@@ -59,7 +59,7 @@ ru:
             congrats_html: 'Поздравляем! <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% скидка активирована.'
             flash_html: 'Привет! Получите %{discount_percent}% скидку от <span class="text-success text-success--lighter">%{visible_name}</span>'
             invalid: 'Реферальная ссылка кажется недействительной или устаревшей'
-            referrer_html: 'Благодаря реферальной ссылке от <b><a href='%{visible_link}'><span class='db-form-preview--visible_name'>%{visible_name}</span></a>.</b>'
+            referrer_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
             valid_for: 'Действительно для первой покупки на платформе.'
         info_preview: 'Это предварительный просмотр того, что рефералы увидят во время регистрации:'
         invalid_bitcoin_address: 'Недействительный биткоин-адрес'
