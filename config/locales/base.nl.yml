@@ -20,11 +20,12 @@ nl:
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: "Bevestig nieuw Bitcoin-adres"
+            subject: "Bevestig nieuw uitbetalingsadres"
             template_html: |
-                <p>Het lijkt erop dat u uw Bitcoin-adres wilt wijzigen naar:</p>
-                <p><code>%{new_btc_address}</code></p><p>Dit adres zal worden gebruikt voor uw uitbetalingen van ons verwijzingsprogramma.</p><p>Weet u het zeker?</p>
-                <a href="%{confirmation_url}">Ja, wijzig het adres</a>
+                <p>Het lijkt erop dat u uw uitbetalingsadres voor het verwijzingsprogramma wilt wijzigen:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Bevestig deze wijziging door op onderstaande link te klikken:</p>
+                <p><a href="%{confirmation_url}" title="Bevestig nieuw uitbetalingsadres">Ja, ik wil dit adres gebruiken voor toekomstige uitbetalingen</a></p>
         referrals_payout_notification:
             subject: "Het is uitbetalingsdag!"
             template_html: |
