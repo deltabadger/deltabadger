@@ -50,6 +50,7 @@ class AffiliatesController < ApplicationController
       flash.now[:notice] = t('affiliates.btc_address_confirmation_sent')
       render turbo_stream: turbo_stream_prepend_flash
     else
+      flash[:alert] = result.errors.first
       render :show, status: :unprocessable_entity
     end
   end
