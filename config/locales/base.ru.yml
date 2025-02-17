@@ -20,11 +20,12 @@ ru:
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: "Подтвердите новый Bitcoin адрес"
+            subject: "Подтвердите новый адрес для выплат"
             template_html: |
-                <p>Похоже, вы хотите изменить свой Bitcoin адрес на:</p>
-                <p><code>%{new_btc_address}</code></p><p>Этот адрес будет использоваться для выплат по нашей реферальной программе.</p><p>Вы уверены?</p>
-                <a href="%{confirmation_url}">Да, изменить адрес</a>
+                <p>Похоже, вы хотите изменить адрес для выплат в реферальной программе:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Пожалуйста, подтвердите это изменение, нажав на ссылку ниже:</p>
+                <p><a href="%{confirmation_url}" title="Подтвердить новый адрес для выплат">Да, я хочу использовать этот адрес для будущих выплат</a></p>
         referrals_payout_notification:
             subject: "День выплат!"
             template_html: |
