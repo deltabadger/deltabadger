@@ -94,8 +94,14 @@
         <% end %>
 
         <div class="db-form__row db-form__row--input">
-          <%= f.text_field :btc_address, pattern: Bitcoin.address_pattern, autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', class: 'db-form__input', value: "", placeholder: @affiliate.btc_address, data: { 'form-type': 'other' }, readonly: 'readonly', onfocus: 'this.removeAttribute("readonly")' %>
+          <%= f.text_field :btc_address, pattern: Bitcoin.address_pattern, autocomplete: 'off', class: 'db-form__input', value: "", placeholder: @affiliate.btc_address %>
           <%= f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label' %>
+        </div>
+
+        <%# workaround because sometimes f.hidden_field doesn't work with password managers %>
+        <div class="hidden">
+          <%= f.email_field :email, autocomplete: "username", id: "email_for_bitcoin_address_update", class: 'db-form__input', readonly: true %>
+          <%= f.label :email, class: "db-form__label" %>
         </div>
 
         <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
