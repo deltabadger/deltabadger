@@ -94,11 +94,9 @@
         <% end %>
 
         <div class="db-form__row db-form__row--input">
-          <%= f.text_field :btc_address, pattern: Bitcoin.address_pattern, autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', class: 'db-form__input', value: "", placeholder: @affiliate.btc_address, data: { 'form-type': 'other' } %>
+          <%= f.text_field :btc_address, pattern: Bitcoin.address_pattern, autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', class: 'db-form__input', value: "", placeholder: @affiliate.btc_address, data: { 'form-type': 'other' }, readonly: 'readonly', onfocus: 'this.removeAttribute("readonly")' %>
           <%= f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label' %>
         </div>
-
-        <%= f.hidden_field :email, value: current_user.email %>
 
         <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
           <%= f.password_field :current_password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__password_unmask_target: "input" } %>
