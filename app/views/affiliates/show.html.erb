@@ -65,7 +65,7 @@
       <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
       <p class="mb-4"><%= t('affiliates.add_link_info') %></p>
 
-      <%= form_with model: @affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f| %>
+      <%= form_with model: @affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
         <div class="db-form__row db-form__row--input">
           <%= f.text_field :visible_name, class: 'db-form__input' %>
           <label class="db-form__label"><%= t('helpers.label.affiliate.visible_name') %></label>
@@ -85,9 +85,9 @@
 
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.update_bitcoin_address') %></h4>
-      <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f| %>
+      <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
         <div class="db-form__row db-form__row--input">
-          <%= f.password_field :current_address, disabled: true, type: 'text', autocomplete: 'off', value: @affiliate.btc_address, class: 'db-form__input' %>
+          <%= f.text_field :current_address, disabled: true, autocomplete: 'off', value: @previous_btc_address || @affiliate.btc_address, class: 'db-form__input' %>
           <%= f.label :current_address, t('affiliates.current_bitcoin_address'), class: 'db-form__label' %>
         </div>
         <div class="db-form__row db-form__row--input">
