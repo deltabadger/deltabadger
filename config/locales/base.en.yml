@@ -20,11 +20,12 @@ en:
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: "Confirm new Bitcoin address"
+            subject: "Confirm new payout address"
             template_html: |
-                <p>It looks like you want to change your Bitcoin address to:</p>
-                <p><code>%{new_btc_address}</code></p><p>This address will be used for your payouts from our referral program.</p><p>Are you sure?</p>
-                <a href="%{confirmation_url}">Yes, change the address</a>
+                <p>It looks like you want to change your payout address for the referral program:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Please confirm this change by clicking the link below:</p>
+                <p><a href="%{confirmation_url}" title="Confirm new payout address">Yes, I want to use this address for future payouts</a></p>
         referrals_payout_notification:
             subject: "It's a payday!"
             template_html: |
