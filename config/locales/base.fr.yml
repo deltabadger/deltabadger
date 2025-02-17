@@ -20,11 +20,12 @@ fr:
             <p>C'est <b style="color: #00A36C;">%{sp500_diff}%</b> de plus que le S&P 500 sur la même période.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: "Confirmer la nouvelle adresse Bitcoin"
+            subject: "Confirmer la nouvelle adresse de paiement"
             template_html: |
-                <p>Il semble que vous souhaitiez changer votre adresse Bitcoin pour :</p>
-                <p><code>%{new_btc_address}</code></p><p>Cette adresse sera utilisée pour vos paiements du programme de parrainage.</p><p>Êtes-vous sûr ?</p>
-                <a href="%{confirmation_url}">Oui, changer l'adresse</a>
+                <p>Il semble que vous souhaitiez modifier votre adresse de paiement pour le programme de parrainage :</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Veuillez confirmer ce changement en cliquant sur le lien ci-dessous :</p>
+                <p><a href="%{confirmation_url}" title="Confirmer la nouvelle adresse de paiement">Oui, je veux utiliser cette adresse pour les paiements futurs</a></p>        
         referrals_payout_notification:
             subject: "C'est le jour de paye !"
             template_html: |

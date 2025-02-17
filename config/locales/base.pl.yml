@@ -20,11 +20,12 @@ pl:
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
     affiliate_mailer:
         new_btc_address_confirmation:
-            subject: "Potwierdź nowy adres Bitcoin"
+            subject: "Potwierdź nowy adres wypłat"
             template_html: |
-                <p>Wygląda na to, że chcesz zmienić swój adres Bitcoin na:</p>
-                <p><code>%{new_btc_address}</code></p><p>Ten adres będzie używany do wypłat z naszego programu poleceń.</p><p>Czy jesteś pewien?</p>
-                <a href="%{confirmation_url}">Tak, zmień adres</a>
+                <p>Wygląda na to, że chcesz zmienić swój adres wypłat dla programu poleceń:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Potwierdź tę zmianę klikając w poniższy link:</p>
+                <p><a href="%{confirmation_url}" title="Potwierdź nowy adres wypłat">Tak, chcę używać tego adresu do przyszłych wypłat</a></p>
         referrals_payout_notification:
             subject: "Czas na wypłatę!"
             template_html: |
