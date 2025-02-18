@@ -26,9 +26,6 @@ class Users::PasswordsController < Devise::PasswordsController
 
   def update
     super do
-      Rails.logger.info("User password update: #{resource.inspect}")
-      Rails.logger.info("User password update: #{resource.errors.inspect}")
-      Rails.logger.info("User password update: #{resource_params.inspect}")
       if resource&.otp_module_enabled?
         unless params[:user][:otp_code_token].present?
           return abort_update(:otp_code_token, t('errors.messages.empty_two_fa_token'))
