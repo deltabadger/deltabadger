@@ -21,7 +21,7 @@ class User < ApplicationRecord
   validate :active_referrer, on: :create
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { saved_change_to_name? }
-  validate :validate_email, if: -> { saved_change_to_email? }
+  validate :validate_email
   validate :password_complexity, if: -> { password.present? }
 
   delegate :unlimited?, to: :subscription
