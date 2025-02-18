@@ -20,7 +20,7 @@ class User < ApplicationRecord
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
   validates :name, presence: true, if: -> { new_record? }
-  validate :validate_name
+  validate :validate_name, if: -> { new_record? || name_changed? }
   validate :validate_email
   validate :password_complexity, if: -> { password.present? }
 
@@ -37,7 +37,7 @@ class User < ApplicationRecord
   # A user can be both an affiliate (or referrer) and a referral
 
   def subscription
-    @subscription ||= subscriptions.active.order(created_at: :desc).first
+    @subscription ||= subscriptions.active.order(created_at: :desc).first || set_subscription
   end
 
   def eligible_referrer
@@ -67,7 +67,7 @@ class User < ApplicationRecord
   private
 
   def set_subscription
-    Subscription.create!(user: self, subscription_plan_variant: SubscriptionPlanVariant.free)
+    subscriptions.create!(subscription_plan_variant: SubscriptionPlanVariant.free)
   end
 
   def set_affiliate
