@@ -20,7 +20,7 @@ class User < ApplicationRecord
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
   validates :name, presence: true, if: -> { new_record? }
-  validate :validate_name, if: -> { saved_change_to_name? }
+  validate :validate_name, if: -> { new_record? || name_changed? }
   validate :validate_email
   validate :password_complexity, if: -> { password.present? }
 
