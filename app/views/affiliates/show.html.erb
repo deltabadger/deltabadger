@@ -65,7 +65,7 @@
       <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
       <p class="mb-4"><%= t('affiliates.add_link_info') %></p>
 
-      <%= form_with model: @affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path do |f| %>
+      <%= form_with model: @affiliate, method: :patch, local: true, url: update_visible_info_affiliate_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
         <div class="db-form__row db-form__row--input">
           <%= f.text_field :visible_name, class: 'db-form__input' %>
           <label class="db-form__label"><%= t('helpers.label.affiliate.visible_name') %></label>
@@ -85,19 +85,33 @@
 
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.update_bitcoin_address') %></h4>
-      <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path do |f| %>
+      <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+
+        <% if @affiliate.new_btc_address_token.present? %>
+          <div class="db-form__row db-form__row--input" style="text-align: center;">
+            <%= t('devise.registrations.edit.awaiting_confirmation', email: @affiliate.new_btc_address) %>
+          </div>
+        <% end %>
+
         <div class="db-form__row db-form__row--input">
-          <%= f.password_field :current_address, disabled: true, type: 'text', autocomplete: 'off', value: @affiliate.btc_address, class: 'db-form__input' %>
-          <%= f.label :current_address, t('affiliates.current_bitcoin_address'), class: 'db-form__label' %>
-        </div>
-        <div class="db-form__row db-form__row--input">
-          <%= f.text_field :btc_address, pattern: '^([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[ac-hj-np-zAC-HJ-NP-Z02-9]{11,71})$', type: 'text', autocomplete: 'off', class: 'db-form__input' %>
+          <%= f.text_field :btc_address, pattern: Bitcoin.address_pattern, autocomplete: 'off', class: 'db-form__input', value: "", placeholder: @affiliate.btc_address %>
           <%= f.label :btc_address, t('affiliates.your_bitcoin_address'), class: 'db-form__label' %>
         </div>
-        <div class="db-form__row db-form__row--input">
-          <%= f.password_field :current_password, type: 'password', autocomplete: 'off', class: 'db-form__input' %>
-          <%= f.label :current_password, t('helpers.label.user.current_password'), class: 'db-form__label' %>
+
+        <%# workaround because sometimes f.hidden_field doesn't work with password managers %>
+        <div class="hidden">
+          <%= f.email_field :email, autocomplete: "username", id: "email_for_bitcoin_address_update", class: 'db-form__input', readonly: true %>
+          <%= f.label :email, class: "db-form__label" %>
         </div>
+
+        <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+          <%= f.password_field :current_password, autocomplete: "current-password", class: "db-form__input db-form__input--has-icon", data: { form__password_unmask_target: "input" } %>
+          <%= f.label :current_password, t('helpers.label.user.current_password'), class: "db-form__label" %>
+          <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+            <%= render "layouts/svg_mi_visibility" %>
+            <%= render "layouts/svg_mi_visibility-off" %>
+          </div>
+        <% end %>
 
         <div class="form-group db-form-group--main-btn">
           <%= f.submit t('.submit'), class: 'btn btn-lg btn-primary' %>

@@ -17,7 +17,7 @@ module Subscription::Nftable
     validate :eth_address_is_valid, if: -> { eth_address.present? }
 
     def eth_address_is_valid?
-      eth_address =~ Regexp.new(Ethereum.address_pattern)
+      Ethereum.valid_address?(eth_address)
     end
 
     def nft_name

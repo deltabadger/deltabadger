@@ -90,7 +90,7 @@ fr:
                 instructions_9_html: 'Copiez-collez les deux clés dans les entrées ci-dessus.'
                 private_key: 'Clé secrète'
                 public_key: 'Clé API'
-            how_to_add_withdrawal_bot: "Comment configurer le bot de retrait\_:"
+            how_to_add_withdrawal_bot: 'Comment configurer le bot de retrait :'
             how_to_get_keys: 'Comment obtenir les clés API de %{exchange} :'
             kraken:
                 instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'

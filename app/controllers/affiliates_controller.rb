@@ -42,13 +42,15 @@ class AffiliatesController < ApplicationController
   end
 
   def update_btc_address
+    @previous_btc_address = @affiliate.btc_address
     btc_address = params[:affiliate][:btc_address]
     result = Affiliates::UpdateBtcAddress.call(affiliate: @affiliate, new_btc_address: btc_address)
 
     if result.success?
-      flash[:notice] = t('affiliates.btc_address_confirmation_sent')
-      render :show
+      flash.now[:notice] = t('affiliates.btc_address_confirmation_sent')
+      render turbo_stream: turbo_stream_prepend_flash
     else
+      flash[:alert] = result.errors.first
       render :show, status: :unprocessable_entity
     end
   end
