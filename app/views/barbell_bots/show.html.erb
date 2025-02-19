@@ -1,3 +1,5 @@
+<%= turbo_stream_from "bot_#{@barbell_bot.id}", :countdown %>
+
 <%= render partial: "barbell_bots/bot/play_pause", locals: { bot: @barbell_bot } %>
 <div class="columns">
   <div class="column gap-2">
