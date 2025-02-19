@@ -5,14 +5,36 @@
     justify-content: center
     min-height: fit-content
     padding: 4rem
-    &__box
+    flex-direction: column
+    gap: 4rem
+    &__row
+        display: flex
+        flex-direction: column-reverse
+        gap: 4rem
+        width: 40rem
+        max-width: 120rem
+        justify-content: center
+    &__col
         display: flex
         flex-direction: column
         gap: 4rem
         align-items: center
         width: 100%
         max-width: 40rem
+        &--signup
+            display: none
+        &:first-child
+            max-width: 100%
+            h1,ul
+                display: none
+            @media (min-width: 768px)
+                h1,ul
+                    display: block
         form
+            width: 100%
+    &__logo
+        svg
+            justify-self: center
             width: 100%
     &__links
         text-align: center
@@ -27,11 +49,74 @@
         display: flex
         flex-direction: column
         gap: 3rem
-    ul,li
-        padding: 0 !important
-        margin: 0 !important
-    h1,h2,h3
-        text-align: center
+    h1
+        font-size: 4rem
+    &__feats
+        display: none
+        color: #fff
+        font-size: 2.5rem
+        @media (min-width: 768px)
+            display: block
+    &__review
+        padding: 3rem 3rem 2rem
+        background: #ffffff0a
+        backdrop-filter: blur(10px)
+        border-radius: 2rem
+        p
+            font-style: italic
+        &__stars
+            margin-bottom: 2rem
+
+
 .cf-turnstile-container
     display: flex
     justify-content: center
+.view--signup
+    background-color: #024 !important
+    color: #fff !important
+    background-image: linear-gradient(to bottom, #02f6, #024a), url('https://deltabadger.com/images/mountains-t.webp')
+    background-size: cover
+    h1, a, .btn
+        color: #fff !important
+    label, p, .devise__links
+        color: #fffa !important
+    .db-unmask .db-svg--mi
+        fill: #fff7 !important
+    .dropdown
+        background-color: #024 !important
+        border-color: #024 !important
+        box-shadow: none !important
+    .devise
+        &__row
+            @media (min-width: 768px)
+                width: 100%
+                justify-content: flex-start
+                flex-direction: row
+                gap: 10rem
+        &__col--signup
+            display: flex
+        &__logo
+            svg
+                fill: #fff !important
+            @media (min-width: 768px)
+                align-self: flex-start !important
+                svg
+                    justify-self: flex-start !important
+                    
+    .db-form__input
+        color: #fff
+        background: #fff2
+        backdrop-filter: blur(10px)
+        border-color: transparent !important
+        &.is-invalid
+            background: #fff5
+            label
+                color: #fff !important
+    .db-form__info--invalid, .db-form__info--alert
+        color: #fff !important
+    .db-form__input.is-invalid:not(:focus)~.db-form__label
+        color: #fff !important
+    label
+        color: #fffa
+        background: rgb(119 137 192)
+        background: none !important
