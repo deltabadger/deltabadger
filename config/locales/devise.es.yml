@@ -1,5 +1,10 @@
 es:
     devise:
+        layout:
+            title: "Carteras automatizadas para quienes buscan libertad financiera"
+            features_html: "DCA &middot; Carteras indexadas &middot; Rebalanceo &middot; Analizador de carteras &middot; Acciones y Cripto &middot; Comunidad" 
+            review:
+                content: "¡Estoy súper contenta con mi plan vitalicio de Deltabadger, que compra cada hora las criptos que quiero, así que tengo tiempo para las cosas importantes! ¡Gracias por esta herramienta tan chula!"
         confirmations:
             confirmed: 'Tu dirección de correo electrónico ha sido confirmada exitosamente.'
             new:

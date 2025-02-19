@@ -1,5 +1,10 @@
 en:
     devise:
+        layout:
+            title: "Automated portfolios for financial freedom seekers"
+            features_html: "Dollar-Cost Averaging &middot; Index Portfolios &middot; Rebalancing &middot; Portfolio Analyzer &middot; Stocks & Crypto &middot; Community"
+            review:
+                content: "I am super happy with my Deltabedger lifetime plan, that buys every hour the crypto I want, so I have time for important things! Thank you for that wonderful tool."
         confirmations:
             confirmed: 'Your email address has been successfully confirmed.'
             new:
