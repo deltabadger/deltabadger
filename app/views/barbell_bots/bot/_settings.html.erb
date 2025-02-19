@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "settings" do %>
+<%= turbo_frame_tag "bot_#{@barbell_bot.id}_settings" do %>
   <div class="widget widget--single">
 
     <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "basket__asset", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
@@ -18,9 +18,9 @@
           </div>
         </div>
         /
-        <div class="sinput sinput--select">
+        <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
           <%= bot.settings['interval'] %>
-          <%= f.select :interval, [[t('bots.hour'), 'hour'], [t('bots.day'), 'day'], [t('bots.week'), 'week'], [t('bots.month'), 'month']], { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" } %>
+          <%= f.select :interval, [[t('bots.hour'), 'hour'], [t('bots.day'), 'day'], [t('bots.week'), 'week'], [t('bots.month'), 'month']], { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
         </div>
       </div>
 
