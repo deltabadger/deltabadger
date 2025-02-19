@@ -1,0 +1,12 @@
+<%= turbo_frame_tag "bot_#{bot.id}_countdown" do %>
+  <% if bot&.pending? %>
+      <div class="loader"></div>
+  <% elsif bot&.working? %>
+    <div data-controller="countdown" data-countdown-target-date-value="<%= bot.next_scheduled_orders_at&.iso8601 %>" data-countdown-hide-if-zero-value="true">
+      <span data-countdown-target="days">0</span><span data-countdown-target="daysLabel"><%= t('subscriptions.payment.days_short') %></span>
+      <span data-countdown-target="hours">0</span><span data-countdown-target="hoursLabel"><%= t('subscriptions.payment.hours_short') %></span>
+      <span data-countdown-target="minutes">0</span><span data-countdown-target="minutesLabel"><%= t('subscriptions.payment.minutes_short') %></span>
+      <span data-countdown-target="seconds">0</span><span data-countdown-target="secondsLabel"><%= t('subscriptions.payment.seconds_short') %></span>
+    </div>
+  <% end %>
+<% end %>
