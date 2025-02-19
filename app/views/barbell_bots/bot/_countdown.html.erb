@@ -2,11 +2,19 @@
   <% if bot&.pending? %>
       <div class="loader"></div>
   <% elsif bot&.working? %>
-    <div data-controller="countdown" data-countdown-target-date-value="<%= bot.next_scheduled_orders_at&.iso8601 %>" data-countdown-hide-if-zero-value="true">
-      <span data-countdown-target="days">0</span><span data-countdown-target="daysLabel"><%= t('subscriptions.payment.days_short') %></span>
-      <span data-countdown-target="hours">0</span><span data-countdown-target="hoursLabel"><%= t('subscriptions.payment.hours_short') %></span>
-      <span data-countdown-target="minutes">0</span><span data-countdown-target="minutesLabel"><%= t('subscriptions.payment.minutes_short') %></span>
-      <span data-countdown-target="seconds">0</span><span data-countdown-target="secondsLabel"><%= t('subscriptions.payment.seconds_short') %></span>
-    </div>
+    <%= tag.div data: {
+      controller: "countdown",
+      countdown_target_date_value: bot.next_scheduled_orders_at&.iso8601,
+      countdown_hide_if_zero_value: true,
+      countdown_days_label_value: t('subscriptions.payment.days_short'),
+      countdown_hours_label_value: t('subscriptions.payment.hours_short'),
+      countdown_minutes_label_value: t('subscriptions.payment.minutes_short'),
+      countdown_seconds_label_value: t('subscriptions.payment.seconds_short')
+    } do %>
+      <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
+      <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
+      <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
+      <span data-countdown-target="seconds"></span><span data-countdown-target="secondsLabel"></span>
+    <% end %>
   <% end %>
 <% end %>

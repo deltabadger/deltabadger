@@ -5,6 +5,7 @@ class Bot < ApplicationRecord
   has_many :daily_transaction_aggregates
 
   after_initialize :set_exchange_bot
+  after_save :update_settings_changed_at, if: :saved_change_to_settings?
 
   enum status: %i[created working stopped deleted pending]
   enum bot_type: %i[trading withdrawal webhook barbell]
@@ -200,5 +201,9 @@ class Bot < ApplicationRecord
 
   def set_exchange_bot
     exchange.set_bot(self)
+  end
+
+  def update_settings_changed_at
+    update!(settings_changed_at: Time.current)
   end
 end

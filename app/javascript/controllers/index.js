@@ -10,6 +10,9 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
+import Bot__BarbellAllocationController from "./bot/barbell_allocation_controller"
+application.register("bot--barbell-allocation", Bot__BarbellAllocationController)
+
 import ClipboardController from "./clipboard_controller"
 application.register("clipboard", ClipboardController)
 
@@ -19,8 +22,8 @@ application.register("countdown", CountdownController)
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
-// import FlatpickrController from "./flatpickr_controller"
-// application.register("flatpickr", FlatpickrController)
+import FlatpickrController from "./flatpickr_controller"
+application.register("flatpickr", FlatpickrController)
 
 import Form__CheckboxEnablesController from "./form/checkbox_enables_controller"
 application.register("form--checkbox-enables", Form__CheckboxEnablesController)
